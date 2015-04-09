@@ -15,7 +15,7 @@ sftp-config.json
 *.dll
 
 # Ignore built documentation
-html
+_build
 
 # Ignore files created by setup.py.
 build
