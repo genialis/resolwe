@@ -2,7 +2,7 @@ from django.db import models
 from django.core.validators import RegexValidator
 from jsonfield import JSONField
 
-from flow.models import BaseModel
+from resolwe.flow.models import BaseModel
 
 
 class Package(BaseModel):
