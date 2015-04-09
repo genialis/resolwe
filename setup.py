@@ -1,28 +1,23 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-try:
-    from setuptools import setup
-except ImportError:
-    from ez_setup import use_setuptools
-    use_setuptools()
-    from setuptools import setup
+from setuptools import find_packages, setup
 
 
 setup(
-    name='resolwe',
-    version='0.9',
+    name='Resolwe',
+    version=__import__('resolwe').VERSION,
     url='https://github.com/genialis/resolwe',
     author='Genialis d.o.o.',
     author_email='info@genialis.com',
     description='Open source enterprise dataflow engine in Django.',
     license='Apache License (2.0)',
     long_description=open('README.rst', 'r').read(),
-    packages=[
-        'flow',
-        'apps',
-    ],
+    packages=find_packages(),
+    dependency_links = ['https://github.com/yjmade/django-pgjsonb/tarball/master/#egg=django-pgjsonb'],
     install_requires=[
         'django>=1.8',
+        'jsonfield>=1.0.3',
+        'django-pgjsonb',
     ],
     classifiers=[
         'Development Status :: 4 - Beta',
