@@ -18,7 +18,8 @@ sftp-config.json
 _build
 
 # Ignore files created by setup.py.
-build
+build/
+dist/
 MANIFEST
 *.egg-info
 *.egg
