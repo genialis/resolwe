@@ -1,0 +1,32 @@
+#!/bin/bash
+#
+# A script for running Resolwe tests with Jenkins.
+#
+# To use this script, add an "Execute shell" "Build" step to your project and
+# put in the following:
+# ./tests/run_tests.sh
+#
+
+pushd $WORKSPACE
+scl enable python33 bash
+VENV_HOME=$WORKSPACE/venv
+
+for PYTHON in python2 python3
+do
+    [ ! -d $VENV_HOME ] && rm -rf $VENV_HOME
+    virtualenv --python=$(which $PYTHON) $VENV_HOME
+    . $VENV_HOME/bin/activate
+    pip install -U pip
+    python setup.py install
+
+    pushd tests
+    python manage.py makemigrations
+    python manage.py migrate
+    python manage.py jenkins resolwe --enable-coverage
+    mv reports/*.{xml,report} reports/$PYTHON/
+    popd
+done
+
+cloc --exclude-dir=./tests/venv,reports, --by-file --xml --out=reports/cloc.xml .
+
+popd

@@ -16,6 +16,7 @@ MIDDLEWARE_CLASSES = ()
 
 # List of apps to test with django-jenkins
 PROJECT_APPS = (
+    'resolwe',
     'resolwe.apps',
     'resolwe.flow',
 )
@@ -24,8 +25,6 @@ INSTALLED_APPS = (
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
-
-    'django_extensions',
 
     'django_jenkins',
 ) + PROJECT_APPS
@@ -50,6 +49,14 @@ TEMPLATES = [
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(PROJECT_ROOT, 'tests', 'db.sqlite3'),
+        'NAME': os.path.join(PROJECT_ROOT, 'db.sqlite3'),
     }
 }
+
+JENKINS_TASKS = (
+    'django_jenkins.tasks.run_pylint',
+    'django_jenkins.tasks.run_pep8',
+)
+
+PYLINT_RCFILE = '.pylintrc'
+PEP8_RCFILE = '.pep8rc'

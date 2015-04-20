@@ -11,10 +11,10 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == 'runserver':
         raise ValueError('This Django project is not intended for running a server.')
 
-    if len(sys.argv) == 1:
-        sys.argv.append('test')
-    if len(sys.argv) == 2 and sys.argv[1] in ['test', 'jenkins']:
-        sys.argv.append('resolwe')
+    # if len(sys.argv) == 1:
+    #     sys.argv.append('test')
+    # if len(sys.argv) == 2 and sys.argv[1] in ['test', 'jenkins']:
+    #     sys.argv.append('resolwe')
 
     from django.core.management import execute_from_command_line
 
