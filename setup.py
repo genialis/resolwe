@@ -17,6 +17,8 @@ setup(
     install_requires=[
         'django>=1.8',
         'jsonfield>=1.0.3',
+        'djangorestframework>=3.1',
+        'django-filter>=0.9.2',
         'django-pgjsonb',
     ],
     classifiers=[
