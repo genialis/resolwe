@@ -1,3 +1,9 @@
+"""
+===========
+Apps Models
+===========
+
+"""
 from django.db import models
 from django.core.validators import RegexValidator
 from jsonfield import JSONField
@@ -6,6 +12,8 @@ from resolwe.flow.models import BaseModel
 
 
 class Package(BaseModel):
+
+    """Postgres model for storing packages."""
 
     #: package version
     version = models.CharField(max_length=50, validators=[
@@ -25,6 +33,8 @@ class Package(BaseModel):
 
 class App(BaseModel):
 
+    """Postgres model for storing apps."""
+
     #: parent package
     package = models.ForeignKey('Package')
 
@@ -35,7 +45,8 @@ class App(BaseModel):
     projects = models.ManyToManyField('flow.Project')
 
     #: default project on the app
-    default_project = models.ForeignKey('flow.Project', related_name='default_project', blank=True, null=True, on_delete=models.SET_NULL)
+    default_project = models.ForeignKey('flow.Project', related_name='default_project',
+                                        blank=True, null=True, on_delete=models.SET_NULL)
 
     #: detailed description
     description = models.TextField(blank=True)

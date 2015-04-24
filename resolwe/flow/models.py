@@ -1,5 +1,9 @@
-import datetime
+"""
+===========
+Flow Models
+===========
 
+"""
 from django.db import models
 from django.conf import settings
 from django.core.validators import RegexValidator
@@ -8,6 +12,8 @@ from django_pgjsonb import JSONField as JSONBField
 
 
 class BaseModel(models.Model):
+
+    """Abstract model that ncludes common fields for other models."""
 
     #: URL slug
     slug = models.SlugField(max_length=50, unique=True)
@@ -25,10 +31,13 @@ class BaseModel(models.Model):
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
 
     class Meta:
+        """BaseModel Meta options."""
         abstract = True
 
 
 class Project(BaseModel):
+
+    """Postgres model for storing projects."""
 
     #: detailed description
     description = models.TextField(blank=True)
@@ -39,6 +48,8 @@ class Project(BaseModel):
 
 
 class Tool(BaseModel):
+
+    """Postgres model for storing tools."""
 
     PERSISTENCE_RAW = 'RAW'
     PERSISTENCE_CACHED = 'CAC'
@@ -162,13 +173,17 @@ class Tool(BaseModel):
 #     name = models.SlugField(max_length=50)
 
 #     #: input data object
-#     input_data = models.ForeignKey('Data', related_name='input_data', blank=True, null=True, on_delete=models.SET_NULL)
+#     input_data = models.ForeignKey('Data', related_name='input_data',
+#                                    blank=True, null=True, on_delete=models.SET_NULL)
 
 #     #: output data object
-#     output_data = models.ForeignKey('Data', related_name='output_data', blank=True, null=True, on_delete=models.SET_NULL)
+#     output_data = models.ForeignKey('Data', related_name='output_data',
+#                                     blank=True, null=True, on_delete=models.SET_NULL)
 
 
 class Data(BaseModel):
+
+    """Postgres model for storing data."""
 
     STATUS_UPLOADING = 'UP'
     STATUS_RESOLVING = 'RE'
@@ -256,6 +271,8 @@ class Data(BaseModel):
 
 class Template(BaseModel):
 
+    """Postgres model for storing templates."""
+
     #: template version
     version = models.CharField(max_length=50, validators=[
         RegexValidator(
@@ -270,6 +287,8 @@ class Template(BaseModel):
 
 
 class Trigger(BaseModel):
+
+    """Postgres model for storing triggers."""
 
     #: data type of triggering data objects
     type = models.CharField(max_length=100, validators=[
@@ -300,6 +319,8 @@ class Trigger(BaseModel):
 
 
 class Storage(BaseModel):
+
+    """Postgres model for storing storages."""
 
     #: corresponding data object
     data = models.ForeignKey('Data')
