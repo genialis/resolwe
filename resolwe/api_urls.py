@@ -1,3 +1,7 @@
+"""
+Urls for Django Rest Framework
+
+"""
 from django.conf.urls import include, url
 
 from rest_framework import routers
@@ -5,17 +9,17 @@ from rest_framework import routers
 from .apps.views import AppViewSet, PackageViewSet
 from .flow.views import ProjectViewSet, ToolViewSet, DataViewSet, TemplateViewSet, TriggerViewSet, StorageViewSet
 
-apiRouter = routers.DefaultRouter(trailing_slash=False)
-apiRouter.register(r'package', PackageViewSet)
-apiRouter.register(r'app', AppViewSet)
-apiRouter.register(r'project', ProjectViewSet)
-apiRouter.register(r'tool', ToolViewSet)
-apiRouter.register(r'data', DataViewSet)
-apiRouter.register(r'template', TemplateViewSet)
-apiRouter.register(r'trigger', TriggerViewSet)
-apiRouter.register(r'storage', StorageViewSet)
+api_router = routers.DefaultRouter(trailing_slash=False)  # pylint: disable=invalid-name
+api_router.register(r'package', PackageViewSet)
+api_router.register(r'app', AppViewSet)
+api_router.register(r'project', ProjectViewSet)
+api_router.register(r'tool', ToolViewSet)
+api_router.register(r'data', DataViewSet)
+api_router.register(r'template', TemplateViewSet)
+api_router.register(r'trigger', TriggerViewSet)
+api_router.register(r'storage', StorageViewSet)
 
 
-urlpatterns = [
-    url(r'^', include(apiRouter.urls, namespace='resolwe-api')),
+urlpatterns = [  # pylint: disable=invalid-name
+    url(r'^', include(api_router.urls, namespace='resolwe-api')),
 ]
