@@ -18,8 +18,8 @@ class BaseModel(models.Model):
     #: URL slug
     slug = models.SlugField(max_length=50, unique=True)
 
-    #: project title
-    title = models.CharField(max_length=50)
+    #: object name
+    name = models.CharField(max_length=50)
 
     #: creation date and time
     created = models.DateTimeField(auto_now_add=True)
