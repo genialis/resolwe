@@ -13,11 +13,17 @@ setup(
     license='BSD',
     long_description=open('README.rst', 'r').read(),
     packages=find_packages(),
-    dependency_links = ['https://github.com/yjmade/django-pgjsonb/tarball/master/#egg=django-pgjsonb'],
+    dependency_links=['https://github.com/yjmade/django-pgjsonb/tarball/master/#egg=django-pgjsonb'],
     install_requires=[
         'django>=1.8',
         'jsonfield>=1.0.3',
+        'djangorestframework>=3.1',
+        'django-filter>=0.9.2',
         'django-pgjsonb',
+        'django-jenkins==0.17.0',
+        'coverage==3.7.1',
+        'pep8==1.6.2',
+        'pylint==1.4.3',
     ],
     classifiers=[
         'Development Status :: 4 - Beta',

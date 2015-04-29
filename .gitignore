@@ -17,6 +17,9 @@ sftp-config.json
 # Ignore built documentation
 _build
 
+# Results of django-jenkins
+results/
+
 # Ignore files created by setup.py.
 build/
 dist/
@@ -24,3 +27,6 @@ MANIFEST
 *.egg-info
 *.egg
 distribute*.tar.gz
+
+# Test database
+db.sqlite3
