@@ -21,6 +21,8 @@ setup(
         'django-filter>=0.9.2',
         'django-pgjsonb',
         'django-jenkins==0.17.0',
+        'pyyaml>=3.11',
+        'jsonschema>=2.4.0',
         'coverage==3.7.1',
         'pep8==1.6.2',
         'pylint==1.4.3',

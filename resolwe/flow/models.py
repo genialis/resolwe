@@ -4,9 +4,15 @@ Flow Models
 ===========
 
 """
+import json
+import os
+
 from django.db import models
 from django.conf import settings
 from django.core.validators import RegexValidator
+from django.contrib.postgres.fields import ArrayField
+from django.contrib.staticfiles import finders
+
 from jsonfield import JSONField
 from django_pgjsonb import JSONField as JSONBField
 
@@ -27,8 +33,8 @@ class BaseModel(models.Model):
     #: modified date and time
     modified = models.DateTimeField(auto_now=True)
 
-    #: created by user
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    #: user that created the entry
+    contributor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
 
     class Meta:
         """BaseModel Meta options."""
@@ -61,13 +67,7 @@ class Tool(BaseModel):
     )
 
     #: tool version
-    version = models.CharField(max_length=50, validators=[
-        RegexValidator(
-            regex=r'^[0-9]+(\.[0-9]+)*$',
-            message='Version must be dot separated integers',
-            code='invalid_version'
-        )
-    ])
+    version = models.PositiveIntegerField()
 
     #: data type
     type = models.CharField(max_length=100, validators=[
@@ -136,19 +136,7 @@ class Tool(BaseModel):
 
     """
 
-    static_schema = models.TextField()
-    """
-    unremovable/static fields schema (default values in form layout **"General"** for :attr:`Data.static`)
-
-    Handling:
-
-    - schema defined by: *dev*
-    - default by: *dev*
-    - changable by: *user*
-
-    """
-
-    run = models.TextField()
+    adapter = models.TextField()
     """
     tool command and environment description for internal use
 
@@ -226,9 +214,6 @@ class Data(BaseModel):
         )
     ])
 
-    #: cluster location of distributed file system (set by *API*)
-    # cluster = mongoengine.StringField()
-
     status = models.CharField(max_length=2, choices=STATUS_CHOICES, default=STATUS_RESOLVING)
     """
     :class:`Data` status
@@ -253,36 +238,51 @@ class Data(BaseModel):
     #: tool used to compute the data object
     tool = models.ForeignKey('Tool', on_delete=models.PROTECT)
 
-    #: defines the *var form* (changable by *user*)
-    template = models.ForeignKey('Template', blank=True, null=True, on_delete=models.PROTECT)
+    #: process id
+    tool_pid = models.PositiveSmallIntegerField()
 
-    #: actual values entered in the *input form* and used by the processor
+    #: progress
+    tool_progress = models.PositiveSmallIntegerField()
+
+    #: output file to log stdout
+    tool_stdout = models.CharField(max_length=255)
+
+    #: return code
+    tool_rc = models.PositiveSmallIntegerField()
+
+    #: info log message
+    tool_info = ArrayField(models.CharField(max_length=255))
+
+    #: warning log message
+    tool_warning = ArrayField(models.CharField(max_length=255))
+
+    #: error log message
+    tool_error = ArrayField(models.CharField(max_length=255))
+
+    #: actual inputs used by the processor
     input = JSONField()
 
-    #: actual *output values* of the processor
+    #: actual outputs of the processor
     output = JSONField()
 
-    #: actual values entered in the *static form*
-    static = JSONField()
+    #: data annotation schema
+    annotation_schema = models.ForeignKey('AnnotationSchema', blank=True, null=True, on_delete=models.PROTECT)
 
-    #: actual values entered in the *var form* (ie. any additional information, annotations)
-    var = JSONField()
+    #: actual annotation
+    annotation = JSONField()
 
 
-class Template(BaseModel):
+class AnnotationSchema(BaseModel):
 
     """Postgres model for storing templates."""
 
-    #: template version
-    version = models.CharField(max_length=50, validators=[
-        RegexValidator(
-            regex=r'^[0-9]+(\.[0-9]+)*$',
-            message='Version must be dot separated integers',
-            code='invalid_version'
-        )
-    ])
+    #: annotation schema version
+    version = models.PositiveIntegerField()
 
-    #: user template schema represented as a JSON object
+    #: detailed description
+    description = models.TextField(blank=True)
+
+    #: user annotation schema represented as a JSON object
     schema = JSONField()
 
 
@@ -327,3 +327,80 @@ class Storage(BaseModel):
 
     #: actual JSON stored
     json = JSONBField()
+
+
+def iterate_fields(fields, schema):
+    """Iterate over all field values sub-fields.
+
+    This will iterate over all field values. Some fields defined in the schema
+    might not be visited.
+
+    :param fields: field values to iterate over
+    :type fields: dict
+    :param schema: schema to iterate over
+    :type schema: dict
+    :return: (field schema, field value)
+    :rtype: tuple
+
+    """
+    schema_dict = {val['name']: val for val in schema}
+    for field_id, properties in fields.iteritems():
+        if 'group' in schema_dict[field_id]:
+            for _field_schema, _fields in iterate_fields(properties, schema_dict[field_id]['group']):
+                yield (_field_schema, _fields)
+        else:
+            yield (schema_dict[field_id], fields)
+
+
+def iterate_schema(fields, schema, path_prefix=''):
+    """Iterate over all schema sub-fields.
+
+    This will iterate over all field definitions in the schema. Some field v
+    alues might be None.
+
+    :param fields: field values to iterate over
+    :type fields: dict
+    :param schema: schema to iterate over
+    :type schema: dict
+    :param path_prefix: dot separated path prefix
+    :type path_prefix: str
+    :return: (field schema, field value, field path)
+    :rtype: tuple
+
+    """
+    if path_prefix and path_prefix[-1] != '.':
+        path_prefix += '.'
+
+    for field_schema in schema:
+        name = field_schema['name']
+        if 'group' in field_schema:
+            for rvals in iterate_schema(fields[name] if name in fields else {},
+                                        field_schema['group'], '{}{}'.format(path_prefix, name)):
+                yield rvals
+        else:
+            yield (field_schema, fields, '{}{}'.format(path_prefix, name))
+
+
+def validation_schema(name):
+    """Return json schema for json validation."""
+    schemas = {
+        'processor': 'processorSchema.json',
+        'annotation': 'annotationSchema.json',
+        'field': 'fieldSchema.json',
+        'type': 'typeSchema.json',
+    }
+
+    if name not in schemas:
+        raise ValueError()
+
+
+    field_schema_file = finders.find('flow/{}'.format(schemas['field']), all=True)[0]
+    field_schema = open(field_schema_file, 'r').read()
+
+    if name == 'field':
+        return json.loads(field_schema.replace('{{PARENT}}', ''))
+
+    schema_file = finders.find('flow/{}'.format(schemas[name]), all=True)[0]
+    schema = open(schema_file, 'r').read()
+
+    return json.loads(schema.replace('{{FIELD}}', field_schema).replace('{{PARENT}}', '/field'))
