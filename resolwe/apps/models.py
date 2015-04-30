@@ -18,13 +18,7 @@ class Package(BaseModel):
     """Postgres model for storing packages."""
 
     #: package version
-    version = models.CharField(max_length=50, validators=[
-        RegexValidator(
-            regex=r'^[0-9]+(\.[0-9]+)*$',
-            message='Version must be dot separated integers',
-            code='invalid_version'
-        )
-    ])
+    version = models.PositiveIntegerField()
 
     #: list of available modules (PostgreSQL ArrayField coming in Django 1.8)
     modules = JSONField()

@@ -1,0 +1,279 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "title": "Form meta schema",
+    "description": "Schema used for data type validation.",
+
+    "type": "array",
+    "minItems": 1,
+    "uniqueItems": true,
+    "items": {
+        "oneOf": [
+            { "$ref": "#/types/string" },
+            { "$ref": "#/types/boolean" },
+            { "$ref": "#/types/integer" },
+            { "$ref": "#/types/decimal" },
+            { "$ref": "#/types/date" },
+            { "$ref": "#/types/datetime" },
+            { "$ref": "#/types/file" },
+            { "$ref": "#/types/url" },
+            { "$ref": "#/types/json" },
+            { "$ref": "#/types/list_string" },
+            { "$ref": "#/types/list_file" },
+            { "$ref": "#/types/list_url" }
+        ]
+    },
+
+    "types": {
+        "string": {
+            "type": "object",
+            "required": ["type", "value"],
+            "additionalProperties": false,
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "pattern": "^(basic:(string|text):$|data:[a-z0-9:]+:$)"
+                },
+                "value": {
+                    "type": "string"
+                }
+            }
+        },
+        "boolean": {
+            "type": "object",
+            "required": ["type", "value"],
+            "additionalProperties": false,
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "pattern": "^basic:boolean:$"
+                },
+                "value": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "integer": {
+            "type": "object",
+            "required": ["type", "value"],
+            "additionalProperties": false,
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "pattern": "^basic:integer:$"
+                },
+                "value": {
+                    "type": "integer"
+                }
+            }
+        },
+        "decimal": {
+            "type": "object",
+            "required": ["type", "value"],
+            "additionalProperties": false,
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "pattern": "^basic:decimal:$"
+                },
+                "value": {
+                    "type": "number"
+                }
+            }
+        },
+        "date": {
+            "type": "object",
+            "required": ["type", "value"],
+            "additionalProperties": false,
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "pattern": "^basic:date:$"
+                },
+                "value": {
+                    "type": "string",
+                    "pattern": "^(19|20)\\d\\d([- /.])(0[1-9]|1[012])\\2(0[1-9]|[12][0-9]|3[01])$"
+                }
+            }
+        },
+        "datetime": {
+            "type": "object",
+            "required": ["type", "value"],
+            "additionalProperties": false,
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "pattern": "^basic:datetime:$"
+                },
+                "value": {
+                    "type": "string",
+                    "pattern": "^(19|20)\\d\\d([- /.])(0[1-9]|1[012])\\2(0[1-9]|[12][0-9]|3[01]) (?:(?:([01]?\\d|2[0-3]):)?([0-5]?\\d):)?([0-5]?\\d)$"
+                }
+            }
+        },
+        "file": {
+            "type": "object",
+            "required": ["type", "value"],
+            "additionalProperties": false,
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "pattern": "^basic:file:$"
+                },
+                "value": {
+                    "type": "object",
+                    "required": ["file"],
+                    "additionalProperties": false,
+                    "properties": {
+                        "file": {
+                            "type": "string"
+                        },
+                        "is_remote": {
+                            "type": "boolean"
+                        },
+                        "file_temp": {
+                            "type": "string"
+                        },
+                        "refs": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "url": {
+            "type": "object",
+            "required": ["type", "value"],
+            "additionalProperties": false,
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "pattern": "^basic:(url:download|url:view|url:link):$"
+                },
+                "value": {
+                    "type": "object",
+                    "required": ["url"],
+                    "additionalProperties": false,
+                    "properties": {
+                        "name": {
+                            "type": "string"
+                        },
+                        "url": {
+                            "type": "string"
+                        },
+                        "refs": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "json": {
+            "type": "object",
+            "required": ["type", "value"],
+            "additionalProperties": false,
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "pattern": "^basic:json:$"
+                },
+                "value": {
+                    "type": "string",
+                    "pattern": "^[0-9a-fA-F]{24}$"
+                }
+            }
+        },
+        "list_string": {
+            "type": "object",
+            "required": ["type", "value"],
+            "additionalProperties": false,
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "pattern": "^list:(basic:(string|text):$|data:[a-z0-9:]+:$)"
+                },
+                "value": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "uniqueItems": false
+                }
+            }
+        },
+        "list_file": {
+            "type": "object",
+            "required": ["type", "value"],
+            "additionalProperties": false,
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "pattern": "^list:basic:file:$"
+                },
+                "value": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["file"],
+                        "additionalProperties": false,
+                        "properties": {
+                            "file": {
+                                "type": "string"
+                            },
+                            "file_temp": {
+                                "type": "string"
+                            },
+                            "refs": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            }
+
+                        }
+                    },
+                    "uniqueItems": false
+                }
+            }
+        },
+        "list_url": {
+            "type": "object",
+            "required": ["type", "value"],
+            "additionalProperties": false,
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "pattern": "^list:basic:(url:download|url:view|url:link):$"
+                },
+                "value": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["url"],
+                        "additionalProperties": false,
+                        "properties": {
+                            "name": {
+                                "type": "string"
+                            },
+                            "url": {
+                                "type": "string"
+                            },
+                            "refs": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "uniqueItems": false
+                }
+            }
+        }
+    }
+}
