@@ -6,7 +6,7 @@ Flow Serializers
 """
 from rest_framework import serializers
 
-from .models import Project, Tool, Data, Template, Trigger, Storage
+from resolwe.flow.models import Project, Tool, Data, AnnotationSchema, Trigger, Storage
 
 
 class ProjectSerializer(serializers.ModelSerializer):
@@ -52,13 +52,13 @@ class DataSerializer(serializers.ModelSerializer):
                   'static', 'var')
 
 
-class TemplateSerializer(serializers.ModelSerializer):
+class AnnotationSchemaSerializer(serializers.ModelSerializer):
 
-    """Serializer for Template objects."""
+    """Serializer for AnnotationSchema objects."""
 
     class Meta:
         """TemplateSerializer Meta options."""
-        model = Template
+        model = AnnotationSchema
         fields = ('slug', 'title', 'created', 'modified', 'created_by', 'version', 'schema')
 
 

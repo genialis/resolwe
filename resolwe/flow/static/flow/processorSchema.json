@@ -1,0 +1,78 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "title": "Processor Schema",
+    "description": "Schema used for processor description validation.",
+    "type": "object",
+    "properties": {
+        "name": {
+            "description": "Unique name of the processor",
+            "type": "string"
+        },
+        "version": {
+            "description": "Processor version",
+            "type": "string",
+            "pattern": "^(?:\\d{1,3}\\.)?(?:\\d{1,3}\\.)?\\d{1,3}$"
+        },
+        "category": {
+            "description": "Processor category",
+            "type": "string"
+        },
+        "label": {
+            "description": "Human readable name",
+            "type": "string"
+        },
+        "type": {
+            "description": "Processor data type",
+            "type": "string",
+            "pattern": "^data:[a-z0-9:]+:$"
+        },
+        "persistence": {
+            "description": "Processor data persistence",
+            "type": "string",
+            "pattern": "^RAW|CACHED|TEMP$"
+        },
+        "description": {
+            "description": "Processor details",
+            "type": "string"
+        },
+        "input": {
+            "description": "List of input fields",
+            "$ref": "#/field"
+        },
+        "output": {
+            "description": "List of processor result fields",
+            "$ref": "#/field"
+        },
+        "static": {
+            "description": "List of meta-data fields",
+            "$ref": "#/field"
+        },
+        "var": {
+            "description": "List of meta-data fields",
+            "$ref": "#/field"
+        },
+        "run": {
+            "description": "Algorithm that transforms inputs into outputs",
+            "type": "object",
+            "properties": {
+                "runtime": {
+                    "description": "Environment in which to run the algorithm",
+                    "type": "string"
+                },
+                "bash": {
+                    "description": "Bash commands text",
+                    "type": "string"
+                },
+                "comand": {
+                    "description": "One-line bash command",
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "required": ["runtime"]
+        }
+    },
+    "additionalProperties": false,
+    "required": ["name", "version", "label", "type", "persistence", "description", "run"],
+    "field": {{FIELD}}
+}

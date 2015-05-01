@@ -1,0 +1,244 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "title": "Form meta schema",
+    "description": "Schema used for form schema validation.",
+
+    "type": "array",
+    "minItems": 0,
+    "uniqueItems": true,
+    "items": {
+        "oneOf": [
+            { "$ref": "#{{PARENT}}/definitions/basic:group" },
+            { "$ref": "#{{PARENT}}/definitions/_single_no_choices" },
+            { "$ref": "#{{PARENT}}/definitions/_single" },
+            { "$ref": "#{{PARENT}}/definitions/_list" },
+            { "$ref": "#{{PARENT}}/definitions/_list_no_choices" }
+        ]
+    },
+
+    "definitions": {
+        "basic:group": {
+            "type": "object",
+            "required": ["name", "label", "group"],
+            "additionalProperties": false,
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "label":
+                {
+                    "type": "string"
+                },
+                "type": {
+                    "enum": ["basic:group"]
+                },
+                "description": {
+                    "type": "string"
+                },
+                "disabled": {
+                    "type": "boolean"
+                },
+                "hidden": {
+                    "type": "boolean"
+                },
+                "collapsed": {
+                    "type": "boolean"
+                },
+                "group": {
+                    "$ref": "#{{PARENT}}"
+                }
+            }
+        },
+
+        "_single_no_choices": {
+            "type": "object",
+            "required": ["name", "label", "type"],
+            "additionalProperties": false,
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string",
+                    "pattern": "^(basic:(boolean|text|url:download|url:view|url:link|file|json):$|data:[a-z0-9:]+:$)"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "disabled": {
+                    "type": "boolean"
+                },
+                "hidden": {
+                    "type": "boolean"
+                },
+                "default": {
+                    "type": ["string", "boolean", "object"]
+                },
+                "placeholder": {
+                    "type": "string"
+                },
+                "validate_regex": {
+                    "type": "string"
+                }
+            }
+        },
+
+        "_single": {
+            "type": "object",
+            "required": ["name", "label", "type"],
+            "additionalProperties": false,
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string",
+                    "pattern": "^basic:(date|datetime|decimal|integer|string):$"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "disabled": {
+                    "type": "boolean"
+                },
+                "hidden": {
+                    "type": "boolean"
+                },
+                "default": {
+                    "type": ["string", "boolean", "integer", "number", "array"]
+                },
+                "placeholder": {
+                    "type": "string"
+                },
+                "validate_regex": {
+                    "type": "string"
+                },
+                "choices": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "object",
+                        "required": ["label", "value"],
+                        "additionalProperties": false,
+                        "properties": {
+                            "label": {
+                                "type": "string"
+                            },
+                            "value": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+
+        "_list_no_choices": {
+            "type": "object",
+            "required": ["name", "label", "type"],
+            "additionalProperties": false,
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string",
+                    "pattern": "^list:(basic:(boolean|text|url:download|url:view|url:link):$|data:[a-z0-9:]+:$)"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "disabled": {
+                    "type": "boolean"
+                },
+                "hidden": {
+                    "type": "boolean"
+                },
+                "default": {
+                    "type": ["array"]
+                },
+                "placeholder": {
+                    "type": "string"
+                },
+                "validate_regex": {
+                    "type": "string"
+                }
+            }
+        },
+
+        "_list": {
+            "type": "object",
+            "required": ["name", "label", "type"],
+            "additionalProperties": false,
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string",
+                    "pattern": "^list:basic:(date|datetime|decimal|integer|string|file):$"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "disabled": {
+                    "type": "boolean"
+                },
+                "hidden": {
+                    "type": "boolean"
+                },
+                "default": {
+                    "type": ["array"]
+                },
+                "placeholder": {
+                    "type": "string"
+                },
+                "validate_regex": {
+                    "type": "string"
+                },
+                "choices": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "object",
+                        "required": ["label", "value"],
+                        "additionalProperties": false,
+                        "properties": {
+                            "label": {
+                                "type": "string"
+                            },
+                            "value": {
+                                "type": ["string", "array"]
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

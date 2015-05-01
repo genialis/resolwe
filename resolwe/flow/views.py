@@ -6,9 +6,9 @@ Flow Views
 """
 from rest_framework import viewsets
 
-from .models import Project, Tool, Data, Template, Trigger, Storage
-from .serializers import (ProjectSerializer, ToolSerializer, DataSerializer, TemplateSerializer,
-                          TriggerSerializer, StorageSerializer)
+from resolwe.flow.models import Project, Tool, Data, AnnotationSchema, Trigger, Storage
+from resolwe.flow.serializers import (ProjectSerializer, ToolSerializer, DataSerializer,
+                                      AnnotationSchemaSerializer, TriggerSerializer, StorageSerializer)
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
@@ -35,12 +35,12 @@ class DataViewSet(viewsets.ModelViewSet):
     serializer_class = DataSerializer
 
 
-class TemplateViewSet(viewsets.ModelViewSet):
+class AnnotationSchemaViewSet(viewsets.ModelViewSet):
 
-    """API view for Template objects."""
+    """API view for AnnotationSchema objects."""
 
-    queryset = Template.objects.all()
-    serializer_class = TemplateSerializer
+    queryset = AnnotationSchema.objects.all()
+    serializer_class = AnnotationSchemaSerializer
 
 
 class TriggerViewSet(viewsets.ModelViewSet):

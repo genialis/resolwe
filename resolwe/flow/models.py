@@ -4,9 +4,14 @@ Flow Models
 ===========
 
 """
+import json
+
 from django.db import models
 from django.conf import settings
 from django.core.validators import RegexValidator
+from django.contrib.postgres.fields import ArrayField
+from django.contrib.staticfiles import finders
+
 from jsonfield import JSONField
 from django_pgjsonb import JSONField as JSONBField
 
@@ -18,8 +23,8 @@ class BaseModel(models.Model):
     #: URL slug
     slug = models.SlugField(max_length=50, unique=True)
 
-    #: project title
-    title = models.CharField(max_length=50)
+    #: object name
+    name = models.CharField(max_length=50)
 
     #: creation date and time
     created = models.DateTimeField(auto_now_add=True)
@@ -27,8 +32,8 @@ class BaseModel(models.Model):
     #: modified date and time
     modified = models.DateTimeField(auto_now=True)
 
-    #: created by user
-    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    #: user that created the entry
+    contributor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
 
     class Meta:
         """BaseModel Meta options."""
@@ -42,7 +47,7 @@ class Project(BaseModel):
     #: detailed description
     description = models.TextField(blank=True)
 
-    settings = JSONField()
+    settings = JSONField(default={})
 
     data = models.ManyToManyField('Data')
 
@@ -61,13 +66,7 @@ class Tool(BaseModel):
     )
 
     #: tool version
-    version = models.CharField(max_length=50, validators=[
-        RegexValidator(
-            regex=r'^[0-9]+(\.[0-9]+)*$',
-            message='Version must be dot separated integers',
-            code='invalid_version'
-        )
-    ])
+    version = models.PositiveIntegerField()
 
     #: data type
     type = models.CharField(max_length=100, validators=[
@@ -136,19 +135,7 @@ class Tool(BaseModel):
 
     """
 
-    static_schema = models.TextField()
-    """
-    unremovable/static fields schema (default values in form layout **"General"** for :attr:`Data.static`)
-
-    Handling:
-
-    - schema defined by: *dev*
-    - default by: *dev*
-    - changable by: *user*
-
-    """
-
-    run = models.TextField()
+    adapter = models.TextField()
     """
     tool command and environment description for internal use
 
@@ -203,10 +190,10 @@ class Data(BaseModel):
     )
 
     #: processor started date and time (set by :meth:`server.tasks.manager`)
-    started = models.DateTimeField()
+    started = models.DateTimeField(blank=True, null=True)
 
     #: processor finished date date and time (set by :meth:`server.tasks.manager`)
-    finished = models.DateTimeField()
+    finished = models.DateTimeField(blank=True, null=True)
 
     #: processor data type
     type = models.CharField(max_length=100, validators=[
@@ -225,9 +212,6 @@ class Data(BaseModel):
             code='invalid_checksum'
         )
     ])
-
-    #: cluster location of distributed file system (set by *API*)
-    # cluster = mongoengine.StringField()
 
     status = models.CharField(max_length=2, choices=STATUS_CHOICES, default=STATUS_RESOLVING)
     """
@@ -253,37 +237,49 @@ class Data(BaseModel):
     #: tool used to compute the data object
     tool = models.ForeignKey('Tool', on_delete=models.PROTECT)
 
-    #: defines the *var form* (changable by *user*)
-    template = models.ForeignKey('Template', blank=True, null=True, on_delete=models.PROTECT)
+    #: process id
+    tool_pid = models.PositiveIntegerField(blank=True, null=True)
 
-    #: actual values entered in the *input form* and used by the processor
-    input = JSONField()
+    #: progress
+    tool_progress = models.PositiveSmallIntegerField(default=0)
 
-    #: actual *output values* of the processor
-    output = JSONField()
+    #: return code
+    tool_rc = models.PositiveSmallIntegerField(blank=True, null=True)
 
-    #: actual values entered in the *static form*
-    static = JSONField()
+    #: info log message
+    tool_info = ArrayField(models.CharField(max_length=255), default=[])
 
-    #: actual values entered in the *var form* (ie. any additional information, annotations)
-    var = JSONField()
+    #: warning log message
+    tool_warning = ArrayField(models.CharField(max_length=255), default=[])
+
+    #: error log message
+    tool_error = ArrayField(models.CharField(max_length=255), default=[])
+
+    #: actual inputs used by the processor
+    input = JSONField(default={})
+
+    #: actual outputs of the processor
+    output = JSONField(default={})
+
+    #: data annotation schema
+    annotation_schema = models.ForeignKey('AnnotationSchema', blank=True, null=True, on_delete=models.PROTECT)
+
+    #: actual annotation
+    annotation = JSONField(default={})
 
 
-class Template(BaseModel):
+class AnnotationSchema(BaseModel):
 
     """Postgres model for storing templates."""
 
-    #: template version
-    version = models.CharField(max_length=50, validators=[
-        RegexValidator(
-            regex=r'^[0-9]+(\.[0-9]+)*$',
-            message='Version must be dot separated integers',
-            code='invalid_version'
-        )
-    ])
+    #: annotation schema version
+    version = models.PositiveIntegerField()
 
-    #: user template schema represented as a JSON object
-    schema = JSONField()
+    #: detailed description
+    description = models.TextField(blank=True)
+
+    #: user annotation schema represented as a JSON object
+    schema = JSONField(default={})
 
 
 class Trigger(BaseModel):
@@ -309,7 +305,7 @@ class Trigger(BaseModel):
     tool = models.ForeignKey('Tool', blank=True, null=True, on_delete=models.SET_NULL)
 
     #: input settings of the processor
-    input = JSONField()
+    input = JSONField(default={})
 
     #: corresponding project
     project = models.ForeignKey('Project')
@@ -327,3 +323,180 @@ class Storage(BaseModel):
 
     #: actual JSON stored
     json = JSONBField()
+
+
+def iterate_fields(fields, schema):
+    """Iterate over all field values sub-fields.
+
+    This will iterate over all field values. Some fields defined in the schema
+    might not be visited.
+
+    :param fields: field values to iterate over
+    :type fields: dict
+    :param schema: schema to iterate over
+    :type schema: dict
+    :return: (field schema, field value)
+    :rtype: tuple
+
+    """
+    schema_dict = {val['name']: val for val in schema}
+    for field_id, properties in fields.items():
+        if 'group' in schema_dict[field_id]:
+            for _field_schema, _fields in iterate_fields(properties, schema_dict[field_id]['group']):
+                yield (_field_schema, _fields)
+        else:
+            yield (schema_dict[field_id], fields)
+
+
+def iterate_schema(fields, schema, path_prefix=''):
+    """Iterate over all schema sub-fields.
+
+    This will iterate over all field definitions in the schema. Some field v
+    alues might be None.
+
+    :param fields: field values to iterate over
+    :type fields: dict
+    :param schema: schema to iterate over
+    :type schema: dict
+    :param path_prefix: dot separated path prefix
+    :type path_prefix: str
+    :return: (field schema, field value, field path)
+    :rtype: tuple
+
+    """
+    if path_prefix and path_prefix[-1] != '.':
+        path_prefix += '.'
+
+    for field_schema in schema:
+        name = field_schema['name']
+        if 'group' in field_schema:
+            for rvals in iterate_schema(fields[name] if name in fields else {},
+                                        field_schema['group'], '{}{}'.format(path_prefix, name)):
+                yield rvals
+        else:
+            yield (field_schema, fields, '{}{}'.format(path_prefix, name))
+
+
+def validation_schema(name):
+    """Return json schema for json validation."""
+    schemas = {
+        'processor': 'processorSchema.json',
+        'annotation': 'annotationSchema.json',
+        'field': 'fieldSchema.json',
+        'type': 'typeSchema.json',
+    }
+
+    if name not in schemas:
+        raise ValueError()
+
+    field_schema_file = finders.find('flow/{}'.format(schemas['field']), all=True)[0]
+    field_schema = open(field_schema_file, 'r').read()
+
+    if name == 'field':
+        return json.loads(field_schema.replace('{{PARENT}}', ''))
+
+    schema_file = finders.find('flow/{}'.format(schemas[name]), all=True)[0]
+    schema = open(schema_file, 'r').read()
+
+    return json.loads(schema.replace('{{FIELD}}', field_schema).replace('{{PARENT}}', '/field'))
+
+
+# def hydrate_input_uploads(input_, input_schema, hydrate_values=True):
+#     """Hydrate input basic:upload types with upload location
+
+#     Find basic:upload fields in input.
+#     Add the upload location for relative paths.
+
+#     """
+#     files = []
+#     for field_schema, fields in iterate_fields(input_, input_schema):
+#         name = field_schema['name']
+#         value = fields[name]
+#         if 'type' in field_schema:
+#             if field_schema['type'] == 'basic:file:':
+#                 files.append(value)
+
+#             elif field_schema['type'] == 'list:basic:file:':
+#                 files.extend(value)
+
+#     urlregex = re.compile(r'^(https?|ftp)://[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]')
+#     for value in files:
+#         if 'file_temp' in value:
+#             if not os.path.isabs(value['file_temp']) and not urlregex.search(value['file_temp']):
+#                 value['file_temp'] = os.path.join(settings.RUNTIME['upload_path'], value['file_temp'])
+
+
+def hydrate_input_references(input_, input_schema, hydrate_values=True):
+    """Hydrate ``input_`` with linked data.
+
+    Find fields with complex data:<...> types in ``input_``.
+    Assign an output of corresponding data object to those fields.
+
+    """
+    for field_schema, fields in iterate_fields(input_, input_schema):
+        name = field_schema['name']
+        value = fields[name]
+        if 'type' in field_schema:
+            if field_schema['type'].startswith('data:'):
+                # if re.match('^[0-9a-fA-F]{24}$', str(value)) is None:
+                #     print "ERROR: data:<...> value in field \"{}\", type \"{}\" not ObjectId but {}.".format(
+                #         name, field_schema['type'], value)
+
+                data = Data.objects.get(id=value)
+                output = data.output.copy()
+                # static = Data.static.to_python(data.static)
+
+                # if hydrate_values:
+                #     _hydrate_values(output, data.output_schema, data)
+                #     _hydrate_values(static, data.static_schema, data)
+
+                output["_id"] = data.id
+                output["_type"] = data.type
+                fields[name] = output
+
+            elif field_schema['type'].startswith('list:data:'):
+                outputs = []
+                for val in value:
+                    # if re.match('^[0-9a-fA-F]{24}$', str(val)) is None:
+                    #     print "ERROR: data:<...> value in {}, type \"{}\" not ObjectId but {}.".format(
+                    #         name, field_schema['type'], val)
+
+                    data = Data.objects.get(id=val)
+                    output = data.output.copy()
+                    # static = Data.static.to_python(data.static)
+
+                    # if hydrate_values:
+                    #     _hydrate_values(output, data.output_schema, data)
+                    #     _hydrate_values(static, data.static_schema, data)
+
+                    output["_id"] = data.id
+                    output["_type"] = data.type
+                    outputs.append(output)
+
+                fields[name] = outputs
+
+
+def dict_dot(d, k, val=None, default=None):
+    """Get or set value using a dot-notation key in a multilevel dict."""
+    if val is None and k == '':
+        return d
+
+    if val is None and callable(default):
+        # Get value, default for missing
+        # Ugly, but works for model.Data objects as well as dicts
+        # Does the same as:
+        # return reduce(lambda a, b: a.setdefault(b, default()), k.split('.'), d)
+        return reduce(lambda a, b: a.__setitem__(b, a[b] if b in a else default()) or a[b], k.split('.'), d)
+
+    elif val is None:
+        # Get value, error on missing
+        return reduce(lambda a, b: a[b], k.split('.'), d)
+
+    else:
+        # Set value
+        try:
+            k, k_last = k.rsplit('.', 1)
+            dict_dot(d, k, default=dict)[k_last] = val
+        except ValueError:
+            d[k] = val
+        return val

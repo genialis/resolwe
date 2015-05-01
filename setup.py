@@ -16,14 +16,13 @@ setup(
     dependency_links=['https://github.com/yjmade/django-pgjsonb/tarball/master/#egg=django-pgjsonb'],
     install_requires=[
         'django>=1.8',
-        'jsonfield>=1.0.3',
         'djangorestframework>=3.1',
         'django-filter>=0.9.2',
+        'django-mathfilters>=0.3.0'
+        'jsonfield>=1.0.3',
         'django-pgjsonb',
-        'django-jenkins==0.17.0',
-        'coverage==3.7.1',
-        'pep8==1.6.2',
-        'pylint==1.4.3',
+        'pyyaml>=3.11',
+        'jsonschema>=2.4.0',
     ],
     classifiers=[
         'Development Status :: 4 - Beta',

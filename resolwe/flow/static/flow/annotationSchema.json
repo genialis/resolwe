@@ -1,0 +1,27 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "title": "Variable Template Schema",
+    "description": "Schema for user defined data templates.",
+    "type": "object",
+    "properties": {
+        "name": {
+            "description": "Unique name of the processor",
+            "type": "string"
+        },
+        "label": {
+            "description": "Human readable name",
+            "type": "string"
+        },
+        "description": {
+            "description": "Processor details",
+            "type": "string"
+        },
+        "var": {
+            "description": "List of meta-data fields",
+            "$ref": "#/field"
+        }
+    },
+    "additionalProperties": false,
+    "required": ["name", "label", "description", "var"],
+    "field": {{FIELD}}
+}
