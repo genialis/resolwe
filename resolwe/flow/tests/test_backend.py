@@ -1,6 +1,9 @@
 # pylint: disable=missing-docstring
+import os
+import shutil
+
+from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.core.urlresolvers import reverse
 from django.test import TestCase
 
 from resolwe.flow.engine import manager
@@ -22,6 +25,9 @@ class ManagerTest(TestCase):
                  contributor=u,
                  tool=t)
         d.save()
+
+        shutil.rmtree(settings.FLOW['BACKEND']['DATA_PATH'])
+        os.makedirs(settings.FLOW['BACKEND']['DATA_PATH'])
 
     def test_manager(self):
         manager.communicate()

@@ -1,10 +1,14 @@
-import logging
+"""Workflow compute engine"""
 from importlib import import_module
+import logging
+import os
 import pkgutil
 
 from django import template
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 from django.db import IntegrityError, transaction
+from django.utils._os import upath
 
 from resolwe.flow.models import Data, iterate_fields, hydrate_input_references
 from resolwe.utils import BraceMessage as __
@@ -12,7 +16,7 @@ from resolwe.utils import BraceMessage as __
 
 __all__ = ['manager']
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
 def dependency_status(data):
@@ -35,7 +39,7 @@ def dependency_status(data):
             for uid in value:
                 try:
                     _data = Data.objects.get(id=uid)
-                except mongoengine.DoesNotExist:
+                except Data.DoesNotExist:
                     return Data.STATUS_ERROR
 
                 if _data.status == Data.STATUS_ERROR:
@@ -49,8 +53,10 @@ def dependency_status(data):
 
 class Manager(object):
 
+    """Manager handles tool job execution."""
+
     def __init__(self):
-        self.backend = self.load_backend(settings.FLOW['BACKEND']).FlowBackend()
+        self.backend = self.load_backend(settings.FLOW['BACKEND']['NAME']).FlowBackend()
 
     def communicate(self, run_sync=False, verbosity=1):
         """Resolving task dependancy and execution."""
@@ -94,7 +100,7 @@ class Manager(object):
                     queue.append((data.id, script))
 
         except IntegrityError as exp:
-            logger.error(__("IntegrityError in manager {}", exp.message))
+            logger.error(__("IntegrityError in manager {}", exp))
             return
 
         for data_id, script in queue:
@@ -108,10 +114,10 @@ class Manager(object):
             # The database backend wasn't found. Display a helpful error message
             # listing all possible (built-in) database backends.
             backend_dir = os.path.join(os.path.dirname(upath(__file__)), 'backends')
+
             try:
                 builtin_backends = [
-                    name for _, name, ispkg in pkgutil.iter_modules([backend_dir])
-                    if ispkg and name != 'dummy']
+                    name for _, name, _ in pkgutil.iter_modules([backend_dir])]
             except EnvironmentError:
                 builtin_backends = []
             if backend_name not in ['resolwe.flow.backends.%s' % b for b in
@@ -127,4 +133,4 @@ class Manager(object):
                 raise
 
 
-manager = Manager()
+manager = Manager()  # pylint: disable=invalid-name

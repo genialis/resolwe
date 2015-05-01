@@ -77,5 +77,8 @@ PYLINT_RCFILE = '.pylintrc'
 PEP8_RCFILE = '.pep8rc'
 
 FLOW = {
-    'BACKEND': 'resolwe.flow.backends.local'
+    'BACKEND': {
+        'NAME': 'resolwe.flow.backends.local',
+        'DATA_PATH': os.path.join(PROJECT_ROOT, 'data'),
+    }
 }
