@@ -1,3 +1,6 @@
+"""Utility functions"""
+
+
 class BraceMessage(object):
     """Helper class that can be used to construct log messages with
     the new {}-string formatting syntax.
