@@ -1,10 +1,11 @@
+"""Register tools"""
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import jsonschema
 import os
 import yaml
 
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 
 from resolwe.flow.models import Tool, iterate_schema, validation_schema
@@ -15,8 +16,10 @@ VAR_SCHEMA = validation_schema('annotation')
 
 
 class Command(BaseCommand):
-    help = 'Register tools'
 
+    """Register tools"""
+
+    help = 'Register tools'
 
     def add_arguments(self, parser):
         parser.add_argument('-s', '--schemas', type=str, nargs='*',
@@ -47,17 +50,15 @@ class Command(BaseCommand):
         schema_matches = []
 
         if not genpackages_path:
-            raise NotImplemented()
-            #genpackages_path = os.path.join(settings.PROJECT_ROOT, 'genpackages')
+            raise NotImplementedError()
+            # genpackages_path = os.path.join(settings.PROJECT_ROOT, 'genpackages')
 
         schema_paths = [os.path.join(genpackages_path, name, subdir) for name in os.listdir(genpackages_path)]
         schema_paths = [schema_path for schema_path in schema_paths if os.path.isdir(schema_path)]
 
         for schema_path in schema_paths:
             if not os.path.isdir(schema_path):
-                if verbosity >= 2:
-                    self.stdout.write("App {} does not have a {} directory.".format(schema_path, subdir))
-
+                self.stdout.write("App {} does not have a {} directory.".format(schema_path, subdir))
                 continue
 
             for filename in os.listdir(schema_path):
@@ -70,7 +71,8 @@ class Command(BaseCommand):
                     self.stderr.write("Could not read YAML file {}".format(schema_file))
                     continue
 
-                schema_matches.extend(schema for schema in schemas if not filters or schema.get('name', None) in filters)
+                schema_matches.extend(schema for schema in schemas if
+                                      not filters or schema.get('name', None) in filters)
 
         return schema_matches
 
@@ -79,8 +81,8 @@ class Command(BaseCommand):
         schema_matches = {}
 
         if not genpackages_path:
-            raise NotImplemented()
-            #genpackages_path = os.path.join(settings.PROJECT_ROOT, 'genpackages')
+            raise NotImplementedError()
+            # genpackages_path = os.path.join(settings.PROJECT_ROOT, 'genpackages')
 
         schema_files = [os.path.join(genpackages_path, name) for name in os.listdir(genpackages_path)]
         schema_files = [os.path.join(path, 'package.yml') for path in schema_files if os.path.isdir(path)]
@@ -92,7 +94,7 @@ class Command(BaseCommand):
 
             schema = yaml.load(open(schema_file))
             if not schema:
-                self.stdout.write("Could not read YAML file {}".format(schema_file), file=sys.stderr)
+                self.stderr.write("Could not read YAML file {}".format(schema_file))
                 continue
 
             name = os.path.basename(os.path.dirname(schema_file))
@@ -188,7 +190,7 @@ class Command(BaseCommand):
 
         user_admin = users[0]
 
-        package_schemas = self.find_packages(schemas, path)
+        # package_schemas = self.find_packages(schemas, path)
 
         tool_schemas = self.find_schemas('processors', schemas, path)
         self.register_tools(tool_schemas, force, user_admin)

@@ -5,7 +5,6 @@ Apps Models
 
 """
 from django.db import models
-from django.core.validators import RegexValidator
 from jsonfield import JSONField
 
 from resolwe.flow.models import BaseModel

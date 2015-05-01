@@ -7,7 +7,8 @@ from django.conf.urls import include, url
 from rest_framework import routers
 
 from .apps.views import AppViewSet, PackageViewSet
-from .flow.views import ProjectViewSet, ToolViewSet, DataViewSet, AnnotationSchemaViewSet, TriggerViewSet, StorageViewSet
+from .flow.views import (ProjectViewSet, ToolViewSet, DataViewSet,
+                         AnnotationSchemaViewSet, TriggerViewSet, StorageViewSet)
 
 api_router = routers.DefaultRouter(trailing_slash=False)  # pylint: disable=invalid-name
 api_router.register(r'package', PackageViewSet)

@@ -5,7 +5,6 @@ Flow Models
 
 """
 import json
-import os
 
 from django.db import models
 from django.conf import settings
@@ -239,13 +238,10 @@ class Data(BaseModel):
     tool = models.ForeignKey('Tool', on_delete=models.PROTECT)
 
     #: process id
-    tool_pid = models.PositiveSmallIntegerField(blank=True, null=True)
+    tool_pid = models.PositiveIntegerField(blank=True, null=True)
 
     #: progress
     tool_progress = models.PositiveSmallIntegerField(default=0)
-
-    #: output file to log stdout
-    tool_stdout = models.CharField(max_length=255)
 
     #: return code
     tool_rc = models.PositiveSmallIntegerField(blank=True, null=True)
@@ -447,12 +443,12 @@ def hydrate_input_references(input_, input_schema, hydrate_values=True):
                 #         name, field_schema['type'], value)
 
                 data = Data.objects.get(id=value)
-                output = Data.output.copy()
+                output = data.output.copy()
                 # static = Data.static.to_python(data.static)
 
                 # if hydrate_values:
-                    # _hydrate_values(output, data.output_schema, data)
-                    # _hydrate_values(static, data.static_schema, data)
+                #     _hydrate_values(output, data.output_schema, data)
+                #     _hydrate_values(static, data.static_schema, data)
 
                 output["_id"] = data.id
                 output["_type"] = data.type
@@ -466,7 +462,7 @@ def hydrate_input_references(input_, input_schema, hydrate_values=True):
                     #         name, field_schema['type'], val)
 
                     data = Data.objects.get(id=val)
-                    output = Data.output.copy()
+                    output = data.output.copy()
                     # static = Data.static.to_python(data.static)
 
                     # if hydrate_values:
@@ -478,3 +474,29 @@ def hydrate_input_references(input_, input_schema, hydrate_values=True):
                     outputs.append(output)
 
                 fields[name] = outputs
+
+
+def dict_dot(d, k, val=None, default=None):
+    """Get or set value using a dot-notation key in a multilevel dict."""
+    if val is None and k == '':
+        return d
+
+    if val is None and callable(default):
+        # Get value, default for missing
+        # Ugly, but works for model.Data objects as well as dicts
+        # Does the same as:
+        # return reduce(lambda a, b: a.setdefault(b, default()), k.split('.'), d)
+        return reduce(lambda a, b: a.__setitem__(b, a[b] if b in a else default()) or a[b], k.split('.'), d)
+
+    elif val is None:
+        # Get value, error on missing
+        return reduce(lambda a, b: a[b], k.split('.'), d)
+
+    else:
+        # Set value
+        try:
+            k, k_last = k.rsplit('.', 1)
+            dict_dot(d, k, default=dict)[k_last] = val
+        except ValueError:
+            d[k] = val
+        return val
