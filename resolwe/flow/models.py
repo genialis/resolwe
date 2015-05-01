@@ -49,7 +49,7 @@ class Project(BaseModel):
     #: detailed description
     description = models.TextField(blank=True)
 
-    settings = JSONField()
+    settings = JSONField(default={})
 
     data = models.ManyToManyField('Data')
 
@@ -192,10 +192,10 @@ class Data(BaseModel):
     )
 
     #: processor started date and time (set by :meth:`server.tasks.manager`)
-    started = models.DateTimeField()
+    started = models.DateTimeField(blank=True, null=True)
 
     #: processor finished date date and time (set by :meth:`server.tasks.manager`)
-    finished = models.DateTimeField()
+    finished = models.DateTimeField(blank=True, null=True)
 
     #: processor data type
     type = models.CharField(max_length=100, validators=[
@@ -240,37 +240,37 @@ class Data(BaseModel):
     tool = models.ForeignKey('Tool', on_delete=models.PROTECT)
 
     #: process id
-    tool_pid = models.PositiveSmallIntegerField()
+    tool_pid = models.PositiveSmallIntegerField(blank=True, null=True)
 
     #: progress
-    tool_progress = models.PositiveSmallIntegerField()
+    tool_progress = models.PositiveSmallIntegerField(default=0)
 
     #: output file to log stdout
     tool_stdout = models.CharField(max_length=255)
 
     #: return code
-    tool_rc = models.PositiveSmallIntegerField()
+    tool_rc = models.PositiveSmallIntegerField(blank=True, null=True)
 
     #: info log message
-    tool_info = ArrayField(models.CharField(max_length=255))
+    tool_info = ArrayField(models.CharField(max_length=255), default=[])
 
     #: warning log message
-    tool_warning = ArrayField(models.CharField(max_length=255))
+    tool_warning = ArrayField(models.CharField(max_length=255), default=[])
 
     #: error log message
-    tool_error = ArrayField(models.CharField(max_length=255))
+    tool_error = ArrayField(models.CharField(max_length=255), default=[])
 
     #: actual inputs used by the processor
-    input = JSONField()
+    input = JSONField(default={})
 
     #: actual outputs of the processor
-    output = JSONField()
+    output = JSONField(default={})
 
     #: data annotation schema
     annotation_schema = models.ForeignKey('AnnotationSchema', blank=True, null=True, on_delete=models.PROTECT)
 
     #: actual annotation
-    annotation = JSONField()
+    annotation = JSONField(default={})
 
 
 class AnnotationSchema(BaseModel):
@@ -284,7 +284,7 @@ class AnnotationSchema(BaseModel):
     description = models.TextField(blank=True)
 
     #: user annotation schema represented as a JSON object
-    schema = JSONField()
+    schema = JSONField(default={})
 
 
 class Trigger(BaseModel):
@@ -310,7 +310,7 @@ class Trigger(BaseModel):
     tool = models.ForeignKey('Tool', blank=True, null=True, on_delete=models.SET_NULL)
 
     #: input settings of the processor
-    input = JSONField()
+    input = JSONField(default={})
 
     #: corresponding project
     project = models.ForeignKey('Project')
@@ -345,7 +345,7 @@ def iterate_fields(fields, schema):
 
     """
     schema_dict = {val['name']: val for val in schema}
-    for field_id, properties in fields.iteritems():
+    for field_id, properties in fields.items():
         if 'group' in schema_dict[field_id]:
             for _field_schema, _fields in iterate_fields(properties, schema_dict[field_id]['group']):
                 yield (_field_schema, _fields)
@@ -394,7 +394,6 @@ def validation_schema(name):
     if name not in schemas:
         raise ValueError()
 
-
     field_schema_file = finders.find('flow/{}'.format(schemas['field']), all=True)[0]
     field_schema = open(field_schema_file, 'r').read()
 
@@ -405,3 +404,78 @@ def validation_schema(name):
     schema = open(schema_file, 'r').read()
 
     return json.loads(schema.replace('{{FIELD}}', field_schema).replace('{{PARENT}}', '/field'))
+
+
+# def hydrate_input_uploads(input_, input_schema, hydrate_values=True):
+#     """Hydrate input basic:upload types with upload location
+
+#     Find basic:upload fields in input.
+#     Add the upload location for relative paths.
+
+#     """
+#     files = []
+#     for field_schema, fields in iterate_fields(input_, input_schema):
+#         name = field_schema['name']
+#         value = fields[name]
+#         if 'type' in field_schema:
+#             if field_schema['type'] == 'basic:file:':
+#                 files.append(value)
+
+#             elif field_schema['type'] == 'list:basic:file:':
+#                 files.extend(value)
+
+#     urlregex = re.compile(r'^(https?|ftp)://[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]')
+#     for value in files:
+#         if 'file_temp' in value:
+#             if not os.path.isabs(value['file_temp']) and not urlregex.search(value['file_temp']):
+#                 value['file_temp'] = os.path.join(settings.RUNTIME['upload_path'], value['file_temp'])
+
+
+def hydrate_input_references(input_, input_schema, hydrate_values=True):
+    """Hydrate ``input_`` with linked data.
+
+    Find fields with complex data:<...> types in ``input_``.
+    Assign an output of corresponding data object to those fields.
+
+    """
+    for field_schema, fields in iterate_fields(input_, input_schema):
+        name = field_schema['name']
+        value = fields[name]
+        if 'type' in field_schema:
+            if field_schema['type'].startswith('data:'):
+                # if re.match('^[0-9a-fA-F]{24}$', str(value)) is None:
+                #     print "ERROR: data:<...> value in field \"{}\", type \"{}\" not ObjectId but {}.".format(
+                #         name, field_schema['type'], value)
+
+                data = Data.objects.get(id=value)
+                output = Data.output.copy()
+                # static = Data.static.to_python(data.static)
+
+                # if hydrate_values:
+                    # _hydrate_values(output, data.output_schema, data)
+                    # _hydrate_values(static, data.static_schema, data)
+
+                output["_id"] = data.id
+                output["_type"] = data.type
+                fields[name] = output
+
+            elif field_schema['type'].startswith('list:data:'):
+                outputs = []
+                for val in value:
+                    # if re.match('^[0-9a-fA-F]{24}$', str(val)) is None:
+                    #     print "ERROR: data:<...> value in {}, type \"{}\" not ObjectId but {}.".format(
+                    #         name, field_schema['type'], val)
+
+                    data = Data.objects.get(id=val)
+                    output = Data.output.copy()
+                    # static = Data.static.to_python(data.static)
+
+                    # if hydrate_values:
+                    #     _hydrate_values(output, data.output_schema, data)
+                    #     _hydrate_values(static, data.static_schema, data)
+
+                    output["_id"] = data.id
+                    output["_type"] = data.type
+                    outputs.append(output)
+
+                fields[name] = outputs

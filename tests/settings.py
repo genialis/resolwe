@@ -27,7 +27,9 @@ INSTALLED_APPS = (
     'django.contrib.contenttypes',
     'django.contrib.sessions',
 
+    'mathfilters',
     'django_jenkins',
+
 ) + PROJECT_APPS
 
 ROOT_URLCONF = 'tests.urls'
@@ -73,3 +75,7 @@ JENKINS_TASKS = (
 
 PYLINT_RCFILE = '.pylintrc'
 PEP8_RCFILE = '.pep8rc'
+
+FLOW = {
+    'BACKEND': 'resolwe.flow.backends.local'
+}

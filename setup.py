@@ -18,16 +18,14 @@ setup(
     ],
     install_requires=[
         'django>=1.8',
-        'jsonfield>=1.0.3',
         'djangorestframework>=3.1',
         'django-filter>=0.9.2',
         'django-pgjsonb==0.0.12',
         'django-jenkins==0.17.0',
+        'django-mathfilters>=0.3.0'
+        'jsonfield>=1.0.3',
         'pyyaml>=3.11',
         'jsonschema>=2.4.0',
-        'coverage==3.7.1',
-        'pep8==1.6.2',
-        'pylint==1.4.3',
     ],
     classifiers=[
         'Development Status :: 4 - Beta',
