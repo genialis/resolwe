@@ -22,13 +22,14 @@ Development
 Install for Development::
 
     python setup.py develop
+    pip install -r tests/test_requirements.txt
 
 Install PostgreSQL_ and create a `resolwe` database::
 
-    # Remove the database if it preexists
+    # Remove database if exists
     dropdb resolwe
 
-    # Create the database
+    # Create database
     createdb resolwe
 
 .. _PostgreSQL: https://wiki.postgresql.org/wiki/Detailed_installation_guides

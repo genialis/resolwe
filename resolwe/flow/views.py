@@ -6,9 +6,9 @@ Flow Views
 """
 from rest_framework import viewsets
 
-from .models import Project, Tool, Data, AnnotationSchema, Trigger, Storage
-from .serializers import (ProjectSerializer, ToolSerializer, DataSerializer, AnnotationSchemaSerializer,
-                          TriggerSerializer, StorageSerializer)
+from resolwe.flow.models import Project, Tool, Data, AnnotationSchema, Trigger, Storage
+from resolwe.flow.serializers import (ProjectSerializer, ToolSerializer, DataSerializer,
+                                      AnnotationSchemaSerializer, TriggerSerializer, StorageSerializer)
 
 
 class ProjectViewSet(viewsets.ModelViewSet):

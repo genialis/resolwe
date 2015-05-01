@@ -6,7 +6,7 @@ Flow Serializers
 """
 from rest_framework import serializers
 
-from .models import Project, Tool, Data, AnnotationSchema, Trigger, Storage
+from resolwe.flow.models import Project, Tool, Data, AnnotationSchema, Trigger, Storage
 
 
 class ProjectSerializer(serializers.ModelSerializer):
