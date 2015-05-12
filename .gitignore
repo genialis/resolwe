@@ -18,7 +18,7 @@ sftp-config.json
 _build
 
 # Results of django-jenkins
-results/
+reports/
 
 # Ignore files created by setup.py.
 build/
