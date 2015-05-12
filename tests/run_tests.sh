@@ -10,7 +10,8 @@
 pushd $WORKSPACE
 
 VENV_HOME=$WORKSPACE/.venv
-[ ! -d $VENV_HOME ] && rm -rf $VENV_HOME
+rm -rf $VENV_HOME
+rm -rf reports/
 virtualenv $VENV_HOME
 . $VENV_HOME/bin/activate
 pip install -U pip
