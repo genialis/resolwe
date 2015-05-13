@@ -7,6 +7,8 @@
 # ./tests/run_tests.sh
 #
 
+set -x
+
 pushd $WORKSPACE
 
 rm -rf reports
