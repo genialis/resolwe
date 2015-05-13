@@ -9,18 +9,10 @@
 
 pushd $WORKSPACE
 
-VENV_HOME=$WORKSPACE/.venv
-rm -rf $VENV_HOME
-rm -rf reports/
-virtualenv $VENV_HOME
-. $VENV_HOME/bin/activate
-pip install -U pip
-python setup.py install
+rm -rf reports
 
-./tests/manage.py makemigrations
-./tests/manage.py migrate
-./tests/manage.py jenkins resolwe --enable-coverage
+scl enable python33 'tox -r'
 
-cloc --exclude-dir=.venv,reports, --by-file --xml --out=reports/cloc.xml .
+cloc --exclude-dir=.venv,.tox,reports, --by-file --xml --out=reports/cloc.xml .
 
 popd

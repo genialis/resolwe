@@ -17,6 +17,9 @@ sftp-config.json
 # Ignore built documentation
 _build
 
+# Tox files
+.tox/
+
 # Results of django-jenkins
 reports/
 
