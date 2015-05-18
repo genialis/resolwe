@@ -49,6 +49,8 @@ TEMPLATES = [
 
 # This is needed for runing concurrent tests on Jenkins
 toxenv = os.environ.get('TOXENV', '')
+# Check if PostgreSQL port is set via environment variable
+pgport = int(os.environ.get('RESOLWE_POSTGRESQL_PORT', 5432))
 
 DATABASES = {
     'default': {
@@ -57,7 +59,7 @@ DATABASES = {
         'USER': 'resolwe',
         'PASSWORD': 'resres',
         'HOST': 'localhost',
-        'PORT': 5432,
+        'PORT': pgport,
         'TEST': {
             'NAME': 'resolwe_test' + toxenv
         }
