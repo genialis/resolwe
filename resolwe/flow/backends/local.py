@@ -16,6 +16,7 @@ from resolwe.utils import BraceMessage as __
 
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
+CWD = os.getcwd()
 
 
 def iterjson(text):
@@ -49,16 +50,16 @@ class FlowBackend(BaseFlowBackend):
         log_file = open(os.path.join(output_path, 'stdout.txt'), 'w+')
         json_file = open(os.path.join(output_path, 'jsonout.txt'), 'w+')
 
+        Data.objects.filter(id=data_id).update(
+            status=Data.STATUS_PROCESSING,
+            started=datetime.datetime.utcnow(),
+            tool_pid=proc.pid)
+
         proc = subprocess.Popen(['/bin/bash'],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE, universal_newlines=True)
 
         self.processes[data_id] = proc
-
-        Data.objects.filter(id=data_id).update(
-            status=Data.STATUS_PROCESSING,
-            started=datetime.datetime.utcnow(),
-            tool_pid=proc.pid)
 
         # Run processor and handle intermediate results
         proc.stdin.write(os.linesep.join(['set -x', 'set +B', script, 'exit']) + os.linesep)
@@ -120,6 +121,7 @@ class FlowBackend(BaseFlowBackend):
                         if tool_rc > 0:
                             log_file.close()
                             json_file.close()
+                            os.chdir(CWD)
                             return
 
                         # Debug output
@@ -142,6 +144,7 @@ class FlowBackend(BaseFlowBackend):
             # Store results
             log_file.close()
             json_file.close()
+            os.chdir(CWD)
 
         proc.wait()
 
