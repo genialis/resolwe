@@ -65,7 +65,7 @@ class FlowBackend(BaseFlowBackend):
         spawn_processors = []
         output = {}
         tool_error, tool_warning, tool_info = [], [], []
-        tool_progress, tool_rc = 0, None
+        tool_progress, tool_rc = 0, 0
 
         # read processor output
         try:
