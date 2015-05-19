@@ -26,8 +26,12 @@ class ManagerTest(TestCase):
                  tool=t)
         d.save()
 
-        shutil.rmtree(settings.FLOW['BACKEND']['DATA_PATH'])
-        os.makedirs(settings.FLOW['BACKEND']['DATA_PATH'])
+        data_path = settings.FLOW['BACKEND']['DATA_PATH']
+
+        if os.path.exists(data_path):
+            shutil.rmtree(data_path)
+
+        os.makedirs(data_path)
 
     def test_manager(self):
         manager.communicate()
