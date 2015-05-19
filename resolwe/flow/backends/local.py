@@ -43,7 +43,7 @@ class FlowBackend(BaseFlowBackend):
         print('RUN: {} {}'.format(data_id, script))
 
         output_path = os.path.join(settings.FLOW['BACKEND']['DATA_PATH'], str(data_id))
-        os.mkdir(output_path, 0775)
+        os.mkdir(output_path, 0o775)
         os.chdir(output_path)
 
         log_file = open(os.path.join(output_path, 'stdout.txt'), 'w+')
