@@ -68,6 +68,10 @@ DATABASES = {
     }
 }
 
+if toxenv:
+    DATABASES['default']['USER'] = 'resolwe'
+    DATABASES['default']['PASSWORD'] = 'resres'
+
 JENKINS_TASKS = (
     'django_jenkins.tasks.run_pylint',
     'django_jenkins.tasks.run_pep8',
