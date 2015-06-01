@@ -98,7 +98,7 @@ class Tool(BaseModel):
     """
 
     #: detailed description
-    description = models.TextField(blank=True)
+    description = models.TextField(default='')
 
     input_schema = models.TextField()
     """
