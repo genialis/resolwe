@@ -22,8 +22,7 @@ class Command(BaseCommand):
     help = 'Register tools'
 
     def add_arguments(self, parser):
-        parser.add_argument('-s', '--schemas', type=str, nargs='*',
-                            help="tool names to register")
+        parser.add_argument('-s', '--schemas', type=str, nargs='*', help="tool names to register")
         parser.add_argument('-f', '--force', action='store_true', help="register also if version mismatch")
         parser.add_argument('--path', help="path to look for tools")
 
@@ -40,39 +39,26 @@ class Command(BaseCommand):
             self.stderr.write("        val. value: {}".format(ex.validator_value))
             return False
 
-    def find_schemas(self, subdir, filters=None, genpackages_path=None):
-        """Find schemas in packages that match filters.
-
-        To find processors use `processors` for `subdir`.
-        To find templates use `var_templates` for `subdir`.
-
-        """
+    def find_schemas(self, schema_path, filters=None):
+        """Find schemas in packages that match filters."""
         schema_matches = []
 
-        if not genpackages_path:
-            raise NotImplementedError()
-            # genpackages_path = os.path.join(settings.PROJECT_ROOT, 'genpackages')
+        if not os.path.isdir(schema_path):
+            self.stdout.write("Invalid path {}".format(schema_path))
+            return
 
-        schema_paths = [os.path.join(genpackages_path, name, subdir) for name in os.listdir(genpackages_path)]
-        schema_paths = [schema_path for schema_path in schema_paths if os.path.isdir(schema_path)]
-
-        for schema_path in schema_paths:
-            if not os.path.isdir(schema_path):
-                self.stdout.write("App {} does not have a {} directory.".format(schema_path, subdir))
+        for filename in os.listdir(schema_path):
+            if not filename.endswith('.yml') and not filename.endswith('.yaml'):
                 continue
 
-            for filename in os.listdir(schema_path):
-                if not filename.endswith('.yml') and not filename.endswith('.yaml'):
-                    continue
+            schema_file = os.path.join(schema_path, filename)
+            schemas = yaml.load(open(schema_file))
+            if not schemas:
+                self.stderr.write("Could not read YAML file {}".format(schema_file))
+                continue
 
-                schema_file = os.path.join(schema_path, filename)
-                schemas = yaml.load(open(schema_file))
-                if not schemas:
-                    self.stderr.write("Could not read YAML file {}".format(schema_file))
-                    continue
-
-                schema_matches.extend(schema for schema in schemas if
-                                      not filters or schema.get('name', None) in filters)
+            schema_matches.extend(schema for schema in schemas if
+                                  not filters or schema.get('name', None) in filters)
 
         return schema_matches
 
@@ -109,6 +95,11 @@ class Command(BaseCommand):
         log_templates = []
 
         for p in tool_schemas:
+            # Handle backwards compatiblity
+            if 'slug' not in p:
+                p['slug'] = p['name']
+                p['name'] = p['label']
+
             if p['type'][-1] != ':':
                 p['type'] += ':'
 
@@ -123,18 +114,17 @@ class Command(BaseCommand):
             if not self.valid(p, PROCESSOR_SCHEMA):
                 continue
 
-            slug = p['name']
+            slug = p['slug']
             version = int(''.join('0' * (3 - len(v)) + v for v in p['version'].split('.')))
 
             try:
                 tool = Tool.objects.get(slug=slug)
-
                 if tool.version > version:
-                    self.stderr.write("Skip processor {} - newer version installed.".format(slug))
+                    self.stderr.write("Skip processor {}: newer version installed".format(slug))
                     continue
 
                 elif tool.version == version and not force:
-                    self.stdout.write("Skip processor {} - same version installed.".format(slug))
+                    self.stdout.write("Skip processor {}: same version installed".format(slug))
                     continue
 
                 log_processors.append("Updated {}".format(slug))
@@ -145,26 +135,29 @@ class Command(BaseCommand):
                 tool.contributor = user
                 log_processors.append("Inserted {}".format(slug))
 
-            tool.name = p['label']
+            tool.name = p['name']
             tool.type = p['type']
             tool.version = version
-            tool.description = p['description']
+
+            if 'description' in p:
+                tool.description = p['description']
 
             if 'category' in p:
                 tool.category = p['category']
 
-            persistence = {
-                'RAW': Tool.PERSISTENCE_RAW,
-                'CACHED': Tool.PERSISTENCE_CACHED,
-                'TEMP': Tool.PERSISTENCE_TEMP,
-            }
+            if 'persistence' in p:
+                persistence = {
+                    'RAW': Tool.PERSISTENCE_RAW,
+                    'CACHED': Tool.PERSISTENCE_CACHED,
+                    'TEMP': Tool.PERSISTENCE_TEMP,
+                }
 
-            tool.persistence = persistence[p['persistence']]
+                tool.persistence = persistence[p['persistence']]
 
             # TODO: Check if schemas validate with our JSON meta schema and Processor model docs.
             tool.input_schema = p['input'] if 'input' in p else []
             tool.output_schema = p['output'] if 'output' in p else []
-            tool.adapter = p['run']
+            tool.adapter = p['run']['bash']
             tool.save()
 
         if len(log_processors) > 0:
@@ -182,6 +175,9 @@ class Command(BaseCommand):
         path = options.get('path')
         force = options.get('force')
 
+        if not path:
+            raise NotImplementedError("Give path to tools folder (--path)")
+
         users = get_user_model().objects.filter(is_superuser=True).order_by('date_joined')
 
         if len(users) == 0:
@@ -192,5 +188,5 @@ class Command(BaseCommand):
 
         # package_schemas = self.find_packages(schemas, path)
 
-        tool_schemas = self.find_schemas('processors', schemas, path)
+        tool_schemas = self.find_schemas(path, schemas)
         self.register_tools(tool_schemas, force, user_admin)
