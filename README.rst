@@ -39,7 +39,7 @@ Set-up database::
     cd tests
     ./manage.py makemigrations
     ./manage.py migrate
-    ./manage.py createsuperuser --username admin --email admin@genialis.com --noinput
+    ./manage.py createsuperuser --username admin --email admin@genialis.com
 
 Register processors::
 

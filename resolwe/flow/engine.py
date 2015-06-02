@@ -79,9 +79,6 @@ class Manager(object):
                         data.save()
                         continue
 
-                    data.status = Data.STATUS_WAITING
-                    data.save()
-
                     script_template = data.tool.adapter
                     inputs = data.input.copy()
                     hydrate_input_references(inputs, data.tool.input_schema)
@@ -94,8 +91,17 @@ class Manager(object):
                     # info['slugs_path'] = settings.RUNTIME['slugs_path']
                     inputs['proc'] = info  # add script info
 
-                    script = template.Template('{% load resource_filters %}{% load mathfilters %}' +
-                                               script_template).render(template.Context(inputs))
+                    try:
+                        script = template.Template('{% load resource_filters %}{% load mathfilters %}' +
+                                                   script_template).render(template.Context(inputs))
+                    except template.TemplateSyntaxError as ex:
+                        data.status = Data.STATUS_ERROR
+                        data.tool_error.append('Error in tool script: {}'.format(ex))
+                        data.save()
+                        continue
+
+                    data.status = Data.STATUS_WAITING
+                    data.save()
 
                     queue.append((data.id, script))
 
