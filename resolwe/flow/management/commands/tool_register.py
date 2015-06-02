@@ -7,6 +7,7 @@ import yaml
 
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
+from django.db.models import Max
 
 from resolwe.flow.models import Tool, iterate_schema, validation_schema
 
@@ -58,7 +59,8 @@ class Command(BaseCommand):
                 continue
 
             schema_matches.extend(schema for schema in schemas if
-                                  not filters or schema.get('name', None) in filters)
+                                  not filters or schema.get('name', None) in filters or
+                                  schema.get('slug', None) in filters)
 
         return schema_matches
 
@@ -89,7 +91,7 @@ class Command(BaseCommand):
 
         return schema_matches
 
-    def register_tools(self, tool_schemas, force=False, user=None):
+    def register_tools(self, tool_schemas, user, force=False):
         """Read and register processors."""
         log_processors = []
         log_templates = []
@@ -118,12 +120,14 @@ class Command(BaseCommand):
             version = int(''.join('0' * (3 - len(v)) + v for v in p['version'].split('.')))
 
             try:
-                tool = Tool.objects.get(slug=slug)
-                if tool.version > version:
-                    self.stderr.write("Skip processor {}: newer version installed".format(slug))
-                    continue
+                max_version_query = Tool.objects.filter(slug=slug).aggregate(Max('version'))
+                if max_version_query and 'version__max' in max_version_query:
+                    if max_version_query['version__max'] > version:
+                        self.stderr.write("Skip processor {}: newer version installed".format(slug))
+                        continue
 
-                elif tool.version == version and not force:
+                tool = Tool.objects.get(slug=slug, version=version)
+                if not force:
                     self.stdout.write("Skip processor {}: same version installed".format(slug))
                     continue
 
@@ -189,4 +193,4 @@ class Command(BaseCommand):
         # package_schemas = self.find_packages(schemas, path)
 
         tool_schemas = self.find_schemas(path, schemas)
-        self.register_tools(tool_schemas, force, user_admin)
+        self.register_tools(tool_schemas, user_admin, force)
