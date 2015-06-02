@@ -22,7 +22,10 @@ class BaseModel(models.Model):
     """Abstract model that ncludes common fields for other models."""
 
     #: URL slug
-    slug = models.SlugField(max_length=50, unique=True)
+    slug = models.SlugField(max_length=50)
+
+    #: tool version
+    version = models.PositiveIntegerField(default=0)
 
     #: object name
     name = models.CharField(max_length=50)
@@ -39,6 +42,7 @@ class BaseModel(models.Model):
     class Meta:
         """BaseModel Meta options."""
         abstract = True
+        unique_together = ('slug', 'version')
 
 
 class Project(BaseModel):
@@ -65,9 +69,6 @@ class Tool(BaseModel):
         (PERSISTENCE_CACHED, 'Cached'),
         (PERSISTENCE_TEMP, 'Temp'),
     )
-
-    #: tool version
-    version = models.PositiveIntegerField()
 
     #: data type
     type = models.CharField(max_length=100, validators=[
@@ -272,9 +273,6 @@ class Data(BaseModel):
 class AnnotationSchema(BaseModel):
 
     """Postgres model for storing templates."""
-
-    #: annotation schema version
-    version = models.PositiveIntegerField()
 
     #: detailed description
     description = models.TextField(blank=True)

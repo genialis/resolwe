@@ -148,7 +148,6 @@ class FlowBackend(BaseFlowBackend):
 
         proc.wait()
 
-        finished = datetime.datetime.utcnow()
         if tool_rc < proc.returncode:
             tool_rc = proc.returncode
 
@@ -156,15 +155,13 @@ class FlowBackend(BaseFlowBackend):
             Data.objects.filter(id=data_id).update(
                 status=Data.STATUS_DONE,
                 tool_progress=100,
-                modified=finished,
-                finished=finished)
+                finished=datetime.datetime.utcnow())
         else:
             Data.objects.filter(id=data_id).update(
                 status=Data.STATUS_ERROR,
                 tool_progress=100,
                 tool_rc=tool_rc,
-                modified=finished,
-                finished=finished)
+                finished=datetime.datetime.utcnow())
 
         # try:
         #     # Cleanup after processor

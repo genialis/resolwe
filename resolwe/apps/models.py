@@ -16,9 +16,6 @@ class Package(BaseModel):
 
     """Postgres model for storing packages."""
 
-    #: package version
-    version = models.PositiveIntegerField()
-
     #: list of available modules (PostgreSQL ArrayField coming in Django 1.8)
     modules = JSONField()
 
