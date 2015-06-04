@@ -121,7 +121,7 @@ class Command(BaseCommand):
 
             try:
                 max_version_query = Tool.objects.filter(slug=slug).aggregate(Max('version'))
-                if max_version_query and 'version__max' in max_version_query:
+                if max_version_query['version__max'] is not None:
                     if max_version_query['version__max'] > version:
                         self.stderr.write("Skip processor {}: newer version installed".format(slug))
                         continue
