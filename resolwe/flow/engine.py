@@ -56,7 +56,7 @@ class Manager(object):
     """Manager handles tool job execution."""
 
     def __init__(self):
-        self.backend = self.load_backend(settings.FLOW['BACKEND']['NAME']).FlowBackend()
+        self.executor = self.load_executor(settings.FLOW['EXECUTOR']['NAME']).FlowExecutor()
 
     def communicate(self, run_sync=False, verbosity=1):
         """Resolving task dependancy and execution."""
@@ -110,29 +110,29 @@ class Manager(object):
             return
 
         for data_id, script in queue:
-            self.backend.run(data_id, script)
+            self.executor.run(data_id, script)
 
-    def load_backend(self, backend_name):
-        """Look for a fully qualified workflow backend name."""
+    def load_executor(self, executor_name):
+        """Look for a fully qualified workflow executor name."""
         try:
-            return import_module('%s' % backend_name)
+            return import_module('%s' % executor_name)
         except ImportError as e_user:
-            # The database backend wasn't found. Display a helpful error message
-            # listing all possible (built-in) database backends.
-            backend_dir = os.path.join(os.path.dirname(upath(__file__)), 'backends')
+            # The database executor wasn't found. Display a helpful error message
+            # listing all possible (built-in) database executors.
+            executor_dir = os.path.join(os.path.dirname(upath(__file__)), 'executors')
 
             try:
-                builtin_backends = [
-                    name for _, name, _ in pkgutil.iter_modules([backend_dir])]
+                builtin_executors = [
+                    name for _, name, _ in pkgutil.iter_modules([executor_dir])]
             except EnvironmentError:
-                builtin_backends = []
-            if backend_name not in ['resolwe.flow.backends.%s' % b for b in
-                                    builtin_backends]:
-                backend_reprs = map(repr, sorted(builtin_backends))
-                error_msg = ("%r isn't an available dataflow backend.\n"
-                             "Try using 'resolwe.flow.backends.XXX', where XXX "
+                builtin_executors = []
+            if executor_name not in ['resolwe.flow.executors.%s' % b for b in
+                                    builtin_executors]:
+                executor_reprs = map(repr, sorted(builtin_executors))
+                error_msg = ("%r isn't an available dataflow executor.\n"
+                             "Try using 'resolwe.flow.executors.XXX', where XXX "
                              "is one of:\n    %s\nError was: %s" %
-                             (backend_name, ", ".join(backend_reprs), e_user))
+                             (executor_name, ", ".join(executor_reprs), e_user))
                 raise ImproperlyConfigured(error_msg)
             else:
                 # If there's some other error, this must be an error in Django

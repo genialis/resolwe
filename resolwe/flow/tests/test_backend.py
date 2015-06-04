@@ -26,7 +26,7 @@ class ManagerTest(TestCase):
                  tool=t)
         d.save()
 
-        data_path = settings.FLOW['BACKEND']['DATA_PATH']
+        data_path = settings.FLOW['EXECUTOR']['DATA_PATH']
 
         if os.path.exists(data_path):
             shutil.rmtree(data_path)
