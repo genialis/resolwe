@@ -1,4 +1,4 @@
-"""Local workflow backend"""
+"""Local workflow executor"""
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import datetime
@@ -10,7 +10,7 @@ import time
 
 from django.conf import settings
 
-from resolwe.flow.backends import BaseFlowBackend
+from resolwe.flow.executors import BaseFlowExecutor
 from resolwe.flow.models import Data, dict_dot
 from resolwe.utils import BraceMessage as __
 
@@ -32,9 +32,9 @@ def iterjson(text):
         yield obj
 
 
-class FlowBackend(BaseFlowBackend):
+class FlowExecutor(BaseFlowExecutor):
 
-    """Local dataflow backend proxy."""
+    """Local dataflow executor proxy."""
 
     def __init__(self):
         self.processes = {}
@@ -43,7 +43,7 @@ class FlowBackend(BaseFlowBackend):
     def run(self, data_id, script):
         print('RUN: {} {}'.format(data_id, script))
 
-        output_path = os.path.join(settings.FLOW['BACKEND']['DATA_PATH'], str(data_id))
+        output_path = os.path.join(settings.FLOW['EXECUTOR']['DATA_PATH'], str(data_id))
         os.mkdir(output_path, 0o775)
         os.chdir(output_path)
 
