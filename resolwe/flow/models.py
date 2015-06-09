@@ -21,6 +21,12 @@ class BaseModel(models.Model):
 
     """Abstract model that ncludes common fields for other models."""
 
+    class Meta:
+        """BaseModel Meta options."""
+        abstract = True
+        unique_together = ('slug', 'version')
+        default_permissions = ()
+
     #: URL slug
     slug = models.SlugField(max_length=50)
 
@@ -39,15 +45,20 @@ class BaseModel(models.Model):
     #: user that created the entry
     contributor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
 
-    class Meta:
-        """BaseModel Meta options."""
-        abstract = True
-        unique_together = ('slug', 'version')
-
 
 class Project(BaseModel):
 
     """Postgres model for storing projects."""
+
+    class Meta(BaseModel.Meta):
+        """Project Meta options."""
+        permissions = (
+            ("view_project", "Can view project"),
+            ("edit_project", "Can edit project"),
+            ("share_project", "Can share project"),
+            ("download_project", "Can download files from project"),
+            ("add_project", "Can add data objects to project"),
+        )
 
     #: detailed description
     description = models.TextField(blank=True)
@@ -60,6 +71,13 @@ class Project(BaseModel):
 class Tool(BaseModel):
 
     """Postgres model for storing tools."""
+
+    class Meta(BaseModel.Meta):
+        """Tool Meta options."""
+        permissions = (
+            ("view_tool", "Can view tool"),
+            ("share_tool", "Can share tool"),
+        )
 
     PERSISTENCE_RAW = 'RAW'
     PERSISTENCE_CACHED = 'CAC'
@@ -174,6 +192,15 @@ class Data(BaseModel):
 
     """Postgres model for storing data."""
 
+    class Meta(BaseModel.Meta):
+        """Data Meta options."""
+        permissions = (
+            ("view_data", "Can view data"),
+            ("edit_data", "Can edit data"),
+            ("share_data", "Can share data"),
+            ("download_data", "Can download files from data"),
+        )
+
     STATUS_UPLOADING = 'UP'
     STATUS_RESOLVING = 'RE'
     STATUS_WAITING = 'WT'
@@ -274,6 +301,14 @@ class AnnotationSchema(BaseModel):
 
     """Postgres model for storing templates."""
 
+    class Meta(BaseModel.Meta):
+        """AnnotationSchea Meta options."""
+        permissions = (
+            ("view_annotation", "Can view annotation"),
+            ("edit_annotation", "Can edit annotation"),
+            ("share_annotation", "Can share annotation"),
+        )
+
     #: detailed description
     description = models.TextField(blank=True)
 
@@ -284,6 +319,14 @@ class AnnotationSchema(BaseModel):
 class Trigger(BaseModel):
 
     """Postgres model for storing triggers."""
+
+    class Meta(BaseModel.Meta):
+        """Data Meta options."""
+        permissions = (
+            ("view_trigger", "Can view trigger"),
+            ("edit_trigger", "Can edit trigger"),
+            ("share_trigger", "Can share trigger"),
+        )
 
     #: data type of triggering data objects
     type = models.CharField(max_length=100, validators=[
