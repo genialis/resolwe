@@ -18,7 +18,7 @@ class ProjectSerializer(serializers.ModelSerializer):
     class Meta:
         """ProjectSerializer Meta options."""
         model = Project
-        fields = ('slug', 'title', 'created', 'modified', 'created_by', 'description', 'settings',
+        fields = ('slug', 'name', 'created', 'modified', 'contributor', 'description', 'settings',
                   'data')
         readonly_fields = ('created_by')
 
@@ -37,7 +37,7 @@ class ToolSerializer(serializers.ModelSerializer):
     class Meta:
         """ToolSerializer Meta options."""
         model = Tool
-        fields = ('slug', 'title', 'created', 'modified', 'created_by', 'version', 'type',
+        fields = ('slug', 'name', 'created', 'modified', 'contributor', 'version', 'type',
                   'category', 'persistence', 'description', 'input_schema', 'output_schema',
                   'static_schema', 'run', )
 
@@ -49,7 +49,7 @@ class DataSerializer(serializers.ModelSerializer):
     class Meta:
         """DataSerializer Meta options."""
         model = Data
-        fields = ('slug', 'title', 'created', 'modified', 'created_by', 'started', 'finished',
+        fields = ('slug', 'name', 'created', 'modified', 'contributor', 'started', 'finished',
                   'checksum', 'status', 'persistence', 'tool', 'template', 'input', 'output',
                   'static', 'var')
 
@@ -61,7 +61,7 @@ class AnnotationSchemaSerializer(serializers.ModelSerializer):
     class Meta:
         """TemplateSerializer Meta options."""
         model = AnnotationSchema
-        fields = ('slug', 'title', 'created', 'modified', 'created_by', 'version', 'schema')
+        fields = ('slug', 'name', 'created', 'modified', 'contributor', 'version', 'schema')
 
 
 class TriggerSerializer(serializers.ModelSerializer):
@@ -71,7 +71,7 @@ class TriggerSerializer(serializers.ModelSerializer):
     class Meta:
         """TriggerSerializer Meta options."""
         model = Trigger
-        fields = ('slug', 'title', 'created', 'modified', 'created_by', 'trugger', 'trigger_input',
+        fields = ('slug', 'name', 'created', 'modified', 'contributor', 'trugger', 'trigger_input',
                   'tool', 'input', 'project', 'autorun')
 
 
@@ -82,4 +82,4 @@ class StorageSerializer(serializers.ModelSerializer):
     class Meta:
         """StorageSerializer Meta options."""
         model = Storage
-        fields = ('slug', 'title', 'created', 'modified', 'created_by', 'data', 'json')
+        fields = ('slug', 'name', 'created', 'modified', 'contributor', 'data', 'json')
