@@ -27,6 +27,9 @@ INSTALLED_APPS = (
     'django.contrib.contenttypes',
     'django.contrib.sessions',
 
+    'django_extensions',
+
+    'guardian',
     'mathfilters',
     'django_jenkins',
 
@@ -48,6 +51,13 @@ TEMPLATES = [
         },
     },
 ]
+
+AUTHENTICATION_BACKENDS = (
+    'django.contrib.auth.backends.ModelBackend',
+    'guardian.backends.ObjectPermissionBackend',
+)
+
+ANONYMOUS_USER_ID = -1
 
 # This is needed for runing concurrent tests on Jenkins
 toxenv = os.environ.get('TOXENV', '')

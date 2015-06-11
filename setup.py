@@ -14,11 +14,13 @@ setup(
     long_description=open('README.rst', 'r').read(),
     packages=find_packages(),
     dependency_links=[
-        'https://github.com/genialis/django-pgjsonb/tarball/master#egg=django-pgjsonb-0.0.12'
+        'https://github.com/genialis/django-pgjsonb/tarball/master#egg=django-pgjsonb-0.0.12',
+        'https://github.com/lukaszb/django-guardian/tarball/devel#egg=django-guardian-devel'
     ],
     install_requires=[
         'django>=1.8',
         'djangorestframework>=3.1',
+        'django-guardian==1.3',
         'django-filter>=0.9.2',
         'django-pgjsonb>=0.0.12',
         'django-jenkins==0.17.0',
