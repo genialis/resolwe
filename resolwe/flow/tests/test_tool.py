@@ -1,4 +1,6 @@
 # pylint: disable=missing-docstring
+from __future__ import absolute_import, division, print_function, unicode_literals
+
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
 from django.test import TestCase
