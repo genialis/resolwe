@@ -1,5 +1,5 @@
 """
-Custom permissions for Django REST Framework API for Flow models.
+Custom permissions for Flow API.
 
 """
 

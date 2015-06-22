@@ -90,5 +90,14 @@ FLOW = {
     'EXECUTOR': {
         'NAME': 'resolwe.flow.executors.local',
         'DATA_PATH': os.path.join(PROJECT_ROOT, 'data'),
-    }
+    },
+    'API': {
+        'AUTHORIZATION': 'resolwe.auth.genesis',
+    },
+}
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework.authentication.SessionAuthentication',
+    ),
 }
