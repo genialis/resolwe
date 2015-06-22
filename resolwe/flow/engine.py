@@ -113,26 +113,23 @@ class Manager(object):
             self.executor.run(data_id, script)
 
     def load_executor(self, executor_name):
-        """Look for a fully qualified workflow executor name."""
         try:
-            return import_module('%s' % executor_name)
-        except ImportError as e_user:
-            # The database executor wasn't found. Display a helpful error message
-            # listing all possible (built-in) database executors.
-            executor_dir = os.path.join(os.path.dirname(upath(__file__)), 'executors')
+            return import_module('{}'.format(executor_name))
+        except ImportError as ex:
+            # The database backend wasn't found. Display a helpful error message
+            # listing all possible (built-in) database backends.
+            executor_dir = os.path.join(os.path.dirname(upath(__file__)), 'backends')
 
             try:
-                builtin_executors = [
-                    name for _, name, _ in pkgutil.iter_modules([executor_dir])]
+                builtin_executors = [name for _, name, _ in pkgutil.iter_modules([executor_dir])]
             except EnvironmentError:
                 builtin_executors = []
-            if executor_name not in ['resolwe.flow.executors.%s' % b for b in
-                                    builtin_executors]:
-                executor_reprs = map(repr, sorted(builtin_executors))
-                error_msg = ("%r isn't an available dataflow executor.\n"
-                             "Try using 'resolwe.flow.executors.XXX', where XXX "
-                             "is one of:\n    %s\nError was: %s" %
-                             (executor_name, ", ".join(executor_reprs), e_user))
+            if executor_name not in ['resolwe.flow.backends.{}'.format(b) for b in builtin_executors]:
+                backend_reprs = map(repr, sorted(builtin_executors))
+                error_msg = ("{} isn't an available dataflow backend.\n"
+                             "Try using 'resolwe.flow.backends.XXX', where XXX is one of:\n"
+                             "    {}\n"
+                             "Error was: {}".format(executor_name, ", ".join(backend_reprs), ex))
                 raise ImproperlyConfigured(error_msg)
             else:
                 # If there's some other error, this must be an error in Django
