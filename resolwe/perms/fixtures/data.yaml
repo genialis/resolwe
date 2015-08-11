@@ -1,0 +1,51 @@
+---
+
+- model: flow.data
+  pk: 1
+  fields:
+    annotation: '{}'
+    annotation_schema: null
+    checksum: null
+    contributor: 1
+    created: 2015-01-01T09:00:00.000
+    finished: 2015-01-01T09:00:00.000
+    input: '{}'
+    modified: 2015-01-01T09:00:00.000
+    name: 'Test data'
+    output: '{}'
+    slug: 'test_data'
+    started: 2015-01-01T09:00:00.000
+    status: OK
+    tool: 1
+    tool_error: '[]'
+    tool_info: '[]'
+    tool_pid: null
+    tool_progress: 0
+    tool_rc: null
+    tool_warning: '[]'
+    version: 0
+
+- model: flow.data
+  pk: 2
+  fields:
+    annotation: '{}'
+    annotation_schema: null
+    checksum: null
+    contributor: 1
+    created: 2015-01-01T10:00:00.000
+    finished: 2015-01-01T10:00:00.000
+    input: '{}'
+    modified: 2015-01-01T10:00:00.000
+    name: 'Test data 2'
+    output: '{}'
+    slug: 'test_data_2'
+    started: 2015-01-01T09:00:00.000
+    status: OK
+    tool: 1
+    tool_error: '[]'
+    tool_info: '[]'
+    tool_pid: null
+    tool_progress: 0
+    tool_rc: null
+    tool_warning: '[]'
+    version: 0

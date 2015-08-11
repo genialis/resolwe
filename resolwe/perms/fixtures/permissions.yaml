@@ -1,0 +1,264 @@
+---
+
+##########
+# PUBLIC #
+##########
+
+# PROJECT 1
+
+- model: guardian.userobjectpermission
+  fields:
+    content_type: [flow, project]
+    object_pk: 1
+    permission: [view_project, flow, project]
+    user: -1
+
+- model: guardian.userobjectpermission
+  fields:
+    content_type: [flow, project]
+    object_pk: 1
+    permission: [download_project, flow, project]
+    user: -1
+
+# PROJECT 2
+
+# PROJECT 3
+
+- model: guardian.userobjectpermission
+  fields:
+    content_type: [flow, project]
+    object_pk: 3
+    permission: [view_project, flow, project]
+    user: -1
+
+# DATA 1
+
+- model: guardian.userobjectpermission
+  fields:
+    content_type: [flow, data]
+    object_pk: 1
+    permission: [view_data, flow, data]
+    user: -1
+
+- model: guardian.userobjectpermission
+  fields:
+    content_type: [flow, data]
+    object_pk: 1
+    permission: [download_data, flow, data]
+    user: -1
+
+# TOOL 1
+
+- model: guardian.userobjectpermission
+  fields:
+    content_type: [flow, tool]
+    object_pk: 1
+    permission: [view_tool, flow, tool]
+    user: -1
+
+#########
+# USER1 #
+#########
+
+# PROJECT 1
+
+- model: guardian.userobjectpermission
+  fields:
+    content_type: [flow, project]
+    object_pk: 1
+    permission: [view_project, flow, project]
+    user: 1
+
+- model: guardian.userobjectpermission
+  fields:
+    content_type: [flow, project]
+    object_pk: 1
+    permission: [edit_project, flow, project]
+    user: 1
+
+- model: guardian.userobjectpermission
+  fields:
+    content_type: [flow, project]
+    object_pk: 1
+    permission: [share_project, flow, project]
+    user: 1
+
+- model: guardian.userobjectpermission
+  fields:
+    content_type: [flow, project]
+    object_pk: 1
+    permission: [download_project, flow, project]
+    user: 1
+
+- model: guardian.userobjectpermission
+  fields:
+    content_type: [flow, project]
+    object_pk: 1
+    permission: [add_project, flow, project]
+    user: 1
+
+# PROJECT 2
+
+- model: guardian.userobjectpermission
+  fields:
+    content_type: [flow, project]
+    object_pk: 2
+    permission: [view_project, flow, project]
+    user: 1
+
+- model: guardian.userobjectpermission
+  fields:
+    content_type: [flow, project]
+    object_pk: 2
+    permission: [edit_project, flow, project]
+    user: 1
+
+- model: guardian.userobjectpermission
+  fields:
+    content_type: [flow, project]
+    object_pk: 2
+    permission: [download_project, flow, project]
+    user: 1
+
+- model: guardian.userobjectpermission
+  fields:
+    content_type: [flow, project]
+    object_pk: 2
+    permission: [add_project, flow, project]
+    user: 1
+
+# PROJECT 3
+
+- model: guardian.userobjectpermission
+  fields:
+    content_type: [flow, project]
+    object_pk: 3
+    permission: [edit_project, flow, project]
+    user: 1
+
+# DATA 1
+
+- model: guardian.userobjectpermission
+  fields:
+    content_type: [flow, data]
+    object_pk: 1
+    permission: [view_data, flow, data]
+    user: 1
+
+- model: guardian.userobjectpermission
+  fields:
+    content_type: [flow, data]
+    object_pk: 1
+    permission: [edit_data, flow, data]
+    user: 1
+
+- model: guardian.userobjectpermission
+  fields:
+    content_type: [flow, data]
+    object_pk: 1
+    permission: [share_data, flow, data]
+    user: 1
+
+- model: guardian.userobjectpermission
+  fields:
+    content_type: [flow, data]
+    object_pk: 1
+    permission: [download_data, flow, data]
+    user: 1
+
+# DATA 2
+
+- model: guardian.userobjectpermission
+  fields:
+    content_type: [flow, data]
+    object_pk: 2
+    permission: [view_data, flow, data]
+    user: 1
+
+- model: guardian.userobjectpermission
+  fields:
+    content_type: [flow, data]
+    object_pk: 2
+    permission: [edit_data, flow, data]
+    user: 1
+
+# TOOL 1
+
+- model: guardian.userobjectpermission
+  fields:
+    content_type: [flow, tool]
+    object_pk: 1
+    permission: [view_tool, flow, tool]
+    user: 1
+
+- model: guardian.userobjectpermission
+  fields:
+    content_type: [flow, tool]
+    object_pk: 1
+    permission: [share_tool, flow, tool]
+    user: 1
+
+# TOOL 2
+
+- model: guardian.userobjectpermission
+  fields:
+    content_type: [flow, tool]
+    object_pk: 2
+    permission: [view_tool, flow, tool]
+    user: 1
+
+#########
+# USER2 #
+#########
+
+# PROJECT 1
+
+- model: guardian.userobjectpermission
+  fields:
+    content_type: [flow, project]
+    object_pk: 1
+    permission: [view_project, flow, project]
+    user: 2
+
+- model: guardian.userobjectpermission
+  fields:
+    content_type: [flow, project]
+    object_pk: 1
+    permission: [edit_project, flow, project]
+    user: 2
+
+# PROJECT 2
+
+# PROJECT 3
+
+##########
+# GROUP1 #
+##########
+
+# PROJECT 1
+
+- model: guardian.groupobjectpermission
+  fields:
+    content_type: [flow, project]
+    object_pk: 1
+    permission: [share_project, flow, project]
+    group: 1
+
+# PROJECT 2
+
+- model: guardian.groupobjectpermission
+  fields:
+    content_type: [flow, project]
+    object_pk: 2
+    permission: [view_project, flow, project]
+    group: 1
+
+- model: guardian.groupobjectpermission
+  fields:
+    content_type: [flow, project]
+    object_pk: 2
+    permission: [edit_project, flow, project]
+    group: 1
+
+# PROJECT 3
+

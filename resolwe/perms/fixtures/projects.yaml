@@ -1,0 +1,37 @@
+---
+
+- model: flow.project
+  pk: 1
+  fields:
+    contributor: 1
+    created: 2015-01-01T09:00:00.000
+    description: ''
+    modified: 2015-01-01T09:00:00.000
+    name: Test project 1
+    settings: '{}'
+    slug: test_project1
+    version: 0
+
+- model: flow.project
+  pk: 2
+  fields:
+    contributor: 1
+    created: 2015-01-01T10:00:00.000
+    description: ''
+    modified: 2015-01-01T10:00:00.000
+    name: Test project 2
+    settings: '{}'
+    slug: test_project2
+    version: 0
+
+- model: flow.project
+  pk: 3
+  fields:
+    contributor: 1
+    created: 2015-01-01T11:00:00.000
+    description: ''
+    modified: 2015-01-01T11:00:00.000
+    name: Test project 3
+    settings: '{}'
+    slug: test_project3
+    version: 0

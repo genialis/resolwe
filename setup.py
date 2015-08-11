@@ -13,16 +13,13 @@ setup(
     license='Apache License (2.0)',
     long_description=open('README.rst', 'r').read(),
     packages=find_packages(),
-    dependency_links=[
-        'https://github.com/genialis/django-pgjsonb/tarball/master#egg=django-pgjsonb-0.0.12',
-        'https://github.com/lukaszb/django-guardian/tarball/devel#egg=django-guardian-devel'
-    ],
+    dependency_links=[],
     install_requires=[
         'django>=1.8',
         'djangorestframework>=3.1',
         'django-guardian==1.3',
         'django-filter>=0.9.2',
-        'django-pgjsonb>=0.0.12',
+        'django-pgjsonb>=0.0.16',
         'django-jenkins==0.17.0',
         'django-mathfilters>=0.3.0',
         'jsonfield>=1.0.3',

@@ -1,0 +1,71 @@
+---
+
+- model: "auth.user"
+  pk: 1
+  fields:
+    username: "user1"
+    first_name: "User"
+    last_name: "One"
+    is_active: true
+    is_superuser: false
+    is_staff: false
+    last_login: null
+    groups: []
+    user_permissions: []
+    password: "bkdf2_sha256$20000$Rb7dMrCTa4L5$hk9YlQZY88dIWd+OKxzbHw3vLDs4z4kEVpV07arYrRk="  # test_pwd1
+    email: "user.one@genialis.com"
+    date_joined: 2015-01-01T08:00:00.000
+
+- model: "auth.user"
+  pk: 2
+  fields:
+    username: "user2"
+    first_name: "User"
+    last_name: "Two"
+    is_active: true
+    is_superuser: false
+    is_staff: false
+    last_login: null
+    groups: []
+    user_permissions: []
+    password: "pbkdf2_sha256$20000$5FbS84QXxfXf$OnByrn8VR2mDWlnMJ4Y/I9F77Ne2Mp63o/OyKUzifS0="  # test_pwd2
+    email: "user.two@genialis.com"
+    date_joined: 2015-01-01T08:00:00.000
+
+- model: auth.group
+  pk: 1
+  fields:
+    name: Group1
+    permissions: []
+
+- model: "auth.user"
+  pk: 3
+  fields:
+    username: "user3"
+    first_name: "User"
+    last_name: "Three"
+    is_active: true
+    is_superuser: false
+    is_staff: false
+    last_login: null
+    groups: [1]
+    user_permissions: []
+    password: "pbkdf2_sha256$20000$60dzwj1U0GAG$6mZZ6PMjXiaOtbBG7debHEygbwHHLkPGcS43lnSQ/5o="  # test_pwd3
+    email: "user.three@genialis.com"
+    date_joined: 2015-01-01T08:00:00.000
+
+- model: "auth.user"
+  pk: 4
+  fields:
+    username: "admin"
+    first_name: "Admin"
+    last_name: ""
+    is_active: true
+    is_superuser: true
+    is_staff: true
+    last_login: null
+    groups: []
+    user_permissions: []
+    password: "pbkdf2_sha256$20000$SvLvB2f7996P$yYjyXIxarZCOWqUFVSf2MzYNwDcav8nu6Mg8M4U9QgA="  # admin_pwd
+    email: "admin@genialis.com"
+    date_joined: 2015-01-01T08:00:00.000

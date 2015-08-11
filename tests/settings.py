@@ -11,7 +11,6 @@ PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
 SECRET_KEY = 'secret'
 
 DEBUG = True
-TEMPLATE_DEBUG = DEBUG
 
 MIDDLEWARE_CLASSES = ()
 
@@ -19,6 +18,7 @@ MIDDLEWARE_CLASSES = ()
 PROJECT_APPS = (
     'resolwe',
     'resolwe.apps',
+    'resolwe.perms',
     'resolwe.flow',
 )
 
@@ -26,8 +26,6 @@ INSTALLED_APPS = (
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
-
-    'django_extensions',
 
     'guardian',
     'mathfilters',
@@ -92,12 +90,15 @@ FLOW = {
         'DATA_PATH': os.path.join(PROJECT_ROOT, 'data'),
     },
     'API': {
-        'AUTHORIZATION': 'resolwe.auth.genesis',
+        'PERMISSIONS': 'resolwe.perms.genesis',
     },
 }
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework.authentication.SessionAuthentication',
+    ),
+    'DEFAULT_FILTER_BACKENDS': (
+        'rest_framework.filters.DjangoObjectPermissionsFilter',
     ),
 }

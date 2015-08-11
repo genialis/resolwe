@@ -3,6 +3,23 @@
 Flow Models
 ===========
 
+Project Model
+*************
+
+Postgres model for the top level organisation of projects.
+
+.. autoclass:: resolwe.flow.models.Case
+    :members:
+
+
+Data objects
+************
+
+Postgres model for keeping the data structured.
+
+.. autoclass:: resolwe.flow.models.Data
+    :members:
+
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 import json
@@ -45,6 +62,9 @@ class BaseModel(models.Model):
     #: user that created the entry
     contributor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
 
+    def __str__(self):
+        return self.name
+
 
 class Project(BaseModel):
 
@@ -64,6 +84,8 @@ class Project(BaseModel):
     description = models.TextField(blank=True)
 
     settings = JSONField(default={})
+
+    public_tools = models.ManyToManyField('Tool')
 
     data = models.ManyToManyField('Data')
 
@@ -224,15 +246,6 @@ class Data(BaseModel):
     #: processor finished date date and time (set by :meth:`server.tasks.manager`)
     finished = models.DateTimeField(blank=True, null=True)
 
-    #: processor data type
-    type = models.CharField(max_length=100, validators=[
-        RegexValidator(
-            regex=r'^data:[a-z0-9:]+:$',
-            message='Type may be alphanumerics separated by colon',
-            code='invalid_data_type'
-        )
-    ])
-
     #: checksum field calculated on inputs
     checksum = models.CharField(max_length=40, validators=[
         RegexValidator(
@@ -240,7 +253,7 @@ class Data(BaseModel):
             message='Checksum is exactly 40 alphanumerics',
             code='invalid_checksum'
         )
-    ])
+    ], blank=True, null=True)
 
     status = models.CharField(max_length=2, choices=STATUS_CHOICES, default=STATUS_RESOLVING)
     """
@@ -252,15 +265,6 @@ class Data(BaseModel):
     - :attr:`Data.STATUS_PROCESSING` / ``'processing'``
     - :attr:`Data.STATUS_DONE` / ``'done'``
     - :attr:`Data.STATUS_ERROR` / ``'error'``
-    """
-
-    persistence = models.CharField(max_length=3, choices=Tool.PERSISTENCE_CHOICES, default=Tool.PERSISTENCE_RAW)
-    """
-    data importance/PERSISTENCE
-
-    - :attr:`Tool.PERSISTENCE_RAW` / ``'raw'``
-    - :attr:`Tool.PERSISTENCE_CACHED` / ``'cached'``
-    - :attr:`Tool.PERSISTENCE_TEMP` / ``'temp'``
     """
 
     #: tool used to compute the data object

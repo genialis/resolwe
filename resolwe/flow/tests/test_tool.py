@@ -12,21 +12,20 @@ class ManagerTest(TestCase):
 
     def setUp(self):
         self.u = get_user_model().objects.create_superuser('test', 'test@genialis.com', 'test')
+        self.data = {'slug': 'test-processor',
+                     'name': 'Test Processor',
+                     'contributor': self.u,
+                     'type': 'data:test',
+                     'version': 1}
 
     def test_unique(self):
-        t = {'slug': 'test-processor',
-             'name': 'Test Processor',
-             'contributor': self.u,
-             'type': 'data:test',
-             'version': 1}
+        Tool(**self.data).save()
 
-        Tool(**t).save()
-
-        t['version'] = 2
-        Tool(**t).save()
+        self.data['version'] = 2
+        Tool(**self.data).save()
 
         with transaction.atomic():
-            self.assertRaises(IntegrityError, Tool(**t).save)
+            self.assertRaises(IntegrityError, Tool(**self.data).save)
 
-        t['slug'] = 'test-processor-1'
-        Tool(**t).save()
+        self.data['slug'] = 'test-processor-1'
+        Tool(**self.data).save()
