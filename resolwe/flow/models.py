@@ -6,16 +6,16 @@ Flow Models
 Project Model
 *************
 
-Postgres model for the top level organisation of projects.
+Postgres ORM model for the organization of projects.
 
 .. autoclass:: resolwe.flow.models.Case
     :members:
 
 
-Data objects
-************
+Data model
+**********
 
-Postgres model for keeping the data structured.
+Postgres ORM model for keeping the data structured.
 
 .. autoclass:: resolwe.flow.models.Data
     :members:
@@ -110,6 +110,13 @@ class Tool(BaseModel):
         (PERSISTENCE_TEMP, 'Temp'),
     )
 
+    PRIORITY_HIGH = 'HI'
+    PRIORITY_NORMAL = 'NO'
+    PRIORITY_CHOICES = (
+        (PRIORITY_NORMAL, 'Normal'),
+        (PRIORITY_HIGH, 'High'),
+    )
+
     #: data type
     type = models.CharField(max_length=100, validators=[
         RegexValidator(
@@ -135,6 +142,15 @@ class Tool(BaseModel):
     - :attr:`Processor.PERSISTENCE_RAW` / ``'raw'``
     - :attr:`Processor.PERSISTENCE_CACHED` / ``'cached'``
     - :attr:`Processor.PERSISTENCE_TEMP` / ``'temp'``
+
+    """
+
+    priority = models.CharField(max_length=2, choices=PRIORITY_CHOICES, default=PRIORITY_NORMAL)
+    """
+    data PRIORITY
+
+    - :attr:`Processor.PRIORITY_NORMAL` / ``'normal'``
+    - :attr:`Processor.PRIORITY_HIGH` / ``'high'``
 
     """
 
