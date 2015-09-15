@@ -175,61 +175,36 @@ class ResolwePermissionsMixin(object):
         content_type = ContentType.objects.get_for_model(obj)
         full_permissions = list(zip(*obj._meta.permissions))[0]
 
-        if 'users' in data:
-            if 'add' in data['users']:
-                for user_id in data['users']['add']:
-                    user = self._fetch_user(user_id)
-                    if user:
-                        if data['users']['add'][user_id] == u'ALL':
-                            data['users']['add'][user_id] = full_permissions
-                        for perm in data['users']['add'][user_id]:
-                            assign_perm('{}_{}'.format(perm.lower(), content_type), user, obj)
+        def set_permissions(entity_type, perm_type):
+            perm_func = assign_perm if perm_type == 'add' else remove_perm
+            fetch = self._fetch_user if entity_type == 'users' else self._fetch_group
 
-            if 'remove' in data['users']:
-                for user_id in data['users']['remove']:
-                    user = self._fetch_user(user_id)
-                    if user:
-                        if data['users']['remove'][user_id] == 'ALL':
-                            data['users']['remove'][user_id] = full_permissions
-                        for perm in data['users']['remove'][user_id]:
-                            remove_perm('{}_{}'.format(perm.lower(), content_type), user, obj)
+            for entity_id in data.get(entity_type, {}).get(perm_type, []):
+                entity = fetch(entity_id)
+                if entity:
+                    perms = data[entity_type][perm_type][entity_id]
+                    if perms == u'ALL':
+                        perms = full_permissions
+                    for perm in perms:
+                        perm_func('{}_{}'.format(perm.lower(), content_type), entity, obj)
 
-        if 'groups' in data:
-            if 'add' in data['groups']:
-                for group_id in data['groups']['add']:
-                    group = self._fetch_group(group_id)
-                    if group:
-                        if data['groups']['add'][group_id] == u'ALL':
-                            data['groups']['add'][group_id] = full_permissions
-                        for perm in data['groups']['add'][group_id]:
-                            assign_perm('{}_{}'.format(perm.lower(), content_type), group, obj)
+        set_permissions('users', 'add')
+        set_permissions('users', 'remove')
+        set_permissions('groups', 'add')
+        set_permissions('groups', 'remove')
 
-            if 'remove' in data['groups']:
-                for group_id in data['groups']['remove']:
-                    group = self._fetch_group(group_id)
-                    if group:
-                        if data['groups']['remove'][group_id] == u'ALL':
-                            data['groups']['remove'][group_id] = full_permissions
-                        for perm in data['groups']['remove'][group_id]:
-                            remove_perm('{}_{}'.format(perm.lower(), content_type), group, obj)
-
-        if 'public' in data:
+        def set_public_permissions(perm_type):
+            perm_func = assign_perm if perm_type == 'add' else remove_perm
             user = AnonymousUser()
-            if 'add' in data['public']:
-                if data['public']['add'] == u'ALL':
-                    data['public']['add'] = self.filter_public_permisions(full_permissions)
-                else:
-                    data['public']['add'] = self.filter_public_permisions(data['public']['add'])
-                for perm in data['public']['add']:
-                    assign_perm('{}_{}'.format(perm.lower(), content_type), user, obj)
+            perms = data.get('public', {}).get(perm_type, [])
+            if perms == u'ALL':
+                perms = full_permissions
+            perms = self.filter_public_permisions(perms)
+            for perm in perms:
+                perm_func('{}_{}'.format(perm.lower(), content_type), user, obj)
 
-            if 'remove' in data['public']:
-                if data['public']['remove'] == u'ALL':
-                    data['public']['remove'] = self.filter_public_permisions(full_permissions)
-                else:
-                    data['public']['remove'] = self.filter_public_permisions(data['public']['remove'])
-                for perm in data['public']['remove']:
-                    remove_perm('{}_{}'.format(perm.lower(), content_type), user, obj)
+        set_public_permissions('add')
+        set_public_permissions('remove')
 
     @detail_route(methods=[u'post'], url_path='permissions')
     def detail_permissions(self, request, pk=None):
