@@ -12,7 +12,11 @@ SECRET_KEY = 'secret'
 
 DEBUG = True
 
-MIDDLEWARE_CLASSES = ()
+MIDDLEWARE_CLASSES = (
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+)
 
 # List of apps to test with django-jenkins
 PROJECT_APPS = (
@@ -26,7 +30,9 @@ INSTALLED_APPS = (
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
+    'django.contrib.staticfiles',
 
+    'rest_framework',
     'guardian',
     'mathfilters',
     'django_jenkins',
@@ -75,6 +81,8 @@ DATABASES = {
         }
     }
 }
+
+STATIC_URL = '/static/'
 
 JENKINS_TASKS = (
     'django_jenkins.tasks.run_pylint',
