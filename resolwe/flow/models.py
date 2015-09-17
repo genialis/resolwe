@@ -310,29 +310,29 @@ class Data(BaseModel):
     #: actual outputs of the processor
     output = JSONField(default={})
 
-    #: data annotation schema
-    annotation_schema = models.ForeignKey('AnnotationSchema', blank=True, null=True, on_delete=models.PROTECT)
+    #: data descriptor schema
+    descriptor_schema = models.ForeignKey('DescriptorSchema', blank=True, null=True, on_delete=models.PROTECT)
 
-    #: actual annotation
-    annotation = JSONField(default={})
+    #: actual descriptor
+    descriptor = JSONField(default={})
 
 
-class AnnotationSchema(BaseModel):
+class DescriptorSchema(BaseModel):
 
-    """Postgres model for storing templates."""
+    """Postgres model for storing descriptors."""
 
     class Meta(BaseModel.Meta):
-        """AnnotationSchea Meta options."""
+        """DescriptorSchema Meta options."""
         permissions = (
-            ("view_annotation", "Can view annotation"),
-            ("edit_annotation", "Can edit annotation"),
-            ("share_annotation", "Can share annotation"),
+            ("view_descriptor", "Can view descriptor"),
+            ("edit_descriptor", "Can edit descriptor"),
+            ("share_descriptor", "Can share descriptor"),
         )
 
     #: detailed description
     description = models.TextField(blank=True)
 
-    #: user annotation schema represented as a JSON object
+    #: user descriptor schema represented as a JSON object
     schema = JSONField(default={})
 
 
@@ -443,7 +443,7 @@ def validation_schema(name):
     """Return json schema for json validation."""
     schemas = {
         'processor': 'processorSchema.json',
-        'annotation': 'annotationSchema.json',
+        'descriptor': 'descriptorSchema.json',
         'field': 'fieldSchema.json',
         'type': 'typeSchema.json',
     }

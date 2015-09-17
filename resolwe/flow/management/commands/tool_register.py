@@ -13,7 +13,7 @@ from resolwe.flow.models import Tool, iterate_schema, validation_schema
 
 
 PROCESSOR_SCHEMA = validation_schema('processor')
-VAR_SCHEMA = validation_schema('annotation')
+VAR_SCHEMA = validation_schema('descriptor')
 
 
 class Command(BaseCommand):
