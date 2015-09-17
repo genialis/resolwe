@@ -3,8 +3,8 @@
 - model: flow.data
   pk: 1
   fields:
-    annotation: '{}'
-    annotation_schema: null
+    descriptor: '{}'
+    descriptor_schema: null
     checksum: null
     contributor: 1
     created: 2015-01-01T09:00:00.000
@@ -28,8 +28,8 @@
 - model: flow.data
   pk: 2
   fields:
-    annotation: '{}'
-    annotation_schema: null
+    descriptor: '{}'
+    descriptor_schema: null
     checksum: null
     contributor: 1
     created: 2015-01-01T10:00:00.000

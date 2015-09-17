@@ -140,8 +140,8 @@ class DataTestCase(ResolweAPITestCase):
         self.assertKeys(resp.data, [u'slug', u'name', u'created', u'modified', u'contributor',
                                     u'started', u'finished', u'checksum', u'status', u'tool',
                                     u'tool_progress', u'tool_rc', u'tool_info', u'tool_warning',
-                                    u'tool_error', u'input', u'output', u'annotation_schema',
-                                    u'annotation', u'id'])
+                                    u'tool_error', u'input', u'output', u'descriptor_schema',
+                                    u'descriptor', u'id'])
 
     def test_get_detail_no_perms(self):
         # public user w/o permissions

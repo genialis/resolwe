@@ -9,7 +9,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from rest_framework import serializers, status
 from rest_framework.exceptions import APIException
 from rest_framework.fields import empty
-from resolwe.flow.models import Project, Tool, Data, AnnotationSchema, Trigger, Storage
+from resolwe.flow.models import Project, Tool, Data, DescriptorSchema, Trigger, Storage
 
 
 class NoContentError(APIException):
@@ -86,17 +86,17 @@ class DataSerializer(ResolweBaseSerializer):
         read_only_fields = ('id', 'created', 'modified', 'started', 'finished', 'checksum',
                             'status', 'tool_progress', 'tool_rc', 'tool_info', 'tool_warning',
                             'tool_error')
-        fields = ('slug', 'name', 'contributor', 'input', 'output', 'annotation_schema',
-                  'annotation') + update_protected_fields + read_only_fields
+        fields = ('slug', 'name', 'contributor', 'input', 'output', 'descriptor_schema',
+                  'descriptor') + update_protected_fields + read_only_fields
 
 
-class AnnotationSchemaSerializer(ResolweBaseSerializer):
+class DescriptorSchemaSerializer(ResolweBaseSerializer):
 
-    """Serializer for AnnotationSchema objects."""
+    """Serializer for DescriptorSchema objects."""
 
     class Meta:
         """TemplateSerializer Meta options."""
-        model = AnnotationSchema
+        model = DescriptorSchema
         update_protected_fields = ('contributor', )
         read_only_fields = ('created', 'modified')
         fields = ('slug', 'name', 'version', 'schema') + update_protected_fields + read_only_fields

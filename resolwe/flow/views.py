@@ -26,9 +26,9 @@ from rest_framework.response import Response
 
 from guardian import shortcuts
 
-from .models import Project, Tool, Data, AnnotationSchema, Trigger, Storage
+from .models import Project, Tool, Data, DescriptorSchema, Trigger, Storage
 from .serializers import (ProjectSerializer, ToolSerializer, DataSerializer,
-                          AnnotationSchemaSerializer, TriggerSerializer, StorageSerializer)
+                          DescriptorSchemaSerializer, TriggerSerializer, StorageSerializer)
 
 
 def assign_perm(*args, **kwargs):
@@ -292,15 +292,15 @@ class DataViewSet(ResolweCreateDataModelMixin,
     permission_classes = (permissions_cls,)
 
 
-class AnnotationSchemaViewSet(mixins.RetrieveModelMixin,
+class DescriptorSchemaViewSet(mixins.RetrieveModelMixin,
                               mixins.ListModelMixin,
                               ResolwePermissionsMixin,
                               viewsets.GenericViewSet):
 
-    """API view for :class:`AnnotationSchema` objects."""
+    """API view for :class:`DescriptorSchema` objects."""
 
-    queryset = AnnotationSchema.objects.all()
-    serializer_class = AnnotationSchemaSerializer
+    queryset = DescriptorSchema.objects.all()
+    serializer_class = DescriptorSchemaSerializer
     permission_classes = (permissions_cls,)
 
 
