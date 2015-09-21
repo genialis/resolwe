@@ -401,13 +401,18 @@ def iterate_fields(fields, schema):
     :rtype: tuple
 
     """
+    if path_prefix is not None and path_prefix != '' and path_prefix[-1] != '.':
+        path_prefix += '.'
+
     schema_dict = {val['name']: val for val in schema}
     for field_id, properties in fields.items():
+        path = '{}{}'.format(path_prefix, field_id) if path_prefix is not None else None
         if 'group' in schema_dict[field_id]:
-            for _field_schema, _fields in iterate_fields(properties, schema_dict[field_id]['group']):
-                yield (_field_schema, _fields)
+            for rvals in iterate_fields(properties, schema_dict[field_id]['group'], path):
+                yield (rvals if path_prefix is not None else rvals[:2])
         else:
-            yield (schema_dict[field_id], fields)
+            rvals = (schema_dict[field_id], fields, path)
+            yield (rvals if path_prefix is not None else rvals[:2])
 
 
 def iterate_schema(fields, schema, path_prefix=''):
