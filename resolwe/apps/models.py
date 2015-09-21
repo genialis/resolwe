@@ -16,16 +16,32 @@ class Package(BaseModel):
 
     """Postgres model for storing packages."""
 
+    class Meta(BaseModel.Meta):
+        """App Meta options."""
+        permissions = (
+            ("view_package", "Can view packages"),
+            ("share_package", "Can share packages"),
+        )
+
     #: list of available modules (PostgreSQL ArrayField coming in Django 1.8)
     modules = JSONField()
 
     #: index page of the app
-    index = models.CharField(max_length=50)
+    index = models.CharField(max_length=1000)
 
 
 class App(BaseModel):
 
     """Postgres model for storing apps."""
+
+    class Meta(BaseModel.Meta):
+        """App Meta options."""
+        permissions = (
+            ("view_app", "Can view apps"),
+            ("edit_app", "Can edit apps"),
+            ("share_app", "Can share apps"),
+            ("add_app", "Can add apps"),
+        )
 
     #: parent package
     package = models.ForeignKey('Package')

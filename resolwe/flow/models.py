@@ -29,6 +29,8 @@ from django.conf import settings
 from django.core.validators import RegexValidator
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.staticfiles import finders
+from django.utils.text import slugify
+
 
 from jsonfield import JSONField
 from django_pgjsonb import JSONField as JSONBField
@@ -45,13 +47,13 @@ class BaseModel(models.Model):
         default_permissions = ()
 
     #: URL slug
-    slug = models.SlugField(max_length=50)
+    slug = models.SlugField(max_length=100)
 
     #: tool version
     version = models.PositiveIntegerField(default=0)
 
     #: object name
-    name = models.CharField(max_length=50)
+    name = models.CharField(max_length=100)
 
     #: creation date and time
     created = models.DateTimeField(auto_now_add=True)
@@ -64,6 +66,16 @@ class BaseModel(models.Model):
 
     def __str__(self):
         return self.name
+
+    @classmethod
+    def unique_slug(cls, slug):
+        slug = slugify(slug)
+        unique_slug = slug
+        i = 0
+        while cls.objects.filter(slug=unique_slug).exists():
+            i += 1
+            unique_slug = '{}_{}'.format(slug, i)
+        return unique_slug
 
 
 class Project(BaseModel):
@@ -324,9 +336,9 @@ class DescriptorSchema(BaseModel):
     class Meta(BaseModel.Meta):
         """DescriptorSchema Meta options."""
         permissions = (
-            ("view_descriptor", "Can view descriptor"),
-            ("edit_descriptor", "Can edit descriptor"),
-            ("share_descriptor", "Can share descriptor"),
+            ("view_descriptorschema", "Can view descriptor schema"),
+            ("edit_descriptorschema", "Can edit descriptor schema"),
+            ("share_descriptorschema", "Can share descriptor schema"),
         )
 
     #: detailed description
@@ -387,7 +399,7 @@ class Storage(BaseModel):
     json = JSONBField()
 
 
-def iterate_fields(fields, schema):
+def iterate_fields(fields, schema, path_prefix=None):
     """Iterate over all field values sub-fields.
 
     This will iterate over all field values. Some fields defined in the schema
