@@ -10,7 +10,7 @@ from django.utils.text import slugify
 
 from guardian.shortcuts import assign_perm, get_groups_with_perms, get_users_with_perms
 
-from resolwe.flow.models import Data, DescriptorSchema, Process, Project, Storage, dict_dot, iterate_fields
+from resolwe.flow.models import Data, DescriptorSchema, Process, Project, Storage, Trigger, dict_dot, iterate_fields
 from resolwe.apps.models import App, Package
 
 
@@ -26,8 +26,8 @@ class Command(BaseCommand):
         parser.add_argument('-p', '--password', type=str, help="MongoDB password")
         # TODO: add required=True for db-name after testing
         parser.add_argument('--db-name', type=str, help="MongoDB database name")
-        parser.add_argument('--host', type=str, default='postgres', help="MongoDB host")
-        parser.add_argument('--port', type=int, default=5432, help="MongoDB port")
+        parser.add_argument('--host', type=str, default='localhost', help="MongoDB host")
+        parser.add_argument('--port', type=int, default=27017, help="MongoDB port")
         parser.add_argument('--output', type=str, default=None, help="Output file for id mappings")
 
         # REMOVE AFTER TESTING
@@ -275,6 +275,29 @@ class Command(BaseCommand):
 
         self.id_mapping['storage'][str(storage[u'_id'])] = new.pk
 
+    def migrate_trigger(self, trigger):
+
+        new = Trigger()
+
+        new.name = trigger[u'name']
+        new.slug = new.unique_slug(new.name)
+        new.contributor = get_user_model().objects.get(id=trigger[u'author_id'])
+        new.type = trigger[u'type']
+        new.trigger = trigger[u'trigger']
+        new.trigger_input = trigger[u'trigger_input']
+        new.process = Process.objects.filter(
+            slug=self.process_slug(trigger[u'processor_name'])).order_by('-version').first()
+        new.input = trigger[u'input']
+        new.project = Project.objects.get(pk=self.id_mapping[u'project'][str(trigger[u'case_id'])])
+        new.autorun = trigger[u'autorun']
+        # XXX: Django will change this on create
+        new.created = trigger[u'date_created']
+        # XXX: Django will change this on save
+        new.modified = trigger[u'date_modified']
+        new.save()
+
+        self.id_mapping['trigger'][str(trigger[u'_id'])] = new.pk
+
     def migrate_package(self, package):
         new = Package()
         new.name = package[u'title']
@@ -341,7 +364,8 @@ class Command(BaseCommand):
 
         self.storage_index = {}
         self.descriptor_schema_index = {}
-        self.id_mapping = {_type: {} for _type in ['project', 'process', 'data', 'storage', 'package', 'app']}
+        self.id_mapping = {_type: {} for _type in ['project', 'process', 'data', 'storage',
+                                                   'trigger', 'package', 'app']}
         self.project_tags = {}
 
         # REMOVE AFTER TESTING ####################
@@ -377,6 +401,11 @@ class Command(BaseCommand):
         print('Migrating storage...', end='')
         for storage in client[options['db_name']].storage.find():
             self.migrate_storage(storage)
+        print('DONE')
+
+        print('Migrating trigger...', end='')
+        for trigger in client[options['db_name']].trigger.find():
+            self.migrate_trigger(trigger)
         print('DONE')
 
         print('Migrating package...', end='')
