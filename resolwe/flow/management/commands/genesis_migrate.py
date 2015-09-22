@@ -1,4 +1,3 @@
-"""Register tools"""
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import json
@@ -11,7 +10,7 @@ from django.utils.text import slugify
 
 from guardian.shortcuts import assign_perm, get_groups_with_perms, get_users_with_perms
 
-from resolwe.flow.models import Data, DescriptorSchema, Project, Tool, Storage, dict_dot, iterate_fields
+from resolwe.flow.models import Data, DescriptorSchema, Process, Project, Storage, dict_dot, iterate_fields
 from resolwe.apps.models import App, Package
 
 
@@ -51,7 +50,7 @@ class Command(BaseCommand):
         'dirty': 'DR',
     }
 
-    def tool_slug(self, name):
+    def process_slug(self, name):
         return slugify(name.replace(':', '-'))
 
     def convert_version(self, version):
@@ -116,29 +115,29 @@ class Command(BaseCommand):
 
         self.id_mapping['project'][str(project[u'_id'])] = new.pk
 
-    def migrate_tool(self, tool):
-        new = Tool()
-        new.name = tool[u'label']
-        new.slug = self.tool_slug(tool[u'name'])
-        new.version = self.convert_version(tool[u'version'])
-        new.type = tool[u'type']
-        new.description = tool[u'description']
-        new.contributor = get_user_model().objects.get(id=tool['author_id'])
-        if u'category' in tool:
-            new.category = tool[u'category']
+    def migrate_process(self, process):
+        new = Process()
+        new.name = process[u'label']
+        new.slug = self.process_slug(process[u'name'])
+        new.version = self.convert_version(process[u'version'])
+        new.type = process[u'type']
+        new.description = process[u'description']
+        new.contributor = get_user_model().objects.get(id=process['author_id'])
+        if u'category' in process:
+            new.category = process[u'category']
         # XXX: Django will change this on create
-        new.created = tool[u'date_created']
+        new.created = process[u'date_created']
         # XXX: Django will change this on save
-        new.modified = tool[u'date_modified']
-        new.output_schema = tool[u'output_schema']
-        new.input_schema = tool[u'input_schema']
-        new.persistence = self.persistence_dict[tool[u'persistence']]
-        new.adapter = tool[u'run']
+        new.modified = process[u'date_modified']
+        new.output_schema = process[u'output_schema']
+        new.input_schema = process[u'input_schema']
+        new.persistence = self.persistence_dict[process[u'persistence']]
+        new.run['script'] = process[u'run'][u'bash']
         new.save()
 
-        self.migrate_permissions(new, tool)
+        self.migrate_permissions(new, process)
 
-        self.id_mapping['tool'][str(tool[u'_id'])] = new.pk
+        self.id_mapping['process'][str(process[u'_id'])] = new.pk
 
     def migrate_data(self, data):
         contributor = get_user_model().objects.get(id=data[u'author_id'])
@@ -170,50 +169,50 @@ class Command(BaseCommand):
         if u'var' in data:
             descriptor.extend(data[u'var'])
 
-        # TOOL #########################################################
-        tool_slug = self.tool_slug(data[u'processor_name'])
-        tool_version = self.convert_version(data[u'processor_version'])
+        # PROCESS ######################################################
+        process_slug = self.process_slug(data[u'processor_name'])
+        process_version = self.convert_version(data[u'processor_version'])
         try:
-            tool = Tool.objects.get(slug=tool_slug, version=tool_version)
-        except Tool.DoesNotExist:
-            latest = Tool.objects.filter(slug=tool_slug).order_by('-version').first()
+            process = Process.objects.get(slug=process_slug, version=process_version)
+        except Process.DoesNotExist:
+            latest = Process.objects.filter(slug=process_slug).order_by('-version').first()
 
-            tool = Tool()
-            tool.name = latest.name
-            tool.slug = latest.slug
-            tool.category = latest.category
-            tool.description = latest.description
-            tool.contributor = latest.contributor
+            process = Process()
+            process.name = latest.name
+            process.slug = latest.slug
+            process.category = latest.category
+            process.description = latest.description
+            process.contributor = latest.contributor
 
-            tool.version = tool_version
-            tool.type = data[u'type']
-            tool.output_schema = data[u'output_schema']
+            process.version = process_version
+            process.type = data[u'type']
+            process.output_schema = data[u'output_schema']
             if u'input_schema' in data:
-                tool.input_schema = data[u'input_schema']
-            tool.persistence = self.persistence_dict[data[u'persistence']]
+                process.input_schema = data[u'input_schema']
+            process.persistence = self.persistence_dict[data[u'persistence']]
 
-            tool.adapter = 'gen-require common\ngen-error "Depricated tool, use the latest version."'
+            process.run['script'] = 'gen-require common\ngen-error "Depricated process, use the latest version."'
 
             # XXX
-            # tool.created =
-            # tool.modified =
+            # process.created =
+            # process.modified =
 
-            tool.save()
+            process.save()
 
-            # copy permissions from latest tool
+            # copy permissions from latest process
             for user, perms in get_users_with_perms(latest, attach_perms=True).iteritems():
                 for perm in perms:
-                    assign_perm(perm, user, tool)
+                    assign_perm(perm, user, process)
             for group, perms in get_groups_with_perms(latest, attach_perms=True).iteritems():
                 for perm in perms:
-                    assign_perm(perm, group, tool)
+                    assign_perm(perm, group, process)
 
         # DATA #########################################################
         new = Data()
         new.name = data[u'static'][u'name'] if u'name' in data[u'static'] else data[u'_id']
         new.slug = new.unique_slug(new.name)
         new.status = self.status_dict[data[u'status']]
-        new.tool = tool
+        new.process = process
         new.contributor = contributor
         new.input = data[u'input'] if u'input' in data else {}
         new.output = data[u'output']
@@ -321,7 +320,7 @@ class Command(BaseCommand):
     def clear_database(self):
         Project.objects.all().delete()
         Data.objects.all().delete()
-        Tool.objects.all().delete()
+        Process.objects.all().delete()
         Storage.objects.all().delete()
         DescriptorSchema.objects.all().delete()
         Package.objects.all().delete()
@@ -342,7 +341,7 @@ class Command(BaseCommand):
 
         self.storage_index = {}
         self.descriptor_schema_index = {}
-        self.id_mapping = {_type: {} for _type in ['project', 'tool', 'data', 'storage', 'package', 'app']}
+        self.id_mapping = {_type: {} for _type in ['project', 'process', 'data', 'storage', 'package', 'app']}
         self.project_tags = {}
 
         # REMOVE AFTER TESTING ####################
@@ -365,9 +364,9 @@ class Command(BaseCommand):
             self.migrate_project(project)
         print('DONE')
 
-        print('Migrating tools...', end='')
-        for tool in client[options['db_name']].processor.find():
-            self.migrate_tool(tool)
+        print('Migrating processes...', end='')
+        for process in client[options['db_name']].processor.find():
+            self.migrate_process(process)
         print('DONE')
 
         print('Migrating data...', end='')

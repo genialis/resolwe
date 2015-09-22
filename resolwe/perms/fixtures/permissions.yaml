@@ -47,13 +47,13 @@
     permission: [download_data, flow, data]
     user: -1
 
-# TOOL 1
+# PROCESS 1
 
 - model: guardian.userobjectpermission
   fields:
-    content_type: [flow, tool]
+    content_type: [flow, process]
     object_pk: 1
-    permission: [view_tool, flow, tool]
+    permission: [view_process, flow, process]
     user: -1
 
 #########
@@ -182,29 +182,29 @@
     permission: [edit_data, flow, data]
     user: 1
 
-# TOOL 1
+# PROCESS 1
 
 - model: guardian.userobjectpermission
   fields:
-    content_type: [flow, tool]
+    content_type: [flow, process]
     object_pk: 1
-    permission: [view_tool, flow, tool]
+    permission: [view_process, flow, process]
     user: 1
 
 - model: guardian.userobjectpermission
   fields:
-    content_type: [flow, tool]
+    content_type: [flow, process]
     object_pk: 1
-    permission: [share_tool, flow, tool]
+    permission: [share_process, flow, process]
     user: 1
 
-# TOOL 2
+# PROCESS 2
 
 - model: guardian.userobjectpermission
   fields:
-    content_type: [flow, tool]
+    content_type: [flow, process]
     object_pk: 2
-    permission: [view_tool, flow, tool]
+    permission: [view_process, flow, process]
     user: 1
 
 #########

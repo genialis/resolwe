@@ -49,7 +49,7 @@ class BaseModel(models.Model):
     #: URL slug
     slug = models.SlugField(max_length=100)
 
-    #: tool version
+    #: process version
     version = models.PositiveIntegerField(default=0)
 
     #: object name
@@ -97,20 +97,20 @@ class Project(BaseModel):
 
     settings = JSONField(default={})
 
-    public_tools = models.ManyToManyField('Tool')
+    public_processes = models.ManyToManyField('Process')
 
     data = models.ManyToManyField('Data')
 
 
-class Tool(BaseModel):
+class Process(BaseModel):
 
-    """Postgres model for storing tools."""
+    """Postgres model for storing processs."""
 
     class Meta(BaseModel.Meta):
-        """Tool Meta options."""
+        """Process Meta options."""
         permissions = (
-            ("view_tool", "Can view tool"),
-            ("share_tool", "Can share tool"),
+            ("view_process", "Can view process"),
+            ("share_process", "Can share process"),
         )
 
     PERSISTENCE_RAW = 'RAW'
@@ -171,7 +171,7 @@ class Tool(BaseModel):
 
     input_schema = models.TextField()
     """
-    tool input schema (describes input parameters, form layout **"Inputs"** for :attr:`Data.input`)
+    process input schema (describes input parameters, form layout **"Inputs"** for :attr:`Data.input`)
 
     Handling:
 
@@ -183,7 +183,7 @@ class Tool(BaseModel):
 
     output_schema = models.TextField()
     """
-    tool output schema (describes output JSON, form layout **"Results"** for :attr:`Data.output`)
+    process output schema (describes output JSON, form layout **"Results"** for :attr:`Data.output`)
 
     Handling:
 
@@ -205,9 +205,9 @@ class Tool(BaseModel):
 
     """
 
-    adapter = models.TextField()
+    run = JSONField(default={})
     """
-    tool command and environment description for internal use
+    process command and environment description for internal use
 
     Handling:
 
@@ -217,8 +217,8 @@ class Tool(BaseModel):
 
     Required definitions:
 
-    - ``runtime`` .. runtime environment to run the processor in
-    - ``bash`` .. command or interpreter with code to run
+    - ``engine`` .. engine to run the processor with
+    - ``script`` .. script with code to run
 
     """
 
@@ -295,26 +295,26 @@ class Data(BaseModel):
     - :attr:`Data.STATUS_ERROR` / ``'error'``
     """
 
-    #: tool used to compute the data object
-    tool = models.ForeignKey('Tool', on_delete=models.PROTECT)
+    #: process used to compute the data object
+    process = models.ForeignKey('Process', on_delete=models.PROTECT)
 
     #: process id
-    tool_pid = models.PositiveIntegerField(blank=True, null=True)
+    process_pid = models.PositiveIntegerField(blank=True, null=True)
 
     #: progress
-    tool_progress = models.PositiveSmallIntegerField(default=0)
+    process_progress = models.PositiveSmallIntegerField(default=0)
 
     #: return code
-    tool_rc = models.PositiveSmallIntegerField(blank=True, null=True)
+    process_rc = models.PositiveSmallIntegerField(blank=True, null=True)
 
     #: info log message
-    tool_info = ArrayField(models.CharField(max_length=255), default=[])
+    process_info = ArrayField(models.CharField(max_length=255), default=[])
 
     #: warning log message
-    tool_warning = ArrayField(models.CharField(max_length=255), default=[])
+    process_warning = ArrayField(models.CharField(max_length=255), default=[])
 
     #: error log message
-    tool_error = ArrayField(models.CharField(max_length=255), default=[])
+    process_error = ArrayField(models.CharField(max_length=255), default=[])
 
     #: actual inputs used by the processor
     input = JSONField(default={})
@@ -375,8 +375,8 @@ class Trigger(BaseModel):
     #: path to where the id is inserted
     trigger_input = models.CharField(max_length=100)
 
-    #: tool used
-    tool = models.ForeignKey('Tool', blank=True, null=True, on_delete=models.SET_NULL)
+    #: process used
+    process = models.ForeignKey('Process', blank=True, null=True, on_delete=models.SET_NULL)
 
     #: input settings of the processor
     input = JSONField(default={})

@@ -9,23 +9,23 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from resolwe.flow.engine import manager
-from resolwe.flow.models import Data, Tool
+from resolwe.flow.models import Data, Process
 
 
 class ManagerTest(TestCase):
     def setUp(self):
         u = get_user_model().objects.create_superuser('test', 'test@genialis.com', 'test')
-        t = Tool(slug='test-processor',
-                 name='Test Processor',
-                 contributor=u,
-                 type='data:test',
-                 version=1)
-        t.save()
+        p = Process(slug='test-processor',
+                    name='Test Process',
+                    contributor=u,
+                    type='data:test',
+                    version=1)
+        p.save()
 
         d = Data(slug='test-data',
                  name='Test Data',
                  contributor=u,
-                 tool=t)
+                 process=p)
         d.save()
 
         data_path = settings.FLOW['EXECUTOR']['DATA_PATH']

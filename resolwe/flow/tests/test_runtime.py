@@ -9,24 +9,24 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from resolwe.flow.engine import manager
-from resolwe.flow.models import Data, Tool
+from resolwe.flow.models import Data, Process
 
 
 class ManagerTest(TestCase):
     def setUp(self):
         u = get_user_model().objects.create_superuser('test', 'test@genialis.com', 'test')
-        t = Tool(slug='test-processor',
-                 name='Test Processor',
-                 contributor=u,
-                 type='data:test',
-                 version=1,
-                 adapter='{% if reads.type.startswith("data:reads:") %}')
-        t.save()
+        p = Process(slug='test-processor',
+                    name='Test Processor',
+                    contributor=u,
+                    type='data:test',
+                    version=1,
+                    run={'script': '{% if reads.type.startswith("data:reads:") %}'})
+        p.save()
 
         d = Data(slug='test-data',
                  name='Test Data',
                  contributor=u,
-                 tool=t)
+                 process=p)
         d.save()
 
         data_path = settings.FLOW['EXECUTOR']['DATA_PATH']
@@ -39,4 +39,4 @@ class ManagerTest(TestCase):
     def test_invalid_template(self):
         manager.communicate()
         self.assertEquals(Data.objects.get(slug='test-data').status, Data.STATUS_ERROR)
-        self.assertTrue('Error in tool script' in Data.objects.get(slug='test-data').tool_error[0])
+        self.assertTrue('Error in process script' in Data.objects.get(slug='test-data').process_error[0])

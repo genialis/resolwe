@@ -10,6 +10,6 @@
 ║   DATA 1    ║   X  │     X    ║   X  │   X  │   X   │     X    │XXXXX║  <== │      │       │    <==   │XXXXX║      │      │       │          │XXXXX║      │      │       │          │XXXXX║
 ║   DATA 2    ║      │          ║   X  │   X  │       │          │XXXXX║      │      │       │          │XXXXX║      │      │       │          │XXXXX║      │      │       │          │XXXXX║
 ╠═════════════╬══════╪══════════╬══════╪══════╪═══════╪══════════╪═════╬══════╪══════╪═══════╪══════════╪═════╬══════╪══════╪═══════╪══════════╪═════╬══════╪══════╪═══════╪══════════╪═════╣
-║   TOOL 1    ║   X  │XXXXXXXXXX║   X  │XXXXXX│   X   │XXXXXXXXXX│XXXXX║  <== │XXXXXX│       │XXXXXXXXXX│XXXXX║      │XXXXXX│       │XXXXXXXXXX│XXXXX║      │XXXXXX│       │XXXXXXXXXX│XXXXX║
-║   TOOL 2    ║      │XXXXXXXXXX║      │XXXXXX│       │XXXXXXXXXX│XXXXX║      │XXXXXX│       │XXXXXXXXXX│XXXXX║      │XXXXXX│       │XXXXXXXXXX│XXXXX║      │XXXXXX│       │XXXXXXXXXX│XXXXX║
+║  PROCESS 1  ║   X  │XXXXXXXXXX║   X  │XXXXXX│   X   │XXXXXXXXXX│XXXXX║  <== │XXXXXX│       │XXXXXXXXXX│XXXXX║      │XXXXXX│       │XXXXXXXXXX│XXXXX║      │XXXXXX│       │XXXXXXXXXX│XXXXX║
+║  PROCESS 2  ║      │XXXXXXXXXX║      │XXXXXX│       │XXXXXXXXXX│XXXXX║      │XXXXXX│       │XXXXXXXXXX│XXXXX║      │XXXXXX│       │XXXXXXXXXX│XXXXX║      │XXXXXX│       │XXXXXXXXXX│XXXXX║
 ╚═════════════╩══════╧══════════╩══════╧══════╧═══════╧══════════╧═════╩══════╧══════╧═══════╧══════════╧═════╩══════╧══════╧═══════╧══════════╧═════╩══════╧══════╧═══════╧══════════╧═════╝

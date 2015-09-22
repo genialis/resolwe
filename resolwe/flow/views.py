@@ -26,8 +26,8 @@ from rest_framework.response import Response
 
 from guardian import shortcuts
 
-from .models import Project, Tool, Data, DescriptorSchema, Trigger, Storage
-from .serializers import (ProjectSerializer, ToolSerializer, DataSerializer,
+from .models import Project, Process, Data, DescriptorSchema, Trigger, Storage
+from .serializers import (ProjectSerializer, ProcessSerializer, DataSerializer,
                           DescriptorSchemaSerializer, TriggerSerializer, StorageSerializer)
 
 
@@ -228,23 +228,23 @@ class ResolwePermissionsMixin(object):
         return Response(status=status.HTTP_501_NOT_IMPLEMENTED)
 
 
-class ResolweToolPermissionsMixin(ResolwePermissionsMixin):
+class ResolweProcessPermissionsMixin(ResolwePermissionsMixin):
 
     def _update_permission(self, obj, data):
-        super(ResolweToolPermissionsMixin, self)._update_permission(obj, data)
+        super(ResolweProcessPermissionsMixin, self)._update_permission(obj, data)
 
         if 'projects' in data:
             if 'add' in data['projects']:
                 for _id in data['projects']['add']:
                     try:
-                        Project.objects.get(pk=_id).public_tools.add(obj)
+                        Project.objects.get(pk=_id).public_processes.add(obj)
                         # obj.projects.add(Project.objects.get(pk=_id))
                     except Project.DoesNotExist:
                         pass
             if 'remove' in data['projects']:
                 for _id in data['projects']['remove']:
                     try:
-                        Project.objects.get(pk=_id).public_tools.remove(obj)
+                        Project.objects.get(pk=_id).public_processes.remove(obj)
                         # obj.projects.remove(Project.objects.get(pk=_id))
                     except Project.DoesNotExist:
                         pass
@@ -265,15 +265,15 @@ class ProjectViewSet(ResolweCreateModelMixin,
     permission_classes = (permissions_cls,)
 
 
-class ToolViewSet(mixins.RetrieveModelMixin,
-                  mixins.ListModelMixin,
-                  ResolweToolPermissionsMixin,
-                  viewsets.GenericViewSet):
+class ProcessViewSet(mixins.RetrieveModelMixin,
+                     mixins.ListModelMixin,
+                     ResolweProcessPermissionsMixin,
+                     viewsets.GenericViewSet):
 
-    """API view for :class:`Tool` objects."""
+    """API view for :class:`Process` objects."""
 
-    queryset = Tool.objects.all()
-    serializer_class = ToolSerializer
+    queryset = Process.objects.all()
+    serializer_class = ProcessSerializer
     permission_classes = (permissions_cls,)
 
 
