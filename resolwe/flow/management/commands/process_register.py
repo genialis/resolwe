@@ -1,4 +1,4 @@
-"""Register tools"""
+"""Register processes"""
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import jsonschema
@@ -9,7 +9,7 @@ from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 from django.db.models import Max
 
-from resolwe.flow.models import Tool, iterate_schema, validation_schema
+from resolwe.flow.models import Process, iterate_schema, validation_schema
 
 
 PROCESSOR_SCHEMA = validation_schema('processor')
@@ -18,14 +18,14 @@ VAR_SCHEMA = validation_schema('descriptor')
 
 class Command(BaseCommand):
 
-    """Register tools"""
+    """Register processes"""
 
-    help = 'Register tools'
+    help = 'Register processes'
 
     def add_arguments(self, parser):
-        parser.add_argument('-s', '--schemas', type=str, nargs='*', help="tool names to register")
+        parser.add_argument('-s', '--schemas', type=str, nargs='*', help="process names to register")
         parser.add_argument('-f', '--force', action='store_true', help="register also if version mismatch")
-        parser.add_argument('--path', help="path to look for tools")
+        parser.add_argument('--path', help="path to look for processes")
 
     def valid(self, instance, schema):
         """Validate schema."""
@@ -91,12 +91,12 @@ class Command(BaseCommand):
 
         return schema_matches
 
-    def register_tools(self, tool_schemas, user, force=False):
+    def register_processes(self, process_schemas, user, force=False):
         """Read and register processors."""
         log_processors = []
         log_templates = []
 
-        for p in tool_schemas:
+        for p in process_schemas:
             # Handle backwards compatiblity
             if 'slug' not in p:
                 p['slug'] = p['name']
@@ -120,49 +120,49 @@ class Command(BaseCommand):
             version = int(''.join('0' * (3 - len(v)) + v for v in p['version'].split('.')))
 
             try:
-                max_version_query = Tool.objects.filter(slug=slug).aggregate(Max('version'))
+                max_version_query = Process.objects.filter(slug=slug).aggregate(Max('version'))
                 if max_version_query['version__max'] is not None:
                     if max_version_query['version__max'] > version:
                         self.stderr.write("Skip processor {}: newer version installed".format(slug))
                         continue
 
-                tool = Tool.objects.get(slug=slug, version=version)
+                process = Process.objects.get(slug=slug, version=version)
                 if not force:
                     self.stdout.write("Skip processor {}: same version installed".format(slug))
                     continue
 
                 log_processors.append("Updated {}".format(slug))
 
-            except Tool.DoesNotExist:
-                tool = Tool()
-                tool.slug = slug
-                tool.contributor = user
+            except Process.DoesNotExist:
+                process = Process()
+                process.slug = slug
+                process.contributor = user
                 log_processors.append("Inserted {}".format(slug))
 
-            tool.name = p['name']
-            tool.type = p['type']
-            tool.version = version
+            process.name = p['name']
+            process.type = p['type']
+            process.version = version
 
             if 'description' in p:
-                tool.description = p['description']
+                process.description = p['description']
 
             if 'category' in p:
-                tool.category = p['category']
+                process.category = p['category']
 
             if 'persistence' in p:
                 persistence = {
-                    'RAW': Tool.PERSISTENCE_RAW,
-                    'CACHED': Tool.PERSISTENCE_CACHED,
-                    'TEMP': Tool.PERSISTENCE_TEMP,
+                    'RAW': Process.PERSISTENCE_RAW,
+                    'CACHED': Process.PERSISTENCE_CACHED,
+                    'TEMP': Process.PERSISTENCE_TEMP,
                 }
 
-                tool.persistence = persistence[p['persistence']]
+                process.persistence = persistence[p['persistence']]
 
             # TODO: Check if schemas validate with our JSON meta schema and Processor model docs.
-            tool.input_schema = p['input'] if 'input' in p else []
-            tool.output_schema = p['output'] if 'output' in p else []
-            tool.adapter = p['run']['bash']
-            tool.save()
+            process.input_schema = p['input'] if 'input' in p else []
+            process.output_schema = p['output'] if 'output' in p else []
+            process.adapter = p['run']['bash']
+            process.save()
 
         if len(log_processors) > 0:
             self.stdout.write("Processor Updates:")
@@ -180,7 +180,7 @@ class Command(BaseCommand):
         force = options.get('force')
 
         if not path:
-            raise NotImplementedError("Give path to tools folder (--path)")
+            raise NotImplementedError("Give path to processes folder (--path)")
 
         users = get_user_model().objects.filter(is_superuser=True).order_by('date_joined')
 
@@ -192,5 +192,5 @@ class Command(BaseCommand):
 
         # package_schemas = self.find_packages(schemas, path)
 
-        tool_schemas = self.find_schemas(path, schemas)
-        self.register_tools(tool_schemas, user_admin, force)
+        process_schemas = self.find_schemas(path, schemas)
+        self.register_processes(process_schemas, user_admin, force)

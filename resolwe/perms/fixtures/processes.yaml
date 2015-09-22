@@ -1,14 +1,14 @@
 ---
 
-- model: flow.tool
+- model: flow.process
   pk: 1
   fields:
-    adapter:
-      run: test
+    run:
+      script: test
     category: 'test:category:2'
     contributor: 1
     created: 2015-01-01T10:00:00.000
-    description: Test tool 2
+    description: Test process 2
     input_schema:
       - name: test_input_field
         label: test_input_field label
@@ -17,22 +17,22 @@
         label: test_boolean_field label
         type: 'basic:boolean:'
     modified: 2015-01-01T10:00:00.000
-    name: 'test.tool'
+    name: 'test.process'
     output_schema: ''
     persistence: RAW
-    slug: 'test_tool'
+    slug: 'test_process'
     type: 'data:test:'
     version: 1
 
-- model: flow.tool
+- model: flow.process
   pk: 2
   fields:
-    adapter:
-      run: test
+    run:
+      script: test
     category: 'test:category:'
     contributor: 1
     created: 2015-01-01T09:00:00.000
-    description: Test tool
+    description: Test process
     input_schema:
       - name: uploadfile
         type: 'basic:file:'

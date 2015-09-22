@@ -27,7 +27,7 @@ def dependency_status(data):
     None .. other
 
     """
-    for field_schema, fields in iterate_fields(data.input, data.tool.input_schema):
+    for field_schema, fields in iterate_fields(data.input, data.process.input_schema):
         if (field_schema['type'].lower().startswith('data:') or
                 field_schema['type'].lower().startswith('list:data:')):
             name = field_schema['name']
@@ -53,7 +53,7 @@ def dependency_status(data):
 
 class Manager(object):
 
-    """Manager handles tool job execution."""
+    """Manager handles process job execution."""
 
     def __init__(self):
         self.executor = self.load_executor(settings.FLOW['EXECUTOR']['NAME']).FlowExecutor()
@@ -69,8 +69,8 @@ class Manager(object):
 
                     if dep_status == Data.STATUS_ERROR:
                         data.status = Data.STATUS_ERROR
-                        data.tool_error.append("One or more inputs have status ERROR")
-                        data.tool_rc = 1
+                        data.process_error.append("One or more inputs have status ERROR")
+                        data.process_rc = 1
                         data.save()
                         continue
 
@@ -79,10 +79,10 @@ class Manager(object):
                         data.save()
                         continue
 
-                    script_template = data.tool.adapter
+                    script_template = data.process.run.get('script', '')
                     inputs = data.input.copy()
-                    hydrate_input_references(inputs, data.tool.input_schema)
-                    # hydrate_input_uploads(inputs, data.tool.input_schema)
+                    hydrate_input_references(inputs, data.process.input_schema)
+                    # hydrate_input_uploads(inputs, data.process.input_schema)
 
                     info = {}
                     # info['case_ids'] = data.case_ids
@@ -96,7 +96,7 @@ class Manager(object):
                                                    script_template).render(template.Context(inputs))
                     except template.TemplateSyntaxError as ex:
                         data.status = Data.STATUS_ERROR
-                        data.tool_error.append('Error in tool script: {}'.format(ex))
+                        data.process_error.append('Error in process script: {}'.format(ex))
                         data.save()
                         continue
 

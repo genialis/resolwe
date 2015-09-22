@@ -59,14 +59,14 @@ class FlowExecutor(BaseFlowExecutor):
         Data.objects.filter(id=data_id).update(
             status=Data.STATUS_PROCESSING,
             started=datetime.datetime.utcnow(),
-            tool_pid=proc.pid)
+            process_pid=proc.pid)
 
         # Run processor and handle intermediate results
         proc.stdin.write(os.linesep.join(['set -x', 'set +B', script, 'exit']) + os.linesep)
         spawn_processors = []
         output = {}
-        tool_error, tool_warning, tool_info = [], [], []
-        tool_progress, tool_rc = 0, 0
+        process_error, process_warning, process_info = [], [], []
+        process_progress, process_rc = 0, 0
 
         # read processor output
         try:
@@ -91,25 +91,25 @@ class FlowExecutor(BaseFlowExecutor):
                             for key, val in obj.iteritems():
                                 if key.startswith('proc.'):
                                     if key == 'proc.error':
-                                        tool_error.append(val)
-                                        if not tool_rc:
-                                            tool_rc = 1
-                                            updates['tool_rc'] = tool_rc
-                                        updates['tool_error'] = tool_error
+                                        process_error.append(val)
+                                        if not process_rc:
+                                            process_rc = 1
+                                            updates['process_rc'] = process_rc
+                                        updates['process_error'] = process_error
                                         updates['status'] = Data.STATUS_ERROR
                                     elif key == 'proc.warning':
-                                        tool_warning.append(val)
-                                        updates['tool_warning'] = tool_warning
+                                        process_warning.append(val)
+                                        updates['process_warning'] = process_warning
                                     elif key == 'proc.info':
-                                        tool_info.append(val)
-                                        updates['tool_info'] = tool_info
+                                        process_info.append(val)
+                                        updates['process_info'] = process_info
                                     elif key == 'proc.rc':
-                                        tool_rc = int(val)
-                                        updates['tool_rc'] = tool_rc
+                                        process_rc = int(val)
+                                        updates['process_rc'] = process_rc
                                         updates['status'] = Data.STATUS_ERROR
                                     elif key == 'proc.progress':
-                                        tool_progress = int(float(val) * 100)
-                                        updates['tool_progress'] = tool_progress
+                                        process_progress = int(float(val) * 100)
+                                        updates['process_progress'] = process_progress
                                 else:
                                     dict_dot(output, key, val)
                                     updates['output'] = output
@@ -118,7 +118,7 @@ class FlowExecutor(BaseFlowExecutor):
                             updates['modified'] = datetime.datetime.utcnow()
                             Data.objects.filter(id=data_id).update(**updates)
 
-                        if tool_rc > 0:
+                        if process_rc > 0:
                             log_file.close()
                             json_file.close()
                             os.chdir(CWD)
@@ -148,19 +148,19 @@ class FlowExecutor(BaseFlowExecutor):
 
         proc.wait()
 
-        if tool_rc < proc.returncode:
-            tool_rc = proc.returncode
+        if process_rc < proc.returncode:
+            process_rc = proc.returncode
 
-        if tool_rc == 0:
+        if process_rc == 0:
             Data.objects.filter(id=data_id).update(
                 status=Data.STATUS_DONE,
-                tool_progress=100,
+                process_progress=100,
                 finished=datetime.datetime.utcnow())
         else:
             Data.objects.filter(id=data_id).update(
                 status=Data.STATUS_ERROR,
-                tool_progress=100,
-                tool_rc=tool_rc,
+                process_progress=100,
+                process_rc=process_rc,
                 finished=datetime.datetime.utcnow())
 
         # try:

@@ -19,7 +19,7 @@ MESSAGES = {
 
 
 class DataTestCase(ResolweAPITestCase):
-    fixtures = ['users.yaml', 'projects.yaml', 'permissions.yaml', 'tools.yaml', 'data.yaml']
+    fixtures = ['users.yaml', 'projects.yaml', 'permissions.yaml', 'processes.yaml', 'data.yaml']
 
     def setUp(self):
         # self.data1 = Data.objects.get(pk=1)
@@ -31,7 +31,7 @@ class DataTestCase(ResolweAPITestCase):
             'name': 'New data',
             'slug': 'new_data',
             'projects': ['1'],
-            'tool': '1',
+            'process': '1',
         }
 
         super(DataTestCase, self).setUp()
@@ -75,10 +75,10 @@ class DataTestCase(ResolweAPITestCase):
         self.assertEqual(resp.data[u'projects'][0], u'Invalid pk "42" - object does not exist.')
 
         self.data['projects'] = ['1']
-        self.data['tool'] = '42'
+        self.data['process'] = '42'
         resp = self._post(self.data, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(resp.data[u'tool'][0], u'Invalid pk "42" - object does not exist.')
+        self.assertEqual(resp.data[u'process'][0], u'Invalid pk "42" - object does not exist.')
 
         self.assertEqual(Data.objects.count(), data_n)
 
@@ -102,11 +102,11 @@ class DataTestCase(ResolweAPITestCase):
         self.data['finished'] = now - timedelta(days=90)
         self.data['checksum'] = 'fake'
         self.data['status'] = 'DE'
-        self.data['tool_progress'] = 2
-        self.data['tool_rc'] = 18
-        self.data['tool_info'] = 'Spam'
-        self.data['tool_warning'] = 'More spam'
-        self.data['tool_error'] = 'Even more spam'
+        self.data['process_progress'] = 2
+        self.data['process_rc'] = 18
+        self.data['process_info'] = 'Spam'
+        self.data['process_warning'] = 'More spam'
+        self.data['process_error'] = 'Even more spam'
         self.data['contributor_id'] = 2
 
         resp = self._post(self.data, self.user1)
@@ -121,11 +121,11 @@ class DataTestCase(ResolweAPITestCase):
         self.assertEqual(resp.data['finished'], None)
         self.assertEqual(resp.data['checksum'], None)  # TODO: Add checksum when implemented
         self.assertEqual(resp.data['status'], 'RE')
-        self.assertEqual(resp.data['tool_progress'], 0)
-        self.assertEqual(resp.data['tool_rc'], None)
-        self.assertEqual(resp.data['tool_info'], [])
-        self.assertEqual(resp.data['tool_warning'], [])
-        self.assertEqual(resp.data['tool_error'], [])
+        self.assertEqual(resp.data['process_progress'], 0)
+        self.assertEqual(resp.data['process_rc'], None)
+        self.assertEqual(resp.data['process_info'], [])
+        self.assertEqual(resp.data['process_warning'], [])
+        self.assertEqual(resp.data['process_error'], [])
         self.assertEqual(resp.data['contributor'], 1)
 
     def test_get_detail(self):
@@ -138,9 +138,9 @@ class DataTestCase(ResolweAPITestCase):
         resp = self._get_detail(1, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertKeys(resp.data, [u'slug', u'name', u'created', u'modified', u'contributor',
-                                    u'started', u'finished', u'checksum', u'status', u'tool',
-                                    u'tool_progress', u'tool_rc', u'tool_info', u'tool_warning',
-                                    u'tool_error', u'input', u'output', u'descriptor_schema',
+                                    u'started', u'finished', u'checksum', u'status', u'process',
+                                    u'process_progress', u'process_rc', u'process_info', u'process_warning',
+                                    u'process_error', u'input', u'output', u'descriptor_schema',
                                     u'descriptor', u'id'])
 
     def test_get_detail_no_perms(self):
@@ -219,39 +219,39 @@ class DataTestCase(ResolweAPITestCase):
         self.assertEqual(d.status, 'OK')
         self.assertEqual(d.modified, datetime(2015, 1, 1, 9, 0, 0))
 
-        # `tool_progress`
-        resp = self._patch(1, {'tool_progress': 2}, self.user1)
+        # `process_progress`
+        resp = self._patch(1, {'process_progress': 2}, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
         d = Data.objects.get(pk=1)
-        self.assertEqual(d.tool_progress, 0)
+        self.assertEqual(d.process_progress, 0)
         self.assertEqual(d.modified, datetime(2015, 1, 1, 9, 0, 0))
 
-        # `tool_rc`
-        resp = self._patch(1, {'tool_rc': 18}, self.user1)
+        # `process_rc`
+        resp = self._patch(1, {'process_rc': 18}, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
         d = Data.objects.get(pk=1)
-        self.assertEqual(d.tool_rc, None)
+        self.assertEqual(d.process_rc, None)
         self.assertEqual(d.modified, datetime(2015, 1, 1, 9, 0, 0))
 
-        # `tool_info`
-        resp = self._patch(1, {'tool_info': 'Spam'}, self.user1)
+        # `process_info`
+        resp = self._patch(1, {'process_info': 'Spam'}, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
         d = Data.objects.get(pk=1)
-        self.assertEqual(d.tool_info, [])
+        self.assertEqual(d.process_info, [])
         self.assertEqual(d.modified, datetime(2015, 1, 1, 9, 0, 0))
 
-        # `tool_warning`
-        resp = self._patch(1, {'tool_warning': 'More spam'}, self.user1)
+        # `process_warning`
+        resp = self._patch(1, {'process_warning': 'More spam'}, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
         d = Data.objects.get(pk=1)
-        self.assertEqual(d.tool_warning, [])
+        self.assertEqual(d.process_warning, [])
         self.assertEqual(d.modified, datetime(2015, 1, 1, 9, 0, 0))
 
-        # `tool_error`
-        resp = self._patch(1, {'tool_error': 'Even more spam'}, self.user1)
+        # `process_error`
+        resp = self._patch(1, {'process_error': 'Even more spam'}, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
         d = Data.objects.get(pk=1)
-        self.assertEqual(d.tool_error, [])
+        self.assertEqual(d.process_error, [])
         self.assertEqual(d.modified, datetime(2015, 1, 1, 9, 0, 0))
 
         # `contributor`
@@ -261,11 +261,11 @@ class DataTestCase(ResolweAPITestCase):
         self.assertEqual(d.contributor_id, 1)
         self.assertEqual(d.modified, datetime(2015, 1, 1, 9, 0, 0))
 
-        # `tool`
-        resp = self._patch(1, {'tool': 2}, self.user1)
+        # `process`
+        resp = self._patch(1, {'process': 2}, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
         d = Data.objects.get(pk=1)
-        self.assertEqual(d.tool_id, 1)
+        self.assertEqual(d.process_id, 1)
         self.assertEqual(d.modified, datetime(2015, 1, 1, 9, 0, 0))
 
     def test_delete(self):

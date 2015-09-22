@@ -16,13 +16,13 @@
     slug: 'test_data'
     started: 2015-01-01T09:00:00.000
     status: OK
-    tool: 1
-    tool_error: '[]'
-    tool_info: '[]'
-    tool_pid: null
-    tool_progress: 0
-    tool_rc: null
-    tool_warning: '[]'
+    process: 1
+    process_error: '[]'
+    process_info: '[]'
+    process_pid: null
+    process_progress: 0
+    process_rc: null
+    process_warning: '[]'
     version: 0
 
 - model: flow.data
@@ -41,11 +41,11 @@
     slug: 'test_data_2'
     started: 2015-01-01T09:00:00.000
     status: OK
-    tool: 1
-    tool_error: '[]'
-    tool_info: '[]'
-    tool_pid: null
-    tool_progress: 0
-    tool_rc: null
-    tool_warning: '[]'
+    process: 1
+    process_error: '[]'
+    process_info: '[]'
+    process_pid: null
+    process_progress: 0
+    process_rc: null
+    process_warning: '[]'
     version: 0

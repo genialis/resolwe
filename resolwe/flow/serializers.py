@@ -9,7 +9,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from rest_framework import serializers, status
 from rest_framework.exceptions import APIException
 from rest_framework.fields import empty
-from resolwe.flow.models import Project, Tool, Data, DescriptorSchema, Trigger, Storage
+from resolwe.flow.models import Process, Project, Data, DescriptorSchema, Trigger, Storage
 
 
 class NoContentError(APIException):
@@ -61,17 +61,16 @@ class ProjectSerializer(ResolweBaseSerializer):
         fields = ('slug', 'name', 'description', 'settings') + update_protected_fields + read_only_fields
 
 
-class ToolSerializer(ResolweBaseSerializer):
+class ProcessSerializer(ResolweBaseSerializer):
 
-    """Serializer for Tool objects."""
+    """Serializer for Process objects."""
 
     class Meta:
-        """ToolSerializer Meta options."""
-        model = Tool
+        """ProcessSerializer Meta options."""
+        model = Process
         update_protected_fields = ('contributor', )
         read_only_fields = ('slug', 'name', 'created', 'modified', 'version', 'type', 'category',
-                            'persistence', 'description', 'input_schema', 'output_schema',
-                            'adapter', )
+                            'persistence', 'description', 'input_schema', 'output_schema', 'run', )
         fields = update_protected_fields + read_only_fields
 
 
@@ -82,10 +81,10 @@ class DataSerializer(ResolweBaseSerializer):
     class Meta:
         """DataSerializer Meta options."""
         model = Data
-        update_protected_fields = ('contributor', 'tool')
+        update_protected_fields = ('contributor', 'process')
         read_only_fields = ('id', 'created', 'modified', 'started', 'finished', 'checksum',
-                            'status', 'tool_progress', 'tool_rc', 'tool_info', 'tool_warning',
-                            'tool_error')
+                            'status', 'process_progress', 'process_rc', 'process_info',
+                            'process_warning', 'process_error')
         fields = ('slug', 'name', 'contributor', 'input', 'output', 'descriptor_schema',
                   'descriptor') + update_protected_fields + read_only_fields
 
@@ -111,7 +110,7 @@ class TriggerSerializer(ResolweBaseSerializer):
         model = Trigger
         update_protected_fields = ('contributor', )
         read_only_fields = ('created', 'modified')
-        fields = ('slug', 'name', 'trigger', 'trigger_input', 'tool', 'input', 'project',
+        fields = ('slug', 'name', 'trigger', 'trigger_input', 'process', 'input', 'project',
                   'autorun') + update_protected_fields + read_only_fields
 
 
