@@ -22,7 +22,7 @@ MIDDLEWARE_CLASSES = (
 PROJECT_APPS = (
     'resolwe',
     'resolwe.apps',
-    'resolwe.perms',
+    'resolwe.permissions',
     'resolwe.flow',
 )
 
@@ -98,7 +98,7 @@ FLOW = {
         'DATA_PATH': os.path.join(PROJECT_ROOT, 'data'),
     },
     'API': {
-        'PERMISSIONS': 'resolwe.perms.genesis',
+        'PERMISSIONS': 'resolwe.permissions.genesis',
     },
 }
 
