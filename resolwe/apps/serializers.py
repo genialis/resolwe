@@ -6,27 +6,30 @@ Apps Serializers
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-from rest_framework import serializers
-
+from ..flow.serializers import ResolweBaseSerializer
 from .models import Package, App
 
 
-class PackageSerializer(serializers.ModelSerializer):
+class PackageSerializer(ResolweBaseSerializer):
 
     """Serializer for Package objects."""
 
     class Meta:
         """PackageSerializer Meta options."""
         model = Package
-        fields = ('slug', 'title', 'created', 'modified', 'created_by', 'version', 'modules', 'index')
+        update_protected_fields = ('contributor',)
+        read_only_fields = ('id', 'created', 'modified', 'version', 'index', 'modules')
+        fields = ('slug', 'title') + update_protected_fields + read_only_fields
 
 
-class AppSerializer(serializers.ModelSerializer):
+class AppSerializer(ResolweBaseSerializer):
 
     """Serializer for Apps objects."""
 
     class Meta:
         """AppSerializer Meta options."""
         model = App
-        fields = ('slug', 'title', 'created', 'modified', 'created_by', 'package', 'modules', 'projects',
-                  'default_project', 'description')
+        update_protected_fields = ('contributor',)
+        read_only_fields = ('id', 'created', 'modified')
+        fields = ('slug', 'title', 'package', 'modules', 'projects', 'default_project',
+                  'description') + update_protected_fields + read_only_fields
