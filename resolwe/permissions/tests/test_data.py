@@ -15,6 +15,7 @@ DATE_FORMAT = r'%Y-%m-%dT%H:%M:%S.%f'
 MESSAGES = {
     u'NOT_FOUND': u'Not found.',
     # u'NO_PERMISSION': u'You do not have permission to perform this action.',
+    u'ONE_ID_REQUIRED': 'Exactly one id required on create.',
 }
 
 
@@ -127,6 +128,13 @@ class DataTestCase(ResolweAPITestCase):
         self.assertEqual(resp.data['process_warning'], [])
         self.assertEqual(resp.data['process_error'], [])
         self.assertEqual(resp.data['contributor'], 1)
+
+    def test_post_multiple_projects(self):
+        self.data['projects'].append('2')
+
+        resp = self._post(self.data, self.user1)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(resp.data[u'projects'], MESSAGES['ONE_ID_REQUIRED'])
 
     def test_get_detail(self):
         # public user w/ perms

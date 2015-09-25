@@ -35,6 +35,14 @@ class PermissionsTestCase(ResolweAPITestCase):
             }
         }
 
+        # user w/o perms
+        user_perms_n = UserObjectPermission.objects.count()
+        group_perms_n = GroupObjectPermission.objects.count()
+        resp = self._detail_permissions(2, data, self.user1)
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(UserObjectPermission.objects.count(), user_perms_n)
+        self.assertEqual(GroupObjectPermission.objects.count(), group_perms_n)
+
         # add new permissions
         user_perms_n = UserObjectPermission.objects.count()
         group_perms_n = GroupObjectPermission.objects.count()
@@ -62,15 +70,25 @@ class PermissionsTestCase(ResolweAPITestCase):
         data = {
             'users': {
                 'remove': {
-                    2: ['view', 'edit']
+                    2: ['view', 'edit'],
+                    42: ['view'],
                 }
             },
             'groups': {
                 'remove': {
-                    1: ['share']
+                    1: ['share'],
+                    42: ['edit'],
                 }
             }
         }
+
+        # user w/o perms
+        user_perms_n = UserObjectPermission.objects.count()
+        group_perms_n = GroupObjectPermission.objects.count()
+        resp = self._detail_permissions(2, data, self.user1)
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(UserObjectPermission.objects.count(), user_perms_n)
+        self.assertEqual(GroupObjectPermission.objects.count(), group_perms_n)
 
         # remove existing permissions
         user_perms_n = UserObjectPermission.objects.count()
@@ -90,6 +108,13 @@ class PermissionsTestCase(ResolweAPITestCase):
 
         # invalid permissions
         data = {'users': {'remove': {2: ['delete']}}}
+        user_perms_n = UserObjectPermission.objects.count()
+        resp = self._detail_permissions(1, data, self.user1)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(UserObjectPermission.objects.count(), user_perms_n)
+
+        # non-existing user
+        data = {'users': {'remove': {42: ['edit']}}}
         user_perms_n = UserObjectPermission.objects.count()
         resp = self._detail_permissions(1, data, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
