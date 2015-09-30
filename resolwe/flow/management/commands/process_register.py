@@ -92,13 +92,13 @@ class Command(BaseCommand):
             slug = p['slug']
             version = p['version']
 
-            try:
-                max_version_query = Process.objects.filter(slug=slug).aggregate(Max('version'))
-                if max_version_query['version__max'] is not None:
-                    if max_version_query['version__max'] > version:
-                        self.stderr.write("Skip processor {}: newer version installed".format(slug))
-                        continue
+            max_version_query = Process.objects.filter(slug=slug).aggregate(Max('version'))
+            if max_version_query['version__max'] is not None:
+                if max_version_query['version__max'] > version:
+                    self.stderr.write("Skip processor {}: newer version installed".format(slug))
+                    continue
 
+            try:
                 process = Process.objects.get(slug=slug, version=version)
                 if not force:
                     self.stdout.write("Skip processor {}: same version installed".format(slug))
