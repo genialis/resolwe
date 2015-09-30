@@ -8,7 +8,10 @@ from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 from django.db.models import Max
 
+from versionfield.utils import convert_version_string_to_int
+
 from resolwe.apps.models import Package
+from resolwe.flow.models import VERSION_NUMBER_BITS
 
 
 class Command(BaseCommand):
@@ -24,47 +27,19 @@ class Command(BaseCommand):
 
     def find_schemas(self, schema_path, filters=None):
         """Find schemas in packages that match filters."""
-        schema_matches = []
-
-        if not os.path.isdir(schema_path):
-            self.stdout.write("Invalid path {}".format(schema_path))
-            return
-
-        for filename in os.listdir(schema_path):
-            if not filename.endswith('.yml') and not filename.endswith('.yaml'):
-                continue
-
-            schema_file = os.path.join(schema_path, filename)
-            schemas = yaml.load(open(schema_file))
-            if not schemas:
-                self.stderr.write("Could not read YAML file {}".format(schema_file))
-                continue
-
-            schema_matches.extend(schema for schema in schemas if
-                                  not filters or schema.get('name', None) in filters or
-                                  schema.get('slug', None) in filters)
-
-        return schema_matches
-
-    def find_packages(self, filters=None, genpackages_path=None):
-        """Find package schemas in GenPackages that match the filters."""
         schema_matches = {}
 
-        if not genpackages_path:
-            raise NotImplementedError()
-            # genpackages_path = os.path.join(settings.PROJECT_ROOT, 'genpackages')
-
-        schema_files = [os.path.join(genpackages_path, name) for name in os.listdir(genpackages_path)]
+        schema_files = [os.path.join(schema_path, name) for name in os.listdir(schema_path)]
         schema_files = [os.path.join(path, 'package.yml') for path in schema_files if os.path.isdir(path)]
 
         for schema_file in schema_files:
             if not os.path.isfile(schema_file):
-                self.stdout.write("No package.yml found in {}".format(os.path.dirname(schema_file)))
+                print("No package.yml found in {}".format(os.path.dirname(schema_file)))
                 continue
 
             schema = yaml.load(open(schema_file))
             if not schema:
-                self.stderr.write("Could not read YAML file {}".format(schema_file))
+                print("Could not read YAML file {}".format(schema_file), file=self.stderr)
                 continue
 
             name = os.path.basename(os.path.dirname(schema_file))
@@ -73,87 +48,43 @@ class Command(BaseCommand):
 
         return schema_matches
 
-    def register_processes(self, process_schemas, user, force=False):
+    def register_packages(self, package_schemas, user, force=False):
         """Read and register processors."""
-        log_processors = []
-        log_templates = []
+        log_packages = []
 
-        for p in process_schemas:
-            # Handle backwards compatiblity
-            if 'slug' not in p:
-                p['slug'] = p['name']
-                p['name'] = p['label']
-
-            if p['type'][-1] != ':':
-                p['type'] += ':'
-
-            if 'category' in p and p['category'][-1] != ':':
-                p['category'] += ':'
-
-            for field in ['input', 'output', 'var', 'static']:
-                for schema, _, _ in iterate_schema({}, p[field] if field in p else {}):
-                    if schema['type'][-1] != ':':
-                        schema['type'] += ':'
-
-            if not self.valid(p, PROCESSOR_SCHEMA):
+        for package_file, package_schema in package_schemas.iteritems():
+            # Processor only GenPackage
+            if 'modules' not in package_schema:
                 continue
 
-            slug = p['slug']
-            version = int(''.join('0' * (3 - len(v)) + v for v in p['version'].split('.')))
+            package_schema['index'] = os.path.join(os.path.dirname(package_file), 'index.html')
 
-            try:
-                max_version_query = Process.objects.filter(slug=slug).aggregate(Max('version'))
-                if max_version_query['version__max'] is not None:
-                    if max_version_query['version__max'] > version:
-                        self.stderr.write("Skip processor {}: newer version installed".format(slug))
-                        continue
+            slug = package_schema['slug']
+            version = package_schema['version']
+            int_version = convert_version_string_to_int(version, VERSION_NUMBER_BITS)
 
-                process = Process.objects.get(slug=slug, version=version)
+            # `latest version` is returned as `int` so it has to be compared to `int_version`
+            latest_version = Package.objects.filter(slug=slug).aggregate(Max('version'))['version__max']
+            if latest_version is not None and latest_version > int_version:
+                self.stderr.write("Skip package {}: newer version installed".format(slug))
+                continue
+
+            package_query = Package.objects.filter(slug=slug, version=version)
+            if package_query.exists():
                 if not force:
-                    self.stdout.write("Skip processor {}: same version installed".format(slug))
+                    self.stdout.write("Skip package {}: same version installed".format(slug))
                     continue
 
-                log_processors.append("Updated {}".format(slug))
+                package_query.update(**package_schema)
+                log_packages.append("Updated {}".format(slug))
 
-            except Process.DoesNotExist:
-                process = Process()
-                process.slug = slug
-                process.contributor = user
-                log_processors.append("Inserted {}".format(slug))
+            else:
+                Package.objects.create(contributor=user, **package_schema)
+                log_packages.append("Inserted {}".format(slug))
 
-            process.name = p['name']
-            process.type = p['type']
-            process.version = version
-
-            if 'description' in p:
-                process.description = p['description']
-
-            if 'category' in p:
-                process.category = p['category']
-
-            if 'persistence' in p:
-                persistence = {
-                    'RAW': Process.PERSISTENCE_RAW,
-                    'CACHED': Process.PERSISTENCE_CACHED,
-                    'TEMP': Process.PERSISTENCE_TEMP,
-                }
-
-                process.persistence = persistence[p['persistence']]
-
-            # TODO: Check if schemas validate with our JSON meta schema and Processor model docs.
-            process.input_schema = p['input'] if 'input' in p else []
-            process.output_schema = p['output'] if 'output' in p else []
-            process.adapter = p['run']['bash']
-            process.save()
-
-        if len(log_processors) > 0:
-            self.stdout.write("Processor Updates:")
-            for log in log_processors:
-                self.stdout.write("  {}".format(log))
-
-        if len(log_templates) > 0:
-            self.stdout.write("Default Template Updates:")
-            for log in log_templates:
+        if len(log_packages) > 0:
+            self.stdout.write("Packages Updates:")
+            for log in log_packages:
                 self.stdout.write("  {}".format(log))
 
     def handle(self, *args, **options):
@@ -172,7 +103,5 @@ class Command(BaseCommand):
 
         user_admin = users.first()
 
-        # package_schemas = self.find_packages(schemas, path)
-
-        process_schemas = self.find_schemas(path, schemas)
-        self.register_processes(process_schemas, user_admin, force)
+        package_schemas = self.find_schemas(path, schemas)
+        self.register_packages(package_schemas, user_admin, force)
