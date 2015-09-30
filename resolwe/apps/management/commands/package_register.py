@@ -1,7 +1,6 @@
-"""Register processes"""
+"""Register packages"""
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-import jsonschema
 import os
 import yaml
 
@@ -9,36 +8,19 @@ from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 from django.db.models import Max
 
-from resolwe.flow.models import Process, iterate_schema, validation_schema
-
-
-PROCESSOR_SCHEMA = validation_schema('processor')
-VAR_SCHEMA = validation_schema('descriptor')
+from resolwe.apps.models import Package
 
 
 class Command(BaseCommand):
 
-    """Register processes"""
+    """Register packages"""
 
-    help = 'Register processes'
+    help = 'Register packages'
 
     def add_arguments(self, parser):
-        parser.add_argument('-s', '--schemas', type=str, nargs='*', help="process names to register")
+        parser.add_argument('-s', '--schemas', type=str, nargs='*', help="package names to register")
         parser.add_argument('-f', '--force', action='store_true', help="register also if version mismatch")
-        parser.add_argument('--path', help="path to look for processes")
-
-    def valid(self, instance, schema):
-        """Validate schema."""
-        try:
-            jsonschema.validate(instance, schema)
-            return True
-        except jsonschema.exceptions.ValidationError as ex:
-            self.stderr.write("    VALIDATION ERROR: {}".format(instance['name'] if 'name' in instance else ''))
-            self.stderr.write("        path:       {}".format(ex.path))
-            self.stderr.write("        message:    {}".format(ex.message))
-            self.stderr.write("        validator:  {}".format(ex.validator))
-            self.stderr.write("        val. value: {}".format(ex.validator_value))
-            return False
+        parser.add_argument('--path', help="path to look for packages")
 
     def find_schemas(self, schema_path, filters=None):
         """Find schemas in packages that match filters."""
@@ -61,6 +43,33 @@ class Command(BaseCommand):
             schema_matches.extend(schema for schema in schemas if
                                   not filters or schema.get('name', None) in filters or
                                   schema.get('slug', None) in filters)
+
+        return schema_matches
+
+    def find_packages(self, filters=None, genpackages_path=None):
+        """Find package schemas in GenPackages that match the filters."""
+        schema_matches = {}
+
+        if not genpackages_path:
+            raise NotImplementedError()
+            # genpackages_path = os.path.join(settings.PROJECT_ROOT, 'genpackages')
+
+        schema_files = [os.path.join(genpackages_path, name) for name in os.listdir(genpackages_path)]
+        schema_files = [os.path.join(path, 'package.yml') for path in schema_files if os.path.isdir(path)]
+
+        for schema_file in schema_files:
+            if not os.path.isfile(schema_file):
+                self.stdout.write("No package.yml found in {}".format(os.path.dirname(schema_file)))
+                continue
+
+            schema = yaml.load(open(schema_file))
+            if not schema:
+                self.stderr.write("Could not read YAML file {}".format(schema_file))
+                continue
+
+            name = os.path.basename(os.path.dirname(schema_file))
+            if not filters or name in filters:
+                schema_matches[schema_file] = schema
 
         return schema_matches
 
@@ -90,7 +99,7 @@ class Command(BaseCommand):
                 continue
 
             slug = p['slug']
-            version = p['version']
+            version = int(''.join('0' * (3 - len(v)) + v for v in p['version'].split('.')))
 
             try:
                 max_version_query = Process.objects.filter(slug=slug).aggregate(Max('version'))
@@ -132,8 +141,8 @@ class Command(BaseCommand):
                 process.persistence = persistence[p['persistence']]
 
             # TODO: Check if schemas validate with our JSON meta schema and Processor model docs.
-            process.input_schema = p.get('input', [])
-            process.output_schema = p.get('output', [])
+            process.input_schema = p['input'] if 'input' in p else []
+            process.output_schema = p['output'] if 'output' in p else []
             process.adapter = p['run']['bash']
             process.save()
 
