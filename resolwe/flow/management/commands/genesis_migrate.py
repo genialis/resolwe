@@ -66,9 +66,6 @@ class Command(BaseCommand):
     def process_slug(self, name):
         return slugify(name.replace(':', '-'))
 
-    def convert_version(self, version):
-        return reduce(lambda a, b: 1000 * a + b, list(map(int, version.split('.'))))
-
     def get_contributor(self, contributor_id):
         user_model = get_user_model()
         try:
@@ -138,7 +135,7 @@ class Command(BaseCommand):
         new = Process()
         new.name = process[u'label']
         new.slug = self.process_slug(process[u'name'])
-        new.version = self.convert_version(process[u'version'])
+        new.version = process[u'version']
         new.type = process[u'type']
         new.description = process.get(u'description', '')
         new.contributor = self.get_contributor(process['author_id'])
@@ -187,7 +184,7 @@ class Command(BaseCommand):
             data[u'processor_version'] = '0.0.0'
 
         process_slug = self.process_slug(data[u'processor_name'])
-        process_version = self.convert_version(data[u'processor_version'])
+        process_version = data[u'processor_version']
         try:
             process = Process.objects.get(slug=process_slug, version=process_version)
         except Process.DoesNotExist:
@@ -351,7 +348,7 @@ class Command(BaseCommand):
         new = Package()
         new.name = package[u'title']
         new.slug = package[u'name']
-        new.version = self.convert_version(package[u'version'])
+        new.version = package[u'version']
         new.modules = package[u'modules']
         new.index = package[u'index']
         new.contributor = self.get_contributor(package[u'author_id'])
