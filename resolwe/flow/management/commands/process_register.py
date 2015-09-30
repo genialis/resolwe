@@ -117,7 +117,7 @@ class Command(BaseCommand):
                 continue
 
             slug = p['slug']
-            version = int(''.join('0' * (3 - len(v)) + v for v in p['version'].split('.')))
+            version = p['version']
 
             try:
                 max_version_query = Process.objects.filter(slug=slug).aggregate(Max('version'))

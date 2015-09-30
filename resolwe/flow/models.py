@@ -32,8 +32,9 @@ from django.contrib.staticfiles import finders
 from django.utils.text import slugify
 
 
-from jsonfield import JSONField
 from django_pgjsonb import JSONField as JSONBField
+from jsonfield import JSONField
+from versionfield import VersionField
 
 
 class BaseModel(models.Model):
@@ -50,7 +51,7 @@ class BaseModel(models.Model):
     slug = models.SlugField(max_length=100)
 
     #: process version
-    version = models.PositiveIntegerField(default=0)
+    version = VersionField(number_bits=(8, 10, 14), default=0)
 
     #: object name
     name = models.CharField(max_length=100)

@@ -13,7 +13,6 @@ setup(
     license='BSD',
     long_description=open('README.rst', 'r').read(),
     packages=find_packages(),
-    dependency_links=[],
     install_requires=[
         'django>=1.8',
         'djangorestframework>=3.1',
@@ -22,6 +21,7 @@ setup(
         'django-pgjsonb>=0.0.16',
         'django-jenkins==0.17.0',
         'django-mathfilters>=0.3.0',
+        'django-versionfield2>=0.4.0',
         'jsonfield>=1.0.3',
         'pyyaml>=3.11',
         'jsonschema>=2.4.0',

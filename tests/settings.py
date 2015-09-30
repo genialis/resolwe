@@ -35,6 +35,7 @@ INSTALLED_APPS = (
     'rest_framework',
     'guardian',
     'mathfilters',
+    'versionfield',
     'django_jenkins',
 
 ) + PROJECT_APPS
