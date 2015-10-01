@@ -37,6 +37,9 @@ from jsonfield import JSONField
 from versionfield import VersionField
 
 
+VERSION_NUMBER_BITS = (8, 10, 14)
+
+
 class BaseModel(models.Model):
 
     """Abstract model that ncludes common fields for other models."""
@@ -51,7 +54,7 @@ class BaseModel(models.Model):
     slug = models.SlugField(max_length=100)
 
     #: process version
-    version = VersionField(number_bits=(8, 10, 14), default=0)
+    version = VersionField(number_bits=VERSION_NUMBER_BITS, default=0)
 
     #: object name
     name = models.CharField(max_length=100)

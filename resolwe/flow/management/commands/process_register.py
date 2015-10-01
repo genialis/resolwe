@@ -9,7 +9,9 @@ from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 from django.db.models import Max
 
-from resolwe.flow.models import Process, iterate_schema, validation_schema
+from versionfield.utils import convert_version_string_to_int
+
+from resolwe.flow.models import Process, iterate_schema, validation_schema, VERSION_NUMBER_BITS
 
 
 PROCESSOR_SCHEMA = validation_schema('processor')
@@ -70,72 +72,57 @@ class Command(BaseCommand):
         log_templates = []
 
         for p in process_schemas:
-            # Handle backwards compatiblity
-            if 'slug' not in p:
-                p['slug'] = p['name']
-                p['name'] = p['label']
-
             if p['type'][-1] != ':':
                 p['type'] += ':'
 
-            if 'category' in p and p['category'][-1] != ':':
+            if 'category' in p and not p['category'].endswith(':'):
                 p['category'] += ':'
 
             for field in ['input', 'output', 'var', 'static']:
                 for schema, _, _ in iterate_schema({}, p[field] if field in p else {}):
-                    if schema['type'][-1] != ':':
+                    if not schema['type'][-1].endswith(':'):
                         schema['type'] += ':'
+            # TODO: Check if schemas validate with our JSON meta schema and Processor model docs.
 
             if not self.valid(p, PROCESSOR_SCHEMA):
                 continue
 
-            slug = p['slug']
-            version = p['version']
-
-            max_version_query = Process.objects.filter(slug=slug).aggregate(Max('version'))
-            if max_version_query['version__max'] is not None:
-                if max_version_query['version__max'] > version:
-                    self.stderr.write("Skip processor {}: newer version installed".format(slug))
-                    continue
-
-            try:
-                process = Process.objects.get(slug=slug, version=version)
-                if not force:
-                    self.stdout.write("Skip processor {}: same version installed".format(slug))
-                    continue
-
-                log_processors.append("Updated {}".format(slug))
-
-            except Process.DoesNotExist:
-                process = Process()
-                process.slug = slug
-                process.contributor = user
-                log_processors.append("Inserted {}".format(slug))
-
-            process.name = p['name']
-            process.type = p['type']
-            process.version = version
-
-            if 'description' in p:
-                process.description = p['description']
-
-            if 'category' in p:
-                process.category = p['category']
-
             if 'persistence' in p:
-                persistence = {
+                persistence_mapping = {
                     'RAW': Process.PERSISTENCE_RAW,
                     'CACHED': Process.PERSISTENCE_CACHED,
                     'TEMP': Process.PERSISTENCE_TEMP,
                 }
 
-                process.persistence = persistence[p['persistence']]
+                p['persistence'] = persistence_mapping[p['persistence']]
 
-            # TODO: Check if schemas validate with our JSON meta schema and Processor model docs.
-            process.input_schema = p.get('input', [])
-            process.output_schema = p.get('output', [])
-            process.adapter = p['run']['bash']
-            process.save()
+            if 'input' in p:
+                p['input_schema'] = p.pop('input')
+
+            if 'output' in p:
+                p['output_schema'] = p.pop('output')
+
+            slug = p['slug']
+            version = p['version']
+            int_version = convert_version_string_to_int(version, VERSION_NUMBER_BITS)
+
+            # `latest version` is returned as `int` so it has to be compared to `int_version`
+            latest_version = Process.objects.filter(slug=slug).aggregate(Max('version'))['version__max']
+            if latest_version is not None and latest_version > int_version:
+                self.stderr.write("Skip processor {}: newer version installed".format(slug))
+                continue
+
+            process_query = Process.objects.filter(slug=slug, version=version)
+            if process_query.exists():
+                if not force:
+                    self.stdout.write("Skip processor {}: same version installed".format(slug))
+                    continue
+
+                process_query.update(**p)
+                log_processors.append("Updated {}".format(slug))
+            else:
+                Process.objects.create(contributor=user, **p)
+                log_processors.append("Inserted {}".format(slug))
 
         if len(log_processors) > 0:
             self.stdout.write("Processor Updates:")
