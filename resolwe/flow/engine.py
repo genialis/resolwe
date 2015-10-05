@@ -1,8 +1,11 @@
 """Workflow compute engine"""
-from importlib import import_module
+from __future__ import absolute_import, division, print_function, unicode_literals
+
 import logging
 import os
 import pkgutil
+
+from importlib import import_module
 
 from django import template
 from django.conf import settings
@@ -57,6 +60,7 @@ class Manager(object):
 
     def __init__(self):
         self.executor = self.load_executor(settings.FLOW['EXECUTOR']['NAME']).FlowExecutor()
+        self.exprengines = self.load_exprengines(settings.FLOW['EXPRESSION_ENGINES'])
 
     def communicate(self, run_sync=False, verbosity=1):
         """Resolving task dependancy and execution."""
@@ -79,25 +83,8 @@ class Manager(object):
                         data.save()
                         continue
 
-                    script_template = data.process.run.get('script', '')
-                    inputs = data.input.copy()
-                    hydrate_input_references(inputs, data.process.input_schema)
-                    # hydrate_input_uploads(inputs, data.process.input_schema)
-
-                    info = {}
-                    # info['case_ids'] = data.case_ids
-                    info['data_id'] = data.id
-                    # info['data_path'] = settings.RUNTIME['data_path']
-                    # info['slugs_path'] = settings.RUNTIME['slugs_path']
-                    inputs['proc'] = info  # add script info
-
-                    try:
-                        script = template.Template('{% load resource_filters %}{% load mathfilters %}' +
-                                                   script_template).render(template.Context(inputs))
-                    except template.TemplateSyntaxError as ex:
-                        data.status = Data.STATUS_ERROR
-                        data.process_error.append('Error in process script: {}'.format(ex))
-                        data.save()
+                    script = self.exprengines['dtlbash'].eval(data)
+                    if script is None:
                         continue
 
                     data.status = Data.STATUS_WAITING
@@ -110,30 +97,67 @@ class Manager(object):
             return
 
         for data_id, script in queue:
+            print "Running", script
             self.executor.run(data_id, script)
 
     def load_executor(self, executor_name):
         try:
             return import_module('{}'.format(executor_name))
         except ImportError as ex:
-            # The database backend wasn't found. Display a helpful error message
-            # listing all possible (built-in) database backends.
-            executor_dir = os.path.join(os.path.dirname(upath(__file__)), 'backends')
+            # The executor wasn't found. Display a helpful error message
+            # listing all possible (built-in) executors.
+            executor_dir = os.path.join(os.path.dirname(upath(__file__)), 'executors')
 
             try:
                 builtin_executors = [name for _, name, _ in pkgutil.iter_modules([executor_dir])]
             except EnvironmentError:
                 builtin_executors = []
-            if executor_name not in ['resolwe.flow.backends.{}'.format(b) for b in builtin_executors]:
-                backend_reprs = map(repr, sorted(builtin_executors))
-                error_msg = ("{} isn't an available dataflow backend.\n"
-                             "Try using 'resolwe.flow.backends.XXX', where XXX is one of:\n"
+            if executor_name not in ['resolwe.flow.executors.{}'.format(b) for b in builtin_executors]:
+                executor_reprs = map(repr, sorted(builtin_executors))
+                error_msg = ("{} isn't an available dataflow executors.\n"
+                             "Try using 'resolwe.flow.executors.XXX', where XXX is one of:\n"
                              "    {}\n"
-                             "Error was: {}".format(executor_name, ", ".join(backend_reprs), ex))
+                             "Error was: {}".format(executor_name, ", ".join(executor_reprs), ex))
                 raise ImproperlyConfigured(error_msg)
             else:
                 # If there's some other error, this must be an error in Django
                 raise
+
+
+    def load_exprengines(self, exprengine_list):
+        exprengines = {}
+
+        for exprengine_name in exprengine_list:
+            try:
+                exprengine_module = import_module('{}'.format(exprengine_name))
+                exprengine_key = exprengine_name.split('.')[-1]
+
+                if exprengine_key in exprengines:
+                    raise ImproperlyConfigured("Duplicated expression engine {}".format(exprengine_key))
+
+                exprengines[exprengine_key] = exprengine_module.ExpressionEngine()
+
+            except ImportError as ex:
+                # The expression engine wasn't found. Display a helpful error message
+                # listing all possible (built-in) expression engines.
+                exprengine_dir = os.path.join(os.path.dirname(upath(__file__)), 'exprengines')
+
+                try:
+                    builtin_exprengines = [name for _, name, _ in pkgutil.iter_modules([exprengine_dir])]
+                except EnvironmentError:
+                    builtin_exprengines = []
+                if exprengine_name not in ['resolwe.flow.exprengines.{}'.format(b) for b in builtin_exprengines]:
+                    exprengine_reprs = map(repr, sorted(builtin_exprengines))
+                    error_msg = ("{} isn't an available dataflow expression engine.\n"
+                                 "Try using 'resolwe.flow.exprengines.XXX', where XXX is one of:\n"
+                                 "    {}\n"
+                                 "Error was: {}".format(exprengine_name, ", ".join(exprengine_reprs), ex))
+                    raise ImproperlyConfigured(error_msg)
+                else:
+                    # If there's some other error, this must be an error in Django
+                    raise
+
+        return exprengines
 
 
 manager = Manager()  # pylint: disable=invalid-name

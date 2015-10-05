@@ -89,6 +89,7 @@ class FlowExecutor(BaseFlowExecutor):
                         updates = {}
                         for obj in iterjson(line):
                             for key, val in obj.iteritems():
+                                print("hm... {}".format(key))
                                 if key.startswith('proc.'):
                                     if key == 'proc.error':
                                         process_error.append(val)
@@ -101,6 +102,7 @@ class FlowExecutor(BaseFlowExecutor):
                                         process_warning.append(val)
                                         updates['process_warning'] = process_warning
                                     elif key == 'proc.info':
+                                        print("hm...")
                                         process_info.append(val)
                                         updates['process_info'] = process_info
                                     elif key == 'proc.rc':

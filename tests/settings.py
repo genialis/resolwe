@@ -100,6 +100,7 @@ FLOW = {
     'API': {
         'PERMISSIONS': 'resolwe.perms.genesis',
     },
+    'EXPRESSION_ENGINES': ['resolwe.flow.exprengines.dtlbash']
 }
 
 REST_FRAMEWORK = {

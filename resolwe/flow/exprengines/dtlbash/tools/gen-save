@@ -1,0 +1,10 @@
+#!/usr/bin/env python2
+
+# Script for running gen_utils.gen_save() utility function.
+# For more information see its documentation.
+
+if __name__ == "__main__":
+    import sys
+    from gen_utils import gen_save
+
+    print(gen_save(*sys.argv[1:]))
