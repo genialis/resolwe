@@ -7,13 +7,12 @@ import pkgutil
 
 from importlib import import_module
 
-from django import template
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.db import IntegrityError, transaction
 from django.utils._os import upath
 
-from resolwe.flow.models import Data, iterate_fields, hydrate_input_references
+from resolwe.flow.models import Data, iterate_fields
 from resolwe.utils import BraceMessage as __
 
 
@@ -97,7 +96,7 @@ class Manager(object):
             return
 
         for data_id, script in queue:
-            print "Running", script
+            print("Running", script)
             self.executor.run(data_id, script)
 
     def load_executor(self, executor_name):
@@ -122,7 +121,6 @@ class Manager(object):
             else:
                 # If there's some other error, this must be an error in Django
                 raise
-
 
     def load_exprengines(self, exprengine_list):
         exprengines = {}

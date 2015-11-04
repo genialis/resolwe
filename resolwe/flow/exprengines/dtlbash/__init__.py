@@ -23,8 +23,9 @@ class ExpressionEngine(BaseExpressionEngine):
             # info['slugs_path'] = settings.RUNTIME['slugs_path']
             inputs['proc'] = info  # add script info
 
-            script = template.Template('{% load resource_filters %}{% load mathfilters %}' +
-                                       script_template).render(template.Context(inputs))
+            script = template.Template(
+                '{% load resource_filters %}{% load mathfilters %}' + script_template
+            ).render(template.Context(inputs))
 
         except template.TemplateSyntaxError as ex:
             data.status = Data.STATUS_ERROR

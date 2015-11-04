@@ -17,6 +17,7 @@ Fixed
 
 Added
 -----
+ - Docker executor
 
 
 ==================

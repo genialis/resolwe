@@ -21,6 +21,8 @@ setup(
         'django-mathfilters>=0.3.0',
         'django-versionfield2>=0.4.0',
         'psycopg2>=2.5.0',
+        'jsonfield>=1.0.3',
+        'mock==1.3.0',
         'pyyaml>=3.11',
         'jsonschema>=2.4.0',
     ],
