@@ -56,7 +56,7 @@ class BaseFlowExecutor(object):
 
         self.data_id = data_id
 
-        output_path = os.path.join(settings.FLOW['EXECUTOR']['DATA_PATH'], str(data_id))
+        output_path = os.path.join(settings.FLOW_EXECUTOR['DATA_PATH'], str(data_id))
         os.mkdir(output_path, 0o775)
         os.chdir(output_path)
 

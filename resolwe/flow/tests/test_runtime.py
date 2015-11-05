@@ -29,7 +29,7 @@ class ManagerTest(TestCase):
                  process=p)
         d.save()
 
-        data_path = settings.FLOW['EXECUTOR']['DATA_PATH']
+        data_path = settings.FLOW_EXECUTOR['DATA_PATH']
 
         if os.path.exists(data_path):
             shutil.rmtree(data_path)

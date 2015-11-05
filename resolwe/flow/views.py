@@ -87,7 +87,7 @@ def load_permissions(permissions_name):
             raise
 
 
-permissions_cls = load_permissions(settings.FLOW['API']['PERMISSIONS'])
+permissions_cls = load_permissions(settings.FLOW_API['PERMISSIONS'])
 
 
 class ResolweCreateModelMixin(mixins.CreateModelMixin):

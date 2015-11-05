@@ -15,7 +15,7 @@ from .models import Package, App
 from .serializers import AppSerializer, PackageSerializer
 
 
-permissions_cls = load_permissions(settings.FLOW['API']['PERMISSIONS'])
+permissions_cls = load_permissions(settings.FLOW_API['PERMISSIONS'])
 
 
 class PackageViewSet(mixins.RetrieveModelMixin,

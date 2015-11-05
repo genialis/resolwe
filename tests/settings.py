@@ -93,16 +93,16 @@ JENKINS_TASKS = (
 PYLINT_RCFILE = '.pylintrc'
 PEP8_RCFILE = '.pep8rc'
 
-FLOW = {
-    'EXECUTOR': {
-        'NAME': 'resolwe.flow.executors.local',
-        'DATA_PATH': os.path.join(PROJECT_ROOT, 'data'),
-    },
-    'API': {
-        'PERMISSIONS': 'resolwe.permissions.genesis',
-    },
-    'EXPRESSION_ENGINES': ['resolwe.flow.exprengines.dtlbash']
+FLOW_EXECUTOR = {
+    'NAME': 'resolwe.flow.executors.local',
+    'DATA_PATH': os.path.join(PROJECT_ROOT, 'data'),
 }
+FLOW_API = {
+    'PERMISSIONS': 'resolwe.permissions.genesis',
+}
+FLOW_EXPRESSION_ENGINES = [
+    'resolwe.flow.exprengines.dtlbash'
+]
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (

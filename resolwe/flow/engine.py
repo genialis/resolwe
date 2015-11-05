@@ -58,8 +58,8 @@ class Manager(object):
     """Manager handles process job execution."""
 
     def __init__(self):
-        self.executor = self.load_executor(settings.FLOW['EXECUTOR']['NAME']).FlowExecutor()
-        self.exprengines = self.load_exprengines(settings.FLOW['EXPRESSION_ENGINES'])
+        self.executor = self.load_executor(settings.FLOW_EXECUTOR['NAME']).FlowExecutor()
+        self.exprengines = self.load_exprengines(settings.FLOW_EXPRESSION_ENGINES)
 
     def communicate(self, run_sync=False, verbosity=1):
         """Resolving task dependancy and execution."""
