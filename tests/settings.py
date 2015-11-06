@@ -32,6 +32,8 @@ INSTALLED_APPS = (
     'django.contrib.sessions',
     'django.contrib.staticfiles',
 
+    'kombu.transport.django',  # required for Celery to work with Django DB.
+
     'rest_framework',
     'guardian',
     'mathfilters',
@@ -82,6 +84,10 @@ DATABASES = {
         }
     }
 }
+
+BROKER_URL = 'django://'
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_ACCEPT_CONTENT = [CELERY_TASK_SERIALIZER]
 
 STATIC_URL = '/static/'
 

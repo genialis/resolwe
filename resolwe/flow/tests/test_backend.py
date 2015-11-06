@@ -8,7 +8,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from resolwe.flow.engine import manager
+from resolwe.flow.engines.local import manager
 from resolwe.flow.models import Data, Process
 
 

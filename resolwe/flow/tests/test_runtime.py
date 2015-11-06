@@ -1,42 +1,22 @@
 # pylint: disable=missing-docstring
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-import os
-import shutil
+import mock
+import unittest
 
-from django.conf import settings
-from django.contrib.auth import get_user_model
-from django.test import TestCase
-
-from resolwe.flow.engine import manager
-from resolwe.flow.models import Data, Process
+from resolwe.flow.exprengines.dtlbash import ExpressionEngine
 
 
-class ManagerTest(TestCase):
-    def setUp(self):
-        u = get_user_model().objects.create_superuser('test', 'test@genialis.com', 'test')
-        p = Process(slug='test-processor',
-                    name='Test Processor',
-                    contributor=u,
-                    type='data:test',
-                    version=1,
-                    run={'script': '{% if reads.type.startswith("data:reads:") %}'})
-        p.save()
-
-        d = Data(slug='test-data',
-                 name='Test Data',
-                 contributor=u,
-                 process=p)
-        d.save()
-
-        data_path = settings.FLOW_EXECUTOR['DATA_PATH']
-
-        if os.path.exists(data_path):
-            shutil.rmtree(data_path)
-
-        os.makedirs(data_path)
-
+class ExprengineTestCase(unittest.TestCase):
     def test_invalid_template(self):
-        manager.communicate()
-        self.assertEquals(Data.objects.get(slug='test-data').status, Data.STATUS_ERROR)
-        self.assertTrue('Error in process script' in Data.objects.get(slug='test-data').process_error[0])
+        data_mock = mock.MagicMock(process_error=[])
+        data_mock.process.run = {'script': '{% if reads.type.startswith("data:reads:") %}'}
+
+        ExpressionEngine().eval(data_mock)
+
+        self.assertTrue('Error in process script' in data_mock.process_error[0])
+
+
+class CeleryEngineTestCase(unittest.TestCase):
+    def test_passed_to_celery(self):
+        pass

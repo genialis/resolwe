@@ -18,6 +18,7 @@ Fixed
 Added
 -----
  - Docker executor
+ - Celery engine
 
 
 ==================

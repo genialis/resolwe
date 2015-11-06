@@ -16,8 +16,6 @@ from resolwe.flow.models import Data, iterate_fields
 from resolwe.utils import BraceMessage as __
 
 
-__all__ = ['manager']
-
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
@@ -53,13 +51,16 @@ def dependency_status(data):
     return Data.STATUS_DONE
 
 
-class Manager(object):
+class BaseManager(object):
 
     """Manager handles process job execution."""
 
     def __init__(self):
         self.executor = self.load_executor(settings.FLOW_EXECUTOR['NAME']).FlowExecutor()
         self.exprengines = self.load_exprengines(settings.FLOW_EXPRESSION_ENGINES)
+
+    def run(self, data_id, script):
+        raise NotImplementedError('`run` function not implemented')
 
     def communicate(self, run_sync=False, verbosity=1):
         """Resolving task dependancy and execution."""
@@ -97,7 +98,7 @@ class Manager(object):
 
         for data_id, script in queue:
             print("Running", script)
-            self.executor.run(data_id, script)
+            self.run(data_id, script)
 
     def load_executor(self, executor_name):
         try:
@@ -158,4 +159,3 @@ class Manager(object):
         return exprengines
 
 
-manager = Manager()  # pylint: disable=invalid-name
