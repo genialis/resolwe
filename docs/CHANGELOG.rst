@@ -19,6 +19,7 @@ Added
 -----
  - Docker executor
  - Celery engine
+ - Purge command
 
 
 ==================
