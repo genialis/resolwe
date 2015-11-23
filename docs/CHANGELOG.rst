@@ -11,6 +11,7 @@ Unreleased
 
 Changed
 -------
+- Register processes from packages
 
 Fixed
 -----
