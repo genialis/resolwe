@@ -2,7 +2,7 @@
 Resolwe
 =======
 
-Open source enterprise dataflow engine based on the `Django framework`_.
+Open source dataflow engine based on the `Django framework`_.
 
 We envision Resolwe to follow the `Common Workflow Language`_ specification,
 but the current implementation does not yet support it.
@@ -79,13 +79,17 @@ Install prerequisites as described in *Installing from source* section.
 `Fork <https://help.github.com/articles/fork-a-repo>`__ the main `Resolwe's git
 repository <https://github.com/genialis/resolwe>`_.
 
-If you don't have Git already installed on your system, follow `these
+If you don't have Git installed on your system, follow `these
 instructions <http://git-scm.com/book/en/v2/Getting-Started-Installing-Git>`__.
+
+Clone your fork::
+
+    git clone https://github.com/<username>/resolwe-bio.git
 
 Prepare Resolwe for development::
 
     python setup.py develop
-    pip install -r tests/test_requirements.txt
+    pip install -e .[docs,test]
 
 .. note::
 
