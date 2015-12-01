@@ -115,13 +115,13 @@ Set-up database::
     ./manage.py migrate
     ./manage.py createsuperuser --username admin --email admin@genialis.com
 
-Register processors
--------------------
+Register processes
+------------------
 
 .. code-block::
 
     cd tests
-    ./manage.py tool_register --path <path to packages>
+    ./manage.py process_register --path <path to packages>
 
 Run tests
 ---------
