@@ -27,13 +27,10 @@ import json
 from django.db import models
 from django.conf import settings
 from django.core.validators import RegexValidator
-from django.contrib.postgres.fields import ArrayField
+from django.contrib.postgres.fields import ArrayField, JSONField
 from django.contrib.staticfiles import finders
 from django.utils.text import slugify
 
-
-from django_pgjsonb import JSONField as JSONBField
-from jsonfield import JSONField
 from versionfield import VersionField
 
 
@@ -400,7 +397,7 @@ class Storage(BaseModel):
     data = models.ForeignKey('Data')
 
     #: actual JSON stored
-    json = JSONBField()
+    json = JSONField()
 
 
 def iterate_fields(fields, schema, path_prefix=None):
