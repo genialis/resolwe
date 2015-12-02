@@ -82,9 +82,9 @@ repository <https://github.com/genialis/resolwe>`_.
 If you don't have Git installed on your system, follow `these
 instructions <http://git-scm.com/book/en/v2/Getting-Started-Installing-Git>`__.
 
-Clone your fork::
+Clone your fork (replace ``<username>`` with your GitHub account name)::
 
-    git clone https://github.com/<username>/resolwe-bio.git
+    git clone https://github.com/<username>/resolwe.git
 
 Prepare Resolwe for development::
 
