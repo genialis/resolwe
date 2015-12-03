@@ -63,6 +63,7 @@ class FlowExecutor(BaseFlowExecutor):
 
         # Run processor and handle intermediate results
         proc.stdin.write(os.linesep.join(['set -x', 'set +B', script, 'exit']) + os.linesep)
+        proc.stdin.close()
         spawn_processors = []
         output = {}
         process_error, process_warning, process_info = [], [], []
