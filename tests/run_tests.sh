@@ -13,13 +13,7 @@ pushd $WORKSPACE
 
 rm -rf reports
 
-TOX_CMD='tox -r'
-if [[ $TOXENV == "py33" ]]; then
-    echo "Enabeling SCL Python 3.3"
-    scl enable python33 "$TOX_CMD"
-else
-    $TOX_CMD
-fi
+tox -r
 
 cloc --exclude-dir=.venv,.tox,reports, --by-file --xml --out=reports/cloc.xml .
 
