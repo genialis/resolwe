@@ -28,6 +28,7 @@ class PackageViewSet(mixins.RetrieveModelMixin,
     queryset = Package.objects.all()
     serializer_class = PackageSerializer
     permission_classes = (permissions_cls,)
+    filter_fields = ('contributor', 'name', 'created', 'modified', 'slug')
 
 
 class AppViewSet(ResolweCreateModelMixin,
@@ -43,3 +44,4 @@ class AppViewSet(ResolweCreateModelMixin,
     queryset = App.objects.all()
     serializer_class = AppSerializer
     permission_classes = (permissions_cls,)
+    filter_fields = ('contributor', 'name', 'created', 'modified', 'slug', 'package')

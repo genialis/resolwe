@@ -263,6 +263,7 @@ class ProjectViewSet(ResolweCreateModelMixin,
     queryset = Project.objects.all()
     serializer_class = ProjectSerializer
     permission_classes = (permissions_cls,)
+    filter_fields = ('contributor', 'name', 'description', 'created', 'modified', 'slug')
 
 
 class ProcessViewSet(mixins.RetrieveModelMixin,
@@ -275,6 +276,7 @@ class ProcessViewSet(mixins.RetrieveModelMixin,
     queryset = Process.objects.all()
     serializer_class = ProcessSerializer
     permission_classes = (permissions_cls,)
+    filter_fields = ('contributor', 'name', 'created', 'modified', 'slug')
 
 
 class DataViewSet(ResolweCreateDataModelMixin,
@@ -290,6 +292,8 @@ class DataViewSet(ResolweCreateDataModelMixin,
     queryset = Data.objects.all()
     serializer_class = DataSerializer
     permission_classes = (permissions_cls,)
+    filter_fields = ('contributor', 'name', 'created', 'modified', 'slug', 'input', 'descriptor',
+                     'started', 'finished', 'output', 'status', 'process')
 
 
 class DescriptorSchemaViewSet(mixins.RetrieveModelMixin,
@@ -302,6 +306,7 @@ class DescriptorSchemaViewSet(mixins.RetrieveModelMixin,
     queryset = DescriptorSchema.objects.all()
     serializer_class = DescriptorSchemaSerializer
     permission_classes = (permissions_cls,)
+    filter_fields = ('contributor', 'name', 'description', 'created', 'modified', 'slug')
 
 
 class TriggerViewSet(ResolweCreateModelMixin,
@@ -317,6 +322,7 @@ class TriggerViewSet(ResolweCreateModelMixin,
     queryset = Trigger.objects.all()
     serializer_class = TriggerSerializer
     permission_classes = (permissions_cls,)
+    filter_fields = ('contributor', 'name', 'created', 'modified', 'slug', 'project')
 
 
 class StorageViewSet(mixins.RetrieveModelMixin,
@@ -327,3 +333,4 @@ class StorageViewSet(mixins.RetrieveModelMixin,
 
     queryset = Storage.objects.all()
     serializer_class = StorageSerializer
+    filter_fields = ('contributor', 'name', 'created', 'modified', 'slug', 'json')
