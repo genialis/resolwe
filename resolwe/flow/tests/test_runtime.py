@@ -10,7 +10,7 @@ from resolwe.flow.exprengines.dtlbash import ExpressionEngine
 class ExprengineTestCase(unittest.TestCase):
     def test_invalid_template(self):
         data_mock = mock.MagicMock(process_error=[])
-        data_mock.process.run = {'script': '{% if reads.type.startswith("data:reads:") %}'}
+        data_mock.process.run = {'bash': '{% if reads.type.startswith("data:reads:") %}'}
 
         ExpressionEngine().eval(data_mock)
 

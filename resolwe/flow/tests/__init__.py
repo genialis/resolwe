@@ -12,15 +12,19 @@ import os
 import shutil
 import zipfile
 
+from django.apps import apps
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.core import management
 from django.test import TestCase
-from django.contrib.auth import get_user_model
+from django.utils.crypto import get_random_string
+from django.utils.text import slugify
 
-from resolwe.flow.models import Data, dict_dot, Process, Project, Storage
+from resolwe.flow.models import Data, dict_dot, iterate_fields, Process, Project, Storage
+from resolwe.flow.engines.local import manager
 
 
-PROCESSORS_FIXTURE_CACHE = None
+PROCESSES_FIXTURE_CACHE = None
 
 
 def _register_processors():
@@ -32,20 +36,21 @@ def _register_processors():
     """
     Process.objects.all().delete()
 
-    global PROCESSORS_FIXTURE_CACHE  # pylint: disable=global-statement
-    if PROCESSORS_FIXTURE_CACHE:
-        Process.objects.bulk_create(PROCESSORS_FIXTURE_CACHE)
+    global PROCESSES_FIXTURE_CACHE  # pylint: disable=global-statement
+    if PROCESSES_FIXTURE_CACHE:
+        Process.objects.bulk_create(PROCESSES_FIXTURE_CACHE)
     else:
         user_model = get_user_model()
 
         if not user_model.objects.filter(is_superuser=True).exists():
             user_model.objects.create_superuser(username="admin", email='admin@example.com', password="admin_pass")
 
-        management.call_command('register', force=True, testing=True, verbosity='0')
-        PROCESSORS_FIXTURE_CACHE = list(Process.objects.all())  # list forces db query execution
+        management.call_command('process_register', force=True, testing=True, verbosity='0')
+
+        PROCESSES_FIXTURE_CACHE = list(Process.objects.all())  # list forces db query execution
 
 
-class BaseProcessorTestCase(TestCase):
+class ProcessTestCase(TestCase):
 
     """Base class for writing processor tests.
 
@@ -72,7 +77,7 @@ class BaseProcessorTestCase(TestCase):
     """
 
     def setUp(self):
-        super(BaseProcessorTestCase, self).setUp()
+        super(ProcessTestCase, self).setUp()
         self.admin = get_user_model().objects.create_superuser(
             username="admin", email='admin@example.com', password="admin_pass")
         _register_processors()
@@ -83,14 +88,14 @@ class BaseProcessorTestCase(TestCase):
         self._keep_failed = False
 
     def tearDown(self):
-        super(BaseProcessorTestCase, self).tearDown()
+        super(ProcessTestCase, self).tearDown()
 
         # Delete Data objects and their files unless keep_failed
         for d in Data.objects.all():
             if self._keep_all or (self._keep_failed and d.status == "error"):
                 print("KEEPING DATA: {}".format(d.pk))
             else:
-                data_dir = os.path.join(settings.DATAFS['data_path'], str(d.pk))
+                data_dir = os.path.join(settings.FLOW_EXECUTOR['DATA_PATH'], str(d.pk))
                 d.delete()
                 shutil.rmtree(data_dir, ignore_errors=True)
 
@@ -101,6 +106,81 @@ class BaseProcessorTestCase(TestCase):
     def keep_failed(self):
         """Do not delete output files after test for failed data."""
         self._keep_failed = True
+
+    def run_processor(self, *args, **kwargs):
+        self.run_process(*args, **kwargs)
+        # TODO: warning
+
+    def run_process(self, process_slug, input_={}, assert_status=Data.STATUS_DONE, run_manager=True, verbosity=0):
+        """Runs given processor with specified inputs.
+
+        If input is file, file path should be given relative to
+        ``tests/files`` folder.
+        If ``assert_status`` is given check if Data object's status
+        matches ``assert_status`` after finishing processor.
+
+        :param processor_name: name of the processor to run
+        :type processor_name: :obj:`str`
+
+        :param ``input_``: Input paramaters for processor. You don't
+            have to specifie parameters for which default values are
+            given.
+        :type ``input_``: :obj:`dict`
+
+        :param ``assert_status``: Desired status of Data object
+        :type ``assert_status``: :obj:`str`
+
+        :return: :obj:`server.models.Data` object which is created by
+            the processor.
+
+        """
+
+        # backward compatibility
+        process_slug = slugify(process_slug.replace(':', '-'))
+
+        p = Process.objects.get(slug=process_slug)
+
+        for field_schema, fields in iterate_fields(input_, p.input_schema):
+            # copy referenced files to upload dir
+            if field_schema['type'] == "basic:file:":
+                for app_config in apps.get_app_configs():
+
+                    old_path = os.path.join(app_config.path, 'tests', 'files', fields[field_schema['name']])
+                    if os.path.isfile(old_path):
+                        shutil.copy2(old_path, settings.FLOW_EXECUTOR['UPLOAD_PATH'])
+                        file_name = os.path.basename(fields[field_schema['name']])
+                        fields[field_schema['name']] = {
+                            'file': file_name,
+                            'file_temp': file_name,
+                        }
+                        break
+
+            # convert primary keys to strings
+            if field_schema['type'].startswith('data:'):
+                fields[field_schema['name']] = str(fields[field_schema['name']])
+            if field_schema['type'].startswith('list:data:'):
+                fields[field_schema['name']] = [str(obj) for obj in fields[field_schema['name']]]
+
+        d = Data.objects.create(
+            input=input_,
+            contributor=self.admin,
+            process=p,
+            slug=get_random_string(length=6))
+        self.project.data.add(d)
+
+        if run_manager:
+            manager.communicate(run_sync=True, verbosity=verbosity)
+
+        # Fetch latest Data object from database
+        d = Data.objects.get(pk=d.pk)
+
+        if not run_manager and assert_status == Data.STATUS_DONE:
+            assert_status = Data.STATUS_RESOLVING
+
+        if assert_status:
+            self.assertStatus(d, assert_status)
+
+        return d
 
     def assertStatus(self, obj, status):  # pylint: disable=invalid-name
         """Check if Data object's status is 'status'.
@@ -164,7 +244,7 @@ class BaseProcessorTestCase(TestCase):
             raise ValueError("Unsupported compression format.")
 
         field = dict_dot(obj['output'], field_path)
-        output = os.path.join(settings.DATAFS['data_path'], str(obj.pk), field['file'])
+        output = os.path.join(settings.FLOW_EXECUTOR['DATA_PATH'], str(obj.pk), field['file'])
         output_file = open_fn(output)
         output_hash = hashlib.sha256(output_file.read()).hexdigest()
 
@@ -191,7 +271,7 @@ class BaseProcessorTestCase(TestCase):
 
         """
         field = dict_dot(obj['output'], field_path)
-        output = os.path.join(settings.DATAFS['data_path'], str(obj.pk), field['file'])
+        output = os.path.join(settings.FLOW_EXECUTOR['DATA_PATH'], str(obj.pk), field['file'])
 
         if not os.path.isfile(output):
             self.fail(msg="File {} does not exist.".format(field_path))

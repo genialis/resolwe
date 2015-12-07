@@ -18,8 +18,8 @@ __all__ = ['manager']
 
 class Manager(BaseManager):
 
-    def run(self, data_id, script):
-        celery_run.async(self.executor, data_id, script)
+    def run(self, data_id, script, run_sync=False, verbosity=1):
+        celery_run.async(self.executor, data_id, script, verbosity)
 
 
 manager = Manager()  # pylint: disable=invalid-name

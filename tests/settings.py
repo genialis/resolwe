@@ -32,14 +32,13 @@ INSTALLED_APPS = (
     'django.contrib.sessions',
     'django.contrib.staticfiles',
 
-    'kombu.transport.django',  # required for Celery to work with Django DB.
+    # 'kombu.transport.django',  # required for Celery to work with Django DB.
 
     'rest_framework',
     'guardian',
     'mathfilters',
     'versionfield',
     'django_jenkins',
-
 ) + PROJECT_APPS
 
 ROOT_URLCONF = 'tests.urls'
@@ -102,6 +101,7 @@ PEP8_RCFILE = '.pep8rc'
 FLOW_EXECUTOR = {
     'NAME': 'resolwe.flow.executors.local',
     'DATA_PATH': os.path.join(PROJECT_ROOT, 'data'),
+    'UPLOAD_PATH': os.path.join(PROJECT_ROOT, 'upload'),
 }
 FLOW_API = {
     'PERMISSIONS': 'resolwe.permissions.genesis',

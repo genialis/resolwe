@@ -9,6 +9,7 @@ from django.apps import apps
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 from django.db.models import Max
+from django.utils.text import slugify
 
 from versionfield.utils import convert_version_string_to_int
 
@@ -81,6 +82,17 @@ class Command(BaseCommand):
             if 'category' in p and not p['category'].endswith(':'):
                 p['category'] += ':'
 
+            # support backward compatibility
+            # TODO: update .yml files and remove
+            if 'slug' not in p:
+                p['slug'] = slugify(p.pop('name').replace(':', '-'))
+                p['name'] = p.pop('label')
+
+                p.pop('var', None)
+                p.pop('static', None)
+
+            # TODO: Add descriptors
+
             for field in ['input', 'output', 'var', 'static']:
                 for schema, _, _ in iterate_schema({}, p[field] if field in p else {}):
                     if not schema['type'][-1].endswith(':'):
@@ -141,8 +153,6 @@ class Command(BaseCommand):
         schemas = options.get('schemas')
         packages = options.get('packages')
         force = options.get('force')
-
-        print(packages)
 
         users = get_user_model().objects.filter(is_superuser=True).order_by('date_joined')
 

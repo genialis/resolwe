@@ -11,7 +11,7 @@ class ExpressionEngine(BaseExpressionEngine):
     def eval(self, data):
         """Evaluate the script and return executable."""
         try:
-            script_template = data.process.run.get('script', '')
+            script_template = data.process.run.get('bash', '')
             inputs = data.input.copy()
             hydrate_input_references(inputs, data.process.input_schema)
             # hydrate_input_uploads(inputs, data.process.input_schema)

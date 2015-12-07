@@ -59,7 +59,7 @@ class BaseManager(object):
         self.executor = self.load_executor(settings.FLOW_EXECUTOR['NAME']).FlowExecutor()
         self.exprengines = self.load_exprengines(settings.FLOW_EXPRESSION_ENGINES)
 
-    def run(self, data_id, script):
+    def run(self, data_id, script, run_sync=False, verbosity=1):
         raise NotImplementedError('`run` function not implemented')
 
     def communicate(self, run_sync=False, verbosity=1):
@@ -97,8 +97,9 @@ class BaseManager(object):
             return
 
         for data_id, script in queue:
-            print("Running", script)
-            self.run(data_id, script)
+            if verbosity >= 1:
+                print("Running", script)
+            self.run(data_id, script, verbosity=verbosity)
 
     def load_executor(self, executor_name):
         try:
@@ -157,5 +158,3 @@ class BaseManager(object):
                     raise
 
         return exprengines
-
-

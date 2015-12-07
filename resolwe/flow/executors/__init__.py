@@ -50,9 +50,10 @@ class BaseFlowExecutor(object):
     def get_stdout(self):
         return self.stdout
 
-    def run(self, data_id, script):
+    def run(self, data_id, script, verbosity=1):
         """Execute the script and save results."""
-        print('RUN: {} {}'.format(data_id, script))
+        if verbosity >= 1:
+            print('RUN: {} {}'.format(data_id, script))
 
         self.data_id = data_id
 
@@ -98,7 +99,6 @@ class BaseFlowExecutor(object):
                         updates = {}
                         for obj in iterjson(line):
                             for key, val in obj.iteritems():
-                                print("hm... {}".format(key))
                                 if key.startswith('proc.'):
                                     if key == 'proc.error':
                                         process_error.append(val)
@@ -111,7 +111,6 @@ class BaseFlowExecutor(object):
                                         process_warning.append(val)
                                         updates['process_warning'] = process_warning
                                     elif key == 'proc.info':
-                                        print("hm...")
                                         process_info.append(val)
                                         updates['process_info'] = process_info
                                     elif key == 'proc.rc':

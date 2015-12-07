@@ -8,8 +8,8 @@ __all__ = ['manager']
 
 class Manager(BaseManager):
 
-    def run(self, data_id, script):
-        self.executor.run(data_id, script)
+    def run(self, data_id, script, run_sync=False, verbosity=1):
+        self.executor.run(data_id, script, verbosity=verbosity)
 
 
 manager = Manager()  # pylint: disable=invalid-name

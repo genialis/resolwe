@@ -170,7 +170,7 @@ class Process(BaseModel):
     #: detailed description
     description = models.TextField(default='')
 
-    input_schema = models.TextField()
+    input_schema = JSONField(blank=True, null=True)
     """
     process input schema (describes input parameters, form layout **"Inputs"** for :attr:`Data.input`)
 
@@ -182,7 +182,7 @@ class Process(BaseModel):
 
     """
 
-    output_schema = models.TextField()
+    output_schema = JSONField(blank=True, null=True)
     """
     process output schema (describes output JSON, form layout **"Results"** for :attr:`Data.output`)
 
