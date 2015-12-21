@@ -13,6 +13,14 @@ setup(
     license='Apache License (2.0)',
     long_description=open('README.rst', 'r').read(),
     packages=find_packages(),
+    package_data={
+        'resolwe': [
+            'flow/static/flow/descriptorSchema.json',
+            'flow/static/flow/fieldSchema.json',
+            'flow/static/flow/processorSchema.json',
+            'flow/static/flow/typeSchema.json',
+        ]
+    },
     install_requires=[
         'django>=1.9,<1.10a1',
         'djangorestframework>=3.3',
