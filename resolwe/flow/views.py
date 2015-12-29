@@ -112,6 +112,13 @@ class ResolweCreateModelMixin(mixins.CreateModelMixin):
         except IntegrityError as ex:
             return Response({u'error': str(ex)}, status=status.HTTP_409_CONFLICT)
 
+    def perform_create(self, serializer):
+        instance = serializer.save()
+
+        # Assign all permissions to the object contributor.
+        for permission in list(zip(*instance._meta.permissions))[0]:
+            assign_perm(permission, instance.contributor, instance)
+
 
 class ResolweCreateDataModelMixin(ResolweCreateModelMixin):
     """Mixin to support creating new :class:`Data` objects
