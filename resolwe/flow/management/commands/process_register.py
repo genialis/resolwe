@@ -5,7 +5,6 @@ import jsonschema
 import os
 import yaml
 
-from django.apps import apps
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 from django.db.models import Max
@@ -14,6 +13,7 @@ from django.utils.text import slugify
 from versionfield.utils import convert_version_string_to_int
 
 from resolwe.flow.models import Process, iterate_schema, validation_schema, VERSION_NUMBER_BITS
+from resolwe.flow.finders import get_finders
 
 
 PROCESSOR_SCHEMA = validation_schema('processor')
@@ -29,7 +29,6 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('-s', '--schemas', type=str, nargs='*', help="process names to register")
         parser.add_argument('-f', '--force', action='store_true', help="register also if version mismatch")
-        parser.add_argument('--packages', type=str, nargs='+', help="packages to register")
 
     def valid(self, instance, schema):
         """Validate schema."""
@@ -53,12 +52,11 @@ class Command(BaseCommand):
             return
 
         for root, _, files in os.walk(schema_path):
-            for filename in [os.path.join(root, fn) for fn in files]:
+            for schema_file in [os.path.join(root, fn) for fn in files]:
 
-                if not filename.lower().endswith(('.yml', '.yaml')):
+                if not schema_file.lower().endswith(('.yml', '.yaml')):
                     continue
 
-                schema_file = os.path.join(schema_path, filename)
                 schemas = yaml.load(open(schema_file))
                 if not schemas:
                     self.stderr.write("Could not read YAML file {}".format(schema_file))
@@ -151,7 +149,6 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         schemas = options.get('schemas')
-        packages = options.get('packages')
         force = options.get('force')
 
         users = get_user_model().objects.filter(is_superuser=True).order_by('date_joined')
@@ -162,15 +159,12 @@ class Command(BaseCommand):
 
         user_admin = users.first()
 
-        if packages:
-            app_configs = [apps.get_app_config(package) for package in packages]
-        else:
-            app_configs = apps.get_app_configs()
+        proc_paths = []
+        for finder in get_finders():
+            proc_paths.extend(finder.find())
 
         process_schemas = []
-        for app_config in app_configs:
-            proc_path = os.path.join(app_config.path, 'processes')
-            if os.path.isdir(proc_path):
+        for proc_path in proc_paths:
                 process_schemas.extend(self.find_schemas(proc_path, schemas))
 
         self.register_processes(process_schemas, user_admin, force)

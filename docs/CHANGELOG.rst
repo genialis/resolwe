@@ -11,7 +11,7 @@ Unreleased
 
 Changed
 -------
-- Register processes from packages
+- Register processes from packages and custom paths
 
 Fixed
 -----
@@ -22,6 +22,7 @@ Added
  - Celery engine
  - Purge command
  - Framework for testing processors
+ - Processor finders
 
 
 ==================

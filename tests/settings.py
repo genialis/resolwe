@@ -110,6 +110,13 @@ FLOW_EXPRESSION_ENGINES = [
     'resolwe.flow.exprengines.dtlbash'
 ]
 
+FLOW_PROCESSES_FINDERS = (
+    'resolwe.flow.finders.FileSystemProcessesFinder',
+    'resolwe.apps.finders.AppDirectoriesProcessesFinder',
+)
+
+FLOW_PROCESSES_DIRS = ('resolwe/flow/tests/processes',)
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework.authentication.SessionAuthentication',
