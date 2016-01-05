@@ -35,7 +35,7 @@ class BackendTest(TestCase):
         os.makedirs(data_path)
 
     def test_manager(self):
-        manager.communicate()
+        manager.communicate(verbosity=0)
 
     def test_dtlbash(self):
         self.p.slug = 'test-processor-dtlbash'
@@ -51,4 +51,3 @@ echo '{"proc.info": "foo"}'
         self.d.process = self.p
         self.d.save()
         self.d = Data(id=self.d.id)
-        print(self.d.output)

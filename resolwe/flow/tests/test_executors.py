@@ -35,6 +35,6 @@ class DockerExecutorTestCase(unittest.TestCase):
         stdout_mock = mock.MagicMock(write=write_mock)
         open_mock = mock.MagicMock(side_effect=[stdout_mock, mock.MagicMock()])
         with mock.patch.object(builtins, 'open', open_mock):
-            executor.run('no_data_id', script)
+            executor.run('no_data_id', script, verbosity=0)
 
         self.assertEqual(write_mock.call_count, 1)
