@@ -24,7 +24,9 @@ setup(
     install_requires=[
         'django>=1.9,<1.10a1',
         'djangorestframework>=3.3',
-        'django-guardian>=1.3.1',
+        # XXX: django-guardian 1.4.0 is failing
+        # 'django-guardian>=1.3.2',
+        'django-guardian==1.3.2',
         'django-filter>=0.10.0',
         'django-mathfilters>=0.3.0',
         'django-versionfield2>=0.4.0',
