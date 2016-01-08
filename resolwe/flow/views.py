@@ -10,7 +10,7 @@ import os
 import pkgutil
 from importlib import import_module
 
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -113,11 +113,12 @@ class ResolweCreateModelMixin(mixins.CreateModelMixin):
             return Response({u'error': str(ex)}, status=status.HTTP_409_CONFLICT)
 
     def perform_create(self, serializer):
-        instance = serializer.save()
+        with transaction.atomic():
+            instance = serializer.save()
 
-        # Assign all permissions to the object contributor.
-        for permission in list(zip(*instance._meta.permissions))[0]:
-            assign_perm(permission, instance.contributor, instance)
+            # Assign all permissions to the object contributor.
+            for permission in list(zip(*instance._meta.permissions))[0]:
+                assign_perm(permission, instance.contributor, instance)
 
 
 class ResolweCreateDataModelMixin(ResolweCreateModelMixin):
