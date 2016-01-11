@@ -23,7 +23,7 @@ class FlowExecutor(BaseFlowExecutor):
     def start(self):
         self.proc = subprocess.Popen(['/bin/bash'],
                                      stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                     stderr=subprocess.PIPE, universal_newlines=True)
+                                     stderr=subprocess.STDOUT, universal_newlines=True)
 
         self.processes[self.data_id] = self.proc
         self.stdout = self.proc.stdout

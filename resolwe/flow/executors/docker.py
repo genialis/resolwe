@@ -25,7 +25,7 @@ class FlowExecutor(LocalFlowExecutor):
         self.proc = subprocess.Popen(
             shlex.split(
                 'docker run --rm --interactive --name={} {} /bin/bash'.format(container_name, container_image)),
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
 
         self.stdout = self.proc.stdout
 

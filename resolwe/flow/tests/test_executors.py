@@ -35,8 +35,11 @@ class DockerExecutorTestCase(unittest.TestCase):
 
             script = 'if [[ -f /.dockerinit ]]; then echo "Running inside Docker"; else echo "Running locally"; fi'
 
+            count = {'running': 0}
+
             def assert_output(line):
-                self.assertEqual(line.strip(), 'Running inside Docker')
+                if line.strip() == 'Running inside Docker':
+                    count['running'] += 1
 
             write_mock = mock.MagicMock(side_effect=assert_output)
             stdout_mock = mock.MagicMock(write=write_mock)
@@ -44,4 +47,4 @@ class DockerExecutorTestCase(unittest.TestCase):
             with mock.patch.object(builtins, 'open', open_mock):
                 executor.run('no_data_id', script, verbosity=0)
 
-            self.assertEqual(write_mock.call_count, 1)
+            self.assertEqual(count['running'], 1)
