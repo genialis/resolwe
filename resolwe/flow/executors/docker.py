@@ -2,17 +2,30 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import os
+import random
 import shlex
 import subprocess
+
+from django.conf import settings
 
 from .local import FlowExecutor as LocalFlowExecutor
 
 
 class FlowExecutor(LocalFlowExecutor):
     def start(self):
+        container_image = settings.FLOW_EXECUTOR['CONTAINER_IMAGE']
+
+        if self.data_id != 'no_data_id':
+            container_name = 'resolwe_{}'.format(self.data_id)
+        else:
+            # set random container name for tests
+            rand_int = random.randint(1000, 9999)
+            container_name = 'resolwe_test_{}'.format(rand_int)
+
         self.proc = subprocess.Popen(
-            shlex.split('docker run --rm --interactive --name={} centos /bin/bash'.format(str(self.data_id))),
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+            shlex.split(
+                'docker run --rm --interactive --name={} {} /bin/bash'.format(container_name, container_image)),
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
 
         self.stdout = self.proc.stdout
 

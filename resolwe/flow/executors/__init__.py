@@ -55,7 +55,7 @@ class BaseFlowExecutor(object):
         if verbosity >= 1:
             print('RUN: {} {}'.format(data_id, script))
 
-        self.data_id = data_id
+        self.data_id = str(data_id)
 
         output_path = os.path.join(settings.FLOW_EXECUTOR['DATA_PATH'], str(data_id))
         os.mkdir(output_path, 0o775)

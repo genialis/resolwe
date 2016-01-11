@@ -6,6 +6,9 @@ import shlex
 import subprocess
 import unittest
 
+from django.conf import settings
+from django.test import override_settings
+
 from ..executors.docker import FlowExecutor
 
 try:
@@ -15,7 +18,7 @@ except ImportError:
 
 
 def check_docker():
-    return subprocess.call(shlex.split('which docker'), stdout=subprocess.PIPE) == 1
+    return subprocess.call(shlex.split('docker info'), stdout=subprocess.PIPE) == 1
 
 
 class DockerExecutorTestCase(unittest.TestCase):
@@ -24,17 +27,24 @@ class DockerExecutorTestCase(unittest.TestCase):
     @mock.patch('os.chdir')
     @mock.patch('resolwe.flow.executors.Data.objects.filter')
     def test_run_in_docker(self, data_filter_mock, chdir_mock, mkdir_mock):
-        executor = FlowExecutor()
+        executor_settings = settings.FLOW_EXECUTOR
+        executor_settings['CONTAINER_IMAGE'] = 'centos'
 
-        script = 'if [[ -f /.dockerinit ]]; then echo "Running inside Docker"; else echo "Running locally"; fi'
+        with override_settings(FLOW_EXECUTOR=executor_settings):
+            executor = FlowExecutor()
 
-        def assert_output(line):
-            self.assertEqual(line.strip(), 'Running inside Docker')
+            script = 'if [[ -f /.dockerinit ]]; then echo "Running inside Docker"; else echo "Running locally"; fi'
 
-        write_mock = mock.MagicMock(side_effect=assert_output)
-        stdout_mock = mock.MagicMock(write=write_mock)
-        open_mock = mock.MagicMock(side_effect=[stdout_mock, mock.MagicMock()])
-        with mock.patch.object(builtins, 'open', open_mock):
-            executor.run('no_data_id', script, verbosity=0)
+            count = {'running': 0}
 
-        self.assertEqual(write_mock.call_count, 1)
+            def assert_output(line):
+                if line.strip() == 'Running inside Docker':
+                    count['running'] += 1
+
+            write_mock = mock.MagicMock(side_effect=assert_output)
+            stdout_mock = mock.MagicMock(write=write_mock)
+            open_mock = mock.MagicMock(side_effect=[stdout_mock, mock.MagicMock()])
+            with mock.patch.object(builtins, 'open', open_mock):
+                executor.run('no_data_id', script, verbosity=0)
+
+            self.assertEqual(count['running'], 1)

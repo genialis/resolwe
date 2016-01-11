@@ -320,13 +320,11 @@ class ProcessTestCase(TestCase):
                              storage.id, field_path, file_name) + self._msg_out(obj))
 
     def _msg_out(self, data):
-        """Print stdout.txt and stderr.txt content."""
-        msg = ''
-        for fn in ['stdout.txt', 'stderr.txt']:
-            msg += "\n\nDump {}:\n\n".format(fn)
-            path = os.path.join(settings.FLOW_EXECUTOR['DATA_PATH'], str(data.pk), fn)
-            if os.path.isfile(path):
-                with open(path, 'r') as fn:
-                    msg += fn.read()
+        """Print stdout.txt's content."""
+        msg = "\n\nDump stdout.txt:\n\n"
+        path = os.path.join(settings.FLOW_EXECUTOR['DATA_PATH'], str(data.pk), "stdout.txt")
+        if os.path.isfile(path):
+            with open(path, 'r') as fn:
+                msg += fn.read()
 
         return msg
