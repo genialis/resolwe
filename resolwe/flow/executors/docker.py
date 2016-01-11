@@ -5,13 +5,16 @@ import os
 import shlex
 import subprocess
 
+from django.conf import settings
+
 from .local import FlowExecutor as LocalFlowExecutor
 
 
 class FlowExecutor(LocalFlowExecutor):
     def start(self):
+        container_image = settings.FLOW_EXECUTOR['CONTAINER_IMAGE']
         self.proc = subprocess.Popen(
-            shlex.split('docker run --rm --interactive --name={} centos /bin/bash'.format(str(self.data_id))),
+            shlex.split('docker run --rm --interactive --name={} {} /bin/bash'.format(self.data_id, container_image)),
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
 
         self.stdout = self.proc.stdout
