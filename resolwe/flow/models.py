@@ -23,6 +23,8 @@ Postgres ORM model for keeping the data structured.
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 import json
+import os
+import re
 
 from django.db import models
 from django.conf import settings
@@ -481,29 +483,29 @@ def validation_schema(name):
     return json.loads(schema.replace('{{FIELD}}', field_schema).replace('{{PARENT}}', '/field'))
 
 
-# def hydrate_input_uploads(input_, input_schema, hydrate_values=True):
-#     """Hydrate input basic:upload types with upload location
+def hydrate_input_uploads(input_, input_schema, hydrate_values=True):
+    """Hydrate input basic:upload types with upload location
 
-#     Find basic:upload fields in input.
-#     Add the upload location for relative paths.
+    Find basic:upload fields in input.
+    Add the upload location for relative paths.
 
-#     """
-#     files = []
-#     for field_schema, fields in iterate_fields(input_, input_schema):
-#         name = field_schema['name']
-#         value = fields[name]
-#         if 'type' in field_schema:
-#             if field_schema['type'] == 'basic:file:':
-#                 files.append(value)
+    """
+    files = []
+    for field_schema, fields in iterate_fields(input_, input_schema):
+        name = field_schema['name']
+        value = fields[name]
+        if 'type' in field_schema:
+            if field_schema['type'] == 'basic:file:':
+                files.append(value)
 
-#             elif field_schema['type'] == 'list:basic:file:':
-#                 files.extend(value)
+            elif field_schema['type'] == 'list:basic:file:':
+                files.extend(value)
 
-#     urlregex = re.compile(r'^(https?|ftp)://[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]')
-#     for value in files:
-#         if 'file_temp' in value:
-#             if not os.path.isabs(value['file_temp']) and not urlregex.search(value['file_temp']):
-#                 value['file_temp'] = os.path.join(settings.RUNTIME['upload_path'], value['file_temp'])
+    urlregex = re.compile(r'^(https?|ftp)://[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]')
+    for value in files:
+        if 'file_temp' in value:
+            if not os.path.isabs(value['file_temp']) and not urlregex.search(value['file_temp']):
+                value['file_temp'] = os.path.join(settings.FLOW_EXECUTOR['UPLOAD_PATH'], value['file_temp'])
 
 
 def hydrate_input_references(input_, input_schema, hydrate_values=True):
