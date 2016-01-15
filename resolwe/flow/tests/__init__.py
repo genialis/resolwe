@@ -10,6 +10,7 @@ import gzip
 import json
 import os
 import shutil
+import stat
 import zipfile
 
 from django.apps import apps
@@ -140,6 +141,16 @@ class ProcessTestCase(TestCase):
 
         p = Process.objects.get(slug=process_slug)
 
+        # since we don't know what uid/gid will be used inside Docker executor,
+        # others must have all permissions on the upload directory
+        upload_dir = settings.FLOW_EXECUTOR['UPLOAD_PATH']
+        upload_dir_mode = stat.S_IMODE(os.stat(upload_dir).st_mode)
+        others_all_perm = stat.S_IROTH | stat.S_IWOTH | stat.S_IXOTH
+        if upload_dir_mode & others_all_perm != others_all_perm:
+            raise ValueError("Incorrect permissions ({}) for upload dir ({}). "
+                "Change it so that others will have read, write and execute "
+                "permissions.".format(oct(upload_dir_mode), upload_dir))
+
         for field_schema, fields in iterate_fields(input_, p.input_schema):
             # copy referenced files to upload dir
             if field_schema['type'] == "basic:file:":
@@ -147,8 +158,12 @@ class ProcessTestCase(TestCase):
 
                     old_path = os.path.join(app_config.path, 'tests', 'files', fields[field_schema['name']])
                     if os.path.isfile(old_path):
-                        shutil.copy2(old_path, settings.FLOW_EXECUTOR['UPLOAD_PATH'])
                         file_name = os.path.basename(fields[field_schema['name']])
+                        new_path = os.path.join(upload_dir, file_name)
+                        shutil.copy2(old_path, new_path)
+                        # since we don't know what uid/gid will be used inside Docker executor,
+                        # we must give others read and write permissions
+                        os.chmod(new_path, 0o666)
                         fields[field_schema['name']] = {
                             'file': file_name,
                             'file_temp': file_name,
