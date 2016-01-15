@@ -30,6 +30,10 @@ class FlowExecutor(LocalFlowExecutor):
         self.stdout = self.proc.stdout
 
     def run_script(self, script):
+        mappings = getattr(settings, 'FLOW_DOCKER_MAPPINGS', {})
+        for old_path, new_path in mappings.items():
+            script = script.replace(old_path, new_path)
+
         self.proc.stdin.write(os.linesep.join(['set -x', 'set +B', script]) + os.linesep)
         self.proc.stdin.close()
 
