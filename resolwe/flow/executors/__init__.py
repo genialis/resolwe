@@ -57,8 +57,12 @@ class BaseFlowExecutor(object):
 
         self.data_id = data_id
 
+        dir_mode = settings.FLOW_EXECUTOR.get('DATA_DIR_MODE', 0o755)
+
         output_path = os.path.join(settings.FLOW_EXECUTOR['DATA_PATH'], str(data_id))
-        os.mkdir(output_path, 0o775)
+        os.mkdir(output_path)
+        # os.mkdir is not guaranteed to set the given mode
+        os.chmod(output_path, dir_mode)
         os.chdir(output_path)
 
         log_file = open('stdout.txt', 'w+')

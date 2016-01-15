@@ -17,7 +17,7 @@ from django.apps import apps
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core import management
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils.crypto import get_random_string
 from django.utils.text import slugify
 
@@ -51,6 +51,13 @@ def _register_processors():
         PROCESSES_FIXTURE_CACHE = list(Process.objects.all())  # list forces db query execution
 
 
+flow_executor_settings = settings.FLOW_EXECUTOR.copy()
+# since we don't know what uid/gid will be used inside Docker executor, others
+# must have all permissions on the data directory
+flow_executor_settings['DATA_DIR_MODE'] = 0o777
+
+
+@override_settings(FLOW_EXECUTOR=flow_executor_settings)
 class ProcessTestCase(TestCase):
 
     """Base class for writing processor tests.

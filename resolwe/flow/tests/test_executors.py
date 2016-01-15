@@ -24,9 +24,10 @@ def check_docker():
 class DockerExecutorTestCase(unittest.TestCase):
     @unittest.skipIf(check_docker(), 'Docker is not installed')
     @mock.patch('os.mkdir')
+    @mock.patch('os.chmod')
     @mock.patch('os.chdir')
     @mock.patch('resolwe.flow.executors.Data.objects.filter')
-    def test_run_in_docker(self, data_filter_mock, chdir_mock, mkdir_mock):
+    def test_run_in_docker(self, data_filter_mock, chdir_mock, chmod_mock, mkdir_mock):
         executor_settings = settings.FLOW_EXECUTOR
         executor_settings['CONTAINER_IMAGE'] = 'centos'
 

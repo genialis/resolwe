@@ -100,8 +100,8 @@ PEP8_RCFILE = '.pep8rc'
 
 FLOW_EXECUTOR = {
     'NAME': 'resolwe.flow.executors.local',
-    'DATA_PATH': os.path.join(PROJECT_ROOT, 'data'),
-    'UPLOAD_PATH': os.path.join(PROJECT_ROOT, 'upload'),
+    'DATA_PATH': os.path.join(PROJECT_ROOT, '.data'),
+    'UPLOAD_PATH': os.path.join(PROJECT_ROOT, '.upload'),
 }
 FLOW_API = {
     'PERMISSIONS': 'resolwe.permissions.genesis',
