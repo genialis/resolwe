@@ -27,12 +27,6 @@ class BackendTest(TestCase):
                       contributor=u,
                       process=self.p)
         self.d.save()
-        data_path = settings.FLOW_EXECUTOR['DATA_PATH']
-
-        if os.path.exists(data_path):
-            shutil.rmtree(data_path)
-
-        os.makedirs(data_path)
 
     def test_manager(self):
         manager.communicate(verbosity=0)
