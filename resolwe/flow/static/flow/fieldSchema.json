@@ -36,10 +36,10 @@
                     "type": "string"
                 },
                 "disabled": {
-                    "type": "boolean"
+                    "type": ["string", "boolean"]
                 },
                 "hidden": {
-                    "type": "boolean"
+                    "type": ["string", "boolean"]
                 },
                 "collapsed": {
                     "type": "boolean"
@@ -72,10 +72,10 @@
                     "type": "boolean"
                 },
                 "disabled": {
-                    "type": "boolean"
+                    "type": ["string", "boolean"]
                 },
                 "hidden": {
-                    "type": "boolean"
+                    "type": ["string", "boolean"]
                 },
                 "default": {
                     "type": ["string", "boolean", "object"]
@@ -111,10 +111,10 @@
                     "type": "boolean"
                 },
                 "disabled": {
-                    "type": "boolean"
+                    "type": ["string", "boolean"]
                 },
                 "hidden": {
-                    "type": "boolean"
+                    "type": ["string", "boolean"]
                 },
                 "default": {
                     "type": ["string", "boolean", "integer", "number", "array"]
@@ -168,10 +168,10 @@
                     "type": "boolean"
                 },
                 "disabled": {
-                    "type": "boolean"
+                    "type": ["string", "boolean"]
                 },
                 "hidden": {
-                    "type": "boolean"
+                    "type": ["string", "boolean"]
                 },
                 "default": {
                     "type": ["array"]
@@ -207,10 +207,10 @@
                     "type": "boolean"
                 },
                 "disabled": {
-                    "type": "boolean"
+                    "type": ["string", "boolean"]
                 },
                 "hidden": {
-                    "type": "boolean"
+                    "type": ["string", "boolean"]
                 },
                 "default": {
                     "type": ["array"]
