@@ -68,15 +68,18 @@ ANONYMOUS_USER_ID = -1
 # This is needed for runing concurrent tests on Jenkins
 toxenv = os.environ.get('TOXENV', '')
 
-# Check if PostgreSQL port is set via environment variable
+# Check if PostgreSQL settings are set via environment variables
+pgname = os.environ.get('RESOLWE_POSTGRESQL_NAME', 'resolwe')
+pguser = os.environ.get('RESOLWE_POSTGRESQL_USER', 'postgres')
+pghost = os.environ.get('RESOLWE_POSTGRESQL_HOST', 'localhost')
 pgport = int(os.environ.get('RESOLWE_POSTGRESQL_PORT', 5432))
 
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'resolwe',
-        'USER': 'postgres',
-        'HOST': 'localhost',
+        'NAME': pgname,
+        'USER': pguser,
+        'HOST': pghost,
         'PORT': pgport,
         'TEST': {
             'NAME': 'resolwe_test' + toxenv
