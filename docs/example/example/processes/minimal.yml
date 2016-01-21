@@ -1,0 +1,6 @@
+- slug: mini
+  name: Minimalistic Process
+  type: "data:mini"
+  run:
+    bash: |
+      echo 'Hello bioinformatician!'

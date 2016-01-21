@@ -1,22 +1,27 @@
-.. Resolwe documentation master file, created by
-   sphinx-quickstart on Thu Apr  9 12:03:25 2015.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
 
-Welcome to Resolwe's documentation!
-===================================
+.. _index:
 
-Contents:
+=====================
+Resolwe Documentation
+=====================
+
+Resolwe is an open source dataflow engine for `Django framework`_.
+
+.. _Django framework: https://www.djangoproject.com/
 
 .. toctree::
    :maxdepth: 2
 
+   intro
+   proc
+   restapi
+   ref
 
 
+==================
 Indices and tables
 ==================
 
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-

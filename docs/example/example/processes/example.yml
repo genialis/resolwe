@@ -1,0 +1,41 @@
+- name: Upload Document
+  slug: upload-document
+  type: "data:doc"
+  inputs:
+    - name: in-doc
+      type: basic:file
+  outputs:
+    - name: out-doc
+      type: basic:file
+  run:
+    bash: |
+      re-import {{ document.file }}
+      re-save-file out-doc $NAME
+
+- name: Word Count
+  slug: wc
+  type: "data:wc"
+  inputs:
+    - name: document
+      type: data:doc
+  outputs:
+    - name: words
+      type: basic:integer
+  run:
+    bash: |
+      WORDS=$(wc {{ document.file }})
+      re-save words $WORDS
+
+- name: Number of Lines
+  slug: ln
+  type: "data:ln"
+  inputs:
+    - name: document
+      type: data:doc
+  outputs:
+    - name: lines
+      type: basic:integer
+  run:
+    bash: |
+      LINES=$(wc -l {{ document.file }})
+      re-save lines $LINES

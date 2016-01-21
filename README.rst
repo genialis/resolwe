@@ -2,17 +2,16 @@
 Resolwe
 =======
 
-Open source dataflow engine based on the `Django framework`_.
+Open source dataflow engine for `Django framework`_.
 
 We envision Resolwe to follow the `Common Workflow Language`_ specification,
-but the current implementation does not yet support it.
+but the current implementation does not yet fully support it.
 
 .. _Django framework: https://www.djangoproject.com/
 .. _Common Workflow Language: https://github.com/common-workflow-language/common-workflow-language
 
--------
 Install
--------
+=======
 
 .. _install-prerequisites:
 
@@ -35,7 +34,7 @@ Otherwise, follow `these instructions
 Installing via pip
 ------------------
 
-*Resolwe is not availabe via PyPI yet.*
+*Resolwe is not available via PyPI yet.*
 
 Installing from source
 ----------------------
@@ -67,14 +66,13 @@ Go to the directory with the extracted source code and install it::
 .. _PyPi: https://pypi.python.org/
 .. _GCC: https://gcc.gnu.org/
 
--------
 Develop
--------
+=======
 
-Prepare environement
---------------------
+Prepare environment
+-------------------
 
-Install prerequisites as described in *Installing from source* section.
+Install prerequisites as described in *Install, Prerequisites* section.
 
 `Fork <https://help.github.com/articles/fork-a-repo>`__ the main `Resolwe's git
 repository <https://github.com/genialis/resolwe>`_.
@@ -95,7 +93,7 @@ Prepare Resolwe for development::
 
     We recommend using `virtualenv <https://virtualenv.pypa.io/>`_ (on
     Python 2.7) or `pyvenv <http://docs.python.org/3/library/venv.html>`_ (on
-    Python 3.3+) to create an isolated Python environement for Resolwe.
+    Python 3.3+) to create an isolated Python environment for Resolwe.
 
 Prepare database
 ----------------

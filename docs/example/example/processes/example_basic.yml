@@ -1,0 +1,13 @@
+- name: Word Count
+  slug: wc-basic
+  type: "data:wc"
+  inputs:
+    - name: document
+      type: basic:file
+  outputs:
+    - name: words
+      type: basic:integer
+  run:
+    bash: |
+      WORDS=$(wc {{ document.file }})
+      echo {"words": $WORDS}

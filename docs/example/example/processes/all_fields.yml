@@ -1,0 +1,6 @@
+- slug: all
+  name: All process fields
+  type: "data:all"
+  run:
+    bash: |
+      echo 'TODO'
