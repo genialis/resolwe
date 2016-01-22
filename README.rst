@@ -2,13 +2,15 @@
 Resolwe
 =======
 
-Open source dataflow engine for `Django framework`_.
-
-We envision Resolwe to follow the `Common Workflow Language`_ specification,
-but the current implementation does not yet fully support it.
+Resolwe is an open source dataflow package for `Django framework`_. We envision
+Resolwe to follow the `Common Workflow Language`_ specification, but the
+current implementation does not yet fully support it. Resolwe offers a complete
+RESTful API to connect with external resources. A collection of bioinformatics
+pipelines is available within the `Resolwe Bioinformatics`_ project.
 
 .. _Django framework: https://www.djangoproject.com/
 .. _Common Workflow Language: https://github.com/common-workflow-language/common-workflow-language
+.. _Resolwe Bioinformatics: https://github.com/genialis/resolwe-bio
 
 Install
 =======

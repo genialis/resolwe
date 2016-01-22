@@ -7,9 +7,10 @@ process is an algorithm that transforms inputs to outputs. For example, a `Word
 Count` process would take a text file as input and report the number of words
 on the output.
 
-TODO: Image. Word Count process with input and output. The input should include
-a `document` of type ``basic:file``. The output should include a `words` of
-type ``basic:integer``.
+.. figure:: images/proc_01.png
+
+    `Word Count` process with input ``doc`` of type ``basic:file`` and output
+    ``words`` of type ``basic:integer``.
 
 When you execute the process, Resolwe creates a new ``Data`` object with
 information about the process instance. In this case the `document` and the
@@ -22,9 +23,13 @@ platform. In most cases it makes sense to split the upload (data storage) from
 the analysis. For example, we could create 3 processes: `Upload Document`,
 `Word Count` and `Number of Lines`.
 
-TODO: Image. Upload Document (input: doc, basic:file; output: doc, basci:file),
-Word Count (input: doc, basic:file; output: words, basic:integer), Number of
-Lines (input: doc, basic:file; output: lines, basic:integer)
+
+.. figure:: images/proc_02_flow.png
+
+    Separate the data storage (`Upload Document`) and analysis (`Word Count`,
+    `Number of Lines`). Notice that the `Word Count` and `Number of Lines`
+    processes accept ``Data`` objects of type ``data:doc``---the type ot the
+    `Upload Document` process.
 
 Resolwe handles the execution of the dataflow automatically. If you were to
 execute all three processes at the same time, Resolwe would delay the execution
@@ -48,16 +53,19 @@ the algorithm, and users can update the meta-data at any time. The
 Processes can be chained into a dataflow. Each process is assigned a type
 (`e.g.,` ``data:wc``). The ``Data`` object created by a process is implicitly
 assigned a type of that process. When you define a new process, you can specify
-which data types are required on the input. In Figure XXX, the `Word Count`
-process accepts ``Data`` objects of type ``data:doc`` on the input. Types are
-hierarchical with each level of the hierarchy separated by a colon. For
-instance, ``data:doc:text`` would be a sub-type of ``data:doc``. A process that
-accepts ``Data`` objects of type ``data:doc``, also accepts ``Data`` objects of
-type ``data:doc:text``. However, a process that accepts ``Data`` objects of
-type ``data:doc:text``, does not accept ``Data`` objects of type ``data:doc``.
+which data types are required on the input. In the figure below, the `Word
+Count` process accepts ``Data`` objects of type ``data:doc`` on the input.
+Types are hierarchical with each level of the hierarchy separated by a colon.
+For instance, ``data:doc:text`` would be a sub-type of ``data:doc``. A process
+that accepts ``Data`` objects of type ``data:doc``, also accepts ``Data``
+objects of type ``data:doc:text``. However, a process that accepts ``Data``
+objects of type ``data:doc:text``, does not accept ``Data`` objects of type
+``data:doc``.
 
-TODO: Image that explains the type hierarchy.
+.. figure:: images/proc_03_types.png
 
+   Types are hierarchical. When you define the type on the input, keep in mind
+   that the process should also handle all sub-types.
 
 .. _process-syntax:
 
