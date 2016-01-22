@@ -301,7 +301,7 @@ class DataViewSet(ResolweCreateDataModelMixin,
     serializer_class = DataSerializer
     permission_classes = (permissions_cls,)
     filter_fields = ('contributor', 'name', 'created', 'modified', 'slug', 'input', 'descriptor',
-                     'started', 'finished', 'output', 'status', 'process')
+                     'started', 'finished', 'output', 'status', 'process', 'project')
 
 
 class DescriptorSchemaViewSet(mixins.RetrieveModelMixin,
