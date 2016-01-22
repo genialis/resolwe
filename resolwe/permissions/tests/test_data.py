@@ -148,7 +148,7 @@ class DataTestCase(ResolweAPITestCase):
         self.assertKeys(resp.data, [u'slug', u'name', u'created', u'modified', u'contributor',
                                     u'started', u'finished', u'checksum', u'status', u'process',
                                     u'process_progress', u'process_rc', u'process_info', u'process_warning',
-                                    u'process_error', u'input', u'output', u'descriptor_schema',
+                                    u'process_error', u'input', u'output', u'process_type', u'descriptor_schema',
                                     u'descriptor', u'id'])
 
     def test_get_detail_no_perms(self):

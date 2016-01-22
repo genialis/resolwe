@@ -78,13 +78,15 @@ class DataSerializer(ResolweBaseSerializer):
 
     """Serializer for Data objects."""
 
+    process_type = serializers.CharField(source='process.type', read_only=True)
+
     class Meta:
         """DataSerializer Meta options."""
         model = Data
         update_protected_fields = ('contributor', 'process')
         read_only_fields = ('id', 'created', 'modified', 'started', 'finished', 'checksum',
                             'status', 'process_progress', 'process_rc', 'process_info',
-                            'process_warning', 'process_error')
+                            'process_warning', 'process_error', 'process_type')
         fields = ('slug', 'name', 'contributor', 'input', 'output', 'descriptor_schema',
                   'descriptor') + update_protected_fields + read_only_fields
 
