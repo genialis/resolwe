@@ -149,7 +149,8 @@ class DataTestCase(ResolweAPITestCase):
                                     u'started', u'finished', u'checksum', u'status', u'process',
                                     u'process_progress', u'process_rc', u'process_info', u'process_warning',
                                     u'process_error', u'input', u'output', u'process_type', u'descriptor_schema',
-                                    u'descriptor', u'id'])
+                                    u'descriptor', u'id', u'process_name', u'process_input_schema',
+                                    u'process_output_schema'])
 
     def test_get_detail_no_perms(self):
         # public user w/o permissions
