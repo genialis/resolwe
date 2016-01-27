@@ -2,15 +2,33 @@
 Resolwe
 =======
 
+|jenkins| |docs|
+
+.. |jenkins| image:: https://ci.genialis.com/buildStatus/icon?job=resolwe-master
+    :target: https://ci.genialis.com/job/resolwe-master/lastCompletedBuild/testReport/
+    :alt: Build Status
+
+.. |docs| image:: https://readthedocs.org/projects/resolwe/badge/?version=latest
+    :target: http://resolwe.readthedocs.org/
+    :alt: Latest Docs
+
 Resolwe is an open source dataflow package for `Django framework`_. We envision
 Resolwe to follow the `Common Workflow Language`_ specification, but the
 current implementation does not yet fully support it. Resolwe offers a complete
 RESTful API to connect with external resources. A collection of bioinformatics
-pipelines is available within the `Resolwe Bioinformatics`_ project.
+pipelines is available in `Resolwe Bioinformatics`_.
 
 .. _Django framework: https://www.djangoproject.com/
 .. _Common Workflow Language: https://github.com/common-workflow-language/common-workflow-language
 .. _Resolwe Bioinformatics: https://github.com/genialis/resolwe-bio
+
+Docs & Help
+===========
+
+Read about architecture, getting started, how to write `processes`, RESTful API
+details, and API Reference in the docs.
+
+|docs|
 
 Install
 =======
