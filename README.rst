@@ -26,9 +26,9 @@ Docs & Help
 ===========
 
 Read about architecture, getting started, how to write `processes`, RESTful API
-details, and API Reference in the docs.
+details, and API Reference in the documentation_.
 
-|docs|
+.. _documentation: http://resolwe.readthedocs.org/
 
 Install
 =======
