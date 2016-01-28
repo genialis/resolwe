@@ -11,5 +11,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from . import apps
 from . import flow
 
-
-VERSION = '0.9'
+from resolwe.__about__ import (
+    __author__, __copyright__, __email__, __license__, __summary__, __title__,
+    __url__, __version__,
+)

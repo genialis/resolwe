@@ -1,17 +1,43 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from setuptools import find_packages, setup
 
+"""Open source dataflow package for Django framework.
+
+See:
+https://github.com/genialis/resolwe
+"""
+
+from setuptools import find_packages, setup
+# Use codecs' open for a consistent encoding
+from codecs import open
+from os import path
+
+base_dir = path.abspath(path.dirname(__file__))
+
+# Get the long description from the README file
+with open(path.join(base_dir, 'README.rst'), encoding='utf-8') as f:
+    long_description = f.read()
+
+# Get package metadata from 'resolwe.__about__.py' file
+about = {}
+with open(path.join(base_dir, 'resolwe', '__about__.py'), encoding='utf-8') as f:
+    exec(f.read(), about)
 
 setup(
-    name='Resolwe',
-    version=__import__('resolwe').VERSION,
-    url='https://github.com/genialis/resolwe',
-    author='Genialis d.o.o.',
-    author_email='info@genialis.com',
-    description='Open source enterprise dataflow engine in Django.',
-    license='Apache License (2.0)',
-    long_description=open('README.rst', 'r').read(),
+    name=about['__title__'],
+
+    version=about['__version__'],
+
+    description=about['__summary__'],
+    long_description=long_description,
+
+    url=about['__url__'],
+
+    author=about['__author__'],
+    author_email=about['__email__'],
+
+    license=about['__license__'],
+
     packages=find_packages(),
     package_data={
         'resolwe': [
@@ -45,23 +71,31 @@ setup(
             'pylint>=1.4.3',
         ],
     },
+
     classifiers=[
         'Development Status :: 4 - Beta',
+
         'Environment :: Web Environment',
         'Framework :: Django',
         'Intended Audience :: Developers',
+        'Topic :: Internet :: WWW/HTTP',
+        'Topic :: Internet :: WWW/HTTP :: Dynamic Content',
+        'Topic :: Internet :: WWW/HTTP :: WSGI',
+        'Topic :: Software Development :: Libraries :: Application Frameworks',
+        'Topic :: Software Development :: Libraries :: Python Modules',
+
+
         'License :: OSI Approved :: Apache Software License',
+
         'Operating System :: OS Independent',
+
         'Programming Language :: Python',
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
-        'Topic :: Internet :: WWW/HTTP',
-        'Topic :: Internet :: WWW/HTTP :: Dynamic Content',
-        'Topic :: Internet :: WWW/HTTP :: WSGI',
-        'Topic :: Software Development :: Libraries :: Application Frameworks',
-        'Topic :: Software Development :: Libraries :: Python Modules',
     ],
+
+    keywords='resolwe django package data flow',
 )
