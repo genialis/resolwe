@@ -483,6 +483,33 @@ def validation_schema(name):
     return json.loads(schema.replace('{{FIELD}}', field_schema).replace('{{PARENT}}', '/field'))
 
 
+def _hydrate_values(output, output_schema, data):
+    """Hydrate basic:file and basic:json values.
+
+    Find fields with basic:file type and assign a full path to the file.
+    Find fields with basic:json type and assign a JSON object from storage.
+
+    """
+    for field_schema, fields in iterate_fields(output, output_schema):
+        name = field_schema['name']
+        value = fields[name]
+        if 'type' in field_schema:
+            if field_schema['type'].startswith('basic:file:'):
+                fn = value['file']
+                id_ = "{}/".format(data.id)  # needs trailing slash
+                if id_ in fn:
+                    fn = fn[fn.find(id) + len(id_):]  # remove id from filename
+
+                value['file'] = os.path.join(
+                    settings.FLOW_EXECUTOR['DATA_PATH'], id_, fn)
+
+            elif field_schema['type'].startswith('basic:json:'):
+                if re.match('^[0-9a-fA-F]{24}$', str(value)) is None:
+                    print("ERROR: basic:json value in {} not ObjectId but {}.".format(name, value))
+
+                fields[name] = Storage.objects.get(pk=value)
+
+
 def hydrate_input_uploads(input_, input_schema, hydrate_values=True):
     """Hydrate input basic:upload types with upload location
 
@@ -528,12 +555,12 @@ def hydrate_input_references(input_, input_schema, hydrate_values=True):
                 output = data.output.copy()
                 # static = Data.static.to_python(data.static)
 
-                # if hydrate_values:
-                #     _hydrate_values(output, data.output_schema, data)
-                #     _hydrate_values(static, data.static_schema, data)
+                if hydrate_values:
+                    _hydrate_values(output, data.process.output_schema, data)
+                    # _hydrate_values(static, data.static_schema, data)
 
                 output["_id"] = data.id
-                output["_type"] = data.type
+                output["_type"] = data.process.type
                 fields[name] = output
 
             elif field_schema['type'].startswith('list:data:'):
@@ -547,12 +574,12 @@ def hydrate_input_references(input_, input_schema, hydrate_values=True):
                     output = data.output.copy()
                     # static = Data.static.to_python(data.static)
 
-                    # if hydrate_values:
-                    #     _hydrate_values(output, data.output_schema, data)
-                    #     _hydrate_values(static, data.static_schema, data)
+                    if hydrate_values:
+                        _hydrate_values(output, data.process.output_schema, data)
+                        # _hydrate_values(static, data.static_schema, data)
 
                     output["_id"] = data.id
-                    output["_type"] = data.type
+                    output["_type"] = data.process.type
                     outputs.append(output)
 
                 fields[name] = outputs
