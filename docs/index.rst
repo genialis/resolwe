@@ -27,6 +27,7 @@ Contents
    proc
    restapi
    ref
+   contributing
 
 
 ==================

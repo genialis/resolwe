@@ -64,6 +64,10 @@ setup(
     ],
     extras_require = {
         'docs':  ['sphinx>=1.3.2'],
+        'package': [
+            'twine',
+            'wheel',
+        ],
         'test': [
             'django-jenkins>=0.17.0',
             'coverage>=3.7.1',
