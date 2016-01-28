@@ -1,9 +1,9 @@
 
 .. _index:
 
-=====================
-Resolwe Documentation
-=====================
+=======
+Resolwe
+=======
 
 Resolwe is an open source dataflow package for `Django framework`_. It offers a
 complete RESTful API to connect with external resources. A higher layer of
@@ -28,12 +28,3 @@ Contents
    restapi
    ref
    contributing
-
-
-==================
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
