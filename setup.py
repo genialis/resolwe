@@ -101,5 +101,5 @@ setup(
         'Programming Language :: Python :: 3.5',
     ],
 
-    keywords='resolwe django package data flow',
+    keywords='resolwe dataflow django',
 )
