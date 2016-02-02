@@ -116,6 +116,9 @@ class Command(BaseCommand):
         new.description = project.get(u'description', '')
         new.contributor = self.get_contributor(project['author_id'])
         new.settings = project.get(u'settings', {})
+        # Remove data table settings as they are incompatible with the new frontend.
+        for applicationConfig in new.settings.values():
+            applicationConfig['tables'] = {}
         # XXX: Django will change this on create
         new.created = project[u'date_created']
         # XXX: Django will change this on save
