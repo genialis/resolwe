@@ -22,11 +22,11 @@ class FlowExecutor(LocalFlowExecutor):
             rand_int = random.randint(1000, 9999)
             container_name = 'resolwe_test_{}'.format(rand_int)
 
-        mappings_template = getattr(settings, 'FLOW_DOCKER_MAPPINGS', {})
+        mappings_template = getattr(settings, 'FLOW_DOCKER_MAPPINGS', [])
         context = {'data_id': self.data_id}
-        mappings = {key.format(**context): value.format(**context) for key, value in mappings_template.items()}
-        volumes = " ".join(["--volume={}:{}".format(old_path, new_path)
-                            for old_path, new_path in mappings.items()])
+        mappings = [{key.format(**context): value.format(**context) for key, value in template.items()}
+                    for template in mappings_template]
+        volumes = " ".join(["--volume={src}:{dest}:{mode}".format(**map_) for map_ in mappings])
 
         # a login Bash shell is needed to source ~/.bash_profile
         self.proc = subprocess.Popen(
@@ -39,8 +39,8 @@ class FlowExecutor(LocalFlowExecutor):
 
     def run_script(self, script):
         mappings = getattr(settings, 'FLOW_DOCKER_MAPPINGS', {})
-        for old_path, new_path in mappings.items():
-            script = script.replace(old_path, new_path)
+        for map_ in mappings:
+            script = script.replace(map_['src'], map_['dest'])
 
         self.proc.stdin.write(os.linesep.join(['set -x', 'set +B', script]) + os.linesep)
         self.proc.stdin.close()

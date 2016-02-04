@@ -5,6 +5,7 @@
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+import copy
 import hashlib
 import gzip
 import json
@@ -60,10 +61,10 @@ flow_executor_settings['DATA_DIR_MODE'] = 0o777
 flow_executor_settings['UPLOAD_PATH'] = os.path.join(flow_executor_settings['UPLOAD_PATH'], 'test_upload')
 
 # replace existing Docker UPLOAD_PATH mapping with the new upload directory
-flow_docker_mappings = getattr(settings, "FLOW_DOCKER_MAPPINGS", {}).copy()
-if settings.FLOW_EXECUTOR['UPLOAD_PATH'] in flow_docker_mappings:
-    old_dest = flow_docker_mappings.pop(settings.FLOW_EXECUTOR['UPLOAD_PATH'])
-    flow_docker_mappings[flow_executor_settings['UPLOAD_PATH']] = old_dest
+flow_docker_mappings = copy.copy(getattr(settings, "FLOW_DOCKER_MAPPINGS", {}))
+for map_ in flow_docker_mappings:
+    if settings.FLOW_EXECUTOR['UPLOAD_PATH'] in map_['src']:
+        map_['src'] = flow_executor_settings['UPLOAD_PATH']
 
 
 @override_settings(FLOW_EXECUTOR=flow_executor_settings)
