@@ -148,7 +148,7 @@ class ProcessTestCase(TestCase):
         self._keep_failed = True
 
     def run_processor(self, *args, **kwargs):
-        self.run_process(*args, **kwargs)
+        return self.run_process(*args, **kwargs)
         # TODO: warning
 
     def run_process(self, process_slug, input_={}, assert_status=Data.STATUS_DONE, run_manager=True, verbosity=0):
