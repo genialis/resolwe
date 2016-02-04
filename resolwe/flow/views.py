@@ -30,6 +30,8 @@ from .models import Project, Process, Data, DescriptorSchema, Trigger, Storage
 from .serializers import (ProjectSerializer, ProcessSerializer, DataSerializer,
                           DescriptorSchemaSerializer, TriggerSerializer, StorageSerializer)
 
+from resolwe.permissions.shortcuts import get_user_group_perms
+
 
 def assign_perm(*args, **kwargs):
     """Wrapper for assign_perm function
@@ -213,6 +215,35 @@ class ResolwePermissionsMixin(object):
 
         set_public_permissions('add')
         set_public_permissions('remove')
+
+    def _get_object_permissions(self, user, instance):
+        def format_permissions(perms):
+            return [perm.replace('_{}'.format(instance._meta.model_name), '') for perm in perms]
+
+        if user.is_authenticated():
+            permissions_user, permissions_group = get_user_group_perms(user, instance)
+        else:
+            permissions_user, permissions_group = [], []
+        permissions_public = shortcuts.get_perms(AnonymousUser(), instance)
+
+        return {
+            'user': format_permissions(permissions_user),
+            'group': format_permissions(permissions_group),
+            'public': format_permissions(permissions_public),
+        }
+
+    def get_serializer_class(self):
+        # Augment the base serializer class to include permissions information with objects.
+        base_class = super(ResolwePermissionsMixin, self).get_serializer_class()
+
+        class SerializerWithPermissions(base_class):
+            def to_representation(serializer, instance):
+                # TODO: These permissions queries may be expensive. Should we limit or optimize this?
+                data = super(SerializerWithPermissions, serializer).to_representation(instance)
+                data['permissions'] = self._get_object_permissions(self.request.user, instance)
+                return data
+
+        return SerializerWithPermissions
 
     @detail_route(methods=[u'post'], url_path='permissions')
     def detail_permissions(self, request, pk=None):

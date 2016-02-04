@@ -31,7 +31,7 @@ class ResolwePermissions(permissions.DjangoObjectPermissions):
             return True
 
         # `share` permission is required for editing permissions
-        if 'permissions' in view.action:
+        if 'permissions' in (view.action or []):
             self.perms_map['POST'] = ['%(app_label)s.share_%(model_name)s']
 
         return super(ResolwePermissions, self).has_object_permission(request, view, obj)
