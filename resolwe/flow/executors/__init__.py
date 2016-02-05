@@ -6,6 +6,7 @@ import json
 import logging
 import os
 
+from django.apps import apps
 from django.conf import settings
 
 from resolwe.flow.models import Data, dict_dot
@@ -37,6 +38,14 @@ class BaseFlowExecutor(object):
         Ensure this class can be serialized since some engines will
         use it this way (e.g. Celery).
     """
+
+    def get_tools(self):
+        tools_paths = []
+        for app_config in apps.get_app_configs():
+            proc_path = os.path.join(app_config.path, 'tools')
+            if os.path.isdir(proc_path):
+                tools_paths.append(proc_path)
+        return tools_paths
 
     def start(self):
         pass
