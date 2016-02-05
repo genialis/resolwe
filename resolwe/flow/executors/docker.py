@@ -22,10 +22,17 @@ class FlowExecutor(LocalFlowExecutor):
             rand_int = random.randint(1000, 9999)
             container_name = 'resolwe_test_{}'.format(rand_int)
 
+        # render Docker mappings in FLOW_DOCKER_MAPPINGS setting
         mappings_template = getattr(settings, 'FLOW_DOCKER_MAPPINGS', [])
         context = {'data_id': self.data_id}
         mappings = [{key.format(**context): value.format(**context) for key, value in template.items()}
                     for template in mappings_template]
+        # create mappings for tools
+        # NOTE: To prevent processes tampering with tools, all tools are mounted read-only
+        self.mappings_tools = [{'src': tool, 'dest': '/usr/local/bin/resolwe/{}'.format(i), 'mode': 'ro'}
+                               for i, tool in enumerate(self.get_tools())]
+        mappings += self.mappings_tools
+        # create Docker --volume parameters from mappings
         volumes = " ".join(["--volume={src}:{dest}:{mode}".format(**map_) for map_ in mappings])
 
         # a login Bash shell is needed to source ~/.bash_profile
@@ -41,8 +48,10 @@ class FlowExecutor(LocalFlowExecutor):
         mappings = getattr(settings, 'FLOW_DOCKER_MAPPINGS', {})
         for map_ in mappings:
             script = script.replace(map_['src'], map_['dest'])
-
-        self.proc.stdin.write(os.linesep.join(['set -x', 'set +B', script]) + os.linesep)
+        # create a Bash command to add all the tools to PATH
+        tools_paths = ':'.join([map_["dest"] for map_ in self.mappings_tools])
+        add_tools_path = 'export PATH=$PATH:{}'.format(tools_paths)
+        self.proc.stdin.write(os.linesep.join(['set -x', 'set +B', add_tools_path, script]) + os.linesep)
         self.proc.stdin.close()
 
     def end(self):
