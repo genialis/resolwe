@@ -26,6 +26,7 @@ import json
 import os
 import re
 
+from django import template
 from django.db import models
 from django.conf import settings
 from django.core.validators import RegexValidator
@@ -241,6 +242,34 @@ class Process(BaseModel):
 #                                     blank=True, null=True, on_delete=models.SET_NULL)
 
 
+def render_descriptor(data):
+    """Render static template variables with input values.
+
+    :param data: data instance
+    :type data: :obj:`server.models.Data` or :obj:`dict`
+
+    """
+    if not data.descriptor_schema or not data.process.input_schema:
+        return
+
+    tmpl_vars = data.input
+    hydrate_input_references(tmpl_vars, data.process.input_schema, hydrate_values=False)
+    tmpl_vars = template.Context(tmpl_vars)
+
+    # Set default values
+    for field_schema, _, path in iterate_schema(data.descriptor, data.descriptor_schema, 'descriptor'):
+        if 'default' in field_schema:
+            tmpl = field_schema['default']
+            if field_schema['type'].startswith('list:'):
+                tmpl = [template.Template("{% load resource_filters %}" + tmp).render(tmpl_vars)
+                        if isinstance(tmp, basestring) else tmp
+                        for tmp in tmpl]
+            elif isinstance(tmpl, basestring):
+                tmpl = template.Template("{% load resource_filters %}" + tmpl).render(tmpl_vars)
+
+            dict_dot(data, path, tmpl)
+
+
 class Data(BaseModel):
 
     """Postgres model for storing data."""
@@ -330,6 +359,18 @@ class Data(BaseModel):
 
     #: actual descriptor
     descriptor = JSONField(default={})
+
+    def save(self, *args, **kwargs):
+
+        if not self.pk:  # create
+            render_descriptor(self)
+
+            # default values for INPUT
+            for field_schema, fields, path in iterate_schema(self.input, self.process.input_schema, ''):
+                if 'default' in field_schema and field_schema['name'] not in fields:
+                    dict_dot(self.input, path, field_schema['default'])
+
+        super(Data, self).save(*args, **kwargs)
 
 
 class DescriptorSchema(BaseModel):
