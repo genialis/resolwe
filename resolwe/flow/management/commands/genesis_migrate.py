@@ -178,9 +178,9 @@ class Command(BaseCommand):
 
             self.descriptor_schema_index[ds_fields_dumped] = descriptor_schema
 
-        descriptor = []
-        descriptor.extend(data.get(u'static', []))
-        descriptor.extend(data.get(u'var', []))
+        descriptor = {}
+        descriptor.update(data.get(u'static', {}))
+        descriptor.update(data.get(u'var', {}))
 
         # PROCESS ######################################################
         if u'processor_version' not in data:
