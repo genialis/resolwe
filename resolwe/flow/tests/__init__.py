@@ -235,7 +235,8 @@ class ProcessTestCase(TestCase):
 
         """
         self.assertEqual(obj.status, status,
-                         msg="Data status is '{}', not '{}'".format(obj.status, status) + self._msg_out(obj))
+                         msg="Data status is '{}', not '{}'".format(obj.status, status) +
+                         self._debug_info(obj))
 
     def assertFields(self, obj, path, value):  # pylint: disable=invalid-name
         """Compare Data object's field to given value.
@@ -253,7 +254,7 @@ class ProcessTestCase(TestCase):
         field = dict_dot(obj['output'], path)
         self.assertEqual(field, value,
                          msg="Field 'output.{}' mismatch: {} != {}".format(path, field, str(value)) +
-                         self._msg_out(obj))
+                         self._debug_info(obj))
 
     def assertFiles(self, obj, field_path, fn, compression=None):  # pylint: disable=invalid-name
         """Compare output file of a processor to the given correct file.
@@ -300,7 +301,8 @@ class ProcessTestCase(TestCase):
         wanted_file = open_fn(wanted)
         wanted_hash = hashlib.sha256(wanted_file.read()).hexdigest()
         self.assertEqual(wanted_hash, output_hash,
-                         msg="File hash mismatch: {} != {}".format(wanted_hash, output_hash) + self._msg_out(obj))
+                         msg="File hash mismatch: {} != {}".format(wanted_hash, output_hash) +
+                         self._debug_info(obj))
 
     def assertFileExist(self, obj, field_path):  # pylint: disable=invalid-name
         """Compare output file of a processor to the given correct file.
@@ -360,14 +362,24 @@ class ProcessTestCase(TestCase):
 
         self.assertEqual(storage_obj, file_obj,
                          msg="Storage {} field '{}' does not match file {}".format(
-                             storage.id, field_path, file_name) + self._msg_out(obj))
+                             storage.id, field_path, file_name) + self._debug_info(obj))
 
-    def _msg_out(self, data):
-        """Print stdout.txt's content."""
-        msg = "\n\nDump stdout.txt:\n\n"
+    def _debug_info(self, data):
+        """Return data's debugging information."""
+        msg_header = "Debugging information for data object {}".format(data.pk)
+        msg = "\n\n" + len(msg_header)*"=" + "\n" + msg_header + "\n" + len(msg_header)*"=" + "\n"
         path = os.path.join(settings.FLOW_EXECUTOR['DATA_PATH'], str(data.pk), "stdout.txt")
         if os.path.isfile(path):
+            msg += "\nstdout.txt:\n" + 11*"-" + "\n"
             with open(path, 'r') as fn:
                 msg += fn.read()
+
+        if data.process_error:
+            msg += "\nProcess' errors:\n" + 16*"-" + "\n"
+            msg += "\n".join(data.process_error)
+
+        if data.process_warning:
+            msg += "\nProcess' warnings:\n" + 18*"-" + "\n"
+            msg += "\n".join(data.process_warning)
 
         return msg
