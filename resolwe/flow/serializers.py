@@ -82,6 +82,7 @@ class DataSerializer(ResolweBaseSerializer):
     process_type = serializers.CharField(source='process.type', read_only=True)
     process_input_schema = serializers.JSONField(source='process.input_schema', read_only=True)
     process_output_schema = serializers.JSONField(source='process.output_schema', read_only=True)
+    descriptor_schema = serializers.JSONField(source='descriptor_schema.schema', read_only=True)
 
     class Meta:
         """DataSerializer Meta options."""

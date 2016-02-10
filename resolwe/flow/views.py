@@ -328,7 +328,7 @@ class DataViewSet(ResolweCreateDataModelMixin,
 
     """API view for :class:`Data` objects."""
 
-    queryset = Data.objects.all().prefetch_related('process')
+    queryset = Data.objects.all().prefetch_related('process', 'descriptor_schema')
     serializer_class = DataSerializer
     permission_classes = (permissions_cls,)
     filter_fields = ('contributor', 'name', 'created', 'modified', 'slug', 'input', 'descriptor',
