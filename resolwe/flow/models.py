@@ -600,8 +600,8 @@ def hydrate_input_references(input_, input_schema, hydrate_values=True):
                     _hydrate_values(output, data.process.output_schema, data)
                     # _hydrate_values(static, data.static_schema, data)
 
-                output["_id"] = data.id
-                output["_type"] = data.process.type
+                output["__id"] = data.id
+                output["__type"] = data.process.type
                 fields[name] = output
 
             elif field_schema['type'].startswith('list:data:'):
@@ -619,8 +619,8 @@ def hydrate_input_references(input_, input_schema, hydrate_values=True):
                         _hydrate_values(output, data.process.output_schema, data)
                         # _hydrate_values(static, data.static_schema, data)
 
-                    output["_id"] = data.id
-                    output["_type"] = data.process.type
+                    output["__id"] = data.id
+                    output["__type"] = data.process.type
                     outputs.append(output)
 
                 fields[name] = outputs

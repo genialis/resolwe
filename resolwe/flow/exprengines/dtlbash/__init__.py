@@ -26,7 +26,7 @@ class ExpressionEngine(BaseExpressionEngine):
             inputs['proc'] = info  # add script info
 
             script = template.Template(
-                '{% load resource_filters %}{% load mathfilters %}' + script_template
+                '{% load resource_filters %}{% load process_fields %}{% load mathfilters %}' + script_template
             ).render(template.Context(inputs))
 
         except template.TemplateSyntaxError as ex:
