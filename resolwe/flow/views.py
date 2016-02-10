@@ -289,12 +289,34 @@ class ResolweProcessPermissionsMixin(ResolwePermissionsMixin):
                         pass
 
 
+class ResolweCheckSlugMixin(object):
+    @list_route(methods=[u'get'])
+    def slug_exists(self, request):
+        """Check if given url slug exists.
+
+        Check if slug given in query parameter ``name`` exists. Return
+        ``True`` if slug already exists and ``False`` otherwise.
+
+        """
+        if not request.user.is_authenticated():
+            return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+        if 'name' not in request.query_params:
+            return Response({'error': 'Query parameter `name` must be given.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        queryset = self.get_queryset()
+        slug_name = request.query_params['name']
+        return Response(queryset.filter(slug__iexact=slug_name).exists())
+
+
 class ProjectViewSet(ResolweCreateModelMixin,
                      mixins.RetrieveModelMixin,
                      mixins.UpdateModelMixin,
                      mixins.DestroyModelMixin,
                      mixins.ListModelMixin,
                      ResolwePermissionsMixin,
+                     ResolweCheckSlugMixin,
                      viewsets.GenericViewSet):
 
     """API view for :class:`Project` objects."""
@@ -324,6 +346,7 @@ class DataViewSet(ResolweCreateDataModelMixin,
                   mixins.DestroyModelMixin,
                   mixins.ListModelMixin,
                   ResolwePermissionsMixin,
+                  ResolweCheckSlugMixin,
                   viewsets.GenericViewSet):
 
     """API view for :class:`Data` objects."""
