@@ -170,7 +170,7 @@ class ProcessTestCase(TestCase):
         :param ``assert_status``: Desired status of Data object
         :type ``assert_status``: :obj:`str`
 
-        :return: :obj:`server.models.Data` object which is created by
+        :return: :obj:`resolwe.flow.models.Data` object which is created by
             the processor.
 
         """
@@ -230,7 +230,7 @@ class ProcessTestCase(TestCase):
         """Check if Data object's status is 'status'.
 
         :param obj: Data object for which to check status
-        :type obj: :obj:`server.models.Data`
+        :type obj: :obj:`resolwe.flow.models.Data`
         :param status: Data status to check
         :type status: str
 
@@ -243,7 +243,7 @@ class ProcessTestCase(TestCase):
         """Compare Data object's field to given value.
 
         :param obj: Data object with field to compare
-        :type obj: :obj:`server.models.Data`
+        :type obj: :obj:`resolwe.flow.models.Data`
 
         :param path: Path to field in Data object.
         :type path: :obj:`str`
@@ -252,7 +252,7 @@ class ProcessTestCase(TestCase):
         :type value: :obj:`str`
 
         """
-        field = dict_dot(obj['output'], path)
+        field = dict_dot(obj.output, path)
         self.assertEqual(field, value,
                          msg="Field 'output.{}' mismatch: {} != {}".format(path, field, str(value)) +
                          self._debug_info(obj))
@@ -262,7 +262,7 @@ class ProcessTestCase(TestCase):
 
         :param obj: Data object which includes file that we want to
             compare.
-        :type obj: :obj:`server.models.Data`
+        :type obj: :obj:`resolwe.flow.models.Data`
 
         :param field_path: Path to file name in Data object.
         :type field_path: :obj:`str`
@@ -288,7 +288,7 @@ class ProcessTestCase(TestCase):
         else:
             raise ValueError("Unsupported compression format.")
 
-        field = dict_dot(obj['output'], field_path)
+        field = dict_dot(obj.output, field_path)
         output = os.path.join(settings.FLOW_EXECUTOR['DATA_PATH'], str(obj.pk), field['file'])
         output_file = open_fn(output)
         output_hash = hashlib.sha256(output_file.read()).hexdigest()
@@ -310,13 +310,13 @@ class ProcessTestCase(TestCase):
 
         :param obj: Data object which includes file that we want to
             compare.
-        :type obj: :obj:`server.models.Data`
+        :type obj: :obj:`resolwe.flow.models.Data`
 
         :param field_path: Path to file name in Data object.
         :type field_path: :obj:`str`
 
         """
-        field = dict_dot(obj['output'], field_path)
+        field = dict_dot(obj.output, field_path)
         output = os.path.join(settings.FLOW_EXECUTOR['DATA_PATH'], str(obj.pk), field['file'])
 
         if not os.path.isfile(output):
@@ -327,11 +327,11 @@ class ProcessTestCase(TestCase):
 
         :param obj: Data object which includes file that we want to
             compare.
-        :type obj: :obj:`server.models.Data`
+        :type obj: :obj:`resolwe.flow.models.Data`
 
         :param storage: Storage (or storage id) which contains JSON to
             compare.
-        :type storage: :obj:`server.models.Storage` or :obj:`str`
+        :type storage: :obj:`resolwe.flow.models.Storage` or :obj:`str`
 
         :param field_path: Path to JSON subset to compare in Storage
             object. If it is empty, entire Storage object will be
@@ -349,7 +349,7 @@ class ProcessTestCase(TestCase):
         if not isinstance(storage, Storage):
             storage = Storage.objects.get(pk=storage)
 
-        storage_obj = dict_dot(storage['json'], field_path)
+        storage_obj = dict_dot(storage.json, field_path)
 
         file_path = os.path.join(self.current_path, 'outputs', file_name)
         if not os.path.isfile(file_path):
