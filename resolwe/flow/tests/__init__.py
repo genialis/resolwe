@@ -79,19 +79,26 @@ class ProcessTestCase(TestCase):
     To write a processor test use standard Django's syntax for writing
     tests and follow next steps:
 
-    #. Put input files (if any) in ``server/tests/processor/inputs``
-       folder.
+    #. Put input files (if any) in ``tests/files`` folder of a Django
+       application.
     #. Run test with run_processor.
     #. Check if processor has finished successfully with
        assertDone function.
     #. Assert processor's output with :func:`assertFiles`,
        :func:`assertFields` and :func:`assertJSON` functions.
 
+    .. note::
+        When creating a test case for a custom Django application,
+        subclass this class and over-ride the ``self.files_path`` with:
+
+        .. code-block::
+            self.files_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'files')
+
     .. DANGER::
-        If output files doesn't exists in
-        ``server/tests/processor/outputs`` folder, they are created
-        automatically. But you have to chack that they are correct
-        before using them for further runs.
+        If output files don't exist in ``tests/files`` folder of a
+        Django application, they are created automatically.
+        But you have to check that they are correct before using them
+        for further runs.
 
     """
 
@@ -102,7 +109,7 @@ class ProcessTestCase(TestCase):
         _register_processors()
 
         self.project = Project.objects.create(contributor=self.admin)
-        self.current_path = os.path.dirname(os.path.abspath(__file__))
+        self.files_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'files')
         self._keep_all = False
         self._keep_failed = False
 
@@ -155,7 +162,7 @@ class ProcessTestCase(TestCase):
         """Runs given processor with specified inputs.
 
         If input is file, file path should be given relative to
-        ``tests/files`` folder.
+        ``tests/files`` folder of a Django application.
         If ``assert_status`` is given check if Data object's status
         matches ``assert_status`` after finishing processor.
 
@@ -268,8 +275,8 @@ class ProcessTestCase(TestCase):
         :type field_path: :obj:`str`
 
         :param fn: File name (and relative path) of file to which we
-            want to compare. Name/path is relative to
-            'server/tests/processor/outputs'.
+            want to compare. Name/path is relative to ``tests/files``
+            folder of a Django application.
         :type fn: :obj:`str`
 
         :param compression: If not None, files will be uncompressed with
@@ -293,7 +300,7 @@ class ProcessTestCase(TestCase):
         output_file = open_fn(output)
         output_hash = hashlib.sha256(output_file.read()).hexdigest()
 
-        wanted = os.path.join(self.current_path, 'outputs', fn)
+        wanted = os.path.join(self.files_path, fn)
 
         if not os.path.isfile(wanted):
             shutil.copyfile(output, wanted)
@@ -338,9 +345,9 @@ class ProcessTestCase(TestCase):
             compared.
         :type field_path: :obj:`str`
 
-        :param file_name: File name (and relative path) of file to which we
-            want to compare. Name/path is relative to
-            'server/tests/processor/outputs'.
+        :param file_name: File name (and relative path) of file to
+            which we want to compare. Name/path is relative to
+            ``tests/files`` folder of a Django application.
         :type file_name: :obj:`str`
 
         """
@@ -351,7 +358,7 @@ class ProcessTestCase(TestCase):
 
         storage_obj = dict_dot(storage.json, field_path)
 
-        file_path = os.path.join(self.current_path, 'outputs', file_name)
+        file_path = os.path.join(self.files_path, file_name)
         if not os.path.isfile(file_path):
             with gzip.open(file_path, 'w') as f:
                 json.dump(storage_obj, f)
