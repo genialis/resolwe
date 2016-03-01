@@ -8,8 +8,8 @@ from django.db import transaction
 from rest_framework import status
 
 from .base import ResolweAPITestCase
-from resolwe.flow.models import Project
-from resolwe.flow.views import ProjectViewSet
+from resolwe.flow.models import Collection
+from resolwe.flow.views import CollectionViewSet
 
 
 MESSAGES = {
@@ -18,21 +18,21 @@ MESSAGES = {
 }
 
 
-class ProjectTestCase(ResolweAPITestCase):
-    fixtures = ['users.yaml', 'projects.yaml', 'permissions.yaml']
+class CollectionTestCase(ResolweAPITestCase):
+    fixtures = ['users.yaml', 'collections.yaml', 'permissions.yaml']
 
     def setUp(self):
-        self.project1 = Project.objects.get(pk=1)
+        self.collection1 = Collection.objects.get(pk=1)
 
-        self.resource_name = 'project'
-        self.viewset = ProjectViewSet
+        self.resource_name = 'collection'
+        self.viewset = CollectionViewSet
 
         self.post_data = {
-            'name': 'Test project',
-            'slug': 'test_project',
+            'name': 'Test collection',
+            'slug': 'test_collection',
         }
 
-        super(ProjectTestCase, self).setUp()
+        super(CollectionTestCase, self).setUp()
 
     def test_get_list(self):
         resp = self._get_list(self.user1)
@@ -60,16 +60,16 @@ class ProjectTestCase(ResolweAPITestCase):
 
     def test_post(self):
         # logged-in user
-        project_n = Project.objects.count()
+        collection_n = Collection.objects.count()
         resp = self._post(self.post_data, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(Project.objects.count(), project_n + 1)
+        self.assertEqual(Collection.objects.count(), collection_n + 1)
 
         # public user
-        project_n += 1
+        collection_n += 1
         resp = self._post(self.post_data)
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertEqual(Project.objects.count(), project_n)
+        self.assertEqual(Collection.objects.count(), collection_n)
 
     def test_get_detail(self):
         # public user w/ perm
@@ -94,58 +94,58 @@ class ProjectTestCase(ResolweAPITestCase):
         self.assertEqual(resp.data[u'detail'], MESSAGES['NOT_FOUND'])
 
     def test_patch(self):
-        data = {'name': 'New project'}
+        data = {'name': 'New collection'}
         resp = self._patch(1, data, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        p = Project.objects.get(pk=1)
-        self.assertEqual(p.name, 'New project')
+        p = Collection.objects.get(pk=1)
+        self.assertEqual(p.name, 'New collection')
 
         # protected field
         data = {'created': '3042-01-01T09:00:00'}
         resp = self._patch(1, data, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
-        p = Project.objects.get(pk=1)
+        p = Collection.objects.get(pk=1)
         self.assertEqual(p.created, datetime(2015, 1, 1, 9, 0, 0))
 
     def test_patch_no_perm(self):
-        data = {'name': 'New project'}
+        data = {'name': 'New collection'}
         resp = self._patch(2, data, self.user2)
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
-        p = Project.objects.get(pk=2)
-        self.assertEqual(p.name, 'Test project 2')
+        p = Collection.objects.get(pk=2)
+        self.assertEqual(p.name, 'Test collection 2')
 
     def test_patch_public_user(self):
-        data = {'name': 'New project'}
+        data = {'name': 'New collection'}
         resp = self._patch(3, data)
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
-        p = Project.objects.get(pk=3)
-        self.assertEqual(p.name, 'Test project 3')
+        p = Collection.objects.get(pk=3)
+        self.assertEqual(p.name, 'Test collection 3')
 
     def test_delete(self):
         resp = self._delete(1, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
-        q = Project.objects.filter(pk=1).exists()
+        q = Collection.objects.filter(pk=1).exists()
         self.assertFalse(q)
 
     def test_delete_no_perm(self):
         resp = self._delete(2, self.user2)
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
-        q = Project.objects.filter(pk=2).exists()
+        q = Collection.objects.filter(pk=2).exists()
         self.assertTrue(q)
 
     def test_delete_public_user(self):
         resp = self._delete(3)
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
-        q = Project.objects.filter(pk=3).exists()
+        q = Collection.objects.filter(pk=3).exists()
         self.assertTrue(q)
 
     def test_post_duplicated_slug(self):
         # create new object
-        Project.objects.create(contributor_id=1, **self.post_data)
-        project_n = Project.objects.count()
+        Collection.objects.create(contributor_id=1, **self.post_data)
+        collection_n = Collection.objects.count()
 
         with transaction.atomic():
             resp = self._post(self.post_data, self.user1)
             self.assertEqual(resp.status_code, status.HTTP_409_CONFLICT)
             self.assertTrue(u'error' in resp.data)
-        self.assertEqual(Project.objects.count(), project_n)
+        self.assertEqual(Collection.objects.count(), collection_n)

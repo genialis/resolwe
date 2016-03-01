@@ -7,12 +7,12 @@ from django.test import TestCase
 from rest_framework.test import APIRequestFactory
 
 
-class ProjectResourceTest(TestCase):
+class CollectionResourceTest(TestCase):
     def setUp(self):
         self.api_client = APIRequestFactory()
-        self.list_url = reverse('resolwe-api:project-list')
+        self.list_url = reverse('resolwe-api:collection-list')
         # TODO: add object's id
-        # self.detail_url = reverse('resolwe-api:project-detail')
+        # self.detail_url = reverse('resolwe-api:collection-detail')
 
     def test_readonly_fields(self):
         self.api_client.get(self.list_url)

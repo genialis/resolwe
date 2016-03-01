@@ -42,7 +42,7 @@ class ResolweAPITestCase(APITestCase):
         self.detail_url = lambda pk: reverse('resolwe-api:{}-detail'.format(self.resource_name), kwargs={'pk': pk})
         self.detail_permissions = lambda pk: reverse('resolwe-api:{}-permissions'.format(self.resource_name),
                                                      kwargs={'pk': pk})
-        self.list_url = reverse('resolwe-api:project-list')
+        self.list_url = reverse('resolwe-api:collection-list')
 
     def _get_list(self, user=None):
         request = self.factory.get(self.list_url, format='json')

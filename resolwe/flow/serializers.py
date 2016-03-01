@@ -9,7 +9,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from rest_framework import serializers, status
 from rest_framework.exceptions import APIException
 from rest_framework.fields import empty
-from resolwe.flow.models import Process, Project, Data, DescriptorSchema, Trigger, Storage
+from resolwe.flow.models import Process, Collection, Data, DescriptorSchema, Trigger, Storage
 
 
 class NoContentError(APIException):
@@ -36,8 +36,8 @@ class ResolweBaseSerializer(serializers.ModelSerializer):
 
     """
     def __init__(self, instance=None, data=empty, **kwargs):
-        if (instance is not None and data is not empty
-                and hasattr(self.Meta, 'update_protected_fields')):
+        if (instance is not None and data is not empty and
+                hasattr(self.Meta, 'update_protected_fields')):
             for field in self.Meta.update_protected_fields:
                 if field in data:
                     data.pop(field)
@@ -49,13 +49,13 @@ class ResolweBaseSerializer(serializers.ModelSerializer):
         return super(ResolweBaseSerializer, self).__init__(instance, data, **kwargs)
 
 
-class ProjectSerializer(ResolweBaseSerializer):
+class CollectionSerializer(ResolweBaseSerializer):
 
-    """Serializer for Project objects."""
+    """Serializer for Collection objects."""
 
     class Meta:
-        """ProjectSerializer Meta options."""
-        model = Project
+        """CollectionSerializer Meta options."""
+        model = Collection
         update_protected_fields = ('contributor',)
         read_only_fields = ('id', 'created', 'modified')
         fields = ('slug', 'name', 'description', 'settings') + update_protected_fields + read_only_fields
@@ -118,7 +118,7 @@ class TriggerSerializer(ResolweBaseSerializer):
         model = Trigger
         update_protected_fields = ('contributor', )
         read_only_fields = ('created', 'modified')
-        fields = ('slug', 'name', 'trigger', 'trigger_input', 'process', 'input', 'project',
+        fields = ('slug', 'name', 'trigger', 'trigger_input', 'process', 'input', 'collection',
                   'autorun') + update_protected_fields + read_only_fields
 
 

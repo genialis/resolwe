@@ -20,7 +20,7 @@ MESSAGES = {
 
 
 class DataTestCase(ResolweAPITestCase):
-    fixtures = ['users.yaml', 'projects.yaml', 'permissions.yaml', 'processes.yaml', 'data.yaml']
+    fixtures = ['users.yaml', 'collections.yaml', 'permissions.yaml', 'processes.yaml', 'data.yaml']
 
     def setUp(self):
         # self.data1 = Data.objects.get(pk=1)
@@ -31,7 +31,7 @@ class DataTestCase(ResolweAPITestCase):
         self.data = {
             'name': 'New data',
             'slug': 'new_data',
-            'projects': ['1'],
+            'collections': ['1'],
             'process': '1',
         }
 
@@ -54,10 +54,10 @@ class DataTestCase(ResolweAPITestCase):
 
     def test_post(self):
         # logged-in user w/ perms
-        project_n = Data.objects.count()
+        collection_n = Data.objects.count()
         resp = self._post(self.data, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(Data.objects.count(), project_n + 1)
+        self.assertEqual(Data.objects.count(), collection_n + 1)
 
         d = Data.objects.get(pk=resp.data['id'])
         self.assertTrue(datetime.now() - d.modified < timedelta(seconds=1))
@@ -70,12 +70,12 @@ class DataTestCase(ResolweAPITestCase):
     def test_post_invalid_fields(self):
         data_n = Data.objects.count()
 
-        self.data['projects'] = ['42']
+        self.data['collections'] = ['42']
         resp = self._post(self.data, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(resp.data[u'projects'][0], u'Invalid pk "42" - object does not exist.')
+        self.assertEqual(resp.data[u'collections'][0], u'Invalid pk "42" - object does not exist.')
 
-        self.data['projects'] = ['1']
+        self.data['collections'] = ['1']
         self.data['process'] = '42'
         resp = self._post(self.data, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
@@ -84,16 +84,16 @@ class DataTestCase(ResolweAPITestCase):
         self.assertEqual(Data.objects.count(), data_n)
 
     def test_post_no_perms(self):
-        project_n = Data.objects.count()
+        collection_n = Data.objects.count()
         resp = self._post(self.data, self.user2)
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(Data.objects.count(), project_n)
+        self.assertEqual(Data.objects.count(), collection_n)
 
     def test_post_public_user(self):
-        project_n = Data.objects.count()
+        collection_n = Data.objects.count()
         resp = self._post(self.data)
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertEqual(Data.objects.count(), project_n)
+        self.assertEqual(Data.objects.count(), collection_n)
 
     def test_post_protected_fields(self):
         now = datetime.now()
@@ -129,12 +129,12 @@ class DataTestCase(ResolweAPITestCase):
         self.assertEqual(resp.data['process_error'], [])
         self.assertEqual(resp.data['contributor'], 1)
 
-    def test_post_multiple_projects(self):
-        self.data['projects'].append('2')
+    def test_post_multiple_collections(self):
+        self.data['collections'].append('2')
 
         resp = self._post(self.data, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(resp.data[u'projects'], MESSAGES['ONE_ID_REQUIRED'])
+        self.assertEqual(resp.data[u'collections'], MESSAGES['ONE_ID_REQUIRED'])
 
     def test_get_detail(self):
         # public user w/ perms

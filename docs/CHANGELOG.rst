@@ -11,6 +11,7 @@ Unreleased
 
 Changed
 -------
+- Renamed Project to Collection
 - Register processes from packages and custom paths
 
 Fixed

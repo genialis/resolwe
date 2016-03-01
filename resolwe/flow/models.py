@@ -3,10 +3,10 @@
 Flow Models
 ===========
 
-Project Model
+Collection Model
 *************
 
-Postgres ORM model for the organization of projects.
+Postgres ORM model for the organization of collections.
 
 .. autoclass:: resolwe.flow.models.Case
     :members:
@@ -82,18 +82,18 @@ class BaseModel(models.Model):
         return unique_slug
 
 
-class Project(BaseModel):
+class Collection(BaseModel):
 
-    """Postgres model for storing projects."""
+    """Postgres model for storing collection."""
 
     class Meta(BaseModel.Meta):
-        """Project Meta options."""
+        """Collection Meta options."""
         permissions = (
-            ("view_project", "Can view project"),
-            ("edit_project", "Can edit project"),
-            ("share_project", "Can share project"),
-            ("download_project", "Can download files from project"),
-            ("add_project", "Can add data objects to project"),
+            ("view_collection", "Can view collection"),
+            ("edit_collection", "Can edit collection"),
+            ("share_collection", "Can share collection"),
+            ("download_collection", "Can download files from collection"),
+            ("add_collection", "Can add data objects to collection"),
         )
 
     #: detailed description
@@ -425,8 +425,8 @@ class Trigger(BaseModel):
     #: input settings of the processor
     input = JSONField(default={})
 
-    #: corresponding project
-    project = models.ForeignKey('Project')
+    #: corresponding collection
+    collection = models.ForeignKey('Collection')
 
     #: does the trigger run on its own
     autorun = models.BooleanField(default=False)

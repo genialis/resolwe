@@ -6,18 +6,18 @@ from guardian.models import GroupObjectPermission, UserObjectPermission
 from rest_framework import status
 
 from .base import ResolweAPITestCase
-from resolwe.flow.models import Project
-from resolwe.flow.views import ProjectViewSet
+from resolwe.flow.models import Collection
+from resolwe.flow.views import CollectionViewSet
 
 
 class PermissionsTestCase(ResolweAPITestCase):
-    fixtures = ['users.yaml', 'projects.yaml', 'permissions.yaml']
+    fixtures = ['users.yaml', 'collections.yaml', 'permissions.yaml']
 
     def setUp(self):
-        self.project1 = Project.objects.get(pk=1)
+        self.collection1 = Collection.objects.get(pk=1)
 
-        self.resource_name = 'project'
-        self.viewset = ProjectViewSet
+        self.resource_name = 'collection'
+        self.viewset = CollectionViewSet
 
         super(PermissionsTestCase, self).setUp()
 

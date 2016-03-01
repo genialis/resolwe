@@ -31,5 +31,5 @@ class AppSerializer(ResolweBaseSerializer):
         model = App
         update_protected_fields = ('contributor',)
         read_only_fields = ('id', 'created', 'modified')
-        fields = ('slug', 'title', 'package', 'modules', 'projects', 'default_project',
+        fields = ('slug', 'title', 'package', 'modules', 'collections', 'default_collection',
                   'description') + update_protected_fields + read_only_fields

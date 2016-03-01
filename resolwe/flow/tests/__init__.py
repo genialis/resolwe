@@ -22,7 +22,7 @@ from django.test import TestCase, override_settings
 from django.utils.crypto import get_random_string
 from django.utils.text import slugify
 
-from resolwe.flow.models import Data, dict_dot, iterate_fields, Process, Project, Storage
+from resolwe.flow.models import Data, dict_dot, iterate_fields, Process, Collection, Storage
 from resolwe.flow.engines.local import manager
 
 
@@ -108,7 +108,7 @@ class ProcessTestCase(TestCase):
             username="admin", email='admin@example.com', password="admin_pass")
         _register_processors()
 
-        self.project = Project.objects.create(contributor=self.admin)
+        self.collection = Collection.objects.create(contributor=self.admin)
         self.files_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'files')
         self._keep_all = False
         self._keep_failed = False
@@ -217,7 +217,7 @@ class ProcessTestCase(TestCase):
             contributor=self.admin,
             process=p,
             slug=get_random_string(length=6))
-        self.project.data.add(d)
+        self.collection.data.add(d)
 
         if run_manager:
             manager.communicate(run_sync=True, verbosity=verbosity)

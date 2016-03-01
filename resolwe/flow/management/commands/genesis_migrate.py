@@ -15,7 +15,7 @@ from django.utils.text import slugify
 from guardian.models import GroupObjectPermission, UserObjectPermission
 from guardian.shortcuts import assign_perm, get_groups_with_perms, get_users_with_perms
 
-from resolwe.flow.models import Data, DescriptorSchema, Process, Project, Storage, Trigger, dict_dot, iterate_fields
+from resolwe.flow.models import Data, DescriptorSchema, Process, Collection, Storage, Trigger, dict_dot, iterate_fields
 from resolwe.apps.models import App, Package
 
 
@@ -52,13 +52,13 @@ class Command(BaseCommand):
 
     storage_index = {}
     descriptor_schema_index = {}
-    id_mapping = {_type: {} for _type in ['project', 'process', 'data', 'storage',
-                                               'trigger', 'package', 'app']}
-    project_tags = {}
+    id_mapping = {_type: {} for _type in ['collection', 'process', 'data', 'storage',
+                                          'trigger', 'package', 'app']}
+    collection_tags = {}
 
     missing_users = set()
-    missing_projects = set()
-    missing_default_projects = []
+    missing_collections = set()
+    missing_default_collections = []
     long_names = []
     unreferenced_storages = []
     orphan_triggers = []
@@ -109,30 +109,30 @@ class Command(BaseCommand):
 
         set_public_permissions()
 
-    def migrate_project(self, project):
-        new = Project()
-        new.name = project[u'name']
-        new.slug = project[u'url_slug'] if u'url_slug' in project else slugify(project[u'name'])
-        new.description = project.get(u'description', '')
-        new.contributor = self.get_contributor(project['author_id'])
-        new.settings = project.get(u'settings', {})
+    def migrate_collection(self, collection):
+        new = Collection()
+        new.name = collection[u'name']
+        new.slug = collection[u'url_slug'] if u'url_slug' in collection else slugify(collection[u'name'])
+        new.description = collection.get(u'description', '')
+        new.contributor = self.get_contributor(collection['author_id'])
+        new.settings = collection.get(u'settings', {})
         # Remove data table settings as they are incompatible with the new frontend.
         for applicationConfig in new.settings.values():
             applicationConfig['tables'] = {}
         # XXX: Django will change this on create
-        new.created = project[u'date_created']
+        new.created = collection[u'date_created']
         # XXX: Django will change this on save
-        new.modified = project[u'date_modified']
+        new.modified = collection[u'date_modified']
         new.save()
 
-        self.migrate_permissions(new, project)
+        self.migrate_permissions(new, collection)
 
-        for tag in project.get(u'tags', []):
-            if tag not in self.project_tags:
-                self.project_tags[tag] = []
-            self.project_tags[tag].append(new)
+        for tag in collection.get(u'tags', []):
+            if tag not in self.collection_tags:
+                self.collection_tags[tag] = []
+            self.collection_tags[tag].append(new)
 
-        self.id_mapping['project'][str(project[u'_id'])] = new.pk
+        self.id_mapping['collection'][str(collection[u'_id'])] = new.pk
 
     def migrate_process(self, process):
         new = Process()
@@ -272,11 +272,11 @@ class Command(BaseCommand):
 
         for case_id in data[u'case_ids']:
             try:
-                project = Project.objects.get(pk=self.id_mapping[u'project'][str(case_id)])
+                collection = Collection.objects.get(pk=self.id_mapping[u'collection'][str(case_id)])
             except KeyError:
-                self.missing_projects.add(str(case_id))
+                self.missing_collections.add(str(case_id))
                 continue
-            project.data.add(new)
+            collection.data.add(new)
 
         for field_schema, fields, path in iterate_fields(data[u'output'], data[u'output_schema'], ''):
             if 'type' in field_schema and field_schema['type'].startswith('basic:json:'):
@@ -323,7 +323,7 @@ class Command(BaseCommand):
         self.id_mapping['storage'][str(storage[u'_id'])] = new.pk
 
     def migrate_trigger(self, trigger):
-        if str(trigger[u'case_id']) not in self.id_mapping[u'project']:
+        if str(trigger[u'case_id']) not in self.id_mapping[u'collection']:
             self.orphan_triggers.append(str(trigger[u'case_id']))
             return 1
 
@@ -337,7 +337,7 @@ class Command(BaseCommand):
         new.process = Process.objects.filter(
             slug=self.process_slug(trigger[u'processor_name'])).order_by('-version').first()
         new.input = trigger[u'input']
-        new.project = Project.objects.get(pk=self.id_mapping[u'project'][str(trigger[u'case_id'])])
+        new.collection = Collection.objects.get(pk=self.id_mapping[u'collection'][str(trigger[u'case_id'])])
         new.autorun = trigger[u'autorun']
         # XXX: Django will change this on create
         new.created = trigger[u'date_created']
@@ -373,26 +373,26 @@ class Command(BaseCommand):
         new.package = Package.objects.get(slug=app[u'package'])
         new.modules = app[u'modules']
         new.contributor = self.get_contributor(app[u'author_id'])
-        if u'default_project' in app and app[u'default_project'] != '':
+        if u'default_collection' in app and app[u'default_collection'] != '':
             try:
-                new.default_project = Project.objects.get(slug=app[u'default_project'])
-            except Project.DoesNotExist:
-                self.missing_default_projects.append(app[u'default_project'])
+                new.default_collection = Collection.objects.get(slug=app[u'default_collection'])
+            except Collection.DoesNotExist:
+                self.missing_default_collections.append(app[u'default_collection'])
         # XXX: Django will change this on create
         new.created = app[u'date_created']
         # XXX: Django will change this on save
         new.modified = app[u'date_modified']
         new.save()
 
-        if new.slug in self.project_tags:
-            new.projects.add(*self.project_tags[new.slug])
+        if new.slug in self.collection_tags:
+            new.collections.add(*self.collection_tags[new.slug])
 
         self.migrate_permissions(new, app)
 
         self.id_mapping['app'][str(app[u'_id'])] = new.pk
 
     def clear_database(self):
-        for model in [Project, Data, Process, Storage, DescriptorSchema, Package,
+        for model in [Collection, Data, Process, Storage, DescriptorSchema, Package,
                       App, GroupObjectPermission, UserObjectPermission]:
             model.objects.all().delete()
 
@@ -409,9 +409,9 @@ class Command(BaseCommand):
         mongo_uri = 'mongodb://{username}:{password}@{host}:{port}/{db_name}'.format(**options)
         client = MongoClient(mongo_uri)
 
-        self.stdout.write('Migrating projects...')
-        for project in client[options['db_name']]['case'].find():
-            self.migrate_project(project)
+        self.stdout.write('Migrating collections...')
+        for collection in client[options['db_name']]['case'].find():
+            self.migrate_collection(collection)
         self.stdout.write('DONE')
 
         self.stdout.write('Migrating processes...')
@@ -451,8 +451,8 @@ class Command(BaseCommand):
             self.stdout.write('\nID mappings:', json.dumps(self.id_mapping))
 
         self.stdout.write('\nMissing users: {}'.format(sorted(list(self.missing_users))))
-        self.stdout.write('Missing projects (referenced in Data objects): {}'.format(list(self.missing_projects)))
-        self.stdout.write('Missing projects (referenced in triggers): {}'.format(self.orphan_triggers))
-        self.stdout.write('Missing projects (referenced in apps): {}'.format(self.missing_default_projects))
+        self.stdout.write('Missing collections (referenced in Data objects): {}'.format(list(self.missing_collections)))
+        self.stdout.write('Missing collections (referenced in triggers): {}'.format(self.orphan_triggers))
+        self.stdout.write('Missing collections (referenced in apps): {}'.format(self.missing_default_collections))
         self.stdout.write('Number of shortened names: {}'.format(len(self.long_names)))
         self.stdout.write('Number of unreferenced Storage objects: {}'.format(len(self.unreferenced_storages)))

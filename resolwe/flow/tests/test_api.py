@@ -8,8 +8,8 @@ from django.contrib.auth.models import User
 
 from rest_framework.test import APIRequestFactory, force_authenticate
 
-from resolwe.flow.models import Data, Process, Project
-from resolwe.flow.views import DataViewSet, ProjectViewSet
+from resolwe.flow.models import Data, Process, Collection
+from resolwe.flow.views import DataViewSet, CollectionViewSet
 
 factory = APIRequestFactory()
 
@@ -42,41 +42,41 @@ class TestDataViewSetCase(unittest.TestCase):
         self.assertEqual(process_mock.call_count, 1)
 
 
-class TestProjectViewSetCase(unittest.TestCase):
+class TestCollectionViewSetCase(unittest.TestCase):
     def setUp(self):
-        self.checkslug_viewset = ProjectViewSet.as_view(actions={
+        self.checkslug_viewset = CollectionViewSet.as_view(actions={
             'get': 'slug_exists',
         })
 
         self.user = User.objects.create(is_superuser=True)
 
     def tearDown(self):
-        Project.objects.all().delete()
+        Collection.objects.all().delete()
         self.user.delete()
 
     def test_check_slug(self):
-        Project.objects.create(slug="project1", name="Project 1", contributor=self.user)
+        Collection.objects.create(slug="collection1", name="Collection 1", contributor=self.user)
 
         # unauthorized
-        request = factory.get('/', {'name': 'project1'}, content_type='application/json')
+        request = factory.get('/', {'name': 'collection1'}, content_type='application/json')
         resp = self.checkslug_viewset(request)
         self.assertEqual(resp.status_code, 401)
         self.assertEqual(resp.data, None)
 
         # existing slug
-        request = factory.get('/', {'name': 'project1'}, content_type='application/json')
+        request = factory.get('/', {'name': 'collection1'}, content_type='application/json')
         force_authenticate(request, self.user)
         resp = self.checkslug_viewset(request)
         self.assertEqual(resp.data, True)
 
         # existing slug - iexact
-        request = factory.get('/', {'name': 'Project1'}, content_type='application/json')
+        request = factory.get('/', {'name': 'Collection1'}, content_type='application/json')
         force_authenticate(request, self.user)
         resp = self.checkslug_viewset(request)
         self.assertEqual(resp.data, True)
 
         # non-existing slug
-        request = factory.get('/', {'name': 'new-project'}, content_type='application/json')
+        request = factory.get('/', {'name': 'new-collection'}, content_type='application/json')
         force_authenticate(request, self.user)
         resp = self.checkslug_viewset(request)
         self.assertEqual(resp.data, False)

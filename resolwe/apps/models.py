@@ -49,12 +49,12 @@ class App(BaseModel):
     #: list of modules to display (PostgreSQL ArrayField coming in Django 1.8)
     modules = JSONField()
 
-    #: list of projects associated with the app
-    projects = models.ManyToManyField('flow.Project')
+    #: list of collections associated with the app
+    collections = models.ManyToManyField('flow.Collection')
 
-    #: default project on the app
-    default_project = models.ForeignKey('flow.Project', related_name='default_project',
-                                        blank=True, null=True, on_delete=models.SET_NULL)
+    #: default collection on the app
+    default_collection = models.ForeignKey('flow.Collection', related_name='default_collection',
+                                           blank=True, null=True, on_delete=models.SET_NULL)
 
     #: detailed description
     description = models.TextField(blank=True)

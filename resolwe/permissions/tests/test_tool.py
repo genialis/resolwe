@@ -4,12 +4,12 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from rest_framework import status
 
 from .base import ResolweAPITestCase
-from resolwe.flow.models import Project, Process
+from resolwe.flow.models import Collection, Process
 from resolwe.flow.views import ProcessViewSet
 
 
 class ProcessTestCase(ResolweAPITestCase):
-    fixtures = ['users.yaml', 'permissions.yaml', 'processes.yaml', 'projects.yaml']
+    fixtures = ['users.yaml', 'permissions.yaml', 'processes.yaml', 'collections.yaml']
 
     def setUp(self):
         self.process1 = Process.objects.get(pk=1)
@@ -46,32 +46,32 @@ class ProcessTestCase(ResolweAPITestCase):
         resp = self._delete(1, self.admin)
         self.assertEqual(resp.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
 
-    def test_project_processes(self):
-        data = {'projects': {'add': ['1']}}
+    def test_collection_processes(self):
+        data = {'collections': {'add': ['1']}}
 
-        # add new `process` to `project`
-        self.assertFalse(Project.objects.get(pk=1).public_processes.filter(pk=self.process1.pk).exists())
+        # add new `process` to `collection`
+        self.assertFalse(Collection.objects.get(pk=1).public_processes.filter(pk=self.process1.pk).exists())
         resp = self._detail_permissions(1, data, self.user1)
         self.assertEqual(resp.status_code, 200)
         self.process1.refresh_from_db()
-        self.assertTrue(Project.objects.get(pk=1).public_processes.filter(pk=self.process1.pk).exists())
+        self.assertTrue(Collection.objects.get(pk=1).public_processes.filter(pk=self.process1.pk).exists())
 
-        data = {'projects': {'remove': ['1']}}
+        data = {'collections': {'remove': ['1']}}
 
-        # remove existing `process` from `project`
+        # remove existing `process` from `collection`
         resp = self._detail_permissions(1, data, self.user1)
         self.assertEqual(resp.status_code, 200)
         self.process1.refresh_from_db()
-        self.assertFalse(Project.objects.get(pk=1).public_processes.filter(pk=self.process1.pk).exists())
+        self.assertFalse(Collection.objects.get(pk=1).public_processes.filter(pk=self.process1.pk).exists())
 
-        # remove non-existent `process` from `project`
+        # remove non-existent `process` from `collection`
         resp = self._detail_permissions(1, data, self.user1)
         self.assertEqual(resp.status_code, 200)
 
-        data = {'projects': {'add': ['42', '1']}}
+        data = {'collections': {'add': ['42', '1']}}
 
-        # combination of valid and invalid `project`s
-        self.assertFalse(Project.objects.get(pk=1).public_processes.filter(pk=self.process1.pk).exists())
+        # combination of valid and invalid `collection`s
+        self.assertFalse(Collection.objects.get(pk=1).public_processes.filter(pk=self.process1.pk).exists())
         resp = self._detail_permissions(1, data, self.user1)
         self.assertEqual(resp.status_code, 200)
-        self.assertTrue(Project.objects.get(pk=1).public_processes.filter(pk=self.process1.pk).exists())
+        self.assertTrue(Collection.objects.get(pk=1).public_processes.filter(pk=self.process1.pk).exists())

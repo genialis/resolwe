@@ -26,8 +26,8 @@ from rest_framework.response import Response
 
 from guardian import shortcuts
 
-from .models import Project, Process, Data, DescriptorSchema, Trigger, Storage
-from .serializers import (ProjectSerializer, ProcessSerializer, DataSerializer,
+from .models import Collection, Process, Data, DescriptorSchema, Trigger, Storage
+from .serializers import (CollectionSerializer, ProcessSerializer, DataSerializer,
                           DescriptorSchemaSerializer, TriggerSerializer, StorageSerializer)
 
 from resolwe.permissions.shortcuts import get_user_group_perms
@@ -128,23 +128,23 @@ class ResolweCreateDataModelMixin(ResolweCreateModelMixin):
 
     Extends :class:`ResolweCcreateModelMixin` with:
 
-      * checks if there is exactly 1 project listed on create
-      * checks if user has `add` permission on that project
+      * checks if there is exactly 1 collection listed on create
+      * checks if user has `add` permission on that collection
 
     """
     def create(self, request, *args, **kwargs):
-        projects = request.data.get('projects', [])
-        if len(projects) != 1:
-            return Response({'projects': 'Exactly one id required on create.'},
+        collections = request.data.get('collections', [])
+        if len(collections) != 1:
+            return Response({'collections': 'Exactly one id required on create.'},
                             status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            project = Project.objects.get(pk=projects[0])
-        except Project.DoesNotExist:
-            return Response({'projects': ['Invalid pk "{}" - object does not exist.'.format(projects[0])]},
+            collection = Collection.objects.get(pk=collections[0])
+        except Collection.DoesNotExist:
+            return Response({'collections': ['Invalid pk "{}" - object does not exist.'.format(collections[0])]},
                             status=status.HTTP_400_BAD_REQUEST)
 
-        if not request.user.has_perm('add_project', obj=project):
+        if not request.user.has_perm('add_collection', obj=collection):
             if request.user.is_authenticated():
                 raise exceptions.PermissionDenied
             else:
@@ -272,20 +272,20 @@ class ResolweProcessPermissionsMixin(ResolwePermissionsMixin):
     def _update_permission(self, obj, data):
         super(ResolweProcessPermissionsMixin, self)._update_permission(obj, data)
 
-        if 'projects' in data:
-            if 'add' in data['projects']:
-                for _id in data['projects']['add']:
+        if 'collections' in data:
+            if 'add' in data['collections']:
+                for _id in data['collections']['add']:
                     try:
-                        Project.objects.get(pk=_id).public_processes.add(obj)
-                        # obj.projects.add(Project.objects.get(pk=_id))
-                    except Project.DoesNotExist:
+                        Collection.objects.get(pk=_id).public_processes.add(obj)
+                        # obj.collections.add(Collection.objects.get(pk=_id))
+                    except Collection.DoesNotExist:
                         pass
-            if 'remove' in data['projects']:
-                for _id in data['projects']['remove']:
+            if 'remove' in data['collections']:
+                for _id in data['collections']['remove']:
                     try:
-                        Project.objects.get(pk=_id).public_processes.remove(obj)
-                        # obj.projects.remove(Project.objects.get(pk=_id))
-                    except Project.DoesNotExist:
+                        Collection.objects.get(pk=_id).public_processes.remove(obj)
+                        # obj.collections.remove(Collection.objects.get(pk=_id))
+                    except Collection.DoesNotExist:
                         pass
 
 
@@ -310,19 +310,19 @@ class ResolweCheckSlugMixin(object):
         return Response(queryset.filter(slug__iexact=slug_name).exists())
 
 
-class ProjectViewSet(ResolweCreateModelMixin,
-                     mixins.RetrieveModelMixin,
-                     mixins.UpdateModelMixin,
-                     mixins.DestroyModelMixin,
-                     mixins.ListModelMixin,
-                     ResolwePermissionsMixin,
-                     ResolweCheckSlugMixin,
-                     viewsets.GenericViewSet):
+class CollectionViewSet(ResolweCreateModelMixin,
+                        mixins.RetrieveModelMixin,
+                        mixins.UpdateModelMixin,
+                        mixins.DestroyModelMixin,
+                        mixins.ListModelMixin,
+                        ResolwePermissionsMixin,
+                        ResolweCheckSlugMixin,
+                        viewsets.GenericViewSet):
 
-    """API view for :class:`Project` objects."""
+    """API view for :class:`Collection` objects."""
 
-    queryset = Project.objects.all()
-    serializer_class = ProjectSerializer
+    queryset = Collection.objects.all()
+    serializer_class = CollectionSerializer
     permission_classes = (permissions_cls,)
     filter_fields = ('contributor', 'name', 'description', 'created', 'modified', 'slug')
 
@@ -355,7 +355,7 @@ class DataViewSet(ResolweCreateDataModelMixin,
     serializer_class = DataSerializer
     permission_classes = (permissions_cls,)
     filter_fields = ('contributor', 'name', 'created', 'modified', 'slug', 'input', 'descriptor',
-                     'started', 'finished', 'output', 'status', 'process', 'project')
+                     'started', 'finished', 'output', 'status', 'process', 'collection')
 
 
 class DescriptorSchemaViewSet(mixins.RetrieveModelMixin,
@@ -384,7 +384,7 @@ class TriggerViewSet(ResolweCreateModelMixin,
     queryset = Trigger.objects.all()
     serializer_class = TriggerSerializer
     permission_classes = (permissions_cls,)
-    filter_fields = ('contributor', 'name', 'created', 'modified', 'slug', 'project')
+    filter_fields = ('contributor', 'name', 'created', 'modified', 'slug', 'collection')
 
 
 class StorageViewSet(mixins.RetrieveModelMixin,

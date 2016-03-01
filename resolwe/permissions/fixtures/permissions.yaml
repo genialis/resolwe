@@ -4,31 +4,31 @@
 # PUBLIC #
 ##########
 
-# PROJECT 1
+# COLLECTION 1
 
 - model: guardian.userobjectpermission
   fields:
-    content_type: [flow, project]
+    content_type: [flow, collection]
     object_pk: 1
-    permission: [view_project, flow, project]
+    permission: [view_collection, flow, collection]
     user: -1
 
 - model: guardian.userobjectpermission
   fields:
-    content_type: [flow, project]
+    content_type: [flow, collection]
     object_pk: 1
-    permission: [download_project, flow, project]
+    permission: [download_collection, flow, collection]
     user: -1
 
-# PROJECT 2
+# COLLECTION 2
 
-# PROJECT 3
+# COLLECTION 3
 
 - model: guardian.userobjectpermission
   fields:
-    content_type: [flow, project]
+    content_type: [flow, collection]
     object_pk: 3
-    permission: [view_project, flow, project]
+    permission: [view_collection, flow, collection]
     user: -1
 
 # DATA 1
@@ -60,80 +60,80 @@
 # USER1 #
 #########
 
-# PROJECT 1
+# COLLECTION 1
 
 - model: guardian.userobjectpermission
   fields:
-    content_type: [flow, project]
+    content_type: [flow, collection]
     object_pk: 1
-    permission: [view_project, flow, project]
+    permission: [view_collection, flow, collection]
     user: 1
 
 - model: guardian.userobjectpermission
   fields:
-    content_type: [flow, project]
+    content_type: [flow, collection]
     object_pk: 1
-    permission: [edit_project, flow, project]
+    permission: [edit_collection, flow, collection]
     user: 1
 
 - model: guardian.userobjectpermission
   fields:
-    content_type: [flow, project]
+    content_type: [flow, collection]
     object_pk: 1
-    permission: [share_project, flow, project]
+    permission: [share_collection, flow, collection]
     user: 1
 
 - model: guardian.userobjectpermission
   fields:
-    content_type: [flow, project]
+    content_type: [flow, collection]
     object_pk: 1
-    permission: [download_project, flow, project]
+    permission: [download_collection, flow, collection]
     user: 1
 
 - model: guardian.userobjectpermission
   fields:
-    content_type: [flow, project]
+    content_type: [flow, collection]
     object_pk: 1
-    permission: [add_project, flow, project]
+    permission: [add_collection, flow, collection]
     user: 1
 
-# PROJECT 2
+# COLLECTION 2
 
 - model: guardian.userobjectpermission
   fields:
-    content_type: [flow, project]
+    content_type: [flow, collection]
     object_pk: 2
-    permission: [view_project, flow, project]
+    permission: [view_collection, flow, collection]
     user: 1
 
 - model: guardian.userobjectpermission
   fields:
-    content_type: [flow, project]
+    content_type: [flow, collection]
     object_pk: 2
-    permission: [edit_project, flow, project]
+    permission: [edit_collection, flow, collection]
     user: 1
 
 - model: guardian.userobjectpermission
   fields:
-    content_type: [flow, project]
+    content_type: [flow, collection]
     object_pk: 2
-    permission: [download_project, flow, project]
+    permission: [download_collection, flow, collection]
     user: 1
 
 - model: guardian.userobjectpermission
   fields:
-    content_type: [flow, project]
+    content_type: [flow, collection]
     object_pk: 2
-    permission: [add_project, flow, project]
+    permission: [add_collection, flow, collection]
     user: 1
 
-# PROJECT 3
+# COLLECTION 3
 
 - model: guardian.userobjectpermission
   fields:
-    content_type: [flow, project]
+    content_type: [flow, collection]
     object_pk: 3
-    permission: [edit_project, flow, project]
+    permission: [edit_collection, flow, collection]
     user: 1
 
 # DATA 1
@@ -211,54 +211,54 @@
 # USER2 #
 #########
 
-# PROJECT 1
+# COLLECTION 1
 
 - model: guardian.userobjectpermission
   fields:
-    content_type: [flow, project]
+    content_type: [flow, collection]
     object_pk: 1
-    permission: [view_project, flow, project]
+    permission: [view_collection, flow, collection]
     user: 2
 
 - model: guardian.userobjectpermission
   fields:
-    content_type: [flow, project]
+    content_type: [flow, collection]
     object_pk: 1
-    permission: [edit_project, flow, project]
+    permission: [edit_collection, flow, collection]
     user: 2
 
-# PROJECT 2
+# COLLECTION 2
 
-# PROJECT 3
+# COLLECTION 3
 
 ##########
 # GROUP1 #
 ##########
 
-# PROJECT 1
+# COLLECTION 1
 
 - model: guardian.groupobjectpermission
   fields:
-    content_type: [flow, project]
+    content_type: [flow, collection]
     object_pk: 1
-    permission: [share_project, flow, project]
+    permission: [share_collection, flow, collection]
     group: 1
 
-# PROJECT 2
+# COLLECTION 2
 
 - model: guardian.groupobjectpermission
   fields:
-    content_type: [flow, project]
+    content_type: [flow, collection]
     object_pk: 2
-    permission: [view_project, flow, project]
+    permission: [view_collection, flow, collection]
     group: 1
 
 - model: guardian.groupobjectpermission
   fields:
-    content_type: [flow, project]
+    content_type: [flow, collection]
     object_pk: 2
-    permission: [edit_project, flow, project]
+    permission: [edit_collection, flow, collection]
     group: 1
 
-# PROJECT 3
+# COLLECTION 3
 
