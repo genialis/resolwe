@@ -105,6 +105,12 @@ class Collection(BaseModel):
 
     data = models.ManyToManyField('Data')
 
+    #: collection descriptor schema
+    descriptor_schema = models.ForeignKey('DescriptorSchema', blank=True, null=True, on_delete=models.PROTECT)
+
+    #: collection descriptor
+    descriptor = JSONField(default={})
+
 
 class Process(BaseModel):
 
@@ -206,6 +212,17 @@ class Process(BaseModel):
       - ``worker`` of type ``basic:string`` (celery worker hostname)
       - ``runtime`` of type ``basic:string`` (runtime instance hostname)
       - ``pid`` of type ``basic:integer`` (process ID)
+
+    """
+
+    flow_collection = models.CharField(max_length=100, null=True, blank=True)
+    """
+    Automatically add Data object created with this processor to a
+    special collection representing a data-flow. If all input Data
+    objects belong to the same collection, add newly created Data object
+    to it, otherwise create a new collection.
+    If `DescriptorSchema` object with `type` matching this field
+    exists, reference it in the collection's `descriptor_schema` field.
 
     """
 

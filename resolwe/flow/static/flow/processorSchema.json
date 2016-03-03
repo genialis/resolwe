@@ -26,6 +26,10 @@
             "description": "Processor category",
             "type": "string"
         },
+        "flow_collection": {
+            "description": "Auto-create a collection for the corresponding dataflow",
+            "type": "string"
+        },
         "persistence": {
             "description": "Processor data persistence",
             "type": "string",

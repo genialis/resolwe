@@ -322,10 +322,10 @@ class CollectionViewSet(ResolweCreateModelMixin,
 
     """API view for :class:`Collection` objects."""
 
-    queryset = Collection.objects.all()
+    queryset = Collection.objects.all().prefetch_related('descriptor_schema')
     serializer_class = CollectionSerializer
     permission_classes = (permissions_cls,)
-    filter_fields = ('contributor', 'name', 'description', 'created', 'modified', 'slug')
+    filter_fields = ('contributor', 'name', 'description', 'created', 'modified', 'slug', 'descriptor')
 
 
 class ProcessFilter(filters.FilterSet):

@@ -53,12 +53,15 @@ class CollectionSerializer(ResolweBaseSerializer):
 
     """Serializer for Collection objects."""
 
+    descriptor_schema = serializers.JSONField(source='descriptor_schema.schema', read_only=True)
+
     class Meta:
         """CollectionSerializer Meta options."""
         model = Collection
         update_protected_fields = ('contributor',)
         read_only_fields = ('id', 'created', 'modified')
-        fields = ('slug', 'name', 'description', 'settings') + update_protected_fields + read_only_fields
+        fields = ('slug', 'name', 'description', 'settings', 'descriptor_schema',
+                  'descriptor') + update_protected_fields + read_only_fields
 
 
 class ProcessSerializer(ResolweBaseSerializer):
