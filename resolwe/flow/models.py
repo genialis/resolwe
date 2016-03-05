@@ -257,7 +257,7 @@ def render_descriptor(data):
     tmpl_vars = template.Context(tmpl_vars)
 
     # Set default values
-    for field_schema, _, path in iterate_schema(data.descriptor, data.descriptor_schema, 'descriptor'):
+    for field_schema, _, path in iterate_schema(data.descriptor, data.descriptor_schema.schema, 'descriptor'):
         if 'default' in field_schema:
             tmpl = field_schema['default']
             if field_schema['type'].startswith('list:'):
@@ -631,22 +631,40 @@ def dict_dot(d, k, val=None, default=None):
     if val is None and k == '':
         return d
 
+    def set_default(dict_or_model, key, default_value):
+        if isinstance(dict_or_model, models.Model):
+            if not hasattr(dict_or_model, key):
+                setattr(dict_or_model, key, default_value)
+
+            return getattr(dict_or_model, key)
+        else:
+            return dict_or_model.setdefault(key, default_value)
+
+    def get_item(dict_or_model, key):
+        if isinstance(dict_or_model, models.Model):
+            return getattr(dict_or_model, key)
+        else:
+            return dict_or_model[key]
+
+    def set_item(dict_or_model, key, value):
+        if isinstance(dict_or_model, models.Model):
+            setattr(dict_or_model, key, value)
+        else:
+            dict_or_model[key] = value
+
     if val is None and callable(default):
         # Get value, default for missing
-        # Ugly, but works for model.Data objects as well as dicts
-        # Does the same as:
-        # return reduce(lambda a, b: a.setdefault(b, default()), k.split('.'), d)
-        return reduce(lambda a, b: a.__setitem__(b, a[b] if b in a else default()) or a[b], k.split('.'), d)
+        return reduce(lambda a, b: set_default(a, b, default()), k.split('.'), d)
 
     elif val is None:
         # Get value, error on missing
-        return reduce(lambda a, b: a[b], k.split('.'), d)
+        return reduce(lambda a, b: get_item(a, b), k.split('.'), d)
 
     else:
         # Set value
         try:
             k, k_last = k.rsplit('.', 1)
-            dict_dot(d, k, default=dict)[k_last] = val
+            set_item(dict_dot(d, k, default=dict), k_last, val)
         except ValueError:
-            d[k] = val
+            set_item(d, k, val)
         return val
