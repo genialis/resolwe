@@ -59,6 +59,7 @@ class Command(BaseCommand):
     missing_users = set()
     missing_collections = set()
     missing_default_collections = []
+    missing_data = set()
     long_names = []
     unreferenced_storages = []
     orphan_triggers = []
@@ -296,6 +297,30 @@ class Command(BaseCommand):
         for group in get_groups_with_perms(new):
             assign_perm('view_descriptorschema', group, obj=descriptor_schema)
 
+    def migrate_data_references(self):
+        def map_reference(reference):
+            try:
+                return self.id_mapping['data'][reference]
+            except KeyError, error:
+                self.missing_data.add(error.message)
+                return None
+
+        # Fix references in JSON documents in the second pass.
+        for old_id, new_id in self.id_mapping['data'].items():
+            data = Data.objects.get(pk=new_id)
+            for field_schema, fields in iterate_fields(data.input, data.process.input_schema):
+                if 'type' not in field_schema:
+                    continue
+
+                name = field_schema['name']
+                value = fields[name]
+                if field_schema['type'].startswith('data:'):
+                    fields[name] = map_reference(value)
+                elif field_schema['type'].startswith('list:data:'):
+                    fields[name] = map(map_reference, value)
+
+            data.save()
+
     def migrate_storage(self, storage):
         if str(storage[u'_id']) not in self.storage_index:
             self.unreferenced_storages.append(storage[u'_id'])
@@ -422,6 +447,7 @@ class Command(BaseCommand):
         self.stdout.write('Migrating data...')
         for data in client[options['db_name']].data.find():
             self.migrate_data(data)
+        self.migrate_data_references()
         self.stdout.write('DONE')
 
         self.stdout.write('Migrating storage...')
@@ -454,5 +480,6 @@ class Command(BaseCommand):
         self.stdout.write('Missing collections (referenced in Data objects): {}'.format(list(self.missing_collections)))
         self.stdout.write('Missing collections (referenced in triggers): {}'.format(self.orphan_triggers))
         self.stdout.write('Missing collections (referenced in apps): {}'.format(self.missing_default_collections))
+        self.stdout.write('Missing data (referenced in Data objects): {}'.format(list(self.missing_data)))
         self.stdout.write('Number of shortened names: {}'.format(len(self.long_names)))
         self.stdout.write('Number of unreferenced Storage objects: {}'.format(len(self.unreferenced_storages)))

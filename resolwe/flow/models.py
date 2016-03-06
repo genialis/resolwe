@@ -361,10 +361,11 @@ class Data(BaseModel):
     descriptor = JSONField(default={})
 
     def save(self, *args, **kwargs):
-
-        if not self.pk:  # create
+        # Generate the descriptor if one is not already set.
+        if not self.descriptor:
             render_descriptor(self)
 
+        if not self.pk:  # create
             # default values for INPUT
             for field_schema, fields, path in iterate_schema(self.input, self.process.input_schema, ''):
                 if 'default' in field_schema and field_schema['name'] not in fields:
@@ -591,6 +592,8 @@ def hydrate_input_references(input_, input_schema, hydrate_values=True):
                 # if re.match('^[0-9a-fA-F]{24}$', str(value)) is None:
                 #     print "ERROR: data:<...> value in field \"{}\", type \"{}\" not ObjectId but {}.".format(
                 #         name, field_schema['type'], value)
+                if value is None:
+                    continue
 
                 data = Data.objects.get(id=value)
                 output = data.output.copy()
@@ -610,6 +613,8 @@ def hydrate_input_references(input_, input_schema, hydrate_values=True):
                     # if re.match('^[0-9a-fA-F]{24}$', str(val)) is None:
                     #     print "ERROR: data:<...> value in {}, type \"{}\" not ObjectId but {}.".format(
                     #         name, field_schema['type'], val)
+                    if val is None:
+                        continue
 
                     data = Data.objects.get(id=val)
                     output = data.output.copy()
