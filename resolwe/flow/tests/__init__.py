@@ -13,6 +13,10 @@ import os
 import shutil
 import stat
 import zipfile
+try:
+    from itertools import filterfalse  # py3
+except ImportError:
+    from itertools import ifilterfalse as filterfalse  # py2
 
 from django.apps import apps
 from django.conf import settings
@@ -264,7 +268,7 @@ class ProcessTestCase(TestCase):
                          msg="Field 'output.{}' mismatch: {} != {}".format(path, field, str(value)) +
                          self._debug_info(obj))
 
-    def assertFiles(self, obj, field_path, fn, compression=None):  # pylint: disable=invalid-name
+    def assertFiles(self, obj, field_path, fn, compression=None, filter=lambda _: False):  # pylint: disable=invalid-name
         """Compare output file of a processor to the given correct file.
 
         :param obj: Data object which includes file that we want to
@@ -285,6 +289,12 @@ class ProcessTestCase(TestCase):
             "zip".
         :type compression: :obj:`str`
 
+        :param filter: Function for filtering the contents of output files. It
+            is used in :obj:`itertools.filterfalse` function and takes one
+            parameter, a line of the output file. If it returns `True`, the
+            line is excluded from comparison of the two files.
+        :type filter: :obj:`function`
+
         """
         if compression is None:
             open_fn = open
@@ -297,8 +307,9 @@ class ProcessTestCase(TestCase):
 
         field = dict_dot(obj.output, field_path)
         output = os.path.join(settings.FLOW_EXECUTOR['DATA_PATH'], str(obj.pk), field['file'])
-        output_file = open_fn(output)
-        output_hash = hashlib.sha256(output_file.read()).hexdigest()
+        with open_fn(output) as output_file:
+            output_contents = b"".join([line for line in filterfalse(filter, output_file)])
+        output_hash = hashlib.sha256(output_contents).hexdigest()
 
         wanted = os.path.join(self.files_path, fn)
 
@@ -306,11 +317,12 @@ class ProcessTestCase(TestCase):
             shutil.copyfile(output, wanted)
             self.fail(msg="Output file {} missing so it was created.".format(fn))
 
-        wanted_file = open_fn(wanted)
-        wanted_hash = hashlib.sha256(wanted_file.read()).hexdigest()
+        with open_fn(wanted) as wanted_file:
+            wanted_contents = b"".join([line for line in filterfalse(filter, wanted_file)])
+        wanted_hash = hashlib.sha256(wanted_contents).hexdigest()
         self.assertEqual(wanted_hash, output_hash,
-                         msg="File hash mismatch: {} != {}".format(wanted_hash, output_hash) +
-                         self._debug_info(obj))
+                         msg="File contents hash mismatch: {} != {}".format(
+                             wanted_hash, output_hash) + self._debug_info(obj))
 
     def assertFileExist(self, obj, field_path):  # pylint: disable=invalid-name
         """Compare output file of a processor to the given correct file.
