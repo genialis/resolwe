@@ -20,10 +20,11 @@ from django.core.exceptions import ImproperlyConfigured
 from django.utils._os import upath
 
 
-from rest_framework import exceptions, mixins, viewsets, status
+from rest_framework import exceptions, mixins, viewsets, status, filters
 from rest_framework.decorators import detail_route, list_route
 from rest_framework.response import Response
 
+import django_filters
 from guardian import shortcuts
 
 from .models import Collection, Process, Data, DescriptorSchema, Trigger, Storage
@@ -340,6 +341,16 @@ class ProcessViewSet(mixins.RetrieveModelMixin,
     filter_fields = ('contributor', 'name', 'created', 'modified', 'slug')
 
 
+class DataFilter(filters.FilterSet):
+    collection = django_filters.ModelChoiceFilter(queryset=Collection.objects.all())
+    type = django_filters.CharFilter(name='process__type', lookup_type='startswith')
+
+    class Meta:
+        model = Data
+        fields = ('contributor', 'name', 'created', 'modified', 'slug', 'input', 'descriptor',
+                  'started', 'finished', 'output', 'status', 'process', 'type', 'collection')
+
+
 class DataViewSet(ResolweCreateDataModelMixin,
                   mixins.RetrieveModelMixin,
                   mixins.UpdateModelMixin,
@@ -354,8 +365,7 @@ class DataViewSet(ResolweCreateDataModelMixin,
     queryset = Data.objects.all().prefetch_related('process', 'descriptor_schema')
     serializer_class = DataSerializer
     permission_classes = (permissions_cls,)
-    filter_fields = ('contributor', 'name', 'created', 'modified', 'slug', 'input', 'descriptor',
-                     'started', 'finished', 'output', 'status', 'process', 'collection')
+    filter_class = DataFilter
 
 
 class DescriptorSchemaViewSet(mixins.RetrieveModelMixin,
