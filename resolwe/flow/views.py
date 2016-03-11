@@ -328,6 +328,14 @@ class CollectionViewSet(ResolweCreateModelMixin,
     filter_fields = ('contributor', 'name', 'description', 'created', 'modified', 'slug')
 
 
+class ProcessFilter(filters.FilterSet):
+    category = django_filters.CharFilter(name='category', lookup_type='startswith')
+
+    class Meta:
+        model = Process
+        fields = ('contributor', 'name', 'created', 'modified', 'slug', 'category')
+
+
 class ProcessViewSet(mixins.RetrieveModelMixin,
                      mixins.ListModelMixin,
                      ResolweProcessPermissionsMixin,
@@ -338,7 +346,7 @@ class ProcessViewSet(mixins.RetrieveModelMixin,
     queryset = Process.objects.all()
     serializer_class = ProcessSerializer
     permission_classes = (permissions_cls,)
-    filter_fields = ('contributor', 'name', 'created', 'modified', 'slug')
+    filter_class = ProcessFilter
 
 
 class DataFilter(filters.FilterSet):
