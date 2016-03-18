@@ -12,12 +12,12 @@ from django.utils.text import slugify
 
 from versionfield.utils import convert_version_string_to_int
 
-from resolwe.flow.models import Process, iterate_schema, validation_schema, VERSION_NUMBER_BITS
+from resolwe.flow.models import DescriptorSchema, Process, iterate_schema, validation_schema, VERSION_NUMBER_BITS
 from resolwe.flow.finders import get_finders
 
 
 PROCESSOR_SCHEMA = validation_schema('processor')
-VAR_SCHEMA = validation_schema('descriptor')
+DESCRIPTOR_SCHEMA = validation_schema('descriptor')
 
 
 class Command(BaseCommand):
@@ -89,8 +89,6 @@ class Command(BaseCommand):
                 p.pop('var', None)
                 p.pop('static', None)
 
-            # TODO: Add descriptors
-
             for field in ['input', 'output', 'var', 'static']:
                 for schema, _, _ in iterate_schema({}, p[field] if field in p else {}):
                     if not schema['type'][-1].endswith(':'):
@@ -147,6 +145,60 @@ class Command(BaseCommand):
             for log in log_templates:
                 self.stdout.write("  {}".format(log))
 
+    def register_descriptors(self, descriptor_schemas, user, force=False):
+        """Read and register descriptors."""
+        log_descriptors = []
+
+        for ds in descriptor_schemas:
+
+            for schema, _, _ in iterate_schema({}, ds.get('var', {})):
+                if not schema['type'][-1].endswith(':'):
+                    schema['type'] += ':'
+
+            # support backward compatibility
+            # TODO: update .yml files and remove
+            if 'slug' not in ds:
+                ds['slug'] = slugify(ds.pop('name').replace(':', '-'))
+                ds['name'] = ds.pop('label')
+
+            if 'schema' not in ds:
+                ds['schema'] = []
+
+            if 'static' in ds:
+                ds['schema'].extend(ds.pop('static'))
+            if 'var' in ds:
+                ds['schema'].extend(ds.pop('var'))
+
+            if not self.valid(ds, DESCRIPTOR_SCHEMA):
+                continue
+
+            slug = ds['slug']
+            version = ds.get('version', '0.0.0')
+            int_version = convert_version_string_to_int(version, VERSION_NUMBER_BITS)
+
+            # `latest version` is returned as `int` so it has to be compared to `int_version`
+            latest_version = DescriptorSchema.objects.filter(slug=slug).aggregate(Max('version'))['version__max']
+            if latest_version is not None and latest_version > int_version:
+                self.stderr.write("Skip descriptor schema {}: newer version installed".format(slug))
+                continue
+
+            descriptor_query = DescriptorSchema.objects.filter(slug=slug, version=version)
+            if descriptor_query.exists():
+                if not force:
+                    self.stdout.write("Skip descriptor schema {}: same version installed".format(slug))
+                    continue
+
+                descriptor_query.update(**ds)
+                log_descriptors.append("Updated {}".format(slug))
+            else:
+                DescriptorSchema.objects.create(contributor=user, **ds)
+                log_descriptors.append("Inserted {}".format(slug))
+
+        if len(log_descriptors) > 0:
+            self.stdout.write("Descriptor schemas Updates:")
+            for log in log_descriptors:
+                self.stdout.write("  {}".format(log))
+
     def handle(self, *args, **options):
         schemas = options.get('schemas')
         force = options.get('force')
@@ -159,12 +211,20 @@ class Command(BaseCommand):
 
         user_admin = users.first()
 
-        proc_paths = []
+        processes_paths = []
+        descriptors_paths = []
         for finder in get_finders():
-            proc_paths.extend(finder.find())
+            processes_paths.extend(finder.find_processes())
+            descriptors_paths.extend(finder.find_descriptors())
 
         process_schemas = []
-        for proc_path in proc_paths:
-                process_schemas.extend(self.find_schemas(proc_path, schemas))
+        for proc_path in processes_paths:
+            process_schemas.extend(self.find_schemas(proc_path, schemas))
 
         self.register_processes(process_schemas, user_admin, force)
+
+        descriptor_schemas = []
+        for desc_path in descriptors_paths:
+            descriptor_schemas.extend(self.find_schemas(desc_path))
+
+        self.register_descriptors(descriptor_schemas, user_admin, force)

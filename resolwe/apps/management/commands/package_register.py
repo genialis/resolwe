@@ -92,9 +92,6 @@ class Command(BaseCommand):
         path = options.get('path')
         force = options.get('force')
 
-        if not path:
-            raise NotImplementedError("Give path to processes folder (--path)")
-
         users = get_user_model().objects.filter(is_superuser=True).order_by('date_joined')
 
         if not users.exists():

@@ -12,13 +12,19 @@ class BaseProcessesFinder(object):
     classes.
     """
 
-    def find(self):
-        raise NotImplementedError('subclasses of BaseProcessesLoader must provide a find() method')
+    def find_processes(self):
+        raise NotImplementedError('subclasses of BaseProcessesLoader must provide a find_processes() method')
+
+    def find_descriptors(self):
+        raise NotImplementedError('subclasses of BaseProcessesLoader must provide a find_descriptors() method')
 
 
 class FileSystemProcessesFinder(BaseProcessesFinder):
-    def find(self):
+    def find_processes(self):
         return getattr(settings, 'FLOW_PROCESSES_DIRS', ())
+
+    def find_descriptors(self):
+        return getattr(settings, 'FLOW_DESCRIPTORS_DIRS', ())
 
 
 def get_finders():

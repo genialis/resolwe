@@ -4,11 +4,11 @@
     "description": "Schema for user defined data templates.",
     "type": "object",
     "properties": {
-        "name": {
-            "description": "Unique name of the processor",
+        "slug": {
+            "description": "Unique name of the descriptor",
             "type": "string"
         },
-        "label": {
+        "name": {
             "description": "Human readable name",
             "type": "string"
         },
@@ -16,12 +16,12 @@
             "description": "Processor details",
             "type": "string"
         },
-        "var": {
+        "schema": {
             "description": "List of meta-data fields",
             "$ref": "#/field"
         }
     },
     "additionalProperties": false,
-    "required": ["name", "label", "description", "var"],
+    "required": ["slug", "name", "description", "schema"],
     "field": {{FIELD}}
 }
