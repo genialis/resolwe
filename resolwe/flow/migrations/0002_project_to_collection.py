@@ -8,7 +8,6 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('apps', '0001_initial'),
         ('flow', '0001_initial'),
     ]
 

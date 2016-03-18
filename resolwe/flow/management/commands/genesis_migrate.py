@@ -16,7 +16,6 @@ from guardian.models import GroupObjectPermission, UserObjectPermission
 from guardian.shortcuts import assign_perm, get_groups_with_perms, get_users_with_perms
 
 from resolwe.flow.models import Data, DescriptorSchema, Process, Collection, Storage, Trigger, dict_dot, iterate_fields
-from resolwe.apps.models import App, Package
 
 
 class Command(BaseCommand):
@@ -52,8 +51,7 @@ class Command(BaseCommand):
 
     storage_index = {}
     descriptor_schema_index = {}
-    id_mapping = {_type: {} for _type in ['collection', 'process', 'data', 'storage',
-                                          'trigger', 'package', 'app']}
+    id_mapping = {_type: {} for _type in ['collection', 'process', 'data', 'storage', 'trigger']}
     collection_tags = {}
 
     missing_users = set()
@@ -372,53 +370,9 @@ class Command(BaseCommand):
 
         self.id_mapping['trigger'][str(trigger[u'_id'])] = new.pk
 
-    def migrate_package(self, package):
-        new = Package()
-        new.name = package[u'title']
-        new.slug = package[u'name']
-        new.version = package[u'version']
-        new.modules = package[u'modules']
-        new.index = package[u'index']
-        new.contributor = self.get_contributor(package[u'author_id'])
-        # XXX: Django will change this on create
-        new.created = package[u'date_created']
-        # XXX: Django will change this on save
-        new.modified = package[u'date_modified']
-        new.save()
-
-        self.migrate_permissions(new, package)
-
-        self.id_mapping['package'][str(package[u'_id'])] = new.pk
-
-    def migrate_app(self, app):
-        new = App()
-        new.name = app[u'name']
-        new.slug = app[u'url_slug']
-        new.description = app.get(u'description', '')
-        new.package = Package.objects.get(slug=app[u'package'])
-        new.modules = app[u'modules']
-        new.contributor = self.get_contributor(app[u'author_id'])
-        if u'default_collection' in app and app[u'default_collection'] != '':
-            try:
-                new.default_collection = Collection.objects.get(slug=app[u'default_collection'])
-            except Collection.DoesNotExist:
-                self.missing_default_collections.append(app[u'default_collection'])
-        # XXX: Django will change this on create
-        new.created = app[u'date_created']
-        # XXX: Django will change this on save
-        new.modified = app[u'date_modified']
-        new.save()
-
-        if new.slug in self.collection_tags:
-            new.collections.add(*self.collection_tags[new.slug])
-
-        self.migrate_permissions(new, app)
-
-        self.id_mapping['app'][str(app[u'_id'])] = new.pk
-
     def clear_database(self):
-        for model in [Collection, Data, Process, Storage, DescriptorSchema, Package,
-                      App, GroupObjectPermission, UserObjectPermission]:
+        for model in [Collection, Data, Process, Storage, DescriptorSchema,
+                      GroupObjectPermission, UserObjectPermission]:
             model.objects.all().delete()
 
     def handle(self, *args, **options):
@@ -460,16 +414,6 @@ class Command(BaseCommand):
             self.migrate_trigger(trigger)
         self.stdout.write('DONE')
 
-        self.stdout.write('Migrating package...')
-        for package in client[options['db_name']].gen_package.find():
-            self.migrate_package(package)
-        self.stdout.write('DONE')
-
-        self.stdout.write('Migrating app...')
-        for app in client[options['db_name']].gen_app.find():
-            self.migrate_app(app)
-        self.stdout.write('DONE')
-
         if options['output']:
             with open(options['output'], 'w') as fn:
                 json.dump(self.id_mapping, fn)
@@ -479,7 +423,6 @@ class Command(BaseCommand):
         self.stdout.write('\nMissing users: {}'.format(sorted(list(self.missing_users))))
         self.stdout.write('Missing collections (referenced in Data objects): {}'.format(list(self.missing_collections)))
         self.stdout.write('Missing collections (referenced in triggers): {}'.format(self.orphan_triggers))
-        self.stdout.write('Missing collections (referenced in apps): {}'.format(self.missing_default_collections))
         self.stdout.write('Missing data (referenced in Data objects): {}'.format(list(self.missing_data)))
         self.stdout.write('Number of shortened names: {}'.format(len(self.long_names)))
         self.stdout.write('Number of unreferenced Storage objects: {}'.format(len(self.unreferenced_storages)))

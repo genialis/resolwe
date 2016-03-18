@@ -21,7 +21,6 @@ MIDDLEWARE_CLASSES = (
 # List of apps to test with django-jenkins
 PROJECT_APPS = (
     'resolwe',
-    'resolwe.apps',
     'resolwe.permissions',
     'resolwe.flow',
 )
@@ -115,7 +114,7 @@ FLOW_EXPRESSION_ENGINES = [
 
 FLOW_PROCESSES_FINDERS = (
     'resolwe.flow.finders.FileSystemProcessesFinder',
-    'resolwe.apps.finders.AppDirectoriesProcessesFinder',
+    'resolwe.flow.finders.AppDirectoriesFinder',
 )
 
 FLOW_PROCESSES_DIRS = ('resolwe/flow/tests/processes',)
