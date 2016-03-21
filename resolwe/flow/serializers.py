@@ -69,8 +69,9 @@ class ProcessSerializer(ResolweBaseSerializer):
         """ProcessSerializer Meta options."""
         model = Process
         update_protected_fields = ('contributor', )
-        read_only_fields = ('id', 'slug', 'name', 'created', 'modified', 'version', 'type', 'category',
-                            'persistence', 'description', 'input_schema', 'output_schema', 'run', )
+        read_only_fields = ('id', 'slug', 'name', 'created', 'modified', 'version', 'type',
+                            'category', 'persistence', 'description', 'input_schema',
+                            'output_schema', 'run', )
         fields = update_protected_fields + read_only_fields
 
 
@@ -105,7 +106,7 @@ class DescriptorSchemaSerializer(ResolweBaseSerializer):
         """TemplateSerializer Meta options."""
         model = DescriptorSchema
         update_protected_fields = ('contributor', )
-        read_only_fields = ('created', 'modified')
+        read_only_fields = ('id', 'created', 'modified')
         fields = ('slug', 'name', 'version', 'schema') + update_protected_fields + read_only_fields
 
 
@@ -117,7 +118,7 @@ class TriggerSerializer(ResolweBaseSerializer):
         """TriggerSerializer Meta options."""
         model = Trigger
         update_protected_fields = ('contributor', )
-        read_only_fields = ('created', 'modified')
+        read_only_fields = ('id', 'created', 'modified')
         fields = ('slug', 'name', 'trigger', 'trigger_input', 'process', 'input', 'collection',
                   'autorun') + update_protected_fields + read_only_fields
 
@@ -130,5 +131,5 @@ class StorageSerializer(ResolweBaseSerializer):
         """StorageSerializer Meta options."""
         model = Storage
         update_protected_fields = ('contributor', )
-        read_only_fields = ('created', 'modified')
+        read_only_fields = ('id', 'created', 'modified')
         fields = ('slug', 'name', 'data', 'json') + update_protected_fields + read_only_fields
