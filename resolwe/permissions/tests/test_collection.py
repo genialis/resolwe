@@ -48,7 +48,7 @@ class CollectionTestCase(ResolweAPITestCase):
         # check that (one of the) objects have expected keys
         self.assertKeys(resp.data[0], [u'slug', u'name', u'created', u'modified', u'contributor',
                                        u'description', u'id', u'settings', u'permissions',
-                                       u'descriptor_schema', u'descriptor'])
+                                       u'descriptor_schema', u'descriptor', u'descriptor_schema_id'])
 
     def test_get_list_admin(self):
         resp = self._get_list(self.admin)
@@ -88,7 +88,7 @@ class CollectionTestCase(ResolweAPITestCase):
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertKeys(resp.data, [u'slug', u'name', u'created', u'modified', u'contributor',
                                     u'description', u'settings', u'id', u'permissions',
-                                    u'descriptor_schema', u'descriptor'])
+                                    u'descriptor_schema', u'descriptor', u'descriptor_schema_id'])
 
         # user w/o permissions
         resp = self._get_detail(2, self.user2)
