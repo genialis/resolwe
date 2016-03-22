@@ -49,22 +49,6 @@ class ResolweBaseSerializer(serializers.ModelSerializer):
         return super(ResolweBaseSerializer, self).__init__(instance, data, **kwargs)
 
 
-class CollectionSerializer(ResolweBaseSerializer):
-
-    """Serializer for Collection objects."""
-
-    descriptor_schema = serializers.JSONField(source='descriptor_schema.schema', read_only=True)
-    descriptor_schema_id = serializers.IntegerField(source='descriptor_schema.pk', read_only=True)
-
-    class Meta:
-        """CollectionSerializer Meta options."""
-        model = Collection
-        update_protected_fields = ('contributor',)
-        read_only_fields = ('id', 'created', 'modified')
-        fields = ('slug', 'name', 'description', 'settings', 'descriptor_schema',
-                  'descriptor_schema_id', 'descriptor') + update_protected_fields + read_only_fields
-
-
 class ProcessSerializer(ResolweBaseSerializer):
 
     """Serializer for Process objects."""
@@ -100,6 +84,32 @@ class DataSerializer(ResolweBaseSerializer):
                             'process_name')
         fields = ('slug', 'name', 'contributor', 'input', 'output', 'descriptor_schema',
                   'descriptor') + update_protected_fields + read_only_fields
+
+
+class CollectionSerializer(ResolweBaseSerializer):
+
+    """Serializer for Collection objects."""
+
+    descriptor_schema = serializers.JSONField(source='descriptor_schema.schema', read_only=True)
+    descriptor_schema_id = serializers.IntegerField(source='descriptor_schema.pk', read_only=True)
+
+    class Meta:
+        """CollectionSerializer Meta options."""
+        model = Collection
+        update_protected_fields = ('contributor',)
+        read_only_fields = ('id', 'created', 'modified')
+        fields = ('slug', 'name', 'description', 'settings', 'descriptor_schema', 'descriptor_schema_id',
+                  'descriptor', 'data') + update_protected_fields + read_only_fields
+
+    def __init__(self, *args, **kwargs):
+        super(CollectionSerializer, self).__init__(*args, **kwargs)
+
+        request = kwargs.get('context', {}).get('request', None)
+
+        if request and request.query_params.get('hydrate_data', False):
+            self.fields['data'] = DataSerializer(many=True, read_only=True)
+        else:
+            self.fields['data'] = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
 
 
 class DescriptorSchemaSerializer(ResolweBaseSerializer):
