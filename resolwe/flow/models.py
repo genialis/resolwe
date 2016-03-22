@@ -382,13 +382,60 @@ class Data(BaseModel):
         if not self.descriptor:
             render_descriptor(self)
 
+        created = False
         if not self.pk:  # create
+            created = True
+
             # default values for INPUT
             for field_schema, fields, path in iterate_schema(self.input, self.process.input_schema, ''):
                 if 'default' in field_schema and field_schema['name'] not in fields:
                     dict_dot(self.input, path, field_schema['default'])
 
         super(Data, self).save(*args, **kwargs)
+
+        if created:
+            # Add object to flow_collection:
+            # - only add `Data object` to `flow collection` if process
+            #   has defined `flow_collwection` field
+            # - add object to existing `flow collection` if all `input
+            #   objects`, that belong to `flow collection` (but not
+            #   necessary all `input objects`), belong to the same one
+            # - if `input objects` belong to different `flow
+            #   collections` or don't belong to any `flow collection`,
+            #   create new one
+            if self.process.flow_collection:
+
+                # collect id's of all `input objects`
+                input_objects = []
+                for field_schema, fields, path in iterate_schema(self.input, self.process.input_schema, ''):
+                    if ('type' in field_schema and (
+                            field_schema['type'].startswith('data:') or
+                            field_schema['type'].startswith('list:data:'))):
+                        input_objects.append(fields[field_schema['name']])
+
+                collection_query = Collection.objects.filter(
+                    descriptor_schema__slug=self.process.flow_collection, data__id__in=input_objects).distinct()
+
+                if collection_query.count() == 1:
+                    collection = collection_query.first()
+                else:
+                    des_schema = DescriptorSchema.objects.get(slug=self.process.flow_collection)
+
+                    col_name = "{}_{}".format(self.descriptor['name'], self.flow_collection)
+                    unique_col_name = col_name
+                    i = 1
+                    while Collection.objects.filter(name=unique_col_name).exists():
+                        unique_col_name = "{}_{}".format(col_name, i)
+                        i += 1
+
+                    collection = Collection.objects.create(
+                        contributor=self.contributor,
+                        descriptor_schema=des_schema,
+                        name=unique_col_name,
+                        slug=slugify(unique_col_name),
+                    )
+
+                collection.data.add(self)
 
 
 class DescriptorSchema(BaseModel):
