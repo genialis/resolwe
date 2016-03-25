@@ -151,9 +151,10 @@ class Command(BaseCommand):
 
         for ds in descriptor_schemas:
 
-            for schema, _, _ in iterate_schema({}, ds.get('var', {})):
-                if not schema['type'][-1].endswith(':'):
-                    schema['type'] += ':'
+            for field in ['var', 'schema']:
+                for schema, _, _ in iterate_schema({}, ds.get(field, {})):
+                    if not schema['type'][-1].endswith(':'):
+                        schema['type'] += ':'
 
             # support backward compatibility
             # TODO: update .yml files and remove
