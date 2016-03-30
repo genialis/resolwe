@@ -29,7 +29,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = about['__title__']
+project = 'Resolwe'
 version = about['__version__']
 release = version
 author = about['__author__']

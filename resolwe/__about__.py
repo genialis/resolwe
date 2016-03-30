@@ -2,7 +2,7 @@
 
 # NOTE: We use __title__ instead of simply __name__ since the latter would
 #       interfere with a global variable __name__ denoting object's name.
-__title__ = 'Resolwe'
+__title__ = 'resolwe'
 __summary__ = 'Open source enterprise dataflow engine in Django'
 __url__ = 'https://github.com/genialis/resolwe'
 
