@@ -8,8 +8,7 @@ __url__ = 'https://github.com/genialis/resolwe'
 
 # Semantic versioning is used. For more information see:
 # https://packaging.python.org/en/latest/distributing/#semantic-versioning-preferred
-# TODO: Bump version to a proper sematic version
-__version__ = '0.9'
+__version__ = '1.0.0'
 
 __author__ = 'Genialis d.o.o.'
 __email__ = 'dev-team@genialis.com'

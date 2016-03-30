@@ -5,25 +5,30 @@ Change Log
 All notable changes to this project are documented in this file.
 
 
-==========
-Unreleased
-==========
+==================
+1.0.0 - 2016-03-31
+==================
 
 Changed
 -------
 - Renamed Project to Collection
 - Register processes from packages and custom paths
-
-Fixed
------
+- Removed support for Python 3.3
 
 Added
 -----
- - Docker executor
- - Celery engine
- - Purge command
- - Framework for testing processors
- - Processor finders
+- Permissions
+- API for flow
+- Docker executor
+- Expression engine support
+- Celery engine
+- Purge command
+- Framework for testing processors
+- Processor finders
+- Support for Django 1.9
+- Support for Python 3.5
+- Initial migrations
+- Introductory documentation
 
 
 ==================
