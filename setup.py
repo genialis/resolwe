@@ -65,7 +65,10 @@ setup(
         'jsonschema>=2.4.0',
     ],
     extras_require = {
-        'docs':  ['sphinx>=1.3.2'],
+        'docs':  [
+            'sphinx>=1.3.2',
+            'sphinx_rtd_theme',
+        ],
         'package': [
             'twine',
             'wheel',
