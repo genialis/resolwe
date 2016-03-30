@@ -10,7 +10,7 @@ Resolwe
 
 .. |docs| image:: https://readthedocs.org/projects/resolwe/badge/?version=latest
     :target: http://resolwe.readthedocs.org/
-    :alt: Latest Docs
+    :alt: Documentation Status
 
 Resolwe is an open source dataflow package for `Django framework`_. We envision
 Resolwe to follow the `Common Workflow Language`_ specification, but the
@@ -22,18 +22,21 @@ pipelines is available in `Resolwe Bioinformatics`_.
 .. _Common Workflow Language: https://github.com/common-workflow-language/common-workflow-language
 .. _Resolwe Bioinformatics: https://github.com/genialis/resolwe-bio
 
+
 Docs & Help
 ===========
 
 Read about architecture, getting started, how to write `processes`, RESTful API
 details, and API Reference in the documentation_.
 
+To chat with developers or ask for help, join us on Slack_.
+
 .. _documentation: http://resolwe.readthedocs.org/
+.. _Slack: http://resolwe.slack.com/
+
 
 Install
 =======
-
-.. _install-prerequisites:
 
 Prerequisites
 -------------
@@ -48,43 +51,47 @@ and you can simply install it via distribution's package manager.
 Otherwise, follow `these instructions
 <https://wiki.postgresql.org/wiki/Detailed_installation_guides>`__.
 
+Additionally, installing the ``psycopg2`` dependency from PyPI_ will require
+having a C compiler (e.g. GCC_) as well as Python and PostgreSQL development
+files installed on the system.
+
+Note
+^^^^
+
+The preferred way to install the C compiler and Python and PostgreSQL
+development files is to use your distribution's packages, if they exist. For
+example, on a Fedora/RHEL-based system, that would mean installing ``gcc``,
+``python-devel``/``python3-devel`` and ``postgresql-devel`` packages.
+
 .. _Python: https://www.python.org/
 .. _PostgreSQL: http://www.postgresql.org/
-
-Installing via pip
-------------------
-
-*Resolwe is not available via PyPI yet.*
-
-Installing from source
-----------------------
-
-This installation method will install all Resolwe's dependencies from PyPI_.
-Installing the ``psycopg2`` dependency will require having a C compiler
-(e.g. GCC_) as well as Python and PostgreSQL development files installed on
-the system.
-
-.. note::
-
-    The preffered way to install the C compiler and Python and PostgreSQL
-    development files is to use your distribution's packages, if they exist.
-    For example, on a Fedora/RHEL-based system, that would mean installing
-    ``gcc``, ``python-devel``/``python3-devel`` and ``postgresql-devel``
-    packages.
-
-Download the `latest release of Resolwe
-<https://github.com/genialis/resolwe/archive/master.tar.gz>`_ and extract it.
-
-Go to the directory with the extracted source code and install it::
-
-    python setup.py install
-
-.. note::
-
-    If you want to use Python 3, substitute ``python`` with ``python3``.
-
 .. _PyPi: https://pypi.python.org/
 .. _GCC: https://gcc.gnu.org/
+
+From PyPI_
+----------
+
+.. code::
+
+    pip install Resolwe
+
+From source
+-----------
+
+.. code::
+
+   pip install https://github.com/genialis/resolwe/archive/<git-tree-ish>.tar.gz
+
+where ``<git-tree-ish>`` can represent any commit SHA, branch name, tag name,
+etc. in `Resolwe's GitHub repository`_. For example, to install the latest
+Resolwe from the ``master`` branch, use:
+
+.. code::
+
+   pip install https://github.com/genialis/resolwe/archive/master.tar.gz
+
+.. _`Resolwe's GitHub repository`: https://github.com/genialis/resolwe/
+
 
 Contribute
 ==========
