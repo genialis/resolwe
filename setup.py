@@ -49,7 +49,9 @@ setup(
     },
     install_requires=[
         'django>=1.9,<1.10a1',
-        'djangorestframework>=3.3',
+        # XXX: djangorestframework 3.3.3 fails to install on Read the Docs
+        # Bug report: https://github.com/rtfd/readthedocs.org/issues/2101
+        'djangorestframework==3.3.2',
         # XXX: django-guardian 1.4.0 is failing
         # 'django-guardian>=1.3.2',
         'django-guardian==1.3.2',
