@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from rest_framework import status
 
 from .base import ResolweAPITestCase
-from resolwe.flow.models import Data
+from resolwe.flow.models import Data, Collection
 from resolwe.flow.views import DataViewSet
 
 
@@ -133,8 +133,8 @@ class DataTestCase(ResolweAPITestCase):
         self.data['collections'].append('2')
 
         resp = self._post(self.data, self.user1)
-        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(resp.data[u'collections'], MESSAGES['ONE_ID_REQUIRED'])
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Collection.objects.filter(data=resp.data['id']).count(), 2)
 
     def test_get_detail(self):
         # public user w/ perms

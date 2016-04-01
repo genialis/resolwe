@@ -420,19 +420,17 @@ class Data(BaseModel):
                     collection = collection_query.first()
                 else:
                     des_schema = DescriptorSchema.objects.get(slug=self.process.flow_collection)
-
-                    col_name = "{}_{}".format(self.descriptor['name'], self.flow_collection)
-                    unique_col_name = col_name
+                    unique_slug = self.name
                     i = 1
-                    while Collection.objects.filter(name=unique_col_name).exists():
-                        unique_col_name = "{}_{}".format(col_name, i)
+                    while Collection.objects.filter(slug=slugify(unique_slug)).exists():
+                        unique_slug = "{} {}".format(self.name, i)
                         i += 1
 
                     collection = Collection.objects.create(
                         contributor=self.contributor,
                         descriptor_schema=des_schema,
-                        name=unique_col_name,
-                        slug=slugify(unique_col_name),
+                        name=self.name,
+                        slug=slugify(unique_slug),
                     )
 
                 collection.data.add(self)
