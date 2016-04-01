@@ -51,7 +51,7 @@ def _register_processors():
         if not user_model.objects.filter(is_superuser=True).exists():
             user_model.objects.create_superuser(username="admin", email='admin@example.com', password="admin_pass")
 
-        management.call_command('process_register', force=True, testing=True, verbosity='0')
+        management.call_command('register', force=True, testing=True, verbosity='0')
 
         PROCESSES_FIXTURE_CACHE = list(Process.objects.all())  # list forces db query execution
 

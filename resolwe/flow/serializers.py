@@ -73,6 +73,9 @@ class DataSerializer(ResolweBaseSerializer):
     process_output_schema = serializers.JSONField(source='process.output_schema', read_only=True)
     descriptor_schema = serializers.JSONField(source='descriptor_schema.schema', read_only=True)
 
+    name = serializers.CharField(read_only=False, required=False)
+    slug = serializers.CharField(read_only=False, required=False)
+
     class Meta:
         """DataSerializer Meta options."""
         model = Data
