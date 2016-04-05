@@ -149,6 +149,21 @@ class ResolweCreateDataModelMixin(ResolweCreateModelMixin):
                 else:
                     raise exceptions.NotFound
 
+        process_slug = request.data.get('process', None)
+        process_query = Process.objects.filter(slug=process_slug).order_by('version')
+        if not process_query.exists():
+            # XXX: security - is it ok to reveal which processes (don't) exist?
+            return Response({'process': ['Invalid process slug "{}" - object does not exist.'.format(process_slug)]},
+                            status=status.HTTP_400_BAD_REQUEST)
+        process = process_query.last()
+        request.data['process'] = process.pk
+
+        if not request.user.has_perm('view_process', obj=process):
+            if request.user.is_authenticated():
+                raise exceptions.PermissionDenied
+            else:
+                raise exceptions.NotFound
+
         return super(ResolweCreateDataModelMixin, self).create(request, *args, **kwargs)
 
     def perform_create(self, serializer):

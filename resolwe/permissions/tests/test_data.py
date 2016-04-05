@@ -32,7 +32,7 @@ class DataTestCase(ResolweAPITestCase):
             'name': 'New data',
             'slug': 'new_data',
             'collections': ['1'],
-            'process': '1',
+            'process': 'test_process',
         }
 
         super(DataTestCase, self).setUp()
@@ -79,7 +79,7 @@ class DataTestCase(ResolweAPITestCase):
         self.data['process'] = '42'
         resp = self._post(self.data, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(resp.data[u'process'][0], u'Invalid pk "42" - object does not exist.')
+        self.assertEqual(resp.data[u'process'][0], u'Invalid process slug "42" - object does not exist.')
 
         self.assertEqual(Data.objects.count(), data_n)
 
