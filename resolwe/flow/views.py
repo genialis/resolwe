@@ -27,6 +27,7 @@ from rest_framework.response import Response
 import django_filters
 from guardian import shortcuts
 
+from .engines.local import manager
 from .models import Collection, Process, Data, DescriptorSchema, Trigger, Storage
 from .serializers import (CollectionSerializer, ProcessSerializer, DataSerializer,
                           DescriptorSchemaSerializer, TriggerSerializer, StorageSerializer)
@@ -164,7 +165,9 @@ class ResolweCreateDataModelMixin(ResolweCreateModelMixin):
             else:
                 raise exceptions.NotFound
 
-        return super(ResolweCreateDataModelMixin, self).create(request, *args, **kwargs)
+        resp = super(ResolweCreateDataModelMixin, self).create(request, *args, **kwargs)
+        manager.communicate()
+        return resp
 
     def perform_create(self, serializer):
         with transaction.atomic():

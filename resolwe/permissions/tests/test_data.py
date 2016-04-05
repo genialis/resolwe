@@ -62,9 +62,9 @@ class DataTestCase(ResolweAPITestCase):
         d = Data.objects.get(pk=resp.data['id'])
         self.assertTrue(datetime.now() - d.modified < timedelta(seconds=1))
         self.assertTrue(datetime.now() - d.created < timedelta(seconds=1))
-        self.assertEqual(d.status, 'RE')
-        self.assertEqual(d.started, None)
-        self.assertEqual(d.finished, None)
+        self.assertEqual(d.status, 'OK')
+        self.assertTrue(datetime.now() - d.started < timedelta(seconds=1))
+        self.assertTrue(datetime.now() - d.finished < timedelta(seconds=1))
         self.assertEqual(d.contributor_id, 1)
 
     def test_post_invalid_fields(self):
