@@ -135,23 +135,35 @@ class ResolweCreateDataModelMixin(ResolweCreateModelMixin):
     """
     def create(self, request, *args, **kwargs):
         collections = request.data.get('collections', [])
-        if len(collections) != 1:
-            return Response({'collections': 'Exactly one id required on create.'},
-                            status=status.HTTP_400_BAD_REQUEST)
+        
+        for collection_id in collections:
+            try:
+                collection = Collection.objects.get(pk=collection_id)
+            except Collection.DoesNotExist:
+                return Response({'collections': ['Invalid pk "{}" - object does not exist.'.format(collection_id)]},
+                                status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            collection = Collection.objects.get(pk=collections[0])
-        except Collection.DoesNotExist:
-            return Response({'collections': ['Invalid pk "{}" - object does not exist.'.format(collections[0])]},
-                            status=status.HTTP_400_BAD_REQUEST)
-
-        if not request.user.has_perm('add_collection', obj=collection):
-            if request.user.is_authenticated():
-                raise exceptions.PermissionDenied
-            else:
-                raise exceptions.NotFound
+            if not request.user.has_perm('add_collection', obj=collection):
+                if request.user.is_authenticated():
+                    raise exceptions.PermissionDenied
+                else:
+                    raise exceptions.NotFound
 
         return super(ResolweCreateDataModelMixin, self).create(request, *args, **kwargs)
+        
+    def perform_create(self, serializer):
+        with transaction.atomic():
+            instance = serializer.save()
+
+            # Assign all permissions to the object contributor.
+            for permission in list(zip(*instance._meta.permissions))[0]:
+                assign_perm(permission, instance.contributor, instance)
+                
+        collections = self.request.data.get('collections', [])
+        for c in collections:
+            collection = Collection.objects.get(pk=c)
+            collection.data.add(instance)
+        
 
 
 class ResolwePermissionsMixin(object):
