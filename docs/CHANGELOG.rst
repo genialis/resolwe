@@ -5,6 +5,15 @@ Change Log
 All notable changes to this project are documented in this file.
 
 
+==========
+Unreleased
+==========
+
+Fixed
+-----
+- All Resolwe's environment variables are passed to Tox's testing environment
+
+
 ==================
 1.0.0 - 2016-03-31
 ==================
