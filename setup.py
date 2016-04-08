@@ -38,13 +38,13 @@ setup(
 
     license=about['__license__'],
 
-    packages=find_packages(),
+    packages=find_packages(exclude=['tests']),
     package_data={
         'resolwe': [
-            'flow/static/flow/descriptorSchema.json',
-            'flow/static/flow/fieldSchema.json',
-            'flow/static/flow/processorSchema.json',
-            'flow/static/flow/typeSchema.json',
+            'flow/static/flow/*.json',
+            'flow/tests/processes/*.yml',
+            'permissions/fixtures/*.yaml',
+            'permissions/fixtures/readme.txt',
         ]
     },
     install_requires=[

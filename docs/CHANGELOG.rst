@@ -16,6 +16,7 @@ Added
 Fixed
 -----
 - All Resolwe's environment variables are passed to Tox's testing environment
+- Included all source files and supplementary package data in sdist
 
 
 ==================
