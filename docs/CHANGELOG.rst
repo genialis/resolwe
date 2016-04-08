@@ -9,6 +9,10 @@ All notable changes to this project are documented in this file.
 Unreleased
 ==========
 
+Added
+-----
+- Tox tests for ensuring high-quality Python packaging
+
 Fixed
 -----
 - All Resolwe's environment variables are passed to Tox's testing environment
