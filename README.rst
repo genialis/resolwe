@@ -73,7 +73,7 @@ From PyPI_
 
 .. code::
 
-    pip install Resolwe
+    pip install resolwe
 
 From source
 -----------
