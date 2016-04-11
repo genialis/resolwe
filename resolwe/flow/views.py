@@ -354,8 +354,7 @@ class CollectionViewSet(ResolweCreateModelMixin,
     queryset = Collection.objects.all().prefetch_related('descriptor_schema')
     serializer_class = CollectionSerializer
     permission_classes = (permissions_cls,)
-    filter_fields = ('contributor', 'name', 'description', 'created', 'modified', 'slug',
-                     'descriptor', 'descriptor_schema_id')
+    filter_fields = ('contributor', 'name', 'description', 'created', 'modified', 'slug', 'descriptor')
 
 
 class ProcessFilter(filters.FilterSet):

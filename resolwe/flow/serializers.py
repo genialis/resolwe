@@ -63,6 +63,18 @@ class ProcessSerializer(ResolweBaseSerializer):
         fields = update_protected_fields + read_only_fields
 
 
+class DescriptorSchemaSerializer(ResolweBaseSerializer):
+
+    """Serializer for DescriptorSchema objects."""
+
+    class Meta:
+        """TemplateSerializer Meta options."""
+        model = DescriptorSchema
+        update_protected_fields = ('contributor', )
+        read_only_fields = ('id', 'created', 'modified')
+        fields = ('slug', 'name', 'version', 'schema') + update_protected_fields + read_only_fields
+
+
 class DataSerializer(ResolweBaseSerializer):
 
     """Serializer for Data objects."""
@@ -71,7 +83,7 @@ class DataSerializer(ResolweBaseSerializer):
     process_type = serializers.CharField(source='process.type', read_only=True)
     process_input_schema = serializers.JSONField(source='process.input_schema', read_only=True)
     process_output_schema = serializers.JSONField(source='process.output_schema', read_only=True)
-    descriptor_schema = serializers.JSONField(source='descriptor_schema.schema', read_only=True)
+    descriptor_schema = DescriptorSchemaSerializer(required=False)
 
     name = serializers.CharField(read_only=False, required=False)
     slug = serializers.CharField(read_only=False, required=False)
@@ -79,7 +91,7 @@ class DataSerializer(ResolweBaseSerializer):
     class Meta:
         """DataSerializer Meta options."""
         model = Data
-        update_protected_fields = ('contributor', 'process')
+        update_protected_fields = ('contributor', 'process', 'descriptor_schema',)
         read_only_fields = ('id', 'created', 'modified', 'started', 'finished', 'checksum',
                             'status', 'process_progress', 'process_rc', 'process_info',
                             'process_warning', 'process_error', 'process_type',
@@ -93,16 +105,15 @@ class CollectionSerializer(ResolweBaseSerializer):
 
     """Serializer for Collection objects."""
 
-    descriptor_schema = serializers.JSONField(source='descriptor_schema.schema', read_only=True)
-    descriptor_schema_id = serializers.IntegerField(source='descriptor_schema.pk', read_only=True)
+    descriptor_schema = DescriptorSchemaSerializer(required=False)
 
     class Meta:
         """CollectionSerializer Meta options."""
         model = Collection
-        update_protected_fields = ('contributor',)
+        update_protected_fields = ('contributor', 'descriptor_schema',)
         read_only_fields = ('id', 'created', 'modified')
-        fields = ('slug', 'name', 'description', 'settings', 'descriptor_schema', 'descriptor_schema_id',
-                  'descriptor', 'data') + update_protected_fields + read_only_fields
+        fields = ('slug', 'name', 'description', 'settings', 'descriptor_schema', 'descriptor',
+                  'data') + update_protected_fields + read_only_fields
 
     def __init__(self, *args, **kwargs):
         super(CollectionSerializer, self).__init__(*args, **kwargs)
@@ -113,18 +124,6 @@ class CollectionSerializer(ResolweBaseSerializer):
             self.fields['data'] = DataSerializer(many=True, read_only=True)
         else:
             self.fields['data'] = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
-
-
-class DescriptorSchemaSerializer(ResolweBaseSerializer):
-
-    """Serializer for DescriptorSchema objects."""
-
-    class Meta:
-        """TemplateSerializer Meta options."""
-        model = DescriptorSchema
-        update_protected_fields = ('contributor', )
-        read_only_fields = ('id', 'created', 'modified')
-        fields = ('slug', 'name', 'version', 'schema') + update_protected_fields + read_only_fields
 
 
 class TriggerSerializer(ResolweBaseSerializer):
