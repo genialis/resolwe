@@ -26,6 +26,8 @@ import json
 import os
 import re
 
+from guardian import shortcuts
+
 from django import template
 from django.db import models
 from django.conf import settings
@@ -432,6 +434,9 @@ class Data(BaseModel):
                         name=self.name,
                         slug=slugify(unique_slug),
                     )
+
+                    for permission in list(zip(*collection._meta.permissions))[0]:
+                        shortcuts.assign_perm(permission, collection.contributor, collection)
 
                 collection.data.add(self)
 
