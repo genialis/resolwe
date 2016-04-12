@@ -356,6 +356,52 @@ class CollectionViewSet(ResolweCreateModelMixin,
     permission_classes = (permissions_cls,)
     filter_fields = ('contributor', 'name', 'description', 'created', 'modified', 'slug', 'descriptor')
 
+    @detail_route(methods=[u'post'])
+    def add_data(self, request, pk=None):
+        collection = self.get_object()
+
+        if not request.user.has_perm('add_collection', obj=collection):
+            if request.user.is_authenticated():
+                raise exceptions.PermissionDenied()
+            else:
+                raise exceptions.NotFound()
+
+        if 'ids' not in request.data:
+            return Response({"error": "`ids`parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        missing = []
+        for data_id in request.data['ids']:
+            if not Data.objects.filter(pk=data_id).exists():
+                missing.append(data_id)
+
+        if missing:
+            return Response(
+                {"error": "Data objects with following ids are missing: {}".format(', '.join(missing))},
+                status=status.HTTP_400_BAD_REQUEST)
+
+        for data_id in request.data['ids']:
+            collection.data.add(data_id)
+
+        return Response()
+
+    @detail_route(methods=[u'post'])
+    def remove_data(self, request, pk=None):
+        collection = self.get_object()
+
+        if not request.user.has_perm('add_collection', obj=collection):
+            if request.user.is_authenticated():
+                raise exceptions.PermissionDenied()
+            else:
+                raise exceptions.NotFound()
+
+        if 'ids' not in request.data:
+            return Response({"error": "`ids`parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        for data_id in request.data['ids']:
+            collection.data.remove(data_id)
+
+        return Response()
+
 
 class ProcessFilter(filters.FilterSet):
     category = django_filters.CharFilter(name='category', lookup_type='startswith')
