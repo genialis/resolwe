@@ -83,7 +83,7 @@ class DataSerializer(ResolweBaseSerializer):
     process_type = serializers.CharField(source='process.type', read_only=True)
     process_input_schema = serializers.JSONField(source='process.input_schema', read_only=True)
     process_output_schema = serializers.JSONField(source='process.output_schema', read_only=True)
-    descriptor_schema = DescriptorSchemaSerializer(required=False)
+    descriptor_schema = DescriptorSchemaSerializer(required=False, read_only=True)
 
     name = serializers.CharField(read_only=False, required=False)
     slug = serializers.CharField(read_only=False, required=False)
@@ -91,7 +91,7 @@ class DataSerializer(ResolweBaseSerializer):
     class Meta:
         """DataSerializer Meta options."""
         model = Data
-        update_protected_fields = ('contributor', 'process', 'descriptor_schema',)
+        update_protected_fields = ('contributor', 'process',)
         read_only_fields = ('id', 'created', 'modified', 'started', 'finished', 'checksum',
                             'status', 'process_progress', 'process_rc', 'process_info',
                             'process_warning', 'process_error', 'process_type',
@@ -110,7 +110,7 @@ class CollectionSerializer(ResolweBaseSerializer):
     class Meta:
         """CollectionSerializer Meta options."""
         model = Collection
-        update_protected_fields = ('contributor', 'descriptor_schema',)
+        update_protected_fields = ('contributor',)
         read_only_fields = ('id', 'created', 'modified')
         fields = ('slug', 'name', 'description', 'settings', 'descriptor_schema', 'descriptor',
                   'data') + update_protected_fields + read_only_fields

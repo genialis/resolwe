@@ -110,6 +110,14 @@ class ResolweCreateModelMixin(mixins.CreateModelMixin):
         if not user.is_authenticated():
             raise exceptions.NotFound
 
+        ds_slug = request.data.get('descriptor_schema', None)
+        ds_query = DescriptorSchema.objects.filter(slug=ds_slug).order_by('version')
+        if ds_slug and not ds_query.exists():
+            return Response(
+                {'descriptor_schema':
+                    ['Invalid descriptor_schema slug "{}" - object does not exist.'.format(ds_slug)]},
+                status=status.HTTP_400_BAD_REQUEST)
+
         request.data['contributor'] = user.pk
         try:
             return super(ResolweCreateModelMixin, self).create(request, *args, **kwargs)
@@ -123,6 +131,12 @@ class ResolweCreateModelMixin(mixins.CreateModelMixin):
             # Assign all permissions to the object contributor.
             for permission in list(zip(*instance._meta.permissions))[0]:
                 assign_perm(permission, instance.contributor, instance)
+
+        ds_slug = self.request.data.get('descriptor_schema', None)
+        if ds_slug:
+            descriptor_schema = DescriptorSchema.objects.filter(slug=ds_slug).order_by('version').last()
+            instance.descriptor_schema = descriptor_schema
+            instance.save()
 
 
 class ResolweCreateDataModelMixin(ResolweCreateModelMixin):
@@ -159,6 +173,14 @@ class ResolweCreateDataModelMixin(ResolweCreateModelMixin):
         process = process_query.last()
         request.data['process'] = process.pk
 
+        ds_slug = request.data.get('descriptor_schema', None)
+        ds_query = DescriptorSchema.objects.filter(slug=ds_slug).order_by('version')
+        if ds_slug and not ds_query.exists():
+            return Response(
+                {'descriptor_schema':
+                    ['Invalid descriptor_schema slug "{}" - object does not exist.'.format(ds_slug)]},
+                status=status.HTTP_400_BAD_REQUEST)
+
         if not request.user.has_perm('view_process', obj=process):
             if request.user.is_authenticated():
                 raise exceptions.PermissionDenied
@@ -181,6 +203,12 @@ class ResolweCreateDataModelMixin(ResolweCreateModelMixin):
         for c in collections:
             collection = Collection.objects.get(pk=c)
             collection.data.add(instance)
+
+        ds_slug = self.request.data.get('descriptor_schema', None)
+        if ds_slug:
+            descriptor_schema = DescriptorSchema.objects.filter(slug=ds_slug).order_by('version').last()
+            instance.descriptor_schema = descriptor_schema
+            instance.save()
 
 
 class ResolwePermissionsMixin(object):
