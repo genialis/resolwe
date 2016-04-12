@@ -140,14 +140,3 @@ class CollectionTestCase(ResolweAPITestCase):
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
         q = Collection.objects.filter(pk=3).exists()
         self.assertTrue(q)
-
-    def test_post_duplicated_slug(self):
-        # create new object
-        Collection.objects.create(contributor_id=1, **self.post_data)
-        collection_n = Collection.objects.count()
-
-        with transaction.atomic():
-            resp = self._post(self.post_data, self.user1)
-            self.assertEqual(resp.status_code, status.HTTP_409_CONFLICT)
-            self.assertTrue(u'error' in resp.data)
-        self.assertEqual(Collection.objects.count(), collection_n)

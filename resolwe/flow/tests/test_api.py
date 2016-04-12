@@ -30,7 +30,7 @@ class TestDataViewSetCase(unittest.TestCase):
     @mock.patch('resolwe.flow.models.Process.objects.all')
     def test_prefetch(self, process_mock):
         # TODO: find way to mock Data objects
-        proc = Process.objects.create(type='test:process', contributor=self.user)
+        proc = Process.objects.create(type='test:process', name='Test process', contributor=self.user)
         Data.objects.create(contributor=self.user, slug='test1', process=proc)
         Data.objects.create(contributor=self.user, slug='test2', process=proc)
 

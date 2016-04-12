@@ -171,7 +171,6 @@ class Command(BaseCommand):
         else:
             descriptor_schema = DescriptorSchema(schema=ds_fields)
             descriptor_schema.name = 'data_{}_descriptor'.format(data[u'_id'])
-            descriptor_schema.slug = descriptor_schema.unique_slug(descriptor_schema.name)
             descriptor_schema.contributor = contributor
             descriptor_schema.save()
 
@@ -229,7 +228,7 @@ class Command(BaseCommand):
                 except Process.DoesNotExist:
                     process = Process.objects.create(
                         name=dummy_name,
-                        slug=Process.unique_slug('non-existent'),
+                        slug='non-existent',
                         contributor=get_user_model().objects.filter(is_superuser=True).first(),
                         type=data[u'type'],
                         category='data:non-existent',
@@ -242,7 +241,6 @@ class Command(BaseCommand):
         if len(new.name) > 100:
             self.long_names.append(new.name)
             new.name = new.name[:97] + '...'
-        new.slug = new.unique_slug(new.name)
         new.status = self.status_dict[data[u'status']]
         new.process = process
         new.contributor = contributor
@@ -330,7 +328,6 @@ class Command(BaseCommand):
 
         new = Storage()
         new.name = 'data_{}_storage'.format(data_id)
-        new.slug = new.unique_slug(new.name)
         new.data = data
         new.json = storage[u'json']
         new.contributor = self.get_contributor(storage[u'author_id'])
@@ -352,7 +349,6 @@ class Command(BaseCommand):
 
         new = Trigger()
         new.name = trigger[u'name']
-        new.slug = new.unique_slug(new.name)
         new.contributor = self.get_contributor(trigger[u'author_id'])
         new.type = trigger[u'type']
         new.trigger = trigger[u'trigger']

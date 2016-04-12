@@ -34,9 +34,9 @@ from django.conf import settings
 from django.core.validators import RegexValidator
 from django.contrib.postgres.fields import ArrayField, JSONField
 from django.contrib.staticfiles import finders
-from django.utils.text import slugify
 
 from versionfield import VersionField
+from autoslug import AutoSlugField
 
 
 VERSION_NUMBER_BITS = (8, 10, 14)
@@ -53,7 +53,7 @@ class BaseModel(models.Model):
         default_permissions = ()
 
     #: URL slug
-    slug = models.SlugField(max_length=100)
+    slug = AutoSlugField(populate_from='name', unique_with='version', editable=True)
 
     #: process version
     version = VersionField(number_bits=VERSION_NUMBER_BITS, default=0)
@@ -72,16 +72,6 @@ class BaseModel(models.Model):
 
     def __str__(self):
         return self.name
-
-    @classmethod
-    def unique_slug(cls, slug):
-        slug = slugify(slug)
-        unique_slug = slug
-        i = 0
-        while cls.objects.filter(slug=unique_slug).exists():
-            i += 1
-            unique_slug = '{}_{}'.format(slug, i)
-        return unique_slug
 
 
 class Collection(BaseModel):
@@ -422,17 +412,10 @@ class Data(BaseModel):
                     collection = collection_query.first()
                 else:
                     des_schema = DescriptorSchema.objects.get(slug=self.process.flow_collection)
-                    unique_slug = self.name
-                    i = 1
-                    while Collection.objects.filter(slug=slugify(unique_slug)).exists():
-                        unique_slug = "{} {}".format(self.name, i)
-                        i += 1
-
                     collection = Collection.objects.create(
                         contributor=self.contributor,
                         descriptor_schema=des_schema,
                         name=self.name,
-                        slug=slugify(unique_slug),
                     )
 
                     for permission in list(zip(*collection._meta.permissions))[0]:

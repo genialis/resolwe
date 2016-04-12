@@ -12,20 +12,18 @@ class ManagerTest(TestCase):
 
     def setUp(self):
         self.u = get_user_model().objects.create_superuser('test', 'test@genialis.com', 'test')
-        self.data = {'slug': 'test-process',
-                     'name': 'Test Process',
+        self.data = {'name': 'Test Process',
                      'contributor': self.u,
                      'type': 'data:test',
                      'version': 1}
 
-    def test_unique(self):
-        Process(**self.data).save()
+    def test_slug(self):
+        p = Process.objects.create(**self.data)
+        self.assertEqual(p.slug, 'test-process')
 
         self.data['version'] = 2
-        Process(**self.data).save()
+        p = Process.objects.create(**self.data)
+        self.assertEqual(p.slug, 'test-process')
 
-        with transaction.atomic():
-            self.assertRaises(IntegrityError, Process(**self.data).save)
-
-        self.data['slug'] = 'test-processor-1'
-        Process(**self.data).save()
+        p = Process.objects.create(**self.data)
+        self.assertEqual(p.slug, 'test-process-2')
