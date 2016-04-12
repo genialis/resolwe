@@ -16,31 +16,31 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='collection',
             name='slug',
-            field=autoslug.fields.AutoSlugField(editable=True, populate_from='name', unique_with=('version',)),
+            field=autoslug.fields.AutoSlugField(editable=True, populate_from='name', unique_with=('version',), max_length=100),
         ),
         migrations.AlterField(
             model_name='data',
             name='slug',
-            field=autoslug.fields.AutoSlugField(editable=True, populate_from='name', unique_with=('version',)),
+            field=autoslug.fields.AutoSlugField(editable=True, populate_from='name', unique_with=('version',), max_length=100),
         ),
         migrations.AlterField(
             model_name='descriptorschema',
             name='slug',
-            field=autoslug.fields.AutoSlugField(editable=True, populate_from='name', unique_with=('version',)),
+            field=autoslug.fields.AutoSlugField(editable=True, populate_from='name', unique_with=('version',), max_length=100),
         ),
         migrations.AlterField(
             model_name='process',
             name='slug',
-            field=autoslug.fields.AutoSlugField(editable=True, populate_from='name', unique_with=('version',)),
+            field=autoslug.fields.AutoSlugField(editable=True, populate_from='name', unique_with=('version',), max_length=100),
         ),
         migrations.AlterField(
             model_name='storage',
             name='slug',
-            field=autoslug.fields.AutoSlugField(editable=True, populate_from='name', unique_with=('version',)),
+            field=autoslug.fields.AutoSlugField(editable=True, populate_from='name', unique_with=('version',), max_length=100),
         ),
         migrations.AlterField(
             model_name='trigger',
             name='slug',
-            field=autoslug.fields.AutoSlugField(editable=True, populate_from='name', unique_with=('version',)),
+            field=autoslug.fields.AutoSlugField(editable=True, populate_from='name', unique_with=('version',), max_length=100),
         ),
     ]
