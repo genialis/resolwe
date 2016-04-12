@@ -1,0 +1,3 @@
+# Use git's 'union' merge driver for the CHANGELOG to prevent common merge
+# conflicts when rebasing pull requests.
+docs/CHANGELOG.rst merge=union
