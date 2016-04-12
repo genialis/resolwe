@@ -80,6 +80,12 @@ class Command(BaseCommand):
             if 'category' in p and not p['category'].endswith(':'):
                 p['category'] += ':'
 
+            # get `data_name` from `static`
+            if 'static' in p:
+                for schema, _, _ in iterate_schema({}, p['static']):
+                    if schema['name'] == 'name' and 'default' in schema:
+                        p['data_name'] = schema['default']
+
             # support backward compatibility
             # TODO: update .yml files and remove
             if 'slug' not in p:

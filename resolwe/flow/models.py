@@ -171,6 +171,9 @@ class Process(BaseModel):
     #: detailed description
     description = models.TextField(default='')
 
+    #: template for name of Data object created with Process
+    data_name = models.CharField(max_length=200, null=True, blank=True)
+
     input_schema = JSONField(blank=True, default=[])
     """
     process input schema (describes input parameters, form layout **"Inputs"** for :attr:`Data.input`)
@@ -279,6 +282,17 @@ def render_descriptor(data):
             dict_dot(data, path, tmpl)
 
 
+def render_name(data):
+    if not data.process.data_name or not data.process.input_schema:
+        return
+
+    tmpl_vars = data.input
+    hydrate_input_references(tmpl_vars, data.process.input_schema, hydrate_values=False)
+    tmpl_vars = template.Context(tmpl_vars)
+
+    data.name = template.Template("{% load resource_filters %}" + data.process.data_name).render(tmpl_vars)
+
+
 class Data(BaseModel):
 
     """Postgres model for storing data."""
@@ -373,6 +387,9 @@ class Data(BaseModel):
         # Generate the descriptor if one is not already set.
         if not self.descriptor:
             render_descriptor(self)
+
+        if not self.name:
+            render_name(self)
 
         created = False
         if not self.pk:  # create

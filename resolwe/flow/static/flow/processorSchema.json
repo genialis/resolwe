@@ -12,6 +12,10 @@
             "description": "Human readable name",
             "type": "string"
         },
+        "data_name": {
+            "description": "Template for auto-generated name",
+            "type": "string"
+        },
         "version": {
             "description": "Processor version",
             "type": "string",
