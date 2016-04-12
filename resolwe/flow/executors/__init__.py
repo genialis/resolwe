@@ -1,13 +1,18 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 """Workflow Executors"""
 
-from datetime import datetime
 import json
 import logging
 import os
 
 from django.apps import apps
 from django.conf import settings
+
+if settings.USE_TZ:
+    import datetime  # pylint: disable=wrong-import-order
+    now = datetime.datetime.now  # pylint: disable=invalid-name
+else:
+    from django.utils.timezone import now
 
 from resolwe.flow.models import Data, dict_dot
 from resolwe.utils import BraceMessage as __
@@ -51,7 +56,7 @@ class BaseFlowExecutor(object):
         pass
 
     def run_script(self, script):
-        raise NotImplemented('`run_script` function must be defined')
+        raise NotImplementedError('`run_script` function must be defined')
 
     def end(self):
         pass
@@ -81,7 +86,7 @@ class BaseFlowExecutor(object):
 
         Data.objects.filter(id=data_id).update(
             status=Data.STATUS_PROCESSING,
-            started=datetime.utcnow(),
+            started=now(),
             process_pid=proc_pid)
 
         # Run processor and handle intermediate results
@@ -138,7 +143,7 @@ class BaseFlowExecutor(object):
                                     updates['output'] = output
 
                         if updates:
-                            updates['modified'] = datetime.utcnow()
+                            updates['modified'] = now()
                             Data.objects.filter(id=data_id).update(**updates)
 
                         if process_rc > 0:
@@ -178,13 +183,13 @@ class BaseFlowExecutor(object):
             Data.objects.filter(id=data_id).update(
                 status=Data.STATUS_DONE,
                 process_progress=100,
-                finished=datetime.utcnow())
+                finished=now())
         else:
             Data.objects.filter(id=data_id).update(
                 status=Data.STATUS_ERROR,
                 process_progress=100,
                 process_rc=process_rc,
-                finished=datetime.utcnow())
+                finished=now())
 
         # try:
         #     # Cleanup after processor
