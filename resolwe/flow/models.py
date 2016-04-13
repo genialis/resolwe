@@ -264,7 +264,7 @@ def render_descriptor(data):
     if not data.descriptor_schema or not data.process.input_schema:
         return
 
-    tmpl_vars = data.input
+    tmpl_vars = data.input.copy()
     hydrate_input_references(tmpl_vars, data.process.input_schema, hydrate_values=False)
     tmpl_vars = template.Context(tmpl_vars)
 
@@ -286,7 +286,7 @@ def render_name(data):
     if not data.process.data_name or not data.process.input_schema:
         return
 
-    tmpl_vars = data.input
+    tmpl_vars = data.input.copy()
     hydrate_input_references(tmpl_vars, data.process.input_schema, hydrate_values=False)
     tmpl_vars = template.Context(tmpl_vars)
 
