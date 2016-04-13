@@ -107,6 +107,8 @@ class CollectionSerializer(ResolweBaseSerializer):
 
     descriptor_schema = DescriptorSchemaSerializer(required=False)
 
+    slug = serializers.CharField(read_only=False, required=False)
+
     class Meta:
         """CollectionSerializer Meta options."""
         model = Collection
