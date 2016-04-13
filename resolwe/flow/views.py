@@ -368,6 +368,14 @@ class ResolweCheckSlugMixin(object):
         return Response(queryset.filter(slug__iexact=slug_name).exists())
 
 
+class CollectionFilter(filters.FilterSet):
+    data = django_filters.ModelChoiceFilter(queryset=Data.objects.all())
+
+    class Meta:
+        model = Collection
+        fields = ('contributor', 'name', 'description', 'created', 'modified', 'slug', 'descriptor', 'data')
+
+
 class CollectionViewSet(ResolweCreateModelMixin,
                         mixins.RetrieveModelMixin,
                         mixins.UpdateModelMixin,
@@ -382,7 +390,7 @@ class CollectionViewSet(ResolweCreateModelMixin,
     queryset = Collection.objects.all().prefetch_related('descriptor_schema')
     serializer_class = CollectionSerializer
     permission_classes = (permissions_cls,)
-    filter_fields = ('contributor', 'name', 'description', 'created', 'modified', 'slug', 'descriptor')
+    filter_class = CollectionFilter
 
     @detail_route(methods=[u'post'])
     def add_data(self, request, pk=None):
