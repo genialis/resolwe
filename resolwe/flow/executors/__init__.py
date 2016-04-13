@@ -9,10 +9,10 @@ from django.apps import apps
 from django.conf import settings
 
 if settings.USE_TZ:
+    from django.utils.timezone import now
+else:
     import datetime  # pylint: disable=wrong-import-order
     now = datetime.datetime.now  # pylint: disable=invalid-name
-else:
-    from django.utils.timezone import now
 
 from resolwe.flow.models import Data, dict_dot
 from resolwe.utils import BraceMessage as __
