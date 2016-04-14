@@ -26,7 +26,7 @@ from django.test import TestCase, override_settings
 from django.utils.crypto import get_random_string
 from django.utils.text import slugify
 
-from resolwe.flow.models import Data, dict_dot, iterate_fields, Process, Collection, Storage
+from resolwe.flow.models import Data, DescriptorSchema, dict_dot, iterate_fields, Process, Collection, Storage
 from resolwe.flow.engines.local import manager
 
 
@@ -41,10 +41,13 @@ def _register_processors():
 
     """
     Process.objects.all().delete()
+    DescriptorSchema.all().delete()
 
     global PROCESSES_FIXTURE_CACHE  # pylint: disable=global-statement
+    global SCHEMAS_FIXTURE_CACHE  # pylint: disable=global-statement
     if PROCESSES_FIXTURE_CACHE:
         Process.objects.bulk_create(PROCESSES_FIXTURE_CACHE)
+        DescriptorSchema.objects.bulk_create(SCHEMAS_FIXTURE_CACHE)
     else:
         user_model = get_user_model()
 
@@ -54,6 +57,7 @@ def _register_processors():
         management.call_command('register', force=True, testing=True, verbosity='0')
 
         PROCESSES_FIXTURE_CACHE = list(Process.objects.all())  # list forces db query execution
+        SCHEMAS_FIXTURE_CACHE = list(DescriptorSchema.objects.all())  # list forces db query execution
 
 
 flow_executor_settings = settings.FLOW_EXECUTOR.copy()
