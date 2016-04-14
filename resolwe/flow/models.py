@@ -25,6 +25,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import json
 import os
 import re
+import six
 
 from guardian import shortcuts
 
@@ -640,7 +641,7 @@ def hydrate_input_uploads(input_, input_schema, hydrate_values=True):
     urlregex = re.compile(r'^(https?|ftp)://[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]')
     for value in files:
         if 'file_temp' in value:
-            if isinstance(value['file_temp'], str):
+            if isinstance(value['file_temp'], six.string_types):
                 # If file_temp not url, nor absolute path: hydrate path
                 if not os.path.isabs(value['file_temp']) and not urlregex.search(value['file_temp']):
                     value['file_temp'] = os.path.join(settings.FLOW_EXECUTOR['UPLOAD_PATH'], value['file_temp'])
