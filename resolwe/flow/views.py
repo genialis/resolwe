@@ -20,12 +20,12 @@ from django.core.exceptions import ImproperlyConfigured
 from django.utils._os import upath
 
 
-from rest_framework import exceptions, mixins, viewsets, status, filters
+from rest_framework import exceptions, mixins, viewsets, status
 from rest_framework.decorators import detail_route, list_route
 from rest_framework.response import Response
 
-import django_filters
 from guardian import shortcuts
+import rest_framework_filters as filters
 
 from .engines.local import manager
 from .models import Collection, Process, Data, DescriptorSchema, Trigger, Storage
@@ -368,12 +368,22 @@ class ResolweCheckSlugMixin(object):
         return Response(queryset.filter(slug__iexact=slug_name).exists())
 
 
+class DescriptorSchemaFilter(filters.FilterSet):
+    class Meta:
+        model = DescriptorSchema
+        fields = {
+            'slug': filters.ALL_LOOKUPS,
+        }
+
+
 class CollectionFilter(filters.FilterSet):
-    data = django_filters.ModelChoiceFilter(queryset=Data.objects.all())
+    data = filters.ModelChoiceFilter(queryset=Data.objects.all())
+    descriptor_schema = filters.RelatedFilter(DescriptorSchemaFilter, name='descriptor_schema')
 
     class Meta:
         model = Collection
-        fields = ('contributor', 'name', 'description', 'created', 'modified', 'slug', 'descriptor', 'data')
+        fields = ('contributor', 'name', 'description', 'created', 'modified',
+                  'slug', 'descriptor', 'data', 'descriptor_schema', 'id')
 
 
 class CollectionViewSet(ResolweCreateModelMixin,
@@ -440,7 +450,7 @@ class CollectionViewSet(ResolweCreateModelMixin,
 
 
 class ProcessFilter(filters.FilterSet):
-    category = django_filters.CharFilter(name='category', lookup_type='startswith')
+    category = filters.CharFilter(name='category', lookup_type='startswith')
 
     class Meta:
         model = Process
@@ -461,8 +471,8 @@ class ProcessViewSet(mixins.RetrieveModelMixin,
 
 
 class DataFilter(filters.FilterSet):
-    collection = django_filters.ModelChoiceFilter(queryset=Collection.objects.all())
-    type = django_filters.CharFilter(name='process__type', lookup_type='startswith')
+    collection = filters.ModelChoiceFilter(queryset=Collection.objects.all())
+    type = filters.CharFilter(name='process__type', lookup_type='startswith')
 
     class Meta:
         model = Data
