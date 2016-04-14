@@ -26,26 +26,29 @@ from django.test import TestCase, override_settings
 from django.utils.crypto import get_random_string
 from django.utils.text import slugify
 
-from resolwe.flow.models import Data, dict_dot, iterate_fields, Process, Collection, Storage
+from resolwe.flow.models import Data, dict_dot, iterate_fields, Collection, DescriptorSchema, Process, Storage
 from resolwe.flow.engines.local import manager
 
 
-PROCESSES_FIXTURE_CACHE = None
+SCHEMAS_FIXTURE_CACHE = None
 
 
-def _register_processors():
-    """Register processors.
+def _register_schemas():
+    """Register process and descriptor schemas.
 
-    Processor definitions are red when the first test is callled and cached
-    into the PROCESSORS_FIXTURE_CACHE global variable.
+    Process and DescriptorSchema definitions are registered when first
+    test is callled and cached to SCHEMAS_FIXTURE_CACHE global variable
 
     """
     Process.objects.all().delete()
 
-    global PROCESSES_FIXTURE_CACHE  # pylint: disable=global-statement
-    if PROCESSES_FIXTURE_CACHE:
-        Process.objects.bulk_create(PROCESSES_FIXTURE_CACHE)
+    global SCHEMAS_FIXTURE_CACHE  # pylint: disable=global-statement
+    if SCHEMAS_FIXTURE_CACHE:
+        print("Load from cache")
+        Process.objects.bulk_create(SCHEMAS_FIXTURE_CACHE['processes'])
+        DescriptorSchema.objects.bulk_create(SCHEMAS_FIXTURE_CACHE['descriptor_schemas'])
     else:
+        print("Load from files")
         user_model = get_user_model()
 
         if not user_model.objects.filter(is_superuser=True).exists():
@@ -53,7 +56,9 @@ def _register_processors():
 
         management.call_command('register', force=True, testing=True, verbosity='0')
 
-        PROCESSES_FIXTURE_CACHE = list(Process.objects.all())  # list forces db query execution
+        SCHEMAS_FIXTURE_CACHE = {}
+        SCHEMAS_FIXTURE_CACHE['processes'] = list(Process.objects.all())  # list forces db query execution
+        SCHEMAS_FIXTURE_CACHE['descriptor_schemas'] = list(DescriptorSchema.objects.all())
 
 
 flow_executor_settings = settings.FLOW_EXECUTOR.copy()
@@ -110,7 +115,7 @@ class ProcessTestCase(TestCase):
         super(ProcessTestCase, self).setUp()
         self.admin = get_user_model().objects.create_superuser(
             username="admin", email='admin@example.com', password="admin_pass")
-        _register_processors()
+        _register_schemas()
 
         self.collection = Collection.objects.create(contributor=self.admin)
         self.files_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'files')
