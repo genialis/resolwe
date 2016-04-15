@@ -64,6 +64,14 @@ class BaseFlowExecutor(object):
     def get_stdout(self):
         return self.stdout
 
+    def update_data_status(self, **kwargs):
+        data = Data.objects.get(pk=self.data_id)
+        for key, value in kwargs.items():
+            setattr(data, key, value)
+
+        # Ensure that we only update the fields that were changed.
+        data.save(update_fields=kwargs.keys())
+
     def run(self, data_id, script, verbosity=1):
         """Execute the script and save results."""
         if verbosity >= 1:
@@ -84,10 +92,11 @@ class BaseFlowExecutor(object):
 
         proc_pid = self.start()
 
-        Data.objects.filter(id=data_id).update(
+        self.update_data_status(
             status=Data.STATUS_PROCESSING,
             started=now(),
-            process_pid=proc_pid)
+            process_pid=proc_pid
+        )
 
         # Run processor and handle intermediate results
         self.run_script(script)
@@ -144,7 +153,7 @@ class BaseFlowExecutor(object):
 
                         if updates:
                             updates['modified'] = now()
-                            Data.objects.filter(id=data_id).update(**updates)
+                            self.update_data_status(**updates)
 
                         if process_rc > 0:
                             log_file.close()
@@ -180,16 +189,18 @@ class BaseFlowExecutor(object):
             process_rc = return_code
 
         if process_rc == 0:
-            Data.objects.filter(id=data_id).update(
+            self.update_data_status(
                 status=Data.STATUS_DONE,
                 process_progress=100,
-                finished=now())
+                finished=now()
+            )
         else:
-            Data.objects.filter(id=data_id).update(
+            self.update_data_status(
                 status=Data.STATUS_ERROR,
                 process_progress=100,
                 process_rc=process_rc,
-                finished=now())
+                finished=now()
+            )
 
         # try:
         #     # Cleanup after processor
