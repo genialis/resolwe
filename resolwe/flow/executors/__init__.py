@@ -143,7 +143,8 @@ class BaseFlowExecutor(object):
                                     elif key == 'proc.rc':
                                         process_rc = int(val)
                                         updates['process_rc'] = process_rc
-                                        updates['status'] = Data.STATUS_ERROR
+                                        if process_rc != 0:
+                                            updates['status'] = Data.STATUS_ERROR
                                     elif key == 'proc.progress':
                                         process_progress = int(float(val) * 100)
                                         updates['process_progress'] = process_progress
