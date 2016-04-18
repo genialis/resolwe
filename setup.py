@@ -80,7 +80,7 @@ setup(
             'pep8>=1.6.2',
             'pylint>=1.4.3',
             'check-manifest',
-            'readme',
+            'readme_renderer',
         ],
     },
 
