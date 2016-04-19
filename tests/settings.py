@@ -105,6 +105,9 @@ FLOW_EXECUTOR = {
     'DATA_PATH': os.path.join(PROJECT_ROOT, '.data'),
     'UPLOAD_PATH': os.path.join(PROJECT_ROOT, '.upload'),
 }
+# Set custom executor command if set via environment variable
+if 'RESOLWE_EXECUTOR_COMMAND' in os.environ:
+    FLOW_EXECUTOR['COMMAND'] = os.environ['RESOLWE_EXECUTOR_COMMAND']
 FLOW_API = {
     'PERMISSIONS': 'resolwe.permissions.genesis',
 }

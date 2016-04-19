@@ -5,6 +5,16 @@ Change Log
 All notable changes to this project are documented in this file.
 
 
+==========
+Unreleased
+==========
+
+Added
+-----
+- Ability to use a custom executor command by specifying the
+  ``FLOW_EXECUTOR['COMMAND']`` setting
+
+
 ==================
 1.1.0 - 2016-04-18
 ==================

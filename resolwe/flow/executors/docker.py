@@ -13,6 +13,7 @@ from .local import FlowExecutor as LocalFlowExecutor
 
 class FlowExecutor(LocalFlowExecutor):
     def start(self):
+        command = settings.FLOW_EXECUTOR.get('COMMAND', 'docker')
         container_image = settings.FLOW_EXECUTOR['CONTAINER_IMAGE']
 
         if self.data_id != 'no_data_id':
@@ -38,8 +39,8 @@ class FlowExecutor(LocalFlowExecutor):
         # a login Bash shell is needed to source ~/.bash_profile
         self.proc = subprocess.Popen(
             shlex.split(
-                'docker run --rm --interactive --name={} {} {} /bin/bash --login'.format(
-                    container_name, volumes, container_image)),
+                '{} run --rm --interactive --name={} {} {} /bin/bash --login'.format(
+                    command, container_name, volumes, container_image)),
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
 
         self.stdout = self.proc.stdout

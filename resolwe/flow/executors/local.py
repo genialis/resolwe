@@ -3,8 +3,11 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import logging
 import os
+import shlex
 import subprocess
 import time
+
+from django.conf import settings
 
 from resolwe.flow.executors import BaseFlowExecutor
 
@@ -21,7 +24,8 @@ class FlowExecutor(BaseFlowExecutor):
         self.kill_delay = 5
 
     def start(self):
-        self.proc = subprocess.Popen(['/bin/bash'],
+        command = settings.FLOW_EXECUTOR.get('COMMAND', '/bin/bash')
+        self.proc = subprocess.Popen(shlex.split(command),
                                      stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                      stderr=subprocess.STDOUT, universal_newlines=True)
 
