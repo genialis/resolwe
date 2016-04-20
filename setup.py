@@ -64,6 +64,7 @@ setup(
         'mock==1.3.0',
         'pyyaml>=3.11',
         'jsonschema>=2.4.0',
+        'six>=1.10.0',
     ],
     extras_require = {
         'docs':  [
