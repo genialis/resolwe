@@ -27,7 +27,7 @@ from django.utils.crypto import get_random_string
 from django.utils.text import slugify
 
 from resolwe.flow.models import Data, dict_dot, iterate_fields, Collection, DescriptorSchema, Process, Storage
-from resolwe.flow.engines import manager
+from resolwe.flow.managers import manager
 
 
 SCHEMAS_FIXTURE_CACHE = None
