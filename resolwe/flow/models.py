@@ -22,6 +22,7 @@ Postgres ORM model for keeping the data structured.
 
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
+import functools
 import json
 import os
 import re
@@ -732,11 +733,11 @@ def dict_dot(d, k, val=None, default=None):
 
     if val is None and callable(default):
         # Get value, default for missing
-        return reduce(lambda a, b: set_default(a, b, default()), k.split('.'), d)
+        return functools.reduce(lambda a, b: set_default(a, b, default()), k.split('.'), d)
 
     elif val is None:
         # Get value, error on missing
-        return reduce(lambda a, b: get_item(a, b), k.split('.'), d)
+        return functools.reduce(lambda a, b: get_item(a, b), k.split('.'), d)
 
     else:
         # Set value

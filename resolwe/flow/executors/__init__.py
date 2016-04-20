@@ -4,6 +4,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import json
 import logging
 import os
+import six
 
 from django.apps import apps
 from django.conf import settings
@@ -125,7 +126,7 @@ class BaseFlowExecutor(object):
                         # If JSON, save to MongoDB
                         updates = {}
                         for obj in iterjson(line):
-                            for key, val in obj.iteritems():
+                            for key, val in six.iteritems(obj):
                                 if key.startswith('proc.'):
                                     if key == 'proc.error':
                                         process_error.append(val)

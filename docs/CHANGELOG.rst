@@ -14,6 +14,10 @@ Added
 - Ability to use a custom executor command by specifying the
   ``FLOW_EXECUTOR['COMMAND']`` setting
 
+Fixed
+-----
+- Make Resolwe work with Python 3 again
+
 
 ==================
 1.1.0 - 2016-04-18

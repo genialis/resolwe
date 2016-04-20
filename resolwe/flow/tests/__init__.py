@@ -301,8 +301,12 @@ class ProcessTestCase(TestCase):
         :type filter: :obj:`function`
 
         """
+        open_kwargs = {}
         if compression is None:
             open_fn = open
+            # by default, open() will open files as text and return str
+            # objects, but we need bytes objects
+            open_kwargs['mode'] = 'rb'
         elif compression == 'gzip':
             open_fn = gzip.open
         elif compression == 'zip':
@@ -312,7 +316,7 @@ class ProcessTestCase(TestCase):
 
         field = dict_dot(obj.output, field_path)
         output = os.path.join(settings.FLOW_EXECUTOR['DATA_PATH'], str(obj.pk), field['file'])
-        with open_fn(output) as output_file:
+        with open_fn(output, **open_kwargs) as output_file:
             output_contents = b"".join([line for line in filterfalse(filter, output_file)])
         output_hash = hashlib.sha256(output_contents).hexdigest()
 
@@ -322,7 +326,7 @@ class ProcessTestCase(TestCase):
             shutil.copyfile(output, wanted)
             self.fail(msg="Output file {} missing so it was created.".format(fn))
 
-        with open_fn(wanted) as wanted_file:
+        with open_fn(wanted, **open_kwargs) as wanted_file:
             wanted_contents = b"".join([line for line in filterfalse(filter, wanted_file)])
         wanted_hash = hashlib.sha256(wanted_contents).hexdigest()
         self.assertEqual(wanted_hash, output_hash,
