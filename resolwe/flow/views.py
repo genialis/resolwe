@@ -27,7 +27,7 @@ from rest_framework.response import Response
 from guardian import shortcuts
 import rest_framework_filters as filters
 
-from .engines.local import manager
+from .engines import manager
 from .models import Collection, Process, Data, DescriptorSchema, Trigger, Storage
 from .serializers import (CollectionSerializer, ProcessSerializer, DataSerializer,
                           DescriptorSchemaSerializer, TriggerSerializer, StorageSerializer)

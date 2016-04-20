@@ -13,6 +13,7 @@ Added
 -----
 - Ability to use a custom executor command by specifying the
   ``FLOW_EXECUTOR['COMMAND']`` setting
+- Make workload manager configurable in settings
 
 Fixed
 -----

@@ -9,17 +9,11 @@ except ImportError:
     sys.exit(1)
 
 
-from . import BaseManager
+from .base import BaseManager
 from ..tasks import celery_run
-
-
-__all__ = ['manager']
 
 
 class Manager(BaseManager):
 
     def run(self, data_id, script, run_sync=False, verbosity=1):
         celery_run.delay(self.executor, data_id, script, verbosity)
-
-
-manager = Manager()  # pylint: disable=invalid-name
