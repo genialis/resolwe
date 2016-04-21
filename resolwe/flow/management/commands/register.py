@@ -63,8 +63,8 @@ class Command(BaseCommand):
                     continue
 
                 schema_matches.extend(schema for schema in schemas if
-                                      not filters or schema.get('name', None) in filters or
-                                      schema.get('slug', None) in filters)
+                                      not filters or schema.get('name', '') in filters or
+                                      schema.get('slug', '') in filters)
 
         return schema_matches
 

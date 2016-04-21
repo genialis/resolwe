@@ -28,6 +28,11 @@ class BackendTest(TestCase):
                       process=self.p)
         self.d.save()
 
+    def tearDown(self):
+        for data in Data.objects.all():
+            data_dir = os.path.join(settings.FLOW_EXECUTOR['DATA_PATH'], str(data.id))
+            shutil.rmtree(data_dir, ignore_errors=True)
+
     def test_manager(self):
         manager.communicate(verbosity=0)
 

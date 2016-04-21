@@ -44,11 +44,9 @@ def _register_schemas():
 
     global SCHEMAS_FIXTURE_CACHE  # pylint: disable=global-statement
     if SCHEMAS_FIXTURE_CACHE:
-        print("Load from cache")
         Process.objects.bulk_create(SCHEMAS_FIXTURE_CACHE['processes'])
         DescriptorSchema.objects.bulk_create(SCHEMAS_FIXTURE_CACHE['descriptor_schemas'])
     else:
-        print("Load from files")
         user_model = get_user_model()
 
         if not user_model.objects.filter(is_superuser=True).exists():

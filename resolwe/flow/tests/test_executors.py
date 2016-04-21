@@ -27,7 +27,8 @@ class DockerExecutorTestCase(unittest.TestCase):
     @mock.patch('os.chmod')
     @mock.patch('os.chdir')
     @mock.patch('resolwe.flow.executors.Data.objects.filter')
-    def test_run_in_docker(self, data_filter_mock, chdir_mock, chmod_mock, mkdir_mock):
+    @mock.patch('resolwe.flow.executors.Data.objects.get')
+    def test_run_in_docker(self, data_get_mock, data_filter_mock, chdir_mock, chmod_mock, mkdir_mock):
         executor_settings = settings.FLOW_EXECUTOR
         executor_settings['CONTAINER_IMAGE'] = 'centos'
 

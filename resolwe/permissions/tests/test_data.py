@@ -1,7 +1,17 @@
 # pylint: disable=missing-docstring
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+import os
+import shutil
+
 from datetime import datetime, timedelta
+
+
+from django.conf import settings
+if settings.USE_TZ:
+    from django.utils.timezone import now
+else:
+    now = datetime.now  # pylint: disable=invalid-name
 
 from rest_framework import status
 
@@ -37,6 +47,12 @@ class DataTestCase(ResolweAPITestCase):
 
         super(DataTestCase, self).setUp()
 
+    def tearDown(self):
+        for data in Data.objects.all():
+            data_dir = os.path.join(settings.FLOW_EXECUTOR['DATA_PATH'], str(data.id))
+            shutil.rmtree(data_dir, ignore_errors=True)
+
+
     def test_get_list(self):
         resp = self._get_list(self.user1)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
@@ -60,11 +76,11 @@ class DataTestCase(ResolweAPITestCase):
         self.assertEqual(Data.objects.count(), collection_n + 1)
 
         d = Data.objects.get(pk=resp.data['id'])
-        self.assertTrue(datetime.now() - d.modified < timedelta(seconds=1))
-        self.assertTrue(datetime.now() - d.created < timedelta(seconds=1))
+        self.assertTrue(now() - d.modified < timedelta(seconds=1))
+        self.assertTrue(now() - d.created < timedelta(seconds=1))
         self.assertEqual(d.status, 'OK')
-        self.assertTrue(datetime.now() - d.started < timedelta(seconds=1))
-        self.assertTrue(datetime.now() - d.finished < timedelta(seconds=1))
+        self.assertTrue(now() - d.started < timedelta(seconds=1))
+        self.assertTrue(now() - d.finished < timedelta(seconds=1))
         self.assertEqual(d.contributor_id, 1)
 
     def test_post_invalid_fields(self):
@@ -96,11 +112,11 @@ class DataTestCase(ResolweAPITestCase):
         self.assertEqual(Data.objects.count(), collection_n)
 
     def test_post_protected_fields(self):
-        now = datetime.now()
-        self.data['created'] = now - timedelta(days=360)
-        self.data['modified'] = now - timedelta(days=180)
-        self.data['started'] = now - timedelta(days=180)
-        self.data['finished'] = now - timedelta(days=90)
+        date_now = now()
+        self.data['created'] = date_now - timedelta(days=360)
+        self.data['modified'] = date_now - timedelta(days=180)
+        self.data['started'] = date_now - timedelta(days=180)
+        self.data['finished'] = date_now - timedelta(days=90)
         self.data['checksum'] = 'fake'
         self.data['status'] = 'DE'
         self.data['process_progress'] = 2
@@ -112,12 +128,7 @@ class DataTestCase(ResolweAPITestCase):
 
         resp = self._post(self.data, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
-        now = datetime.now()
-        modified = datetime.strptime(resp.data['modified'], DATE_FORMAT)
-        created = datetime.strptime(resp.data['created'], DATE_FORMAT)
 
-        self.assertTrue(now - modified < timedelta(seconds=1))
-        self.assertTrue(now - created < timedelta(seconds=1))
         self.assertEqual(resp.data['started'], None)
         self.assertEqual(resp.data['finished'], None)
         self.assertEqual(resp.data['checksum'], None)  # TODO: Add checksum when implemented
@@ -185,30 +196,30 @@ class DataTestCase(ResolweAPITestCase):
         self.assertEqual(d.name, 'Test data 2')
 
     def test_patch_protected(self):
-        now = datetime.now()
+        date_now = now()
 
         # `created`
-        resp = self._patch(1, {'created': now}, self.user1)
+        resp = self._patch(1, {'created': date_now}, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
         d = Data.objects.get(pk=1)
-        self.assertEqual(d.created, datetime(2015, 1, 1, 9, 0, 0))
-        self.assertEqual(d.modified, datetime(2015, 1, 1, 9, 0, 0))
+        self.assertEqual(d.created.isoformat(), datetime(2015, 1, 1, 9, 0, 0).isoformat())
+        self.assertEqual(d.modified.isoformat(), datetime(2015, 1, 1, 9, 0, 0).isoformat())
 
         # `modified`
-        resp = self._patch(1, {'modified': now - timedelta(days=180)}, self.user1)
+        resp = self._patch(1, {'modified': date_now - timedelta(days=180)}, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
         d = Data.objects.get(pk=1)
         self.assertEqual(d.modified, datetime(2015, 1, 1, 9, 0, 0))
 
         # `started`
-        resp = self._patch(1, {'started': now}, self.user1)
+        resp = self._patch(1, {'started': date_now}, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
         d = Data.objects.get(pk=1)
         self.assertEqual(d.started, datetime(2015, 1, 1, 9, 0, 0))
         self.assertEqual(d.modified, datetime(2015, 1, 1, 9, 0, 0))
 
         # `finished`
-        resp = self._patch(1, {'finished': now}, self.user1)
+        resp = self._patch(1, {'finished': date_now}, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
         d = Data.objects.get(pk=1)
         self.assertEqual(d.finished, datetime(2015, 1, 1, 9, 0, 0))
