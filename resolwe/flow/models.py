@@ -241,23 +241,21 @@ class Process(BaseModel):
     """
 
 
-# class Signal(models.Model):
-#     """Optional class that we can add in the future if in need of fast pipeline assembly."""
+def render_template(template_string, context):
+    """Render template based on Dango template language."""
 
-#     #: signal name
-#     name = models.SlugField(max_length=50)
-
-#     #: input data object
-#     input_data = models.ForeignKey('Data', related_name='input_data',
-#                                    blank=True, null=True, on_delete=models.SET_NULL)
-
-#     #: output data object
-#     output_data = models.ForeignKey('Data', related_name='output_data',
-#                                     blank=True, null=True, on_delete=models.SET_NULL)
+    template_headers = [
+        '{% load resource_filters %}',
+        '{% load process_fields %}',
+        '{% load mathfilters %}',
+    ]
+    return template.Template(''.join(template_headers) + template_string).render(context)
 
 
 def render_descriptor(data):
-    """Render static template variables with input values.
+    """Render data descriptor.
+
+    The rendering is based on descriptor schema and input context.
 
     :param data: data instance
     :type data: :obj:`server.models.Data` or :obj:`dict`
@@ -266,33 +264,22 @@ def render_descriptor(data):
     if not data.descriptor_schema or not data.process.input_schema:
         return
 
-    tmpl_vars = data.input.copy()
-    hydrate_input_references(tmpl_vars, data.process.input_schema, hydrate_values=False)
-    tmpl_vars = template.Context(tmpl_vars)
+    inputs = data.input.copy()
+    hydrate_input_references(inputs, data.process.input_schema, hydrate_values=False)
+    template_context = template.Context(inputs)
 
     # Set default values
     for field_schema, _, path in iterate_schema(data.descriptor, data.descriptor_schema.schema, 'descriptor'):
         if 'default' in field_schema:
             tmpl = field_schema['default']
             if field_schema['type'].startswith('list:'):
-                tmpl = [template.Template("{% load resource_filters %}" + tmp).render(tmpl_vars)
-                        if isinstance(tmp, basestring) else tmp
+                tmpl = [render_template(tmp, template_context)
+                        if isinstance(tmp, six.string_types) else tmp
                         for tmp in tmpl]
-            elif isinstance(tmpl, basestring):
-                tmpl = template.Template("{% load resource_filters %}" + tmpl).render(tmpl_vars)
+            elif isinstance(tmpl, six.string_types):
+                tmpl = render_template(tmpl, template_context)
 
             dict_dot(data, path, tmpl)
-
-
-def render_name(data):
-    if not data.process.data_name or not data.process.input_schema:
-        return
-
-    tmpl_vars = data.input.copy()
-    hydrate_input_references(tmpl_vars, data.process.input_schema, hydrate_values=False)
-    tmpl_vars = template.Context(tmpl_vars)
-
-    data.name = template.Template("{% load resource_filters %}" + data.process.data_name).render(tmpl_vars)
 
 
 class Data(BaseModel):
@@ -385,26 +372,39 @@ class Data(BaseModel):
     #: actual descriptor
     descriptor = JSONField(default={})
 
-    def save(self, *args, **kwargs):
+    # track if user set the data name explicitly
+    named_by_user = models.BooleanField(default=False)
+
+    def __init__(self, *args, **kwargs):
+        super(Data, self).__init__(*args, **kwargs)
+        self._original_name = self.name
+
+    def save(self, render_name=False, *args, **kwargs):
         # Generate the descriptor if one is not already set.
         if not self.descriptor:
             render_descriptor(self)
 
-        if not self.name:
-            render_name(self)
+        if self.name != self._original_name:
+            self.named_by_user = True
 
-        created = False
-        if not self.pk:  # create
-            created = True
+        create = self.pk is None
+        if create:
+            if not self.name:
+                self._render_name()
+            else:
+                self.named_by_user = True
 
-            # default values for INPUT
+            # Default values for INPUT
             for field_schema, fields, path in iterate_schema(self.input, self.process.input_schema, ''):
                 if 'default' in field_schema and field_schema['name'] not in fields:
                     dict_dot(self.input, path, field_schema['default'])
 
+        elif render_name:
+            self._render_name()
+
         super(Data, self).save(*args, **kwargs)
 
-        if created:
+        if create and self.process.flow_collection:
             # Add object to flow_collection:
             # - only add `Data object` to `flow collection` if process
             #   has defined `flow_collwection` field
@@ -414,33 +414,48 @@ class Data(BaseModel):
             # - if `input objects` belong to different `flow
             #   collections` or don't belong to any `flow collection`,
             #   create new one
-            if self.process.flow_collection:
 
-                # collect id's of all `input objects`
-                input_objects = []
-                for field_schema, fields, path in iterate_schema(self.input, self.process.input_schema, ''):
-                    if ('type' in field_schema and (
-                            field_schema['type'].startswith('data:') or
-                            field_schema['type'].startswith('list:data:'))):
-                        input_objects.append(fields[field_schema['name']])
+            # collect id's of all `input objects`
+            input_objects = []
+            for field_schema, fields, path in iterate_schema(self.input, self.process.input_schema, ''):
+                if ('type' in field_schema and (
+                        field_schema['type'].startswith('data:') or
+                        field_schema['type'].startswith('list:data:'))):
+                    input_objects.append(fields[field_schema['name']])
 
-                collection_query = Collection.objects.filter(
-                    descriptor_schema__slug=self.process.flow_collection, data__id__in=input_objects).distinct()
+            collection_query = Collection.objects.filter(
+                descriptor_schema__slug=self.process.flow_collection, data__id__in=input_objects).distinct()
 
-                if collection_query.count() == 1:
-                    collection = collection_query.first()
-                else:
-                    des_schema = DescriptorSchema.objects.get(slug=self.process.flow_collection)
-                    collection = Collection.objects.create(
-                        contributor=self.contributor,
-                        descriptor_schema=des_schema,
-                        name=self.name,
-                    )
+            if collection_query.count() == 1:
+                collection = collection_query.first()
+            else:
+                des_schema = DescriptorSchema.objects.get(slug=self.process.flow_collection)
+                collection = Collection.objects.create(
+                    contributor=self.contributor,
+                    descriptor_schema=des_schema,
+                    name=self.name,
+                )
 
-                    for permission in list(zip(*collection._meta.permissions))[0]:
-                        shortcuts.assign_perm(permission, collection.contributor, collection)
+                for permission in list(zip(*collection._meta.permissions))[0]:
+                    shortcuts.assign_perm(permission, collection.contributor, collection)
 
-                collection.data.add(self)
+            collection.data.add(self)
+
+    def _render_name(self):
+        """Render data name.
+
+        The rendering is based on name template (`process.data_name`) and
+        input context.
+
+        """
+        if not self.process.data_name or self.named_by_user:
+            return
+
+        inputs = self.input.copy()
+        hydrate_input_references(inputs, self.process.input_schema, hydrate_values=False)
+        template_context = template.Context(inputs)
+
+        self.name = render_template(self.process.data_name, template_context)
 
 
 class DescriptorSchema(BaseModel):

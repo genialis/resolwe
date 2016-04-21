@@ -87,7 +87,7 @@ class BaseManager(object):
                         continue
 
                     data.status = Data.STATUS_WAITING
-                    data.save()
+                    data.save(render_name=True)
 
                     queue.append((data.id, script))
 
