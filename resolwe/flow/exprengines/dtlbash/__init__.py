@@ -1,9 +1,9 @@
+"""Django template language based expression engine."""
 from django import template
+from django.conf import settings
 
 from resolwe.flow.exprengines import BaseExpressionEngine
-from resolwe.flow.models import Data, hydrate_input_references, hydrate_input_uploads
-
-from django.conf import settings
+from resolwe.flow.models import Data, hydrate_input_references, hydrate_input_uploads, render_template
 
 
 class ExpressionEngine(BaseExpressionEngine):
@@ -13,21 +13,18 @@ class ExpressionEngine(BaseExpressionEngine):
     def eval(self, data):
         """Evaluate the script and return executable."""
         try:
-            script_template = data.process.run.get('bash', '')
             inputs = data.input.copy()
             hydrate_input_references(inputs, data.process.input_schema)
             hydrate_input_uploads(inputs, data.process.input_schema)
 
-            info = {}
-            info['data_id'] = data.id
-            # info['case_ids'] = data.case_ids
-            info['data_path'] = settings.FLOW_EXECUTOR['DATA_PATH']
-            # info['slugs_path'] = settings.RUNTIME['slugs_path']
-            inputs['proc'] = info  # add script info
+            inputs['proc'] = {
+                'data_id': data.id,
+                'data_path': settings.FLOW_EXECUTOR['DATA_PATH'],
+            }
 
-            script = template.Template(
-                '{% load resource_filters %}{% load process_fields %}{% load mathfilters %}' + script_template
-            ).render(template.Context(inputs))
+            script_template = data.process.run.get('bash', '')
+
+            script = render_template(script_template, template.Context(inputs))
 
         except template.TemplateSyntaxError as ex:
             data.status = Data.STATUS_ERROR
