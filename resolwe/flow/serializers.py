@@ -6,6 +6,8 @@ Flow Serializers
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+from django.contrib.auth import get_user_model
+
 from rest_framework import serializers, status
 from rest_framework.exceptions import APIException
 from rest_framework.fields import empty
@@ -15,6 +17,18 @@ from resolwe.flow.models import Process, Collection, Data, DescriptorSchema, Tri
 class NoContentError(APIException):
     status_code = status.HTTP_204_NO_CONTENT
     detail = 'The content has not changed'
+
+
+class UserSerializer(serializers.ModelSerializer):
+
+    """Serializer for User objects."""
+
+    name = serializers.CharField(source='get_full_name', read_only=True)
+
+    class Meta:
+        """DjangoUserSerializer Meta options."""
+        model = get_user_model()
+        fields = ('name', 'pk')
 
 
 class ResolweBaseSerializer(serializers.ModelSerializer):
@@ -35,6 +49,9 @@ class ResolweBaseSerializer(serializers.ModelSerializer):
     prevent changing `modified` field.
 
     """
+
+    contributor = UserSerializer(required=False)
+
     def __init__(self, instance=None, data=empty, **kwargs):
         if (instance is not None and data is not empty and
                 hasattr(self.Meta, 'update_protected_fields')):
@@ -45,6 +62,9 @@ class ResolweBaseSerializer(serializers.ModelSerializer):
             # prevent changing `modified` field if no field would be changed
             if set(data.keys()).issubset(set(self.Meta.read_only_fields)):
                 raise NoContentError()
+
+        if data is not empty and 'contributor' in data:
+            data.pop('contributor')
 
         return super(ResolweBaseSerializer, self).__init__(instance, data, **kwargs)
 
