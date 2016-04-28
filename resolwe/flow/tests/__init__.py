@@ -331,7 +331,7 @@ class ProcessTestCase(TestCase):
                          msg="File contents hash mismatch: {} != {}".format(
                              wanted_hash, output_hash) + self._debug_info(obj))
 
-    def assertFileExist(self, obj, field_path):  # pylint: disable=invalid-name
+    def assertFileExists(self, obj, field_path):  # pylint: disable=invalid-name
         """Compare output file of a processor to the given correct file.
 
         :param obj: Data object which includes file that we want to

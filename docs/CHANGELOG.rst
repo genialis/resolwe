@@ -9,6 +9,10 @@ All notable changes to this project are documented in this file.
 Unreleased
 ==========
 
+Changed
+-------
+- Rename assertFileExist to assertFileExists
+
 Added
 -----
 - Ability to use a custom executor command by specifying the
