@@ -25,6 +25,7 @@ Fixed
 - Make Resolwe work with Python 3 again
 - Fix tests
 - Render data name again after inputs are resolved
+- Ensure Tox installs the package from sdist
 
 
 ==================
