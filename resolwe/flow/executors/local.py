@@ -19,13 +19,14 @@ class FlowExecutor(BaseFlowExecutor):
 
     """Local dataflow executor proxy."""
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super(FlowExecutor, self).__init__(*args, **kwargs)
+        self.command = settings.FLOW_EXECUTOR.get('COMMAND', '/bin/bash')
         self.processes = {}
         self.kill_delay = 5
 
     def start(self):
-        command = settings.FLOW_EXECUTOR.get('COMMAND', '/bin/bash')
-        self.proc = subprocess.Popen(shlex.split(command),
+        self.proc = subprocess.Popen(shlex.split(self.command),
                                      stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                      stderr=subprocess.STDOUT, universal_newlines=True)
 

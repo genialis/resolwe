@@ -18,7 +18,8 @@ except ImportError:
 
 
 def check_docker():
-    return subprocess.call(shlex.split('docker info'), stdout=subprocess.PIPE) == 1
+    command = settings.FLOW_EXECUTOR.get('COMMAND', 'docker')
+    return subprocess.call(shlex.split(command + ' info'), stdout=subprocess.PIPE) == 1
 
 
 class DockerExecutorTestCase(unittest.TestCase):

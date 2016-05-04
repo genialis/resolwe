@@ -12,8 +12,12 @@ from .local import FlowExecutor as LocalFlowExecutor
 
 
 class FlowExecutor(LocalFlowExecutor):
+
+    def __init__(self, *args, **kwargs):
+        super(FlowExecutor, self).__init__(*args, **kwargs)
+        self.command = settings.FLOW_EXECUTOR.get('COMMAND', 'docker')
+
     def start(self):
-        command = settings.FLOW_EXECUTOR.get('COMMAND', 'docker')
         container_image = settings.FLOW_EXECUTOR['CONTAINER_IMAGE']
 
         if self.data_id != 'no_data_id':
@@ -40,7 +44,7 @@ class FlowExecutor(LocalFlowExecutor):
         self.proc = subprocess.Popen(
             shlex.split(
                 '{} run --rm --interactive --name={} {} {} /bin/bash --login'.format(
-                    command, container_name, volumes, container_image)),
+                    self.command, container_name, volumes, container_image)),
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
 
         self.stdout = self.proc.stdout
@@ -61,4 +65,4 @@ class FlowExecutor(LocalFlowExecutor):
         return self.proc.returncode
 
     def terminate(self, data_id):
-        subprocess.call(shlex.split('docker rm -f {}').format(str(data_id)))
+        subprocess.call(shlex.split('{} rm -f {}').format(self.command, str(data_id)))
