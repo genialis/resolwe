@@ -27,6 +27,7 @@ Fixed
 - Render data name again after inputs are resolved
 - Ensure Tox installs the package from sdist
 - Pass all Resolwe's environment variables to Tox's testing environment
+- Ensure tests gracefully handle unavailability of Docker
 
 
 ==================

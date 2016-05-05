@@ -18,12 +18,28 @@ except ImportError:
 
 
 def check_docker():
+    """Check if Docker is installed and working.
+
+    :return: tuple (indicator of the availability of Docker, reason for
+             unavailability)
+    :rtype: (bool, str)
+
+    """
     command = settings.FLOW_EXECUTOR.get('COMMAND', 'docker')
-    return subprocess.call(shlex.split(command + ' info'), stdout=subprocess.PIPE) == 1
+    info_command = '{} info'.format(command)
+    available, reason = True, ""
+    try:
+        subprocess.check_call(shlex.split(info_command), stdout=subprocess.PIPE)
+    except OSError:
+        available, reason = False, "Docker command '{}' not found".format(command)
+    except subprocess.CalledProcessError:
+        available, reason = (False, "Docker command '{}' returned non-zero "
+                                    "exit status".format(info_command))
+    return available, reason
 
 
 class DockerExecutorTestCase(unittest.TestCase):
-    @unittest.skipIf(check_docker(), 'Docker is not installed')
+    @unittest.skipUnless(*check_docker())
     @mock.patch('os.mkdir')
     @mock.patch('os.chmod')
     @mock.patch('os.chdir')
