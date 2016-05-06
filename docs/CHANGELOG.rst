@@ -5,13 +5,13 @@ Change Log
 All notable changes to this project are documented in this file.
 
 
-==========
-Unreleased
-==========
+==================
+1.2.0 - 2016-05-06
+==================
 
 Changed
 -------
-- Rename assertFileExist to assertFileExists
+- Rename ``assertFileExist`` to ``assertFileExists``
 - Drop ``--process-dependency-links`` from Tox's pip configuration
 - Improve documentation on preparing a new release
 
