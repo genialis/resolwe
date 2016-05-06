@@ -76,36 +76,6 @@ class BaseModel(models.Model):
         return self.name
 
 
-class Collection(BaseModel):
-
-    """Postgres model for storing collection."""
-
-    class Meta(BaseModel.Meta):
-        """Collection Meta options."""
-        permissions = (
-            ("view_collection", "Can view collection"),
-            ("edit_collection", "Can edit collection"),
-            ("share_collection", "Can share collection"),
-            ("download_collection", "Can download files from collection"),
-            ("add_collection", "Can add data objects to collection"),
-        )
-
-    #: detailed description
-    description = models.TextField(blank=True)
-
-    settings = JSONField(default={})
-
-    public_processes = models.ManyToManyField('Process')
-
-    data = models.ManyToManyField('Data')
-
-    #: collection descriptor schema
-    descriptor_schema = models.ForeignKey('DescriptorSchema', blank=True, null=True, on_delete=models.PROTECT)
-
-    #: collection descriptor
-    descriptor = JSONField(default={})
-
-
 class Process(BaseModel):
 
     """Postgres model for storing processs."""
@@ -526,6 +496,44 @@ class Storage(BaseModel):
 
     #: actual JSON stored
     json = JSONField()
+
+
+class BaseCollection(BaseModel):
+
+    """Template for Postgres model for storing collection."""
+
+    class Meta(BaseModel.Meta):
+        """Collection Meta options."""
+        abstract = True
+        permissions = (
+            ("view_collection", "Can view collection"),
+            ("edit_collection", "Can edit collection"),
+            ("share_collection", "Can share collection"),
+            ("download_collection", "Can download files from collection"),
+            ("add_collection", "Can add data objects to collection"),
+        )
+
+    #: detailed description
+    description = models.TextField(blank=True)
+
+    settings = JSONField(default={})
+
+    public_processes = models.ManyToManyField(Process)
+
+    data = models.ManyToManyField(Data)
+
+    #: collection descriptor schema
+    descriptor_schema = models.ForeignKey(DescriptorSchema, blank=True, null=True, on_delete=models.PROTECT)
+
+    #: collection descriptor
+    descriptor = JSONField(default={})
+
+
+class Collection(BaseCollection):
+
+    """Postgres model for storing collection."""
+
+    pass
 
 
 def iterate_fields(fields, schema, path_prefix=None):
