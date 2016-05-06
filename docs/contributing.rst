@@ -115,9 +115,13 @@ Clean ``build`` directory::
 
     python setup.py clean -a
 
-Remote previous distributions in ``dist`` directory::
+Remove previous distributions in ``dist`` directory::
 
     rm dist/*
+
+Remove previous ``egg-info`` directory::
+
+    rm -r *.egg-info
 
 Bump project's version in ``resolwe/__about__.py`` file and update the
 changelog in ``docs/CHANGELOG.rst``.
@@ -130,13 +134,9 @@ Commit changes to git::
 
     git commit -a -m "Prepare release <new-version>"
 
-Tag the new version::
+Test the new version with Tox_::
 
-    git tag <new-version>
-
-Push changes to the main `Resolwe's git repository`_::
-
-   git push <resolwe-upstream-name> master <new-version>
+    tox -r
 
 Create source distribution::
 
@@ -149,5 +149,13 @@ Build wheel::
 Upload distribution to PyPI_::
 
     twine upload dist/*
+
+Tag the new version::
+
+    git tag <new-version>
+
+Push changes to the main `Resolwe's git repository`_::
+
+   git push <resolwe-upstream-name> master <new-version>
 
 .. _Semantic versioning: https://packaging.python.org/en/latest/distributing/#semantic-versioning-preferred

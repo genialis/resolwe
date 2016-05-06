@@ -13,6 +13,7 @@ Changed
 -------
 - Rename assertFileExist to assertFileExists
 - Drop ``--process-dependency-links`` from Tox's pip configuration
+- Improve documentation on preparing a new release
 
 Added
 -----
