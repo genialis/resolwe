@@ -28,8 +28,6 @@ import os
 import re
 import six
 
-from guardian import shortcuts
-
 from django import template
 from django.db import models
 from django.conf import settings
@@ -373,43 +371,6 @@ class Data(BaseModel):
             self._render_name()
 
         super(Data, self).save(*args, **kwargs)
-
-        if create and self.process.flow_collection:
-            # Add object to flow_collection:
-            # - only add `Data object` to `flow collection` if process
-            #   has defined `flow_collwection` field
-            # - add object to existing `flow collection` if all `input
-            #   objects`, that belong to `flow collection` (but not
-            #   necessary all `input objects`), belong to the same one
-            # - if `input objects` belong to different `flow
-            #   collections` or don't belong to any `flow collection`,
-            #   create new one
-
-            # collect id's of all `input objects`
-            input_objects = []
-            for field_schema, fields, path in iterate_schema(self.input, self.process.input_schema, ''):
-                if ('type' in field_schema and (
-                        field_schema['type'].startswith('data:') or
-                        field_schema['type'].startswith('list:data:'))):
-                    input_objects.append(fields[field_schema['name']])
-
-            collection_query = Collection.objects.filter(
-                descriptor_schema__slug=self.process.flow_collection, data__id__in=input_objects).distinct()
-
-            if collection_query.count() == 1:
-                collection = collection_query.first()
-            else:
-                des_schema = DescriptorSchema.objects.get(slug=self.process.flow_collection)
-                collection = Collection.objects.create(
-                    contributor=self.contributor,
-                    descriptor_schema=des_schema,
-                    name=self.name,
-                )
-
-                for permission in list(zip(*collection._meta.permissions))[0]:
-                    shortcuts.assign_perm(permission, collection.contributor, collection)
-
-            collection.data.add(self)
 
     def _render_name(self):
         """Render data name.

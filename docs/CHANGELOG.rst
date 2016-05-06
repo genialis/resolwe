@@ -5,6 +5,17 @@ Change Log
 All notable changes to this project are documented in this file.
 
 
+==========
+Unreleased
+==========
+
+Changed
+-------
+ - Move logic from ``Collection`` model to the ``BaseCollection`` abstract
+   model and make it its parent
+ - Remove all logic for handling ``flow_collection``
+
+
 ==================
 1.2.0 - 2016-05-06
 ==================
