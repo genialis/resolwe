@@ -75,6 +75,7 @@ for map_ in flow_docker_mappings:
 
 
 @override_settings(FLOW_EXECUTOR=flow_executor_settings)
+@override_settings(CELERY_ALWAYS_EAGER=True)
 @override_settings(FLOW_DOCKER_MAPPINGS=flow_docker_mappings)
 class ProcessTestCase(TestCase):
 
@@ -204,6 +205,7 @@ class ProcessTestCase(TestCase):
                         file_name = os.path.basename(fields[field_schema['name']])
                         new_path = os.path.join(self.upload_path, file_name)
                         shutil.copy2(old_path, new_path)
+
                         # since we don't know what uid/gid will be used inside Docker executor,
                         # we must give others read and write permissions
                         os.chmod(new_path, 0o666)

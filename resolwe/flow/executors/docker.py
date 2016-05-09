@@ -32,13 +32,14 @@ class FlowExecutor(LocalFlowExecutor):
         context = {'data_id': self.data_id}
         mappings = [{key.format(**context): value.format(**context) for key, value in template.items()}
                     for template in mappings_template]
+
         # create mappings for tools
         # NOTE: To prevent processes tampering with tools, all tools are mounted read-only
         self.mappings_tools = [{'src': tool, 'dest': '/usr/local/bin/resolwe/{}'.format(i), 'mode': 'ro'}
                                for i, tool in enumerate(self.get_tools())]
         mappings += self.mappings_tools
         # create Docker --volume parameters from mappings
-        volumes = " ".join(["--volume={src}:{dest}:{mode}".format(**map_) for map_ in mappings])
+        volumes = ' '.join(['--volume="{src}":"{dest}":{mode}'.format(**map_) for map_ in mappings])
 
         # a login Bash shell is needed to source ~/.bash_profile
         self.proc = subprocess.Popen(
