@@ -15,7 +15,7 @@ else:
     import datetime  # pylint: disable=wrong-import-order
     now = datetime.datetime.now  # pylint: disable=invalid-name
 
-from resolwe.flow.models import Data, dict_dot
+from resolwe.flow.models import Data, dict_dot, Process
 from resolwe.utils import BraceMessage as __
 
 
@@ -216,16 +216,12 @@ class BaseFlowExecutor(object):
         #     os.chdir(settings.PROJECT_ROOT)
         #     return
 
-        # if data.status == Data.STATUS_DONE and spawn_processors:
-        #     # Spawn processors
-        #     os.chdir(HOME)
-        #     for d in spawn_processors:
-        #         d['case_ids'] = [case_id]
-        #         d['author_id'] = data.author_id
-        #         data = Data(**d)
-        #         data.save()
-
-        #         run_triggers(data_id=data.id, autorun=True)
+        if spawn_processors and Data.objects.get(pk=self.data_id).status == Data.STATUS_DONE:
+            # Spawn processors
+            for d in spawn_processors:
+                d['contributor'] = Data.objects.get(pk=self.data_id).contributor
+                d['process'] = Process.objects.get(slug=d['process'])
+                Data.objects.create(**d)
 
         # Restore original directory
         # os.chdir(settings.PROJECT_ROOT)

@@ -16,3 +16,11 @@ class FlowConfig(AppConfig):
 
     name = 'resolwe.flow'
     verbose_name = _("Resolwe Dataflow")
+
+    def ready(self):
+        """
+        Performs application initialization.
+        """
+
+        # Register signals handlers
+        from . import signals  # pylint: disable=unused-import
