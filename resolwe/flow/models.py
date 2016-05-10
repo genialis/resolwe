@@ -349,26 +349,26 @@ class Data(BaseModel):
 
     def save(self, render_name=False, *args, **kwargs):
         # Generate the descriptor if one is not already set.
-        if not self.descriptor:
-            render_descriptor(self)
-
         if self.name != self._original_name:
             self.named_by_user = True
 
         create = self.pk is None
         if create:
-            if not self.name:
-                self._render_name()
-            else:
-                self.named_by_user = True
-
             # Default values for INPUT
             for field_schema, fields, path in iterate_schema(self.input, self.process.input_schema, ''):
                 if 'default' in field_schema and field_schema['name'] not in fields:
                     dict_dot(self.input, path, field_schema['default'])
 
+            if not self.name:
+                self._render_name()
+            else:
+                self.named_by_user = True
+
         elif render_name:
             self._render_name()
+
+        if not self.descriptor:
+            render_descriptor(self)
 
         super(Data, self).save(*args, **kwargs)
 
