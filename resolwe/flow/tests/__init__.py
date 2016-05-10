@@ -120,11 +120,12 @@ class ProcessTestCase(TestCase):
         self.files_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'files')
         self._keep_all = False
         self._keep_failed = False
+        self._upload_files = []
 
         # create temporary upload dir
         self.upload_path = settings.FLOW_EXECUTOR['UPLOAD_PATH']
-        self.upload_dir_existed = os.path.isdir(self.upload_path)
-        if self.upload_dir_existed:
+
+        if os.path.isdir(self.upload_path):
             # since we don't know what uid/gid will be used inside Docker executor,
             # others must have all permissions on the upload directory
             upload_dir_mode = stat.S_IMODE(os.stat(self.upload_path).st_mode)
@@ -135,8 +136,7 @@ class ProcessTestCase(TestCase):
                                  "permissions.".format(oct(upload_dir_mode), self.upload_path))
         else:
             os.mkdir(self.upload_path)
-            # os.mkdir is not guaranteed to set the given mode
-            os.chmod(self.upload_path, 0o777)
+            os.chmod(self.upload_path, 0o777)  # os.mkdir not guaranteed to set given mode
 
     def tearDown(self):
         super(ProcessTestCase, self).tearDown()
@@ -150,9 +150,10 @@ class ProcessTestCase(TestCase):
                 d.delete()
                 shutil.rmtree(data_dir, ignore_errors=True)
 
-        # remove temporary upload dir
-        if not self.upload_dir_existed and not self._keep_all and not self._keep_failed:
-            shutil.rmtree(self.upload_path, ignore_errors=True)
+        # remove uploaded files
+        if not self._keep_all and not self._keep_failed:
+            for fn in self._upload_files:
+                shutil.rmtree(fn, ignore_errors=True)
 
     def keep_all(self):
         """Do not delete output files after test for all data."""
@@ -205,6 +206,7 @@ class ProcessTestCase(TestCase):
                         file_name = os.path.basename(fields[field_schema['name']])
                         new_path = os.path.join(self.upload_path, file_name)
                         shutil.copy2(old_path, new_path)
+                        self._upload_files.append(new_path)
 
                         # since we don't know what uid/gid will be used inside Docker executor,
                         # we must give others read and write permissions
