@@ -15,6 +15,10 @@ Changed
    model and make it its parent
  - Remove all logic for handling ``flow_collection``
 
+Fixed
+-----
+- Ensure a recent pip is installed when Tox creates a new virtual environment
+
 
 ==================
 1.2.0 - 2016-05-06
