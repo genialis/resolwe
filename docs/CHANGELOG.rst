@@ -9,11 +9,16 @@ All notable changes to this project are documented in this file.
 Unreleased
 ==========
 
+Added
+-----
+ - Add docker-compose configuration for PostgreSQL
+
 Changed
 -------
  - Move logic from ``Collection`` model to the ``BaseCollection`` abstract
    model and make it its parent
  - Remove all logic for handling ``flow_collection``
+ - Change default database user and port in test project's settings.
 
 
 ==================

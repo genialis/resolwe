@@ -1,0 +1,10 @@
+#
+# Development configuration of dependent services for Docker Compose.
+#
+postgresql:
+    image: postgres:9.4
+    environment:
+        POSTGRES_USER: resolwe
+        POSTGRES_DB: resolwe
+    ports:
+        - "55432:5432"
