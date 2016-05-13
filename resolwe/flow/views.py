@@ -459,7 +459,6 @@ class ProcessFilter(filters.FilterSet):
 
 class ProcessViewSet(ResolweCreateModelMixin,
                      mixins.RetrieveModelMixin,
-                     mixins.UpdateModelMixin,
                      mixins.ListModelMixin,
                      ResolweProcessPermissionsMixin,
                      ResolweCheckSlugMixin,

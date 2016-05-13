@@ -15,6 +15,7 @@ class ProcessTestCase(ResolweAPITestCase):
         self.process1 = Process.objects.get(pk=1)
 
         self.post_data = {
+            'slug': 'new-process',
             'name': 'New process',
             'type': 'data:test:process:',
             'input_schema': [{'name': 'test_field'}],

@@ -107,7 +107,7 @@ class CollectionTestCase(ResolweAPITestCase):
         resp = self._patch(1, data, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
         p = Collection.objects.get(pk=1)
-        self.assertEqual(p.created.isoformat(), datetime(2015, 1, 1, 9, 0, 0).isoformat())
+        self.assertEqual(p.created.isoformat(), self.collection1.created.isoformat())
 
     def test_patch_no_perm(self):
         data = {'name': 'New collection'}

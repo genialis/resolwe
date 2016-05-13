@@ -7,7 +7,7 @@ import subprocess
 import unittest
 
 from django.conf import settings
-from django.test import override_settings
+from django.test import SimpleTestCase, override_settings
 
 from ..executors.docker import FlowExecutor
 
@@ -38,7 +38,8 @@ def check_docker():
     return available, reason
 
 
-class DockerExecutorTestCase(unittest.TestCase):
+class DockerExecutorTestCase(SimpleTestCase):
+
     @unittest.skipUnless(*check_docker())
     @mock.patch('os.mkdir')
     @mock.patch('os.chmod')
@@ -52,7 +53,8 @@ class DockerExecutorTestCase(unittest.TestCase):
         with override_settings(FLOW_EXECUTOR=executor_settings):
             executor = FlowExecutor()
 
-            script = 'if [[ -f /.dockerinit ]]; then echo "Running inside Docker"; else echo "Running locally"; fi'
+            script = 'if grep -Fq "docker" /proc/1/cgroup; then echo "Running inside Docker"; ' \
+                    'else echo "Running locally"; fi'
 
             count = {'running': 0}
 

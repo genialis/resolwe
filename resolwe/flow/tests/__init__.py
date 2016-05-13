@@ -74,8 +74,8 @@ for map_ in flow_docker_mappings:
         map_['src'] = flow_executor_settings['UPLOAD_PATH']
 
 
-@override_settings(FLOW_EXECUTOR=flow_executor_settings)
 @override_settings(CELERY_ALWAYS_EAGER=True)
+@override_settings(FLOW_EXECUTOR=flow_executor_settings)
 @override_settings(FLOW_DOCKER_MAPPINGS=flow_docker_mappings)
 class ProcessTestCase(TestCase):
 

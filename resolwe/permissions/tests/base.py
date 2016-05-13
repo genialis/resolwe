@@ -2,11 +2,14 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 from django.contrib.auth.models import User
 from django.core.urlresolvers import reverse
+from django.test import override_settings
 
 from rest_framework.test import APITestCase, APIRequestFactory, force_authenticate
 
 
+@override_settings(CELERY_ALWAYS_EAGER=True)
 class ResolweAPITestCase(APITestCase):
+
     def setUp(self):
         super(ResolweAPITestCase, self).setUp()
 

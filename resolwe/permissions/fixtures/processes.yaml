@@ -4,7 +4,7 @@
   pk: 1
   fields:
     run:
-      script: test
+      script: ''
     category: 'test:category:2'
     contributor: 1
     created: 2015-01-01T10:00:00.000

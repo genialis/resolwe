@@ -33,7 +33,7 @@ class DataTestCase(ResolweAPITestCase):
     fixtures = ['users.yaml', 'collections.yaml', 'permissions.yaml', 'processes.yaml', 'data.yaml']
 
     def setUp(self):
-        # self.data1 = Data.objects.get(pk=1)
+        self.data1 = Data.objects.get(pk=1)
 
         self.resource_name = 'data'
         self.viewset = DataViewSet
@@ -51,7 +51,6 @@ class DataTestCase(ResolweAPITestCase):
         for data in Data.objects.all():
             data_dir = os.path.join(settings.FLOW_EXECUTOR['DATA_PATH'], str(data.id))
             shutil.rmtree(data_dir, ignore_errors=True)
-
 
     def test_get_list(self):
         resp = self._get_list(self.user1)
@@ -71,6 +70,7 @@ class DataTestCase(ResolweAPITestCase):
     def test_post(self):
         # logged-in user w/ perms
         collection_n = Data.objects.count()
+
         resp = self._post(self.data, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
         self.assertEqual(Data.objects.count(), collection_n + 1)
@@ -79,6 +79,7 @@ class DataTestCase(ResolweAPITestCase):
         self.assertTrue(now() - d.modified < timedelta(seconds=1))
         self.assertTrue(now() - d.created < timedelta(seconds=1))
         self.assertEqual(d.status, 'OK')
+
         self.assertTrue(now() - d.started < timedelta(seconds=1))
         self.assertTrue(now() - d.finished < timedelta(seconds=1))
         self.assertEqual(d.contributor_id, 1)
@@ -202,91 +203,91 @@ class DataTestCase(ResolweAPITestCase):
         resp = self._patch(1, {'created': date_now}, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
         d = Data.objects.get(pk=1)
-        self.assertEqual(d.created.isoformat(), datetime(2015, 1, 1, 9, 0, 0).isoformat())
-        self.assertEqual(d.modified.isoformat(), datetime(2015, 1, 1, 9, 0, 0).isoformat())
+        self.assertEqual(d.created.isoformat(), self.data1.created.isoformat())
+        self.assertEqual(d.modified.isoformat(), self.data1.modified.isoformat())
 
         # `modified`
         resp = self._patch(1, {'modified': date_now - timedelta(days=180)}, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
         d = Data.objects.get(pk=1)
-        self.assertEqual(d.modified, datetime(2015, 1, 1, 9, 0, 0))
+        self.assertEqual(d.modified.isoformat(), self.data1.modified.isoformat())
 
         # `started`
         resp = self._patch(1, {'started': date_now}, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
         d = Data.objects.get(pk=1)
-        self.assertEqual(d.started, datetime(2015, 1, 1, 9, 0, 0))
-        self.assertEqual(d.modified, datetime(2015, 1, 1, 9, 0, 0))
+        self.assertEqual(d.started.isoformat(), self.data1.started.isoformat())
+        self.assertEqual(d.modified.isoformat(), self.data1.modified.isoformat())
 
         # `finished`
         resp = self._patch(1, {'finished': date_now}, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
         d = Data.objects.get(pk=1)
-        self.assertEqual(d.finished, datetime(2015, 1, 1, 9, 0, 0))
-        self.assertEqual(d.modified, datetime(2015, 1, 1, 9, 0, 0))
+        self.assertEqual(d.finished.isoformat(), self.data1.finished.isoformat())
+        self.assertEqual(d.modified.isoformat(), self.data1.modified.isoformat())
 
         # `checksum`
         resp = self._patch(1, {'checksum': 'fake'}, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
         d = Data.objects.get(pk=1)
         self.assertEqual(d.checksum, None)  # TODO: Add checksum when implemented
-        self.assertEqual(d.modified, datetime(2015, 1, 1, 9, 0, 0))
+        self.assertEqual(d.modified.isoformat(), self.data1.modified.isoformat())
 
         # `status`
         resp = self._patch(1, {'status': 'DE'}, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
         d = Data.objects.get(pk=1)
         self.assertEqual(d.status, 'OK')
-        self.assertEqual(d.modified, datetime(2015, 1, 1, 9, 0, 0))
+        self.assertEqual(d.modified.isoformat(), self.data1.modified.isoformat())
 
         # `process_progress`
         resp = self._patch(1, {'process_progress': 2}, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
         d = Data.objects.get(pk=1)
         self.assertEqual(d.process_progress, 0)
-        self.assertEqual(d.modified, datetime(2015, 1, 1, 9, 0, 0))
+        self.assertEqual(d.modified.isoformat(), self.data1.modified.isoformat())
 
         # `process_rc`
         resp = self._patch(1, {'process_rc': 18}, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
         d = Data.objects.get(pk=1)
         self.assertEqual(d.process_rc, None)
-        self.assertEqual(d.modified, datetime(2015, 1, 1, 9, 0, 0))
+        self.assertEqual(d.modified.isoformat(), self.data1.modified.isoformat())
 
         # `process_info`
         resp = self._patch(1, {'process_info': 'Spam'}, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
         d = Data.objects.get(pk=1)
         self.assertEqual(d.process_info, [])
-        self.assertEqual(d.modified, datetime(2015, 1, 1, 9, 0, 0))
+        self.assertEqual(d.modified.isoformat(), self.data1.modified.isoformat())
 
         # `process_warning`
         resp = self._patch(1, {'process_warning': 'More spam'}, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
         d = Data.objects.get(pk=1)
         self.assertEqual(d.process_warning, [])
-        self.assertEqual(d.modified, datetime(2015, 1, 1, 9, 0, 0))
+        self.assertEqual(d.modified.isoformat(), self.data1.modified.isoformat())
 
         # `process_error`
         resp = self._patch(1, {'process_error': 'Even more spam'}, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
         d = Data.objects.get(pk=1)
         self.assertEqual(d.process_error, [])
-        self.assertEqual(d.modified, datetime(2015, 1, 1, 9, 0, 0))
+        self.assertEqual(d.modified.isoformat(), self.data1.modified.isoformat())
 
         # `contributor`
         resp = self._patch(1, {'contributor': 2}, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
         d = Data.objects.get(pk=1)
         self.assertEqual(d.contributor_id, 1)
-        self.assertEqual(d.modified, datetime(2015, 1, 1, 9, 0, 0))
+        self.assertEqual(d.modified.isoformat(), self.data1.modified.isoformat())
 
         # `process`
         resp = self._patch(1, {'process': 2}, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
         d = Data.objects.get(pk=1)
         self.assertEqual(d.process_id, 1)
-        self.assertEqual(d.modified, datetime(2015, 1, 1, 9, 0, 0))
+        self.assertEqual(d.modified.isoformat(), self.data1.modified.isoformat())
 
     def test_delete(self):
         resp = self._delete(1, self.user1)

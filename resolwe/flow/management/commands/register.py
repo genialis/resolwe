@@ -29,6 +29,8 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('-s', '--schemas', type=str, nargs='*', help="process names to register")
         parser.add_argument('-f', '--force', action='store_true', help="register also if version mismatch")
+        parser.add_argument('--path', type=str, nargs='*', default=[],
+                            help="search paths for processes and descriptors")
 
     def valid(self, instance, schema):
         """Validate schema."""
@@ -43,13 +45,16 @@ class Command(BaseCommand):
             self.stderr.write("        val. value: {}".format(ex.validator_value))
             return False
 
-    def find_schemas(self, schema_path, filters=None):
+    def find_schemas(self, schema_path, filters=None, schema_type='process'):
         """Find schemas in packages that match filters."""
         schema_matches = []
 
         if not os.path.isdir(schema_path):
             self.stdout.write("Invalid path {}".format(schema_path))
             return
+
+        if schema_type not in ['process', 'descriptor']:
+            raise ValueError('Invalid schema type')
 
         for root, _, files in os.walk(schema_path):
             for schema_file in [os.path.join(root, fn) for fn in files]:
@@ -62,9 +67,17 @@ class Command(BaseCommand):
                     self.stderr.write("Could not read YAML file {}".format(schema_file))
                     continue
 
-                schema_matches.extend(schema for schema in schemas if
-                                      not filters or schema.get('name', '') in filters or
-                                      schema.get('slug', '') in filters)
+                for schema in schemas:
+                    if filters and not (schema.get('slug', '') in filters or schema.get('name', '') in filters):
+                        continue
+
+                    if schema_type == 'process' and 'run' not in schema:
+                        continue
+
+                    if schema_type == 'descriptor' and 'schema' not in schema:
+                        continue
+
+                    schema_matches.append(schema)
 
         return schema_matches
 
@@ -209,6 +222,13 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         schemas = options.get('schemas')
         force = options.get('force')
+        paths = options.get('path')
+
+        if not isinstance(paths, list):
+            raise ValueError("Argument paths must be of type list")
+
+        if schemas is not None and not isinstance(schemas, list):
+            raise ValueError("Argument schemas must be of type list or None")
 
         users = get_user_model().objects.filter(is_superuser=True).order_by('date_joined')
 
@@ -218,20 +238,22 @@ class Command(BaseCommand):
 
         user_admin = users.first()
 
-        processes_paths = []
-        descriptors_paths = []
-        for finder in get_finders():
-            processes_paths.extend(finder.find_processes())
-            descriptors_paths.extend(finder.find_descriptors())
+        processes_paths = paths[:]
+        descriptors_paths = paths[:]
+
+        if len(paths) == 0:
+            for finder in get_finders():
+                processes_paths.extend(finder.find_processes())
+                descriptors_paths.extend(finder.find_descriptors())
 
         process_schemas = []
         for proc_path in processes_paths:
-            process_schemas.extend(self.find_schemas(proc_path, schemas))
+            process_schemas.extend(self.find_schemas(proc_path, filters=schemas, schema_type='process'))
 
         self.register_processes(process_schemas, user_admin, force)
 
         descriptor_schemas = []
         for desc_path in descriptors_paths:
-            descriptor_schemas.extend(self.find_schemas(desc_path))
+            descriptor_schemas.extend(self.find_schemas(desc_path, filters=schemas, schema_type='descriptor'))
 
         self.register_descriptors(descriptor_schemas, user_admin, force)

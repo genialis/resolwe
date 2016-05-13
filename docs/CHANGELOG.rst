@@ -22,6 +22,11 @@ Changed
 - Change default database user and port in test project's settings
 - Keep track of upload files created during tests and purge them afterwards
 
+Fixed
+-----
+- Test processes location agnostic
+- Test ignore timezone support
+
 
 ==================
 1.2.0 - 2016-05-06
