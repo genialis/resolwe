@@ -114,13 +114,13 @@ class ResolweCreateModelMixin(mixins.CreateModelMixin):
         ds_query = DescriptorSchema.objects.filter(slug=ds_slug).order_by('version')
         if ds_slug and not ds_query.exists():
             return Response(
-                {'descriptor_schema':
-                    ['Invalid descriptor_schema slug "{}" - object does not exist.'.format(ds_slug)]},
+                {'descriptor_schema': ['Invalid descriptor_schema slug "{}" - object does not exist.'.format(ds_slug)]},
                 status=status.HTTP_400_BAD_REQUEST)
 
         request.data['contributor'] = user.pk
         try:
             return super(ResolweCreateModelMixin, self).create(request, *args, **kwargs)
+
         except IntegrityError as ex:
             return Response({u'error': str(ex)}, status=status.HTTP_409_CONFLICT)
 
@@ -457,9 +457,12 @@ class ProcessFilter(filters.FilterSet):
         fields = ('contributor', 'name', 'created', 'modified', 'slug', 'category')
 
 
-class ProcessViewSet(mixins.RetrieveModelMixin,
+class ProcessViewSet(ResolweCreateModelMixin,
+                     mixins.RetrieveModelMixin,
+                     mixins.UpdateModelMixin,
                      mixins.ListModelMixin,
                      ResolweProcessPermissionsMixin,
+                     ResolweCheckSlugMixin,
                      viewsets.GenericViewSet):
 
     """API view for :class:`Process` objects."""

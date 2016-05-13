@@ -46,7 +46,7 @@ class ResolweBaseSerializer(serializers.ModelSerializer):
             if set(data.keys()).issubset(set(self.Meta.read_only_fields)):
                 raise NoContentError()
 
-        return super(ResolweBaseSerializer, self).__init__(instance, data, **kwargs)
+        super(ResolweBaseSerializer, self).__init__(instance, data, **kwargs)
 
 
 class ProcessSerializer(ResolweBaseSerializer):
@@ -57,10 +57,10 @@ class ProcessSerializer(ResolweBaseSerializer):
         """ProcessSerializer Meta options."""
         model = Process
         update_protected_fields = ('contributor', )
-        read_only_fields = ('id', 'slug', 'name', 'created', 'modified', 'version', 'type',
-                            'category', 'persistence', 'description', 'input_schema',
-                            'output_schema', 'run', )
-        fields = update_protected_fields + read_only_fields
+        read_only_fields = ('id', 'created', 'modified')
+        fields = ('slug', 'name', 'version', 'type', 'category',
+                  'persistence', 'description', 'input_schema',
+                  'output_schema', 'run',) + update_protected_fields + read_only_fields
 
 
 class DescriptorSchemaSerializer(ResolweBaseSerializer):

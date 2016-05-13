@@ -12,6 +12,7 @@ Unreleased
 Added
 -----
 - Add docker-compose configuration for PostgreSQL
+- Processes can be created on API
 
 Changed
 -------

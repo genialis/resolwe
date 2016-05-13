@@ -14,6 +14,13 @@ class ProcessTestCase(ResolweAPITestCase):
     def setUp(self):
         self.process1 = Process.objects.get(pk=1)
 
+        self.post_data = {
+            'name': 'New process',
+            'type': 'data:test:process:',
+            'input_schema': [{'name': 'test_field'}],
+            'run': {'bash': 'echo $PATH'},
+        }
+
         self.resource_name = 'process'
         self.viewset = ProcessViewSet
 
@@ -35,8 +42,8 @@ class ProcessTestCase(ResolweAPITestCase):
         self.assertEqual(len(resp.data), 2)
 
     def test_post(self):
-        resp = self._post({'name': 'New process'}, self.admin)
-        self.assertEqual(resp.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        resp = self._post(self.post_data, self.admin)
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
 
     def test_patch(self):
         resp = self._patch(1, {'name': 'Hacked process'}, self.admin)
