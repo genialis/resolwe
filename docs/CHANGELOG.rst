@@ -19,6 +19,7 @@ Changed
   model and make it its parent
 - Remove all logic for handling ``flow_collection``
 - Change default database user and port in test project's settings
+- Keep track of upload files created during tests and purge them afterwards
 
 
 ==================
