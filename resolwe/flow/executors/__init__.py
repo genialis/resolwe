@@ -7,8 +7,8 @@ import os
 import six
 
 from django.apps import apps
+from django.db import transaction
 from django.conf import settings
-
 if settings.USE_TZ:
     from django.utils.timezone import now
 else:
@@ -221,7 +221,8 @@ class BaseFlowExecutor(object):
             for d in spawn_processors:
                 d['contributor'] = Data.objects.get(pk=self.data_id).contributor
                 d['process'] = Process.objects.get(slug=d['process'])
-                Data.objects.create(**d)
+                with transaction.atomic():
+                    Data.objects.create(**d)
 
         # Restore original directory
         # os.chdir(settings.PROJECT_ROOT)
