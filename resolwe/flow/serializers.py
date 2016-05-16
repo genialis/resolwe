@@ -58,9 +58,10 @@ class ProcessSerializer(ResolweBaseSerializer):
         model = Process
         update_protected_fields = ('contributor', )
         read_only_fields = ('id', 'created', 'modified')
-        fields = ('slug', 'name', 'version', 'type', 'category',
-                  'persistence', 'description', 'input_schema',
-                  'output_schema', 'run',) + update_protected_fields + read_only_fields
+        fields = ('slug', 'name', 'data_name', 'version', 'type',
+                  'flow_collection', 'category', 'persistence',
+                  'priority', 'description', 'input_schema',
+                  'output_schema', 'run') + update_protected_fields + read_only_fields
 
 
 class DescriptorSchemaSerializer(ResolweBaseSerializer):
