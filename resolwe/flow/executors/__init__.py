@@ -216,13 +216,16 @@ class BaseFlowExecutor(object):
         #     os.chdir(settings.PROJECT_ROOT)
         #     return
 
-        if spawn_processors and Data.objects.get(pk=self.data_id).status == Data.STATUS_DONE:
+        parent_data = Data.objects.get(pk=self.data_id)
+        if spawn_processors and parent_data.status == Data.STATUS_DONE:
             # Spawn processors
             for d in spawn_processors:
-                d['contributor'] = Data.objects.get(pk=self.data_id).contributor
+                d['contributor'] = parent_data.contributor
                 d['process'] = Process.objects.get(slug=d['process'])
                 with transaction.atomic():
-                    Data.objects.create(**d)
+                    d = Data.objects.create(**d)
+                    for collection in parent_data.collection_set.all():
+                         collection.data.add(d)
 
         # Restore original directory
         # os.chdir(settings.PROJECT_ROOT)
