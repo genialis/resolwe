@@ -2,6 +2,7 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import mock
+import os
 import shlex
 import subprocess
 import unittest
@@ -26,16 +27,11 @@ def check_docker():
 
     """
     command = settings.FLOW_EXECUTOR.get('COMMAND', 'docker')
-    info_command = '{} info'.format(command)
-    available, reason = True, ""
-    try:
-        subprocess.check_call(shlex.split(info_command), stdout=subprocess.PIPE)
-    except OSError:
-        available, reason = False, "Docker command '{}' not found".format(command)
-    except subprocess.CalledProcessError:
-        available, reason = (False, "Docker command '{}' returned non-zero "
-                                    "exit status".format(info_command))
-    return available, reason
+    info_command = '{} info &> /dev/null'.format(command)
+    exit_status = os.system(info_command)
+    reason = "Command docker info returned {}".format(exit_status)
+
+    return exit_status == 0, reason
 
 
 class DockerExecutorTestCase(SimpleTestCase):
