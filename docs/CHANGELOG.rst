@@ -28,6 +28,7 @@ Fixed
 -----
 - Test processes location agnostic
 - Test ignore timezone support
+- Spawn processors (add data to current collection)
 
 
 ==================

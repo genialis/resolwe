@@ -191,6 +191,18 @@ class BaseFlowExecutor(object):
         if process_rc < return_code:
             process_rc = return_code
 
+        if spawn_processors and process_rc == 0:
+            parent_data = Data.objects.get(pk=self.data_id)
+
+            # Spawn processors
+            for d in spawn_processors:
+                d['contributor'] = parent_data.contributor
+                d['process'] = Process.objects.get(slug=d['process'])
+                with transaction.atomic():
+                    d = Data.objects.create(**d)
+                    for collection in parent_data.collection_set.all():
+                        collection.data.add(d)
+
         if process_rc == 0:
             self.update_data_status(
                 status=Data.STATUS_DONE,
@@ -215,14 +227,6 @@ class BaseFlowExecutor(object):
         #     # Restore original directory
         #     os.chdir(settings.PROJECT_ROOT)
         #     return
-
-        if spawn_processors and Data.objects.get(pk=self.data_id).status == Data.STATUS_DONE:
-            # Spawn processors
-            for d in spawn_processors:
-                d['contributor'] = Data.objects.get(pk=self.data_id).contributor
-                d['process'] = Process.objects.get(slug=d['process'])
-                with transaction.atomic():
-                    Data.objects.create(**d)
 
         # Restore original directory
         # os.chdir(settings.PROJECT_ROOT)
