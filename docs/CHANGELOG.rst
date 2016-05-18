@@ -13,7 +13,6 @@ Added
 -----
 - Add docker-compose configuration for PostgreSQL
 - Processes can be created on API
- - Add docker-compose configuration for PostgreSQL
 - Enable spawned processes
 
 Changed
