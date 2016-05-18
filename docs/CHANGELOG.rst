@@ -9,6 +9,11 @@ All notable changes to this project are documented in this file.
 Unreleased
 ==========
 
+Added
+-----
+- Ability to pass certain information to the process running in the container
+  via environment variables (currently, user's uid and gid)
+
 Changed
 -------
 - Move filters to separate file and systemize them
