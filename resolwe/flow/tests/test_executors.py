@@ -8,7 +8,7 @@ import subprocess
 import unittest
 
 from django.conf import settings
-from django.test import SimpleTestCase, override_settings
+from django.test import override_settings
 
 from ..executors.docker import FlowExecutor
 
@@ -27,14 +27,21 @@ def check_docker():
 
     """
     command = settings.FLOW_EXECUTOR.get('COMMAND', 'docker')
-    info_command = '{} info &> /dev/null'.format(command)
-    exit_status = os.system(info_command)
-    reason = "Command docker info returned {}".format(exit_status)
+    info_command = '{} info'.format(command)
+    available, reason = True, ""
+    # TODO: use subprocess.DEVNULL after dropping support for Python 2
+    with open(os.devnull, 'wb') as DEVNULL:
+        try:
+            subprocess.check_call(shlex.split(info_command), stdout=DEVNULL, stderr=subprocess.STDOUT)
+        except OSError:
+            available, reason = False, "Docker command '{}' not found".format(command)
+        except subprocess.CalledProcessError:
+            available, reason = (False, "Docker command '{}' returned non-zero "
+                                        "exit status".format(info_command))
+    return available, reason
 
-    return exit_status == 0, reason
 
-
-class DockerExecutorTestCase(SimpleTestCase):
+class DockerExecutorTestCase(unittest.TestCase):
 
     @unittest.skipUnless(*check_docker())
     @mock.patch('os.mkdir')
