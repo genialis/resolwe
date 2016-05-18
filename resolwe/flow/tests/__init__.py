@@ -219,9 +219,9 @@ class ProcessTestCase(TestCase):
 
             # convert primary keys to strings
             if field_schema['type'].startswith('data:'):
-                fields[field_schema['name']] = str(fields[field_schema['name']])
+                fields[field_schema['name']] = fields[field_schema['name']]
             if field_schema['type'].startswith('list:data:'):
-                fields[field_schema['name']] = [str(obj) for obj in fields[field_schema['name']]]
+                fields[field_schema['name']] = [obj for obj in fields[field_schema['name']]]
 
         d = Data.objects.create(
             input=input_,
@@ -271,7 +271,7 @@ class ProcessTestCase(TestCase):
         """
         field = dict_dot(obj.output, path)
         self.assertEqual(field, value,
-                         msg="Field 'output.{}' mismatch: {} != {}".format(path, field, str(value)) +
+                         msg="Field 'output.{}' mismatch: {} != {}".format(path, field, value) +
                          self._debug_info(obj))
 
     def _assert_file(self, obj, fn_tested, fn_correct, compression=None, filter=lambda _: False):

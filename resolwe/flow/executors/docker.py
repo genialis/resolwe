@@ -87,4 +87,4 @@ class FlowExecutor(LocalFlowExecutor):
         return self.proc.returncode
 
     def terminate(self, data_id):
-        subprocess.call(shlex.split('{} rm -f {}'.format(self.command, str(data_id))))
+        subprocess.call(shlex.split('{} rm -f {}'.format(self.command, data_id)))

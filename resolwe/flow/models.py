@@ -24,6 +24,7 @@ Postgres ORM model for keeping the data structured.
 from __future__ import absolute_import, division, print_function, unicode_literals
 import functools
 import json
+import jsonschema
 import os
 import re
 import six
@@ -400,6 +401,21 @@ class Data(BaseModel):
 
         self.save_storage(self.output, self.process.output_schema)
 
+        if create:
+            validate_schema(self.input, self.process.input_schema)
+
+        if self.descriptor_schema:
+            validate_schema(self.descriptor, self.descriptor_schema.schema)
+        elif self.descriptor and self.descriptor != {}:
+            raise ValueError("`descriptor_schema` must be defined if `descriptor` is given")
+
+        path_prefix = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(self.pk))
+        if self.status == Data.STATUS_DONE:
+            validate_schema(self.output, self.process.output_schema, path_prefix=path_prefix)
+        else:
+            validate_schema(self.output, self.process.output_schema, path_prefix=path_prefix,
+                            test_required=False)
+
         super(Data, self).save(*args, **kwargs)
 
     def _render_name(self):
@@ -572,6 +588,8 @@ def iterate_fields(fields, schema, path_prefix=None):
     schema_dict = {val['name']: val for val in schema}
     for field_id, properties in fields.items():
         path = '{}{}'.format(path_prefix, field_id) if path_prefix is not None else None
+        if field_id not in schema_dict:
+            raise KeyError("Field definition ({}) missing in schema".format(field_id))
         if 'group' in schema_dict[field_id]:
             for rvals in iterate_fields(properties, schema_dict[field_id]['group'], path):
                 yield (rvals if path_prefix is not None else rvals[:2])
@@ -631,6 +649,106 @@ def validation_schema(name):
     schema = open(schema_file, 'r').read()
 
     return json.loads(schema.replace('{{FIELD}}', field_schema).replace('{{PARENT}}', '/field'))
+
+
+TYPE_SCHEMA = validation_schema('type')
+
+
+def validate_schema(instance, schema, test_required=True, path_prefix=None):
+    """Check if DictField values are consistent with our data types.
+
+    Perform basic JSON schema validation and our custom validations:
+
+      * check that required fields are given (if `test_required` is set
+        to ``True``)
+      * check if ``basic:file:`` and ``list:basic:file`` fields match
+        regex given in schema (only if ``validate_regex`` is defined in
+        schema for coresponding fields) and exists (only if
+        ``path_prefix`` is given)
+      * check that referenced ``Data`` objects (in ``data:<data_type>``
+        and  ``list:data:<data_type>`` fields) exists and are of type
+        ``<data_type>``
+      * check that referenced ``Storage`` objects (in ``basic:json``
+        fields) exists
+
+    :param list instance: Instance to be validated
+    :param list schema: Schema for validation
+    :param bool test_required: Flag for testing if all required fields
+        are present. It is usefule if validation is run before ``Data``
+        object is finished and there are some field stil missing
+        (default: ``False``)
+    :param str path_prefix: path prefix used for checking if files and
+        directories exist (default: ``None``)
+    :rtype: None
+    :raises ValidationError: if ``instance`` doesn't match schema
+        defined in ``schema``
+
+    """
+    def validate_file(field, regex):
+        """Validate file name (and check that it exists)."""
+        filename = field['file']
+
+        if regex and not re.search(regex, filename):
+            raise ValidationError(
+                "File name {} does not match regex {}".format(filename, regex))
+
+        if path_prefix:
+            path = os.path.join(path_prefix, filename)
+            if not os.path.isfile(path):
+                raise ValidationError("Referenced file ({}) does not exist".format(path))
+
+            if 'refs' in field:
+                for refs_filename in field['refs']:
+                    refs_path = os.path.join(path_prefix, refs_filename)
+                    if not os.path.isfile(refs_path):
+                        raise ValidationError(
+                            "File referenced in `refs` ({}) does not exist".format(refs_path))
+
+    def validate_data(data_pk, type_):
+        """"Check that `Data` objects exist and is of right type."""
+        data_qs = Data.objects.filter(pk=data_pk).values('process__type')
+        if not data_qs.exists():
+            raise ValidationError(
+                "Referenced `Data` object does not exist (id:{})".format(data_pk))
+        if not data_qs.first()['process__type'].startswith(type_):
+            raise ValidationError(
+                "Referenced `Data` object is of wrong type (id:{})".format(data_pk))
+
+    for _schema, _fields, _ in iterate_schema(instance, schema):
+        name = _schema['name']
+
+        if test_required and _schema.get('required', False) and name not in _fields:
+            raise ValidationError("Required field \"{}\" not given.".format(name))
+
+        if name in _fields:
+            field = _fields[name]
+            type_ = _schema.get('type', "")
+
+            try:
+                jsonschema.validate([{"type": type_, "value": field}], TYPE_SCHEMA)
+            except jsonschema.exceptions.ValidationError as ex:
+                raise ValidationError(ex.message)
+
+            if type_ == 'basic:file:':
+                validate_file(field, _schema.get('validate_regex'))
+
+            elif type_ == 'list:basic:file:':
+                for obj in field:
+                    validate_file(obj, _schema.get('validate_regex'))
+
+            elif type_ == 'basic:json:' and not Storage.objects.filter(pk=field).exists():
+                raise ValidationError(
+                    "Referenced `Storage` object does not exist (id:{})".format(field))
+
+            elif type_.startswith('data:'):
+                validate_data(field, type_)
+
+            elif type_.startswith('list:data:'):
+                for data_id in field:
+                    validate_data(data_id, type_[5:])  # remove `list:` from type
+
+    for field_schema, fields in iterate_fields(instance, schema):
+        pass  # check that schema definitions exist for all fields
 
 
 def _hydrate_values(output, output_schema, data):

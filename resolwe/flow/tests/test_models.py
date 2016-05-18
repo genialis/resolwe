@@ -24,7 +24,7 @@ class DataModelTest(TestCase):
 
     def test_name(self):
         process = Process.objects.create(slug='test-first',
-                                         type='test:first',
+                                         type='data:test:first:',
                                          contributor=self.user,
                                          data_name='Process based data name',
                                          output_schema=[{

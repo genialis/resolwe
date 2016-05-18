@@ -18,6 +18,7 @@
             { "$ref": "#/types/url" },
             { "$ref": "#/types/json" },
             { "$ref": "#/types/list_string" },
+            { "$ref": "#/types/list_data" },
             { "$ref": "#/types/list_file" },
             { "$ref": "#/types/list_url" }
         ]
@@ -31,7 +32,7 @@
             "properties": {
                 "type": {
                     "type": "string",
-                    "pattern": "^(basic:(string|text):$|data:[a-z0-9:]+:$)"
+                    "pattern": "^(basic:(string|text)|data:[a-z0-9:]+):$"
                 },
                 "value": {
                     "type": "string"
@@ -59,7 +60,7 @@
             "properties": {
                 "type": {
                     "type": "string",
-                    "pattern": "^basic:integer:$"
+                    "pattern": "^(basic:integer|data:[a-z0-9:]+):$"
                 },
                 "value": {
                     "type": "integer"
@@ -91,7 +92,7 @@
                 },
                 "value": {
                     "type": "string",
-                    "pattern": "^(19|20)\\d\\d([- /.])(0[1-9]|1[012])\\2(0[1-9]|[12][0-9]|3[01])$"
+                    "pattern": "^(19|20)\\d\\d-(0[1-9]|1[012])-(0[1-9]|[12][0-9]|3[01])$"
                 }
             }
         },
@@ -106,7 +107,7 @@
                 },
                 "value": {
                     "type": "string",
-                    "pattern": "^(19|20)\\d\\d([- /.])(0[1-9]|1[012])\\2(0[1-9]|[12][0-9]|3[01]) (?:(?:([01]?\\d|2[0-3]):)?([0-5]?\\d):)?([0-5]?\\d)$"
+                    "pattern": "^(19|20)\\d\\d-(0[1-9]|1[012])-(0[1-9]|[12][0-9]|3[01]) (?:(?:([01]?\\d|2[0-3]):)?([0-5]?\\d):)?([0-5]?\\d)$"
                 }
             }
         },
@@ -183,8 +184,7 @@
                     "pattern": "^basic:json:$"
                 },
                 "value": {
-                    "type": "string",
-                    "pattern": "^[0-9a-fA-F]{24}$"
+                    "type": "number"
                 }
             }
         },
@@ -195,12 +195,30 @@
             "properties": {
                 "type": {
                     "type": "string",
-                    "pattern": "^list:(basic:(string|text):$|data:[a-z0-9:]+:$)"
+                    "pattern": "^list:basic:(string|text):$"
                 },
                 "value": {
                     "type": "array",
                     "items": {
                         "type": "string"
+                    },
+                    "uniqueItems": false
+                }
+            }
+        },
+        "list_data": {
+            "type": "object",
+            "required": ["type", "value"],
+            "additionalProperties": false,
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "pattern": "^list:data:[a-z0-9:]+:$"
+                },
+                "value": {
+                    "type": "array",
+                    "items": {
+                        "type": "number"
                     },
                     "uniqueItems": false
                 }

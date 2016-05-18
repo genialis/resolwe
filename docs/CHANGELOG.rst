@@ -18,6 +18,7 @@ Added
 - Allow overriding any ``FLOW_EXECUTOR`` setting for testing
 - Support GET request on /api/<model>/<id>/permissons/ url
 - Add OWNER permissions
+- Validate JSON fields before saving ``Data`` object
 
 Changed
 -------
