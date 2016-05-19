@@ -18,14 +18,18 @@ class FlowExecutor(LocalFlowExecutor):
         self.command = settings.FLOW_EXECUTOR.get('COMMAND', 'docker')
 
     def start(self):
-        container_image = settings.FLOW_EXECUTOR['CONTAINER_IMAGE']
+        # arguments passed to the Docker command
+        command_args = {
+            'command': self.command,
+            'container_image': settings.FLOW_EXECUTOR['CONTAINER_IMAGE'],
+        }
 
         if self.data_id != 'no_data_id':
-            container_name = 'resolwe_{}'.format(self.data_id)
+            data_id = self.data_id
         else:
             # set random container name for tests
-            rand_int = random.randint(1000, 9999)
-            container_name = 'resolwe_test_{}'.format(rand_int)
+            data_id = 'test_{}'.format(random.randint(1000, 9999))
+        command_args['container_name'] = '--name=resolwe_{}'.format(data_id)
 
         # render Docker mappings in FLOW_DOCKER_MAPPINGS setting
         mappings_template = getattr(settings, 'FLOW_DOCKER_MAPPINGS', [])
@@ -39,28 +43,31 @@ class FlowExecutor(LocalFlowExecutor):
                                for i, tool in enumerate(self.get_tools())]
         mappings += self.mappings_tools
         # create Docker --volume parameters from mappings
-        volumes = ' '.join(['--volume="{src}":"{dest}":{mode}'.format(**map_) for map_ in mappings])
+        command_args['volumes'] = ' '.join(['--volume="{src}":"{dest}":{mode}'.format(**map_)
+                                            for map_ in mappings])
 
         # set working directory inside the container to the mapped directory of
         # the current Data's directory
-        workdir = ''
+        command_args['workdir'] = ''
         for template in mappings_template:
             if '{data_id}' in template['src']:
-                workdir = '--workdir={}'.format(template['dest'])
+                command_args['workdir'] = '--workdir={}'.format(template['dest'])
 
         # create environment variables to pass certain information to the
         # process running in the container
-        envs = ' '.join(['--env={name}={value}'.format(**env) for env in [
+        command_args['envs'] = ' '.join(['--env={name}={value}'.format(**env) for env in [
             {'name': 'HOST_UID', 'value': os.getuid()},
             {'name': 'HOST_GID', 'value': os.getgid()},
         ]])
 
         # a login Bash shell is needed to source ~/.bash_profile
-        self.proc = subprocess.Popen(
-            shlex.split(
-                '{} run --rm --interactive --name={} {} {} {} {} /bin/bash --login'.format(
-                    self.command, container_name, volumes, envs, workdir, container_image)),
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
+        command_args['shell'] = '/bin/bash --login'
+
+        self.proc = subprocess.Popen(shlex.split(
+            '{command} run --rm --interactive {container_name} {volumes} '
+            '{envs} {workdir} {container_image} {shell}'.format(**command_args)
+        ), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        universal_newlines=True)
 
         self.stdout = self.proc.stdout
 
