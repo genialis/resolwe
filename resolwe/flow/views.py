@@ -25,8 +25,8 @@ from rest_framework.decorators import detail_route, list_route
 from rest_framework.response import Response
 
 from guardian import shortcuts
-import rest_framework_filters as filters
 
+from .filters import DataFilter, CollectionFilter, ProcessFilter
 from .managers import manager
 from .models import Collection, Process, Data, DescriptorSchema, Trigger, Storage
 from .serializers import (CollectionSerializer, ProcessSerializer, DataSerializer,
@@ -368,24 +368,6 @@ class ResolweCheckSlugMixin(object):
         return Response(queryset.filter(slug__iexact=slug_name).exists())
 
 
-class DescriptorSchemaFilter(filters.FilterSet):
-    class Meta:
-        model = DescriptorSchema
-        fields = {
-            'slug': filters.ALL_LOOKUPS,
-        }
-
-
-class CollectionFilter(filters.FilterSet):
-    data = filters.ModelChoiceFilter(queryset=Data.objects.all())
-    descriptor_schema = filters.RelatedFilter(DescriptorSchemaFilter, name='descriptor_schema')
-
-    class Meta:
-        model = Collection
-        fields = ('contributor', 'name', 'description', 'created', 'modified',
-                  'slug', 'descriptor', 'data', 'descriptor_schema', 'id')
-
-
 class CollectionViewSet(ResolweCreateModelMixin,
                         mixins.RetrieveModelMixin,
                         mixins.UpdateModelMixin,
@@ -449,14 +431,6 @@ class CollectionViewSet(ResolweCreateModelMixin,
         return Response()
 
 
-class ProcessFilter(filters.FilterSet):
-    category = filters.CharFilter(name='category', lookup_type='startswith')
-
-    class Meta:
-        model = Process
-        fields = ('contributor', 'name', 'created', 'modified', 'slug', 'category')
-
-
 class ProcessViewSet(ResolweCreateModelMixin,
                      mixins.RetrieveModelMixin,
                      mixins.ListModelMixin,
@@ -470,16 +444,6 @@ class ProcessViewSet(ResolweCreateModelMixin,
     serializer_class = ProcessSerializer
     permission_classes = (permissions_cls,)
     filter_class = ProcessFilter
-
-
-class DataFilter(filters.FilterSet):
-    collection = filters.ModelChoiceFilter(queryset=Collection.objects.all())
-    type = filters.CharFilter(name='process__type', lookup_type='startswith')
-
-    class Meta:
-        model = Data
-        fields = ('contributor', 'name', 'created', 'modified', 'slug', 'input', 'descriptor',
-                  'started', 'finished', 'output', 'status', 'process', 'type', 'collection')
 
 
 class DataViewSet(ResolweCreateDataModelMixin,
