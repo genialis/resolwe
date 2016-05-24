@@ -116,7 +116,7 @@ class ProcessTestCase(TestCase):
             username="admin", email='admin@example.com', password="admin_pass")
         _register_schemas()
 
-        self.collection = Collection.objects.create(contributor=self.admin)
+        self.collection = Collection.objects.create(contributor=self.admin, name="Test collection")
         self.files_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'files')
         self._keep_all = False
         self._keep_failed = False
