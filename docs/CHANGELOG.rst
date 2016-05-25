@@ -15,6 +15,7 @@ Added
   via environment variables (currently, user's uid and gid)
 - Explicitly set working directory inside the container to the mapped directory
   of the current ``Data``'s directory
+- Allow overriding any ``FLOW_EXECUTOR`` setting for testing
 
 Changed
 -------

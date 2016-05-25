@@ -59,15 +59,19 @@ def _register_schemas():
         SCHEMAS_FIXTURE_CACHE['descriptor_schemas'] = list(DescriptorSchema.objects.all())
 
 
+# override all FLOW_EXECUTOR settings that are specified in FLOW_EXECUTOR['TEST']
 flow_executor_settings = settings.FLOW_EXECUTOR.copy()
-# use a different upload directory for tests
-flow_executor_settings['UPLOAD_PATH'] = os.path.join(flow_executor_settings['UPLOAD_PATH'], 'test_upload')
+test_settings_overrides = settings.FLOW_EXECUTOR.get('TEST', {})
+flow_executor_settings.update(test_settings_overrides)
 
-# replace existing Docker UPLOAD_PATH mapping with the new upload directory
-flow_docker_mappings = copy.copy(getattr(settings, "FLOW_DOCKER_MAPPINGS", {}))
+# update FLOW_DOCKER_MAPPINGS setting if necessary
+flow_docker_mappings = copy.copy(getattr(settings, 'FLOW_DOCKER_MAPPINGS', {}))
 for map_ in flow_docker_mappings:
-    if settings.FLOW_EXECUTOR['UPLOAD_PATH'] in map_['src']:
-        map_['src'] = flow_executor_settings['UPLOAD_PATH']
+    for map_entry in ['src', 'dest']:
+        for setting in ['DATA_PATH', 'UPLOAD_PATH']:
+            if settings.FLOW_EXECUTOR[setting] in map_[map_entry]:
+                map_[map_entry] = map_[map_entry].replace(
+                    settings.FLOW_EXECUTOR[setting], flow_executor_settings[setting], 1)
 
 
 @override_settings(FLOW_EXECUTOR=flow_executor_settings)
