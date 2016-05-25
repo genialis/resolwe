@@ -60,11 +60,7 @@ def _register_schemas():
 
 
 flow_executor_settings = settings.FLOW_EXECUTOR.copy()
-# since we don't know what uid/gid will be used inside Docker executor, others
-# must have all permissions on the data directory
-flow_executor_settings['DATA_DIR_MODE'] = 0o777
-# create a temporary upload directory so we can give it relaxed permissions and
-# make it convenient for use by Docker
+# use a different upload directory for tests
 flow_executor_settings['UPLOAD_PATH'] = os.path.join(flow_executor_settings['UPLOAD_PATH'], 'test_upload')
 
 # replace existing Docker UPLOAD_PATH mapping with the new upload directory
@@ -118,25 +114,14 @@ class ProcessTestCase(TestCase):
 
         self.collection = Collection.objects.create(contributor=self.admin, name="Test collection")
         self.files_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'files')
+        self.upload_path = settings.FLOW_EXECUTOR['UPLOAD_PATH']
         self._keep_all = False
         self._keep_failed = False
         self._upload_files = []
 
-        # create temporary upload dir
-        self.upload_path = settings.FLOW_EXECUTOR['UPLOAD_PATH']
-
-        if os.path.isdir(self.upload_path):
-            # since we don't know what uid/gid will be used inside Docker executor,
-            # others must have all permissions on the upload directory
-            upload_dir_mode = stat.S_IMODE(os.stat(self.upload_path).st_mode)
-            others_all_perm = stat.S_IROTH | stat.S_IWOTH | stat.S_IXOTH
-            if upload_dir_mode & others_all_perm != others_all_perm:
-                raise ValueError("Incorrect permissions ({}) for upload dir ({}). "
-                                 "Change it so that others will have read, write and execute "
-                                 "permissions.".format(oct(upload_dir_mode), self.upload_path))
-        else:
+        # create upload dir if it doesn't exist
+        if not os.path.isdir(self.upload_path):
             os.mkdir(self.upload_path)
-            os.chmod(self.upload_path, 0o777)  # os.mkdir not guaranteed to set given mode
 
     def tearDown(self):
         super(ProcessTestCase, self).tearDown()

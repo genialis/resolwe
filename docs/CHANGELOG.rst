@@ -20,6 +20,8 @@ Changed
 -------
 - Move filters to separate file and systemize them
 - Unify file loading in tests
+- Simplify ``ProcessTestCase`` by removing the logic for handling different
+  uid/gid of the user running inside the Docker container
 
 Fixed
 -----
