@@ -5,6 +5,21 @@ Change Log
 All notable changes to this project are documented in this file.
 
 
+==========
+Unreleased
+==========
+
+Changed
+-------
+- Move filters to separate file and systemize them
+- Unify file loading in tests
+
+Fixed
+-----
+- Spawn processors (add data to current collection)
+- Set collection name to avoid warnings in test output
+
+
 ==================
 1.2.1 - 2016-05-15
 ==================
@@ -27,7 +42,6 @@ Fixed
 -----
 - Test processes location agnostic
 - Test ignore timezone support
-- Spawn processors (add data to current collection)
 
 
 ==================
