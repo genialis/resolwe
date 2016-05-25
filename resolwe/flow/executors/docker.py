@@ -41,6 +41,13 @@ class FlowExecutor(LocalFlowExecutor):
         # create Docker --volume parameters from mappings
         volumes = ' '.join(['--volume="{src}":"{dest}":{mode}'.format(**map_) for map_ in mappings])
 
+        # set working directory inside the container to the mapped directory of
+        # the current Data's directory
+        workdir = ''
+        for template in mappings_template:
+            if '{data_id}' in template['src']:
+                workdir = '--workdir={}'.format(template['dest'])
+
         # create environment variables to pass certain information to the
         # process running in the container
         envs = ' '.join(['--env={name}={value}'.format(**env) for env in [
@@ -51,8 +58,8 @@ class FlowExecutor(LocalFlowExecutor):
         # a login Bash shell is needed to source ~/.bash_profile
         self.proc = subprocess.Popen(
             shlex.split(
-                '{} run --rm --interactive --name={} {} {} {} /bin/bash --login'.format(
-                    self.command, container_name, volumes, envs, container_image)),
+                '{} run --rm --interactive --name={} {} {} {} {} /bin/bash --login'.format(
+                    self.command, container_name, volumes, envs, workdir, container_image)),
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
 
         self.stdout = self.proc.stdout

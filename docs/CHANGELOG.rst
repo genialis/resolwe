@@ -13,6 +13,8 @@ Added
 -----
 - Ability to pass certain information to the process running in the container
   via environment variables (currently, user's uid and gid)
+- Explicitly set working directory inside the container to the mapped directory
+  of the current ``Data``'s directory
 
 Changed
 -------
