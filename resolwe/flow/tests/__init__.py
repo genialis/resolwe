@@ -68,7 +68,7 @@ flow_executor_settings.update(test_settings_overrides)
 flow_docker_mappings = copy.copy(getattr(settings, 'FLOW_DOCKER_MAPPINGS', {}))
 for map_ in flow_docker_mappings:
     for map_entry in ['src', 'dest']:
-        for setting in ['DATA_PATH', 'UPLOAD_PATH']:
+        for setting in ['DATA_DIR', 'UPLOAD_DIR']:
             if settings.FLOW_EXECUTOR[setting] in map_[map_entry]:
                 map_[map_entry] = map_[map_entry].replace(
                     settings.FLOW_EXECUTOR[setting], flow_executor_settings[setting], 1)
@@ -118,14 +118,14 @@ class ProcessTestCase(TestCase):
 
         self.collection = Collection.objects.create(contributor=self.admin, name="Test collection")
         self.files_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'files')
-        self.upload_path = settings.FLOW_EXECUTOR['UPLOAD_PATH']
+        self.upload_dir = settings.FLOW_EXECUTOR['UPLOAD_DIR']
         self._keep_all = False
         self._keep_failed = False
         self._upload_files = []
 
         # create upload dir if it doesn't exist
-        if not os.path.isdir(self.upload_path):
-            os.mkdir(self.upload_path)
+        if not os.path.isdir(self.upload_dir):
+            os.mkdir(self.upload_dir)
 
     def tearDown(self):
         super(ProcessTestCase, self).tearDown()
@@ -135,7 +135,7 @@ class ProcessTestCase(TestCase):
             if self._keep_all or (self._keep_failed and d.status == "error"):
                 print("KEEPING DATA: {}".format(d.pk))
             else:
-                data_dir = os.path.join(settings.FLOW_EXECUTOR['DATA_PATH'], str(d.pk))
+                data_dir = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(d.pk))
                 d.delete()
                 shutil.rmtree(data_dir, ignore_errors=True)
 
@@ -193,7 +193,7 @@ class ProcessTestCase(TestCase):
                 if not os.path.isfile(old_path):
                     raise RuntimeError('Missing file: {}'.format(old_path))
 
-                new_path = os.path.join(self.upload_path, file_name)
+                new_path = os.path.join(self.upload_dir, file_name)
                 shutil.copy2(old_path, new_path)
                 self._upload_files.append(new_path)
 
@@ -305,7 +305,7 @@ class ProcessTestCase(TestCase):
             raise ValueError("Unsupported compression format.")
 
         field = dict_dot(obj.output, field_path)
-        output = os.path.join(settings.FLOW_EXECUTOR['DATA_PATH'], str(obj.pk), field['file'])
+        output = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(obj.pk), field['file'])
         with open_fn(output, **open_kwargs) as output_file:
             output_contents = b"".join([line for line in filterfalse(filter, output_file)])
         output_hash = hashlib.sha256(output_contents).hexdigest()
@@ -335,7 +335,7 @@ class ProcessTestCase(TestCase):
 
         """
         field = dict_dot(obj.output, field_path)
-        output = os.path.join(settings.FLOW_EXECUTOR['DATA_PATH'], str(obj.pk), field['file'])
+        output = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(obj.pk), field['file'])
 
         if not os.path.isfile(output):
             self.fail(msg="File {} does not exist.".format(field_path))
@@ -387,7 +387,7 @@ class ProcessTestCase(TestCase):
         """Return data's debugging information."""
         msg_header = "Debugging information for data object {}".format(data.pk)
         msg = "\n\n" + len(msg_header)*"=" + "\n" + msg_header + "\n" + len(msg_header)*"=" + "\n"
-        path = os.path.join(settings.FLOW_EXECUTOR['DATA_PATH'], str(data.pk), "stdout.txt")
+        path = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.pk), "stdout.txt")
         if os.path.isfile(path):
             msg += "\nstdout.txt:\n" + 11*"-" + "\n"
             with open(path, 'r') as fn:

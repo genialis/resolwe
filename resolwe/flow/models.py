@@ -596,7 +596,7 @@ def _hydrate_values(output, output_schema, data):
                     fn = fn[fn.find(id) + len(id_):]  # remove id from filename
 
                 value['file'] = os.path.join(
-                    settings.FLOW_EXECUTOR['DATA_PATH'], id_, fn)
+                    settings.FLOW_EXECUTOR['DATA_DIR'], id_, fn)
 
             elif field_schema['type'].startswith('basic:json:'):
                 if re.match('^[0-9a-fA-F]{24}$', str(value)) is None:
@@ -629,7 +629,7 @@ def hydrate_input_uploads(input_, input_schema, hydrate_values=True):
             if isinstance(value['file_temp'], six.string_types):
                 # If file_temp not url, nor absolute path: hydrate path
                 if not os.path.isabs(value['file_temp']) and not urlregex.search(value['file_temp']):
-                    value['file_temp'] = os.path.join(settings.FLOW_EXECUTOR['UPLOAD_PATH'], value['file_temp'])
+                    value['file_temp'] = os.path.join(settings.FLOW_EXECUTOR['UPLOAD_DIR'], value['file_temp'])
             else:
                 # Something very strange happened
                 value['file_temp'] = 'Invalid value for file_temp in DB'

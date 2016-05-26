@@ -102,8 +102,8 @@ PEP8_RCFILE = '.pep8rc'
 
 FLOW_EXECUTOR = {
     'NAME': 'resolwe.flow.executors.local',
-    'DATA_PATH': os.path.join(PROJECT_ROOT, '.data'),
-    'UPLOAD_PATH': os.path.join(PROJECT_ROOT, '.upload'),
+    'DATA_DIR': os.path.join(PROJECT_ROOT, '.test_data'),
+    'UPLOAD_DIR': os.path.join(PROJECT_ROOT, '.test_upload'),
 }
 # Set custom executor command if set via environment variable
 if 'RESOLWE_EXECUTOR_COMMAND' in os.environ:

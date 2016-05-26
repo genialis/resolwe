@@ -19,7 +19,7 @@ class ExpressionEngine(BaseExpressionEngine):
 
             inputs['proc'] = {
                 'data_id': data.id,
-                'data_path': settings.FLOW_EXECUTOR['DATA_PATH'],
+                'data_dir': settings.FLOW_EXECUTOR['DATA_DIR'],
             }
 
             script_template = data.process.run.get('bash', '')

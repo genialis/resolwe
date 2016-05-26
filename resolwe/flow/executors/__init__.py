@@ -82,7 +82,7 @@ class BaseFlowExecutor(object):
 
         dir_mode = settings.FLOW_EXECUTOR.get('DATA_DIR_MODE', 0o755)
 
-        output_path = os.path.join(settings.FLOW_EXECUTOR['DATA_PATH'], str(data_id))
+        output_path = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data_id))
 
         os.mkdir(output_path)
         # os.mkdir is not guaranteed to set the given mode

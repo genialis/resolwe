@@ -416,7 +416,7 @@ system variables:
 
 * ``proc.data_id``: id of the data object
 
-* ``proc.data_path``: file system path to the data object
+* ``proc.data_dir``: file system path of the data object's directory
 
 * ``proc.slugs_path``: file system path to Resolwe's slugs
 
@@ -445,7 +445,7 @@ Outputs
 
 Processes have three options for storing the results:
 
-* as files in data object's directory (i.e. ``{{ proc.data_path }}``)
+* as files in data object's directory (i.e. ``{{ proc.data_dir }}``)
 * as constants in process's output fields
 * as entries in the MongoDB data storage
 

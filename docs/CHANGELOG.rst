@@ -24,6 +24,13 @@ Changed
 - Simplify ``ProcessTestCase`` by removing the logic for handling different
   uid/gid of the user running inside the Docker container
 - Upgrade to django-guardian 1.4.2
+- Rename ``FLOW_EXECUTOR['DATA_PATH']`` setting to
+  ``FLOW_EXECUTOR['DATA_DIR']``
+- Rename ``FLOW_EXECUTOR['UPLOAD_PATH']`` setting to
+  ``FLOW_EXECUTOR['UPLOAD_DIR']``
+- Rename ``proc.data_path`` system variable to ``proc.data_dir``
+- Rename test project's data and upload directories to ``.test_data`` and
+  ``.test_upload``
 
 Fixed
 -----

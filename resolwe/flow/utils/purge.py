@@ -19,8 +19,8 @@ def data_purge(data_ids=None, delete=False, verbosity=1):
     If delete is True, delete unreferenced files.
 
     """
-    data_path = settings.FLOW_EXECUTOR['data_path']
-    path_offset = len(data_path) + 24 + 2
+    data_dir = settings.FLOW_EXECUTOR['DATA_DIR']
+    path_offset = len(data_dir) + 24 + 2
 
     def remove_file(fn, paths):
         """From paths remove fn and dirs before fn in dir tree."""
@@ -60,16 +60,16 @@ def data_purge(data_ids=None, delete=False, verbosity=1):
 
         purge = set(data_ids)
     else:
-        purge = set(os.listdir(data_path))
+        purge = set(os.listdir(data_dir))
 
     # Remove not referenced
     purge = purge.difference(str(d.id) for d in check.only('pk'))
-    purge = [os.path.join(data_path, p) for p in purge]
+    purge = [os.path.join(data_dir, p) for p in purge]
 
     check = check.filter(status__in=finished)
 
     for d in check:
-        root = os.path.join(data_path, str(d.id))
+        root = os.path.join(data_dir, str(d.id))
         subs = subfiles(root)
 
         meta_fields = [

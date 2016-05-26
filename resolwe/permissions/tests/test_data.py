@@ -49,7 +49,7 @@ class DataTestCase(ResolweAPITestCase):
 
     def tearDown(self):
         for data in Data.objects.all():
-            data_dir = os.path.join(settings.FLOW_EXECUTOR['DATA_PATH'], str(data.id))
+            data_dir = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.id))
             shutil.rmtree(data_dir, ignore_errors=True)
 
     def test_get_list(self):
