@@ -11,14 +11,14 @@
     content_type: [flow, collection]
     object_pk: 1
     permission: [view_collection, flow, collection]
-    user: -1
+    user: [public]
 
 - model: guardian.userobjectpermission
   fields:
     content_type: [flow, collection]
     object_pk: 1
     permission: [download_collection, flow, collection]
-    user: -1
+    user: [public]
 
 # COLLECTION 2
 
@@ -29,7 +29,7 @@
     content_type: [flow, collection]
     object_pk: 3
     permission: [view_collection, flow, collection]
-    user: -1
+    user: [public]
 
 # DATA 1
 
@@ -38,14 +38,14 @@
     content_type: [flow, data]
     object_pk: 1
     permission: [view_data, flow, data]
-    user: -1
+    user: [public]
 
 - model: guardian.userobjectpermission
   fields:
     content_type: [flow, data]
     object_pk: 1
     permission: [download_data, flow, data]
-    user: -1
+    user: [public]
 
 # PROCESS 1
 
@@ -54,7 +54,7 @@
     content_type: [flow, process]
     object_pk: 1
     permission: [view_process, flow, process]
-    user: -1
+    user: [public]
 
 #########
 # USER1 #
@@ -67,35 +67,35 @@
     content_type: [flow, collection]
     object_pk: 1
     permission: [view_collection, flow, collection]
-    user: 1
+    user: [user1]
 
 - model: guardian.userobjectpermission
   fields:
     content_type: [flow, collection]
     object_pk: 1
     permission: [edit_collection, flow, collection]
-    user: 1
+    user: [user1]
 
 - model: guardian.userobjectpermission
   fields:
     content_type: [flow, collection]
     object_pk: 1
     permission: [share_collection, flow, collection]
-    user: 1
+    user: [user1]
 
 - model: guardian.userobjectpermission
   fields:
     content_type: [flow, collection]
     object_pk: 1
     permission: [download_collection, flow, collection]
-    user: 1
+    user: [user1]
 
 - model: guardian.userobjectpermission
   fields:
     content_type: [flow, collection]
     object_pk: 1
     permission: [add_collection, flow, collection]
-    user: 1
+    user: [user1]
 
 # COLLECTION 2
 
@@ -104,28 +104,28 @@
     content_type: [flow, collection]
     object_pk: 2
     permission: [view_collection, flow, collection]
-    user: 1
+    user: [user1]
 
 - model: guardian.userobjectpermission
   fields:
     content_type: [flow, collection]
     object_pk: 2
     permission: [edit_collection, flow, collection]
-    user: 1
+    user: [user1]
 
 - model: guardian.userobjectpermission
   fields:
     content_type: [flow, collection]
     object_pk: 2
     permission: [download_collection, flow, collection]
-    user: 1
+    user: [user1]
 
 - model: guardian.userobjectpermission
   fields:
     content_type: [flow, collection]
     object_pk: 2
     permission: [add_collection, flow, collection]
-    user: 1
+    user: [user1]
 
 # COLLECTION 3
 
@@ -134,7 +134,7 @@
     content_type: [flow, collection]
     object_pk: 3
     permission: [edit_collection, flow, collection]
-    user: 1
+    user: [user1]
 
 # DATA 1
 
@@ -143,28 +143,28 @@
     content_type: [flow, data]
     object_pk: 1
     permission: [view_data, flow, data]
-    user: 1
+    user: [user1]
 
 - model: guardian.userobjectpermission
   fields:
     content_type: [flow, data]
     object_pk: 1
     permission: [edit_data, flow, data]
-    user: 1
+    user: [user1]
 
 - model: guardian.userobjectpermission
   fields:
     content_type: [flow, data]
     object_pk: 1
     permission: [share_data, flow, data]
-    user: 1
+    user: [user1]
 
 - model: guardian.userobjectpermission
   fields:
     content_type: [flow, data]
     object_pk: 1
     permission: [download_data, flow, data]
-    user: 1
+    user: [user1]
 
 # DATA 2
 
@@ -173,14 +173,14 @@
     content_type: [flow, data]
     object_pk: 2
     permission: [view_data, flow, data]
-    user: 1
+    user: [user1]
 
 - model: guardian.userobjectpermission
   fields:
     content_type: [flow, data]
     object_pk: 2
     permission: [edit_data, flow, data]
-    user: 1
+    user: [user1]
 
 # PROCESS 1
 
@@ -189,14 +189,14 @@
     content_type: [flow, process]
     object_pk: 1
     permission: [view_process, flow, process]
-    user: 1
+    user: [user1]
 
 - model: guardian.userobjectpermission
   fields:
     content_type: [flow, process]
     object_pk: 1
     permission: [share_process, flow, process]
-    user: 1
+    user: [user1]
 
 # PROCESS 2
 
@@ -205,7 +205,7 @@
     content_type: [flow, process]
     object_pk: 2
     permission: [view_process, flow, process]
-    user: 1
+    user: [user1]
 
 #########
 # USER2 #
@@ -218,14 +218,14 @@
     content_type: [flow, collection]
     object_pk: 1
     permission: [view_collection, flow, collection]
-    user: 2
+    user: [user2]
 
 - model: guardian.userobjectpermission
   fields:
     content_type: [flow, collection]
     object_pk: 1
     permission: [edit_collection, flow, collection]
-    user: 2
+    user: [user2]
 
 # COLLECTION 2
 
@@ -242,7 +242,7 @@
     content_type: [flow, collection]
     object_pk: 1
     permission: [share_collection, flow, collection]
-    group: 1
+    group: [Group1]
 
 # COLLECTION 2
 
@@ -251,14 +251,14 @@
     content_type: [flow, collection]
     object_pk: 2
     permission: [view_collection, flow, collection]
-    group: 1
+    group: [Group1]
 
 - model: guardian.groupobjectpermission
   fields:
     content_type: [flow, collection]
     object_pk: 2
     permission: [edit_collection, flow, collection]
-    group: 1
+    group: [Group1]
 
 # COLLECTION 3
 

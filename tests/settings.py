@@ -62,7 +62,7 @@ AUTHENTICATION_BACKENDS = (
     'guardian.backends.ObjectPermissionBackend',
 )
 
-ANONYMOUS_USER_ID = -1
+ANONYMOUS_USER_NAME = 'public'
 
 # This is needed for runing concurrent tests on Jenkins
 toxenv = os.environ.get('TOXENV', '')

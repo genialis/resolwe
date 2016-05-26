@@ -25,7 +25,7 @@ class PermissionsTestCase(ResolweAPITestCase):
         data = {
             'users': {
                 'add': {
-                    2: ['download']
+                    self.user2.pk: ['download']
                 }
             },
             'groups': {
@@ -70,7 +70,7 @@ class PermissionsTestCase(ResolweAPITestCase):
         data = {
             'users': {
                 'remove': {
-                    2: ['view', 'edit'],
+                    self.user2.pk: ['view', 'edit'],
                     42: ['view'],
                 }
             },

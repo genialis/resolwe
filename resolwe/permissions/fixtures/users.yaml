@@ -3,6 +3,22 @@
 - model: "auth.user"
   pk: 1
   fields:
+    username: "public"
+    first_name: ""
+    last_name: ""
+    is_active: true
+    is_superuser: false
+    is_staff: false
+    last_login: null
+    groups: []
+    user_permissions: []
+    password: "!V5MfXiBOLEApKi5FiwS7eQ5b9FSdPPOMPQEgJQwA"
+    email: ""
+    date_joined: 2015-01-01T08:00:00.000
+
+- model: "auth.user"
+  pk: 2
+  fields:
     username: "user1"
     first_name: "User"
     last_name: "One"
@@ -17,7 +33,7 @@
     date_joined: 2015-01-01T08:00:00.000
 
 - model: "auth.user"
-  pk: 2
+  pk: 3
   fields:
     username: "user2"
     first_name: "User"
@@ -39,7 +55,7 @@
     permissions: []
 
 - model: "auth.user"
-  pk: 3
+  pk: 4
   fields:
     username: "user3"
     first_name: "User"
@@ -55,7 +71,7 @@
     date_joined: 2015-01-01T08:00:00.000
 
 - model: "auth.user"
-  pk: 4
+  pk: 5
   fields:
     username: "admin"
     first_name: "Admin"

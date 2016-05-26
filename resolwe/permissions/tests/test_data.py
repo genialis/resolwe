@@ -82,7 +82,7 @@ class DataTestCase(ResolweAPITestCase):
 
         self.assertTrue(now() - d.started < timedelta(seconds=1))
         self.assertTrue(now() - d.finished < timedelta(seconds=1))
-        self.assertEqual(d.contributor_id, 1)
+        self.assertEqual(d.contributor_id, self.user1.pk)
 
     def test_post_invalid_fields(self):
         data_n = Data.objects.count()
@@ -139,7 +139,7 @@ class DataTestCase(ResolweAPITestCase):
         self.assertEqual(resp.data['process_info'], [])
         self.assertEqual(resp.data['process_warning'], [])
         self.assertEqual(resp.data['process_error'], [])
-        self.assertEqual(resp.data['contributor'], 1)
+        self.assertEqual(resp.data['contributor'], self.user1.pk)
 
     def test_post_multiple_collections(self):
         self.data['collections'].append('2')
