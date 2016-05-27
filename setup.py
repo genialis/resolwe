@@ -54,7 +54,7 @@ setup(
         'djangorestframework==3.3.2',
         'djangorestframework-filters==0.8.0',
         'django-autoslug>=1.9.0',
-        'django-guardian>=1.4.0',
+        'django-guardian>=1.4.2',
         'django-mathfilters>=0.3.0',
         'django-versionfield2>=0.4.0',
         'psycopg2>=2.5.0',

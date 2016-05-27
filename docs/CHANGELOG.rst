@@ -22,6 +22,7 @@ Changed
 - Unify file loading in tests
 - Simplify ``ProcessTestCase`` by removing the logic for handling different
   uid/gid of the user running inside the Docker container
+- Upgrade to django-guardian 1.4.2
 
 Fixed
 -----
