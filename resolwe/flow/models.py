@@ -83,6 +83,7 @@ class Process(BaseModel):
         permissions = (
             ("view_process", "Can view process"),
             ("share_process", "Can share process"),
+            ("owner_process", "Is owner of the process"),
         )
 
     PERSISTENCE_RAW = 'RAW'
@@ -261,6 +262,7 @@ class Data(BaseModel):
             ("edit_data", "Can edit data"),
             ("share_data", "Can share data"),
             ("download_data", "Can download files from data"),
+            ("owner_data", "Is owner of the data"),
         )
 
     STATUS_UPLOADING = 'UP'
@@ -399,6 +401,7 @@ class DescriptorSchema(BaseModel):
             ("view_descriptorschema", "Can view descriptor schema"),
             ("edit_descriptorschema", "Can edit descriptor schema"),
             ("share_descriptorschema", "Can share descriptor schema"),
+            ("owner_descriptorschema", "Is owner of the description schema"),
         )
 
     #: detailed description
@@ -418,6 +421,7 @@ class Trigger(BaseModel):
             ("view_trigger", "Can view trigger"),
             ("edit_trigger", "Can edit trigger"),
             ("share_trigger", "Can share trigger"),
+            ("owner_trigger", "Is owner of the trigger"),
         )
 
     #: data type of triggering data objects
@@ -472,6 +476,7 @@ class BaseCollection(BaseModel):
             ("share_collection", "Can share collection"),
             ("download_collection", "Can download files from collection"),
             ("add_collection", "Can add data objects to collection"),
+            ("owner_collection", "Is owner of the collection"),
         )
 
     #: detailed description

@@ -1,10 +1,14 @@
 # -*- coding: utf-8 -*-
 
-import sys
+import django
 import os
-import shlex
 
 base_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
+
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tests.settings')
+
+# Manual setup is required for standalone Django usage
+django.setup()
 
 # Get package metadata from 'resolwe/__about__.py' file
 about = {}

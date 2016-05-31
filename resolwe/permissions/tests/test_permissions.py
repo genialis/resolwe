@@ -1,160 +1,240 @@
 # pylint: disable=missing-docstring
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-from guardian.models import GroupObjectPermission, UserObjectPermission
+from copy import deepcopy
+import unittest
 
-from rest_framework import status
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
+
+from guardian.models import GroupObjectPermission, UserObjectPermission
+from guardian.shortcuts import assign_perm
+from rest_framework import exceptions, status
 
 from .base import ResolweAPITestCase
 from resolwe.flow.models import Collection
-from resolwe.flow.views import CollectionViewSet
+from resolwe.flow.views import CollectionViewSet, ResolwePermissionsMixin
 
 
-class PermissionsTestCase(ResolweAPITestCase):
-    fixtures = ['users.yaml', 'collections.yaml', 'permissions.yaml']
-
+class CollectionPermissionsTestCase(ResolweAPITestCase):
     def setUp(self):
-        self.collection1 = Collection.objects.get(pk=1)
+        self.user1 = get_user_model().objects.create(username="test_user1")
+        self.user2 = get_user_model().objects.create(username="test_user2")
+        # public user is already created bt django-guardian
+        self.public = get_user_model().objects.get(username="public")
+
+        self.group = Group.objects.create(name="Test group")
+
+        self.collection = Collection.objects.create(
+            contributor=self.user1,
+            name="Test collection 1"
+        )
 
         self.resource_name = 'collection'
         self.viewset = CollectionViewSet
 
-        super(PermissionsTestCase, self).setUp()
+        super(CollectionPermissionsTestCase, self).setUp()
 
-    def test_add_permissions(self):
-        data = {
+    def test_public_user(self):
+        """Public user cannot create/edit anything"""
+        assign_perm("view_collection", self.user1, self.collection)
+        assign_perm("share_collection", self.user1, self.collection)
+
+        data = {'public': {'add': ['view']}}
+        resp = self._detail_permissions(self.collection.pk, data, self.user1)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+
+        data = {'public': {'add': ['edit']}}
+        resp = self._detail_permissions(self.collection.pk, data, self.user1)
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+        data = {'public': {'remove': ['edit']}}
+        resp = self._detail_permissions(self.collection.pk, data, self.user1)
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_user_without_share(self):
+        """User without ``SHARE`` permission cannot do anything"""
+        assign_perm("view_collection", self.user1, self.collection)
+        assign_perm("download_collection", self.user1, self.collection)
+        assign_perm("add_collection", self.user1, self.collection)
+        assign_perm("edit_collection", self.user1, self.collection)
+
+        # Can not add permissions to users.
+        data = {'users': {'add': {self.user2.pk: ['view']}}}
+        resp = self._detail_permissions(self.collection.pk, data, self.user1)
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+        # Can not add permissions to groups.
+        data = {'users': {'add': {self.group.pk: ['view']}}}
+        resp = self._detail_permissions(self.collection.pk, data, self.user1)
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+        # Can not remove permissions from users.
+        data = {'users': {'remove': {self.user2.pk: ['view']}}}
+        resp = self._detail_permissions(self.collection.pk, data, self.user1)
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+        # Can not remove permissions from groups.
+        data = {'users': {'remove': {self.group.pk: ['view']}}}
+        resp = self._detail_permissions(self.collection.pk, data, self.user1)
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_user_with_share(self):
+        """   """
+        assign_perm("view_collection", self.user1, self.collection)
+        assign_perm("share_collection", self.user1, self.collection)
+
+        # Can add permissions to users.
+        data = {'users': {'add': {self.user2.pk: ['view']}}}
+        resp = self._detail_permissions(self.collection.pk, data, self.user1)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(UserObjectPermission.objects.filter(user=self.user2).count(), 1)
+
+        # Can add permissions to groups.
+        data = {'groups': {'add': {self.group.pk: ['view']}}}
+        resp = self._detail_permissions(self.collection.pk, data, self.user1)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(GroupObjectPermission.objects.count(), 1)
+
+        # Can remove permissions from users.
+        data = {'users': {'remove': {self.user2.pk: ['view']}}}
+        resp = self._detail_permissions(self.collection.pk, data, self.user1)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(UserObjectPermission.objects.filter(user=self.user2).count(), 0)
+
+        # Can remove permissions from groups.
+        data = {'groups': {'remove': {self.group.pk: ['view']}}}
+        resp = self._detail_permissions(self.collection.pk, data, self.user1)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(GroupObjectPermission.objects.count(), 0)
+
+    def test_protect_owner(self):
+        """Only owners can modify ``owner``permission"""
+        assign_perm("view_collection", self.user1, self.collection)
+        assign_perm("download_collection", self.user1, self.collection)
+        assign_perm("add_collection", self.user1, self.collection)
+        assign_perm("edit_collection", self.user1, self.collection)
+        assign_perm("share_collection", self.user1, self.collection)
+
+        # User with share permission cannot grant ``owner`` permission
+        data = {'users': {'add': {self.user2.pk: ['owner']}}}
+        resp = self._detail_permissions(self.collection.pk, data, self.user1)
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(UserObjectPermission.objects.filter(user=self.user2).count(), 0)
+
+        # User with share permission cannot revoke ``owner`` permission
+        data = {'users': {'remove': {self.user2.pk: ['owner']}}}
+        resp = self._detail_permissions(self.collection.pk, data, self.user1)
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(UserObjectPermission.objects.filter(user=self.user2).count(), 0)
+
+        assign_perm("owner_collection", self.user1, self.collection)
+
+        # User with share permission can grant ``owner`` permission
+        data = {'users': {'add': {self.user2.pk: ['owner']}}}
+        resp = self._detail_permissions(self.collection.pk, data, self.user1)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(UserObjectPermission.objects.filter(user=self.user2).count(), 1)
+
+        # User with share permission can revoke ``owner`` permission
+        data = {'users': {'remove': {self.user2.pk: ['owner']}}}
+        resp = self._detail_permissions(self.collection.pk, data, self.user1)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(UserObjectPermission.objects.filter(user=self.user2).count(), 0)
+
+
+class PermissionsMixinTestCase(unittest.TestCase):
+    def setUp(self):
+        self.permissions_mixin = ResolwePermissionsMixin()
+
+    def test_filter_owner_permission(self):
+        """Check that ``owner`` permission is catched everywhere"""
+        data_template = {
             'users': {
                 'add': {
-                    self.user2.pk: ['download']
+                    1: ['view'],
+                    2: ['view', 'edit']
+                },
+                'remove': {
+                    3: ['view', 'edit']
                 }
             },
             'groups': {
                 'add': {
                     1: ['view', 'edit']
+                },
+                'remove': {
+                    2: ['view']
                 }
             }
         }
 
-        # user w/o perms
-        user_perms_n = UserObjectPermission.objects.count()
-        group_perms_n = GroupObjectPermission.objects.count()
-        resp = self._detail_permissions(2, data, self.user1)
-        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(UserObjectPermission.objects.count(), user_perms_n)
-        self.assertEqual(GroupObjectPermission.objects.count(), group_perms_n)
+        self.permissions_mixin._filter_owner_permission(data_template)
 
-        # add new permissions
-        user_perms_n = UserObjectPermission.objects.count()
-        group_perms_n = GroupObjectPermission.objects.count()
-        resp = self._detail_permissions(1, data, self.user1)
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(UserObjectPermission.objects.count(), user_perms_n + 1)
-        self.assertEqual(GroupObjectPermission.objects.count(), group_perms_n + 2)
+        data = deepcopy(data_template)
+        data['users']['add'][1].append('owner')
+        with self.assertRaises(exceptions.PermissionDenied):
+            self.permissions_mixin._filter_owner_permission(data)
 
-        # add already existing permissions
-        user_perms_n = UserObjectPermission.objects.count()
-        group_perms_n = GroupObjectPermission.objects.count()
-        resp = self._detail_permissions(1, data, self.user1)
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(UserObjectPermission.objects.count(), user_perms_n)
-        self.assertEqual(GroupObjectPermission.objects.count(), group_perms_n)
+        data = deepcopy(data_template)
+        data['users']['remove'][3].append('owner')
+        with self.assertRaises(exceptions.PermissionDenied):
+            self.permissions_mixin._filter_owner_permission(data)
 
-        # invalid permissions
-        data = {'users': {'add': {2: ['delete']}}}
-        user_perms_n = UserObjectPermission.objects.count()
-        resp = self._detail_permissions(1, data, self.user1)
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(UserObjectPermission.objects.count(), user_perms_n)
+        data = deepcopy(data_template)
+        data['groups']['add'][1].append('owner')
+        with self.assertRaises(exceptions.PermissionDenied):
+            self.permissions_mixin._filter_owner_permission(data)
 
-    def test_remove_permissions(self):
+        data = deepcopy(data_template)
+        data['groups']['remove'][2].append('owner')
+        with self.assertRaises(exceptions.PermissionDenied):
+            self.permissions_mixin._filter_owner_permission(data)
+
+    def test_filter_user_permissions(self):
+        """Check that user cannot change his own permissions"""
         data = {
             'users': {
+                'add': {
+                    1: ['view'],
+                },
                 'remove': {
-                    self.user2.pk: ['view', 'edit'],
-                    42: ['view'],
-                }
-            },
-            'groups': {
-                'remove': {
-                    1: ['share'],
-                    42: ['edit'],
+                    2: ['view', 'edit']
                 }
             }
         }
 
-        # user w/o perms
-        user_perms_n = UserObjectPermission.objects.count()
-        group_perms_n = GroupObjectPermission.objects.count()
-        resp = self._detail_permissions(2, data, self.user1)
-        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(UserObjectPermission.objects.count(), user_perms_n)
-        self.assertEqual(GroupObjectPermission.objects.count(), group_perms_n)
+        with self.assertRaises(exceptions.PermissionDenied):
+            self.permissions_mixin._filter_user_permissions(data, 1)
 
-        # remove existing permissions
-        user_perms_n = UserObjectPermission.objects.count()
-        group_perms_n = GroupObjectPermission.objects.count()
-        resp = self._detail_permissions(1, data, self.user1)
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(UserObjectPermission.objects.count(), user_perms_n - 2)
-        self.assertEqual(GroupObjectPermission.objects.count(), group_perms_n - 1)
+        with self.assertRaises(exceptions.PermissionDenied):
+            self.permissions_mixin._filter_user_permissions(data, 2)
 
-        # remove non-existing permissions
-        user_perms_n = UserObjectPermission.objects.count()
-        group_perms_n = GroupObjectPermission.objects.count()
-        resp = self._detail_permissions(1, data, self.user1)
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(UserObjectPermission.objects.count(), user_perms_n)
-        self.assertEqual(GroupObjectPermission.objects.count(), group_perms_n)
+        self.permissions_mixin._filter_user_permissions(data, 3)
 
-        # invalid permissions
-        data = {'users': {'remove': {2: ['delete']}}}
-        user_perms_n = UserObjectPermission.objects.count()
-        resp = self._detail_permissions(1, data, self.user1)
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(UserObjectPermission.objects.count(), user_perms_n)
+    def test_filter_public_permissions(self):
+        """Check that public user cannot get to open permissions"""
+        data = {'public': {'add': ['view']}}
+        self.permissions_mixin._filter_public_permissions(data)
 
-        # non-existing user
-        data = {'users': {'remove': {42: ['edit']}}}
-        user_perms_n = UserObjectPermission.objects.count()
-        resp = self._detail_permissions(1, data, self.user1)
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(UserObjectPermission.objects.count(), user_perms_n)
+        data = {'public': {'add': ['download']}}
+        self.permissions_mixin._filter_public_permissions(data)
 
-    def test_public_permissions(self):
-        data = {
-            'public': {
-                'add': ['edit', 'share']
-            },
-        }
-        user_perms_n = UserObjectPermission.objects.count()
-        resp = self._detail_permissions(1, data, self.user1)
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(UserObjectPermission.objects.count(), user_perms_n)
+        data = {'public': {'add': ['add']}}
+        self.permissions_mixin._filter_public_permissions(data)
 
-        data = {
-            'public': {
-                'remove': ['view']
-            },
-        }
-        user_perms_n = UserObjectPermission.objects.count()
-        resp = self._detail_permissions(1, data, self.user1)
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(UserObjectPermission.objects.count(), user_perms_n - 1)
+        data = {'public': {'add': ['edit']}}
+        with self.assertRaises(exceptions.PermissionDenied):
+            self.permissions_mixin._filter_public_permissions(data)
 
-    def test_unauthorized_set(self):
-        # registered user w/o perms
-        user_perms_n = UserObjectPermission.objects.count()
-        group_perms_n = GroupObjectPermission.objects.count()
-        data = {'users': {'add': {2: ['download']}}}
-        resp = self._detail_permissions(1, data, self.user2)
-        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(UserObjectPermission.objects.count(), user_perms_n)
-        self.assertEqual(GroupObjectPermission.objects.count(), group_perms_n)
+        data = {'public': {'add': ['share']}}
+        with self.assertRaises(exceptions.PermissionDenied):
+            self.permissions_mixin._filter_public_permissions(data)
 
-        # public user
-        user_perms_n = UserObjectPermission.objects.count()
-        group_perms_n = GroupObjectPermission.objects.count()
-        resp = self._detail_permissions(1, {'users': {'add': {2: ['view', 'edit']}}})
-        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(UserObjectPermission.objects.count(), user_perms_n)
-        self.assertEqual(GroupObjectPermission.objects.count(), group_perms_n)
+        data = {'public': {'add': ['owner']}}
+        with self.assertRaises(exceptions.PermissionDenied):
+            self.permissions_mixin._filter_public_permissions(data)
+
+        data = {'public': {'add': ['view', 'edit']}}
+        with self.assertRaises(exceptions.PermissionDenied):
+            self.permissions_mixin._filter_public_permissions(data)

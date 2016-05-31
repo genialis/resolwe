@@ -16,6 +16,8 @@ Added
 - Explicitly set working directory inside the container to the mapped directory
   of the current ``Data``'s directory
 - Allow overriding any ``FLOW_EXECUTOR`` setting for testing
+- Support GET request on /api/<model>/<id>/permissons/ url
+- Add OWNER permissions
 
 Changed
 -------
@@ -31,6 +33,7 @@ Changed
 - Rename ``proc.data_path`` system variable to ``proc.data_dir``
 - Rename test project's data and upload directories to ``.test_data`` and
   ``.test_upload``
+- Serve permissions in new format
 
 Fixed
 -----

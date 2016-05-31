@@ -32,7 +32,7 @@ from .models import Collection, Process, Data, DescriptorSchema, Trigger, Storag
 from .serializers import (CollectionSerializer, ProcessSerializer, DataSerializer,
                           DescriptorSchemaSerializer, TriggerSerializer, StorageSerializer)
 
-from resolwe.permissions.shortcuts import get_user_group_perms
+from resolwe.permissions.shortcuts import get_object_perms
 
 
 def assign_perm(*args, **kwargs):
@@ -217,23 +217,16 @@ class ResolwePermissionsMixin(object):
 
 
     """
-    def filter_public_permisions(self, perms):
-        """Return list of parameters applicable for public user.
-
-        :param list perms: List of permissions to filter
-        :return: List of parameters
-        :rtype: list
-
-        """
-        return [perm for perm in perms if perm.startswith('view') or perm.startswith('download')]
 
     def _fetch_user(self, query):
+        """Get user by ``pk`` or ``email``. Return ``None`` if doesn't exist."""
         try:
             return get_user_model().objects.get(Q(pk=query) | Q(email=query))
         except get_user_model().DoesNotExist:
             return None
 
     def _fetch_group(self, query):
+        """Get group by ``pk`` or ``name``. Return ``None`` if doesn't exist."""
         try:
             return Group.objects.get(Q(pk=query) | Q(name=query))
         except Group.DoesNotExist:
@@ -267,28 +260,11 @@ class ResolwePermissionsMixin(object):
             perms = data.get('public', {}).get(perm_type, [])
             if perms == u'ALL':
                 perms = full_permissions
-            perms = self.filter_public_permisions(perms)
             for perm in perms:
                 perm_func('{}_{}'.format(perm.lower(), content_type), user, obj)
 
         set_public_permissions('add')
         set_public_permissions('remove')
-
-    def _get_object_permissions(self, user, instance):
-        def format_permissions(perms):
-            return [perm.replace('_{}'.format(instance._meta.model_name), '') for perm in perms]
-
-        if user.is_authenticated():
-            permissions_user, permissions_group = get_user_group_perms(user, instance)
-        else:
-            permissions_user, permissions_group = [], []
-        permissions_public = shortcuts.get_perms(AnonymousUser(), instance)
-
-        return {
-            'user': format_permissions(permissions_user),
-            'group': format_permissions(permissions_group),
-            'public': format_permissions(permissions_public),
-        }
 
     def get_serializer_class(self):
         # Augment the base serializer class to include permissions information with objects.
@@ -298,29 +274,70 @@ class ResolwePermissionsMixin(object):
             def to_representation(serializer, instance):
                 # TODO: These permissions queries may be expensive. Should we limit or optimize this?
                 data = super(SerializerWithPermissions, serializer).to_representation(instance)
-                data['permissions'] = self._get_object_permissions(self.request.user, instance)
+                data['permissions'] = get_object_perms(instance, self.request.user)
                 return data
 
         return SerializerWithPermissions
 
+    def _filter_owner_permission(self, data):
+        """Raise ``PermissionDenied``if ``owner`` found in ``data``"""
+        for entity_type in ['users', 'groups']:
+            if entity_type in data:
+                for perm_type in ['add', 'remove']:
+                    if perm_type in data[entity_type]:
+                        for entity_id in data[entity_type][perm_type]:
+                            for perm in data[entity_type][perm_type][entity_id]:
+                                if perm == 'owner':
+                                    raise exceptions.PermissionDenied("Only owners can grant/revoke owner permission")
+
+    def _filter_public_permissions(self, data):
+        """Raise ``PermissionDenied`` if public permissions are too open"""
+
+        ALLOWED_PUBLIC_PERMISSIONS = ['view', 'add', 'download']
+
+        if 'public' in data:
+            for perm_type in ['add', 'remove']:
+                if perm_type in data['public']:
+                    for perm in data['public'][perm_type]:
+                        if perm not in ALLOWED_PUBLIC_PERMISSIONS:
+                            raise exceptions.PermissionDenied("Permissions for public users are too open")
+
+    def _filter_user_permissions(self, data, user_pk):
+        """Raise ``PermissionDenied`` if ``data`` includes ``user_pk``"""
+        if 'users' in data:
+            for perm_type in ['add', 'remove']:
+                if perm_type in data['users']:
+                    if user_pk in data['users'][perm_type].keys():
+                        raise exceptions.PermissionDenied("You cannot change your own permissions")
+
     @detail_route(methods=[u'post'], url_path='permissions')
-    def detail_permissions(self, request, pk=None):
+    def set_detail_permissions(self, request, pk=None):
+        """API endpoint for setting permissions"""
         obj = self.get_object()
         content_type = ContentType.objects.get_for_model(obj)
 
-        if not request.user.has_perm('share_{}'.format(content_type), obj=obj):
-            if request.user.is_authenticated():
-                raise exceptions.PermissionDenied()
-            else:
-                raise exceptions.NotFound()
+        if not request.user.has_perm('owner_{}'.format(content_type), obj=obj):
+            self._filter_owner_permission(request.data)
+        self._filter_public_permissions(request.data)
+        self._filter_user_permissions(request.data, request.user.pk)
 
         self._update_permission(obj, request.data)
 
-        # resp = UserObjectPermission.objects.filter(object_pk=obj.pk)
-        return Response()
+        return Response(get_object_perms(obj))
+
+    @detail_route(methods=[u'get'], url_path='permissions')
+    def get_detail_permissions(self, request, pk=None):
+        """API endpoint for getting permissions"""
+        obj = self.get_object()
+        return Response(get_object_perms(obj))
 
     @list_route(methods=[u'post'], url_path='permissions')
-    def list_permissions(self, request):
+    def set_list_permissions(self, request):
+        # TODO
+        return Response(status=status.HTTP_501_NOT_IMPLEMENTED)
+
+    @list_route(methods=[u'get'], url_path='permissions')
+    def get_list_permissions(self, request):
         # TODO
         return Response(status=status.HTTP_501_NOT_IMPLEMENTED)
 
@@ -335,14 +352,12 @@ class ResolweProcessPermissionsMixin(ResolwePermissionsMixin):
                 for _id in data['collections']['add']:
                     try:
                         Collection.objects.get(pk=_id).public_processes.add(obj)
-                        # obj.collections.add(Collection.objects.get(pk=_id))
                     except Collection.DoesNotExist:
                         pass
             if 'remove' in data['collections']:
                 for _id in data['collections']['remove']:
                     try:
                         Collection.objects.get(pk=_id).public_processes.remove(obj)
-                        # obj.collections.remove(Collection.objects.get(pk=_id))
                     except Collection.DoesNotExist:
                         pass
 

@@ -4,6 +4,8 @@ Custom permissions for Flow API.
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+from django.contrib.contenttypes.models import ContentType
+
 from rest_framework import permissions
 
 
@@ -28,6 +30,12 @@ class ResolwePermissions(permissions.DjangoObjectPermissions):
     def has_object_permission(self, request, view, obj):
         # admins can do anything
         if request.user.is_superuser:
+            return True
+
+        # owners can do anything
+        content_type = ContentType.objects.get_for_model(obj)
+        perm = 'owner_{}'.format(content_type.name)
+        if request.user.has_perm(perm, obj):
             return True
 
         # `share` permission is required for editing permissions

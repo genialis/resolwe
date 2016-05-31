@@ -1,3 +1,8 @@
+"""
+.. autoclass:: ResolweAPITestCase
+
+"""
+
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 from django.contrib.auth.models import User
@@ -9,16 +14,66 @@ from rest_framework.test import APITestCase, APIRequestFactory, force_authentica
 
 @override_settings(CELERY_ALWAYS_EAGER=True)
 class ResolweAPITestCase(APITestCase):
+    """Base class for testing Resolwe REST API.
 
+    This class is derived from Django REST Framework's ``APITestCase``
+    class and has implemented some basic features that makes testing
+    Resolwe API easier. These features includes following functions:
+
+    .. automethod:: _get_list
+    .. automethod:: _get_detail
+    .. automethod:: _post
+    .. automethod:: _patch
+    .. automethod:: _delete
+    .. automethod:: _detail_permissions
+
+    It also has included 2 views made from referenced DRF's ``ViewSet``.
+    First mimic list view and has following links between request's
+    methods and ViewSet's methods:
+
+      *  ``GET`` -> ``list``
+      *  ``POST`` -> ``create``
+
+    Second mimic detail view and has following links between request's
+    methods and ViewSet's methods:
+
+      *  ``GET`` -> ``retrieve``
+      *  ``PUT`` -> ``update``
+      *  ``PATCH`` -> ``partial_update``
+      *  ``DELETE`` -> ``destroy``
+      *  ``POST`` -> ``permissions``
+
+    If any of the listed methods is not defined in the VievSet,
+    corresponding link is omitted.
+
+    .. note::
+        ``self.viewset`` (instance of DRF's ``Viewset``) and
+        ``self.resource_name`` (string) must be defined before calling
+        super ``setUp`` method to work properly.
+
+    ``self.factory`` is instance of DRF's ``APIRequestFactory``.
+
+    """
     def setUp(self):
         super(ResolweAPITestCase, self).setUp()
 
-        self.factory = APIRequestFactory()
+        # TODO: Remove this when removing fixtures
+        if User.objects.filter(pk=2).exists():
+            self.user1 = User.objects.get(pk=2)
+        if User.objects.filter(pk=3).exists():
+            self.user2 = User.objects.get(pk=3)
+        if User.objects.filter(pk=4).exists():
+            self.user3 = User.objects.get(pk=4)
+        if User.objects.filter(pk=5).exists():
+            self.admin = User.objects.get(pk=5)
 
-        self.user1 = User.objects.get(pk=2)
-        self.user2 = User.objects.get(pk=3)
-        self.user3 = User.objects.get(pk=4)
-        self.admin = User.objects.get(pk=5)
+        if not hasattr(self, 'viewset'):
+            raise KeyError("`self.viewset` must be defined in child class")
+
+        if not hasattr(self, 'resource_name'):
+            raise KeyError("`self.resource_name` must be defined in child class")
+
+        self.factory = APIRequestFactory()
 
         list_url_mapping = {}
         if hasattr(self.viewset, 'list'):
@@ -37,17 +92,33 @@ class ResolweAPITestCase(APITestCase):
             detail_url_mapping['patch'] = 'partial_update'
         if hasattr(self.viewset, 'destroy'):
             detail_url_mapping['delete'] = 'destroy'
-        if hasattr(self.viewset, 'detail_permissions'):
-            detail_url_mapping['post'] = 'detail_permissions'
+        if hasattr(self.viewset, 'set_detail_permissions'):
+            detail_url_mapping['post'] = 'set_detail_permissions'
 
         self.detail_view = self.viewset.as_view(detail_url_mapping)
 
-        self.detail_url = lambda pk: reverse('resolwe-api:{}-detail'.format(self.resource_name), kwargs={'pk': pk})
-        self.detail_permissions = lambda pk: reverse('resolwe-api:{}-permissions'.format(self.resource_name),
-                                                     kwargs={'pk': pk})
-        self.list_url = reverse('resolwe-api:collection-list')
+    def detail_url(self, pk):
+        return reverse('resolwe-api:{}-detail'.format(self.resource_name), kwargs={'pk': pk})
+
+    def detail_permissions(self, pk):
+        return reverse('resolwe-api:{}-permissions'.format(self.resource_name), kwargs={'pk': pk})
+
+    @property
+    def list_url(self):
+        return reverse('resolwe-api:{}-list'.format(self.resource_name))
 
     def _get_list(self, user=None):
+        """Make ``GET`` request to ``self.list_view`` view
+
+        If ``user`` is not ``None``, the given user is authenticated
+        before making the request.
+
+        :param user: User to authenticate in request
+        :type user: User object or None
+        :return: Rendered API response object
+        :rtype: rest_framework.response.Response
+
+        """
         request = self.factory.get(self.list_url, format='json')
         force_authenticate(request, user)
         resp = self.list_view(request)
@@ -55,6 +126,17 @@ class ResolweAPITestCase(APITestCase):
         return resp
 
     def _get_detail(self, pk, user=None):
+        """Make ``GET`` request to ``self.detail_view`` view
+
+        If ``user`` is not ``None``, the given user is authenticated
+        before making the request.
+
+        :param int pk: Primary key of the coresponding object
+        :param user: User to authenticate in request
+        :type user: User object or None
+        :return: Rendered API response object
+        :rtype: rest_framework.response.Response
+        """
         request = self.factory.get(self.detail_url(pk), format='json')
         force_authenticate(request, user)
         resp = self.detail_view(request, pk=pk)
@@ -62,6 +144,17 @@ class ResolweAPITestCase(APITestCase):
         return resp
 
     def _post(self, data={}, user=None):
+        """Make ``POST`` request to ``self.list_view`` view
+
+        If ``user`` is not ``None``, the given user is authenticated
+        before making the request.
+
+        :param dict data: data for posting in request's body
+        :param user: User to authenticate in request
+        :type user: User object or None
+        :return: Rendered API response object
+        :rtype: rest_framework.response.Response
+        """
         request = self.factory.post(self.list_url, data=data, format='json')
         force_authenticate(request, user)
         resp = self.list_view(request)
@@ -69,6 +162,18 @@ class ResolweAPITestCase(APITestCase):
         return resp
 
     def _patch(self, pk, data={}, user=None):
+        """Make ``PATCH`` request to ``self.detail_view`` view
+
+        If ``user`` is not ``None``, the given user is authenticated
+        before making the request.
+
+        :param int pk: Primary key of the coresponding object
+        :param dict data: data for posting in request's body
+        :param user: User to authenticate in request
+        :type user: User object or None
+        :return: Rendered API response object
+        :rtype: rest_framework.response.Response
+        """
         request = self.factory.patch(self.detail_url(pk), data=data, format='json')
         force_authenticate(request, user)
         resp = self.detail_view(request, pk=pk)
@@ -76,6 +181,17 @@ class ResolweAPITestCase(APITestCase):
         return resp
 
     def _delete(self, pk, user=None):
+        """Make ``DELETE`` request to ``self.detail_view`` view
+
+        If ``user`` is not ``None``, the given user is authenticated
+        before making the request.
+
+        :param int pk: Primary key of the coresponding object
+        :param user: User to authenticate in request
+        :type user: User object or None
+        :return: Rendered API response object
+        :rtype: rest_framework.response.Response
+        """
         request = self.factory.delete(self.detail_url(pk), format='json')
         force_authenticate(request, user)
         resp = self.detail_view(request, pk=pk)
@@ -83,6 +199,18 @@ class ResolweAPITestCase(APITestCase):
         return resp
 
     def _detail_permissions(self, pk, data={}, user=None):
+        """Make ``POST`` request to ``self.detail_view`` view
+
+        If ``user`` is not ``None``, the given user is authenticated
+        before making the request.
+
+        :param int pk: Primary key of the coresponding object
+        :param dict data: data for posting in request's body
+        :param user: User to authenticate in request
+        :type user: User object or None
+        :return: Rendered API response object
+        :rtype: rest_framework.response.Response
+        """
         request = self.factory.post(self.detail_permissions(pk), data=data, format='json')
         force_authenticate(request, user)
         resp = self.detail_view(request, pk=pk)
