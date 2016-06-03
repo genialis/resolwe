@@ -145,7 +145,7 @@ class Process(BaseModel):
     #: template for name of Data object created with Process
     data_name = models.CharField(max_length=200, null=True, blank=True)
 
-    input_schema = JSONField(blank=True, default=[])
+    input_schema = JSONField(blank=True, default=list)
     """
     process input schema (describes input parameters, form layout **"Inputs"** for :attr:`Data.input`)
 
@@ -157,7 +157,7 @@ class Process(BaseModel):
 
     """
 
-    output_schema = JSONField(blank=True, default=[])
+    output_schema = JSONField(blank=True, default=list)
     """
     process output schema (describes output JSON, form layout **"Results"** for :attr:`Data.output`)
 
@@ -192,7 +192,7 @@ class Process(BaseModel):
 
     """
 
-    run = JSONField(default={})
+    run = JSONField(default=dict)
     """
     process command and environment description for internal use
 
@@ -331,16 +331,16 @@ class Data(BaseModel):
     process_error = ArrayField(models.CharField(max_length=255), default=[])
 
     #: actual inputs used by the processor
-    input = JSONField(default={})
+    input = JSONField(default=dict)
 
     #: actual outputs of the processor
-    output = JSONField(default={})
+    output = JSONField(default=dict)
 
     #: data descriptor schema
     descriptor_schema = models.ForeignKey('DescriptorSchema', blank=True, null=True, on_delete=models.PROTECT)
 
     #: actual descriptor
-    descriptor = JSONField(default={})
+    descriptor = JSONField(default=dict)
 
     # track if user set the data name explicitly
     named_by_user = models.BooleanField(default=False)
@@ -408,7 +408,7 @@ class DescriptorSchema(BaseModel):
     description = models.TextField(blank=True)
 
     #: user descriptor schema represented as a JSON object
-    schema = JSONField(default={})
+    schema = JSONField(default=dict)
 
 
 class Trigger(BaseModel):
@@ -443,7 +443,7 @@ class Trigger(BaseModel):
     process = models.ForeignKey('Process', blank=True, null=True, on_delete=models.SET_NULL)
 
     #: input settings of the processor
-    input = JSONField(default={})
+    input = JSONField(default=dict)
 
     #: corresponding collection
     collection = models.ForeignKey('Collection')
@@ -504,7 +504,7 @@ class BaseCollection(BaseModel):
     #: detailed description
     description = models.TextField(blank=True)
 
-    settings = JSONField(default={})
+    settings = JSONField(default=dict)
 
     public_processes = models.ManyToManyField(Process)
 
@@ -514,7 +514,7 @@ class BaseCollection(BaseModel):
     descriptor_schema = models.ForeignKey(DescriptorSchema, blank=True, null=True, on_delete=models.PROTECT)
 
     #: collection descriptor
-    descriptor = JSONField(default={})
+    descriptor = JSONField(default=dict)
 
 
 class Collection(BaseCollection):
