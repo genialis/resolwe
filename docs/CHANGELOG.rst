@@ -34,6 +34,8 @@ Changed
 - Rename test project's data and upload directories to ``.test_data`` and
   ``.test_upload``
 - Serve permissions in new format
+- Rename ``assertFiles`` method in ``ProcessTestCase`` to ``assertFile`` and
+  add new ``assertFiles`` method to check ``list:basic:file`` field
 
 Fixed
 -----
