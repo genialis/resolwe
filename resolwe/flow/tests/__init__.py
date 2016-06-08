@@ -263,34 +263,7 @@ class ProcessTestCase(TestCase):
                          msg="Field 'output.{}' mismatch: {} != {}".format(path, field, str(value)) +
                          self._debug_info(obj))
 
-    def assertFiles(self, obj, field_path, fn, compression=None, filter=lambda _: False):  # pylint: disable=invalid-name
-        """Compare output file of a processor to the given correct file.
-
-        :param obj: Data object which includes file that we want to
-            compare.
-        :type obj: :obj:`resolwe.flow.models.Data`
-
-        :param field_path: Path to file name in Data object.
-        :type field_path: :obj:`str`
-
-        :param fn: File name (and relative path) of file to which we
-            want to compare. Name/path is relative to ``tests/files``
-            folder of a Django application.
-        :type fn: :obj:`str`
-
-        :param compression: If not None, files will be uncompressed with
-            the appropriate compression library before comparison.
-            Currently supported compression formats are "gzip" and
-            "zip".
-        :type compression: :obj:`str`
-
-        :param filter: Function for filtering the contents of output files. It
-            is used in :obj:`itertools.filterfalse` function and takes one
-            parameter, a line of the output file. If it returns `True`, the
-            line is excluded from comparison of the two files.
-        :type filter: :obj:`function`
-
-        """
+    def _assert_file(self, obj, fn_tested, fn_correct, compression=None, filter=lambda _: False):
         open_kwargs = {}
         if compression is None:
             open_fn = open
@@ -304,24 +277,88 @@ class ProcessTestCase(TestCase):
         else:
             raise ValueError("Unsupported compression format.")
 
-        field = dict_dot(obj.output, field_path)
-        output = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(obj.pk), field['file'])
+        output = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(obj.pk), fn_tested)
         with open_fn(output, **open_kwargs) as output_file:
             output_contents = b"".join([line for line in filterfalse(filter, output_file)])
         output_hash = hashlib.sha256(output_contents).hexdigest()
 
-        wanted = os.path.join(self.files_path, fn)
+        correct_path = os.path.join(self.files_path, fn_correct)
 
-        if not os.path.isfile(wanted):
-            shutil.copyfile(output, wanted)
-            self.fail(msg="Output file {} missing so it was created.".format(fn))
+        if not os.path.isfile(correct_path):
+            shutil.copyfile(output, correct_path)
+            self.fail(msg="Output file {} missing so it was created.".format(fn_correct))
 
-        with open_fn(wanted, **open_kwargs) as wanted_file:
-            wanted_contents = b"".join([line for line in filterfalse(filter, wanted_file)])
-        wanted_hash = hashlib.sha256(wanted_contents).hexdigest()
-        self.assertEqual(wanted_hash, output_hash,
+        with open_fn(correct_path, **open_kwargs) as correct_file:
+            correct_contents = b"".join([line for line in filterfalse(filter, correct_file)])
+        correct_hash = hashlib.sha256(correct_contents).hexdigest()
+        self.assertEqual(correct_hash, output_hash,
                          msg="File contents hash mismatch: {} != {}".format(
-                             wanted_hash, output_hash) + self._debug_info(obj))
+                             correct_hash, output_hash) + self._debug_info(obj))
+
+    def assertFile(self, obj, field_path, fn, **kwargs):  # pylint: disable=invalid-name
+        """Compare process's output file to the given correct file
+
+        :param obj: Data object which includes file that we want to
+            compare.
+        :type obj: :obj:`resolwe.flow.models.Data`
+
+        :param str field_path: Path to list of file names in Data object.
+
+        :param str fn: File name (and relative path) of file to which we
+            want to compare. Name/path is relative to ``tests/files``
+            folder of a Django application.
+
+        :param compression: If not None, files will be uncompressed with
+            the appropriate compression library before comparison.
+            Currently supported compression formats are "gzip" and
+            "zip".
+        :type compression: :obj:`str`
+
+        :param filter: Function for filtering the contents of output
+            files. It is used in :obj:`itertools.filterfalse` function
+            and takes one parameter, a line of the output file. If it
+            returns `True`, the line is excluded from comparison of the
+            two files.
+        :type filter: :obj:`function`
+
+        """
+        field = dict_dot(obj.output, field_path)
+        self._assert_file(obj, field['file'], fn, **kwargs)
+
+    def assertFiles(self, obj, field_path, fn_list, **kwargs):  # pylint: disable=invalid-name
+        """Compare list of processes' output files to the given correct files
+
+        :param obj: Data object which includes files that we want to
+            compare.
+        :type obj: :obj:`resolwe.flow.models.Data`
+
+        :param str field_path: Path to list of file names in Data object.
+
+        :param list fn_list: List od file names (and relative paths) of
+            files to which we want to compare. Name/path is relative to
+            ``tests/files`` folder of a Django application.
+
+        :param compression: If not None, files will be uncompressed with
+            the appropriate compression library before comparison.
+            Currently supported compression formats are "gzip" and
+            "zip".
+        :type compression: :obj:`str`
+
+        :param filter: Function for filtering the contents of output
+            files. It is used in :obj:`itertools.filterfalse` function
+            and takes one parameter, a line of the output file. If it
+            returns `True`, the line is excluded from comparison of the
+            two files.
+        :type filter: :obj:`function`
+
+        """
+        field = dict_dot(obj.output, field_path)
+
+        if len(field) != len(fn_list):
+            self.fail(msg="Lengths of list:basic:file field and files list are not equal.")
+
+        for fn_tested, fn_correct in zip(field, fn_list):
+            self._assert_file(obj, fn_tested['file'], fn_correct, **kwargs)
 
     def assertFileExists(self, obj, field_path):  # pylint: disable=invalid-name
         """Compare output file of a processor to the given correct file.
