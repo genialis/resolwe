@@ -28,7 +28,7 @@ class TestingFrameworkTestCase(unittest.TestCase):
                 dummy_case._debug_info = lambda _: ""
                 dummy_case.assertEqual = self.assertEqual
                 obj_mock = mock.MagicMock()
-                self.assertRaises(AssertionError, ProcessTestCase.assertFiles,
+                self.assertRaises(AssertionError, ProcessTestCase._assert_file,
                                   dummy_case, obj_mock, "", "")
 
         @mock.patch("os.path.isfile")
@@ -46,6 +46,6 @@ class TestingFrameworkTestCase(unittest.TestCase):
                 obj_mock = mock.MagicMock()
                 def date_in_line(x):
                     return x.startswith(b"date")
-                ProcessTestCase.assertFiles(dummy_case, obj_mock, "", "", filter=date_in_line)
+                ProcessTestCase._assert_file(dummy_case, obj_mock, "", "", filter=date_in_line)
 
 
