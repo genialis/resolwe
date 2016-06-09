@@ -18,7 +18,7 @@
         type: 'basic:boolean:'
     modified: 2015-01-01T10:00:00.000
     name: 'test.process'
-    output_schema: ''
+    output_schema: []
     persistence: RAW
     slug: 'test_process'
     type: 'data:test:'
@@ -39,7 +39,7 @@
         validate_regex: '\.(txt|csv)(|\.gz|\.bz2|\.tgz|\.tar\.gz|\.tar\.bz2|\.zip|\.rar|\.7z)$'
     modified: 2015-01-01T09:00:00.000
     name: 'test.upload'
-    output_schema: ''
+    output_schema: []
     persistence: TMP
     slug: 'test_upload'
     type: 'data:test:'

@@ -31,6 +31,7 @@ import six
 from django import template
 from django.db import models
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.contrib.postgres.fields import ArrayField, JSONField
 from django.contrib.staticfiles import finders
@@ -349,6 +350,31 @@ class Data(BaseModel):
         super(Data, self).__init__(*args, **kwargs)
         self._original_name = self.name
 
+    def save_storage(self, instance, schema):
+        """Save basic:json values to a Storage collection."""
+
+        for field_schema, fields in iterate_fields(instance, schema):
+            name = field_schema['name']
+            value = fields[name]
+            if field_schema.get('type', '').startswith('basic:json:'):
+                if value and not self.pk:
+                    raise ValidationError(
+                        'Data object must be `created` before creating `basic:json:` fields')
+
+                if isinstance(value, int):
+                    # already in Storage
+                    continue
+
+                storage = Storage.objects.create(
+                    name='Storage for data id {}'.format(self.pk),
+                    contributor=self.contributor,
+                    data_id=self.pk,
+                    json=value,
+                )
+
+                # `value` is copied by value, so `fields[name]` must be changed
+                fields[name] = storage.pk
+
     def save(self, render_name=False, *args, **kwargs):
         # Generate the descriptor if one is not already set.
         if self.name != self._original_name:
@@ -371,6 +397,8 @@ class Data(BaseModel):
 
         if not self.descriptor:
             render_descriptor(self)
+
+        self.save_storage(self.output, self.process.output_schema)
 
         super(Data, self).save(*args, **kwargs)
 

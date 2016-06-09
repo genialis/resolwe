@@ -9,7 +9,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 
 from resolwe.flow.managers import manager
-from resolwe.flow.models import Data, Process
+from resolwe.flow.models import Data, Process, Storage
 
 
 class DataModelTest(TestCase):
@@ -104,3 +104,48 @@ class DataModelTest(TestCase):
 
         self.assertEqual(second.name, 'User\' data name')
         self.assertTrue(second.named_by_user)
+
+
+class StorageModelTestcase(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create(username="test_user")
+        self.proc = Process.objects.create(
+            name='Test process',
+            contributor=self.user,
+            output_schema=[
+                {'name': 'json_field', 'type': 'basic:json:'},
+            ],
+        )
+
+    def test_save_storage(self):
+        """`basic:json:` fields are stored in Storage"""
+        data = Data.objects.create(
+            name='Test data',
+            contributor=self.user,
+            process=self.proc,
+        )
+
+        data.output = {'json_field': {'foo': 'bar'}}
+        data.status = Data.STATUS_DONE
+        data.save()
+
+        self.assertEqual(Storage.objects.count(), 1)
+        storage = Storage.objects.first()
+        self.assertEqual(data.output['json_field'], storage.pk)
+
+    def test_delete_data(self):
+        """`Storage` is deleted when `Data` object is deleted"""
+        data = Data.objects.create(
+            name='Test data',
+            contributor=self.user,
+            process=self.proc,
+        )
+
+        data.output = {'json_field': {'foo': 'bar'}}
+        data.status = Data.STATUS_DONE
+        data.save()
+
+        self.assertEqual(Storage.objects.count(), 1)
+
+        data.delete()
+        self.assertEqual(Storage.objects.count(), 0)
