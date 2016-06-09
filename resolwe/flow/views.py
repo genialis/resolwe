@@ -219,18 +219,23 @@ class ResolwePermissionsMixin(object):
     """
 
     def _fetch_user(self, query):
-        """Get user by ``pk`` or ``email``. Return ``None`` if doesn't exist."""
+        """Get user by ``pk`` or ``username``. Return ``None`` if doesn't exist."""
+        User = get_user_model()
+
+        user_filter = {'pk': query} if query.isdigit() else {'username': query}
         try:
-            return get_user_model().objects.get(Q(pk=query) | Q(email=query))
-        except get_user_model().DoesNotExist:
-            return None
+            return User.objects.get(**user_filter)
+        except User.DoesNotExist:
+            raise exceptions.ParseError("User ({}) does not exists.".format(user_filter))
 
     def _fetch_group(self, query):
         """Get group by ``pk`` or ``name``. Return ``None`` if doesn't exist."""
+
+        group_filter = {'pk': query} if query.isdigit() else {'name': query}
         try:
-            return Group.objects.get(Q(pk=query) | Q(name=query))
+            return Group.objects.get(**group_filter)
         except Group.DoesNotExist:
-            return None
+            raise exceptions.ParseError("Group ({}) does not exists.".format(group_filter))
 
     def _update_permission(self, obj, data):
         content_type = ContentType.objects.get_for_model(obj)
@@ -310,34 +315,26 @@ class ResolwePermissionsMixin(object):
                     if user_pk in data['users'][perm_type].keys():
                         raise exceptions.PermissionDenied("You cannot change your own permissions")
 
-    @detail_route(methods=[u'post'], url_path='permissions')
-    def set_detail_permissions(self, request, pk=None):
-        """API endpoint for setting permissions"""
+    @detail_route(methods=['get', 'post'], url_path='permissions')
+    def detail_permissions(self, request, pk=None):
+        """API endpoint to get/set permissions"""
         obj = self.get_object()
-        content_type = ContentType.objects.get_for_model(obj)
 
-        if not request.user.has_perm('owner_{}'.format(content_type), obj=obj):
-            self._filter_owner_permission(request.data)
-        self._filter_public_permissions(request.data)
-        self._filter_user_permissions(request.data, request.user.pk)
+        if request.method == 'POST':
+            content_type = ContentType.objects.get_for_model(obj)
 
-        self._update_permission(obj, request.data)
+            owner_perm = 'owner_{}'.format(content_type)
+            if not (request.user.has_perm(owner_perm, obj=obj) or request.user.is_superuser):
+                self._filter_owner_permission(request.data)
+            self._filter_public_permissions(request.data)
+            self._filter_user_permissions(request.data, request.user.pk)
+
+            self._update_permission(obj, request.data)
 
         return Response(get_object_perms(obj))
 
-    @detail_route(methods=[u'get'], url_path='permissions')
-    def get_detail_permissions(self, request, pk=None):
-        """API endpoint for getting permissions"""
-        obj = self.get_object()
-        return Response(get_object_perms(obj))
-
-    @list_route(methods=[u'post'], url_path='permissions')
-    def set_list_permissions(self, request):
-        # TODO
-        return Response(status=status.HTTP_501_NOT_IMPLEMENTED)
-
-    @list_route(methods=[u'get'], url_path='permissions')
-    def get_list_permissions(self, request):
+    @list_route(methods=['get', 'post'], url_path='permissions')
+    def list_permissions(self, request):
         # TODO
         return Response(status=status.HTTP_501_NOT_IMPLEMENTED)
 

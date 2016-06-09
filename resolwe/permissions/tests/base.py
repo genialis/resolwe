@@ -92,8 +92,8 @@ class ResolweAPITestCase(APITestCase):
             detail_url_mapping['patch'] = 'partial_update'
         if hasattr(self.viewset, 'destroy'):
             detail_url_mapping['delete'] = 'destroy'
-        if hasattr(self.viewset, 'set_detail_permissions'):
-            detail_url_mapping['post'] = 'set_detail_permissions'
+        if hasattr(self.viewset, 'detail_permissions'):
+            detail_url_mapping['post'] = 'detail_permissions'
 
         self.detail_view = self.viewset.as_view(detail_url_mapping)
 
