@@ -590,25 +590,35 @@ def _hydrate_values(output, output_schema, data):
     Find fields with basic:json type and assign a JSON object from storage.
 
     """
+    def hydrate_file(file_name):
+        id_ = "{}/".format(data.id)  # needs trailing slash
+        if id_ in file_name:
+            file_name = file_name[file_name.find(id_) + len(id_):]  # remove id from filename
+
+        return os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], id_, file_name)
+
+    def hydrate_storage(storage_id):
+        if re.match('^[0-9a-fA-F]{24}$', str(storage_id)) is None:
+            print("ERROR: basic:json value in {} not ObjectId but {}.".format(name, storage_id))
+
+        return Storage.objects.get(pk=storage_id)
+
     for field_schema, fields in iterate_fields(output, output_schema):
         name = field_schema['name']
         value = fields[name]
         if 'type' in field_schema:
             if field_schema['type'].startswith('basic:file:'):
-                fn = value['file']
-                id_ = "{}/".format(data.id)  # needs trailing slash
-                if id_ in fn:
-                    fn = fn[fn.find(id) + len(id_):]  # remove id from filename
+                value['file'] = hydrate_file(value['file'])
 
-                value['file'] = os.path.join(
-                    settings.FLOW_EXECUTOR['DATA_DIR'], id_, fn)
+            elif field_schema['type'].startswith('list:basic:file:'):
+                for obj in value:
+                    obj['file'] = hydrate_file(obj['file'])
 
             elif field_schema['type'].startswith('basic:json:'):
-                if re.match('^[0-9a-fA-F]{24}$', str(value)) is None:
-                    print("ERROR: basic:json value in {} not ObjectId but {}.".format(name, value))
+                fields[name] = hydrate_storage(value)
 
-                fields[name] = Storage.objects.get(pk=value)
-
+            elif field_schema['type'].startswith('list:basic:json:'):
+                fields[name] = [hydrate_storage(storage_id) for storage_id in value]
 
 def hydrate_input_uploads(input_, input_schema, hydrate_values=True):
     """Hydrate input basic:upload types with upload location
@@ -661,11 +671,9 @@ def hydrate_input_references(input_, input_schema, hydrate_values=True):
                 data = Data.objects.get(id=value)
                 output = data.output.copy()
                 # static = Data.static.to_python(data.static)
-
                 if hydrate_values:
                     _hydrate_values(output, data.process.output_schema, data)
                     # _hydrate_values(static, data.static_schema, data)
-
                 output["__id"] = data.id
                 output["__type"] = data.process.type
                 fields[name] = output
@@ -682,7 +690,6 @@ def hydrate_input_references(input_, input_schema, hydrate_values=True):
                     data = Data.objects.get(id=val)
                     output = data.output.copy()
                     # static = Data.static.to_python(data.static)
-
                     if hydrate_values:
                         _hydrate_values(output, data.process.output_schema, data)
                         # _hydrate_values(static, data.static_schema, data)
