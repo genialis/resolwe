@@ -3,49 +3,27 @@
 - model: flow.data
   pk: 1
   fields:
-    descriptor: '{}'
-    descriptor_schema: null
-    checksum: null
     contributor: 1
     created: 2015-01-01T09:00:00.000
     finished: 2015-01-01T09:00:00.000
-    input: '{}'
     modified: 2015-01-01T09:00:00.000
     name: 'Test data'
-    output: '{}'
     slug: 'test_data'
     started: 2015-01-01T09:00:00.000
     status: OK
     process: 1
-    process_error: '[]'
-    process_info: '[]'
-    process_pid: null
-    process_progress: 0
-    process_rc: null
-    process_warning: '[]'
     version: 0
 
 - model: flow.data
   pk: 2
   fields:
-    descriptor: '{}'
-    descriptor_schema: null
-    checksum: null
     contributor: 1
     created: 2015-01-01T10:00:00.000
     finished: 2015-01-01T10:00:00.000
-    input: '{}'
     modified: 2015-01-01T10:00:00.000
     name: 'Test data 2'
-    output: '{}'
     slug: 'test_data_2'
     started: 2015-01-01T09:00:00.000
     status: OK
     process: 1
-    process_error: '[]'
-    process_info: '[]'
-    process_pid: null
-    process_progress: 0
-    process_rc: null
-    process_warning: '[]'
     version: 0
