@@ -308,18 +308,21 @@ The following basic types are supported:
 - ``basic:url:download:`` - download link
 - ``basic:url:view:`` - view link (in a popup or iframe)
 - ``basic:file:`` - a file, stored on shared file system
+- ``basic:dir:`` - a directory, stored on shared file system
 - ``basic:json:`` - a JSON object, stored in MongoDB collection
 - ``basic:group:`` - list of form fields (default if nothing specified)
 
-The values of basic data types are different for each type. For example,
-``basic:file:`` data type is a JSON dictionary: {file: "filename"}, but
-``basic:string:`` data type is just a JSON  string.
+The values of basic data types are different for each type, for example:
+``basic:file:`` data type is a JSON dictionary: {"file": "file name"}
+``basic:dir:`` data type is a JSON dictionary: {"dir": "directory name"}
+``basic:string:`` data type is just a JSON  string
 
-Resolwe treats types differently. All but ``basic:file:`` and ``basic:json:``
-are treated as meta-data and inserted in MongoDB in data collection.
-``basic:file:`` objects are saved to the shared file storage and
-``basic:json:`` objects are stored in MongoDB in storage collection. Meta-data
-entries have references to ``basic:file:`` and ``basic:json:`` objects.
+Resolwe treats types differently. All but ``basic:file:``,
+``basic:dir:`` and ``basic:json:`` are treated as meta-data.
+``basic:file:`` and ``basic:dir:`` objects are saved to the shared
+file storage, and ``basic:json:`` objects are stored in PostgreSQL
+bjson field. Meta-data entries have references to ``basic:file:``,
+``basic:dir:`` and ``basic:json:`` objects.
 
 Data types
 ----------

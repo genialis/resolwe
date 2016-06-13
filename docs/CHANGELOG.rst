@@ -19,6 +19,7 @@ Added
 - Support GET request on /api/<model>/<id>/permissons/ url
 - Add OWNER permissions
 - Validate JSON fields before saving ``Data`` object
+- Add basic:dir field
 
 Changed
 -------

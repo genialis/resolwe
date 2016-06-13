@@ -758,7 +758,7 @@ def _hydrate_values(output, output_schema, data):
     Find fields with basic:json type and assign a JSON object from storage.
 
     """
-    def hydrate_file(file_name):
+    def hydrate_path(file_name):
         id_ = "{}/".format(data.id)  # needs trailing slash
         if id_ in file_name:
             file_name = file_name[file_name.find(id_) + len(id_):]  # remove id from filename
@@ -773,11 +773,18 @@ def _hydrate_values(output, output_schema, data):
         value = fields[name]
         if 'type' in field_schema:
             if field_schema['type'].startswith('basic:file:'):
-                value['file'] = hydrate_file(value['file'])
+                value['file'] = hydrate_path(value['file'])
 
             elif field_schema['type'].startswith('list:basic:file:'):
                 for obj in value:
-                    obj['file'] = hydrate_file(obj['file'])
+                    obj['file'] = hydrate_path(obj['file'])
+
+            if field_schema['type'].startswith('basic:dir:'):
+                value['dir'] = hydrate_path(value['dir'])
+
+            elif field_schema['type'].startswith('list:basic:dir:'):
+                for obj in value:
+                    obj['dir'] = hydrate_path(obj['dir'])
 
             elif field_schema['type'].startswith('basic:json:'):
                 fields[name] = hydrate_storage(value)

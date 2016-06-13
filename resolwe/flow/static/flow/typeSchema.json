@@ -15,11 +15,13 @@
             { "$ref": "#/types/date" },
             { "$ref": "#/types/datetime" },
             { "$ref": "#/types/file" },
+            { "$ref": "#/types/dir" },
             { "$ref": "#/types/url" },
             { "$ref": "#/types/json" },
             { "$ref": "#/types/list_string" },
             { "$ref": "#/types/list_data" },
             { "$ref": "#/types/list_file" },
+            { "$ref": "#/types/list_dir" },
             { "$ref": "#/types/list_url" }
         ]
     },
@@ -144,6 +146,33 @@
                 }
             }
         },
+        "dir": {
+            "type": "object",
+            "required": ["type", "value"],
+            "additionalProperties": false,
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "pattern": "^basic:dir:$"
+                },
+                "value": {
+                    "type": "object",
+                    "required": ["dir"],
+                    "additionalProperties": false,
+                    "properties": {
+                        "dir": {
+                            "type": "string"
+                        },
+                        "refs": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "url": {
             "type": "object",
             "required": ["type", "value"],
@@ -244,6 +273,38 @@
                                 "type": "string"
                             },
                             "file_temp": {
+                                "type": "string"
+                            },
+                            "refs": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            }
+
+                        }
+                    },
+                    "uniqueItems": false
+                }
+            }
+        },
+        "list_dir": {
+            "type": "object",
+            "required": ["type", "value"],
+            "additionalProperties": false,
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "pattern": "^list:basic:dir:$"
+                },
+                "value": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["dir"],
+                        "additionalProperties": false,
+                        "properties": {
+                            "dir": {
                                 "type": "string"
                             },
                             "refs": {

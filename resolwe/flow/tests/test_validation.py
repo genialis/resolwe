@@ -456,6 +456,29 @@ class ValidationUnitTest(unittest.TestCase):
         with self.assertRaises(ValidationError):
             validate_schema(instance, schema)
 
+    def test_dir_field(self):
+        schema = [
+            {'name': 'result', 'type': 'basic:dir:'},
+        ]
+
+        instance = {'result': {
+            'dir': 'results'
+        }}
+        validate_schema(instance, schema)
+
+        instance = {'result': {
+            'dir': 'result',
+            'refs': ['01.txt', '02.txt']
+        }}
+        validate_schema(instance, schema)
+
+        # missing `dir`
+        instance = {'result': {
+            'refs': ['01.txt', '02.txt']
+        }}
+        with self.assertRaises(ValidationError):
+            validate_schema(instance, schema)
+
     def test_url_field(self):
         schema = [
             {'name': 'webpage', 'type': 'basic:url:view:'},
@@ -604,6 +627,9 @@ class ValidationUnitTest(unittest.TestCase):
         ]}
         with self.assertRaises(ValidationError):
             validate_schema(instance, schema)
+
+    def test_list_dir_field(self):
+        pass  # TODO
 
     def test_list_url_field(self):
         schema = [

@@ -63,7 +63,7 @@
                 },
                 "type": {
                     "type": "string",
-                    "pattern": "^(basic:(boolean|text|url:download|url:view|url:link|file|json):$|data:[a-z0-9:]+:$)"
+                    "pattern": "^(basic:(boolean|text|url:download|url:view|url:link|file|dir|json):$|data:[a-z0-9:]+:$)"
                 },
                 "description": {
                     "type": "string"
@@ -209,7 +209,7 @@
                 },
                 "type": {
                     "type": "string",
-                    "pattern": "^list:basic:(date|datetime|decimal|integer|string|file):$"
+                    "pattern": "^list:basic:(date|datetime|decimal|integer|string|file|dir):$"
                 },
                 "description": {
                     "type": "string"
