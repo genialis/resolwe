@@ -445,26 +445,27 @@ class ValidationUnitTest(unittest.TestCase):
         ]
 
         instance = {'result': {
-            'file': 'result_file.txt'
+            'file': 'result_file.txt',
+            'size': 13
         }}
         validate_schema(instance, schema)
 
         instance = {'result': {
             'file_temp': '12345',
-            'file': 'result_file.txt'
+            'file': 'result_file.txt',
         }}
         validate_schema(instance, schema)
 
         instance = {'result': {
             'file_temp': '12345',
             'is_remote': True,
-            'file': 'result_file.txt'
+            'file': 'result_file.txt',
         }}
         validate_schema(instance, schema)
 
         instance = {'result': {
             'file': 'result_file.txt',
-            'refs': ['01.txt', '02.txt']
+            'refs': ['01.txt', '02.txt'],
         }}
         validate_schema(instance, schema)
 
@@ -472,7 +473,7 @@ class ValidationUnitTest(unittest.TestCase):
         instance = {'result': {
             'file_temp': '12345',
             'is_remote': 'ftp',
-            'file': 'result_file.txt'
+            'file': 'result_file.txt',
         }}
         with self.assertRaises(ValidationError):
             validate_schema(instance, schema)
@@ -486,7 +487,7 @@ class ValidationUnitTest(unittest.TestCase):
 
         # wrong file extension
         instance = {'result': {
-            'file': 'result_file.tar.gz'
+            'file': 'result_file.tar.gz',
         }}
         with self.assertRaises(ValidationError):
             validate_schema(instance, schema)
@@ -497,7 +498,8 @@ class ValidationUnitTest(unittest.TestCase):
         ]
 
         instance = {'result': {
-            'dir': 'results'
+            'dir': 'results',
+            'size': 32156
         }}
         validate_schema(instance, schema)
 
@@ -509,7 +511,7 @@ class ValidationUnitTest(unittest.TestCase):
 
         # missing `dir`
         instance = {'result': {
-            'refs': ['01.txt', '02.txt']
+            'refs': ['01.txt', '02.txt'],
         }}
         with self.assertRaises(ValidationError):
             validate_schema(instance, schema)

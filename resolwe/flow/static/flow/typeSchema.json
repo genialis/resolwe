@@ -130,6 +130,9 @@
                         "file": {
                             "type": "string"
                         },
+                        "size": {
+                            "type": "number"
+                        },
                         "is_remote": {
                             "type": "boolean"
                         },
@@ -162,6 +165,9 @@
                     "properties": {
                         "dir": {
                             "type": "string"
+                        },
+                        "size": {
+                            "type": "number"
                         },
                         "refs": {
                             "type": "array",
@@ -272,6 +278,12 @@
                             "file": {
                                 "type": "string"
                             },
+                            "size": {
+                                "type": "number"
+                            },
+                            "is_remote": {
+                                "type": "boolean"
+                            },
                             "file_temp": {
                                 "type": "string"
                             },
@@ -306,6 +318,9 @@
                         "properties": {
                             "dir": {
                                 "type": "string"
+                            },
+                            "size": {
+                                "type": "number"
                             },
                             "refs": {
                                 "type": "array",

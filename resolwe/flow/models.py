@@ -401,6 +401,8 @@ class Data(BaseModel):
 
         self.save_storage(self.output, self.process.output_schema)
 
+        hydrate_size(self)
+
         if create:
             validate_schema(self.input, self.process.input_schema)
 
@@ -817,6 +819,58 @@ def _hydrate_values(output, output_schema, data):
 
             elif field_schema['type'].startswith('list:basic:json:'):
                 fields[name] = [hydrate_storage(storage_id) for storage_id in value]
+
+
+def hydrate_size(data):
+    """"Add file and dir sizes.
+
+    Add sizes to ``basic:file:``, ``list:basic:file``, ``basic:dir:``
+    and ``list:basic:dir:`` fields.
+    """
+
+    def add_file_size(obj):
+        if data.status in [Data.STATUS_DONE, Data.STATUS_ERROR] and 'size' in obj:
+            return
+
+        path = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.pk), obj['file'])
+        if not os.path.isfile(path):
+            raise ValidationError("Referenced file does not exist ({})".format(path))
+
+        obj['size'] = os.path.getsize(path)
+
+    def get_dir_size(path):
+        total_size = 0
+        for dirpath, dirnames, filenames in os.walk(path):
+            for f in filenames:
+                fp = os.path.join(dirpath, f)
+                total_size += os.path.getsize(fp)
+        return total_size
+
+    def add_dir_size(obj):
+        if data.status in [Data.STATUS_DONE, Data.STATUS_ERROR] and 'size' in obj:
+            return
+
+        path = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.pk), obj['dir'])
+        if not os.path.isdir(path):
+            raise ValidationError("Referenced dir does not exist ({})".format(path))
+
+        obj['size'] = get_dir_size(path)
+
+    for field_schema, fields in iterate_fields(data.output, data.process.output_schema):
+        name = field_schema['name']
+        value = fields[name]
+        if 'type' in field_schema:
+            if field_schema['type'].startswith('basic:file:'):
+                add_file_size(value)
+            elif field_schema['type'].startswith('list:basic:file:'):
+                for obj in value:
+                    add_file_size(obj)
+            elif field_schema['type'].startswith('basic:dir:'):
+                add_dir_size(value)
+            elif field_schema['type'].startswith('list:basic:dir:'):
+                for obj in value:
+                    add_dir_size(obj)
+
 
 def hydrate_input_uploads(input_, input_schema, hydrate_values=True):
     """Hydrate input basic:upload types with upload location

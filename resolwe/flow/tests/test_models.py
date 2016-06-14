@@ -1,15 +1,18 @@
 # pylint: disable=missing-docstring
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+from mock import patch
 import os
 import shutil
+import unittest
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.test import TestCase
 
 from resolwe.flow.managers import manager
-from resolwe.flow.models import Data, Process, Storage
+from resolwe.flow.models import Data, hydrate_size, Process, Storage
 
 
 class DataModelTest(TestCase):
@@ -104,6 +107,94 @@ class DataModelTest(TestCase):
 
         self.assertEqual(second.name, 'User\' data name')
         self.assertTrue(second.named_by_user)
+
+    def test_hydrate_file_size(self):
+        proc = Process.objects.create(
+            name='Test process',
+            contributor=self.user,
+            output_schema=[
+                {'name': 'output_file', 'type': 'basic:file:'}
+            ]
+        )
+
+        data = Data.objects.create(
+            name='Test data',
+            contributor=self.user,
+            process=proc,
+        )
+
+        data.output = {
+            'output_file': {'file': 'output.txt'}
+        }
+
+        with self.assertRaises(ValidationError):
+            data.save()
+
+        dir_path = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.pk))
+        os.makedirs(dir_path)
+        file_path = os.path.join(dir_path, 'output.txt')
+        with open(file_path, 'w') as fn:
+            fn.write('foo bar')
+
+        data.save()
+
+        self.assertEqual(data.output['output_file']['size'], 7)
+
+
+@patch('resolwe.flow.models.os')
+class HydrateFileSizeUnitTest(unittest.TestCase):
+    def setUp(self):
+        self.process = Process(
+            output_schema=[
+                {'name': 'test_file', 'type': 'basic:file:', 'required': False},
+                {'name': 'file_list', 'type': 'list:basic:file:', 'required': False}
+            ]
+        )
+        self.data = Data(
+            pk=13,
+            process=self.process,
+            output={'test_file': {'file': 'test_file.tmp'}}
+        )
+
+    def test_done_data(self, os_mock):
+        os_mock.path.isfile.return_value = True
+        os_mock.path.getsize.return_value = 42000
+        hydrate_size(self.data)
+        self.assertEqual(self.data.output['test_file']['size'], 42000)
+
+    def test_list(self, os_mock):
+        os_mock.path.isfile.return_value = True
+        os_mock.path.getsize.side_effect = [34, 42000]
+        self.data.output = {
+            'file_list': [
+                {'file': 'test_01.tmp'},
+                {'file': 'test_02.tmp'}
+            ]
+        }
+        hydrate_size(self.data)
+        self.assertEqual(self.data.output['file_list'][0]['size'], 34)
+        self.assertEqual(self.data.output['file_list'][1]['size'], 42000)
+
+    def test_change_size(self, os_mock):
+        """Size is not changed after object is done."""
+        os_mock.path.isfile.return_value = True
+        os_mock.path.getsize.return_value = 42000
+        hydrate_size(self.data)
+        self.assertEqual(self.data.output['test_file']['size'], 42000)
+
+        os_mock.path.getsize.return_value = 43000
+        hydrate_size(self.data)
+        self.assertEqual(self.data.output['test_file']['size'], 43000)
+
+        self.data.status = Data.STATUS_DONE
+        os_mock.path.getsize.return_value = 44000
+        hydrate_size(self.data)
+        self.assertEqual(self.data.output['test_file']['size'], 43000)
+
+    def test_missing_file(self, os_mock):
+        os_mock.path.isfile.return_value = False
+        with self.assertRaises(ValidationError):
+            hydrate_size(self.data)
 
 
 class StorageModelTestcase(TestCase):
