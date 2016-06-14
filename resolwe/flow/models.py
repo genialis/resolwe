@@ -463,6 +463,28 @@ class Storage(BaseModel):
     json = JSONField()
 
 
+class LazyStorageJSON(object):
+
+    """Lazy load `json` attribute of `Storage` object."""
+
+    def __init__(self, **kwargs):
+        self._kwargs = kwargs
+        self._json = None
+
+    def _get_storage(self):
+        """Load `json` field from `Storage` object."""
+        if self._json is None:
+            self._json = Storage.objects.get(**self._kwargs).json
+
+    def __getitem__(self, key):
+        self._get_storage()
+        return self._json[key]
+
+    def __repr__(self):
+        self._get_storage()
+        return self._json.__repr__()
+
+
 class BaseCollection(BaseModel):
 
     """Template for Postgres model for storing collection."""
@@ -598,10 +620,7 @@ def _hydrate_values(output, output_schema, data):
         return os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], id_, file_name)
 
     def hydrate_storage(storage_id):
-        if re.match('^[0-9a-fA-F]{24}$', str(storage_id)) is None:
-            print("ERROR: basic:json value in {} not ObjectId but {}.".format(name, storage_id))
-
-        return Storage.objects.get(pk=storage_id)
+        return LazyStorageJSON(pk=storage_id)
 
     for field_schema, fields in iterate_fields(output, output_schema):
         name = field_schema['name']
