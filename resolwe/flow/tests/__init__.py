@@ -185,25 +185,37 @@ class ProcessTestCase(TestCase):
 
         p = Process.objects.get(slug=process_slug)
 
+        def mock_upload(file_name):
+            old_path = os.path.join(self.files_path, file_name)
+            if not os.path.isfile(old_path):
+                raise RuntimeError('Missing file: {}'.format(old_path))
+
+            new_path = os.path.join(self.upload_dir, file_name)
+            shutil.copy2(old_path, new_path)
+            self._upload_files.append(new_path)
+
+            # since we don't know what uid/gid will be used inside Docker executor,
+            # we must give others read and write permissions
+            os.chmod(new_path, 0o666)
+            return {
+                'file': file_name,
+                'file_temp': file_name,
+            }
+
         for field_schema, fields in iterate_fields(input_, p.input_schema):
             # copy referenced files to upload dir
             if field_schema['type'] == "basic:file:":
-                file_name = os.path.basename(fields[field_schema['name']])
-                old_path = os.path.join(self.files_path, file_name)
-                if not os.path.isfile(old_path):
-                    raise RuntimeError('Missing file: {}'.format(old_path))
+                file_path = fields[field_schema['name']]
+                file_name = os.path.basename(file_path)
+                fields[field_schema['name']] = mock_upload(file_name)
 
-                new_path = os.path.join(self.upload_dir, file_name)
-                shutil.copy2(old_path, new_path)
-                self._upload_files.append(new_path)
+            elif field_schema['type'] == "list:basic:file:":
+                file_list = []
+                for file_path in fields[field_schema['name']]:
+                    file_name = os.path.basename(file_path)
+                    file_list.append(mock_upload(file_name))
 
-                # since we don't know what uid/gid will be used inside Docker executor,
-                # we must give others read and write permissions
-                os.chmod(new_path, 0o666)
-                fields[field_schema['name']] = {
-                    'file': file_name,
-                    'file_temp': file_name,
-                }
+                fields[field_schema['name']] = file_list
 
             # convert primary keys to strings
             if field_schema['type'].startswith('data:'):
@@ -223,7 +235,6 @@ class ProcessTestCase(TestCase):
 
         # Fetch latest Data object from database
         d = Data.objects.get(pk=d.pk)
-
         if not run_manager and assert_status == Data.STATUS_DONE:
             assert_status = Data.STATUS_RESOLVING
 
