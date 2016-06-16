@@ -56,7 +56,9 @@ setup(
         'django-autoslug>=1.9.0',
         'django-guardian>=1.4.2',
         'django-mathfilters>=0.3.0',
-        'django-versionfield2>=0.4.0',
+        # XXX: django-versionfield2 0.5.0 does not work yet:
+        # https://ci.genialis.com/job/resolwe-master/141/testReport/
+        'django-versionfield2==0.4.0',
         'psycopg2>=2.5.0',
         'jsonfield>=1.0.3',
         'mock==1.3.0',
