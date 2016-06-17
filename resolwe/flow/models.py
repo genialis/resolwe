@@ -689,6 +689,14 @@ def validate_schema(instance, schema, test_required=True, path_prefix=None):
         defined in ``schema``
 
     """
+    def validate_refs(field):
+        if 'refs' in field:
+            for refs_filename in field['refs']:
+                refs_path = os.path.join(path_prefix, refs_filename)
+                if not (os.path.isfile(refs_path) or os.path.isdir(refs_path)):
+                    raise ValidationError(
+                        "File referenced in `refs` ({}) does not exist".format(refs_path))
+
     def validate_file(field, regex):
         """Validate file name (and check that it exists)."""
         filename = field['file']
@@ -702,12 +710,7 @@ def validate_schema(instance, schema, test_required=True, path_prefix=None):
             if not os.path.isfile(path):
                 raise ValidationError("Referenced file ({}) does not exist".format(path))
 
-            if 'refs' in field:
-                for refs_filename in field['refs']:
-                    refs_path = os.path.join(path_prefix, refs_filename)
-                    if not os.path.isfile(refs_path):
-                        raise ValidationError(
-                            "File referenced in `refs` ({}) does not exist".format(refs_path))
+            validate_refs(field)
 
     def validate_dir(field):
         """Check that dirs and referenced files exists."""
@@ -718,12 +721,7 @@ def validate_schema(instance, schema, test_required=True, path_prefix=None):
             if not os.path.isdir(path):
                 raise ValidationError("Referenced dir ({}) does not exist".format(path))
 
-            if 'refs' in field:
-                for refs_filename in field['refs']:
-                    refs_path = os.path.join(path_prefix, refs_filename)
-                    if not os.path.isfile(refs_path):
-                        raise ValidationError(
-                            "File referenced in `refs` ({}) does not exist".format(refs_path))
+            validate_refs(field)
 
     def validate_data(data_pk, type_):
         """"Check that `Data` objects exist and is of right type."""

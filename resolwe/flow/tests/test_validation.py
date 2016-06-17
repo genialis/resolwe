@@ -232,10 +232,12 @@ class ValidationUnitTest(unittest.TestCase):
         # missing second `refs` file
         with patch('resolwe.flow.models.os') as os_mock:
             os_mock.path.isfile = MagicMock(side_effect=[True, True, False])
+            os_mock.path.isdir = MagicMock(return_value=False)
             with six.assertRaisesRegex(
                     self, ValidationError, 'File referenced in `refs` .* does not exist'):
                 validate_schema(instance, schema, path_prefix='/home/genialis/')
             self.assertEqual(os_mock.path.isfile.call_count, 3)
+            self.assertEqual(os_mock.path.isdir.call_count, 1)
 
     def test_dir_prefix(self):
         schema = [
@@ -271,12 +273,12 @@ class ValidationUnitTest(unittest.TestCase):
 
         # missing second `refs` file
         with patch('resolwe.flow.models.os') as os_mock:
-            os_mock.path.isdir = MagicMock(return_value=True)
+            os_mock.path.isdir = MagicMock(side_effect=[True, False])
             os_mock.path.isfile = MagicMock(side_effect=[True, False])
             with six.assertRaisesRegex(
                     self, ValidationError, 'File referenced in `refs` .* does not exist'):
                 validate_schema(instance, schema, path_prefix='/home/genialis/')
-            self.assertEqual(os_mock.path.isdir.call_count, 1)
+            self.assertEqual(os_mock.path.isdir.call_count, 2)
             self.assertEqual(os_mock.path.isfile.call_count, 2)
 
     def test_string_field(self):
