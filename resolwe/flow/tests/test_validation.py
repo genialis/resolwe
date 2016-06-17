@@ -231,6 +231,41 @@ class ValidationUnitTest(unittest.TestCase):
             with self.assertRaises(ValidationError):
                 validate_schema(instance, schema, path_prefix='/home/genialis/')
 
+    def test_dir_prefix(self):
+        schema = [
+            {'name': 'result', 'type': 'basic:dir:'},
+        ]
+        instance = {'result': {'dir': 'results'}}
+
+        # dir validation is not called if `path_prefix` is not given
+        with patch('resolwe.flow.models.os') as os_mock:
+            validate_schema(instance, schema)
+            self.assertEqual(os_mock.path.isfile.call_count, 0)
+
+        with patch('resolwe.flow.models.os') as os_mock:
+            os_mock.path.isdir = MagicMock(return_value=True)
+            validate_schema(instance, schema, path_prefix='/home/genialis/')
+
+        # missing dir
+        with patch('resolwe.flow.models.os') as os_mock:
+            os_mock.path.isdir = MagicMock(return_value=False)
+            with self.assertRaises(ValidationError):
+                validate_schema(instance, schema, path_prefix='/home/genialis/')
+
+        instance = {'result': {'dir': 'results', 'refs': ['file01.txt', 'file02.txt']}}
+
+        with patch('resolwe.flow.models.os') as os_mock:
+            os_mock.path.isdir = MagicMock(return_value=True)
+            os_mock.path.isfile = MagicMock(return_value=True)
+            validate_schema(instance, schema, path_prefix='/home/genialis/')
+
+        # missing second `refs` file
+        with patch('resolwe.flow.models.os') as os_mock:
+            os_mock.path.isdir = MagicMock(return_value=True)
+            os_mock.path.isfile = MagicMock(side_effect=[True, False])
+            with self.assertRaises(ValidationError):
+                validate_schema(instance, schema, path_prefix='/home/genialis/')
+
     def test_string_field(self):
         schema = [
             {'name': 'string', 'type': 'basic:string:'},
@@ -629,7 +664,22 @@ class ValidationUnitTest(unittest.TestCase):
             validate_schema(instance, schema)
 
     def test_list_dir_field(self):
-        pass  # TODO
+        schema = [
+            {'name': 'result', 'type': 'list:basic:dir:'},
+        ]
+
+        instance = {'result': [
+            {'dir': 'results01', 'size': 32156, 'refs': ['result01.txt', 'result02.txt']},
+            {'dir': 'results02'},
+        ]}
+        validate_schema(instance, schema)
+
+        # missing `dir`
+        instance = {'result': [
+            {'size': 32156, 'refs': ['result01.txt', 'result02.txt']},
+        ]}
+        with self.assertRaises(ValidationError):
+            validate_schema(instance, schema)
 
     def test_list_url_field(self):
         schema = [

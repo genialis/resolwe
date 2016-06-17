@@ -665,6 +665,9 @@ def validate_schema(instance, schema, test_required=True, path_prefix=None):
         regex given in schema (only if ``validate_regex`` is defined in
         schema for coresponding fields) and exists (only if
         ``path_prefix`` is given)
+      * check if directories referenced in ``basic:dir:`` and
+        ``list:basic:dir``fields exist (only if ``path_prefix`` is
+        given)
       * check that referenced ``Data`` objects (in ``data:<data_type>``
         and  ``list:data:<data_type>`` fields) exists and are of type
         ``<data_type>``
@@ -704,6 +707,22 @@ def validate_schema(instance, schema, test_required=True, path_prefix=None):
                         raise ValidationError(
                             "File referenced in `refs` ({}) does not exist".format(refs_path))
 
+    def validate_dir(field):
+        """Check that dirs and referenced files exists."""
+        dirname = field['dir']
+
+        if path_prefix:
+            path = os.path.join(path_prefix, dirname)
+            if not os.path.isdir(path):
+                raise ValidationError("Referenced dir ({}) does not exist".format(path))
+
+            if 'refs' in field:
+                for refs_filename in field['refs']:
+                    refs_path = os.path.join(path_prefix, refs_filename)
+                    if not os.path.isfile(refs_path):
+                        raise ValidationError(
+                            "File referenced in `refs` ({}) does not exist".format(refs_path))
+
     def validate_data(data_pk, type_):
         """"Check that `Data` objects exist and is of right type."""
         data_qs = Data.objects.filter(pk=data_pk).values('process__type')
@@ -735,6 +754,13 @@ def validate_schema(instance, schema, test_required=True, path_prefix=None):
             elif type_ == 'list:basic:file:':
                 for obj in field:
                     validate_file(obj, _schema.get('validate_regex'))
+
+            elif type_ == 'basic:dir:':
+                validate_dir(field)
+
+            elif type_ == 'list:basic:dir:':
+                for obj in field:
+                    validate_dir(obj)
 
             elif type_ == 'basic:json:' and not Storage.objects.filter(pk=field).exists():
                 raise ValidationError(
