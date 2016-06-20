@@ -156,7 +156,8 @@ class ProcessTestCase(TestCase):
         return self.run_process(*args, **kwargs)
         # TODO: warning
 
-    def run_process(self, process_slug, input_={}, assert_status=Data.STATUS_DONE, run_manager=True, verbosity=0):
+    def run_process(self, process_slug, input_={}, descriptor=None, descriptor_schema=None,
+                    assert_status=Data.STATUS_DONE, run_manager=True, verbosity=0):
         """Runs given processor with specified inputs.
 
         If input is file, file path should be given relative to
@@ -171,6 +172,12 @@ class ProcessTestCase(TestCase):
             have to specifie parameters for which default values are
             given.
         :type ``input_``: :obj:`dict`
+
+        :param descriptor: Descriptor to set on the data object.
+        :type descriptor: :obj:`dict`
+
+        :param descriptor_schema: Descriptor schema to set on the data object.
+        :type descriptor_schema: :obj:`dict`
 
         :param ``assert_status``: Desired status of Data object
         :type ``assert_status``: :obj:`str`
@@ -220,7 +227,9 @@ class ProcessTestCase(TestCase):
             input=input_,
             contributor=self.admin,
             process=p,
-            slug=get_random_string(length=6))
+            slug=get_random_string(length=6),
+            descriptor_schema=descriptor_schema,
+            descriptor=descriptor or {})
         self.collection.data.add(d)
 
         if run_manager:

@@ -120,7 +120,7 @@
             "properties": {
                 "type": {
                     "type": "string",
-                    "pattern": "^basic:file:$"
+                    "pattern": "^basic:file:(iframe:|link:)?$"
                 },
                 "value": {
                     "type": "object",

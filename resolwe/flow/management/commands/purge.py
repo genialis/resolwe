@@ -6,7 +6,7 @@ Delete Unreferenced Files
 """
 from django.core.management.base import BaseCommand
 
-from server.models import data_purge
+from resolwe.flow.utils.purge import data_purge
 
 
 class Command(BaseCommand):

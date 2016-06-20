@@ -77,8 +77,10 @@ setup(
             'coverage>=3.7.1',
             'pep8>=1.6.2',
             'pylint>=1.4.3',
+            'testfixtures>=4.10.0',
             'check-manifest',
             'readme_renderer',
+            'resolwe-runtime-utils>=1.0.0',
         ],
     },
 

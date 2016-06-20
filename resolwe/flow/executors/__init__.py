@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import six
+import traceback
 
 from django.apps import apps
 from django.db import transaction
@@ -16,6 +17,7 @@ else:
     now = datetime.datetime.now  # pylint: disable=invalid-name
 
 from resolwe.flow.models import Data, dict_dot, Process
+from resolwe.flow.utils.purge import data_purge
 from resolwe.utils import BraceMessage as __
 
 
@@ -223,11 +225,12 @@ class BaseFlowExecutor(object):
                 finished=now()
             )
 
-        # try:
-        #     # Cleanup after processor
-        #     data_purge(data_ids=[data_id], delete=True, verbosity=0)
-        # except:  # pylint: disable=bare-except
-        #     logger.error(__("Purge error:\n\n{}", traceback.format_exc()))
+        try:
+            # Cleanup after processor
+            if data_id != 'no_data_id':
+                data_purge(data_ids=[data_id], delete=True, verbosity=verbosity)
+        except:  # pylint: disable=bare-except
+            logger.error(__("Purge error:\n\n{}", traceback.format_exc()))
 
         # if not update_data(data):  # Data was deleted
         #     # Restore original directory
