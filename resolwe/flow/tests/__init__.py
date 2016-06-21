@@ -185,12 +185,16 @@ class ProcessTestCase(TestCase):
 
         p = Process.objects.get(slug=process_slug)
 
-        def mock_upload(file_name):
-            old_path = os.path.join(self.files_path, file_name)
+        def mock_upload(file_path):
+            old_path = os.path.join(self.files_path, file_path)
             if not os.path.isfile(old_path):
                 raise RuntimeError('Missing file: {}'.format(old_path))
 
-            new_path = os.path.join(self.upload_dir, file_name)
+            new_path = os.path.join(self.upload_dir, file_path)
+            # create directories needed by new_path
+            new_path_dir = os.path.dirname(new_path)
+            if not os.path.exists(new_path_dir):
+                os.makedirs(new_path_dir)
             shutil.copy2(old_path, new_path)
             self._upload_files.append(new_path)
 
@@ -198,23 +202,16 @@ class ProcessTestCase(TestCase):
             # we must give others read and write permissions
             os.chmod(new_path, 0o666)
             return {
-                'file': file_name,
-                'file_temp': file_name,
+                'file': file_path,
+                'file_temp': file_path,
             }
 
         for field_schema, fields in iterate_fields(input_, p.input_schema):
             # copy referenced files to upload dir
             if field_schema['type'] == "basic:file:":
-                file_path = fields[field_schema['name']]
-                file_name = os.path.basename(file_path)
-                fields[field_schema['name']] = mock_upload(file_name)
-
+                fields[field_schema['name']] = mock_upload(fields[field_schema['name']])
             elif field_schema['type'] == "list:basic:file:":
-                file_list = []
-                for file_path in fields[field_schema['name']]:
-                    file_name = os.path.basename(file_path)
-                    file_list.append(mock_upload(file_name))
-
+                file_list = [mock_upload(file_path) for file_path in fields[field_schema['name']]]
                 fields[field_schema['name']] = file_list
 
             # convert primary keys to strings

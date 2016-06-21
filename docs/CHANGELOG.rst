@@ -38,6 +38,7 @@ Changed
 - Serve permissions in new format
 - Rename ``assertFiles`` method in ``ProcessTestCase`` to ``assertFile`` and
   add new ``assertFiles`` method to check ``list:basic:file`` field
+- Make ``flow.tests.run_process`` function also handle file paths
 
 Fixed
 -----
