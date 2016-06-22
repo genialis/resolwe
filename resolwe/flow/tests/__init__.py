@@ -197,10 +197,6 @@ class ProcessTestCase(TestCase):
                 os.makedirs(new_path_dir)
             shutil.copy2(old_path, new_path)
             self._upload_files.append(new_path)
-
-            # since we don't know what uid/gid will be used inside Docker executor,
-            # we must give others read and write permissions
-            os.chmod(new_path, 0o666)
             return {
                 'file': file_path,
                 'file_temp': file_path,
