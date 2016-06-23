@@ -84,7 +84,6 @@ class DataSerializer(ResolweBaseSerializer):
     process_type = serializers.CharField(source='process.type', read_only=True)
     process_input_schema = serializers.JSONField(source='process.input_schema', read_only=True)
     process_output_schema = serializers.JSONField(source='process.output_schema', read_only=True)
-    descriptor_schema = DescriptorSchemaSerializer(required=False, read_only=True)
 
     name = serializers.CharField(read_only=False, required=False)
     slug = serializers.CharField(read_only=False, required=False)
@@ -100,6 +99,18 @@ class DataSerializer(ResolweBaseSerializer):
                             'process_name')
         fields = ('slug', 'name', 'contributor', 'input', 'output', 'descriptor_schema',
                   'descriptor') + update_protected_fields + read_only_fields
+
+    def __init__(self, *args, **kwargs):
+        super(DataSerializer, self).__init__(*args, **kwargs)
+
+        request = kwargs.get('context', {}).get('request', None)
+
+        if not hasattr(request, 'method') or request.method == "GET":
+            self.fields['descriptor_schema'] = DescriptorSchemaSerializer(required=False)
+        else:
+            self.fields['descriptor_schema'] = serializers.PrimaryKeyRelatedField(
+                queryset=DescriptorSchema.objects.all(), required=False
+            )
 
 
 class CollectionSerializer(ResolweBaseSerializer):
