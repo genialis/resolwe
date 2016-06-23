@@ -2,7 +2,7 @@
 Resolwe
 =======
 
-|jenkins| |docs| |pypi_version| |pypi_pyversions| |pypi_downloads|
+|jenkins| |docs| |pypi_version| |pypi_pyversions|
 
 .. |jenkins| image:: https://ci.genialis.com/buildStatus/icon?job=resolwe-master
     :target: https://ci.genialis.com/job/resolwe-master/lastCompletedBuild/testReport/
