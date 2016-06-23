@@ -9,7 +9,7 @@ Resolwe
     :alt: Build Status
 
 .. |docs| image:: https://readthedocs.org/projects/resolwe/badge/?version=latest
-    :target: http://resolwe.readthedocs.org/
+    :target: http://resolwe.readthedocs.io/
     :alt: Documentation Status
 
 .. |pypi_version| image:: https://img.shields.io/pypi/v/resolwe.svg
@@ -43,7 +43,7 @@ details, and API Reference in the documentation_.
 
 To chat with developers or ask for help, join us on Slack_.
 
-.. _documentation: http://resolwe.readthedocs.org/
+.. _documentation: http://resolwe.readthedocs.io/
 .. _Slack: http://resolwe.slack.com/
 
 
@@ -111,4 +111,4 @@ Contribute
 We welcome new contributors. To learn more, read Contributing_ section of our
 documentation.
 
-.. _Contributing: http://resolwe.readthedocs.org/en/latest/contributing.html
+.. _Contributing: http://resolwe.readthedocs.io/en/latest/contributing.html
