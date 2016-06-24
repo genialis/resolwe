@@ -736,7 +736,7 @@ def validate_schema(instance, schema, test_required=True, path_prefix=None):
     for _schema, _fields, _ in iterate_schema(instance, schema):
         name = _schema['name']
 
-        if test_required and _schema.get('required', False) and name not in _fields:
+        if test_required and _schema.get('required', True) and name not in _fields:
             raise ValidationError("Required field \"{}\" not given.".format(name))
 
         if name in _fields:

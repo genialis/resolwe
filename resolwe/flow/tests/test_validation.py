@@ -174,8 +174,8 @@ class ValidationUnitTest(unittest.TestCase):
     def test_required(self):
         schema = [
             {'name': 'value', 'type': 'basic:integer:', 'required': True},
-            {'name': 'description', 'type': 'basic:string:', 'required': False},
-            {'name': 'comment', 'type': 'basic:string:'},  # implicit `required=False
+            {'name': 'description', 'type': 'basic:string:'},  # implicit `required=True`
+            {'name': 'comment', 'type': 'basic:string:', 'required': False},
         ]
 
         instance = {'description': 'test'}
@@ -183,6 +183,10 @@ class ValidationUnitTest(unittest.TestCase):
             validate_schema(instance, schema)
 
         instance = {'value': 42}
+        with six.assertRaisesRegex(self, ValidationError, '"description" not given.'):
+            validate_schema(instance, schema)
+
+        instance = {'value': 42, 'description': 'universal answer'}
         validate_schema(instance, schema)
 
         instance = {'value': 42, 'description': 'test', 'comment': 'Lorem ipsum'}

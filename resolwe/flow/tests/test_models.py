@@ -33,6 +33,7 @@ class DataModelTest(TestCase):
                                          output_schema=[{
                                              'name': 'stat',
                                              'type': 'basic:string:',
+                                             'required': False,
                                          }],
                                          run={'bash': 'echo {"stat": "42"}'})
 
