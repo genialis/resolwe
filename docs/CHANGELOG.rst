@@ -42,6 +42,8 @@ Changed
   add new ``assertFiles`` method to check ``list:basic:file`` field
 - Make ``flow.tests.run_process`` function also handle file paths
 - Use Travis CI to run the tests
+- Include all necessary files for running the tests in source distribution
+- Exclude tests from built/installed version of the package
 
 Fixed
 -----

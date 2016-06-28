@@ -38,13 +38,11 @@ setup(
 
     license=about['__license__'],
 
-    packages=find_packages(exclude=['tests']),
+    # exclude tests from built/installed package
+    packages=find_packages(exclude=['tests', 'tests.*', '*.tests', '*.tests.*']),
     package_data={
         'resolwe': [
             'flow/static/flow/*.json',
-            'flow/tests/processes/*.yml',
-            'permissions/fixtures/*.yaml',
-            'permissions/fixtures/readme.txt',
         ]
     },
     install_requires=[

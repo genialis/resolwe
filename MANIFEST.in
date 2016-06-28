@@ -1,3 +1,14 @@
+# include meta data
 include LICENSE
 include README.rst
-recursive-include docs *
+# include documentation and files needed by documentation
+recursive-include docs *.py *.rst
+recursive-include docs/example/example/processes *.yml
+recursive-include docs/images *.png
+# include tests and files needed by tests
+include .pep8rc .pylintrc tox.ini
+recursive-include tests *.py *.yml *.rst
+recursive-include resolwe/flow/tests *.py
+recursive-include resolwe/flow/tests/processes *.yml
+recursive-include resolwe/permissions/tests *.py
+recursive-include resolwe/permissions/fixtures *.yaml readme.txt
