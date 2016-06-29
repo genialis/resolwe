@@ -1,0 +1,35 @@
+sudo: required
+
+# NOTE: It is necessary to explicitly set the distribution to "trusty" due to
+# the complex 'matrix: include:' logic below
+# More information: https://github.com/travis-ci/travis-ci/issues/5448
+dist: trusty
+
+addons:
+  postgresql: "9.4"
+
+services:
+  - docker
+  - postgresql
+
+language: python
+
+env:
+  global:
+    - RESOLWE_POSTGRESQL_USER=postgres
+    - RESOLWE_POSTGRESQL_PORT=5432
+
+# NOTE: Specifying Python versions is just to make the Travis CI's web UI a
+# little prettier
+matrix:
+  include:
+    - python: "2.7"
+      env: TOX_ENV=py27
+    - python: "3.4"
+      env: TOX_ENV=py34
+    - python: "3.5"
+      env: TOX_ENV=py35
+
+install: pip install tox
+
+script: tox -e $TOX_ENV
