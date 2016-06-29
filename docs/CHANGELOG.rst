@@ -20,6 +20,8 @@ Added
 - Add OWNER permissions
 - Validate JSON fields before saving ``Data`` object
 - Add basic:dir field
+- ``RESOLWE_CUSTOM_TOOLS_PATHS`` setting to support custom paths for tools
+  directories
 
 Changed
 -------

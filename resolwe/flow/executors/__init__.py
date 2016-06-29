@@ -51,6 +51,12 @@ class BaseFlowExecutor(object):
             proc_path = os.path.join(app_config.path, 'tools')
             if os.path.isdir(proc_path):
                 tools_paths.append(proc_path)
+
+        custom_tools_paths = getattr(settings, 'RESOLWE_CUSTOM_TOOLS_PATHS', [])
+        if not isinstance(custom_tools_paths, list):
+            raise KeyError("`RESOLWE_CUSTOM_TOOLS_PATHS` setting must be a list.")
+        tools_paths.extend(custom_tools_paths)
+
         return tools_paths
 
     def start(self):
