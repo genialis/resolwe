@@ -220,6 +220,15 @@ def render_template(template_string, context):
         '{% load process_fields %}',
         '{% load mathfilters %}',
     ]
+
+    custom_template_tags = getattr(settings, 'RESOLWE_CUSTOM_TEMPLATE_TAGS', [])
+    if not isinstance(custom_template_tags, list):
+        raise KeyError("`RESOLWE_CUSTOM_TEMPLATE_TAGS` setting must be a list.")
+
+    template_headers.extend(
+        ['{{% load {} %}}'.format(template_tag) for template_tag in custom_template_tags]
+    )
+
     return template.Template(''.join(template_headers) + template_string).render(context)
 
 

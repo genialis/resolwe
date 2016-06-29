@@ -9,10 +9,11 @@ import unittest
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.test import TestCase
+from django.template import Context
+from django.test import TestCase, override_settings
 
 from resolwe.flow.managers import manager
-from resolwe.flow.models import Data, hydrate_size, Process, Storage
+from resolwe.flow.models import Data, hydrate_size, Process, render_template, Storage
 
 
 class DataModelTest(TestCase):
@@ -241,3 +242,15 @@ class StorageModelTestcase(TestCase):
 
         data.delete()
         self.assertEqual(Storage.objects.count(), 0)
+
+
+class UtilsTestCase(unittest.TestCase):
+    @override_settings(RESOLWE_CUSTOM_TEMPLATE_TAGS=['test_tags'])
+    def test_render_template(self):
+        template = render_template('{{ 1 | increase }}', Context())
+        self.assertEqual(template, '2')
+
+    @override_settings(RESOLWE_CUSTOM_TEMPLATE_TAGS='test_tags')
+    def test_render_template_error(self):
+        with self.assertRaises(KeyError):
+            render_template('{{ 1 | increase }}', Context())
