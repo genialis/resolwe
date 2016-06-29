@@ -729,9 +729,11 @@ def validate_schema(instance, schema, test_required=True, path_prefix=None):
         if not data_qs.exists():
             raise ValidationError(
                 "Referenced `Data` object does not exist (id:{})".format(data_pk))
-        if not data_qs.first()['process__type'].startswith(type_):
+        data = data_qs.first()
+        if not data['process__type'].startswith(type_):
             raise ValidationError(
-                "Referenced `Data` object is of wrong type (id:{})".format(data_pk))
+                "Data object of type `{}` is required, but type `{}` is given. "
+                "(id:{})".format(type_, data['process__type'], data_pk))
 
     for _schema, _fields, _ in iterate_schema(instance, schema):
         name = _schema['name']

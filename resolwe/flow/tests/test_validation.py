@@ -131,7 +131,7 @@ class ValidationTest(TestCase):
         proc2.input_schema = [
             {'name': 'data_object', 'type': 'data:wrong:type:'}
         ]
-        with six.assertRaisesRegex(self, ValidationError, '`Data` object is of wrong type'):
+        with six.assertRaisesRegex(self, ValidationError, 'Data object of type .* is required'):
             Data.objects.create(**data)
 
         # non-existing `Data` object
@@ -464,7 +464,7 @@ class ValidationUnitTest(unittest.TestCase):
             filter_mock = MagicMock(**{'values.return_value': value_mock})
             data_mock.objects.filter.return_value = filter_mock
 
-            with six.assertRaisesRegex(self, ValidationError, '`Data` object is of wrong type'):
+            with six.assertRaisesRegex(self, ValidationError, 'Data object of type .* is required'):
                 validate_schema(instance, schema)
 
             self.assertEqual(value_mock.exists.call_count, 1)
@@ -688,7 +688,7 @@ class ValidationUnitTest(unittest.TestCase):
             filter_mock = MagicMock(**{'values.return_value': value_mock})
             data_mock.objects.filter.return_value = filter_mock
 
-            with six.assertRaisesRegex(self, ValidationError, '`Data` object is of wrong type'):
+            with six.assertRaisesRegex(self, ValidationError, 'Data object of type .* is required'):
                 validate_schema(instance, schema)
 
             self.assertEqual(value_mock.exists.call_count, 3)
