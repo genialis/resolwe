@@ -297,7 +297,7 @@ class Command(BaseCommand):
         def map_reference(reference):
             try:
                 return self.id_mapping['data'][reference]
-            except KeyError, error:
+            except KeyError as error:
                 self.missing_data.add(error.message)
                 return None
 

@@ -47,6 +47,7 @@ Fixed
 -----
 - Spawn processors (add data to current collection)
 - Set collection name to avoid warnings in test output
+- Improve Python 3 compatibility
 
 
 ==================

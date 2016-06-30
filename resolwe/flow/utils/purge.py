@@ -126,18 +126,18 @@ def data_purge(data_ids=None, delete=False, verbosity=1):
     if verbosity >= 1:
         # Print unreferenced files
         if purge:
-            print "Unreferenced files ({}):".format(len(purge))
+            print("Unreferenced files ({}):".format(len(purge)))
             for name in purge:
-                print "  {}".format(name)
+                print("  {}".format(name))
         else:
-            print "No unreferenced files"
+            print("No unreferenced files")
 
         if unref_storage:
-            print "Unreferenced Storage objects ({}):".format(unref_storage.count())
+            print("Unreferenced Storage objects ({}):".format(unref_storage.count()))
             for s in unref_storage:
-                print "  {}".format(s.pk)
+                print("  {}".format(s.pk))
         elif data_ids is None:
-            print "No unreferenced Storage objects"
+            print("No unreferenced Storage objects")
 
     # Go through unreferenced files and delete them
     if delete:
