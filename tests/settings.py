@@ -18,7 +18,7 @@ MIDDLEWARE_CLASSES = (
     'django.contrib.auth.middleware.AuthenticationMiddleware',
 )
 
-# List of apps to test with django-jenkins
+# Apps from this project
 PROJECT_APPS = (
     'resolwe',
     'resolwe.permissions',
@@ -37,7 +37,6 @@ INSTALLED_APPS = (
     'guardian',
     'mathfilters',
     'versionfield',
-    'django_jenkins',
 ) + PROJECT_APPS
 
 ROOT_URLCONF = 'tests.urls'
@@ -64,7 +63,8 @@ AUTHENTICATION_BACKENDS = (
 
 ANONYMOUS_USER_NAME = 'public'
 
-# This is needed for runing concurrent tests on Jenkins
+# Get the current Tox testing environment
+# NOTE: This is useful for concurrently running tests with separate environments
 toxenv = os.environ.get('TOXENV', '')
 
 # Check if PostgreSQL settings are set via environment variables
@@ -91,14 +91,6 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_ACCEPT_CONTENT = [CELERY_TASK_SERIALIZER]
 
 STATIC_URL = '/static/'
-
-JENKINS_TASKS = (
-    'django_jenkins.tasks.run_pylint',
-    'django_jenkins.tasks.run_pep8',
-)
-
-PYLINT_RCFILE = '.pylintrc'
-PEP8_RCFILE = '.pep8rc'
 
 FLOW_EXECUTOR = {
     'NAME': 'resolwe.flow.executors.local',

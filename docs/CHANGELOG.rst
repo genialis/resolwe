@@ -45,6 +45,8 @@ Changed
 - Include all necessary files for running the tests in source distribution
 - Exclude tests from built/installed version of the package
 - Put packaging tests in a separate Tox testing environment
+- Put linters (pylint, pep8) into a separate Tox testing environment
+- Drop django-jenkins package since we no longer use Jenkins for CI
 
 Fixed
 -----

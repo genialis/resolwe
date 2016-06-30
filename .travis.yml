@@ -29,8 +29,14 @@ matrix:
       python: "3.4"
     - env: TOX_ENV=py35
       python: "3.5"
+    - env: TOX_ENV=linters
+      python: "3.5"
     - env: TOX_ENV=packaging
       python: "3.5"
+
+  # TODO: Remove this after fixing errors reported by linters
+  allow_failures:
+    - env: TOX_ENV=linters
 
 install: pip install tox
 

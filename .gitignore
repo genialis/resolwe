@@ -21,9 +21,6 @@ _build
 # Tox files
 .tox/
 
-# Results of django-jenkins
-reports/
-
 # Ignore files created by setup.py.
 build/
 dist/

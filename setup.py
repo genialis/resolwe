@@ -74,7 +74,6 @@ setup(
             'wheel',
         ],
         'test': [
-            'django-jenkins>=0.17.0',
             'coverage>=3.7.1',
             'pep8>=1.6.2',
             'pylint>=1.4.3',
