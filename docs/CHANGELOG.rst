@@ -22,6 +22,7 @@ Added
 - Add basic:dir field
 - ``RESOLWE_CUSTOM_TOOLS_PATHS`` setting to support custom paths for tools
   directories
+- Add test coverage and track it with Codecov
 
 Changed
 -------

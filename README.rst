@@ -2,11 +2,15 @@
 Resolwe
 =======
 
-|build| |docs| |pypi_version| |pypi_pyversions|
+|build| |coverage| |docs| |pypi_version| |pypi_pyversions|
 
 .. |build| image:: https://travis-ci.org/genialis/resolwe.svg?branch=master
     :target: https://travis-ci.org/genialis/resolwe
     :alt: Build Status
+
+.. |coverage| image:: https://img.shields.io/codecov/c/github/genialis/resolwe/master.svg
+    :target: http://codecov.io/github/genialis/resolwe?branch=master
+    :alt: Coverage Status
 
 .. |docs| image:: https://readthedocs.org/projects/resolwe/badge/?version=latest
     :target: http://resolwe.readthedocs.io/

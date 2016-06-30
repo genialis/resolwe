@@ -21,6 +21,10 @@ _build
 # Tox files
 .tox/
 
+# ignore Coverage.py files
+.coverage
+htmlcov/
+
 # Ignore files created by setup.py.
 build/
 dist/
