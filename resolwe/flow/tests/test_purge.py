@@ -82,7 +82,8 @@ touch and_not_this/a and_not_this/b and_not_this/c
 """,
             script_save='re-save-dir-list sample but_not_this and_not_this',
             removed=['remove_this/', 'remove_this/a', 'remove_this/b', 'remove_this/c'],
-            not_removed=['but_not_this/a', 'but_not_this/b', 'but_not_this/c', 'and_not_this/a', 'and_not_this/b', 'and_not_this/c'],
+            not_removed=['but_not_this/a', 'but_not_this/b', 'but_not_this/c', 'and_not_this/a',
+                         'and_not_this/b', 'and_not_this/c'],
         )
 
 
@@ -373,7 +374,8 @@ class PurgeUnitTest(PurgeTestFieldsMixin, TestCase):
             os_mock.path.isfile = MagicMock(return_value=True)
             os_mock.remove = MagicMock()
             purge.data_purge(delete=True)
-            os_mock.remove.assert_called_once_with(os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(completed_data.pk), 'removeme'))
+            os_mock.remove.assert_called_once_with(
+                os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(completed_data.pk), 'removeme'))
 
         # Create another data object and check that if remove is called on one object,
         # only that object's data is removed.
@@ -388,4 +390,5 @@ class PurgeUnitTest(PurgeTestFieldsMixin, TestCase):
             os_mock.path.isfile = MagicMock(return_value=True)
             os_mock.remove = MagicMock()
             purge.data_purge(data_ids=[another_data.pk], delete=True)
-            os_mock.remove.assert_called_once_with(os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(another_data.pk), 'removeme'))
+            os_mock.remove.assert_called_once_with(
+                os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(another_data.pk), 'removeme'))

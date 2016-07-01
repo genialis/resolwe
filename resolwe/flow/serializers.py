@@ -37,13 +37,13 @@ class ResolweBaseSerializer(serializers.ModelSerializer):
     """
     def __init__(self, instance=None, data=empty, **kwargs):
         if (instance is not None and data is not empty and
-                hasattr(self.Meta, 'update_protected_fields')):
-            for field in self.Meta.update_protected_fields:
+                hasattr(self.Meta, 'update_protected_fields')):  # pylint: disable=no-member
+            for field in self.Meta.update_protected_fields:  # pylint: disable=no-member
                 if field in data:
-                    data.pop(field)
+                    data.pop(field)  # pylint: disable=no-member
 
             # prevent changing `modified` field if no field would be changed
-            if set(data.keys()).issubset(set(self.Meta.read_only_fields)):
+            if set(data.keys()).issubset(set(self.Meta.read_only_fields)):  # pylint: disable=no-member
                 raise NoContentError()
 
         super(ResolweBaseSerializer, self).__init__(instance, data, **kwargs)

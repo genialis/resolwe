@@ -20,6 +20,7 @@ MESSAGES = {
     u'NOT_FOUND': u'Not found.',
 }
 
+
 class TestDataViewSetCase(unittest.TestCase):
     def setUp(self):
         self.data_viewset = DataViewSet.as_view(actions={
@@ -140,7 +141,6 @@ class TestCollectionViewSetCase(unittest.TestCase):
         resp = self.remove_data_viewset(request, pk=c.pk)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(c.data.count(), 0)
-
 
         request = factory.post(self.detail_url(c.pk), '{"ids": ["42"]}', content_type='application/json')
 

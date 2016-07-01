@@ -11,12 +11,9 @@ import gzip
 import json
 import os
 import shutil
+from six.moves import filterfalse
 import stat
 import zipfile
-try:
-    from itertools import filterfalse  # py3
-except ImportError:
-    from itertools import ifilterfalse as filterfalse  # py2
 
 from django.apps import apps
 from django.conf import settings
@@ -436,19 +433,19 @@ class ProcessTestCase(TestCase):
     def _debug_info(self, data):
         """Return data's debugging information."""
         msg_header = "Debugging information for data object {}".format(data.pk)
-        msg = "\n\n" + len(msg_header)*"=" + "\n" + msg_header + "\n" + len(msg_header)*"=" + "\n"
+        msg = "\n\n" + len(msg_header) * "=" + "\n" + msg_header + "\n" + len(msg_header) * "=" + "\n"
         path = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.pk), "stdout.txt")
         if os.path.isfile(path):
-            msg += "\nstdout.txt:\n" + 11*"-" + "\n"
+            msg += "\nstdout.txt:\n" + 11 * "-" + "\n"
             with open(path, 'r') as fn:
                 msg += fn.read()
 
         if data.process_error:
-            msg += "\nProcess' errors:\n" + 16*"-" + "\n"
+            msg += "\nProcess' errors:\n" + 16 * "-" + "\n"
             msg += "\n".join(data.process_error)
 
         if data.process_warning:
-            msg += "\nProcess' warnings:\n" + 18*"-" + "\n"
+            msg += "\nProcess' warnings:\n" + 18 * "-" + "\n"
             msg += "\n".join(data.process_warning)
 
         return msg

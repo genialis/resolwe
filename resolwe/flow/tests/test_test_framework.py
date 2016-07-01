@@ -44,8 +44,8 @@ class TestingFrameworkTestCase(unittest.TestCase):
                 dummy_case._debug_info = lambda _: ""
                 dummy_case.assertEqual = self.assertEqual
                 obj_mock = mock.MagicMock()
+
                 def date_in_line(x):
                     return x.startswith(b"date")
+
                 ProcessTestCase._assert_file(dummy_case, obj_mock, "", "", filter=date_in_line)
-
-
