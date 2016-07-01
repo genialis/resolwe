@@ -59,9 +59,9 @@ def get_user_group_perms(user_or_group, obj):
     ctype = ContentType.objects.get_for_model(obj)
 
     group_model = get_group_obj_perms_model(obj)
-    group_rel_name = group_model.permission.field.related_query_name()
+    group_rel_name = group_model.permission.field.related_query_name()  # pylint: disable=no-member
     if user:
-        user_rel_name = User.groups.field.related_query_name()
+        user_rel_name = User.groups.field.related_query_name()  # pylint: disable=no-member
         group_filters = {user_rel_name: user}
     else:
         group_filters = {'pk': group.pk}
@@ -81,7 +81,7 @@ def get_user_group_perms(user_or_group, obj):
             user_perms = list(chain(perms_qs.values_list("codename", flat=True)))
         else:
             model = get_user_obj_perms_model(obj)
-            related_name = model.permission.field.related_query_name()
+            related_name = model.permission.field.related_query_name()  # pylint: disable=no-member
             user_filters = {'{}__user'.format(related_name): user}
             if model.objects.is_generic():
                 user_filters.update({

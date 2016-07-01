@@ -5,6 +5,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 from datetime import datetime
 import json
+import six
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser, Group
@@ -149,7 +150,7 @@ class Command(BaseCommand):
         new.output_schema = process[u'output_schema']
         new.input_schema = process.get(u'input_schema', {})
         new.persistence = self.persistence_dict[process[u'persistence']]
-        new.run['script'] = process[u'run'][u'bash']
+        new.run['script'] = process[u'run'][u'bash']  # pylint: disable=unsubscriptable-object
         new.save()
 
         self.migrate_permissions(new, process)
@@ -205,7 +206,7 @@ class Command(BaseCommand):
                 process.input_schema = data.get(u'input_schema', {})
                 process.persistence = self.persistence_dict[data[u'persistence']]
 
-                process.run['script'] = 'gen-require common\ngen-error "Depricated process, use the latest version."'
+                process.run['script'] = 'gen-require common\ngen-error "Depricated process, use the latest version."'  # noqa pylint: disable=unsubscriptable-object
 
                 # XXX
                 # process.created =
@@ -214,10 +215,10 @@ class Command(BaseCommand):
                 process.save()
 
                 # copy permissions from latest process
-                for user, perms in get_users_with_perms(latest, attach_perms=True).iteritems():
+                for user, perms in six.iteritems(get_users_with_perms(latest, attach_perms=True)):
                     for perm in perms:
                         assign_perm(perm, user, process)
-                for group, perms in get_groups_with_perms(latest, attach_perms=True).iteritems():
+                for group, perms in six.iteritems(get_groups_with_perms(latest, attach_perms=True)):
                     for perm in perms:
                         assign_perm(perm, group, process)
             else:
@@ -298,7 +299,7 @@ class Command(BaseCommand):
             try:
                 return self.id_mapping['data'][reference]
             except KeyError as error:
-                self.missing_data.add(error.message)
+                self.missing_data.add(error.message)  # pylint: disable=no-member
                 return None
 
         # Fix references in JSON documents in the second pass.
@@ -417,7 +418,8 @@ class Command(BaseCommand):
             self.stdout.write('\nID mappings:', json.dumps(self.id_mapping))
 
         self.stdout.write('\nMissing users: {}'.format(sorted(list(self.missing_users))))
-        self.stdout.write('Missing collections (referenced in Data objects): {}'.format(list(self.missing_collections)))
+        self.stdout.write(
+            'Missing collections (referenced in Data objects): {}'.format(list(self.missing_collections)))
         self.stdout.write('Missing collections (referenced in triggers): {}'.format(self.orphan_triggers))
         self.stdout.write('Missing data (referenced in Data objects): {}'.format(list(self.missing_data)))
         self.stdout.write('Number of shortened names: {}'.format(len(self.long_names)))

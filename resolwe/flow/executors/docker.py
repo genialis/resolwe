@@ -63,11 +63,12 @@ class FlowExecutor(LocalFlowExecutor):
         # a login Bash shell is needed to source ~/.bash_profile
         command_args['shell'] = '/bin/bash --login'
 
-        self.proc = subprocess.Popen(shlex.split(
-            '{command} run --rm --interactive {container_name} {volumes} '
-            '{envs} {workdir} {container_image} {shell}'.format(**command_args)
-        ), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-        universal_newlines=True)
+        self.proc = subprocess.Popen(
+            shlex.split(
+                '{command} run --rm --interactive {container_name} {volumes} '
+                '{envs} {workdir} {container_image} {shell}'.format(**command_args)),
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            universal_newlines=True)
 
         self.stdout = self.proc.stdout
 

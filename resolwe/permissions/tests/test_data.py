@@ -8,16 +8,17 @@ from datetime import datetime, timedelta
 
 
 from django.conf import settings
-if settings.USE_TZ:
-    from django.utils.timezone import now
-else:
-    now = datetime.now  # pylint: disable=invalid-name
 
 from rest_framework import status
 
 from .base import ResolweAPITestCase
 from resolwe.flow.models import Data, Collection
 from resolwe.flow.views import DataViewSet
+
+if settings.USE_TZ:
+    from django.utils.timezone import now
+else:
+    now = datetime.now  # pylint: disable=invalid-name
 
 
 DATE_FORMAT = r'%Y-%m-%dT%H:%M:%S.%f'

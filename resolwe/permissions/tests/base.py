@@ -76,36 +76,36 @@ class ResolweAPITestCase(APITestCase):
         self.factory = APIRequestFactory()
 
         list_url_mapping = {}
-        if hasattr(self.viewset, 'list'):
+        if hasattr(self.viewset, 'list'):  # pylint: disable=no-member
             list_url_mapping['get'] = 'list'
-        if hasattr(self.viewset, 'create'):
+        if hasattr(self.viewset, 'create'):  # pylint: disable=no-member
             list_url_mapping['post'] = 'create'
 
-        self.list_view = self.viewset.as_view(list_url_mapping)
+        self.list_view = self.viewset.as_view(list_url_mapping)  # pylint: disable=no-member
 
         detail_url_mapping = {}
-        if hasattr(self.viewset, 'retrieve'):
+        if hasattr(self.viewset, 'retrieve'):  # pylint: disable=no-member
             detail_url_mapping['get'] = 'retrieve'
-        if hasattr(self.viewset, 'update'):
+        if hasattr(self.viewset, 'update'):  # pylint: disable=no-member
             detail_url_mapping['put'] = 'update'
-        if hasattr(self.viewset, 'partial_update'):
+        if hasattr(self.viewset, 'partial_update'):  # pylint: disable=no-member
             detail_url_mapping['patch'] = 'partial_update'
-        if hasattr(self.viewset, 'destroy'):
+        if hasattr(self.viewset, 'destroy'):  # pylint: disable=no-member
             detail_url_mapping['delete'] = 'destroy'
-        if hasattr(self.viewset, 'detail_permissions'):
+        if hasattr(self.viewset, 'detail_permissions'):  # pylint: disable=no-member
             detail_url_mapping['post'] = 'detail_permissions'
 
-        self.detail_view = self.viewset.as_view(detail_url_mapping)
+        self.detail_view = self.viewset.as_view(detail_url_mapping)  # pylint: disable=no-member
 
     def detail_url(self, pk):
-        return reverse('resolwe-api:{}-detail'.format(self.resource_name), kwargs={'pk': pk})
+        return reverse('resolwe-api:{}-detail'.format(self.resource_name), kwargs={'pk': pk})  # noqa pylint: disable=no-member
 
     def detail_permissions(self, pk):
-        return reverse('resolwe-api:{}-permissions'.format(self.resource_name), kwargs={'pk': pk})
+        return reverse('resolwe-api:{}-permissions'.format(self.resource_name), kwargs={'pk': pk})  # noqa pylint: disable=no-member
 
     @property
     def list_url(self):
-        return reverse('resolwe-api:{}-list'.format(self.resource_name))
+        return reverse('resolwe-api:{}-list'.format(self.resource_name))  # pylint: disable=no-member
 
     def _get_list(self, user=None):
         """Make ``GET`` request to ``self.list_view`` view

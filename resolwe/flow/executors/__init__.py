@@ -10,15 +10,16 @@ import traceback
 from django.apps import apps
 from django.db import transaction
 from django.conf import settings
-if settings.USE_TZ:
-    from django.utils.timezone import now
-else:
-    import datetime  # pylint: disable=wrong-import-order
-    now = datetime.datetime.now  # pylint: disable=invalid-name
 
 from resolwe.flow.models import Data, dict_dot, Process
 from resolwe.flow.utils.purge import data_purge
 from resolwe.utils import BraceMessage as __
+
+if settings.USE_TZ:
+    from django.utils.timezone import now
+else:
+    import datetime
+    now = datetime.datetime.now  # pylint: disable=invalid-name
 
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
@@ -71,7 +72,7 @@ class BaseFlowExecutor(object):
         pass
 
     def get_stdout(self):
-        return self.stdout
+        return self.stdout  # pylint: disable=no-member
 
     def update_data_status(self, **kwargs):
         data = Data.objects.get(pk=self.data_id)

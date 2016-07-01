@@ -11,7 +11,7 @@ import shutil
 
 from django.conf import settings
 
-from resolwe.flow.models import Data, Process, iterate_fields, Storage
+from resolwe.flow.models import Data, iterate_fields
 
 
 def get_purge_files(root, output, output_schema, descriptor, descriptor_schema):

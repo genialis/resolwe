@@ -384,7 +384,8 @@ class Data(BaseModel):
         create = self.pk is None
         if create:
             # Default values for INPUT
-            for field_schema, fields, path in iterate_schema(self.input, self.process.input_schema, ''):
+            input_schema = self.process.input_schema  # pylint: disable=no-member
+            for field_schema, fields, path in iterate_schema(self.input, input_schema):
                 if 'default' in field_schema and field_schema['name'] not in fields:
                     dict_dot(self.input, path, field_schema['default'])
 
@@ -399,23 +400,24 @@ class Data(BaseModel):
         if not self.descriptor:
             render_descriptor(self)
 
-        self.save_storage(self.output, self.process.output_schema)
+        self.save_storage(self.output, self.process.output_schema)  # pylint: disable=no-member
 
         hydrate_size(self)
 
         if create:
-            validate_schema(self.input, self.process.input_schema)
+            validate_schema(self.input, self.process.input_schema)  # pylint: disable=no-member
 
         if self.descriptor_schema:
-            validate_schema(self.descriptor, self.descriptor_schema.schema)
+            validate_schema(self.descriptor, self.descriptor_schema.schema)  # pylint: disable=no-member
         elif self.descriptor and self.descriptor != {}:
             raise ValueError("`descriptor_schema` must be defined if `descriptor` is given")
 
         path_prefix = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(self.pk))
+        output_schema = self.process.output_schema  # pylint: disable=no-member
         if self.status == Data.STATUS_DONE:
-            validate_schema(self.output, self.process.output_schema, path_prefix=path_prefix)
+            validate_schema(self.output, output_schema, path_prefix=path_prefix)
         else:
-            validate_schema(self.output, self.process.output_schema, path_prefix=path_prefix,
+            validate_schema(self.output, output_schema, path_prefix=path_prefix,
                             test_required=False)
 
         super(Data, self).save(*args, **kwargs)
@@ -427,14 +429,14 @@ class Data(BaseModel):
         input context.
 
         """
-        if not self.process.data_name or self.named_by_user:
+        if not self.process.data_name or self.named_by_user:  # pylint: disable=no-member
             return
 
-        inputs = self.input.copy()
-        hydrate_input_references(inputs, self.process.input_schema, hydrate_values=False)
+        inputs = self.input.copy()  # pylint: disable=no-member
+        hydrate_input_references(inputs, self.process.input_schema, hydrate_values=False)  # pylint: disable=no-member
         template_context = template.Context(inputs)
 
-        self.name = render_template(self.process.data_name, template_context)
+        self.name = render_template(self.process.data_name, template_context)  # pylint: disable=no-member
 
 
 class DescriptorSchema(BaseModel):
