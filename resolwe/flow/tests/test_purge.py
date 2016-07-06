@@ -13,9 +13,9 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils.crypto import get_random_string
 
-from resolwe.flow.tests import ProcessTestCase
 from resolwe.flow.models import Process, DescriptorSchema, Data
 from resolwe.flow.utils import purge
+from resolwe.flow.utils.test import ProcessTestCase
 
 
 class PurgeTestFieldsMixin(object):

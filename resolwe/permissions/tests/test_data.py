@@ -11,7 +11,7 @@ from django.conf import settings
 
 from rest_framework import status
 
-from .base import ResolweAPITestCase
+from ..utils.test import ResolweAPITestCase
 from resolwe.flow.models import Data, Collection
 from resolwe.flow.views import DataViewSet
 

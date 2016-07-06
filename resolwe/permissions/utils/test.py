@@ -1,5 +1,7 @@
 """
-.. autoclass:: ResolweAPITestCase
+=======
+Testing
+=======
 
 """
 

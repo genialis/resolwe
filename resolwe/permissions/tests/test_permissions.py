@@ -11,7 +11,7 @@ from guardian.models import GroupObjectPermission, UserObjectPermission
 from guardian.shortcuts import assign_perm
 from rest_framework import exceptions, status
 
-from .base import ResolweAPITestCase
+from ..utils.test import ResolweAPITestCase
 from resolwe.flow.models import Collection
 from resolwe.flow.views import CollectionViewSet, ResolwePermissionsMixin
 

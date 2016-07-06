@@ -3,7 +3,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 from rest_framework import status
 
-from .base import ResolweAPITestCase
+from ..utils.test import ResolweAPITestCase
 from resolwe.flow.models import Collection, Process
 from resolwe.flow.views import ProcessViewSet
 

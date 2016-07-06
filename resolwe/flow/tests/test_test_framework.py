@@ -10,13 +10,13 @@ try:
 except ImportError:
     import __builtin__ as builtins  # py2
 
-from resolwe.flow.tests import ProcessTestCase
+from resolwe.flow.utils.test import ProcessTestCase
 
 
 class TestingFrameworkTestCase(unittest.TestCase):
 
         @mock.patch("os.path.isfile")
-        @mock.patch("resolwe.flow.tests.dict_dot")
+        @mock.patch("resolwe.flow.utils.test.dict_dot")
         def test_assert_files_date_not_filtered(self, dict_dot_mock, isfile_mock):
             isfile_mock.return_value = True
             output1_file = io.BytesIO(b"some line\ndate: 2016-02-10\n")
@@ -32,7 +32,7 @@ class TestingFrameworkTestCase(unittest.TestCase):
                                   dummy_case, obj_mock, "", "")
 
         @mock.patch("os.path.isfile")
-        @mock.patch("resolwe.flow.tests.dict_dot")
+        @mock.patch("resolwe.flow.utils.test.dict_dot")
         def test_assert_files_date_filtered(self, dict_dot_mock, isfile_mock):
             isfile_mock.return_value = True
             output1_file = io.BytesIO(b"some line\ndate: 2016-02-10\n")

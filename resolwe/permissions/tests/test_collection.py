@@ -7,7 +7,7 @@ from django.db import transaction
 
 from rest_framework import status
 
-from .base import ResolweAPITestCase
+from ..utils.test import ResolweAPITestCase
 from resolwe.flow.models import Collection
 from resolwe.flow.views import CollectionViewSet
 
