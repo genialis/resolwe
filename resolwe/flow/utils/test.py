@@ -13,10 +13,8 @@ import json
 import os
 import shutil
 from six.moves import filterfalse
-import stat
 import zipfile
 
-from django.apps import apps
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core import management
