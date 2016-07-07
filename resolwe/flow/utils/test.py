@@ -155,8 +155,9 @@ class ProcessTestCase(TestCase):
         return self.run_process(*args, **kwargs)
         # TODO: warning
 
-    def run_process(self, process_slug, input_={}, descriptor=None, descriptor_schema=None,
-                    assert_status=Data.STATUS_DONE, run_manager=True, verbosity=0):
+    def run_process(self, process_slug, input_={}, assert_status=Data.STATUS_DONE,
+                    descriptor=None, descriptor_schema=None, run_manager=True,
+                    verbosity=0):
         """Runs given processor with specified inputs.
 
         If input is file, file path should be given relative to
@@ -172,14 +173,14 @@ class ProcessTestCase(TestCase):
             given.
         :type ``input_``: :obj:`dict`
 
+        :param ``assert_status``: Desired status of Data object
+        :type ``assert_status``: :obj:`str`
+
         :param descriptor: Descriptor to set on the data object.
         :type descriptor: :obj:`dict`
 
         :param descriptor_schema: Descriptor schema to set on the data object.
         :type descriptor_schema: :obj:`dict`
-
-        :param ``assert_status``: Desired status of Data object
-        :type ``assert_status``: :obj:`str`
 
         :return: :obj:`resolwe.flow.models.Data` object which is created by
             the processor.
