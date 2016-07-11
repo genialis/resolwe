@@ -8,9 +8,13 @@ import unittest
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
 from django.template import Context
 from django.test import TestCase, override_settings
+
+from guardian.models import GroupObjectPermission, UserObjectPermission
+from guardian.shortcuts import assign_perm, remove_perm
 
 from resolwe.flow.managers import manager
 from resolwe.flow.models import Data, hydrate_size, Process, render_template, Storage
@@ -254,3 +258,44 @@ class UtilsTestCase(unittest.TestCase):
     def test_render_template_error(self):
         with self.assertRaises(KeyError):
             render_template('{{ 1 | increase }}', Context())
+
+
+class StoragePermsTestCase(TestCase):
+    def setUp(self):
+        contributor = get_user_model().objects.create(username="contributor")
+        proc = Process.objects.create(name='Test process', contributor=contributor)
+        self.data = Data.objects.create(name='Test data', contributor=contributor, process=proc)
+
+        self.storage = Storage.objects.create(
+            name='Test storage',
+            json={},
+            data=self.data,
+            contributor=contributor,
+        )
+
+        self.user = get_user_model().objects.create(username="test_user")
+        self.group = Group.objects.create(name="test_group")
+
+    def test_sync_user_perms(self):
+        assign_perm("view_data", self.user, self.data)
+        self.assertEqual(UserObjectPermission.objects.count(), 2)
+        self.assertTrue(UserObjectPermission.objects.filter(
+            object_pk=self.storage.pk, user=self.user, permission__codename="view_storage"
+        ).exists())
+
+        remove_perm("view_data", self.user, self.data)
+        self.assertEqual(UserObjectPermission.objects.count(), 0)
+
+    def test_sync_group_perms(self):
+        assign_perm("view_data", self.group, self.data)
+        self.assertEqual(GroupObjectPermission.objects.count(), 2)
+        self.assertTrue(GroupObjectPermission.objects.filter(
+            object_pk=self.storage.pk, group=self.group, permission__codename="view_storage"
+        ).exists())
+
+        remove_perm("view_data", self.group, self.data)
+        self.assertEqual(GroupObjectPermission.objects.count(), 0)
+
+    def test_download_perms(self):
+        assign_perm("download_data", self.user, self.data)
+        self.assertEqual(UserObjectPermission.objects.count(), 1)

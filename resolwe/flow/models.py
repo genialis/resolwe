@@ -513,6 +513,15 @@ class Storage(BaseModel):
 
     """Postgres model for storing storages."""
 
+    class Meta(BaseModel.Meta):
+        """Storage Meta options."""
+        permissions = (
+            ("view_storage", "Can view storage"),
+            ("edit_storage", "Can edit storage"),
+            ("share_storage", "Can share storage"),
+            ("owner_storage", "Is owner of the storage"),
+        )
+
     #: corresponding data object
     data = models.ForeignKey('Data')
 

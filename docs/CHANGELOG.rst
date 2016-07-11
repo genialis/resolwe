@@ -24,6 +24,8 @@ Added
   directories
 - Add test coverage and track it with Codecov
 - Implement data purge
+- ``Storage`` permissions are auto-synced with permissions of corresponding 
+  ``Data`` object
 
 Changed
 -------
