@@ -28,6 +28,7 @@ Added
 - Return contributor information together with objects
 - Added permissions filter to determine ``Storage`` permissions based on 
   referenced ``Data`` object
+- Sphinx extension ``autoprocess`` for automatic process documentation
 
 Changed
 -------

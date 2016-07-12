@@ -1,0 +1,182 @@
+- slug: test1
+  name: Test1
+  version: 0.0.1
+  type: "data:test:blahbkah:"
+  category: tests
+  persistence: CACHED
+  description: Test processor.
+  input:
+    - name: boolean
+      label: Boolean
+      type: basic:boolean
+  output:
+    - name: output
+      label: Result
+      type: basic:url:view
+
+- slug: test-bloated
+  name: Bloated Processor
+  version: 0.0.0
+  type: "data:test:bloated:"
+  category: tests
+  persistence: CACHED
+  description: A very bloated processor.
+  input:
+    - name: boolean
+      label: Boolean
+      type: basic:boolean
+      default: true
+    - name: date
+      label: Date
+      type: basic:date
+      default: "2013-12-31"
+    - name: datetime
+      label: Date and time
+      type: basic:datetime
+      default: "2013-12-31 23:59:59"
+    - name: decimal
+      label: Decimal
+      type: basic:decimal
+      default: -123.456
+    - name: integer
+      label: Integer
+      type: basic:integer
+      default: -123
+    - name: string
+      label: String
+      type: basic:string
+      default: "Foo b-a-r.gz 1.23"
+    - name: string-list
+      label: String List
+      type: list:basic:string
+    - name: text
+      label: Text
+      type: basic:text
+      default: |
+        Foo bar
+        in 3
+        lines.
+    - name: url_download
+      label: URL download
+      type: basic:url:download
+      default:
+        url: "http://www.w3.org/TR/1998/REC-html40-19980424/html40.pdf"
+    - name: url_view
+      label: URL view
+      type: basic:url:view
+      default:
+        name: Google
+        url: "http://www.google.com/"
+    - name: group
+      label: Group
+      group:
+        - name: string2
+          label: String 2 required
+          type: basic:string
+          description: "String 2 description."
+          required: true
+          placeholder: "Enter string"
+        - name: string3
+          label: String 3 disabled
+          type: basic:string
+          description: "String 3 description."
+          disabled: true
+          default: "disabled"
+        - name: string4
+          label: String 4 hidden
+          type: basic:string
+          description: "String 4 description."
+          hidden: true
+          default: "hidden"
+        - name: string5
+          label: String 5 choices
+          type: basic:string
+          description: "String 5 description."
+          default: "choice_2"
+          choices:
+            - label: Choice 1
+              value: choice_1
+            - label: Choice 2
+              value: choice_2
+            - label: Choice 3
+              value: choice_3
+        - name: string6
+          label: String 6 regex only "Aa"
+          type: basic:string
+          default: "AAaAaaa"
+          validate_regex: /^[aA]*$/
+    - name: tricky
+      label: Tricky
+      group:
+        - name: tricky1
+          label: Tricky 1
+          group:
+            - name: tricky2
+              label: Tricky 2
+              type: basic:string
+              default: "true"
+  output:
+    - name: output
+      label: Result
+      type: basic:url:view
+    - name: out_boolean
+      label: Boolean
+      type: basic:boolean
+    - name: out_date
+      label: Date
+      type: basic:date
+    - name: out_datetime
+      label: Date and time
+      type: basic:datetime
+    - name: out_decimal
+      label: Decimal
+      type: basic:decimal
+    - name: out_integer
+      label: Integer
+      type: basic:integer
+    - name: out_string
+      label: String
+      type: basic:string
+    - name: out_text
+      label: Text
+      type: basic:text
+    - name: out_url_download
+      label: URL download
+      type: basic:url:download
+    - name: out_url_view
+      label: URL view
+      type: basic:url:view
+    - name: out_group
+      label: Group
+      group:
+        - name: string2
+          label: String 2 required
+          type: basic:string
+          description: "String 2 description."
+        - name: string3
+          label: String 3 disabled
+          type: basic:string
+          description: "String 3 description."
+        - name: string4
+          label: String 4 hidden
+          type: basic:string
+          description: "String 4 description."
+        - name: string5
+          label: String 5 choices
+          type: basic:string
+          description: "String 5 description."
+        - name: string6
+          label: String 6 regex only "Aa"
+          type: basic:string
+    - name: out_tricky
+      label: Tricky
+      group:
+        - name: tricky1
+          label: Tricky 1
+          group:
+            - name: tricky2
+              label: Tricky 2
+              type: basic:string
+  run:
+    bash: |
+      echo 'Test Bloated Processor'

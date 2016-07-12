@@ -84,6 +84,7 @@ setup(
             'check-manifest',
             'readme_renderer',
             'resolwe-runtime-utils>=1.1.0',
+            'Sphinx==1.4.2',
         ],
     },
 
