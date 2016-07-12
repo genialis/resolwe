@@ -419,12 +419,12 @@ class ProcessTestCase(TestCase):
 
         file_path = os.path.join(self.files_path, file_name)
         if not os.path.isfile(file_path):
-            with gzip.open(file_path, 'w') as f:
+            with gzip.open(file_path, mode='wt') as f:
                 json.dump(storage_obj, f)
 
             self.fail(msg="Output file {} missing so it was created.".format(file_name))
 
-        with gzip.open(file_path) as f:
+        with gzip.open(file_path, mode='rt') as f:
             file_obj = json.load(f)
 
         self.assertEqual(storage_obj, file_obj,
