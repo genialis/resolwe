@@ -10,5 +10,7 @@ include .pep8rc .pylintrc tox.ini
 recursive-include tests *.py *.yml *.rst
 recursive-include resolwe/flow/tests *.py
 recursive-include resolwe/flow/tests/processes *.yml
+recursive-include resolwe/flow/tests/files *.py *.rst *.txt
+recursive-include resolwe/flow/tests/files/processes *.yaml
 recursive-include resolwe/permissions/tests *.py
 recursive-include resolwe/permissions/fixtures *.yaml readme.txt

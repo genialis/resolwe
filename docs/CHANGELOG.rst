@@ -5,6 +5,15 @@ Change Log
 All notable changes to this project are documented in this file.
 
 
+==========
+Unreleased
+==========
+
+Added
+-----
+- Sphinx extension ``autoprocess`` for automatic process documentation
+
+
 ==================
 1.3.0 - 2016-07-27
 ==================
