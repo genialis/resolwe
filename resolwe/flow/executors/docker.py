@@ -15,7 +15,7 @@ class FlowExecutor(LocalFlowExecutor):
 
     def __init__(self, *args, **kwargs):
         super(FlowExecutor, self).__init__(*args, **kwargs)
-        self.command = settings.FLOW_EXECUTOR.get('COMMAND', 'docker')
+        self.command = getattr(settings, 'FLOW_EXECUTOR', {}).get('COMMAND', 'docker')
 
     def start(self):
         # arguments passed to the Docker command

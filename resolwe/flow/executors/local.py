@@ -21,7 +21,7 @@ class FlowExecutor(BaseFlowExecutor):
 
     def __init__(self, *args, **kwargs):
         super(FlowExecutor, self).__init__(*args, **kwargs)
-        self.command = settings.FLOW_EXECUTOR.get('COMMAND', '/bin/bash')
+        self.command = getattr(settings, 'FLOW_EXECUTOR', {}).get('COMMAND', '/bin/bash')
         self.processes = {}
         self.kill_delay = 5
 

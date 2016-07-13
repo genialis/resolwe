@@ -55,8 +55,10 @@ class BaseManager(object):
     """Manager handles process job execution."""
 
     def __init__(self):
-        self.executor = self.load_executor(settings.FLOW_EXECUTOR['NAME']).FlowExecutor()
-        self.exprengines = self.load_exprengines(settings.FLOW_EXPRESSION_ENGINES)
+        executor = getattr(settings, 'FLOW_EXECUTOR', {}).get('NAME', 'resolwe.flow.executors.local')
+        self.executor = self.load_executor(executor).FlowExecutor()
+        exprengines = getattr(settings, 'FLOW_EXPRESSION_ENGINES', ['resolwe.flow.exprengines.dtlbash'])
+        self.exprengines = self.load_exprengines(exprengines)
 
     def run(self, data_id, script, run_sync=False, verbosity=1):
         raise NotImplementedError('`run` function not implemented')

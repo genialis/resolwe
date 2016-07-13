@@ -56,8 +56,8 @@ def _register_schemas():
 
 
 # override all FLOW_EXECUTOR settings that are specified in FLOW_EXECUTOR['TEST']
-flow_executor_settings = settings.FLOW_EXECUTOR.copy()
-test_settings_overrides = settings.FLOW_EXECUTOR.get('TEST', {})
+flow_executor_settings = copy.copy(getattr(settings, 'FLOW_EXECUTOR', {}))
+test_settings_overrides = getattr(settings, 'FLOW_EXECUTOR', {}).get('TEST', {})
 flow_executor_settings.update(test_settings_overrides)
 
 # update FLOW_DOCKER_MAPPINGS setting if necessary
