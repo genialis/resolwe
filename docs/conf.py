@@ -1,13 +1,30 @@
 # -*- coding: utf-8 -*-
 
-import django
 import os
 
-base_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
+import django
+from django.conf import settings
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tests.settings')
+base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Manual setup is required for standalone Django usage
+# NOTE: Since documentation is built using the built/installed package when
+# using Tox, it can't use the 'test.settings' Django settings module.
+settings.configure(
+    INSTALLED_APPS=(
+        'django.contrib.auth',
+        'django.contrib.contenttypes',
+        'django.contrib.sessions',
+        'django.contrib.staticfiles',
+        'rest_framework',
+        'guardian',
+        'mathfilters',
+        'versionfield',
+        'resolwe',
+        'resolwe.permissions',
+        'resolwe.flow',
+    ),
+)
 django.setup()
 
 # Get package metadata from 'resolwe/__about__.py' file
@@ -55,6 +72,9 @@ pygments_style = 'sphinx'
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = False
+
+# Warn about all references where the target cannot be found
+nitpicky = True
 
 # -- Options for HTML output ----------------------------------------------
 
