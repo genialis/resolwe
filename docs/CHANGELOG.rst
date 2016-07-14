@@ -24,6 +24,7 @@ Added
   directories
 - Add test coverage and track it with Codecov
 - Implement data purge
+- Add ``process_fields.name`` custom tamplate tag
 
 Changed
 -------
