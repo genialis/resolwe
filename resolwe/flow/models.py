@@ -30,7 +30,7 @@ import re
 import six
 
 from django import template
-from django.db import models
+from django.db import models, transaction
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
@@ -353,8 +353,14 @@ class Data(BaseModel):
     #: actual descriptor
     descriptor = JSONField(default=dict)
 
-    # track if user set the data name explicitly
+    #: track if user set the data name explicitly
     named_by_user = models.BooleanField(default=False)
+
+    #: dependencies between data objects
+    parents = models.ManyToManyField(
+        'self',
+        symmetrical=False, related_name='children'
+    )
 
     def __init__(self, *args, **kwargs):
         super(Data, self).__init__(*args, **kwargs)
@@ -384,6 +390,25 @@ class Data(BaseModel):
 
                 # `value` is copied by value, so `fields[name]` must be changed
                 fields[name] = storage.pk
+
+    def save_dependencies(self, instance, schema):
+        """Save data: and list:data: references as parents."""
+
+        def add_dependency(value):
+            try:
+                self.parents.add(Data.objects.get(pk=value))  # pylint: disable=no-member
+            except Data.DoesNotExist:
+                pass
+
+        for field_schema, fields in iterate_fields(instance, schema):
+            name = field_schema['name']
+            value = fields[name]
+
+            if field_schema.get('type', '').startswith('data:'):
+                add_dependency(value)
+            elif field_schema.get('type', '').startswith('list:data:'):
+                for data in value:
+                    add_dependency(data)
 
     def save(self, render_name=False, *args, **kwargs):
         # Generate the descriptor if one is not already set.
@@ -429,7 +454,12 @@ class Data(BaseModel):
             validate_schema(self.output, output_schema, path_prefix=path_prefix,
                             test_required=False)
 
-        super(Data, self).save(*args, **kwargs)
+        with transaction.atomic():
+            super(Data, self).save(*args, **kwargs)
+
+            # We can only save dependencies after the data object has been saved. This
+            # is why a transaction block is needed and the save method must be called first.
+            self.save_dependencies(self.input, self.process.input_schema)  # pylint: disable=no-member
 
     def _render_name(self):
         """Render data name.

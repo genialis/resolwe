@@ -142,6 +142,71 @@ class DataModelTest(TestCase):
 
         self.assertEqual(data.output['output_file']['size'], 7)
 
+    def test_dependencies_single(self):
+        process = Process.objects.create(slug='test-dependencies',
+                                         type='data:test:dependencies:',
+                                         contributor=self.user,
+                                         input_schema=[{
+                                             'name': 'src',
+                                             'type': 'data:test:dependencies:',
+                                             'required': False,
+                                         }])
+
+        first = Data.objects.create(contributor=self.user,
+                                    process=process)
+
+        second = Data.objects.create(contributor=self.user,
+                                     process=process,
+                                     input={'src': first.id})
+
+        third = Data.objects.create(contributor=self.user,
+                                    process=process,
+                                    input={'src': first.id})
+
+        self.assertEqual(first.parents.all().count(), 0)
+        self.assertEqual(first.children.all().count(), 2)
+        self.assertEqual(second.children.all().count(), 0)
+        self.assertEqual(second.parents.all().count(), 1)
+        self.assertEqual(third.children.all().count(), 0)
+        self.assertEqual(third.parents.all().count(), 1)
+        self.assertIn(first, second.parents.all())
+        self.assertIn(first, third.parents.all())
+        self.assertIn(second, first.children.all())
+        self.assertIn(third, first.children.all())
+
+    def test_dependencies_list(self):
+        process = Process.objects.create(slug='test-dependencies-list',
+                                         type='data:test:dependencies:list:',
+                                         contributor=self.user,
+                                         input_schema=[{
+                                             'name': 'src',
+                                             'type': 'list:data:test:dependencies:list:',
+                                             'required': False,
+                                         }])
+
+        first = Data.objects.create(contributor=self.user,
+                                    process=process)
+
+        second = Data.objects.create(contributor=self.user,
+                                     process=process,
+                                     input={'src': [first.id]})
+
+        third = Data.objects.create(contributor=self.user,
+                                    process=process,
+                                    input={'src': [first.id, second.id]})
+
+        self.assertEqual(first.parents.all().count(), 0)
+        self.assertEqual(first.children.all().count(), 2)
+        self.assertEqual(second.children.all().count(), 1)
+        self.assertEqual(second.parents.all().count(), 1)
+        self.assertEqual(third.children.all().count(), 0)
+        self.assertEqual(third.parents.all().count(), 2)
+        self.assertIn(first, second.parents.all())
+        self.assertIn(first, third.parents.all())
+        self.assertIn(second, first.children.all())
+        self.assertIn(third, first.children.all())
+        self.assertIn(third, second.children.all())
+
 
 @patch('resolwe.flow.models.os')
 class HydrateFileSizeUnitTest(unittest.TestCase):
