@@ -122,9 +122,9 @@ def get_object_perms(obj, user=None):
     given user, groups he belongs to and public permissions.
 
     :param obj: Resolwe's DB model's instance
-    :type obj: Collection, Sample, Data, Process, DescriptorSchema or Trigger
+    :type obj: a subclass of :class:`~resolwe.flow.models.BaseModel`
     :param user: Django user
-    :type user: django.contrib.auth.models.User or None
+    :type user: :class:`~django.contrib.auth.models.User` or :data:`None`
     :return: list of permissions object in described format
     :rtype: list
 

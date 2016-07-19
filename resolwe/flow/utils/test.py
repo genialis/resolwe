@@ -75,21 +75,22 @@ for map_ in flow_docker_mappings:
 @override_settings(CELERY_ALWAYS_EAGER=True)
 class ProcessTestCase(TestCase):
 
-    """Base class for writing processor tests.
+    """Base class for writing process tests.
 
-    This class is subclass of Django's ``TestCase`` with some specific
-    functions used for testing processors.
+    This class is subclass of Django's :class:`~django.test.TestCase`
+    with some specific functions used for testing processes.
 
-    To write a processor test use standard Django's syntax for writing
-    tests and follow next steps:
+    To write a process test use standard Django's syntax for writing
+    tests and follow the next steps:
 
-    #. Put input files (if any) in ``tests/files`` folder of a Django
-       application.
-    #. Run test with run_processor.
-    #. Check if processor has finished successfully with
-       assertDone function.
-    #. Assert processor's output with :func:`assertFiles`,
-       :func:`assertFields` and :func:`assertJSON` functions.
+    #. Put input files (if any) in ``tests/files`` directory of a
+       Django application.
+    #. Run the process using :meth:`run_process`.
+    #. Check if the process has the expected status using
+       :meth:`assertStatus`.
+    #. Check process's output using :meth:`assertFields`,
+       :meth:`assertFile`, :meth:`assertFileExists`,
+       :meth:`assertFiles` and :meth:`assertJSON`.
 
     .. note::
         When creating a test case for a custom Django application,
@@ -100,7 +101,7 @@ class ProcessTestCase(TestCase):
             self.files_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'files')
 
     .. DANGER::
-        If output files don't exist in ``tests/files`` folder of a
+        If output files don't exist in ``tests/files`` directory of a
         Django application, they are created automatically.
         But you have to check that they are correct before using them
         for further runs.
@@ -156,32 +157,37 @@ class ProcessTestCase(TestCase):
     def run_process(self, process_slug, input_={}, assert_status=Data.STATUS_DONE,
                     descriptor=None, descriptor_schema=None, run_manager=True,
                     verbosity=0):
-        """Runs given processor with specified inputs.
+        """Run the specified process with the given inputs.
 
-        If input is file, file path should be given relative to
-        ``tests/files`` folder of a Django application.
-        If ``assert_status`` is given check if Data object's status
-        matches ``assert_status`` after finishing processor.
+        If input is a file, file path should be given relative to the
+        ``tests/files`` directory of a Django application.
+        If ``assert_status`` is given, check if
+        :class:`~resolwe.flow.models.Data` object's status matches
+        it after the process has finished.
 
-        :param processor_name: name of the processor to run
-        :type processor_name: :obj:`str`
+        :param str process_slug: slug of the
+            :class:`~resolwe.flow.models.Process` to run
 
-        :param ``input_``: Input paramaters for processor. You don't
-            have to specifie parameters for which default values are
-            given.
-        :type ``input_``: :obj:`dict`
+        :param dict ``input_``: :class:`~resolwe.flow.models.Process`'s
+            input parameters
 
-        :param ``assert_status``: Desired status of Data object
-        :type ``assert_status``: :obj:`str`
+            .. note::
 
-        :param descriptor: Descriptor to set on the data object.
-        :type descriptor: :obj:`dict`
+                You don't have to specify parameters with defined
+                default values.
 
-        :param descriptor_schema: Descriptor schema to set on the data object.
-        :type descriptor_schema: :obj:`dict`
+        :param str ``assert_status``: desired status of the
+            :class:`~resolwe.flow.models.Data` object
 
-        :return: :obj:`resolwe.flow.models.Data` object which is created by
-            the processor.
+        :param dict descriptor: descriptor to set on the
+            :class:`~resolwe.flow.models.Data` object
+
+        :param dict descriptor_schema: descriptor schema to set on the
+            :class:`~resolwe.flow.models.Data` object
+
+        :return: object created by
+            :class:`~resolwe.flow.models.Process`
+        :rtype: ~resolwe.flow.models.Data
 
         """
 
@@ -244,12 +250,12 @@ class ProcessTestCase(TestCase):
         return d
 
     def assertStatus(self, obj, status):  # pylint: disable=invalid-name
-        """Check if Data object's status is 'status'.
+        """Check if object's status is equal to the given status.
 
-        :param obj: Data object for which to check status
-        :type obj: :obj:`resolwe.flow.models.Data`
-        :param status: Data status to check
-        :type status: str
+        :param obj: object for which to check the status
+        :type obj: ~resolwe.flow.models.Data
+        :param str status: desired value of object's
+            :attr:`~resolwe.flow.models.Data.status` attribute
 
         """
         self.assertEqual(obj.status, status,
@@ -257,16 +263,16 @@ class ProcessTestCase(TestCase):
                          self._debug_info(obj))
 
     def assertFields(self, obj, path, value):  # pylint: disable=invalid-name
-        """Compare Data object's field to given value.
+        """Compare object's field to the given value.
 
-        :param obj: Data object with field to compare
-        :type obj: :obj:`resolwe.flow.models.Data`
+        :param obj: object with the field to compare
+        :type obj: ~resolwe.flow.models.Data
 
-        :param path: Path to field in Data object.
-        :type path: :obj:`str`
+        :param str path: path to
+            :class:`~resolwe.flow.models.Data` object's field
 
-        :param value: Desired value.
-        :type value: :obj:`str`
+        :param str value: desired value of
+            :class:`~resolwe.flow.models.Data` object's field
 
         """
         field = dict_dot(obj.output, path)
@@ -307,60 +313,63 @@ class ProcessTestCase(TestCase):
                              correct_hash, output_hash) + self._debug_info(obj))
 
     def assertFile(self, obj, field_path, fn, **kwargs):  # pylint: disable=invalid-name
-        """Compare process's output file to the given correct file
+        """Compare a process's output file to the given correct file.
 
-        :param obj: Data object which includes file that we want to
-            compare.
-        :type obj: :obj:`resolwe.flow.models.Data`
+        :param obj: object that includes the file to compare
+        :type obj: ~resolwe.flow.models.Data
 
-        :param str field_path: Path to list of file names in Data object.
+        :param str field_path: path to
+            :class:`~resolwe.flow.models.Data` object's field with the
+            file name
 
-        :param str fn: File name (and relative path) of file to which we
-            want to compare. Name/path is relative to ``tests/files``
-            folder of a Django application.
+        :param str fn: file name (and relative path) of the correct
+            file to compare against. Path should be relative to the
+            ``tests/files`` directory of a Django application.
 
-        :param compression: If not None, files will be uncompressed with
-            the appropriate compression library before comparison.
-            Currently supported compression formats are "gzip" and
-            "zip".
-        :type compression: :obj:`str`
+        :param str compression: if not ``None``, files will be
+            uncompressed with the appropriate compression library
+            before comparison.
+            Currently supported compression formats are *gzip* and
+            *zip*.
 
-        :param filter: Function for filtering the contents of output
-            files. It is used in :obj:`itertools.filterfalse` function
+        :param filter: function for filtering the contents of output
+            files. It is used in :func:`itertools.filterfalse` function
             and takes one parameter, a line of the output file. If it
-            returns `True`, the line is excluded from comparison of the
-            two files.
-        :type filter: :obj:`function`
+            returns ``True``, the line is excluded from comparison of
+            the two files.
+        :type filter: ~types.FunctionType
 
         """
         field = dict_dot(obj.output, field_path)
         self._assert_file(obj, field['file'], fn, **kwargs)
 
     def assertFiles(self, obj, field_path, fn_list, **kwargs):  # pylint: disable=invalid-name
-        """Compare list of processes' output files to the given correct files
+        """Compare a list of process's output files to the given
+        correct files.
 
-        :param obj: Data object which includes files that we want to
-            compare.
-        :type obj: :obj:`resolwe.flow.models.Data`
+        :param obj: object which includes the files to compare
+        :type obj: ~resolwe.flow.models.Data
 
-        :param str field_path: Path to list of file names in Data object.
+        :param str field_path: path to
+            :class:`~resolwe.flow.models.Data` object's field with the
+            list of file names
 
-        :param list fn_list: List od file names (and relative paths) of
-            files to which we want to compare. Name/path is relative to
-            ``tests/files`` folder of a Django application.
+        :param list fn_list: list of file names (and relative paths) of
+            files to compare against. Paths should be relative to the
+            ``tests/files`` directory of a Django application.
 
-        :param compression: If not None, files will be uncompressed with
-            the appropriate compression library before comparison.
-            Currently supported compression formats are "gzip" and
-            "zip".
-        :type compression: :obj:`str`
+        :param str compression: if not ``None``, files will be
+            uncompressed with the appropriate compression library
+            before comparison.
+            Currently supported compression formats are *gzip* and
+            *zip*.
 
         :param filter: Function for filtering the contents of output
             files. It is used in :obj:`itertools.filterfalse` function
             and takes one parameter, a line of the output file. If it
-            returns `True`, the line is excluded from comparison of the
-            two files.
-        :type filter: :obj:`function`
+            returns ``True``, the line is excluded from comparison of
+            the two files.
+        :type filter: ~types.FunctionType
 
         """
         field = dict_dot(obj.output, field_path)
@@ -372,15 +381,15 @@ class ProcessTestCase(TestCase):
             self._assert_file(obj, fn_tested['file'], fn_correct, **kwargs)
 
     def assertFileExists(self, obj, field_path):  # pylint: disable=invalid-name
-        """Compare output file of a processor to the given correct file.
+        """Ensure a file in the given object's field exists.
 
-        :param obj: Data object which includes file that we want to
-            compare.
-        :type obj: :obj:`resolwe.flow.models.Data`
+        :param obj: object that includes the file for which to check if
+            it exists
+        :type obj: ~resolwe.flow.models.Data
 
-        :param field_path: Path to file name in Data object.
-        :type field_path: :obj:`str`
-
+        :param str field_path: path to
+            :class:`~resolwe.flow.models.Data` object's field with the
+            file name/path
         """
         field = dict_dot(obj.output, field_path)
         output = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(obj.pk), field['file'])
@@ -389,25 +398,30 @@ class ProcessTestCase(TestCase):
             self.fail(msg="File {} does not exist.".format(field_path))
 
     def assertJSON(self, obj, storage, field_path, file_name):  # pylint: disable=invalid-name
-        """Compare JSON in Storage object to the given correct output.
+        """Compare JSON in Storage object to the given correct JSON.
 
-        :param obj: Data object which includes file that we want to
-            compare.
-        :type obj: :obj:`resolwe.flow.models.Data`
+        :param obj: object to which the
+            :class:`~resolwe.flow.models.Storage` object belongs
+        :type obj: ~resolwe.flow.models.Data
 
-        :param storage: Storage (or storage id) which contains JSON to
-            compare.
-        :type storage: :obj:`resolwe.flow.models.Storage` or :obj:`str`
+        :param storage: object or id which contains JSON to compare
+        :type storage: :class:`~resolwe.flow.models.Storage` or
+            :class:`str`
 
-        :param field_path: Path to JSON subset to compare in Storage
-            object. If it is empty, entire Storage object will be
+        :param str field_path: path to JSON subset in the
+            :class:`~resolwe.flow.models.Storage`'s object to compare
+            against. If it is empty, the entire object will be
             compared.
-        :type field_path: :obj:`str`
 
-        :param file_name: File name (and relative path) of file to
-            which we want to compare. Name/path is relative to
-            ``tests/files`` folder of a Django application.
-        :type file_name: :obj:`str`
+        :param str file_name: file name (and relative path) of the file
+            with the correct JSON to compare against. Path should be
+            relative to the ``tests/files`` directory of a Django
+            application.
+
+            .. note::
+
+                The given JSON file should be compresed with *gzip* and
+                have the ``.gz`` extension.
 
         """
         self.assertEqual(os.path.splitext(file_name)[1], '.gz', msg='File extension must be .gz')

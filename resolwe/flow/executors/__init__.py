@@ -1,5 +1,13 @@
+"""
+==============
+Flow Executors
+==============
+
+.. autoclass:: resolwe.flow.executors.BaseFlowExecutor
+    :members:
+
+"""
 from __future__ import absolute_import, division, print_function, unicode_literals
-"""Workflow Executors"""
 
 import json
 import logging

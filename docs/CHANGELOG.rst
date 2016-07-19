@@ -53,6 +53,7 @@ Changed
   ``resolwe.flow.utils.test`` and from ``resolwe.permissions.tests.base`` to
   ``resolwe.permissions.utils.test``
 - Add Tox testing environment for building documentation
+- Extend Reference documentation
 
 Fixed
 -----

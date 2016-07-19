@@ -11,7 +11,10 @@ from resolwe.flow.utils.purge import data_purge
 
 class Command(BaseCommand):
 
-    """Purge files with no reference in Data objects."""
+    """Purge files with no reference in
+    :class:`~resolwe.flow.models.Data` objects.
+
+    """
 
     help = "Purge files with no reference in Data objects."
 
@@ -20,5 +23,8 @@ class Command(BaseCommand):
         parser.add_argument('-f', '--force', action='store_true', help="delete unreferenced files")
 
     def handle(self, *args, **options):
-        """Call function data_purge from models.py to purge files."""
+        """Call :func:`~resolwe.flow.utils.purge.data_purge` to purge
+        files.
+
+        """
         data_purge(options['data'], options['force'])

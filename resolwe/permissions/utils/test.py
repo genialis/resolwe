@@ -18,9 +18,10 @@ from rest_framework.test import APITestCase, APIRequestFactory, force_authentica
 class ResolweAPITestCase(APITestCase):
     """Base class for testing Resolwe REST API.
 
-    This class is derived from Django REST Framework's ``APITestCase``
-    class and has implemented some basic features that makes testing
-    Resolwe API easier. These features includes following functions:
+    This class is derived from Django REST Framework's
+    :drf:`APITestCase <testing/#test-cases>` class and has implemented
+    some basic features that makes testing Resolwe API easier. These
+    features includes following functions:
 
     .. automethod:: _get_list
     .. automethod:: _get_detail
@@ -116,9 +117,9 @@ class ResolweAPITestCase(APITestCase):
         before making the request.
 
         :param user: User to authenticate in request
-        :type user: User object or None
+        :type user: :class:`~django.contrib.auth.models.User` or :data:`None`
         :return: Rendered API response object
-        :rtype: rest_framework.response.Response
+        :rtype: :drf:`Response <responses/#response>`
 
         """
         request = self.factory.get(self.list_url, format='json')
@@ -135,9 +136,9 @@ class ResolweAPITestCase(APITestCase):
 
         :param int pk: Primary key of the coresponding object
         :param user: User to authenticate in request
-        :type user: User object or None
+        :type user: :class:`~django.contrib.auth.models.User` or :data:`None`
         :return: Rendered API response object
-        :rtype: rest_framework.response.Response
+        :rtype: :drf:`Response <responses/#response>`
         """
         request = self.factory.get(self.detail_url(pk), format='json')
         force_authenticate(request, user)
@@ -153,9 +154,9 @@ class ResolweAPITestCase(APITestCase):
 
         :param dict data: data for posting in request's body
         :param user: User to authenticate in request
-        :type user: User object or None
+        :type user: :class:`~django.contrib.auth.models.User` or :data:`None`
         :return: Rendered API response object
-        :rtype: rest_framework.response.Response
+        :rtype: :drf:`Response <responses/#response>`
         """
         request = self.factory.post(self.list_url, data=data, format='json')
         force_authenticate(request, user)
@@ -172,9 +173,9 @@ class ResolweAPITestCase(APITestCase):
         :param int pk: Primary key of the coresponding object
         :param dict data: data for posting in request's body
         :param user: User to authenticate in request
-        :type user: User object or None
+        :type user: :class:`~django.contrib.auth.models.User` or :data:`None`
         :return: Rendered API response object
-        :rtype: rest_framework.response.Response
+        :rtype: :drf:`Response <responses/#response>`
         """
         request = self.factory.patch(self.detail_url(pk), data=data, format='json')
         force_authenticate(request, user)
@@ -190,9 +191,9 @@ class ResolweAPITestCase(APITestCase):
 
         :param int pk: Primary key of the coresponding object
         :param user: User to authenticate in request
-        :type user: User object or None
+        :type user: :class:`~django.contrib.auth.models.User` or :data:`None`
         :return: Rendered API response object
-        :rtype: rest_framework.response.Response
+        :rtype: :drf:`Response <responses/#response>`
         """
         request = self.factory.delete(self.detail_url(pk), format='json')
         force_authenticate(request, user)
@@ -209,9 +210,9 @@ class ResolweAPITestCase(APITestCase):
         :param int pk: Primary key of the coresponding object
         :param dict data: data for posting in request's body
         :param user: User to authenticate in request
-        :type user: User object or None
+        :type user: :class:`~django.contrib.auth.models.User` or :data:`None`
         :return: Rendered API response object
-        :rtype: rest_framework.response.Response
+        :rtype: :drf:`Response <responses/#response>`
         """
         request = self.factory.post(self.detail_permissions(pk), data=data, format='json')
         force_authenticate(request, user)

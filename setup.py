@@ -66,7 +66,10 @@ setup(
     ],
     extras_require = {
         'docs':  [
-            'sphinx>=1.3.2',
+            # XXX: Intersphinx URLs are broken when using non-default inventory
+            # (like in Django's case) with Sphinx 1.4.3+
+            # Bug report: https://github.com/sphinx-doc/sphinx/issues/2789
+            'Sphinx==1.4.2',
             'sphinx_rtd_theme',
         ],
         'package': [

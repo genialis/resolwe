@@ -3,21 +3,60 @@
 Flow Models
 ===========
 
+Base Model
+==========
+
+Base model for all other models.
+
+.. autoclass:: resolwe.flow.models.BaseModel
+    :members:
+
+
 Collection Model
-*************
+================
 
 Postgres ORM model for the organization of collections.
 
-.. autoclass:: resolwe.flow.models.Case
+.. autoclass:: resolwe.flow.models.BaseCollection
+    :members:
+
+.. autoclass:: resolwe.flow.models.Collection
     :members:
 
 
 Data model
-**********
+==========
 
 Postgres ORM model for keeping the data structured.
 
 .. autoclass:: resolwe.flow.models.Data
+    :members:
+
+
+DescriptorSchema model
+======================
+
+Postgres ORM model for storing descriptors.
+
+.. autoclass:: resolwe.flow.models.DescriptorSchema
+    :members:
+
+
+Process model
+=============
+
+Postgress ORM model for storing processes.
+
+.. autoclass:: resolwe.flow.models.Process
+    :members:
+
+
+Storage model
+=============
+
+Postgres ORM model for storing JSON.
+
+.. autoclass:: resolwe.flow.models.Storage
     :members:
 
 """
@@ -46,7 +85,7 @@ VERSION_NUMBER_BITS = (8, 10, 14)
 
 class BaseModel(models.Model):
 
-    """Abstract model that ncludes common fields for other models."""
+    """Abstract model that includes common fields for other models."""
 
     class Meta:
         """BaseModel Meta options."""
@@ -78,7 +117,7 @@ class BaseModel(models.Model):
 
 class Process(BaseModel):
 
-    """Postgres model for storing processs."""
+    """Postgres model for storing processes."""
 
     class Meta(BaseModel.Meta):
         """Process Meta options."""
@@ -88,8 +127,11 @@ class Process(BaseModel):
             ("owner_process", "Is owner of the process"),
         )
 
+    #: raw persistence
     PERSISTENCE_RAW = 'RAW'
+    #: cached persistence
     PERSISTENCE_CACHED = 'CAC'
+    #: temp persistence
     PERSISTENCE_TEMP = 'TMP'
     PERSISTENCE_CHOICES = (
         (PERSISTENCE_RAW, 'Raw'),
@@ -97,7 +139,9 @@ class Process(BaseModel):
         (PERSISTENCE_TEMP, 'Temp'),
     )
 
+    #: high priority
     PRIORITY_HIGH = 'HI'
+    #: normal priority
     PRIORITY_NORMAL = 'NO'
     PRIORITY_CHOICES = (
         (PRIORITY_NORMAL, 'Normal'),
@@ -124,20 +168,26 @@ class Process(BaseModel):
 
     persistence = models.CharField(max_length=3, choices=PERSISTENCE_CHOICES, default=PERSISTENCE_RAW)
     """
-    data PERSISTENCE, cached and temp must be idempotent
+    Persistence of :class:`~resolwe.flow.models.Data` objects created
+    with this process. It can be one of the following:
 
-    - :attr:`Processor.PERSISTENCE_RAW` / ``'raw'``
-    - :attr:`Processor.PERSISTENCE_CACHED` / ``'cached'``
-    - :attr:`Processor.PERSISTENCE_TEMP` / ``'temp'``
+    - :attr:`PERSISTENCE_RAW`
+    - :attr:`PERSISTENCE_CACHED`
+    - :attr:`PERSISTENCE_TEMP`
+
+    .. note::
+
+        If persistence is set to ``PERSISTENCE_CACHED`` or
+        ``PERSISTENCE_TEMP``, the process must be idempotent.
 
     """
 
     priority = models.CharField(max_length=2, choices=PRIORITY_CHOICES, default=PRIORITY_NORMAL)
     """
-    data PRIORITY
+    Process' execution priority. It can be one of the following:
 
-    - :attr:`Processor.PRIORITY_NORMAL` / ``'normal'``
-    - :attr:`Processor.PRIORITY_HIGH` / ``'high'``
+    - :attr:`PRIORITY_NORMAL`
+    - :attr:`PRIORITY_HIGH`
 
     """
 
@@ -169,7 +219,10 @@ class Process(BaseModel):
     - default by: *dev*
     - changable by: *dev*
 
-    Implicitly defined fields (by :meth:`server.management.commands.register` or :meth:`server.tasks.manager`):
+    Implicitly defined fields (by
+    :func:`resolwe.flow.management.commands.register` or
+    :meth:`resolwe.flow.executors.BaseFlowExecutor.run` or its
+    derivatives):
 
     - ``progress`` of type ``basic:float`` (from 0.0 to 1.0)
     - ``proc`` of type ``basic:group`` containing:
@@ -185,12 +238,17 @@ class Process(BaseModel):
 
     flow_collection = models.CharField(max_length=100, null=True, blank=True)
     """
-    Automatically add Data object created with this processor to a
-    special collection representing a data-flow. If all input Data
-    objects belong to the same collection, add newly created Data object
-    to it, otherwise create a new collection.
-    If `DescriptorSchema` object with `type` matching this field
-    exists, reference it in the collection's `descriptor_schema` field.
+    Automatically add :class:`~resolwe.flow.models.Data` object created
+    with this process to a special
+    :class:`~resolwe.flow.models.Collection` object representing a
+    data-flow. If all input ``Data`` objects belong to the same
+    collection, add newly created ``Data`` object to it, otherwise
+    create a new collection.
+    If :class:`~resolwe.flow.models.DescriptorSchema` object with
+    ``type`` matching this field exists, reference it in the
+    collection's
+    :attr:`~resolwe.flow.models.BaseCollection.descriptor_schema`
+    field.
 
     """
 
@@ -238,7 +296,7 @@ def render_descriptor(data):
     The rendering is based on descriptor schema and input context.
 
     :param data: data instance
-    :type data: :obj:`server.models.Data` or :obj:`dict`
+    :type data: :class:`resolwe.flow.models.Data` or :class:`dict`
 
     """
     if not data.descriptor_schema or not data.process.input_schema:
@@ -276,12 +334,19 @@ class Data(BaseModel):
             ("owner_data", "Is owner of the data"),
         )
 
+    #: data object is uploading
     STATUS_UPLOADING = 'UP'
+    #: data object is being resolved
     STATUS_RESOLVING = 'RE'
+    #: data object is waiting
     STATUS_WAITING = 'WT'
+    #: data object is processing
     STATUS_PROCESSING = 'PR'
+    #: data object is done
     STATUS_DONE = 'OK'
+    #: data object is in error state
     STATUS_ERROR = 'ER'
+    #: data object is in dirty state
     STATUS_DIRTY = 'DR'
     STATUS_CHOICES = (
         (STATUS_UPLOADING, 'Uploading'),
@@ -293,10 +358,12 @@ class Data(BaseModel):
         (STATUS_DIRTY, 'Dirty')
     )
 
-    #: processor started date and time (set by :meth:`server.tasks.manager`)
+    #: process started date and time (set by
+    #: :meth:`resolwe.flow.executors.BaseFlowExecutor.run` or its derivatives)
     started = models.DateTimeField(blank=True, null=True)
 
-    #: processor finished date date and time (set by :meth:`server.tasks.manager`)
+    #: process finished date date and time (set by
+    #: :meth:`resolwe.flow.executors.BaseFlowExecutor.run` or its derivatives)
     finished = models.DateTimeField(blank=True, null=True)
 
     #: checksum field calculated on inputs
@@ -312,12 +379,14 @@ class Data(BaseModel):
     """
     :class:`Data` status
 
-    - :attr:`Data.STATUS_UPLOADING` / ``'uploading'``
-    - :attr:`Data.STATUS_RESOLVING` / ``'resolving'``
-    - :attr:`Data.STATUS_WAITING` / ``'waiting'``
-    - :attr:`Data.STATUS_PROCESSING` / ``'processing'``
-    - :attr:`Data.STATUS_DONE` / ``'done'``
-    - :attr:`Data.STATUS_ERROR` / ``'error'``
+    It can be one of the following:
+
+    - :attr:`STATUS_UPLOADING`
+    - :attr:`STATUS_RESOLVING`
+    - :attr:`STATUS_WAITING`
+    - :attr:`STATUS_PROCESSING`
+    - :attr:`STATUS_DONE`
+    - :attr:`STATUS_ERROR`
     """
 
     #: process used to compute the data object
@@ -341,10 +410,10 @@ class Data(BaseModel):
     #: error log message
     process_error = ArrayField(models.CharField(max_length=255), default=[])
 
-    #: actual inputs used by the processor
+    #: actual inputs used by the process
     input = JSONField(default=dict)
 
-    #: actual outputs of the processor
+    #: actual outputs of the process
     output = JSONField(default=dict)
 
     #: data descriptor schema
@@ -574,7 +643,7 @@ class LazyStorageJSON(object):
 
 class BaseCollection(BaseModel):
 
-    """Template for Postgres model for storing collection."""
+    """Template for Postgres model for storing a collection."""
 
     class Meta(BaseModel.Meta):
         """Collection Meta options."""
@@ -606,7 +675,7 @@ class BaseCollection(BaseModel):
 
 class Collection(BaseCollection):
 
-    """Postgres model for storing collection."""
+    """Postgres model for storing a collection."""
 
     pass
 
