@@ -101,7 +101,7 @@ FLOW_EXECUTOR = {
 if 'RESOLWE_EXECUTOR_COMMAND' in os.environ:
     FLOW_EXECUTOR['COMMAND'] = os.environ['RESOLWE_EXECUTOR_COMMAND']
 FLOW_API = {
-    'PERMISSIONS': 'resolwe.permissions.genesis',
+    'PERMISSIONS': 'resolwe.permissions.permissions',
 }
 FLOW_EXPRESSION_ENGINES = [
     'resolwe.flow.exprengines.dtlbash'
@@ -117,7 +117,7 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.SessionAuthentication',
     ),
     'DEFAULT_FILTER_BACKENDS': (
-        'rest_framework.filters.DjangoObjectPermissionsFilter',
+        'resolwe.permissions.filters.ResolwePermissionsFilter',
         'rest_framework_filters.backends.DjangoFilterBackend',
     ),
 }

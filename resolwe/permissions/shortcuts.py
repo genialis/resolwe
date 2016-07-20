@@ -202,7 +202,7 @@ def get_object_perms(obj, user=None):
 
 # based on guardian.shortcuts.get_objects_for_user
 def get_objects_for_user(user, perms, klass=None, use_groups=True, any_perm=False,
-                         with_superuser=True, accept_global_perms=True):
+                         with_superuser=True, accept_global_perms=True, perms_filter='pk__in'):
     """Return queryset with required permissions.
 
     """
@@ -248,7 +248,7 @@ def get_objects_for_user(user, perms, klass=None, use_groups=True, any_perm=Fals
         raise WrongAppError("Cannot determine content type")
     else:
         queryset = _get_queryset(klass)
-        if ctype.model_class() != queryset.model:
+        if ctype.model_class() != queryset.model and perms_filter == 'pk__in':
             raise MixedContentTypeError("Content type for given perms and "
                                         "klass differs")
 
@@ -318,7 +318,7 @@ def get_objects_for_user(user, perms, klass=None, use_groups=True, any_perm=Fals
         group_model = get_group_obj_perms_model(queryset.model)
         group_filters = {
             'permission__content_type': ctype,
-            'group__{}'.format(get_user_model().groups.field.related_query_name()): user,
+            'group__{}'.format(get_user_model().groups.field.related_query_name()): user,  # pylint: disable=no-member
         }
         if len(codenames):
             group_filters.update({
@@ -340,7 +340,7 @@ def get_objects_for_user(user, perms, klass=None, use_groups=True, any_perm=Fals
                 obj_codenames = set((e[1] for e in group))
                 if codenames.issubset(obj_codenames):
                     pk_list.append(pk)
-            objects = queryset.filter(pk__in=pk_list)
+            objects = queryset.filter(**{perms_filter: pk_list})
             return objects
 
     if not any_perm and len(codenames) > 1:
@@ -352,11 +352,11 @@ def get_objects_for_user(user, perms, klass=None, use_groups=True, any_perm=Fals
     values = user_obj_perms_queryset.values_list(user_fields[0], flat=True)
     if user_model.objects.is_generic():
         values = list(values)
-    q = Q(pk__in=values)
+    q = Q(**{perms_filter: values})
     if use_groups:
         values = groups_obj_perms_queryset.values_list(group_fields[0], flat=True)
         if group_model.objects.is_generic():
             values = list(values)
-        q |= Q(pk__in=values)
+        q |= Q(**{perms_filter: values})
 
     return queryset.filter(q)

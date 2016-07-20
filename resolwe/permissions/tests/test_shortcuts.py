@@ -15,10 +15,12 @@ from guardian.exceptions import MixedContentTypeError, WrongAppError
 from guardian.shortcuts import get_objects_for_group, assign_perm, remove_perm
 from guardian.models import GroupObjectPermission, UserObjectPermission
 
-from rest_framework.test import APIRequestFactory
+from rest_framework import status
+from rest_framework.test import APIRequestFactory, force_authenticate
 
-from resolwe.flow.models import Collection
+from resolwe.flow.models import Collection, Data, Process, Storage
 from resolwe.permissions.shortcuts import get_objects_for_user, get_user_group_perms, get_object_perms
+from resolwe.flow.views import StorageViewSet
 
 
 factory = APIRequestFactory()
@@ -186,6 +188,83 @@ class ObjectPermsTestCase(unittest.TestCase):
         )
         perms = get_object_perms(self.collection, self.user1)
         six.assertCountEqual(self, expected_perms, perms)
+
+
+class StoragePermsTestCase(TestCase):
+    def setUp(self):
+        contributor = get_user_model().objects.create(username="contributor")
+        proc = Process.objects.create(name='Test process', contributor=contributor)
+        self.data = Data.objects.create(name='Test data', contributor=contributor, process=proc)
+        dummy_data = Data.objects.create(name='Dummy data', contributor=contributor, process=proc)
+
+        self.storage1 = Storage.objects.create(
+            name='Test storage',
+            json={},
+            data=self.data,
+            contributor=contributor,
+        )
+
+        self.storage2 = Storage.objects.create(
+            name='Test storage 2',
+            json={},
+            data=self.data,
+            contributor=contributor,
+        )
+
+        Storage.objects.create(
+            name='Dummy storage',
+            json={},
+            data=dummy_data,
+            contributor=contributor,
+        )
+
+        self.user = get_user_model().objects.create(username="test_user")
+        self.group = Group.objects.create(name="test_group")
+
+        self.storage_list_viewset = StorageViewSet.as_view(actions={
+            'get': 'list',
+        })
+
+        self.storage_detail_viewset = StorageViewSet.as_view(actions={
+            'get': 'retrieve',
+        })
+
+    def test_list_permissons(self):
+        request = factory.get('/', content_type='application/json')
+        force_authenticate(request, self.user)
+
+        resp = self.storage_list_viewset(request)
+        self.assertEqual(len(resp.data), 0)
+
+        assign_perm("view_data", self.user, self.data)
+        resp = self.storage_list_viewset(request)
+        six.assertCountEqual(self, [storage['id'] for storage in resp.data],
+                             [self.storage1.pk, self.storage2.pk])
+
+        remove_perm("view_data", self.user, self.data)
+        resp = self.storage_list_viewset(request)
+        self.assertEqual(len(resp.data), 0)
+
+    def test_detail_permissons(self):
+        request = factory.get('/', content_type='application/json')
+        force_authenticate(request, self.user)
+
+        resp = self.storage_detail_viewset(request, pk=self.storage1.pk)
+        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+
+        assign_perm("view_data", self.user, self.data)
+        resp = self.storage_detail_viewset(request, pk=self.storage1.pk)
+        self.assertEqual(resp.data['name'], 'Test storage')
+
+        remove_perm("view_data", self.user, self.data)
+        resp = self.storage_detail_viewset(request, pk=self.storage1.pk)
+        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_not_allowed_methods(self):
+        self.assertFalse(hasattr(StorageViewSet, 'update'))
+        self.assertFalse(hasattr(StorageViewSet, 'partial_update'))
+        self.assertFalse(hasattr(StorageViewSet, 'destroy'))
+        self.assertFalse(hasattr(StorageViewSet, 'create'))
 
 
 # tests copied from guardina.testapp.tests.test_shortcuts

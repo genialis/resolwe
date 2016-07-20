@@ -26,6 +26,8 @@ Added
 - Implement data purge
 - Add ``process_fields.name`` custom tamplate tag
 - Return contributor information together with objects
+- Added permissions filter to determine ``Storage`` permissions based on 
+  referenced ``Data`` object
 
 Changed
 -------
