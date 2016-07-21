@@ -9,6 +9,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import copy
 import hashlib
 import gzip
+import io
 import json
 import os
 import shutil
@@ -452,7 +453,7 @@ class ProcessTestCase(TestCase):
         path = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.pk), "stdout.txt")
         if os.path.isfile(path):
             msg += "\nstdout.txt:\n" + 11 * "-" + "\n"
-            with open(path, 'r') as fn:
+            with io.open(path, mode='rt') as fn:
                 msg += fn.read()
 
         if data.process_error:
