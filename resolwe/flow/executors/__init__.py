@@ -12,14 +12,16 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import json
 import logging
 import os
+import shutil
 import six
 import traceback
+import uuid
 
 from django.apps import apps
 from django.db import transaction
 from django.conf import settings
 
-from resolwe.flow.models import Data, dict_dot, Process
+from resolwe.flow.models import Data, dict_dot, iterate_fields, Process
 from resolwe.flow.utils.purge import data_purge
 from resolwe.utils import BraceMessage as __
 
@@ -33,6 +35,8 @@ else:
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 CWD = os.getcwd()
 
+exported_files_mapper = {}
+
 
 def iterjson(text):
     """Decode JSON stream."""
@@ -45,6 +49,15 @@ def iterjson(text):
 
         text = text[ndx:].lstrip('\r\n')
         yield obj
+
+
+def hydrate_spawned_files(filename, data_id):
+    if filename not in exported_files_mapper:
+        raise KeyError('All files referenced in spawned processes must be exported using'
+                       '`re-export` command.')
+
+    export_fn = exported_files_mapper[filename]
+    return {'file_temp': export_fn, 'file': filename}
 
 
 class BaseFlowExecutor(object):
@@ -97,9 +110,10 @@ class BaseFlowExecutor(object):
 
         self.data_id = data_id
 
+        data_dir = settings.FLOW_EXECUTOR['DATA_DIR']
         dir_mode = getattr(settings, 'FLOW_EXECUTOR', {}).get('DATA_DIR_MODE', 0o755)
 
-        output_path = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data_id))
+        output_path = os.path.join(data_dir, str(data_id))
 
         os.mkdir(output_path)
         # os.mkdir is not guaranteed to set the given mode
@@ -140,6 +154,16 @@ class BaseFlowExecutor(object):
 
                         for obj in iterjson(line[3:].strip()):
                             spawn_processors.append(obj)
+                    elif line.strip().startswith('export'):
+                        file_name = line[6:].strip()
+
+                        export_folder = settings.FLOW_EXECUTOR['UPLOAD_DIR']
+                        unique_name = 'export_{}'.format(uuid.uuid4().hex)
+                        export_path = os.path.join(export_folder, unique_name)
+
+                        exported_files_mapper[file_name] = unique_name
+
+                        shutil.move(file_name, export_path)
                     else:
                         # If JSON, save to MongoDB
                         updates = {}
@@ -215,6 +239,17 @@ class BaseFlowExecutor(object):
             for d in spawn_processors:
                 d['contributor'] = parent_data.contributor
                 d['process'] = Process.objects.get(slug=d['process'])
+
+                for field_schema, fields in iterate_fields(d.get('input', {}), d['process'].input_schema):
+                    type_ = field_schema['type']
+                    name = field_schema['name']
+                    value = fields[name]
+
+                    if type_ == 'basic:file:':
+                        fields[name] = hydrate_spawned_files(value, data_id)
+                    elif type_ == 'list:basic:file:':
+                        fields[name] = [hydrate_spawned_files(fn, data_id) for fn in value]
+
                 with transaction.atomic():
                     d = Data.objects.create(**d)
                     for collection in parent_data.collection_set.all():

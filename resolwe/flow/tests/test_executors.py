@@ -13,11 +13,16 @@ from django.test import override_settings
 
 from resolwe.flow.executors.docker import FlowExecutor
 from resolwe.flow.executors import BaseFlowExecutor
+from resolwe.flow.models import Data
+from resolwe.flow.utils.test import ProcessTestCase
 
 try:
     import builtins  # py3
 except ImportError:
     import __builtin__ as builtins  # py2
+
+
+PROCESSES_DIR = os.path.join(os.path.dirname(__file__), 'processes')
 
 
 def check_docker():
@@ -105,3 +110,18 @@ class GetToolsTestCase(unittest.TestCase):
         base_executor = BaseFlowExecutor()
         with six.assertRaisesRegex(self, KeyError, 'setting must be a list'):
             base_executor.get_tools()
+
+
+class SpawnedProcessTest(ProcessTestCase):
+    def setUp(self):
+        super(SpawnedProcessTest, self).setUp()
+        self._register_schemas(path=[PROCESSES_DIR])
+
+    def test_test(self):
+        self.run_process('test-spawn-new')
+
+        data = Data.objects.last()
+        data_dir = settings.FLOW_EXECUTOR['DATA_DIR']
+        file_path = os.path.join(data_dir, str(data.pk), 'foo.bar')
+        self.assertEqual(data.output['saved_file']['file'], 'foo.bar')
+        self.assertTrue(os.path.isfile(file_path))

@@ -30,32 +30,6 @@ from resolwe.flow.managers import manager
 SCHEMAS_FIXTURE_CACHE = None
 
 
-def _register_schemas():
-    """Register process and descriptor schemas.
-
-    Process and DescriptorSchema definitions are registered when first
-    test is callled and cached to SCHEMAS_FIXTURE_CACHE global variable
-
-    """
-    Process.objects.all().delete()
-
-    global SCHEMAS_FIXTURE_CACHE  # pylint: disable=global-statement
-    if SCHEMAS_FIXTURE_CACHE:
-        Process.objects.bulk_create(SCHEMAS_FIXTURE_CACHE['processes'])
-        DescriptorSchema.objects.bulk_create(SCHEMAS_FIXTURE_CACHE['descriptor_schemas'])
-    else:
-        user_model = get_user_model()
-
-        if not user_model.objects.filter(is_superuser=True).exists():
-            user_model.objects.create_superuser(username="admin", email='admin@example.com', password="admin_pass")
-
-        management.call_command('register', force=True, testing=True, verbosity='0')
-
-        SCHEMAS_FIXTURE_CACHE = {}
-        SCHEMAS_FIXTURE_CACHE['processes'] = list(Process.objects.all())  # list forces db query execution
-        SCHEMAS_FIXTURE_CACHE['descriptor_schemas'] = list(DescriptorSchema.objects.all())
-
-
 # override all FLOW_EXECUTOR settings that are specified in FLOW_EXECUTOR['TEST']
 flow_executor_settings = copy.copy(getattr(settings, 'FLOW_EXECUTOR', {}))
 test_settings_overrides = getattr(settings, 'FLOW_EXECUTOR', {}).get('TEST', {})
@@ -109,11 +83,45 @@ class ProcessTestCase(TestCase):
 
     """
 
+    def _register_schemas(self, **kwargs):
+        """Register process and descriptor schemas.
+
+        Process and DescriptorSchema cached to SCHEMAS_FIXTURE_CACHE
+        global variable based on ``path`` key in ``kwargs``.
+
+        """
+        Process.objects.all().delete()
+
+        cache_key = json.dumps(kwargs)
+
+        global SCHEMAS_FIXTURE_CACHE  # pylint: disable=global-statement
+        if not SCHEMAS_FIXTURE_CACHE:
+            SCHEMAS_FIXTURE_CACHE = {}
+
+        if cache_key in SCHEMAS_FIXTURE_CACHE:
+            Process.objects.bulk_create(SCHEMAS_FIXTURE_CACHE[cache_key]['processes'])
+            DescriptorSchema.objects.bulk_create(SCHEMAS_FIXTURE_CACHE[cache_key]['descriptor_schemas'])
+        else:
+            user_model = get_user_model()
+
+            if not user_model.objects.filter(is_superuser=True).exists():
+                user_model.objects.create_superuser(
+                    username="admin", email='admin@example.com', password="admin_pass")
+
+            management.call_command('register', force=True, testing=True, verbosity='0', **kwargs)
+
+            if cache_key not in SCHEMAS_FIXTURE_CACHE:
+                SCHEMAS_FIXTURE_CACHE[cache_key] = {}
+
+            # list forces db query execution
+            SCHEMAS_FIXTURE_CACHE[cache_key]['processes'] = list(Process.objects.all())
+            SCHEMAS_FIXTURE_CACHE[cache_key]['descriptor_schemas'] = list(DescriptorSchema.objects.all())
+
     def setUp(self):
         super(ProcessTestCase, self).setUp()
         self.admin = get_user_model().objects.create_superuser(
             username="admin", email='admin@example.com', password="admin_pass")
-        _register_schemas()
+        self._register_schemas()
 
         self.collection = Collection.objects.create(contributor=self.admin, name="Test collection")
         self.files_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'files')
@@ -135,8 +143,10 @@ class ProcessTestCase(TestCase):
                 print("KEEPING DATA: {}".format(d.pk))
             else:
                 data_dir = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(d.pk))
+                export_dir = os.path.join(settings.FLOW_EXECUTOR['UPLOAD_DIR'], str(d.pk))
                 d.delete()
                 shutil.rmtree(data_dir, ignore_errors=True)
+                shutil.rmtree(export_dir, ignore_errors=True)
 
         # remove uploaded files
         if not self._keep_all and not self._keep_failed:

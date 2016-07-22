@@ -1,0 +1,29 @@
+- slug: test-spawn-new
+  name: Spawn new process
+  version: 1.0.0
+  type: "data:test:spawn"
+  run:
+    bash: |
+      touch foo.bar
+      re-export foo.bar
+      echo 'run {"process": "test-save-file", "input": {"input_file": "foo.bar"}}'
+
+
+- slug: test-save-file
+  name: Save file
+  version: 1.0.0
+  type: "data:test:save"
+  input:
+    - name: input_file
+      label: Input file
+      type: basic:file
+  output:
+    - name: saved_file
+      label: Saved file
+      type: basic:file
+  run:
+    bash: |
+      # TODO: use re-import when added to resolwe-runtime-utils
+      # re-import {{ input_file.file_temp }} {{ input_file.file }} "bar" "bar" 0.9
+      mv {{ input_file.file_temp }} {{ input_file.file }}
+      re-save-file saved_file {{ input_file.file }}
