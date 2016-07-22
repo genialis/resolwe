@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # pylint: disable=missing-docstring
 from __future__ import absolute_import, division, print_function, unicode_literals
 
@@ -7,6 +8,7 @@ import json
 import mock
 import os.path
 import sys
+import tempfile
 import unittest
 
 try:
@@ -156,3 +158,21 @@ class TestingFrameworkTestCase(unittest.TestCase):
             with gzip.open(gzipped_json_file, mode='rt') as f:
                 unzipped_json = json.load(f)
             self.assertEqual(example_json, unzipped_json)
+
+        def test_debug_info_non_ascii_stdout_file(self):
+
+            non_ascii_text = 'Some non-ascii chars č ü €'
+
+            dummy_case = ProcessTestCase.__new__(ProcessTestCase)
+
+            obj_mock = mock.MagicMock()
+            obj_mock.pk = 'no_id'
+
+            with tempfile.NamedTemporaryFile(mode='wb') as stdout_file:
+                stdout_file.write(non_ascii_text.encode('utf-8'))
+                # set seek position of the file back to 0
+                stdout_file.seek(0)
+                with mock.patch.object(os.path, 'join', side_effect=[stdout_file.name]):
+                    with mock.patch.object(os.path, 'isfile', return_value=True):
+                        six.assertRegex(self, ProcessTestCase._debug_info(dummy_case, obj_mock),
+                                        non_ascii_text)
