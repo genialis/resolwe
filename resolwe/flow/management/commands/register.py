@@ -50,12 +50,13 @@ class Command(BaseCommand):
             self.stderr.write("        val. value: {}".format(ex.validator_value))
             return False
 
-    def find_schemas(self, schema_path, filters=None, schema_type='process'):
+    def find_schemas(self, schema_path, filters=None, schema_type='process', verbosity=1):
         """Find schemas in packages that match filters."""
         schema_matches = []
 
         if not os.path.isdir(schema_path):
-            self.stdout.write("Invalid path {}".format(schema_path))
+            if verbosity > 0:
+                self.stdout.write("Invalid path {}".format(schema_path))
             return
 
         if schema_type not in ['process', 'descriptor']:
@@ -86,7 +87,7 @@ class Command(BaseCommand):
 
         return schema_matches
 
-    def register_processes(self, process_schemas, user, force=False):
+    def register_processes(self, process_schemas, user, force=False, verbosity=1):
         """Read and register processors."""
         log_processors = []
         log_templates = []
@@ -150,7 +151,8 @@ class Command(BaseCommand):
             process_query = Process.objects.filter(slug=slug, version=version)
             if process_query.exists():
                 if not force:
-                    self.stdout.write("Skip processor {}: same version installed".format(slug))
+                    if verbosity > 0:
+                        self.stdout.write("Skip processor {}: same version installed".format(slug))
                     continue
 
                 process_query.update(**p)
@@ -159,17 +161,18 @@ class Command(BaseCommand):
                 Process.objects.create(contributor=user, **p)
                 log_processors.append("Inserted {}".format(slug))
 
-        if len(log_processors) > 0:
-            self.stdout.write("Processor Updates:")
-            for log in log_processors:
-                self.stdout.write("  {}".format(log))
+        if verbosity > 0:
+            if len(log_processors) > 0:
+                self.stdout.write("Processor Updates:")
+                for log in log_processors:
+                    self.stdout.write("  {}".format(log))
 
-        if len(log_templates) > 0:
-            self.stdout.write("Default Template Updates:")
-            for log in log_templates:
-                self.stdout.write("  {}".format(log))
+            if len(log_templates) > 0:
+                self.stdout.write("Default Template Updates:")
+                for log in log_templates:
+                    self.stdout.write("  {}".format(log))
 
-    def register_descriptors(self, descriptor_schemas, user, force=False):
+    def register_descriptors(self, descriptor_schemas, user, force=False, verbosity=1):
         """Read and register descriptors."""
         log_descriptors = []
 
@@ -210,7 +213,8 @@ class Command(BaseCommand):
             descriptor_query = DescriptorSchema.objects.filter(slug=slug, version=version)
             if descriptor_query.exists():
                 if not force:
-                    self.stdout.write("Skip descriptor schema {}: same version installed".format(slug))
+                    if verbosity > 0:
+                        self.stdout.write("Skip descriptor schema {}: same version installed".format(slug))
                     continue
 
                 descriptor_query.update(**ds)
@@ -219,7 +223,7 @@ class Command(BaseCommand):
                 DescriptorSchema.objects.create(contributor=user, **ds)
                 log_descriptors.append("Inserted {}".format(slug))
 
-        if len(log_descriptors) > 0:
+        if len(log_descriptors) > 0 and verbosity > 0:
             self.stdout.write("Descriptor schemas Updates:")
             for log in log_descriptors:
                 self.stdout.write("  {}".format(log))
@@ -228,6 +232,8 @@ class Command(BaseCommand):
         schemas = options.get('schemas')
         force = options.get('force')
         paths = options.get('path')
+
+        verbosity = int(options.get('verbosity'))
 
         if not isinstance(paths, list):
             raise ValueError("Argument paths must be of type list")
@@ -253,12 +259,14 @@ class Command(BaseCommand):
 
         process_schemas = []
         for proc_path in processes_paths:
-            process_schemas.extend(self.find_schemas(proc_path, filters=schemas, schema_type='process'))
+            process_schemas.extend(
+                self.find_schemas(proc_path, filters=schemas, schema_type='process', verbosity=verbosity))
 
-        self.register_processes(process_schemas, user_admin, force)
+        self.register_processes(process_schemas, user_admin, force, verbosity=verbosity)
 
         descriptor_schemas = []
         for desc_path in descriptors_paths:
-            descriptor_schemas.extend(self.find_schemas(desc_path, filters=schemas, schema_type='descriptor'))
+            descriptor_schemas.extend(
+                self.find_schemas(desc_path, filters=schemas, schema_type='descriptor', verbosity=verbosity))
 
-        self.register_descriptors(descriptor_schemas, user_admin, force)
+        self.register_descriptors(descriptor_schemas, user_admin, force, verbosity=verbosity)
