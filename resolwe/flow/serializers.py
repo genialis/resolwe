@@ -6,8 +6,10 @@ Flow Serializers
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+from django.contrib import auth
+
 from rest_framework import serializers, status
-from rest_framework.exceptions import APIException
+from rest_framework.exceptions import APIException, ValidationError
 from rest_framework.fields import empty
 from resolwe.flow.models import Process, Collection, Data, DescriptorSchema, Trigger, Storage
 
@@ -15,6 +17,35 @@ from resolwe.flow.models import Process, Collection, Data, DescriptorSchema, Tri
 class NoContentError(APIException):
     status_code = status.HTTP_204_NO_CONTENT
     detail = 'The content has not changed'
+
+
+class ContributorSerializer(serializers.ModelSerializer):
+
+    """Serializer for contributor User objects."""
+
+    class Meta:
+        # The model needs to be determined when instantiating the serializer class as
+        # the applications may not yet be ready at this point.
+        model = None
+        fields = ('id', 'username', 'first_name', 'last_name')
+
+    def __init__(self, instance=None, data=empty, **kwargs):
+        # Use the correct User model.
+        if self.Meta.model is None:
+            self.Meta.model = auth.get_user_model()
+
+        super(ContributorSerializer, self).__init__(instance, data, **kwargs)
+
+    def to_internal_value(self, data):
+        # When setting the contributor, it may be passed as an integer.
+        if isinstance(data, dict) and isinstance(data.get('id', None), int):
+            data = data['id']
+        elif isinstance(data, int):
+            pass
+        else:
+            raise ValidationError("Contributor must be an integer or a dictionary with key 'id'")
+
+        return self.Meta.model.objects.get(pk=data)
 
 
 class ResolweBaseSerializer(serializers.ModelSerializer):
@@ -35,6 +66,9 @@ class ResolweBaseSerializer(serializers.ModelSerializer):
     prevent changing `modified` field.
 
     """
+
+    contributor = ContributorSerializer()
+
     def __init__(self, instance=None, data=empty, **kwargs):
         if (instance is not None and data is not empty and
                 hasattr(self.Meta, 'update_protected_fields')):  # pylint: disable=no-member

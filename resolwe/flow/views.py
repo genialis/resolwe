@@ -374,7 +374,7 @@ class CollectionViewSet(ResolweCreateModelMixin,
 
     """API view for :class:`Collection` objects."""
 
-    queryset = Collection.objects.all().prefetch_related('descriptor_schema')
+    queryset = Collection.objects.all().prefetch_related('descriptor_schema', 'contributor')
     serializer_class = CollectionSerializer
     permission_classes = (permissions_cls,)
     filter_class = CollectionFilter
@@ -435,7 +435,7 @@ class ProcessViewSet(ResolweCreateModelMixin,
 
     """API view for :class:`Process` objects."""
 
-    queryset = Process.objects.all()
+    queryset = Process.objects.all().prefetch_related('contributor')
     serializer_class = ProcessSerializer
     permission_classes = (permissions_cls,)
     filter_class = ProcessFilter
@@ -452,7 +452,7 @@ class DataViewSet(ResolweCreateDataModelMixin,
 
     """API view for :class:`Data` objects."""
 
-    queryset = Data.objects.all().prefetch_related('process', 'descriptor_schema')
+    queryset = Data.objects.all().prefetch_related('process', 'descriptor_schema', 'contributor')
     serializer_class = DataSerializer
     permission_classes = (permissions_cls,)
     filter_class = DataFilter
@@ -465,7 +465,7 @@ class DescriptorSchemaViewSet(mixins.RetrieveModelMixin,
 
     """API view for :class:`DescriptorSchema` objects."""
 
-    queryset = DescriptorSchema.objects.all()
+    queryset = DescriptorSchema.objects.all().prefetch_related('contributor')
     serializer_class = DescriptorSchemaSerializer
     permission_classes = (permissions_cls,)
     filter_fields = ('contributor', 'name', 'description', 'created', 'modified', 'slug')
@@ -481,7 +481,7 @@ class TriggerViewSet(ResolweCreateModelMixin,
 
     """API view for :class:`Trigger` objects."""
 
-    queryset = Trigger.objects.all()
+    queryset = Trigger.objects.all().prefetch_related('contributor')
     serializer_class = TriggerSerializer
     permission_classes = (permissions_cls,)
     filter_fields = ('contributor', 'name', 'created', 'modified', 'slug', 'collection')
@@ -493,6 +493,6 @@ class StorageViewSet(mixins.RetrieveModelMixin,
 
     """API view for :class:`Storage` objects."""
 
-    queryset = Storage.objects.all()
+    queryset = Storage.objects.all().prefetch_related('contributor')
     serializer_class = StorageSerializer
     filter_fields = ('contributor', 'name', 'created', 'modified', 'slug', 'json')

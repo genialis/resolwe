@@ -25,6 +25,7 @@ Added
 - Add test coverage and track it with Codecov
 - Implement data purge
 - Add ``process_fields.name`` custom tamplate tag
+- Return contributor information together with objects
 
 Changed
 -------

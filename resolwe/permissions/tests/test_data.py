@@ -9,11 +9,12 @@ from datetime import datetime, timedelta
 
 from django.conf import settings
 
-from rest_framework import status
+from rest_framework import status, exceptions
 
 from ..utils.test import ResolweAPITestCase
 from resolwe.flow.models import Data, Collection
 from resolwe.flow.views import DataViewSet
+from resolwe.flow.serializers import ContributorSerializer
 
 if settings.USE_TZ:
     from django.utils.timezone import now
@@ -140,7 +141,52 @@ class DataTestCase(ResolweAPITestCase):
         self.assertEqual(resp.data['process_info'], [])
         self.assertEqual(resp.data['process_warning'], [])
         self.assertEqual(resp.data['process_error'], [])
-        self.assertEqual(resp.data['contributor'], self.user1.pk)
+        self.assertEqual(resp.data['contributor'], {
+            'id': self.user1.pk,
+            'username': self.user1.username,
+            'first_name': self.user1.first_name,
+            'last_name': self.user1.last_name
+        })
+
+    def test_post_contributor_numeric(self):
+        response = ContributorSerializer(ContributorSerializer().to_internal_value(self.user1.pk)).data
+
+        self.assertEqual(response, {
+            'id': self.user1.pk,
+            'username': self.user1.username,
+            'first_name': self.user1.first_name,
+            'last_name': self.user1.last_name
+        })
+
+    def test_post_contributor_dictionary(self):
+        response = ContributorSerializer(ContributorSerializer().to_internal_value({'id': self.user1.pk})).data
+
+        self.assertEqual(response, {
+            'id': self.user1.pk,
+            'username': self.user1.username,
+            'first_name': self.user1.first_name,
+            'last_name': self.user1.last_name
+        })
+
+    def test_post_contributor_dictionary_extra_data(self):
+        response = ContributorSerializer(ContributorSerializer().to_internal_value({
+            'id': self.user1.pk,
+            'username': 'ignored',
+            'first_name': 'ignored'
+        })).data
+
+        self.assertEqual(response, {
+            'id': self.user1.pk,
+            'username': self.user1.username,
+            'first_name': self.user1.first_name,
+            'last_name': self.user1.last_name
+        })
+
+    def test_post_contributor_dictionary_invalid(self):
+        with self.assertRaises(exceptions.ValidationError):
+            ContributorSerializer().to_internal_value({
+                'invalid-dictionary': True,
+            })
 
     def test_post_multiple_collections(self):
         self.data['collections'].append('2')
