@@ -83,7 +83,7 @@ setup(
             'testfixtures>=4.10.0',
             'check-manifest',
             'readme_renderer',
-            'resolwe-runtime-utils>=1.0.0',
+            'resolwe-runtime-utils>=1.1.0',
         ],
     },
 
