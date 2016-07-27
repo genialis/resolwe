@@ -5,9 +5,9 @@ Change Log
 All notable changes to this project are documented in this file.
 
 
-==========
-Unreleased
-==========
+==================
+1.3.0 - 2016-07-27
+==================
 
 Added
 -----
@@ -26,7 +26,7 @@ Added
 - Implement data purge
 - Add ``process_fields.name`` custom tamplate tag
 - Return contributor information together with objects
-- Added permissions filter to determine ``Storage`` permissions based on 
+- Added permissions filter to determine ``Storage`` permissions based on
   referenced ``Data`` object
 
 Changed
