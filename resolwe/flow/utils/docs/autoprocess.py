@@ -349,11 +349,11 @@ class AutoProcessDirective(Directive):
 
         if len(processes_to_document) == 1:
             # Only one process:
-            source_url, process = list(processes_to_document.items())[0]
+            source_url, process = next(iter(processes_to_document.items()))
             top_node = self.make_process_node(source_url, process)
         elif len(processes_to_document) > 1:
             # A category of processes, make a process category section:
-            process1 = list(processes_to_document.items())[0][1]
+            process1 = next(iter(processes_to_document.values()))
             category = process1.get('category', 'uncategorized')
             title = nodes.title()
             title += nodes.Text("Category: " + str(category))
