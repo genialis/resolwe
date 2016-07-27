@@ -16,6 +16,8 @@ import shutil
 from six.moves import filterfalse
 import zipfile
 
+from mock import patch
+
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core import management
@@ -83,7 +85,9 @@ class ProcessTestCase(TestCase):
 
     """
 
-    def _register_schemas(self, **kwargs):
+    @patch('sys.stderr', new_callable=io.StringIO)
+    @patch('sys.stdout', new_callable=io.StringIO)
+    def _register_schemas(self, stdout_mock, stderr_mock, **kwargs):
         """Register process and descriptor schemas.
 
         Process and DescriptorSchema cached to SCHEMAS_FIXTURE_CACHE
@@ -108,7 +112,14 @@ class ProcessTestCase(TestCase):
                 user_model.objects.create_superuser(
                     username="admin", email='admin@example.com', password="admin_pass")
 
-            management.call_command('register', force=True, testing=True, verbosity='0', **kwargs)
+            management.call_command('register', force=True, testing=True, verbosity='1', **kwargs)
+
+            stdout = stdout_mock.getvalue()
+            inserted_processors = [line for line in stdout.split('\n') if line.startswith('  Inserted ')]
+            self.assertGreater(len(inserted_processors), 0)
+
+            stderr = stderr_mock.getvalue()
+            self.assertEqual(stderr, '')
 
             if cache_key not in SCHEMAS_FIXTURE_CACHE:
                 SCHEMAS_FIXTURE_CACHE[cache_key] = {}
