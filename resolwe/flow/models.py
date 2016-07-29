@@ -479,6 +479,35 @@ class Data(BaseModel):
                 for data in value:
                     add_dependency(data)
 
+    def validate_json_fields(self):
+        try:
+            if self.pk is None:  # on create
+                validate_schema(self.input, self.process.input_schema)  # pylint: disable=no-member
+
+            if self.descriptor_schema:
+                validate_schema(self.descriptor, self.descriptor_schema.schema)  # pylint: disable=no-member
+            elif self.descriptor and self.descriptor != {}:
+                raise ValueError("`descriptor_schema` must be defined if `descriptor` is given")
+
+            path_prefix = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(self.pk))
+            output_schema = self.process.output_schema  # pylint: disable=no-member
+            if self.status == Data.STATUS_DONE:
+                validate_schema(self.output, output_schema, path_prefix=path_prefix)
+            else:
+                validate_schema(self.output, output_schema, path_prefix=path_prefix,
+                                test_required=False)
+        except ValidationError as ex:
+            # if object doesn't have ``pk`` assigned and doesn't validate, it
+            # won't be stored in database, so we don't have to do anything
+            if self.pk:
+                # current object is already corupted, so we have to get fresh
+                # copy (last that has passed validation)
+                data = Data.objects.get(pk=self.pk)
+                data.process_error.append(ex.message)
+                data.status = Data.STATUS_ERROR
+                data.save()
+            raise ex
+
     def save(self, render_name=False, *args, **kwargs):
         # Generate the descriptor if one is not already set.
         if self.name != self._original_name:
@@ -507,21 +536,7 @@ class Data(BaseModel):
 
         hydrate_size(self)
 
-        if create:
-            validate_schema(self.input, self.process.input_schema)  # pylint: disable=no-member
-
-        if self.descriptor_schema:
-            validate_schema(self.descriptor, self.descriptor_schema.schema)  # pylint: disable=no-member
-        elif self.descriptor and self.descriptor != {}:
-            raise ValueError("`descriptor_schema` must be defined if `descriptor` is given")
-
-        path_prefix = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(self.pk))
-        output_schema = self.process.output_schema  # pylint: disable=no-member
-        if self.status == Data.STATUS_DONE:
-            validate_schema(self.output, output_schema, path_prefix=path_prefix)
-        else:
-            validate_schema(self.output, output_schema, path_prefix=path_prefix,
-                            test_required=False)
+        self.validate_json_fields()
 
         with transaction.atomic():
             super(Data, self).save(*args, **kwargs)
