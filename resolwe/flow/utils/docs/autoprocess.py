@@ -129,7 +129,7 @@ class AutoProcessDirective(Directive):
                 startline = self.get_process_definition_start(process_file, process['slug'])
 
                 # Put together URL to starting line of process definition.
-                source_url = source_base_url + os.path.basename(process_file) + '#L' + str(startline)
+                source_url = source_base_url + process_file[len(process_dir) + 1:] + '#L' + str(startline)
                 chosen_process = [proc for proc in processes_in_file if proc['slug'] == process['slug']]
                 # The scenarion with len(chosen_process) == 0 is not possible
                 if len(chosen_process) > 1:
