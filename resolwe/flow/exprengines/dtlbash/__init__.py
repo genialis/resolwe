@@ -10,7 +10,7 @@ class ExpressionEngine(BaseExpressionEngine):
 
     """Represents a workflow expression engine."""
 
-    def eval(self, data):
+    def eval(self, data):  # pylint: disable=arguments-differ
         """Evaluate the script and return executable."""
         try:
             inputs = data.input.copy()

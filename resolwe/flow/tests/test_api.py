@@ -1,8 +1,8 @@
 # pylint: disable=missing-docstring
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-import mock
 import unittest
+import mock
 
 from django.contrib.auth.models import User
 from django.core.urlresolvers import reverse
@@ -13,7 +13,7 @@ from rest_framework import status
 from resolwe.flow.models import Data, Process, Collection
 from resolwe.flow.views import DataViewSet, CollectionViewSet
 
-factory = APIRequestFactory()
+factory = APIRequestFactory()  # pylint: disable=invalid-name
 
 
 MESSAGES = {

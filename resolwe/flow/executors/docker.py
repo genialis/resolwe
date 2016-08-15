@@ -13,8 +13,12 @@ from .local import FlowExecutor as LocalFlowExecutor
 
 class FlowExecutor(LocalFlowExecutor):
 
+    """Docker executor."""
+
     def __init__(self, *args, **kwargs):
         super(FlowExecutor, self).__init__(*args, **kwargs)
+
+        self.mappings_tools = None
         self.command = getattr(settings, 'FLOW_EXECUTOR', {}).get('COMMAND', 'docker')
 
     def start(self):

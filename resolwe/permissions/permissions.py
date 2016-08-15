@@ -10,9 +10,9 @@ from rest_framework import permissions
 
 
 class ResolwePermissions(permissions.DjangoObjectPermissions):
-    """
 
-    """
+    """Resolwe Permissions"""
+
     perms_map = {
         'GET': ['%(app_label)s.view_%(model_name)s'],
         'OPTIONS': ['%(app_label)s.view_%(model_name)s'],
@@ -24,7 +24,7 @@ class ResolwePermissions(permissions.DjangoObjectPermissions):
     }
 
     def has_permission(self, request, view):
-        '''Always return `True` as we don't use model level perms.'''
+        """Always return `True` as we don't use model level perms."""
         return True
 
     def has_object_permission(self, request, view, obj):
@@ -39,7 +39,7 @@ class ResolwePermissions(permissions.DjangoObjectPermissions):
             return True
 
         # `share` permission is required for editing permissions
-        if 'permissions' in (view.action or []):
+        if 'permissions' in view.action:
             self.perms_map['POST'] = ['%(app_label)s.share_%(model_name)s']
 
         return super(ResolwePermissions, self).has_object_permission(request, view, obj)

@@ -102,12 +102,12 @@ class PurgeE2ETest(PurgeTestFieldsMixin, ProcessTestCase):
 
         return self.run_process(processor_slug, **kwargs)
 
-    def assertFilesRemoved(self, data, *files):
+    def assertFilesRemoved(self, data, *files):  # pylint: disable=invalid-name
         for name in files:
             path = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.pk), name)
             self.assertFalse(os.path.isfile(path), msg=path)
 
-    def assertFilesNotRemoved(self, data, *files):
+    def assertFilesNotRemoved(self, data, *files):  # pylint: disable=invalid-name
         for name in files:
             path = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.pk), name)
             self.assertTrue(os.path.isfile(path), msg=path)
@@ -169,7 +169,8 @@ re-save-dir-list sample_dir_list dir1:ref2 dir2 dir3
                                    'entry1', 'entry2', 'entry3', 'dir1/a', 'dir2/b', 'dir3/c', 'dir3/d', 'ref1',
                                    'ref2', 'ref3', 'ref4', 'refs/a', 'refs/b')
 
-    def assertFieldWorks(self, field_type, field_value, script_setup, script_save, removed, not_removed):
+    def assertFieldWorks(self, field_type, field_value, script_setup,  # pylint: disable=invalid-name
+                         script_save, removed, not_removed):
         """
         Checks that a field is handled correctly when running a processor, which
         uses the field.
@@ -250,7 +251,8 @@ re-save-dir-list sample_dir_list dir1:ref2 dir2 dir3
 
 class PurgeUnitTest(PurgeTestFieldsMixin, TestCase):
 
-    def assertFieldWorks(self, field_type, field_value, script_setup, script_save, removed, not_removed):
+    def assertFieldWorks(self, field_type, field_value, script_setup,  # pylint: disable=invalid-name
+                         script_save, removed, not_removed):
         """
         Checks that a field is handled correctly by `get_purge_files` under a
         simulated Data object.

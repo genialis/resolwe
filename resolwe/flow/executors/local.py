@@ -21,9 +21,12 @@ class FlowExecutor(BaseFlowExecutor):
 
     def __init__(self, *args, **kwargs):
         super(FlowExecutor, self).__init__(*args, **kwargs)
-        self.command = getattr(settings, 'FLOW_EXECUTOR', {}).get('COMMAND', '/bin/bash')
+
         self.processes = {}
         self.kill_delay = 5
+        self.proc = None
+        self.stdout = None
+        self.command = getattr(settings, 'FLOW_EXECUTOR', {}).get('COMMAND', '/bin/bash')
 
     def start(self):
         self.proc = subprocess.Popen(shlex.split(self.command),

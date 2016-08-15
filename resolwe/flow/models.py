@@ -1,3 +1,5 @@
+# XXX: split module and remove pylint comment
+# pylint: disable=too-many-lines
 """
 ===========
 Flow Models
@@ -11,7 +13,6 @@ Base model for all other models.
 .. autoclass:: resolwe.flow.models.BaseModel
     :members:
 
-
 Collection Model
 ================
 
@@ -23,7 +24,6 @@ Postgres ORM model for the organization of collections.
 .. autoclass:: resolwe.flow.models.Collection
     :members:
 
-
 Data model
 ==========
 
@@ -31,7 +31,6 @@ Postgres ORM model for keeping the data structured.
 
 .. autoclass:: resolwe.flow.models.Data
     :members:
-
 
 DescriptorSchema model
 ======================
@@ -41,7 +40,6 @@ Postgres ORM model for storing descriptors.
 .. autoclass:: resolwe.flow.models.DescriptorSchema
     :members:
 
-
 Process model
 =============
 
@@ -49,7 +47,6 @@ Postgress ORM model for storing processes.
 
 .. autoclass:: resolwe.flow.models.Process
     :members:
-
 
 Storage model
 =============
@@ -63,10 +60,11 @@ Postgres ORM model for storing JSON.
 from __future__ import absolute_import, division, print_function, unicode_literals
 import functools
 import json
-import jsonschema
 import os
 import re
 import six
+
+import jsonschema
 
 from django import template
 from django.db import models, transaction
@@ -464,6 +462,7 @@ class Data(BaseModel):
         """Save data: and list:data: references as parents."""
 
         def add_dependency(value):
+            """Add parent Data dependency."""
             try:
                 self.parents.add(Data.objects.get(pk=value))  # pylint: disable=no-member
             except Data.DoesNotExist:
@@ -704,10 +703,10 @@ def iterate_fields(fields, schema, path_prefix=None):
             raise KeyError("Field definition ({}) missing in schema".format(field_id))
         if 'group' in schema_dict[field_id]:
             for rvals in iterate_fields(properties, schema_dict[field_id]['group'], path):
-                yield (rvals if path_prefix is not None else rvals[:2])
+                yield rvals if path_prefix is not None else rvals[:2]
         else:
             rvals = (schema_dict[field_id], fields, path)
-            yield (rvals if path_prefix is not None else rvals[:2])
+            yield rvals if path_prefix is not None else rvals[:2]
 
 
 def iterate_schema(fields, schema, path_prefix=''):
@@ -800,6 +799,7 @@ def validate_schema(instance, schema, test_required=True, path_prefix=None):
 
     """
     def validate_refs(field):
+        """Validate reference paths."""
         if 'refs' in field:
             for refs_filename in field['refs']:
                 refs_path = os.path.join(path_prefix, refs_filename)
@@ -885,8 +885,9 @@ def validate_schema(instance, schema, test_required=True, path_prefix=None):
                 for data_id in field:
                     validate_data(data_id, type_[5:])  # remove `list:` from type
 
-    for field_schema, fields in iterate_fields(instance, schema):
-        pass  # check that schema definitions exist for all fields
+    # Check that schema definitions exist for all fields
+    for _, _ in iterate_fields(instance, schema):
+        pass
 
 
 def _hydrate_values(output, output_schema, data):
@@ -897,6 +898,7 @@ def _hydrate_values(output, output_schema, data):
 
     """
     def hydrate_path(file_name):
+        """Hydrate file paths."""
         id_ = "{}/".format(data.id)  # needs trailing slash
         if id_ in file_name:
             file_name = file_name[file_name.find(id_) + len(id_):]  # remove id from filename
@@ -904,6 +906,7 @@ def _hydrate_values(output, output_schema, data):
         return os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], id_, file_name)
 
     def hydrate_storage(storage_id):
+        """Hydrate storage fields."""
         return LazyStorageJSON(pk=storage_id)
 
     for field_schema, fields in iterate_fields(output, output_schema):
@@ -939,6 +942,7 @@ def hydrate_size(data):
     """
 
     def add_file_size(obj):
+        """Add file size to the basic:file field."""
         if data.status in [Data.STATUS_DONE, Data.STATUS_ERROR] and 'size' in obj:
             return
 
@@ -949,14 +953,16 @@ def hydrate_size(data):
         obj['size'] = os.path.getsize(path)
 
     def get_dir_size(path):
+        """Get directory size."""
         total_size = 0
-        for dirpath, dirnames, filenames in os.walk(path):
-            for f in filenames:
-                fp = os.path.join(dirpath, f)
-                total_size += os.path.getsize(fp)
+        for dirpath, _, filenames in os.walk(path):
+            for file_name in filenames:
+                file_path = os.path.join(dirpath, file_name)
+                total_size += os.path.getsize(file_path)
         return total_size
 
     def add_dir_size(obj):
+        """Add directory size to the basic:dir field."""
         if data.status in [Data.STATUS_DONE, Data.STATUS_ERROR] and 'size' in obj:
             return
 
@@ -1069,6 +1075,7 @@ def dict_dot(d, k, val=None, default=None):
         return d
 
     def set_default(dict_or_model, key, default_value):
+        """Set default field value."""
         if isinstance(dict_or_model, models.Model):
             if not hasattr(dict_or_model, key):
                 setattr(dict_or_model, key, default_value)
@@ -1078,12 +1085,14 @@ def dict_dot(d, k, val=None, default=None):
             return dict_or_model.setdefault(key, default_value)
 
     def get_item(dict_or_model, key):
+        """Get field value."""
         if isinstance(dict_or_model, models.Model):
             return getattr(dict_or_model, key)
         else:
             return dict_or_model[key]
 
     def set_item(dict_or_model, key, value):
+        """Set field value."""
         if isinstance(dict_or_model, models.Model):
             setattr(dict_or_model, key, value)
         else:
@@ -1095,7 +1104,7 @@ def dict_dot(d, k, val=None, default=None):
 
     elif val is None:
         # Get value, error on missing
-        return functools.reduce(lambda a, b: get_item(a, b), k.split('.'), d)
+        return functools.reduce(get_item, k.split('.'), d)
 
     else:
         # Set value

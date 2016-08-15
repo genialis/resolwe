@@ -1,4 +1,4 @@
-# pylint: disable=missing-docstring
+# pylint: disable=missing-docstring,invalid-name
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import unittest
@@ -23,7 +23,7 @@ from resolwe.permissions.shortcuts import get_objects_for_user, get_user_group_p
 from resolwe.flow.views import StorageViewSet
 
 
-factory = APIRequestFactory()
+factory = APIRequestFactory()  # pylint: disable=invalid-name
 
 
 class UserGroupTestCase(unittest.TestCase):
@@ -271,8 +271,8 @@ class StoragePermsTestCase(TestCase):
 class GetObjectsForUser(TestCase):
 
     def setUp(self):
-        User = get_user_model()
-        self.user = User.objects.create(username='joe')
+        user_model = get_user_model()
+        self.user = user_model.objects.create(username='joe')
         self.group = Group.objects.create(name='group')
         self.ctype = ContentType.objects.create(
             model='bar', app_label='fake-for-guardian-tests')
@@ -388,7 +388,7 @@ class GetObjectsForUser(TestCase):
             set(objects),
             set(groups))
 
-    def test_multiple_perms_to_check(self):
+    def test_multi_perms(self):
         group_names = ['group1', 'group2', 'group3']
         groups = [Group.objects.create(name=name) for name in group_names]
         for group in groups:
@@ -403,7 +403,7 @@ class GetObjectsForUser(TestCase):
             set(objects.values_list('name', flat=True)),
             set([groups[1].name]))
 
-    def test_multiple_perms_to_check_no_groups(self):
+    def test_multi_perms_no_groups(self):
         group_names = ['group1', 'group2', 'group3']
         groups = [Group.objects.create(name=name) for name in group_names]
         for group in groups:
@@ -418,7 +418,7 @@ class GetObjectsForUser(TestCase):
             set(objects.values_list('name', flat=True)),
             set([groups[1].name]))
 
-    def test_any_of_multiple_perms_to_check(self):
+    def test_any_of_multi_perms(self):
         group_names = ['group1', 'group2', 'group3']
         groups = [Group.objects.create(name=name) for name in group_names]
         assign_perm('auth.change_group', self.user, groups[0])
@@ -474,7 +474,9 @@ class GetObjectsForUser(TestCase):
 
     def test_has_global_permission_only(self):
         group_names = ['group1', 'group2', 'group3']
-        [Group.objects.create(name=name) for name in group_names]
+        for name in group_names:
+            Group.objects.create(name=name)
+
         # global permission to change any group
         perm = 'auth.change_group'
 

@@ -1,6 +1,13 @@
-# Command to run on local machine to migrate data from gendev:
-# ./tests/manage.py genesis_migrate -u=genesis -p=resres --port=10117 --db-name=gendev_data --output=gendev.txt
+"""
+=================
+Migrate from v2.0
+=================
 
+Command to run on local machine to migrate data from gendev::
+
+    ./tests/manage.py genesis_migrate -u=genesis -p=resres --port=10117 --db-name=gendev_data --output=gendev.txt
+
+"""
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 from datetime import datetime
@@ -16,7 +23,7 @@ from django.utils.text import slugify
 from guardian.models import GroupObjectPermission, UserObjectPermission
 from guardian.shortcuts import assign_perm, get_groups_with_perms, get_users_with_perms
 
-from resolwe.flow.models import Data, DescriptorSchema, Process, Collection, Storage, Trigger, dict_dot, iterate_fields
+from resolwe.flow.models import Data, DescriptorSchema, Process, Collection, Storage, dict_dot, iterate_fields
 
 
 class Command(BaseCommand):
@@ -26,6 +33,7 @@ class Command(BaseCommand):
     help = 'Migrate data from `Genesis`'
 
     def add_arguments(self, parser):
+        """Command arguments."""
         parser.add_argument('-u', '--username', type=str, default='postgres', help="MongoDB username")
         parser.add_argument('-p', '--password', required=True, type=str, help="MongoDB password")
         parser.add_argument('--db-name', required=True, type=str, help="MongoDB database name")
@@ -64,9 +72,11 @@ class Command(BaseCommand):
     orphan_triggers = []
 
     def process_slug(self, name):
+        """Get process slug."""
         return slugify(name.replace(':', '-'))
 
     def get_contributor(self, contributor_id):
+        """Get contributer."""
         user_model = get_user_model()
         try:
             return user_model.objects.get(pk=contributor_id)
@@ -74,9 +84,11 @@ class Command(BaseCommand):
             return user_model.objects.filter(is_superuser=True).first()
 
     def migrate_permissions(self, new, old):
+        """Migrate permissions."""
         content_type = ContentType.objects.get_for_model(new)
 
         def set_permissions(entity_type):
+            """Set new permissions."""
             model = get_user_model() if entity_type == 'users' else Group
 
             for entity_id in old['permissions'].get(entity_type, {}):
@@ -99,6 +111,7 @@ class Command(BaseCommand):
         set_permissions('groups')
 
         def set_public_permissions():
+            """Set new public permissions."""
             user = AnonymousUser()
             perms = old['permissions'].get('public', {})
             for perm in perms:
@@ -110,6 +123,7 @@ class Command(BaseCommand):
         set_public_permissions()
 
     def migrate_collection(self, collection):
+        """Migrate collections."""
         new = Collection()
         new.name = collection[u'name']
         new.slug = collection[u'url_slug'] if u'url_slug' in collection else slugify(collection[u'name'])
@@ -117,8 +131,8 @@ class Command(BaseCommand):
         new.contributor = self.get_contributor(collection['author_id'])
         new.settings = collection.get(u'settings', {})
         # Remove data table settings as they are incompatible with the new frontend.
-        for applicationConfig in new.settings.values():
-            applicationConfig['tables'] = {}
+        for app_config in new.settings.values():
+            app_config['tables'] = {}
         # XXX: Django will change this on create
         new.created = collection[u'date_created']
         # XXX: Django will change this on save
@@ -135,6 +149,7 @@ class Command(BaseCommand):
         self.id_mapping['collection'][str(collection[u'_id'])] = new.pk
 
     def migrate_process(self, process):
+        """Migrate processes."""
         new = Process()
         new.name = process[u'label']
         new.slug = self.process_slug(process[u'name'])
@@ -158,6 +173,7 @@ class Command(BaseCommand):
         self.id_mapping['process'][str(process[u'_id'])] = new.pk
 
     def migrate_data(self, data):
+        """Migrate data."""
         contributor = self.get_contributor(data[u'author_id'])
 
         # DESCRIPTOR SCHEMA ############################################
@@ -295,7 +311,9 @@ class Command(BaseCommand):
             assign_perm('view_descriptorschema', group, obj=descriptor_schema)
 
     def migrate_data_references(self):
+        """Migrate data references."""
         def map_reference(reference):
+            """Map references to new IDs."""
             try:
                 return self.id_mapping['data'][reference]
             except KeyError as error:
@@ -303,7 +321,7 @@ class Command(BaseCommand):
                 return None
 
         # Fix references in JSON documents in the second pass.
-        for old_id, new_id in self.id_mapping['data'].items():
+        for new_id in self.id_mapping['data'].values():
             data = Data.objects.get(pk=new_id)
             for field_schema, fields in iterate_fields(data.input, data.process.input_schema):
                 if 'type' not in field_schema:
@@ -319,6 +337,7 @@ class Command(BaseCommand):
             data.save()
 
     def migrate_storage(self, storage):
+        """Migrate storage."""
         if str(storage[u'_id']) not in self.storage_index:
             self.unreferenced_storages.append(storage[u'_id'])
             return 1
@@ -343,36 +362,14 @@ class Command(BaseCommand):
 
         self.id_mapping['storage'][str(storage[u'_id'])] = new.pk
 
-    def migrate_trigger(self, trigger):
-        if str(trigger[u'case_id']) not in self.id_mapping[u'collection']:
-            self.orphan_triggers.append(str(trigger[u'case_id']))
-            return 1
-
-        new = Trigger()
-        new.name = trigger[u'name']
-        new.contributor = self.get_contributor(trigger[u'author_id'])
-        new.type = trigger[u'type']
-        new.trigger = trigger[u'trigger']
-        new.trigger_input = trigger[u'trigger_input']
-        new.process = Process.objects.filter(
-            slug=self.process_slug(trigger[u'processor_name'])).order_by('-version').first()
-        new.input = trigger[u'input']
-        new.collection = Collection.objects.get(pk=self.id_mapping[u'collection'][str(trigger[u'case_id'])])
-        new.autorun = trigger[u'autorun']
-        # XXX: Django will change this on create
-        new.created = trigger[u'date_created']
-        # XXX: Django will change this on save
-        new.modified = trigger[u'date_modified']
-        new.save()
-
-        self.id_mapping['trigger'][str(trigger[u'_id'])] = new.pk
-
     def clear_database(self):
+        """Clear data base."""
         for model in [Collection, Data, Process, Storage, DescriptorSchema,
                       GroupObjectPermission, UserObjectPermission]:
             model.objects.all().delete()
 
     def handle(self, *args, **options):
+        """Command handle."""
         try:
             from pymongo import MongoClient
         except ImportError:
@@ -404,11 +401,6 @@ class Command(BaseCommand):
         self.stdout.write('Migrating storage...')
         for storage in client[options['db_name']].storage.find():
             self.migrate_storage(storage)
-        self.stdout.write('DONE')
-
-        self.stdout.write('Migrating trigger...')
-        for trigger in client[options['db_name']].trigger.find():
-            self.migrate_trigger(trigger)
         self.stdout.write('DONE')
 
         if options['output']:

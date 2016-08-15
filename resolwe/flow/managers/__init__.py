@@ -15,6 +15,7 @@ __all__ = ['manager']
 
 
 def load_manager(manager_name):
+    """Load manager."""
     try:
         return import_module('{}'.format(manager_name))
     except ImportError as ex:
@@ -38,5 +39,5 @@ def load_manager(manager_name):
             raise
 
 
-settings_flow_manager = getattr(settings, 'FLOW_MANAGER', 'resolwe.flow.managers.local')
-manager = load_manager(settings_flow_manager).Manager()  # pylint: disable=invalid-name
+FLOW_MANAGER = getattr(settings, 'FLOW_MANAGER', 'resolwe.flow.managers.local')
+manager = load_manager(FLOW_MANAGER).Manager()  # pylint: disable=invalid-name

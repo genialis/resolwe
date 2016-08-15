@@ -1,7 +1,7 @@
 """
-===========================
-Process Fields Templatetags
-===========================
+============================
+Process fields template tags
+============================
 
 """
 from django import template
@@ -13,6 +13,7 @@ register = template.Library()  # pylint: disable=invalid-name
 
 
 def _get_data_attr(data, attr):
+    """Get data object field."""
     if isinstance(data, dict):
         # `Data` object's id is hydrated as `__id` in expression engine
         data = data['__id']

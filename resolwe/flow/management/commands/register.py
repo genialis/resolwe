@@ -6,9 +6,10 @@ Register Processes
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-import jsonschema
 import os
 import yaml
+
+import jsonschema
 
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
@@ -27,7 +28,7 @@ DESCRIPTOR_SCHEMA = validation_schema('descriptor')
 
 class Command(BaseCommand):
 
-    """Register processes"""
+    """Register processes."""
 
     help = 'Register processes'
 
@@ -176,32 +177,31 @@ class Command(BaseCommand):
         """Read and register descriptors."""
         log_descriptors = []
 
-        for ds in descriptor_schemas:
-
+        for descriptor_schema in descriptor_schemas:
             for field in ['var', 'schema']:
-                for schema, _, _ in iterate_schema({}, ds.get(field, {})):
+                for schema, _, _ in iterate_schema({}, descriptor_schema.get(field, {})):
                     if not schema['type'][-1].endswith(':'):
                         schema['type'] += ':'
 
             # support backward compatibility
             # TODO: update .yml files and remove
-            if 'slug' not in ds:
-                ds['slug'] = slugify(ds.pop('name').replace(':', '-'))
-                ds['name'] = ds.pop('label')
+            if 'slug' not in descriptor_schema:
+                descriptor_schema['slug'] = slugify(descriptor_schema.pop('name').replace(':', '-'))
+                descriptor_schema['name'] = descriptor_schema.pop('label')
 
-            if 'schema' not in ds:
-                ds['schema'] = []
+            if 'schema' not in descriptor_schema:
+                descriptor_schema['schema'] = []
 
-            if 'static' in ds:
-                ds['schema'].extend(ds.pop('static'))
-            if 'var' in ds:
-                ds['schema'].extend(ds.pop('var'))
+            if 'static' in descriptor_schema:
+                descriptor_schema['schema'].extend(descriptor_schema.pop('static'))
+            if 'var' in descriptor_schema:
+                descriptor_schema['schema'].extend(descriptor_schema.pop('var'))
 
-            if not self.valid(ds, DESCRIPTOR_SCHEMA):
+            if not self.valid(descriptor_schema, DESCRIPTOR_SCHEMA):
                 continue
 
-            slug = ds['slug']
-            version = ds.get('version', '0.0.0')
+            slug = descriptor_schema['slug']
+            version = descriptor_schema.get('version', '0.0.0')
             int_version = convert_version_string_to_int(version, VERSION_NUMBER_BITS)
 
             # `latest version` is returned as `int` so it has to be compared to `int_version`
@@ -217,10 +217,10 @@ class Command(BaseCommand):
                         self.stdout.write("Skip descriptor schema {}: same version installed".format(slug))
                     continue
 
-                descriptor_query.update(**ds)
+                descriptor_query.update(**descriptor_schema)
                 log_descriptors.append("Updated {}".format(slug))
             else:
-                DescriptorSchema.objects.create(contributor=user, **ds)
+                DescriptorSchema.objects.create(contributor=user, **descriptor_schema)
                 log_descriptors.append("Inserted {}".format(slug))
 
         if len(log_descriptors) > 0 and verbosity > 0:

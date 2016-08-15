@@ -13,6 +13,10 @@ Added
 -----
 - Auto-process style, type tree and category index
 
+Fixed
+=====
+- Fix pylint warnings
+
 
 ==================
 1.3.1 - 2016-07-27

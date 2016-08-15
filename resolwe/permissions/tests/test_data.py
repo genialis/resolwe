@@ -3,21 +3,19 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import os
 import shutil
-
 from datetime import datetime, timedelta
-
 
 from django.conf import settings
 
 from rest_framework import status, exceptions
 
-from ..utils.test import ResolweAPITestCase
 from resolwe.flow.models import Data, Collection
 from resolwe.flow.views import DataViewSet
 from resolwe.flow.serializers import ContributorSerializer
+from ..utils.test import ResolweAPITestCase
 
 if settings.USE_TZ:
-    from django.utils.timezone import now
+    from django.utils.timezone import now  # pylint: disable=ungrouped-imports
 else:
     now = datetime.now  # pylint: disable=invalid-name
 
@@ -158,7 +156,7 @@ class DataTestCase(ResolweAPITestCase):
             'last_name': self.user1.last_name
         })
 
-    def test_post_contributor_dictionary(self):
+    def test_post_contributor_dict(self):
         response = ContributorSerializer(ContributorSerializer().to_internal_value({'id': self.user1.pk})).data
 
         self.assertEqual(response, {
@@ -168,7 +166,7 @@ class DataTestCase(ResolweAPITestCase):
             'last_name': self.user1.last_name
         })
 
-    def test_post_contributor_dictionary_extra_data(self):
+    def test_post_contributor_dict_extra_data(self):  # pylint: disable=invalid-name
         response = ContributorSerializer(ContributorSerializer().to_internal_value({
             'id': self.user1.pk,
             'username': 'ignored',
@@ -182,7 +180,7 @@ class DataTestCase(ResolweAPITestCase):
             'last_name': self.user1.last_name
         })
 
-    def test_post_contributor_dictionary_invalid(self):
+    def test_post_contributor_dict_invalid(self):  # pylint: disable=invalid-name
         with self.assertRaises(exceptions.ValidationError):
             ContributorSerializer().to_internal_value({
                 'invalid-dictionary': True,
@@ -339,17 +337,17 @@ class DataTestCase(ResolweAPITestCase):
     def test_delete(self):
         resp = self._delete(1, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
-        q = Data.objects.filter(pk=1).exists()
-        self.assertFalse(q)
+        query = Data.objects.filter(pk=1).exists()
+        self.assertFalse(query)
 
     def test_delete_no_perms(self):
         resp = self._delete(2, self.user2)
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
-        q = Data.objects.filter(pk=2).exists()
-        self.assertTrue(q)
+        query = Data.objects.filter(pk=2).exists()
+        self.assertTrue(query)
 
     def test_delete_public_user(self):
         resp = self._delete(2)
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
-        q = Data.objects.filter(pk=2).exists()
-        self.assertTrue(q)
+        query = Data.objects.filter(pk=2).exists()
+        self.assertTrue(query)

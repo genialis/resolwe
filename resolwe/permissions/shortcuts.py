@@ -53,19 +53,23 @@ def _group_groups(perm_list):
     return grouped_perms
 
 
-# Based on guardian.core.ObjectPermissionChecker.
 def get_user_group_perms(user_or_group, obj):
+    """Get permissins for user groups.
+
+    Based on guardian.core.ObjectPermissionChecker.
+
+    """
     user, group = get_identity(user_or_group)
 
     if user and not user.is_active:
         return [], []
-    User = get_user_model()
+    user_model = get_user_model()
     ctype = ContentType.objects.get_for_model(obj)
 
     group_model = get_group_obj_perms_model(obj)
     group_rel_name = group_model.permission.field.related_query_name()  # pylint: disable=no-member
     if user:
-        user_rel_name = User.groups.field.related_query_name()  # pylint: disable=no-member
+        user_rel_name = user_model.groups.field.related_query_name()  # pylint: disable=no-member
         group_filters = {user_rel_name: user}
     else:
         group_filters = {'pk': group.pk}
@@ -352,11 +356,11 @@ def get_objects_for_user(user, perms, klass=None, use_groups=True, any_perm=Fals
     values = user_obj_perms_queryset.values_list(user_fields[0], flat=True)
     if user_model.objects.is_generic():
         values = list(values)
-    q = Q(**{perms_filter: values})
+    query = Q(**{perms_filter: values})
     if use_groups:
         values = groups_obj_perms_queryset.values_list(group_fields[0], flat=True)
         if group_model.objects.is_generic():
             values = list(values)
-        q |= Q(**{perms_filter: values})
+        query |= Q(**{perms_filter: values})
 
-    return queryset.filter(q)
+    return queryset.filter(query)

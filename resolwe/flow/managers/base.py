@@ -1,3 +1,9 @@
+"""
+================
+Abstract Manager
+================
+
+"""
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import logging
@@ -61,6 +67,7 @@ class BaseManager(object):
         self.exprengines = self.load_exprengines(exprengines)
 
     def run(self, data_id, script, run_sync=False, verbosity=1):
+        """Run process."""
         raise NotImplementedError('`run` function not implemented')
 
     def communicate(self, run_sync=False, verbosity=1):
@@ -103,6 +110,7 @@ class BaseManager(object):
             self.run(data_id, script, verbosity=verbosity)
 
     def load_executor(self, executor_name):
+        """Load process executor."""
         try:
             return import_module('{}'.format(executor_name))
         except ImportError as ex:
@@ -126,6 +134,7 @@ class BaseManager(object):
                 raise
 
     def load_exprengines(self, exprengine_list):
+        """Load expression engines."""
         exprengines = {}
 
         for exprengine_name in exprengine_list:

@@ -4,7 +4,6 @@ Testing
 =======
 
 """
-
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 from django.contrib.auth.models import User
@@ -58,6 +57,7 @@ class ResolweAPITestCase(APITestCase):
 
     """
     def setUp(self):
+        """Prepare data."""
         super(ResolweAPITestCase, self).setUp()
 
         # TODO: Remove this when removing fixtures
@@ -101,13 +101,16 @@ class ResolweAPITestCase(APITestCase):
         self.detail_view = self.viewset.as_view(detail_url_mapping)  # pylint: disable=no-member
 
     def detail_url(self, pk):
+        """Get detail url."""
         return reverse('resolwe-api:{}-detail'.format(self.resource_name), kwargs={'pk': pk})  # noqa pylint: disable=no-member
 
     def detail_permissions(self, pk):
+        """Get detail permissions url."""
         return reverse('resolwe-api:{}-permissions'.format(self.resource_name), kwargs={'pk': pk})  # noqa pylint: disable=no-member
 
     @property
     def list_url(self):
+        """Get list url."""
         return reverse('resolwe-api:{}-list'.format(self.resource_name))  # pylint: disable=no-member
 
     def _get_list(self, user=None):
@@ -220,5 +223,6 @@ class ResolweAPITestCase(APITestCase):
         resp.render()
         return resp
 
-    def assertKeys(self, data, wanted):
+    def assertKeys(self, data, wanted):  # pylint: disable=invalid-name
+        """Assert dictionary keys."""
         self.assertEqual(sorted(data.keys()), sorted(wanted))

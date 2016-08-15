@@ -15,6 +15,9 @@ from resolwe.flow.models import Process, Collection, Data, DescriptorSchema, Tri
 
 
 class NoContentError(APIException):
+
+    """Content has not changed exception."""
+
     status_code = status.HTTP_204_NO_CONTENT
     detail = 'The content has not changed'
 
@@ -24,6 +27,9 @@ class ContributorSerializer(serializers.ModelSerializer):
     """Serializer for contributor User objects."""
 
     class Meta:
+
+        """Serializer configuration."""
+
         # The model needs to be determined when instantiating the serializer class as
         # the applications may not yet be ready at this point.
         model = None

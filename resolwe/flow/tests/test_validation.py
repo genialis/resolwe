@@ -1,9 +1,10 @@
 # pylint: disable=missing-docstring
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+import unittest
+
 from mock import MagicMock, patch
 import six
-import unittest
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
@@ -153,21 +154,21 @@ class ValidationTest(TestCase):
                 {'name': 'data_object', 'type': 'data:referenced:object:'}
             ]
         )
-        d1 = Data.objects.create(
+        data1 = Data.objects.create(
             name='Referenced object',
             contributor=user,
             process=proc1
         )
-        d2 = Data.objects.create(
+        data2 = Data.objects.create(
             name='Test data',
             contributor=user,
             process=proc2,
-            input={'data_object': d1.pk}
+            input={'data_object': data1.pk}
         )
 
-        d1.delete()
-        d2.name = 'New name'
-        d2.save()
+        data1.delete()
+        data2.name = 'New name'
+        data2.save()
 
 
 class ValidationUnitTest(unittest.TestCase):
@@ -201,7 +202,7 @@ class ValidationUnitTest(unittest.TestCase):
         ]
 
         instance = {'res': 42}
-        with six.assertRaisesRegex(self, KeyError, '\(res\) missing in schema'):
+        with six.assertRaisesRegex(self, KeyError, r'\(res\) missing in schema'):
             validate_schema(instance, schema)
 
     def test_file_prefix(self):
@@ -237,8 +238,8 @@ class ValidationUnitTest(unittest.TestCase):
         with patch('resolwe.flow.models.os') as os_mock:
             os_mock.path.isfile = MagicMock(side_effect=[True, True, False])
             os_mock.path.isdir = MagicMock(return_value=False)
-            with six.assertRaisesRegex(
-                    self, ValidationError, 'File referenced in `refs` .* does not exist'):
+            with six.assertRaisesRegex(self, ValidationError,
+                                       'File referenced in `refs` .* does not exist'):
                 validate_schema(instance, schema, path_prefix='/home/genialis/')
             self.assertEqual(os_mock.path.isfile.call_count, 3)
             self.assertEqual(os_mock.path.isdir.call_count, 1)
@@ -279,8 +280,8 @@ class ValidationUnitTest(unittest.TestCase):
         with patch('resolwe.flow.models.os') as os_mock:
             os_mock.path.isdir = MagicMock(side_effect=[True, False])
             os_mock.path.isfile = MagicMock(side_effect=[True, False])
-            with six.assertRaisesRegex(
-                    self, ValidationError, 'File referenced in `refs` .* does not exist'):
+            with six.assertRaisesRegex(self, ValidationError,
+                                       'File referenced in `refs` .* does not exist'):
                 validate_schema(instance, schema, path_prefix='/home/genialis/')
             self.assertEqual(os_mock.path.isdir.call_count, 2)
             self.assertEqual(os_mock.path.isfile.call_count, 2)
@@ -472,7 +473,7 @@ class ValidationUnitTest(unittest.TestCase):
 
     def test_file_field(self):
         schema = [
-            {'name': 'result', 'type': 'basic:file:', 'validate_regex': '^.*\.txt$'},
+            {'name': 'result', 'type': 'basic:file:', 'validate_regex': r'^.*\.txt$'},
         ]
 
         instance = {'result': {
@@ -696,7 +697,7 @@ class ValidationUnitTest(unittest.TestCase):
 
     def test_list_file_field(self):
         schema = [
-            {'name': 'result', 'type': 'list:basic:file:', 'validate_regex': '^.*\.txt$'},
+            {'name': 'result', 'type': 'list:basic:file:', 'validate_regex': r'^.*\.txt$'},
         ]
         instance = {'result': [
             {'file': 'result01.txt'},
@@ -748,7 +749,7 @@ class ValidationUnitTest(unittest.TestCase):
     def test_groups(self):
         schema = [
             {'name': 'test_group', 'group': [
-                {'name': 'result_file', 'type': 'basic:file:', 'validate_regex': '^.*\.txt$'},
+                {'name': 'result_file', 'type': 'basic:file:', 'validate_regex': r'^.*\.txt$'},
                 {'name': 'description', 'type': 'basic:string:', 'required': True}
             ]}
         ]

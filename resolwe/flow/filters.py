@@ -12,7 +12,13 @@ from .models import Collection, Data, DescriptorSchema, Process
 
 
 class DescriptorSchemaFilter(filters.FilterSet):
+
+    """Filter the DescriptorSchema endpoint."""
+
     class Meta:
+
+        """Filter configuration."""
+
         model = DescriptorSchema
         fields = {
             'slug': '__all__',
@@ -21,10 +27,16 @@ class DescriptorSchemaFilter(filters.FilterSet):
 
 
 class CollectionFilter(filters.FilterSet):
+
+    """Filter the Collection endpoint."""
+
     data = filters.ModelChoiceFilter(queryset=Data.objects.all())
     descriptor_schema = filters.RelatedFilter(DescriptorSchemaFilter, name='descriptor_schema')
 
     class Meta:
+
+        """Filter configuration."""
+
         model = Collection
         fields = {
             'contributor': ['exact', ],
@@ -40,10 +52,16 @@ class CollectionFilter(filters.FilterSet):
 
 
 class DataFilter(filters.FilterSet):
+
+    """Filter the Data endpoint."""
+
     collection = filters.ModelChoiceFilter(queryset=Collection.objects.all())
     type = filters.CharFilter(name='process__type', lookup_type='startswith')
 
     class Meta:
+
+        """Filter configuration."""
+
         model = Data
         fields = {
             'collection': ['exact', ],
@@ -62,9 +80,15 @@ class DataFilter(filters.FilterSet):
 
 
 class ProcessFilter(filters.FilterSet):
+
+    """Filter the Process endpoint."""
+
     category = filters.CharFilter(name='category', lookup_type='startswith')
 
     class Meta:
+
+        """Filter configuration."""
+
         model = Process
         fields = {
             'category': ['exact', ],

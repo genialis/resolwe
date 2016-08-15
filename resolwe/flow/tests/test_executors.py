@@ -1,12 +1,13 @@
 # pylint: disable=missing-docstring
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-import mock
 import os
 import shlex
-import six
 import subprocess
 import unittest
+
+import mock
+import six
 
 from django.conf import settings
 from django.test import override_settings
@@ -37,7 +38,7 @@ def check_docker():
     info_command = '{} info'.format(command)
     available, reason = True, ""
     # TODO: use subprocess.DEVNULL after dropping support for Python 2
-    with open(os.devnull, 'wb') as DEVNULL:
+    with open(os.devnull, 'wb') as DEVNULL:  # pylint: disable=invalid-name
         try:
             subprocess.check_call(shlex.split(info_command), stdout=DEVNULL, stderr=subprocess.STDOUT)
         except OSError:

@@ -4,7 +4,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import os
 import shutil
 
-from django import template
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import TestCase
@@ -15,8 +14,8 @@ from resolwe.flow.models import Process, Data
 
 class ProcessFieldsTagsTest(TestCase):
     def setUp(self):
-        User = get_user_model()
-        self.contributor = User.objects.create_user('test_user', 'test_pwd')
+        user_model = get_user_model()
+        self.contributor = user_model.objects.create_user('test_user', 'test_pwd')
 
     def tearDown(self):
         for data in Data.objects.all():

@@ -11,9 +11,9 @@ from guardian.models import GroupObjectPermission, UserObjectPermission
 from guardian.shortcuts import assign_perm
 from rest_framework import exceptions, status
 
-from ..utils.test import ResolweAPITestCase
 from resolwe.flow.models import Collection
 from resolwe.flow.views import CollectionViewSet, ResolwePermissionsMixin
+from ..utils.test import ResolweAPITestCase
 
 
 class CollectionPermissionsTestCase(ResolweAPITestCase):
@@ -80,7 +80,6 @@ class CollectionPermissionsTestCase(ResolweAPITestCase):
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_user_with_share(self):
-        """   """
         assign_perm("view_collection", self.user1, self.collection)
         assign_perm("share_collection", self.user1, self.collection)
 
@@ -169,27 +168,27 @@ class PermissionsMixinTestCase(unittest.TestCase):
             }
         }
 
-        self.permissions_mixin._filter_owner_permission(data_template)
+        self.permissions_mixin._filter_owner_permission(data_template)  # pylint: disable=protected-access
 
         data = deepcopy(data_template)
         data['users']['add'][1].append('owner')
         with self.assertRaises(exceptions.PermissionDenied):
-            self.permissions_mixin._filter_owner_permission(data)
+            self.permissions_mixin._filter_owner_permission(data)  # pylint: disable=protected-access
 
         data = deepcopy(data_template)
         data['users']['remove'][3].append('owner')
         with self.assertRaises(exceptions.PermissionDenied):
-            self.permissions_mixin._filter_owner_permission(data)
+            self.permissions_mixin._filter_owner_permission(data)  # pylint: disable=protected-access
 
         data = deepcopy(data_template)
         data['groups']['add'][1].append('owner')
         with self.assertRaises(exceptions.PermissionDenied):
-            self.permissions_mixin._filter_owner_permission(data)
+            self.permissions_mixin._filter_owner_permission(data)  # pylint: disable=protected-access
 
         data = deepcopy(data_template)
         data['groups']['remove'][2].append('owner')
         with self.assertRaises(exceptions.PermissionDenied):
-            self.permissions_mixin._filter_owner_permission(data)
+            self.permissions_mixin._filter_owner_permission(data)  # pylint: disable=protected-access
 
     def test_filter_user_permissions(self):
         """Check that user cannot change his own permissions"""
@@ -205,36 +204,36 @@ class PermissionsMixinTestCase(unittest.TestCase):
         }
 
         with self.assertRaises(exceptions.PermissionDenied):
-            self.permissions_mixin._filter_user_permissions(data, 1)
+            self.permissions_mixin._filter_user_permissions(data, 1)  # pylint: disable=protected-access
 
         with self.assertRaises(exceptions.PermissionDenied):
-            self.permissions_mixin._filter_user_permissions(data, 2)
+            self.permissions_mixin._filter_user_permissions(data, 2)  # pylint: disable=protected-access
 
-        self.permissions_mixin._filter_user_permissions(data, 3)
+        self.permissions_mixin._filter_user_permissions(data, 3)  # pylint: disable=protected-access
 
     def test_filter_public_permissions(self):
         """Check that public user cannot get to open permissions"""
         data = {'public': {'add': ['view']}}
-        self.permissions_mixin._filter_public_permissions(data)
+        self.permissions_mixin._filter_public_permissions(data)  # pylint: disable=protected-access
 
         data = {'public': {'add': ['download']}}
-        self.permissions_mixin._filter_public_permissions(data)
+        self.permissions_mixin._filter_public_permissions(data)  # pylint: disable=protected-access
 
         data = {'public': {'add': ['add']}}
-        self.permissions_mixin._filter_public_permissions(data)
+        self.permissions_mixin._filter_public_permissions(data)  # pylint: disable=protected-access
 
         data = {'public': {'add': ['edit']}}
         with self.assertRaises(exceptions.PermissionDenied):
-            self.permissions_mixin._filter_public_permissions(data)
+            self.permissions_mixin._filter_public_permissions(data)  # pylint: disable=protected-access
 
         data = {'public': {'add': ['share']}}
         with self.assertRaises(exceptions.PermissionDenied):
-            self.permissions_mixin._filter_public_permissions(data)
+            self.permissions_mixin._filter_public_permissions(data)  # pylint: disable=protected-access
 
         data = {'public': {'add': ['owner']}}
         with self.assertRaises(exceptions.PermissionDenied):
-            self.permissions_mixin._filter_public_permissions(data)
+            self.permissions_mixin._filter_public_permissions(data)  # pylint: disable=protected-access
 
         data = {'public': {'add': ['view', 'edit']}}
         with self.assertRaises(exceptions.PermissionDenied):
-            self.permissions_mixin._filter_public_permissions(data)
+            self.permissions_mixin._filter_public_permissions(data)  # pylint: disable=protected-access

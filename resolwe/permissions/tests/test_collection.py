@@ -1,15 +1,11 @@
 # pylint: disable=missing-docstring
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-from datetime import datetime
-
-from django.db import transaction
-
 from rest_framework import status
 
-from ..utils.test import ResolweAPITestCase
 from resolwe.flow.models import Collection
 from resolwe.flow.views import CollectionViewSet
+from ..utils.test import ResolweAPITestCase
 
 
 MESSAGES = {
@@ -126,17 +122,17 @@ class CollectionTestCase(ResolweAPITestCase):
     def test_delete(self):
         resp = self._delete(1, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
-        q = Collection.objects.filter(pk=1).exists()
-        self.assertFalse(q)
+        collection_exists = Collection.objects.filter(pk=1).exists()
+        self.assertFalse(collection_exists)
 
     def test_delete_no_perm(self):
         resp = self._delete(2, self.user2)
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
-        q = Collection.objects.filter(pk=2).exists()
-        self.assertTrue(q)
+        collection_exists = Collection.objects.filter(pk=2).exists()
+        self.assertTrue(collection_exists)
 
     def test_delete_public_user(self):
         resp = self._delete(3)
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
-        q = Collection.objects.filter(pk=3).exists()
-        self.assertTrue(q)
+        collection_exists = Collection.objects.filter(pk=3).exists()
+        self.assertTrue(collection_exists)

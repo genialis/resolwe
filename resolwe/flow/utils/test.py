@@ -13,8 +13,9 @@ import io
 import json
 import os
 import shutil
-from six.moves import filterfalse
 import zipfile
+
+from six.moves import filterfalse
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -31,12 +32,12 @@ SCHEMAS_FIXTURE_CACHE = None
 
 
 # override all FLOW_EXECUTOR settings that are specified in FLOW_EXECUTOR['TEST']
-flow_executor_settings = copy.copy(getattr(settings, 'FLOW_EXECUTOR', {}))
-test_settings_overrides = getattr(settings, 'FLOW_EXECUTOR', {}).get('TEST', {})
+flow_executor_settings = copy.copy(getattr(settings, 'FLOW_EXECUTOR', {}))  # pylint: disable=invalid-name
+test_settings_overrides = getattr(settings, 'FLOW_EXECUTOR', {}).get('TEST', {})  # pylint: disable=invalid-name
 flow_executor_settings.update(test_settings_overrides)
 
 # update FLOW_DOCKER_MAPPINGS setting if necessary
-flow_docker_mappings = copy.copy(getattr(settings, 'FLOW_DOCKER_MAPPINGS', {}))
+flow_docker_mappings = copy.copy(getattr(settings, 'FLOW_DOCKER_MAPPINGS', {}))  # pylint: disable=invalid-name
 for map_ in flow_docker_mappings:
     for map_entry in ['src', 'dest']:
         for setting in ['DATA_DIR', 'UPLOAD_DIR']:
@@ -162,6 +163,7 @@ class ProcessTestCase(TestCase):
         self._keep_failed = True
 
     def run_processor(self, *args, **kwargs):
+        """Deprecated method: use run_process."""
         return self.run_process(*args, **kwargs)
         # TODO: warning
 
@@ -205,9 +207,10 @@ class ProcessTestCase(TestCase):
         # backward compatibility
         process_slug = slugify(process_slug.replace(':', '-'))
 
-        p = Process.objects.get(slug=process_slug)
+        process = Process.objects.get(slug=process_slug)
 
         def mock_upload(file_path):
+            """Mock file upload."""
             old_path = os.path.join(self.files_path, file_path)
             if not os.path.isfile(old_path):
                 raise RuntimeError('Missing file: {}'.format(old_path))
@@ -224,7 +227,7 @@ class ProcessTestCase(TestCase):
                 'file_temp': file_path,
             }
 
-        for field_schema, fields in iterate_fields(input_, p.input_schema):
+        for field_schema, fields in iterate_fields(input_, process.input_schema):
             # copy referenced files to upload dir
             if field_schema['type'] == "basic:file:":
                 fields[field_schema['name']] = mock_upload(fields[field_schema['name']])
@@ -238,27 +241,27 @@ class ProcessTestCase(TestCase):
             if field_schema['type'].startswith('list:data:'):
                 fields[field_schema['name']] = [obj for obj in fields[field_schema['name']]]
 
-        d = Data.objects.create(
+        data = Data.objects.create(
             input=input_,
             contributor=self.admin,
-            process=p,
+            process=process,
             slug=get_random_string(length=6),
             descriptor_schema=descriptor_schema,
             descriptor=descriptor or {})
-        self.collection.data.add(d)
+        self.collection.data.add(data)
 
         if run_manager:
             manager.communicate(run_sync=True, verbosity=verbosity)
 
         # Fetch latest Data object from database
-        d = Data.objects.get(pk=d.pk)
+        data = Data.objects.get(pk=data.pk)
         if not run_manager and assert_status == Data.STATUS_DONE:
             assert_status = Data.STATUS_RESOLVING
 
         if assert_status:
-            self.assertStatus(d, assert_status)
+            self.assertStatus(data, assert_status)
 
-        return d
+        return data
 
     def assertStatus(self, obj, status):  # pylint: disable=invalid-name
         """Check if object's status is equal to the given status.
@@ -291,7 +294,8 @@ class ProcessTestCase(TestCase):
                          msg="Field 'output.{}' mismatch: {} != {}".format(path, field, value) +
                          self._debug_info(obj))
 
-    def _assert_file(self, obj, fn_tested, fn_correct, compression=None, filter=lambda _: False):
+    def _assert_file(self, obj, fn_tested, fn_correct, compression=None, file_filter=lambda _: False):
+        """Compare files."""
         open_kwargs = {}
         if compression is None:
             open_fn = open
@@ -307,7 +311,7 @@ class ProcessTestCase(TestCase):
 
         output = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(obj.pk), fn_tested)
         with open_fn(output, **open_kwargs) as output_file:
-            output_contents = b"".join([line for line in filterfalse(filter, output_file)])
+            output_contents = b"".join([line for line in filterfalse(file_filter, output_file)])
         output_hash = hashlib.sha256(output_contents).hexdigest()
 
         correct_path = os.path.join(self.files_path, fn_correct)
@@ -317,7 +321,7 @@ class ProcessTestCase(TestCase):
             self.fail(msg="Output file {} missing so it was created.".format(fn_correct))
 
         with open_fn(correct_path, **open_kwargs) as correct_file:
-            correct_contents = b"".join([line for line in filterfalse(filter, correct_file)])
+            correct_contents = b"".join([line for line in filterfalse(file_filter, correct_file)])
         correct_hash = hashlib.sha256(correct_contents).hexdigest()
         self.assertEqual(correct_hash, output_hash,
                          msg="File contents hash mismatch: {} != {}".format(

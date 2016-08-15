@@ -13,9 +13,10 @@ import json
 import logging
 import os
 import shutil
-import six
 import traceback
 import uuid
+
+import six
 
 from django.apps import apps
 from django.db import transaction
@@ -26,7 +27,7 @@ from resolwe.flow.utils.purge import data_purge
 from resolwe.utils import BraceMessage as __
 
 if settings.USE_TZ:
-    from django.utils.timezone import now
+    from django.utils.timezone import now  # pylint: disable=ungrouped-imports
 else:
     import datetime
     now = datetime.datetime.now  # pylint: disable=invalid-name
@@ -34,8 +35,7 @@ else:
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 CWD = os.getcwd()
-
-exported_files_mapper = {}
+EXPORTED_FILES_MAPPER = {}
 
 
 def iterjson(text):
@@ -52,11 +52,12 @@ def iterjson(text):
 
 
 def hydrate_spawned_files(filename, data_id):
-    if filename not in exported_files_mapper:
+    """Hydrate spawned files' paths."""
+    if filename not in EXPORTED_FILES_MAPPER:
         raise KeyError('All files referenced in spawned processes must be exported using'
                        '`re-export` command.')
 
-    export_fn = exported_files_mapper[filename]
+    export_fn = EXPORTED_FILES_MAPPER[filename]
     return {'file_temp': export_fn, 'file': filename}
 
 
@@ -69,7 +70,11 @@ class BaseFlowExecutor(object):
         use it this way (e.g. Celery).
     """
 
+    def __init__(self):
+        self.data_id = None
+
     def get_tools(self):
+        """Get tools paths."""
         tools_paths = []
         for app_config in apps.get_app_configs():
             proc_path = os.path.join(app_config.path, 'tools')
@@ -84,18 +89,23 @@ class BaseFlowExecutor(object):
         return tools_paths
 
     def start(self):
+        """Start process execution."""
         pass
 
     def run_script(self, script):
+        """Run process script."""
         raise NotImplementedError('`run_script` function must be defined')
 
     def end(self):
+        """End process execution."""
         pass
 
     def get_stdout(self):
+        """Get process' standard output."""
         return self.stdout  # pylint: disable=no-member
 
     def update_data_status(self, **kwargs):
+        """Update (PATCH) data object."""
         data = Data.objects.get(pk=self.data_id)
         for key, value in kwargs.items():
             setattr(data, key, value)
@@ -161,7 +171,7 @@ class BaseFlowExecutor(object):
                         unique_name = 'export_{}'.format(uuid.uuid4().hex)
                         export_path = os.path.join(export_folder, unique_name)
 
-                        exported_files_mapper[file_name] = unique_name
+                        EXPORTED_FILES_MAPPER[file_name] = unique_name
 
                         shutil.move(file_name, export_path)
                     else:

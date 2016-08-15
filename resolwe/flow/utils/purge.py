@@ -15,6 +15,8 @@ from resolwe.flow.models import Data, iterate_fields
 
 
 def get_purge_files(root, output, output_schema, descriptor, descriptor_schema):
+    """Get files to purge."""
+
     def remove_file(fn, paths):
         """From paths remove fn and dirs before fn in dir tree."""
         while fn:

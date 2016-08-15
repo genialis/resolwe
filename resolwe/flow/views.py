@@ -11,7 +11,6 @@ import pkgutil
 from importlib import import_module
 
 from django.db import IntegrityError, transaction
-from django.db.models import Q
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser, Group, Permission
@@ -26,13 +25,13 @@ from rest_framework.response import Response
 
 from guardian import shortcuts
 
+from resolwe.permissions.shortcuts import get_object_perms
+
 from .filters import DataFilter, CollectionFilter, ProcessFilter
 from .managers import manager
 from .models import Collection, Process, Data, DescriptorSchema, Trigger, Storage
 from .serializers import (CollectionSerializer, ProcessSerializer, DataSerializer,
                           DescriptorSchemaSerializer, TriggerSerializer, StorageSerializer)
-
-from resolwe.permissions.shortcuts import get_object_perms
 
 
 def assign_perm(*args, **kwargs):
@@ -67,7 +66,7 @@ def load_permissions(permissions_name):
         return import_module('{}'.format(permissions_name)).ResolwePermissions
     except AttributeError:
         raise AttributeError("'ResolwePermissions' class not found in {} module.".format(
-                             permissions_name))
+            permissions_name))
     except ImportError as ex:
         # The permissions module wasn't found. Display a helpful error
         # message listing all possible (built-in) permissions classes.
@@ -91,7 +90,7 @@ def load_permissions(permissions_name):
             raise
 
 
-permissions_cls = load_permissions(settings.FLOW_API['PERMISSIONS'])
+permissions_cls = load_permissions(settings.FLOW_API['PERMISSIONS'])  # pylint: disable=invalid-name
 
 
 class ResolweCreateModelMixin(mixins.CreateModelMixin):
@@ -115,8 +114,8 @@ class ResolweCreateModelMixin(mixins.CreateModelMixin):
             ds_query = DescriptorSchema.objects.filter(slug=ds_slug).order_by('version')
             if not ds_query.exists():
                 return Response(
-                    {'descriptor_schema':
-                        ['Invalid descriptor_schema slug "{}" - object does not exist.'.format(ds_slug)]},
+                    {'descriptor_schema': [
+                        'Invalid descriptor_schema slug "{}" - object does not exist.'.format(ds_slug)]},
                     status=status.HTTP_400_BAD_REQUEST)
             request.data['descriptor_schema'] = ds_query.last().pk
 
@@ -132,7 +131,7 @@ class ResolweCreateModelMixin(mixins.CreateModelMixin):
             instance = serializer.save()
 
             # Assign all permissions to the object contributor.
-            for permission in list(zip(*instance._meta.permissions))[0]:
+            for permission in list(zip(*instance._meta.permissions))[0]:  # pylint: disable=protected-access
                 assign_perm(permission, instance.contributor, instance)
 
 
@@ -185,7 +184,7 @@ class ResolweCreateDataModelMixin(ResolweCreateModelMixin):
             instance = serializer.save()
 
             # Assign all permissions to the object contributor.
-            for permission in list(zip(*instance._meta.permissions))[0]:
+            for permission in list(zip(*instance._meta.permissions))[0]:  # pylint: disable=protected-access
                 assign_perm(permission, instance.contributor, instance)
 
         collections = self.request.data.get('collections', [])
@@ -203,12 +202,12 @@ class ResolwePermissionsMixin(object):
 
     def _fetch_user(self, query):
         """Get user by ``pk`` or ``username``. Return ``None`` if doesn't exist."""
-        User = get_user_model()
+        user_model = get_user_model()
 
         user_filter = {'pk': query} if query.isdigit() else {'username': query}
         try:
-            return User.objects.get(**user_filter)
-        except User.DoesNotExist:
+            return user_model.objects.get(**user_filter)
+        except user_model.DoesNotExist:
             raise exceptions.ParseError("User ({}) does not exists.".format(user_filter))
 
     def _fetch_group(self, query):
@@ -221,10 +220,12 @@ class ResolwePermissionsMixin(object):
             raise exceptions.ParseError("Group ({}) does not exists.".format(group_filter))
 
     def _update_permission(self, obj, data):
+        """Update object permissions."""
         content_type = ContentType.objects.get_for_model(obj)
-        full_permissions = list(zip(*obj._meta.permissions))[0]
+        full_permissions = list(zip(*obj._meta.permissions))[0]  # pylint: disable=protected-access
 
         def set_permissions(entity_type, perm_type):
+            """Set object permissions."""
             perm_func = assign_perm if perm_type == 'add' else remove_perm
             fetch = self._fetch_user if entity_type == 'users' else self._fetch_group
 
@@ -243,6 +244,7 @@ class ResolwePermissionsMixin(object):
         set_permissions('groups', 'remove')
 
         def set_public_permissions(perm_type):
+            """Set public permissions."""
             perm_func = assign_perm if perm_type == 'add' else remove_perm
             user = AnonymousUser()
             perms = data.get('public', {}).get(perm_type, [])
@@ -255,11 +257,19 @@ class ResolwePermissionsMixin(object):
         set_public_permissions('remove')
 
     def get_serializer_class(self):
-        # Augment the base serializer class to include permissions information with objects.
+        """Augment base serializer class.
+
+        Include permissions information with objects.
+
+        """
         base_class = super(ResolwePermissionsMixin, self).get_serializer_class()
 
         class SerializerWithPermissions(base_class):
+
+            """Augment serializer class."""
+
             def to_representation(serializer_self, instance):  # pylint: disable=no-self-argument
+                """Object serializer."""
                 # TODO: These permissions queries may be expensive. Should we limit or optimize this?
                 data = super(SerializerWithPermissions, serializer_self).to_representation(instance)
                 data['permissions'] = get_object_perms(instance, self.request.user)
@@ -281,17 +291,17 @@ class ResolwePermissionsMixin(object):
     def _filter_public_permissions(self, data):
         """Raise ``PermissionDenied`` if public permissions are too open"""
 
-        ALLOWED_PUBLIC_PERMISSIONS = ['view', 'add', 'download']
+        allowed_public_permissions = ['view', 'add', 'download']
 
         if 'public' in data:
             for perm_type in ['add', 'remove']:
                 if perm_type in data['public']:
                     for perm in data['public'][perm_type]:
-                        if perm not in ALLOWED_PUBLIC_PERMISSIONS:
+                        if perm not in allowed_public_permissions:
                             raise exceptions.PermissionDenied("Permissions for public users are too open")
 
     def _filter_user_permissions(self, data, user_pk):
-        """Raise ``PermissionDenied`` if ``data`` includes ``user_pk``"""
+        """Raise ``PermissionDenied`` if ``data`` includes ``user_pk``."""
         if 'users' in data:
             for perm_type in ['add', 'remove']:
                 if perm_type in data['users']:
@@ -300,7 +310,7 @@ class ResolwePermissionsMixin(object):
 
     @detail_route(methods=['get', 'post'], url_path='permissions')
     def detail_permissions(self, request, pk=None):
-        """API endpoint to get/set permissions"""
+        """API endpoint to get/set permissions."""
         obj = self.get_object()
 
         if request.method == 'POST':
@@ -318,13 +328,17 @@ class ResolwePermissionsMixin(object):
 
     @list_route(methods=['get', 'post'], url_path='permissions')
     def list_permissions(self, request):
-        # TODO
+        """API endpoint to batch get/set permissions."""
+        # TODO: Implement batch get/set permissions
         return Response(status=status.HTTP_501_NOT_IMPLEMENTED)
 
 
 class ResolweProcessPermissionsMixin(ResolwePermissionsMixin):
 
+    """Process permissions mixin."""
+
     def _update_permission(self, obj, data):
+        """Update collection permissions."""
         super(ResolweProcessPermissionsMixin, self)._update_permission(obj, data)
 
         if 'collections' in data:
@@ -343,6 +357,9 @@ class ResolweProcessPermissionsMixin(ResolwePermissionsMixin):
 
 
 class ResolweCheckSlugMixin(object):
+
+    """Slug validation."""
+
     @list_route(methods=[u'get'])
     def slug_exists(self, request):
         """Check if given url slug exists.
@@ -381,6 +398,7 @@ class CollectionViewSet(ResolweCreateModelMixin,
 
     @detail_route(methods=[u'post'])
     def add_data(self, request, pk=None):
+        """Add data to collection."""
         collection = self.get_object()
 
         if not request.user.has_perm('add_collection', obj=collection):
@@ -409,6 +427,7 @@ class CollectionViewSet(ResolweCreateModelMixin,
 
     @detail_route(methods=[u'post'])
     def remove_data(self, request, pk=None):
+        """Remove data from collection."""
         collection = self.get_object()
 
         if not request.user.has_perm('add_collection', obj=collection):

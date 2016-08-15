@@ -1,3 +1,9 @@
+"""
+==================
+Permissions Filter
+==================
+
+"""
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 from rest_framework.filters import BaseFilterBackend
@@ -7,11 +13,14 @@ from resolwe.permissions.shortcuts import get_objects_for_user
 
 class ResolwePermissionsFilter(BaseFilterBackend):
 
+    """Permissions filter."""
+
     def filter_queryset(self, request, queryset, view):
+        """Filter permissions queryset."""
         user = request.user
 
-        app_label = queryset.model._meta.app_label
-        model_name = queryset.model._meta.model_name
+        app_label = queryset.model._meta.app_label  # pylint: disable=protected-access
+        model_name = queryset.model._meta.model_name  # pylint: disable=protected-access
 
         kwargs = {}
         if model_name == 'storage':

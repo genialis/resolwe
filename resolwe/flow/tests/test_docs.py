@@ -29,13 +29,14 @@ class TestAutoporocess(unittest.TestCase):
         shutil.rmtree(self.build_output_dir)
 
     def test_build_ok(self):
-        args = ['build_sphinx',
-                '-E',  # Dont use a saved environment but rebuild it completely.
-                '-q',  # Do not output anything on standard output, only write warnings and errors to standard error.
-                '-w{}'.format(self.stderr_file),  # Write warnings (and errors) to the given file
-                self.rst_source_files_dir,  # souce dir of rst files
-                self.build_output_dir  # output dir for html files
-                ]
+        args = [
+            'build_sphinx',
+            '-E',  # Dont use a saved environment but rebuild it completely.
+            '-q',  # Do not output anything on standard output, only write warnings and errors to standard error.
+            '-w{}'.format(self.stderr_file),  # Write warnings (and errors) to the given file
+            self.rst_source_files_dir,  # souce dir of rst files
+            self.build_output_dir,  # output dir for html files
+        ]
 
         exit_status = build_main(args)
 

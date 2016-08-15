@@ -1,10 +1,11 @@
 # pylint: disable=missing-docstring
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-from mock import patch
 import os
 import shutil
 import unittest
+
+from mock import patch
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
