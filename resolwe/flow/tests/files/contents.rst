@@ -1,5 +1,5 @@
 .. autoprocess::
 
-.. autoprocess:: tests
+.. autoprocesscategory::
 
-.. autoprocess:: test-bloated
+.. autoprocesstype::

@@ -5,6 +5,15 @@ Change Log
 All notable changes to this project are documented in this file.
 
 
+==========
+Unreleased
+==========
+
+Added
+-----
+- Auto-process style, type tree and category index
+
+
 ==================
 1.3.1 - 2016-07-27
 ==================
