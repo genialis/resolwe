@@ -52,6 +52,9 @@ setup(
         'djangorestframework==3.3.2',
         'djangorestframework-filters==0.8.0',
         'django-autoslug>=1.9.0',
+        # XXX: fails with the newest django-filter 0.14.0
+        # This line should be completely removed when fixed
+        'django-filter==0.13.0',
         'django-guardian>=1.4.2',
         'django-mathfilters>=0.3.0',
         # XXX: django-versionfield2 0.5.0 does not work yet:
@@ -99,7 +102,6 @@ setup(
         'Topic :: Internet :: WWW/HTTP :: WSGI',
         'Topic :: Software Development :: Libraries :: Application Frameworks',
         'Topic :: Software Development :: Libraries :: Python Modules',
-
 
         'License :: OSI Approved :: Apache Software License',
 
