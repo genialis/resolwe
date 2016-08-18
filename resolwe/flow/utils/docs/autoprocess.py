@@ -401,7 +401,7 @@ class AutoProcessTypesDirective(Directive):
             par += nodes.literal(typ, typ)
             par += nodes.Text(' - ')
 
-            processes = sorted(processes_by_types[typ])
+            processes = sorted(processes_by_types[typ], key=itemgetter('name'))
             last_process = processes[-1]
             for process in processes:
                 node = nodes.reference('', process['name'], internal=True)
