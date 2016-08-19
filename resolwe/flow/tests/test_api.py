@@ -1,16 +1,16 @@
 # pylint: disable=missing-docstring
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-import unittest
 import mock
 
 from django.contrib.auth.models import User
 from django.core.urlresolvers import reverse
+from django.test import TestCase
 
 from rest_framework.test import APIRequestFactory, force_authenticate
 from rest_framework import status
 
-from resolwe.flow.models import Data, Process, Collection
+from resolwe.flow.models import Data, Process, Collection, DescriptorSchema
 from resolwe.flow.views import DataViewSet, CollectionViewSet
 
 factory = APIRequestFactory()  # pylint: disable=invalid-name
@@ -21,18 +21,13 @@ MESSAGES = {
 }
 
 
-class TestDataViewSetCase(unittest.TestCase):
+class TestDataViewSetCase(TestCase):
     def setUp(self):
         self.data_viewset = DataViewSet.as_view(actions={
             'get': 'list',
         })
 
         self.user = User.objects.create(is_superuser=True)
-
-    def tearDown(self):
-        Data.objects.all().delete()
-        Process.objects.all().delete()
-        self.user.delete()
 
     @mock.patch('resolwe.flow.models.Process.objects.all')
     def test_prefetch(self, process_mock):
@@ -49,7 +44,7 @@ class TestDataViewSetCase(unittest.TestCase):
         self.assertEqual(process_mock.call_count, 1)
 
 
-class TestCollectionViewSetCase(unittest.TestCase):
+class TestCollectionViewSetCase(TestCase):
     def setUp(self):
         self.checkslug_viewset = CollectionViewSet.as_view(actions={
             'get': 'slug_exists',
@@ -60,48 +55,77 @@ class TestCollectionViewSetCase(unittest.TestCase):
         self.remove_data_viewset = CollectionViewSet.as_view(actions={
             'post': 'remove_data',
         })
+        self.collection_detail_viewset = CollectionViewSet.as_view(actions={
+            'get': 'retrieve',
+            'put': 'update',
+            'patch': 'partial_update',
+            'delete': 'destroy',
+        })
+        self.collection_list_viewset = CollectionViewSet.as_view(actions={
+            'get': 'list',
+            'post': 'create',
+        })
 
         self.detail_url = lambda pk: reverse('resolwe-api:collection-detail', kwargs={'pk': pk})
 
         self.super_user = User.objects.create(username='superuser', is_superuser=True)
         self.user = User.objects.create(username='normaluser')
 
-    def tearDown(self):
-        Data.objects.all().delete()
-        Process.objects.all().delete()
-        Collection.objects.all().delete()
-        self.super_user.delete()
-        self.user.delete()
+    def test_set_descriptor_schema(self):
+        d_schema = DescriptorSchema.objects.create(slug="new-schema", name="New Schema", contributor=self.user)
+
+        data = {
+            'name': 'Test collection',
+            'descriptor_schema': 'new-schema',
+        }
+
+        request = factory.post('/', data=data, format='json')
+        force_authenticate(request, self.super_user)
+        self.collection_list_viewset(request)
+
+        self.assertEqual(Collection.objects.count(), 1)
+        self.assertEqual(Collection.objects.first().descriptor_schema, d_schema)
+
+    def test_change_descriptor_schema(self):
+        collection = Collection.objects.create(slug="collection1", name="Collection 1", contributor=self.user)
+        d_schema = DescriptorSchema.objects.create(slug="new-schema", name="New Schema", contributor=self.user)
+
+        request = factory.patch(self.detail_url(collection.pk), {'descriptor_schema': 'new-schema'}, format='json')
+        force_authenticate(request, self.super_user)
+        self.collection_detail_viewset(request, pk=collection.pk)
+
+        collection.refresh_from_db()
+        self.assertEqual(collection.descriptor_schema, d_schema)
 
     def test_check_slug(self):
         Collection.objects.create(slug="collection1", name="Collection 1", contributor=self.super_user)
 
         # unauthorized
-        request = factory.get('/', {'name': 'collection1'}, content_type='application/json')
+        request = factory.get('/', {'name': 'collection1'}, format='json')
         resp = self.checkslug_viewset(request)
         self.assertEqual(resp.status_code, 401)
         self.assertEqual(resp.data, None)
 
         # existing slug
-        request = factory.get('/', {'name': 'collection1'}, content_type='application/json')
+        request = factory.get('/', {'name': 'collection1'}, format='json')
         force_authenticate(request, self.super_user)
         resp = self.checkslug_viewset(request)
         self.assertEqual(resp.data, True)
 
         # existing slug - iexact
-        request = factory.get('/', {'name': 'Collection1'}, content_type='application/json')
+        request = factory.get('/', {'name': 'Collection1'}, format='json')
         force_authenticate(request, self.super_user)
         resp = self.checkslug_viewset(request)
         self.assertEqual(resp.data, True)
 
         # non-existing slug
-        request = factory.get('/', {'name': 'new-collection'}, content_type='application/json')
+        request = factory.get('/', {'name': 'new-collection'}, format='json')
         force_authenticate(request, self.super_user)
         resp = self.checkslug_viewset(request)
         self.assertEqual(resp.data, False)
 
         # bad query parameter
-        request = factory.get('/', {'bad': 'parameter'}, content_type='application/json')
+        request = factory.get('/', {'bad': 'parameter'}, format='json')
         force_authenticate(request, self.super_user)
         resp = self.checkslug_viewset(request)
         self.assertEqual(resp.status_code, 400)
@@ -112,8 +136,7 @@ class TestCollectionViewSetCase(unittest.TestCase):
         proc = Process.objects.create(type='test:process', name='Test process', contributor=self.user)
         d = Data.objects.create(contributor=self.user, slug='test1', process=proc)
 
-        request = factory.post(self.detail_url(c.pk), '{{"ids": ["{}"]}}'.format(d.pk),
-                               content_type='application/json')
+        request = factory.post(self.detail_url(c.pk), {'ids': [str(d.pk)]}, format='json')
 
         # user w/o permissions cannot add data
         force_authenticate(request, self.user)
@@ -127,8 +150,7 @@ class TestCollectionViewSetCase(unittest.TestCase):
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(c.data.count(), 1)
 
-        request = factory.post(self.detail_url(c.pk), '{{"ids": ["{}"]}}'.format(d.pk),
-                               content_type='application/json')
+        request = factory.post(self.detail_url(c.pk), {'ids': [str(d.pk)]}, format='json')
 
         # user w/o permissions cannot add data
         force_authenticate(request, self.user)
@@ -142,7 +164,7 @@ class TestCollectionViewSetCase(unittest.TestCase):
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(c.data.count(), 0)
 
-        request = factory.post(self.detail_url(c.pk), '{"ids": ["42"]}', content_type='application/json')
+        request = factory.post(self.detail_url(c.pk), {'ids': ['42']}, format='json')
 
         force_authenticate(request, self.super_user)
         resp = self.remove_data_viewset(request, pk=c.pk)

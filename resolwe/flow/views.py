@@ -135,6 +135,30 @@ class ResolweCreateModelMixin(mixins.CreateModelMixin):
                 assign_perm(permission, instance.contributor, instance)
 
 
+class ResolweUpdateModelMixin(mixins.UpdateModelMixin):
+    """Mixin to support updating `Resolwe` models
+
+    Extends `django_rest_framework`'s class `UpdateModelMixin` with:
+
+      * translate `descriptor_schema` field from DescriptorSchema's
+        slug to its id and return 400 error Response if it doesn't
+        exists
+
+    """
+    def update(self, request, *args, **kwargs):
+        ds_slug = request.data.get('descriptor_schema', None)
+        if ds_slug:
+            ds_query = DescriptorSchema.objects.filter(slug=ds_slug).order_by('version')
+            if not ds_query.exists():
+                return Response(
+                    {'descriptor_schema': [
+                        'Invalid descriptor_schema slug "{}" - object does not exist.'.format(ds_slug)]},
+                    status=status.HTTP_400_BAD_REQUEST)
+            request.data['descriptor_schema'] = ds_query.last().pk
+
+        return super(ResolweUpdateModelMixin, self).update(request, *args, **kwargs)
+
+
 class ResolweCreateDataModelMixin(ResolweCreateModelMixin):
     """Mixin to support creating new :class:`Data` objects
 
@@ -382,7 +406,7 @@ class ResolweCheckSlugMixin(object):
 
 class CollectionViewSet(ResolweCreateModelMixin,
                         mixins.RetrieveModelMixin,
-                        mixins.UpdateModelMixin,
+                        ResolweUpdateModelMixin,
                         mixins.DestroyModelMixin,
                         mixins.ListModelMixin,
                         ResolwePermissionsMixin,
@@ -462,7 +486,7 @@ class ProcessViewSet(ResolweCreateModelMixin,
 
 class DataViewSet(ResolweCreateDataModelMixin,
                   mixins.RetrieveModelMixin,
-                  mixins.UpdateModelMixin,
+                  ResolweUpdateModelMixin,
                   mixins.DestroyModelMixin,
                   mixins.ListModelMixin,
                   ResolwePermissionsMixin,

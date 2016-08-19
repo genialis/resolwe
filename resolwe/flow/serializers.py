@@ -157,8 +157,6 @@ class CollectionSerializer(ResolweBaseSerializer):
 
     """Serializer for Collection objects."""
 
-    descriptor_schema = DescriptorSchemaSerializer(required=False)
-
     slug = serializers.CharField(read_only=False, required=False)
 
     class Meta:
@@ -178,6 +176,13 @@ class CollectionSerializer(ResolweBaseSerializer):
             self.fields['data'] = DataSerializer(many=True, read_only=True)
         else:
             self.fields['data'] = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
+
+        if not hasattr(request, 'method') or request.method == "GET":
+            self.fields['descriptor_schema'] = DescriptorSchemaSerializer(required=False)
+        else:
+            self.fields['descriptor_schema'] = serializers.PrimaryKeyRelatedField(
+                queryset=DescriptorSchema.objects.all(), required=False
+            )
 
 
 class TriggerSerializer(ResolweBaseSerializer):
