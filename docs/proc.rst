@@ -643,6 +643,20 @@ For example:
 
 will store the ``{ JSON blob }`` to the ``etc`` field.
 
+.. note::
+
+    Printing a lot ot data to standard output can cause problems when using
+    the Docker executor due to its current implementation. Therefore, it is
+    advised to save big JSON blobs to a file and only pass the file name to the
+    ``re-save`` function.
+
+    For example:
+
+    .. code-block:: bash
+
+        command_that_generates_large_json > json.txt
+        re-save etc json.txt
+
 .. warning::
 
     Do not store large JSON blobs into the data collection directly as this

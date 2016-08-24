@@ -1,11 +1,14 @@
 # pylint: disable=missing-docstring
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+import io
+import json
 import os
 import shutil
 import unittest
+import six
 
-from mock import patch
+from mock import MagicMock, patch
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -15,6 +18,11 @@ from django.test import TestCase, override_settings
 
 from resolwe.flow.managers import manager
 from resolwe.flow.models import Data, hydrate_size, Process, render_template, Storage
+
+try:
+    import builtins  # py3
+except ImportError:
+    import __builtin__ as builtins  # py2
 
 
 class DataModelTest(TestCase):
@@ -265,7 +273,7 @@ class HydrateFileSizeUnitTest(unittest.TestCase):
             hydrate_size(self.data)
 
 
-class StorageModelTestcase(TestCase):
+class StorageModelTestCase(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create(username="test_user")
         self.proc = Process.objects.create(
@@ -291,6 +299,31 @@ class StorageModelTestcase(TestCase):
         self.assertEqual(Storage.objects.count(), 1)
         storage = Storage.objects.first()
         self.assertEqual(data.output['json_field'], storage.pk)
+
+    def test_save_storage_file(self):
+        """File is loaded and saved to storage"""
+        data = Data.objects.create(
+            name='Test data',
+            contributor=self.user,
+            process=self.proc,
+        )
+
+        data.output = {'json_field': 'json.txt'}
+        data.status = Data.STATUS_DONE
+
+        # NOTE: io.StringIO expects a Python 3 (unicode) string
+        json_file = io.StringIO(six.u(json.dumps({'foo': 'bar'})))
+
+        isfile_mock = MagicMock(return_value=True)
+        open_mock = MagicMock(return_value=json_file)
+        with patch.object(os.path, 'isfile', isfile_mock):
+            with patch.object(builtins, 'open', open_mock):
+                data.save()
+
+        self.assertEqual(Storage.objects.count(), 1)
+        storage = Storage.objects.first()
+        self.assertEqual(data.output['json_field'], storage.pk)
+        self.assertEqual(storage.json, {'foo': 'bar'})
 
     def test_delete_data(self):
         """`Storage` is deleted when `Data` object is deleted"""

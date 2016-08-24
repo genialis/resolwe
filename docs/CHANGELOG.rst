@@ -12,6 +12,8 @@ Unreleased
 Added
 -----
 - Auto-process style, type tree and category index
+- Support loading JSON from a file if the string passed to the ``basic:json:``
+  field is a file.
 
 Fixed
 =====

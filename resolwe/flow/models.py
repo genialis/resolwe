@@ -448,6 +448,12 @@ class Data(BaseModel):
                     # already in Storage
                     continue
 
+                if isinstance(value, six.string_types):
+                    file_path = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(self.pk), value)
+                    if os.path.isfile(file_path):
+                        with open(file_path) as file_handler:
+                            value = json.load(file_handler)
+
                 storage = Storage.objects.create(
                     name='Storage for data id {}'.format(self.pk),
                     contributor=self.contributor,
