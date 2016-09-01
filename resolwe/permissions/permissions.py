@@ -1,7 +1,4 @@
-"""
-Custom permissions for Flow API.
-
-"""
+"""Custom permissions for Flow API."""
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 from django.contrib.contenttypes.models import ContentType
@@ -10,8 +7,7 @@ from rest_framework import permissions
 
 
 class ResolwePermissions(permissions.DjangoObjectPermissions):
-
-    """Resolwe Permissions"""
+    """Resolwe Permissions."""
 
     perms_map = {
         'GET': ['%(app_label)s.view_%(model_name)s'],
@@ -24,10 +20,11 @@ class ResolwePermissions(permissions.DjangoObjectPermissions):
     }
 
     def has_permission(self, request, view):
-        """Always return `True` as we don't use model level perms."""
+        """Return `True` as we don't use model level perms."""
         return True
 
     def has_object_permission(self, request, view, obj):
+        """Check object permissions."""
         # admins can do anything
         if request.user.is_superuser:
             return True

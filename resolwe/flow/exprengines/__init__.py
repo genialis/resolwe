@@ -1,8 +1,7 @@
-"""Workflow Expression Engines"""
+"""Workflow Expression Engines."""
 
 
 class BaseExpressionEngine(object):
-
     """Represents a workflow expression engine."""
 
     def eval(self, data_id, script):  # pylint: disable=arguments-differ

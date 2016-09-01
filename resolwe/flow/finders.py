@@ -1,4 +1,5 @@
-"""
+""".. Ignore pydocstyle D400.
+
 ============
 File finders
 ============
@@ -15,7 +16,6 @@ from django.utils.module_loading import import_string
 
 
 class BaseProcessesFinder(object):
-
     """Abstract processes loader for custom staticfiles finders."""
 
     def find_processes(self):
@@ -28,7 +28,6 @@ class BaseProcessesFinder(object):
 
 
 class FileSystemProcessesFinder(BaseProcessesFinder):
-
     """Find processes and descriptors in directory lists."""
 
     def find_processes(self):
@@ -41,7 +40,6 @@ class FileSystemProcessesFinder(BaseProcessesFinder):
 
 
 class AppDirectoriesFinder(BaseProcessesFinder):
-
     """Find processes and descriptors in Django apps."""
 
     def _find_folders(self, folder_name):

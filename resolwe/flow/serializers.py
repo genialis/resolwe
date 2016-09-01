@@ -1,4 +1,5 @@
-"""
+""".. Ignore pydocstyle D400.
+
 ================
 Flow Serializers
 ================
@@ -15,7 +16,6 @@ from resolwe.flow.models import Process, Collection, Data, DescriptorSchema, Tri
 
 
 class NoContentError(APIException):
-
     """Content has not changed exception."""
 
     status_code = status.HTTP_204_NO_CONTENT
@@ -23,11 +23,9 @@ class NoContentError(APIException):
 
 
 class ContributorSerializer(serializers.ModelSerializer):
-
     """Serializer for contributor User objects."""
 
     class Meta:
-
         """Serializer configuration."""
 
         # The model needs to be determined when instantiating the serializer class as
@@ -36,6 +34,7 @@ class ContributorSerializer(serializers.ModelSerializer):
         fields = ('id', 'username', 'first_name', 'last_name')
 
     def __init__(self, instance=None, data=empty, **kwargs):
+        """Initialize attributes."""
         # Use the correct User model.
         if self.Meta.model is None:
             self.Meta.model = auth.get_user_model()
@@ -43,6 +42,7 @@ class ContributorSerializer(serializers.ModelSerializer):
         super(ContributorSerializer, self).__init__(instance, data, **kwargs)
 
     def to_internal_value(self, data):
+        """Format the internal value."""
         # When setting the contributor, it may be passed as an integer.
         if isinstance(data, dict) and isinstance(data.get('id', None), int):
             data = data['id']
@@ -76,6 +76,7 @@ class ResolweBaseSerializer(serializers.ModelSerializer):
     contributor = ContributorSerializer()
 
     def __init__(self, instance=None, data=empty, **kwargs):
+        """Initialize attributes."""
         if (instance is not None and data is not empty and
                 hasattr(self.Meta, 'update_protected_fields')):  # pylint: disable=no-member
             for field in self.Meta.update_protected_fields:  # pylint: disable=no-member
@@ -90,11 +91,11 @@ class ResolweBaseSerializer(serializers.ModelSerializer):
 
 
 class ProcessSerializer(ResolweBaseSerializer):
-
     """Serializer for Process objects."""
 
     class Meta:
         """ProcessSerializer Meta options."""
+
         model = Process
         update_protected_fields = ('contributor', )
         read_only_fields = ('id', 'created', 'modified')
@@ -105,11 +106,11 @@ class ProcessSerializer(ResolweBaseSerializer):
 
 
 class DescriptorSchemaSerializer(ResolweBaseSerializer):
-
     """Serializer for DescriptorSchema objects."""
 
     class Meta:
         """TemplateSerializer Meta options."""
+
         model = DescriptorSchema
         update_protected_fields = ('contributor', )
         read_only_fields = ('id', 'created', 'modified')
@@ -117,7 +118,6 @@ class DescriptorSchemaSerializer(ResolweBaseSerializer):
 
 
 class DataSerializer(ResolweBaseSerializer):
-
     """Serializer for Data objects."""
 
     process_name = serializers.CharField(source='process.name', read_only=True)
@@ -130,6 +130,7 @@ class DataSerializer(ResolweBaseSerializer):
 
     class Meta:
         """DataSerializer Meta options."""
+
         model = Data
         update_protected_fields = ('contributor', 'process',)
         read_only_fields = ('id', 'created', 'modified', 'started', 'finished', 'checksum',
@@ -141,6 +142,7 @@ class DataSerializer(ResolweBaseSerializer):
                   'descriptor') + update_protected_fields + read_only_fields
 
     def __init__(self, *args, **kwargs):
+        """Initialize attributes."""
         super(DataSerializer, self).__init__(*args, **kwargs)
 
         request = kwargs.get('context', {}).get('request', None)
@@ -154,13 +156,13 @@ class DataSerializer(ResolweBaseSerializer):
 
 
 class CollectionSerializer(ResolweBaseSerializer):
-
     """Serializer for Collection objects."""
 
     slug = serializers.CharField(read_only=False, required=False)
 
     class Meta:
         """CollectionSerializer Meta options."""
+
         model = Collection
         update_protected_fields = ('contributor',)
         read_only_fields = ('id', 'created', 'modified')
@@ -168,6 +170,7 @@ class CollectionSerializer(ResolweBaseSerializer):
                   'data') + update_protected_fields + read_only_fields
 
     def __init__(self, *args, **kwargs):
+        """Initialize attributes."""
         super(CollectionSerializer, self).__init__(*args, **kwargs)
 
         request = kwargs.get('context', {}).get('request', None)
@@ -186,11 +189,11 @@ class CollectionSerializer(ResolweBaseSerializer):
 
 
 class TriggerSerializer(ResolweBaseSerializer):
-
     """Serializer for Trigger objects."""
 
     class Meta:
         """TriggerSerializer Meta options."""
+
         model = Trigger
         update_protected_fields = ('contributor', )
         read_only_fields = ('id', 'created', 'modified')
@@ -199,11 +202,11 @@ class TriggerSerializer(ResolweBaseSerializer):
 
 
 class StorageSerializer(ResolweBaseSerializer):
-
     """Serializer for Storage objects."""
 
     class Meta:
         """StorageSerializer Meta options."""
+
         model = Storage
         update_protected_fields = ('contributor', )
         read_only_fields = ('id', 'created', 'modified')

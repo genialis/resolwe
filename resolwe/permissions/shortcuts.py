@@ -1,4 +1,5 @@
-"""
+""".. Ignore pydocstyle D400.
+
 =====================
 Permissions shortcuts
 =====================
@@ -7,7 +8,6 @@ Permissions shortcuts
 .. autofunction:: get_object_perms
 
 """
-
 from __future__ import unicode_literals
 
 from itertools import chain, groupby
@@ -27,7 +27,7 @@ from guardian.compat import get_user_model
 
 
 def _group_groups(perm_list):
-    """Group permissions by group
+    """Group permissions by group.
 
     Input is list of tuples of length 3, where each tuple is in
     following format::
@@ -112,7 +112,7 @@ def get_user_group_perms(user_or_group, obj):
 
 
 def get_object_perms(obj, user=None):
-    """Return permissions for given object in Resolwe specific format
+    """Return permissions for given object in Resolwe specific format.
 
     Function returns permissions for given object ``obj`` in following
     format::
@@ -138,7 +138,7 @@ def get_object_perms(obj, user=None):
 
     """
     def format_permissions(perms):
-        """Remove model name from permission"""
+        """Remove model name from permission."""
         ctype = ContentType.objects.get_for_model(obj)
         return [perm.replace('_{}'.format(ctype.name), '') for perm in perms]
 
@@ -207,10 +207,7 @@ def get_object_perms(obj, user=None):
 # based on guardian.shortcuts.get_objects_for_user
 def get_objects_for_user(user, perms, klass=None, use_groups=True, any_perm=False,
                          with_superuser=True, accept_global_perms=True, perms_filter='pk__in'):
-    """Return queryset with required permissions.
-
-    """
-
+    """Return queryset with required permissions."""
     if isinstance(perms, six.string_types):
         perms = [perms]
 

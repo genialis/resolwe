@@ -1,4 +1,5 @@
-"""
+""".. Ignore pydocstyle D400.
+
 ==================
 Permissions Filter
 ==================
@@ -12,7 +13,6 @@ from resolwe.permissions.shortcuts import get_objects_for_user
 
 
 class ResolwePermissionsFilter(BaseFilterBackend):
-
     """Permissions filter."""
 
     def filter_queryset(self, request, queryset, view):

@@ -1,4 +1,5 @@
-"""
+""".. Ignore pydocstyle D400.
+
 ================
 Abstract Manager
 ================
@@ -57,10 +58,10 @@ def dependency_status(data):
 
 
 class BaseManager(object):
-
     """Manager handles process job execution."""
 
     def __init__(self):
+        """Initialize arguments."""
         executor = getattr(settings, 'FLOW_EXECUTOR', {}).get('NAME', 'resolwe.flow.executors.local')
         self.executor = self.load_executor(executor).FlowExecutor()
         exprengines = getattr(settings, 'FLOW_EXPRESSION_ENGINES', ['resolwe.flow.exprengines.dtlbash'])

@@ -1,6 +1,7 @@
 # XXX: split module and remove pylint comment
 # pylint: disable=too-many-lines
-"""
+""".. Ignore pydocstyle D400.
+
 ===========
 Flow Models
 ===========
@@ -82,11 +83,11 @@ VERSION_NUMBER_BITS = (8, 10, 14)
 
 
 class BaseModel(models.Model):
-
     """Abstract model that includes common fields for other models."""
 
     class Meta:
         """BaseModel Meta options."""
+
         abstract = True
         unique_together = ('slug', 'version')
         default_permissions = ()
@@ -110,15 +111,16 @@ class BaseModel(models.Model):
     contributor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
 
     def __str__(self):
+        """Format model name."""
         return self.name
 
 
 class Process(BaseModel):
-
     """Postgres model for storing processes."""
 
     class Meta(BaseModel.Meta):
         """Process Meta options."""
+
         permissions = (
             ("view_process", "Can view process"),
             ("share_process", "Can share process"),
@@ -270,7 +272,6 @@ class Process(BaseModel):
 
 def render_template(template_string, context):
     """Render template based on Dango template language."""
-
     template_headers = [
         '{% load resource_filters %}',
         '{% load process_fields %}',
@@ -319,11 +320,11 @@ def render_descriptor(data):
 
 
 class Data(BaseModel):
-
     """Postgres model for storing data."""
 
     class Meta(BaseModel.Meta):
         """Data Meta options."""
+
         permissions = (
             ("view_data", "Can view data"),
             ("edit_data", "Can edit data"),
@@ -430,12 +431,12 @@ class Data(BaseModel):
     )
 
     def __init__(self, *args, **kwargs):
+        """Initialize attributes."""
         super(Data, self).__init__(*args, **kwargs)
         self._original_name = self.name
 
     def save_storage(self, instance, schema):
         """Save basic:json values to a Storage collection."""
-
         for field_schema, fields in iterate_fields(instance, schema):
             name = field_schema['name']
             value = fields[name]
@@ -466,7 +467,6 @@ class Data(BaseModel):
 
     def save_dependencies(self, instance, schema):
         """Save data: and list:data: references as parents."""
-
         def add_dependency(value):
             """Add parent Data dependency."""
             try:
@@ -485,6 +485,7 @@ class Data(BaseModel):
                     add_dependency(data)
 
     def save(self, render_name=False, *args, **kwargs):
+        """Save the data model."""
         # Generate the descriptor if one is not already set.
         if self.name != self._original_name:
             self.named_by_user = True
@@ -553,11 +554,11 @@ class Data(BaseModel):
 
 
 class DescriptorSchema(BaseModel):
-
     """Postgres model for storing descriptors."""
 
     class Meta(BaseModel.Meta):
         """DescriptorSchema Meta options."""
+
         permissions = (
             ("view_descriptorschema", "Can view descriptor schema"),
             ("edit_descriptorschema", "Can edit descriptor schema"),
@@ -573,11 +574,11 @@ class DescriptorSchema(BaseModel):
 
 
 class Trigger(BaseModel):
-
     """Postgres model for storing triggers."""
 
     class Meta(BaseModel.Meta):
         """Data Meta options."""
+
         permissions = (
             ("view_trigger", "Can view trigger"),
             ("edit_trigger", "Can edit trigger"),
@@ -614,7 +615,6 @@ class Trigger(BaseModel):
 
 
 class Storage(BaseModel):
-
     """Postgres model for storing storages."""
 
     #: corresponding data object
@@ -625,10 +625,10 @@ class Storage(BaseModel):
 
 
 class LazyStorageJSON(object):
-
     """Lazy load `json` attribute of `Storage` object."""
 
     def __init__(self, **kwargs):
+        """Initialize private attributes."""
         self._kwargs = kwargs
         self._json = None
 
@@ -638,20 +638,22 @@ class LazyStorageJSON(object):
             self._json = Storage.objects.get(**self._kwargs).json
 
     def __getitem__(self, key):
+        """Access by key."""
         self._get_storage()
         return self._json[key]
 
     def __repr__(self):
+        """String representation."""
         self._get_storage()
         return self._json.__repr__()
 
 
 class BaseCollection(BaseModel):
-
     """Template for Postgres model for storing a collection."""
 
     class Meta(BaseModel.Meta):
         """Collection Meta options."""
+
         abstract = True
         permissions = (
             ("view_collection", "Can view collection"),
@@ -679,7 +681,6 @@ class BaseCollection(BaseModel):
 
 
 class Collection(BaseCollection):
-
     """Postgres model for storing a collection."""
 
     pass
@@ -945,8 +946,8 @@ def hydrate_size(data):
 
     Add sizes to ``basic:file:``, ``list:basic:file``, ``basic:dir:``
     and ``list:basic:dir:`` fields.
-    """
 
+    """
     def add_file_size(obj):
         """Add file size to the basic:file field."""
         if data.status in [Data.STATUS_DONE, Data.STATUS_ERROR] and 'size' in obj:
@@ -995,7 +996,7 @@ def hydrate_size(data):
 
 
 def hydrate_input_uploads(input_, input_schema, hydrate_values=True):
-    """Hydrate input basic:upload types with upload location
+    """Hydrate input basic:upload types with upload location.
 
     Find basic:upload fields in input.
     Add the upload location for relative paths.

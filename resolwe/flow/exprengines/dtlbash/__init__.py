@@ -7,7 +7,6 @@ from resolwe.flow.models import Data, hydrate_input_references, hydrate_input_up
 
 
 class ExpressionEngine(BaseExpressionEngine):
-
     """Represents a workflow expression engine."""
 
     def eval(self, data):  # pylint: disable=arguments-differ

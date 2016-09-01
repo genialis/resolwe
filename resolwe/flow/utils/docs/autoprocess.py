@@ -1,4 +1,5 @@
-"""
+""".. Ignore pydocstyle D400.
+
 ============================
 Documentation from Processes
 ============================
@@ -112,7 +113,6 @@ def get_processes(process_dir, base_source_uri):
 
 
 class AutoProcessDirective(Directive):
-
     """Automatically document Resolwe processes."""
 
     has_content = True
@@ -312,7 +312,6 @@ class AutoProcessDirective(Directive):
 
 
 class AutoProcessCategoryDirective(Directive):
-
     """Automatically document process categories."""
 
     has_content = True
@@ -376,7 +375,6 @@ class AutoProcessCategoryDirective(Directive):
 
 
 class AutoProcessTypesDirective(Directive):
-
     """Automatically document process types."""
 
     has_content = True

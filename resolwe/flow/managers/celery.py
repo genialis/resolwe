@@ -1,4 +1,5 @@
-"""
+""".. Ignore pydocstyle D400.
+
 ==============
 Celery Manager
 ==============
@@ -19,8 +20,8 @@ from ..tasks import celery_run
 
 
 class Manager(BaseManager):
-
     """Celey-based manager for job execution."""
 
     def run(self, data_id, script, run_sync=False, verbosity=1):
+        """Run process."""
         celery_run.delay(self.executor, data_id, script, verbosity)

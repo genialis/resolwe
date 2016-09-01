@@ -1,4 +1,5 @@
-"""
+""".. Ignore pydocstyle D400.
+
 =================
 Migrate from v2.0
 =================
@@ -27,8 +28,7 @@ from resolwe.flow.models import Data, DescriptorSchema, Process, Collection, Sto
 
 
 class Command(BaseCommand):
-
-    """Migrate data from `Genesis`"""
+    """Migrate data from `Genesis`."""
 
     help = 'Migrate data from `Genesis`'
 

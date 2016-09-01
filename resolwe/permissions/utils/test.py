@@ -1,4 +1,5 @@
-"""
+""".. Ignore pydocstyle D400.
+
 =======
 Testing
 =======
@@ -56,6 +57,7 @@ class ResolweAPITestCase(APITestCase):
     ``self.factory`` is instance of DRF's ``APIRequestFactory``.
 
     """
+
     def setUp(self):
         """Prepare data."""
         super(ResolweAPITestCase, self).setUp()
@@ -114,7 +116,7 @@ class ResolweAPITestCase(APITestCase):
         return reverse('resolwe-api:{}-list'.format(self.resource_name))  # pylint: disable=no-member
 
     def _get_list(self, user=None):
-        """Make ``GET`` request to ``self.list_view`` view
+        """Make ``GET`` request to ``self.list_view`` view.
 
         If ``user`` is not ``None``, the given user is authenticated
         before making the request.
@@ -132,7 +134,7 @@ class ResolweAPITestCase(APITestCase):
         return resp
 
     def _get_detail(self, pk, user=None):
-        """Make ``GET`` request to ``self.detail_view`` view
+        """Make ``GET`` request to ``self.detail_view`` view.
 
         If ``user`` is not ``None``, the given user is authenticated
         before making the request.
@@ -142,6 +144,7 @@ class ResolweAPITestCase(APITestCase):
         :type user: :class:`~django.contrib.auth.models.User` or :data:`None`
         :return: Rendered API response object
         :rtype: :drf:`Response <responses/#response>`
+
         """
         request = self.factory.get(self.detail_url(pk), format='json')
         force_authenticate(request, user)
@@ -150,7 +153,7 @@ class ResolweAPITestCase(APITestCase):
         return resp
 
     def _post(self, data={}, user=None):
-        """Make ``POST`` request to ``self.list_view`` view
+        """Make ``POST`` request to ``self.list_view`` view.
 
         If ``user`` is not ``None``, the given user is authenticated
         before making the request.
@@ -160,6 +163,7 @@ class ResolweAPITestCase(APITestCase):
         :type user: :class:`~django.contrib.auth.models.User` or :data:`None`
         :return: Rendered API response object
         :rtype: :drf:`Response <responses/#response>`
+
         """
         request = self.factory.post(self.list_url, data=data, format='json')
         force_authenticate(request, user)
@@ -168,7 +172,7 @@ class ResolweAPITestCase(APITestCase):
         return resp
 
     def _patch(self, pk, data={}, user=None):
-        """Make ``PATCH`` request to ``self.detail_view`` view
+        """Make ``PATCH`` request to ``self.detail_view`` view.
 
         If ``user`` is not ``None``, the given user is authenticated
         before making the request.
@@ -179,6 +183,7 @@ class ResolweAPITestCase(APITestCase):
         :type user: :class:`~django.contrib.auth.models.User` or :data:`None`
         :return: Rendered API response object
         :rtype: :drf:`Response <responses/#response>`
+
         """
         request = self.factory.patch(self.detail_url(pk), data=data, format='json')
         force_authenticate(request, user)
@@ -187,7 +192,7 @@ class ResolweAPITestCase(APITestCase):
         return resp
 
     def _delete(self, pk, user=None):
-        """Make ``DELETE`` request to ``self.detail_view`` view
+        """Make ``DELETE`` request to ``self.detail_view`` view.
 
         If ``user`` is not ``None``, the given user is authenticated
         before making the request.
@@ -197,6 +202,7 @@ class ResolweAPITestCase(APITestCase):
         :type user: :class:`~django.contrib.auth.models.User` or :data:`None`
         :return: Rendered API response object
         :rtype: :drf:`Response <responses/#response>`
+
         """
         request = self.factory.delete(self.detail_url(pk), format='json')
         force_authenticate(request, user)
@@ -205,7 +211,7 @@ class ResolweAPITestCase(APITestCase):
         return resp
 
     def _detail_permissions(self, pk, data={}, user=None):
-        """Make ``POST`` request to ``self.detail_view`` view
+        """Make ``POST`` request to ``self.detail_view`` view.
 
         If ``user`` is not ``None``, the given user is authenticated
         before making the request.
@@ -216,6 +222,7 @@ class ResolweAPITestCase(APITestCase):
         :type user: :class:`~django.contrib.auth.models.User` or :data:`None`
         :return: Rendered API response object
         :rtype: :drf:`Response <responses/#response>`
+
         """
         request = self.factory.post(self.detail_permissions(pk), data=data, format='json')
         force_authenticate(request, user)

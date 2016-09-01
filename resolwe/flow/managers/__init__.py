@@ -1,4 +1,4 @@
-"""Workflow workload managers"""
+"""Workflow workload managers."""
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import os
@@ -11,7 +11,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.utils._os import upath
 
 
-__all__ = ['manager']
+__all__ = ('manager')
 
 
 def load_manager(manager_name):

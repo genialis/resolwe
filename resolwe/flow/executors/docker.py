@@ -1,4 +1,4 @@
-"""Local workflow executor"""
+"""Local workflow executor."""
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import os
@@ -12,16 +12,17 @@ from .local import FlowExecutor as LocalFlowExecutor
 
 
 class FlowExecutor(LocalFlowExecutor):
-
     """Docker executor."""
 
     def __init__(self, *args, **kwargs):
+        """Initialize attributes."""
         super(FlowExecutor, self).__init__(*args, **kwargs)
 
         self.mappings_tools = None
         self.command = getattr(settings, 'FLOW_EXECUTOR', {}).get('COMMAND', 'docker')
 
     def start(self):
+        """Start process execution."""
         # arguments passed to the Docker command
         command_args = {
             'command': self.command,
@@ -77,6 +78,7 @@ class FlowExecutor(LocalFlowExecutor):
         self.stdout = self.proc.stdout
 
     def run_script(self, script):
+        """Execute the script and save results."""
         mappings = getattr(settings, 'FLOW_DOCKER_MAPPINGS', {})
         for map_ in mappings:
             script = script.replace(map_['src'], map_['dest'])
@@ -87,9 +89,11 @@ class FlowExecutor(LocalFlowExecutor):
         self.proc.stdin.close()
 
     def end(self):
+        """End process execution."""
         self.proc.wait()
 
         return self.proc.returncode
 
     def terminate(self, data_id):
+        """Terminate a running script."""
         subprocess.call(shlex.split('{} rm -f {}'.format(self.command, data_id)))

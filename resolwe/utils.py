@@ -1,9 +1,8 @@
-"""Utility functions"""
+"""Utility functions."""
 
 
 class BraceMessage(object):
-    """Helper class that can be used to construct log messages with
-    the new {}-string formatting syntax.
+    """Log messages with the new {}-string formatting syntax.
 
     NOTE: When using this helper class, one pays no signigicant
     performance penalty since the actual formatting only happens when
@@ -20,9 +19,11 @@ class BraceMessage(object):
     """
 
     def __init__(self, fmt, *args, **kwargs):
+        """Initialize attributes."""
         self.fmt = fmt
         self.args = args
         self.kwargs = kwargs
 
     def __str__(self):
+        """Define the object representation."""
         return self.fmt.format(*self.args, **self.kwargs)

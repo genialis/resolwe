@@ -16,7 +16,7 @@ __email__ = 'dev-team@genialis.com'
 __license__ = 'Apache License (2.0)'
 __copyright__ = '2015-2016, ' + __author__
 
-__all__ = [
-    "__title__", "__summary__", "__url__", "__version__", "__author__",
-    "__email__", "__license__", "__copyright__",
-]
+__all__ = (
+    '__title__', '__summary__', '__url__', '__version__', '__author__',
+    '__email__', '__license__', '__copyright__',
+)

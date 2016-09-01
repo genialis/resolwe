@@ -1,4 +1,5 @@
-"""
+""".. Ignore pydocstyle D400.
+
 ==========
 Flow Views
 ==========
@@ -35,7 +36,7 @@ from .serializers import (CollectionSerializer, ProcessSerializer, DataSerialize
 
 
 def assign_perm(*args, **kwargs):
-    """Wrapper for assign_perm function
+    """Wrapper for assign_perm function.
 
     Call original assign_perms function from django-guardian, but don't
     raise exception if permission is not found
@@ -48,7 +49,7 @@ def assign_perm(*args, **kwargs):
 
 
 def remove_perm(*args, **kwargs):
-    """Wrapper for remove_perm function
+    """Wrapper for remove_perm function.
 
     Call original remove_perms function from django-guardian, but don't
     raise exception if permission is not found
@@ -94,7 +95,7 @@ permissions_cls = load_permissions(settings.FLOW_API['PERMISSIONS'])  # pylint: 
 
 
 class ResolweCreateModelMixin(mixins.CreateModelMixin):
-    """Mixin to support creating new `Resolwe` models
+    """Mixin to support creating new `Resolwe` models.
 
     Extends `django_rest_framework`'s class `CreateModelMixin` with:
 
@@ -104,7 +105,9 @@ class ResolweCreateModelMixin(mixins.CreateModelMixin):
         instead of raising error
 
     """
+
     def create(self, request, *args, **kwargs):
+        """Create a resource."""
         user = request.user
         if not user.is_authenticated():
             raise exceptions.NotFound
@@ -127,6 +130,7 @@ class ResolweCreateModelMixin(mixins.CreateModelMixin):
             return Response({u'error': str(ex)}, status=status.HTTP_409_CONFLICT)
 
     def perform_create(self, serializer):
+        """Create a resource."""
         with transaction.atomic():
             instance = serializer.save()
 
@@ -136,7 +140,7 @@ class ResolweCreateModelMixin(mixins.CreateModelMixin):
 
 
 class ResolweUpdateModelMixin(mixins.UpdateModelMixin):
-    """Mixin to support updating `Resolwe` models
+    """Mixin to support updating `Resolwe` models.
 
     Extends `django_rest_framework`'s class `UpdateModelMixin` with:
 
@@ -145,7 +149,9 @@ class ResolweUpdateModelMixin(mixins.UpdateModelMixin):
         exists
 
     """
+
     def update(self, request, *args, **kwargs):
+        """Update a resource."""
         ds_slug = request.data.get('descriptor_schema', None)
         if ds_slug:
             ds_query = DescriptorSchema.objects.filter(slug=ds_slug).order_by('version')
@@ -160,7 +166,7 @@ class ResolweUpdateModelMixin(mixins.UpdateModelMixin):
 
 
 class ResolweCreateDataModelMixin(ResolweCreateModelMixin):
-    """Mixin to support creating new :class:`Data` objects
+    """Mixin to support creating new :class:`Data` objects.
 
     Extends :class:`ResolweCcreateModelMixin` with:
 
@@ -168,7 +174,9 @@ class ResolweCreateDataModelMixin(ResolweCreateModelMixin):
       * checks if user has `add` permission on that collection
 
     """
+
     def create(self, request, *args, **kwargs):
+        """Create a resource."""
         collections = request.data.get('collections', [])
 
         for collection_id in collections:
@@ -204,6 +212,7 @@ class ResolweCreateDataModelMixin(ResolweCreateModelMixin):
         return resp
 
     def perform_create(self, serializer):
+        """Create a resource."""
         with transaction.atomic():
             instance = serializer.save()
 
@@ -218,11 +227,7 @@ class ResolweCreateDataModelMixin(ResolweCreateModelMixin):
 
 
 class ResolwePermissionsMixin(object):
-    """Mixin to support managing `Resolwe` objects' permissions.
-
-
-
-    """
+    """Mixin to support managing `Resolwe` objects' permissions."""
 
     def _fetch_user(self, query):
         """Get user by ``pk`` or ``username``. Return ``None`` if doesn't exist."""
@@ -236,7 +241,6 @@ class ResolwePermissionsMixin(object):
 
     def _fetch_group(self, query):
         """Get group by ``pk`` or ``name``. Return ``None`` if doesn't exist."""
-
         group_filter = {'pk': query} if query.isdigit() else {'name': query}
         try:
             return Group.objects.get(**group_filter)
@@ -289,7 +293,6 @@ class ResolwePermissionsMixin(object):
         base_class = super(ResolwePermissionsMixin, self).get_serializer_class()
 
         class SerializerWithPermissions(base_class):
-
             """Augment serializer class."""
 
             def to_representation(serializer_self, instance):  # pylint: disable=no-self-argument
@@ -302,7 +305,7 @@ class ResolwePermissionsMixin(object):
         return SerializerWithPermissions
 
     def _filter_owner_permission(self, data):
-        """Raise ``PermissionDenied``if ``owner`` found in ``data``"""
+        """Raise ``PermissionDenied``if ``owner`` found in ``data``."""
         for entity_type in ['users', 'groups']:
             if entity_type in data:
                 for perm_type in ['add', 'remove']:
@@ -313,8 +316,7 @@ class ResolwePermissionsMixin(object):
                                     raise exceptions.PermissionDenied("Only owners can grant/revoke owner permission")
 
     def _filter_public_permissions(self, data):
-        """Raise ``PermissionDenied`` if public permissions are too open"""
-
+        """Raise ``PermissionDenied`` if public permissions are too open."""
         allowed_public_permissions = ['view', 'add', 'download']
 
         if 'public' in data:
@@ -358,7 +360,6 @@ class ResolwePermissionsMixin(object):
 
 
 class ResolweProcessPermissionsMixin(ResolwePermissionsMixin):
-
     """Process permissions mixin."""
 
     def _update_permission(self, obj, data):
@@ -381,7 +382,6 @@ class ResolweProcessPermissionsMixin(ResolwePermissionsMixin):
 
 
 class ResolweCheckSlugMixin(object):
-
     """Slug validation."""
 
     @list_route(methods=[u'get'])
@@ -412,7 +412,6 @@ class CollectionViewSet(ResolweCreateModelMixin,
                         ResolwePermissionsMixin,
                         ResolweCheckSlugMixin,
                         viewsets.GenericViewSet):
-
     """API view for :class:`Collection` objects."""
 
     queryset = Collection.objects.all().prefetch_related('descriptor_schema', 'contributor')
@@ -475,7 +474,6 @@ class ProcessViewSet(ResolweCreateModelMixin,
                      ResolweProcessPermissionsMixin,
                      ResolweCheckSlugMixin,
                      viewsets.GenericViewSet):
-
     """API view for :class:`Process` objects."""
 
     queryset = Process.objects.all().prefetch_related('contributor')
@@ -492,7 +490,6 @@ class DataViewSet(ResolweCreateDataModelMixin,
                   ResolwePermissionsMixin,
                   ResolweCheckSlugMixin,
                   viewsets.GenericViewSet):
-
     """API view for :class:`Data` objects."""
 
     queryset = Data.objects.all().prefetch_related('process', 'descriptor_schema', 'contributor')
@@ -505,7 +502,6 @@ class DescriptorSchemaViewSet(mixins.RetrieveModelMixin,
                               mixins.ListModelMixin,
                               ResolwePermissionsMixin,
                               viewsets.GenericViewSet):
-
     """API view for :class:`DescriptorSchema` objects."""
 
     queryset = DescriptorSchema.objects.all().prefetch_related('contributor')
@@ -521,7 +517,6 @@ class TriggerViewSet(ResolweCreateModelMixin,
                      mixins.ListModelMixin,
                      ResolwePermissionsMixin,
                      viewsets.GenericViewSet):
-
     """API view for :class:`Trigger` objects."""
 
     queryset = Trigger.objects.all().prefetch_related('contributor')
@@ -533,7 +528,6 @@ class TriggerViewSet(ResolweCreateModelMixin,
 class StorageViewSet(mixins.RetrieveModelMixin,
                      mixins.ListModelMixin,
                      viewsets.GenericViewSet):
-
     """API view for :class:`Storage` objects."""
 
     queryset = Storage.objects.all().prefetch_related('contributor')

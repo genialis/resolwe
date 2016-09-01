@@ -1,4 +1,5 @@
-"""
+""".. Ignore pydocstyle D400.
+
 =======
 Testing
 =======
@@ -50,7 +51,6 @@ for map_ in flow_docker_mappings:
 @override_settings(FLOW_DOCKER_MAPPINGS=flow_docker_mappings)
 @override_settings(CELERY_ALWAYS_EAGER=True)
 class ProcessTestCase(TestCase):
-
     """Base class for writing process tests.
 
     This class is subclass of Django's :class:`~django.test.TestCase`
@@ -119,6 +119,7 @@ class ProcessTestCase(TestCase):
             SCHEMAS_FIXTURE_CACHE[cache_key]['descriptor_schemas'] = list(DescriptorSchema.objects.all())
 
     def setUp(self):
+        """Initialize test data."""
         super(ProcessTestCase, self).setUp()
         self.admin = get_user_model().objects.create_superuser(
             username="admin", email='admin@example.com', password="admin_pass")
@@ -136,6 +137,7 @@ class ProcessTestCase(TestCase):
             os.mkdir(self.upload_dir)
 
     def tearDown(self):
+        """Clean up after the test."""
         super(ProcessTestCase, self).tearDown()
 
         # Delete Data objects and their files unless keep_failed
@@ -203,7 +205,6 @@ class ProcessTestCase(TestCase):
         :rtype: ~resolwe.flow.models.Data
 
         """
-
         # backward compatibility
         process_slug = slugify(process_slug.replace(':', '-'))
 
@@ -359,8 +360,7 @@ class ProcessTestCase(TestCase):
         self._assert_file(obj, field['file'], fn, **kwargs)
 
     def assertFiles(self, obj, field_path, fn_list, **kwargs):  # pylint: disable=invalid-name
-        """Compare a list of process's output files to the given
-        correct files.
+        """Compare a process's output file to the given correct file.
 
         :param obj: object which includes the files to compare
         :type obj: ~resolwe.flow.models.Data

@@ -1,4 +1,5 @@
-"""
+""".. Ignore pydocstyle D400.
+
 ==============
 Flow Executors
 ==============
@@ -62,15 +63,16 @@ def hydrate_spawned_files(filename, data_id):
 
 
 class BaseFlowExecutor(object):
-
-    """Represents a workflow executor
+    """Represents a workflow executor.
 
     .. WARNING::
         Ensure this class can be serialized since some engines will
         use it this way (e.g. Celery).
+
     """
 
     def __init__(self):
+        """Initialize attributes."""
         self.data_id = None
 
     def get_tools(self):

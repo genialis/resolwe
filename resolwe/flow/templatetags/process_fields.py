@@ -1,4 +1,5 @@
-"""
+""".. Ignore pydocstyle D400.
+
 ============================
 Process fields template tags
 ============================

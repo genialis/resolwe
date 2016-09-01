@@ -1,4 +1,5 @@
-"""
+""".. Ignore pydocstyle D400.
+
 ==================
 Register Processes
 ==================
@@ -27,12 +28,12 @@ DESCRIPTOR_SCHEMA = validation_schema('descriptor')
 
 
 class Command(BaseCommand):
-
     """Register processes."""
 
     help = 'Register processes'
 
     def add_arguments(self, parser):
+        """Command arguments."""
         parser.add_argument('-s', '--schemas', type=str, nargs='*', help="process names to register")
         parser.add_argument('-f', '--force', action='store_true', help="register also if version mismatch")
         parser.add_argument('--path', type=str, nargs='*', default=[],
@@ -229,6 +230,7 @@ class Command(BaseCommand):
                 self.stdout.write("  {}".format(log))
 
     def handle(self, *args, **options):
+        """Register processes."""
         schemas = options.get('schemas')
         force = options.get('force')
         paths = options.get('path')

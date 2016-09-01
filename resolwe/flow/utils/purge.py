@@ -1,4 +1,5 @@
-"""
+""".. Ignore pydocstyle D400.
+
 ==========
 Data Purge
 ==========
@@ -16,7 +17,6 @@ from resolwe.flow.models import Data, iterate_fields
 
 def get_purge_files(root, output, output_schema, descriptor, descriptor_schema):
     """Get files to purge."""
-
     def remove_file(fn, paths):
         """From paths remove fn and dirs before fn in dir tree."""
         while fn:
@@ -101,7 +101,6 @@ def data_purge(data_ids=None, delete=False, verbosity=0):
     If delete is True, delete unreferenced files.
 
     """
-
     data_path = settings.FLOW_EXECUTOR['DATA_DIR']
     unreferenced_files = set()
 

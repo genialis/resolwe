@@ -21,7 +21,8 @@ Changed
 
 Fixed
 -----
-- Fix pylint warnings
+- Fix pylint warnings (PEP 8)
+- Fix pydocstyle warnings (PEP 257)
 
 
 ==================
