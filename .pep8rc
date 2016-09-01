@@ -1,5 +1,0 @@
-[pep8]
-max-line-length=119
-# E127 continuation line over-indented for visual indent - chhecked by pylint
-ignore=E127
-exclude=migrations

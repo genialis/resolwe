@@ -66,13 +66,10 @@ setup(
         'pyyaml>=3.11',
         'jsonschema>=2.4.0',
         'six>=1.10.0',
+        'Sphinx>=1.4.6',
     ],
     extras_require = {
         'docs':  [
-            # XXX: Intersphinx URLs are broken when using non-default inventory
-            # (like in Django's case) with Sphinx 1.4.3+
-            # Bug report: https://github.com/sphinx-doc/sphinx/issues/2789
-            'Sphinx==1.4.2',
             'sphinx_rtd_theme',
         ],
         'package': [
@@ -80,14 +77,14 @@ setup(
             'wheel',
         ],
         'test': [
-            'coverage>=3.7.1',
-            'pep8>=1.6.2',
-            'pylint>=1.4.3',
-            'testfixtures>=4.10.0',
             'check-manifest',
+            'coverage>=4.2',
+            'pycodestyle>=2.0.0',
+            'pydocstyle>=1.0.0',
+            'pylint>=1.6.4',
             'readme_renderer',
             'resolwe-runtime-utils>=1.1.0',
-            'Sphinx==1.4.2',
+            'testfixtures>=4.10.0',
         ],
     },
 

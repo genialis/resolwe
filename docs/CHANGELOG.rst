@@ -15,8 +15,12 @@ Added
 - Support loading JSON from a file if the string passed to the ``basic:json:``
   field is a file.
 
+Changed
+-------
+- Refactor linters, check PEP 8 and PEP 257
+
 Fixed
-=====
+-----
 - Fix pylint warnings
 
 

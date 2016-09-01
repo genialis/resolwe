@@ -19,8 +19,7 @@ env:
     - RESOLWE_POSTGRESQL_USER=postgres
     - RESOLWE_POSTGRESQL_PORT=5432
 
-# NOTE: Specifying Python versions is just to make the Travis CI's web UI a
-# little prettier
+# NOTE: Explicit Python versions make Travis job description more informative
 matrix:
   include:
     - env: TOX_ENV=py27

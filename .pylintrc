@@ -18,12 +18,6 @@ persistent=yes
 # usually to register additional checkers.
 load-plugins=
 
-# DEPRECATED
-#include-ids=no
-
-# DEPRECATED
-#symbols=no
-
 
 [MESSAGES CONTROL]
 
@@ -54,7 +48,6 @@ load-plugins=
 disable=R,I0011,I0012,W0613,W0511,W0232,W0142,C1001,W0102
 
 
-
 [REPORTS]
 
 # Set the output format. Available formats are text, parseable, colorized, msvs
@@ -68,7 +61,7 @@ output-format=text
 files-output=no
 
 # Tells whether to display a full report or only the messages
-reports=yes
+reports=no
 
 # Python expression which should return a note less than 10 (10 is the highest
 # note). You have access to the variables errors warning, statement which
@@ -221,6 +214,7 @@ generated-members=REQUEST,acl_users,aq_parent,objects,id,_instance,_class_name,F
 [FORMAT]
 
 # Maximum number of characters on a single line.
+# Django coding style guidelines allow up to 119 characters
 max-line-length=119
 
 # Regexp for a line that is allowed to be longer than the limit.
