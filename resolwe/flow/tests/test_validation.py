@@ -471,6 +471,14 @@ class ValidationUnitTest(unittest.TestCase):
             self.assertEqual(value_mock.exists.call_count, 1)
             self.assertEqual(value_mock.first.call_count, 1)
 
+        # data `id` shouldn't be string
+        instance = {
+            'data_list': "1"
+        }
+
+        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+            validate_schema(instance, schema)
+
     def test_file_field(self):
         schema = [
             {'name': 'result', 'type': 'basic:file:', 'validate_regex': r'^.*\.txt$'},

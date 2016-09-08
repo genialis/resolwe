@@ -34,7 +34,7 @@
             "properties": {
                 "type": {
                     "type": "string",
-                    "pattern": "^(basic:(string|text)|data:[a-z0-9:]+):$"
+                    "pattern": "^basic:(string|text):$"
                 },
                 "value": {
                     "type": "string"
