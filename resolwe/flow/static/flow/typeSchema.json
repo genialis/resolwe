@@ -19,7 +19,7 @@
             { "$ref": "#/types/url" },
             { "$ref": "#/types/json" },
             { "$ref": "#/types/list_string" },
-            { "$ref": "#/types/list_data" },
+            { "$ref": "#/types/list_integer" },
             { "$ref": "#/types/list_file" },
             { "$ref": "#/types/list_dir" },
             { "$ref": "#/types/list_url" }
@@ -241,19 +241,19 @@
                 }
             }
         },
-        "list_data": {
+        "list_integer": {
             "type": "object",
             "required": ["type", "value"],
             "additionalProperties": false,
             "properties": {
                 "type": {
                     "type": "string",
-                    "pattern": "^list:data:[a-z0-9:]+:$"
+                    "pattern": "^list:(basic:integer|data:[a-z0-9:]+):$"
                 },
                 "value": {
                     "type": "array",
                     "items": {
-                        "type": "number"
+                        "type": "integer"
                     },
                     "uniqueItems": false
                 }

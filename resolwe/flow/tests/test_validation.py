@@ -622,6 +622,26 @@ class ValidationUnitTest(unittest.TestCase):
         with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
             validate_schema(instance, schema)
 
+    def test_list_integer_field(self):
+        schema = [
+            {'name': 'value', 'type': 'list:basic:integer:'},
+        ]
+
+        instance = {'value': [42, 43]}
+        validate_schema(instance, schema)
+
+        instance = {'value': 42}
+        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+            validate_schema(instance, schema)
+
+        instance = {'value': [42, 43.0]}
+        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+            validate_schema(instance, schema)
+
+        instance = {'value': [42, "43"]}
+        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+            validate_schema(instance, schema)
+
     def test_list_data_field(self):
         schema = [
             {'name': 'data_list', 'type': 'list:data:test:upload:'}
