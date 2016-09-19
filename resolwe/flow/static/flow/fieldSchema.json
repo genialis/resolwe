@@ -146,10 +146,10 @@
                         "additionalProperties": false,
                         "properties": {
                             "label": {
-                                "type": "string"
+                                "type": ["string", "integer"]
                             },
                             "value": {
-                                "type": "string"
+                                "type": ["string", "integer"]
                             }
                         }
                     }
@@ -252,10 +252,10 @@
                         "additionalProperties": false,
                         "properties": {
                             "label": {
-                                "type": "string"
+                                "type": ["string", "integer"]
                             },
                             "value": {
-                                "type": ["string", "array"]
+                                "type": ["string", "integer", "array"]
                             }
                         }
                     }
