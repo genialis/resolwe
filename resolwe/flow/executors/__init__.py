@@ -250,7 +250,7 @@ class BaseFlowExecutor(object):
             # Spawn processors
             for d in spawn_processors:
                 d['contributor'] = parent_data.contributor
-                d['process'] = Process.objects.get(slug=d['process'])
+                d['process'] = Process.objects.filter(slug=d['process']).order_by('version').last()
 
                 for field_schema, fields in iterate_fields(d.get('input', {}), d['process'].input_schema):
                     type_ = field_schema['type']
