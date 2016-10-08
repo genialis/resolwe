@@ -532,4 +532,4 @@ class StorageViewSet(mixins.RetrieveModelMixin,
 
     queryset = Storage.objects.all().prefetch_related('contributor')
     serializer_class = StorageSerializer
-    filter_fields = ('contributor', 'name', 'created', 'modified', 'slug', 'json')
+    filter_fields = ('contributor', 'name', 'created', 'modified', 'slug')

@@ -46,15 +46,10 @@ setup(
         ]
     },
     install_requires=[
-        'django>=1.9,<1.10a1',
-        # XXX: djangorestframework 3.3.3 fails to install on Read the Docs
-        # Bug report: https://github.com/rtfd/readthedocs.org/issues/2101
-        'djangorestframework==3.3.2',
-        'djangorestframework-filters==0.8.0',
+        'django~=1.9.0',
+        'djangorestframework>=3.4.0',
+        'djangorestframework-filters>=0.9.0',
         'django-autoslug>=1.9.0',
-        # XXX: fails with the newest django-filter 0.14.0
-        # This line should be completely removed when fixed
-        'django-filter==0.13.0',
         'django-guardian>=1.4.2',
         'django-mathfilters>=0.3.0',
         # XXX: django-versionfield2 0.5.0 does not work yet:
@@ -62,7 +57,7 @@ setup(
         'django-versionfield2==0.4.0',
         'psycopg2>=2.5.0',
         'jsonfield>=1.0.3',
-        'mock==1.3.0',
+        'mock>=1.3.0',
         'pyyaml>=3.11',
         'jsonschema>=2.4.0',
         'six>=1.10.0',
