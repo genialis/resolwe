@@ -298,16 +298,17 @@ def render_descriptor(data):
     :type data: :class:`resolwe.flow.models.Data` or :class:`dict`
 
     """
-    if not data.descriptor_schema or not data.process.input_schema:
+    if not data.descriptor_schema:
         return
 
     inputs = data.input.copy()
-    hydrate_input_references(inputs, data.process.input_schema, hydrate_values=False)
+    if data.process.input_schema:
+        hydrate_input_references(inputs, data.process.input_schema, hydrate_values=False)
     template_context = template.Context(inputs)
 
     # Set default values
     for field_schema, _, path in iterate_schema(data.descriptor, data.descriptor_schema.schema, 'descriptor'):
-        if 'default' in field_schema:
+        if 'default' in field_schema and field_schema['name'] not in data.descriptor:
             tmpl = field_schema['default']
             if field_schema['type'].startswith('list:'):
                 tmpl = [render_template(tmp, template_context)
@@ -506,15 +507,14 @@ class Data(BaseModel):
         elif render_name:
             self._render_name()
 
-        if not self.descriptor:
-            render_descriptor(self)
-
         self.save_storage(self.output, self.process.output_schema)  # pylint: disable=no-member
 
         hydrate_size(self)
 
         if create:
             validate_schema(self.input, self.process.input_schema)  # pylint: disable=no-member
+
+        render_descriptor(self)
 
         if self.descriptor_schema:
             validate_schema(self.descriptor, self.descriptor_schema.schema)  # pylint: disable=no-member
@@ -570,7 +570,7 @@ class DescriptorSchema(BaseModel):
     description = models.TextField(blank=True)
 
     #: user descriptor schema represented as a JSON object
-    schema = JSONField(default=dict)
+    schema = JSONField(default=list)
 
 
 class Trigger(BaseModel):
