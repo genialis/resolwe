@@ -161,14 +161,17 @@ class DataModelTest(TestCase):
                                              'required': False,
                                          }])
 
-        first = Data.objects.create(contributor=self.user,
+        first = Data.objects.create(name='First data',
+                                    contributor=self.user,
                                     process=process)
 
-        second = Data.objects.create(contributor=self.user,
+        second = Data.objects.create(name='Second data',
+                                     contributor=self.user,
                                      process=process,
                                      input={'src': first.id})
 
-        third = Data.objects.create(contributor=self.user,
+        third = Data.objects.create(name='Third data',
+                                    contributor=self.user,
                                     process=process,
                                     input={'src': first.id})
 
@@ -193,14 +196,17 @@ class DataModelTest(TestCase):
                                              'required': False,
                                          }])
 
-        first = Data.objects.create(contributor=self.user,
+        first = Data.objects.create(name='First data',
+                                    contributor=self.user,
                                     process=process)
 
-        second = Data.objects.create(contributor=self.user,
+        second = Data.objects.create(name='Second data',
+                                     contributor=self.user,
                                      process=process,
                                      input={'src': [first.id]})
 
-        third = Data.objects.create(contributor=self.user,
+        third = Data.objects.create(name='Third data',
+                                    contributor=self.user,
                                     process=process,
                                     input={'src': [first.id, second.id]})
 

@@ -1,5 +1,6 @@
 - slug: test-spawn-new
   name: Spawn new process
+  data_name: Spawned data
   version: 1.0.0
   type: "data:test:spawn"
   run:
