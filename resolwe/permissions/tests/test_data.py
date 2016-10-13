@@ -132,7 +132,7 @@ class DataTestCase(ResolweAPITestCase):
 
         self.assertEqual(resp.data['started'], None)
         self.assertEqual(resp.data['finished'], None)
-        self.assertEqual(resp.data['checksum'], None)  # TODO: Add checksum when implemented
+        self.assertEqual(resp.data['checksum'], 'ee3cfc0e6e2ebce8f364c36c9905eb182d2a5da6')
         self.assertEqual(resp.data['status'], 'RE')
         self.assertEqual(resp.data['process_progress'], 0)
         self.assertEqual(resp.data['process_rc'], None)
@@ -275,7 +275,7 @@ class DataTestCase(ResolweAPITestCase):
         resp = self._patch(1, {'checksum': 'fake'}, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
         d = Data.objects.get(pk=1)
-        self.assertEqual(d.checksum, None)  # TODO: Add checksum when implemented
+        self.assertEqual(d.checksum, 'ee3cfc0e6e2ebce8f364c36c9905eb182d2a5da6')
         self.assertEqual(d.modified.isoformat(), self.data1.modified.isoformat())
 
         # `status`

@@ -78,6 +78,8 @@ from django.contrib.staticfiles import finders
 from versionfield import VersionField
 from autoslug import AutoSlugField
 
+from .utils import get_data_checksum
+
 
 VERSION_NUMBER_BITS = (8, 10, 14)
 
@@ -373,7 +375,7 @@ class Data(BaseModel):
             message='Checksum is exactly 40 alphanumerics',
             code='invalid_checksum'
         )
-    ], blank=True, null=True)
+    ])
 
     status = models.CharField(max_length=2, choices=STATUS_CHOICES, default=STATUS_RESOLVING)
     """
@@ -503,6 +505,8 @@ class Data(BaseModel):
                 self._render_name()
             else:
                 self.named_by_user = True
+
+            self.checksum = get_data_checksum(self.input, self.process.slug, self.process.version)
 
         elif render_name:
             self._render_name()

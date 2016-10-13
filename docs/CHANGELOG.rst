@@ -15,6 +15,7 @@ Added
 - Support loading JSON from a file if the string passed to the ``basic:json:``
   field is a file.
 - ``list:basic:integer:`` field
+- Data object's checksum is automatically calculated on save
 
 Changed
 -------

@@ -9,6 +9,7 @@
     modified: 2015-01-01T09:00:00.000
     name: 'Test data'
     slug: 'test_data'
+    checksum: ee3cfc0e6e2ebce8f364c36c9905eb182d2a5da6
     started: 2015-01-01T09:00:00.000
     status: OK
     process: 1
@@ -23,6 +24,7 @@
     modified: 2015-01-01T10:00:00.000
     name: 'Test data 2'
     slug: 'test_data_2'
+    checksum: ee3cfc0e6e2ebce8f364c36c9905eb182d2a5da7
     started: 2015-01-01T09:00:00.000
     status: OK
     process: 1
