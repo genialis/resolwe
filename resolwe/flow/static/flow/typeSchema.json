@@ -120,7 +120,7 @@
             "properties": {
                 "type": {
                     "type": "string",
-                    "pattern": "^basic:file:(iframe:|link:)?$"
+                    "pattern": "^basic:file:(html:)?$"
                 },
                 "value": {
                     "type": "object",
@@ -266,7 +266,7 @@
             "properties": {
                 "type": {
                     "type": "string",
-                    "pattern": "^list:basic:file:$"
+                    "pattern": "^list:basic:file:(html:)?$"
                 },
                 "value": {
                     "type": "array",

@@ -38,7 +38,7 @@ class PurgeTestFieldsMixin(object):
 
     def test_basic_file_specialization(self):
         self.assertFieldWorks(
-            'basic:file:iframe:',
+            'basic:file:html:',
             field_value={'file': 'but_not_this'},
             script_setup='touch remove_this but_not_this',
             script_save='re-save-file sample but_not_this',

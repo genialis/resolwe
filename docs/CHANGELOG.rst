@@ -17,6 +17,7 @@ Added
 - ``list:basic:integer:`` field
 - Data object's checksum is automatically calculated on save
 - ``get_or_create`` end point for ``Data`` objects
+- ``basic:file:html:`` field for HTML files
 
 Changed
 -------

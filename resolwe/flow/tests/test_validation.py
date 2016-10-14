@@ -532,6 +532,17 @@ class ValidationUnitTest(unittest.TestCase):
         with six.assertRaisesRegex(self, ValidationError, 'File name .* does not match regex'):
             validate_schema(instance, schema)
 
+    def test_html_file_field(self):
+        schema = [
+            {'name': 'html_result', 'type': 'basic:file:html:'},
+        ]
+
+        instance = {'html_result': {
+            'file': 'index.htmls',
+            'refs': ['some.js', 'some.css']
+        }}
+        validate_schema(instance, schema)
+
     def test_dir_field(self):
         schema = [
             {'name': 'result', 'type': 'basic:dir:'},
