@@ -506,7 +506,8 @@ class Data(BaseModel):
             else:
                 self.named_by_user = True
 
-            self.checksum = get_data_checksum(self.input, self.process.slug, self.process.version)
+            self.checksum = get_data_checksum(
+                self.input, self.process.slug, self.process.version)  # pylint: disable=no-member
 
         elif render_name:
             self._render_name()

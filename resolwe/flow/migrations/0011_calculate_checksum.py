@@ -8,11 +8,9 @@ from resolwe.flow.utils import get_data_checksum
 
 
 def calculate_checksum(apps, schema_editor):
-    # We can't import the Person model directly as it may be a newer
-    # version than this migration expects. We use the historical version.
     Data = apps.get_model("flow", "Data")
     for data in Data.objects.all():
-        data.checksum = get_data_checksum(data.input, data.process.name, data.process.version)
+        data.checksum = get_data_checksum(data.input, data.process.slug, data.process.version)
         data.save()
 
 

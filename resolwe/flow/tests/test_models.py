@@ -16,8 +16,12 @@ from django.core.exceptions import ValidationError
 from django.template import Context
 from django.test import TestCase, override_settings
 
+from guardian.shortcuts import assign_perm, remove_perm
+from rest_framework.test import APITestCase, APIRequestFactory, force_authenticate
+
 from resolwe.flow.managers import manager
 from resolwe.flow.models import Data, hydrate_size, Process, render_template, Storage
+from resolwe.flow.views import DataViewSet
 
 try:
     import builtins  # py3
@@ -221,6 +225,130 @@ class DataModelTest(TestCase):
         self.assertIn(second, first.children.all())
         self.assertIn(third, first.children.all())
         self.assertIn(third, second.children.all())
+
+
+class GetOrCreateTestCase(APITestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.user = user_model.objects.create(username='test_user', password='test_pwd')
+
+        self.process = Process.objects.create(
+            name='Temporary process',
+            contributor=self.user,
+            slug='tmp-process',
+            persistence=Process.PERSISTENCE_TEMP,
+            input_schema=[
+                {'name': 'some_value', 'type': 'basic:integer:'}
+            ],
+        )
+        assign_perm('view_process', self.user, self.process)
+
+        process_2 = Process.objects.create(
+            name='Another process',
+            contributor=self.user,
+            slug='another-process',
+            persistence=Process.PERSISTENCE_TEMP,
+            input_schema=[
+                {'name': 'some_value', 'type': 'basic:integer:'}
+            ],
+        )
+        assign_perm('view_process', self.user, process_2)
+
+        self.data = Data.objects.create(
+            name='Temporary data',
+            contributor=self.user,
+            process=self.process,
+            input={'some_value': 42}
+        )
+        assign_perm('view_data', self.user, self.data)
+
+        self.get_or_create_view = DataViewSet.as_view({'post': 'get_or_create'})
+        self.factory = APIRequestFactory()
+
+    def tearDown(self):
+        for data in Data.objects.all():
+            data_dir = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.id))
+            shutil.rmtree(data_dir, ignore_errors=True)
+
+    def test_get_same(self):
+        request = self.factory.post(
+            '',
+            {'name': 'Data object', 'input': {'some_value': 42}, 'process': 'tmp-process'},
+            format='json'
+        )
+        force_authenticate(request, user=self.user)
+
+        response = self.get_or_create_view(request)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['id'], self.data.pk)
+
+    def test_missing_permission(self):
+        remove_perm('view_data', self.user, self.data)
+
+        request = self.factory.post(
+            '',
+            {'name': 'Data object', 'input': {'some_value': 42}, 'process': 'tmp-process'},
+            format='json'
+        )
+        force_authenticate(request, user=self.user)
+
+        response = self.get_or_create_view(request)
+        self.assertEqual(response.status_code, 201)
+        self.assertNotEqual(response.data['id'], self.data.pk)
+
+    def test_different_input(self):
+        request = self.factory.post(
+            '',
+            {'name': 'Data object', 'input': {'some_value': 43}, 'process': 'tmp-process'},
+            format='json'
+        )
+        force_authenticate(request, user=self.user)
+
+        response = self.get_or_create_view(request)
+        self.assertEqual(response.status_code, 201)
+        self.assertNotEqual(response.data['id'], self.data.pk)
+
+    def test_different_process(self):
+        request = self.factory.post(
+            '',
+            {'name': 'Data object', 'input': {'some_value': 43}, 'process': 'another-process'},
+            format='json'
+        )
+        force_authenticate(request, user=self.user)
+
+        response = self.get_or_create_view(request)
+        self.assertEqual(response.status_code, 201)
+        self.assertNotEqual(response.data['id'], self.data.pk)
+
+    def test_different_process_version(self):
+        self.process.version = '2.0.0'
+        self.process.save()
+
+        request = self.factory.post(
+            '',
+            {'name': 'Data object', 'input': {'some_value': 42}, 'process': 'tmp-process'},
+            format='json'
+        )
+        force_authenticate(request, user=self.user)
+
+        response = self.get_or_create_view(request)
+        self.assertEqual(response.status_code, 201)
+        self.assertNotEqual(response.data['id'], self.data.pk)
+
+    def test_raw_process(self):
+        self.process.persistence = Process.PERSISTENCE_RAW
+        self.process.save()
+
+        request = self.factory.post(
+            '',
+            {'name': 'Data object', 'input': {'some_value': 42}, 'process': 'tmp-process'},
+            format='json'
+        )
+        force_authenticate(request, user=self.user)
+
+        response = self.get_or_create_view(request)
+        self.assertEqual(response.status_code, 201)
+        self.assertNotEqual(response.data['id'], self.data.pk)
 
 
 @patch('resolwe.flow.models.os')

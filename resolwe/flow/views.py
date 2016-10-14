@@ -26,7 +26,8 @@ from rest_framework.response import Response
 
 from guardian import shortcuts
 
-from resolwe.permissions.shortcuts import get_object_perms
+from resolwe.flow.utils import get_data_checksum
+from resolwe.permissions.shortcuts import get_object_perms, get_objects_for_user
 
 from .filters import DataFilter, CollectionFilter, ProcessFilter
 from .managers import manager
@@ -179,6 +180,8 @@ class ResolweCreateDataModelMixin(ResolweCreateModelMixin):
         """Create a resource."""
         collections = request.data.get('collections', [])
 
+        # check that user has permissions on all collections that Data
+        # object will be added to
         for collection_id in collections:
             try:
                 collection = Collection.objects.get(pk=collection_id)
@@ -192,6 +195,7 @@ class ResolweCreateDataModelMixin(ResolweCreateModelMixin):
                 else:
                     raise exceptions.NotFound
 
+        # translate processe's slug to id
         process_slug = request.data.get('process', None)
         process_query = Process.objects.filter(slug=process_slug).order_by('version')
         if not process_query.exists():
@@ -201,15 +205,40 @@ class ResolweCreateDataModelMixin(ResolweCreateModelMixin):
         process = process_query.last()
         request.data['process'] = process.pk
 
+        # check that user has permission on the process
         if not request.user.has_perm('view_process', obj=process):
             if request.user.is_authenticated():
                 raise exceptions.PermissionDenied
             else:
                 raise exceptions.NotFound
 
+        # perform "get_or_create" if requested - return existing object
+        # if found
+        if kwargs.pop('get_or_create', False):
+            checksum = get_data_checksum(request.data.get('input', {}), process.slug, process.version)
+            data_qs = Data.objects.filter(
+                checksum=checksum,
+                process__persistence__in=[Process.PERSISTENCE_CACHED, Process.PERSISTENCE_TEMP],
+            )
+            data_qs = get_objects_for_user(request.user, 'view_data', data_qs)
+            if data_qs.exists():
+                data = data_qs.order_by('created').last()
+                serializer = self.get_serializer(data)
+                return Response(serializer.data)
+
+        # create the objects
         resp = super(ResolweCreateDataModelMixin, self).create(request, *args, **kwargs)
+
+        # run manager
         manager.communicate()
+
         return resp
+
+    @list_route(methods=[u'post'])
+    def get_or_create(self, request, *args, **kwargs):
+        """Get ``Data`` object if similar already exists, otherwise create it."""
+        kwargs['get_or_create'] = True
+        return self.create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
         """Create a resource."""

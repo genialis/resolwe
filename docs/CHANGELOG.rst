@@ -16,6 +16,7 @@ Added
   field is a file.
 - ``list:basic:integer:`` field
 - Data object's checksum is automatically calculated on save
+- ``get_or_create`` end point for ``Data`` objects
 
 Changed
 -------
