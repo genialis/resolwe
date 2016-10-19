@@ -26,6 +26,7 @@ from rest_framework.response import Response
 
 from guardian import shortcuts
 
+from resolwe.flow.models import dict_dot, iterate_schema
 from resolwe.flow.utils import get_data_checksum
 from resolwe.permissions.shortcuts import get_object_perms, get_objects_for_user
 
@@ -215,7 +216,14 @@ class ResolweCreateDataModelMixin(ResolweCreateModelMixin):
         # perform "get_or_create" if requested - return existing object
         # if found
         if kwargs.pop('get_or_create', False):
-            checksum = get_data_checksum(request.data.get('input', {}), process.slug, process.version)
+            process_input = request.data.get('input', {})
+
+            # use default values if they are not given
+            for field_schema, fields, path in iterate_schema(process_input, process.input_schema):
+                if 'default' in field_schema and field_schema['name'] not in fields:
+                    dict_dot(process_input, path, field_schema['default'])
+
+            checksum = get_data_checksum(process_input, process.slug, process.version)
             data_qs = Data.objects.filter(
                 checksum=checksum,
                 process__persistence__in=[Process.PERSISTENCE_CACHED, Process.PERSISTENCE_TEMP],

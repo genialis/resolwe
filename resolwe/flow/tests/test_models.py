@@ -238,7 +238,7 @@ class GetOrCreateTestCase(APITestCase):
             slug='tmp-process',
             persistence=Process.PERSISTENCE_TEMP,
             input_schema=[
-                {'name': 'some_value', 'type': 'basic:integer:'}
+                {'name': 'some_value', 'type': 'basic:integer:', 'default': 42}
             ],
         )
         assign_perm('view_process', self.user, self.process)
@@ -274,6 +274,18 @@ class GetOrCreateTestCase(APITestCase):
         request = self.factory.post(
             '',
             {'name': 'Data object', 'input': {'some_value': 42}, 'process': 'tmp-process'},
+            format='json'
+        )
+        force_authenticate(request, user=self.user)
+
+        response = self.get_or_create_view(request)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['id'], self.data.pk)
+
+    def test_use_defaults(self):
+        request = self.factory.post(
+            '',
+            {'name': 'Data object', 'input': {}, 'process': 'tmp-process'},
             format='json'
         )
         force_authenticate(request, user=self.user)
