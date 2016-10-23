@@ -6,7 +6,7 @@ recursive-include docs *.py *.rst
 recursive-include docs/example/example/processes *.yml
 recursive-include docs/images *.png
 # include tests and files needed by tests
-include .pep8rc .pylintrc tox.ini
+include .pylintrc tox.ini
 recursive-include tests *.py *.yml *.rst
 recursive-include resolwe/flow/tests *.py
 recursive-include resolwe/flow/tests/processes *.yml
