@@ -8,16 +8,12 @@ Abstract Manager
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import logging
-import os
-import pkgutil
-
-from importlib import import_module
 
 from django.conf import settings
-from django.core.exceptions import ImproperlyConfigured
 from django.db import IntegrityError, transaction
-from django.utils._os import upath
 
+from resolwe.flow.engine import InvalidEngineError, load_engines
+from resolwe.flow.execution_engines import ExecutionError
 from resolwe.flow.models import Data, iterate_fields
 from resolwe.utils import BraceMessage as __
 
@@ -63,9 +59,11 @@ class BaseManager(object):
     def __init__(self):
         """Initialize arguments."""
         executor = getattr(settings, 'FLOW_EXECUTOR', {}).get('NAME', 'resolwe.flow.executors.local')
-        self.executor = self.load_executor(executor).FlowExecutor()
-        exprengines = getattr(settings, 'FLOW_EXPRESSION_ENGINES', ['resolwe.flow.exprengines.dtlbash'])
-        self.exprengines = self.load_exprengines(exprengines)
+        self.executor = self.load_executor(executor)
+        expression_engines = getattr(settings, 'FLOW_EXPRESSION_ENGINES', ['resolwe.flow.expression_engines.jinja'])
+        self.expression_engines = self.load_expression_engines(expression_engines)
+        execution_engines = getattr(settings, 'FLOW_EXECUTION_ENGINES', ['resolwe.flow.execution_engines.bash'])
+        self.execution_engines = self.load_execution_engines(execution_engines)
 
     def run(self, data_id, script, run_sync=False, verbosity=1):
         """Run process."""
@@ -92,80 +90,59 @@ class BaseManager(object):
                         data.save()
                         continue
 
-                    script = self.exprengines['dtlbash'].eval(data)
-                    if script is None:
-                        continue
+                    if data.process.run:
+                        try:
+                            execution_engine = data.process.run.get('language', None)
+                            program = self.get_execution_engine(execution_engine).evaluate(data)
+                        except (ExecutionError, InvalidEngineError) as error:
+                            data.status = Data.STATUS_ERROR
+                            data.process_error.append('Error in process script: {}'.format(error))
+                            data.save()
+                            continue
+                    else:
+                        # If there is no run section, then we should not try to run anything. But the
+                        # program must not be set to None as then the process will be stuck in waiting state.
+                        program = ''
 
                     data.status = Data.STATUS_WAITING
                     data.save(render_name=True)
 
-                    queue.append((data.id, script))
+                    if program is not None:
+                        queue.append((data.id, program))
 
         except IntegrityError as exp:
             logger.error(__("IntegrityError in manager {}", exp))
             return
 
-        for data_id, script in queue:
+        for data_id, program in queue:
             if verbosity >= 1:
-                print("Running", script)
-            self.run(data_id, script, verbosity=verbosity)
+                print("Running", program)
+            self.run(data_id, program, verbosity=verbosity)
+
+    def get_expression_engine(self, name):
+        """Return an expression engine instance."""
+        try:
+            return self.expression_engines[name]
+        except KeyError:
+            raise InvalidEngineError('Unsupported expression engine: {}'.format(name))
+
+    def get_execution_engine(self, name):
+        """Return an execution engine instance."""
+        try:
+            return self.execution_engines[name]
+        except KeyError:
+            raise InvalidEngineError('Unsupported execution engine: {}'.format(name))
 
     def load_executor(self, executor_name):
         """Load process executor."""
-        try:
-            return import_module('{}'.format(executor_name))
-        except ImportError as ex:
-            # The executor wasn't found. Display a helpful error message
-            # listing all possible (built-in) executors.
-            executor_dir = os.path.join(os.path.dirname(upath(__file__)), 'executors')
+        engines = load_engines(self, 'FlowExecutor', 'executors', [executor_name], 'EXECUTOR', 'executor')
+        # List conversion needed for Python 3, where values() returns a view.
+        return list(engines.values())[0]
 
-            try:
-                builtin_executors = [name for _, name, _ in pkgutil.iter_modules([executor_dir])]
-            except EnvironmentError:
-                builtin_executors = []
-            if executor_name not in ['resolwe.flow.executors.{}'.format(b) for b in builtin_executors]:
-                executor_reprs = map(repr, sorted(builtin_executors))
-                error_msg = ("{} isn't an available dataflow executors.\n"
-                             "Try using 'resolwe.flow.executors.XXX', where XXX is one of:\n"
-                             "    {}\n"
-                             "Error was: {}".format(executor_name, ", ".join(executor_reprs), ex))
-                raise ImproperlyConfigured(error_msg)
-            else:
-                # If there's some other error, this must be an error in Django
-                raise
-
-    def load_exprengines(self, exprengine_list):
+    def load_expression_engines(self, engines):
         """Load expression engines."""
-        exprengines = {}
+        return load_engines(self, 'ExpressionEngine', 'expression_engines', engines)
 
-        for exprengine_name in exprengine_list:
-            try:
-                exprengine_module = import_module('{}'.format(exprengine_name))
-                exprengine_key = exprengine_name.split('.')[-1]
-
-                if exprengine_key in exprengines:
-                    raise ImproperlyConfigured("Duplicated expression engine {}".format(exprengine_key))
-
-                exprengines[exprengine_key] = exprengine_module.ExpressionEngine()
-
-            except ImportError as ex:
-                # The expression engine wasn't found. Display a helpful error message
-                # listing all possible (built-in) expression engines.
-                exprengine_dir = os.path.join(os.path.dirname(upath(__file__)), 'exprengines')
-
-                try:
-                    builtin_exprengines = [name for _, name, _ in pkgutil.iter_modules([exprengine_dir])]
-                except EnvironmentError:
-                    builtin_exprengines = []
-                if exprengine_name not in ['resolwe.flow.exprengines.{}'.format(b) for b in builtin_exprengines]:
-                    exprengine_reprs = map(repr, sorted(builtin_exprengines))
-                    error_msg = ("{} isn't an available dataflow expression engine.\n"
-                                 "Try using 'resolwe.flow.exprengines.XXX', where XXX is one of:\n"
-                                 "    {}\n"
-                                 "Error was: {}".format(exprengine_name, ", ".join(exprengine_reprs), ex))
-                    raise ImproperlyConfigured(error_msg)
-                else:
-                    # If there's some other error, this must be an error in Django
-                    raise
-
-        return exprengines
+    def load_execution_engines(self, engines):
+        """Load execution engines."""
+        return load_engines(self, 'ExecutionEngine', 'execution_engines', engines)

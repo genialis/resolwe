@@ -62,8 +62,9 @@ setup(
         'jsonschema>=2.4.0',
         'six>=1.10.0',
         'Sphinx>=1.4.6',
+        'Jinja2>=2.8',
     ],
-    extras_require = {
+    extras_require={
         'docs':  [
             'sphinx_rtd_theme',
         ],

@@ -67,7 +67,6 @@ import six
 
 import jsonschema
 
-from django import template
 from django.db import models, transaction
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -271,24 +270,20 @@ class Process(BaseModel):
 
     """
 
+    requirements = JSONField(default=dict)
 
-def render_template(template_string, context):
-    """Render template based on Dango template language."""
-    template_headers = [
-        '{% load resource_filters %}',
-        '{% load process_fields %}',
-        '{% load mathfilters %}',
-    ]
 
-    custom_template_tags = getattr(settings, 'RESOLWE_CUSTOM_TEMPLATE_TAGS', [])
-    if not isinstance(custom_template_tags, list):
-        raise KeyError("`RESOLWE_CUSTOM_TEMPLATE_TAGS` setting must be a list.")
+def render_template(process, template_string, context):
+    """Render template using the specified expression engine."""
+    from .managers import manager
 
-    template_headers.extend(
-        ['{{% load {} %}}'.format(template_tag) for template_tag in custom_template_tags]
-    )
+    # Get the appropriate expression engine. If none is defined, do not evaluate
+    # any expressions.
+    expression_engine = process.requirements.get('expression-engine', None)
+    if not expression_engine:
+        return template_string
 
-    return template.Template(''.join(template_headers) + template_string).render(context)
+    return manager.get_expression_engine(expression_engine).evaluate_block(template_string, context)
 
 
 def render_descriptor(data):
@@ -306,18 +301,18 @@ def render_descriptor(data):
     inputs = data.input.copy()
     if data.process.input_schema:
         hydrate_input_references(inputs, data.process.input_schema, hydrate_values=False)
-    template_context = template.Context(inputs)
+    template_context = inputs
 
     # Set default values
     for field_schema, field, path in iterate_schema(data.descriptor, data.descriptor_schema.schema, 'descriptor'):
         if 'default' in field_schema and field_schema['name'] not in field:
             tmpl = field_schema['default']
             if field_schema['type'].startswith('list:'):
-                tmpl = [render_template(tmp, template_context)
+                tmpl = [render_template(data.process, tmp, template_context)
                         if isinstance(tmp, six.string_types) else tmp
                         for tmp in tmpl]
             elif isinstance(tmpl, six.string_types):
-                tmpl = render_template(tmpl, template_context)
+                tmpl = render_template(data.process, tmpl, template_context)
 
             dict_dot(data, path, tmpl)
 
@@ -553,9 +548,13 @@ class Data(BaseModel):
 
         inputs = self.input.copy()  # pylint: disable=no-member
         hydrate_input_references(inputs, self.process.input_schema, hydrate_values=False)  # pylint: disable=no-member
-        template_context = template.Context(inputs)
+        template_context = inputs
 
-        self.name = render_template(self.process.data_name, template_context)  # pylint: disable=no-member
+        self.name = render_template(
+            self.process,
+            self.process.data_name,  # pylint: disable=no-member
+            template_context
+        )
 
 
 class DescriptorSchema(BaseModel):

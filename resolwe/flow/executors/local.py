@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 class FlowExecutor(BaseFlowExecutor):
     """Local dataflow executor proxy."""
 
+    name = 'local'
+
     def __init__(self, *args, **kwargs):
         """Initialize attributes."""
         super(FlowExecutor, self).__init__(*args, **kwargs)

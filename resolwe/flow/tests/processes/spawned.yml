@@ -1,10 +1,13 @@
 - slug: test-spawn-new
   name: Spawn new process
+  requirements:
+    expression-engine: jinja
   data_name: Spawned data
   version: 1.0.0
   type: "data:test:spawn"
   run:
-    bash: |
+    language: bash
+    program: |
       touch foo.bar
       re-export foo.bar
       echo 'run {"process": "test-save-file", "input": {"input_file": "foo.bar"}}'
@@ -12,6 +15,8 @@
 
 - slug: test-save-file
   name: Save file
+  requirements:
+    expression-engine: jinja
   version: 1.0.0
   type: "data:test:save"
   input:
@@ -23,7 +28,8 @@
       label: Saved file
       type: basic:file
   run:
-    bash: |
+    language: bash
+    program: |
       # TODO: use re-import when added to resolwe-runtime-utils
       # re-import {{ input_file.file_temp }} {{ input_file.file }} "bar" "bar" 0.9
       mv {{ input_file.file_temp }} {{ input_file.file }}

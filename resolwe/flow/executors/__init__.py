@@ -23,6 +23,7 @@ from django.apps import apps
 from django.db import transaction
 from django.conf import settings
 
+from resolwe.flow.engine import BaseEngine
 from resolwe.flow.models import Data, dict_dot, iterate_fields, Process
 from resolwe.flow.utils.purge import data_purge
 from resolwe.utils import BraceMessage as __
@@ -62,7 +63,7 @@ def hydrate_spawned_files(filename, data_id):
     return {'file_temp': export_fn, 'file': filename}
 
 
-class BaseFlowExecutor(object):
+class BaseFlowExecutor(BaseEngine):
     """Represents a workflow executor.
 
     .. WARNING::
@@ -71,8 +72,9 @@ class BaseFlowExecutor(object):
 
     """
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         """Initialize attributes."""
+        super(BaseFlowExecutor, self).__init__(*args, **kwargs)
         self.data_id = None
 
     def get_tools(self):

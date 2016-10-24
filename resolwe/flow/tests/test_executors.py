@@ -62,7 +62,7 @@ class DockerExecutorTestCase(unittest.TestCase):
         executor_settings['CONTAINER_IMAGE'] = 'centos'
 
         with override_settings(FLOW_EXECUTOR=executor_settings):
-            executor = FlowExecutor()
+            executor = FlowExecutor(manager=None)
 
             script = 'if grep -Fq "docker" /proc/1/cgroup; then echo "Running inside Docker"; ' \
                     'else echo "Running locally"; fi'
@@ -95,7 +95,7 @@ class GetToolsTestCase(unittest.TestCase):
         os_mock.path.isdir.side_effect = [False, True]
         settings_mock.RESOLWE_CUSTOM_TOOLS_PATHS = ['/custom_tools']
 
-        base_executor = BaseFlowExecutor()
+        base_executor = BaseFlowExecutor(manager=None)
         tools_list = base_executor.get_tools()
 
         self.assertEqual(len(tools_list), 2)
@@ -108,17 +108,20 @@ class GetToolsTestCase(unittest.TestCase):
         apps_mock.get_app_configs.return_value = []
         settings_mock.RESOLWE_CUSTOM_TOOLS_PATHS = '/custom_tools'
 
-        base_executor = BaseFlowExecutor()
+        base_executor = BaseFlowExecutor(manager=None)
         with six.assertRaisesRegex(self, KeyError, 'setting must be a list'):
             base_executor.get_tools()
 
 
-class SpawnedProcessTest(ProcessTestCase):
+class ManagerRunProcessTest(ProcessTestCase):
     def setUp(self):
-        super(SpawnedProcessTest, self).setUp()
+        super(ManagerRunProcessTest, self).setUp()
         self._register_schemas(path=[PROCESSES_DIR])
 
-    def test_test(self):
+    def test_minimal_process(self):
+        self.run_process('test-min')
+
+    def test_spawn(self):
         self.run_process('test-spawn-new')
 
         data = Data.objects.last()
@@ -126,3 +129,8 @@ class SpawnedProcessTest(ProcessTestCase):
         file_path = os.path.join(data_dir, str(data.pk), 'foo.bar')
         self.assertEqual(data.output['saved_file']['file'], 'foo.bar')
         self.assertTrue(os.path.isfile(file_path))
+
+    def test_broken(self):
+        self.run_process('test-broken', assert_status=Data.STATUS_ERROR)
+        self.run_process('test-broken-invalid-expression-engine', assert_status=Data.STATUS_ERROR)
+        self.run_process('test-broken-invalid-execution-engine', assert_status=Data.STATUS_ERROR)

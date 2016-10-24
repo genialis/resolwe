@@ -63,17 +63,26 @@
             "description": "Algorithm that transforms inputs into outputs",
             "type": "object",
             "properties": {
+                "language": {
+                    "description": "The execution engine to use for evaluating the program"
+                },
                 "runtime": {
                     "description": "Environment in which to run the algorithm",
                     "type": "string"
                 },
-                "bash": {
-                    "description": "Bash commands text",
+                "program": {
+                    "description": "Program definition",
                     "type": "string"
-                },
-                "comand": {
-                    "description": "One-line bash command",
-                    "type": "string"
+                }
+            },
+            "additionalProperties": false
+        },
+        "requirements": {
+            "description": "Engines that this process needs",
+            "type": "object",
+            "properties": {
+                "expression-engine": {
+                    "description": "The expression engine to use for evaluating expressions"
                 }
             },
             "additionalProperties": false

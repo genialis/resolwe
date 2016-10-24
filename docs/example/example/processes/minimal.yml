@@ -1,6 +1,9 @@
 - slug: mini
   name: Minimalistic Process
+  requirements:
+    expression-engine: jinja
   type: "data:mini"
   run:
-    bash: |
+    language: bash
+    program: |
       echo 'Hello bioinformatician!'

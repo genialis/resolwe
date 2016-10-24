@@ -10,6 +10,7 @@ from django.test import TestCase
 
 from resolwe.flow.managers import manager
 from resolwe.flow.models import Process, Data
+from resolwe.flow.expression_engines import EvaluationError
 
 
 class ProcessFieldsTagsTest(TestCase):
@@ -36,6 +37,7 @@ class ProcessFieldsTagsTest(TestCase):
 
         process = Process.objects.create(
             name='Test template tags',
+            requirements={'expression-engine': 'jinja'},
             contributor=self.contributor,
             type='test:data:templatetags:',
             input_schema=[
@@ -45,12 +47,19 @@ class ProcessFieldsTagsTest(TestCase):
                 {'name': 'name', 'type': 'basic:string:'},
                 {'name': 'id', 'type': 'basic:integer:'},
                 {'name': 'type', 'type': 'basic:string:'},
+                {'name': 'basename', 'type': 'basic:string:'},
+                {'name': 'subtype', 'type': 'basic:string:'},
+                {'name': 'yesno', 'type': 'basic:string:'},
             ],
             run={
-                'bash': """
+                'language': 'bash',
+                'program': """
 re-save name "{{ input_data | name }}"
 re-save id {{ input_data | id }}
 re-save type {{ input_data | type }}
+re-save basename "{{ '/foo/bar/moo' | basename }}"
+re-save subtype "{{ 'data:test:inputobject:' | subtype('data:') }}"
+re-save yesno "{{ true | yesno('yes', 'no') }}"
 """
             }
 
@@ -70,3 +79,31 @@ re-save type {{ input_data | type }}
         self.assertEqual(data.output['name'], input_data.name)
         self.assertEqual(data.output['id'], input_data.pk)
         self.assertEqual(data.output['type'], input_process.type)
+        self.assertEqual(data.output['basename'], 'moo')
+        self.assertEqual(data.output['subtype'], 'True')
+        self.assertEqual(data.output['yesno'], 'yes')
+
+
+class ExpressionEngineTest(TestCase):
+    def test_jinja_engine(self):
+        engine = manager.get_expression_engine('jinja')
+        block = engine.evaluate_block('Hello {{ world }}', {'world': 'cruel world'})
+        self.assertEqual(block, 'Hello cruel world')
+        block = engine.evaluate_block('Hello {% if world %}world{% endif %}', {'world': True})
+        self.assertEqual(block, 'Hello world')
+
+        with self.assertRaises(EvaluationError):
+            engine.evaluate_block('Hello {% bar')
+
+        expression = engine.evaluate_inline('world', {'world': 'cruel world'})
+        self.assertEqual(expression, 'cruel world')
+        expression = engine.evaluate_inline('world', {'world': True})
+        self.assertEqual(expression, True)
+        expression = engine.evaluate_inline('world | yesno("yes", "no")', {'world': False})
+        self.assertEqual(expression, 'no')
+        expression = engine.evaluate_inline('[1, 2, 3, world]', {'world': 4})
+        self.assertEqual(expression, [1, 2, 3, 4])
+        expression = engine.evaluate_inline('a.b.c.d', {})
+        self.assertEqual(expression, None)
+        expression = engine.evaluate_inline('a.b.c().d', {})
+        self.assertEqual(expression, None)

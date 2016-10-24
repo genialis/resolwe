@@ -22,6 +22,9 @@ Added
 Changed
 -------
 - Refactor linters, check PEP 8 and PEP 257
+- Split expression engines into expression engines and execution engines
+- Use Jinja2 instead of Django Template syntax
+- Expression engine must be declared in ``requirements``
 
 Fixed
 -----

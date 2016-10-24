@@ -104,7 +104,15 @@ FLOW_API = {
     'PERMISSIONS': 'resolwe.permissions.permissions',
 }
 FLOW_EXPRESSION_ENGINES = [
-    'resolwe.flow.exprengines.dtlbash'
+    {
+        'ENGINE': 'resolwe.flow.expression_engines.jinja',
+        'CUSTOM_FILTERS': [
+            'resolwe.flow.tests.expression_filters',
+        ]
+    },
+]
+FLOW_EXECUTION_ENGINES = [
+    'resolwe.flow.execution_engines.bash',
 ]
 
 FLOW_PROCESSES_FINDERS = (

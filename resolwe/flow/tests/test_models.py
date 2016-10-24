@@ -13,8 +13,7 @@ from mock import MagicMock, patch
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.template import Context
-from django.test import TestCase, override_settings
+from django.test import TestCase
 
 from guardian.shortcuts import assign_perm, remove_perm
 from rest_framework.test import APITestCase, APIRequestFactory, force_authenticate
@@ -22,6 +21,7 @@ from rest_framework.test import APITestCase, APIRequestFactory, force_authentica
 from resolwe.flow.managers import manager
 from resolwe.flow.models import Data, hydrate_size, Process, render_template, Storage
 from resolwe.flow.views import DataViewSet
+from resolwe.flow.expression_engines import EvaluationError
 
 try:
     import builtins  # py3
@@ -49,7 +49,10 @@ class DataModelTest(TestCase):
                                              'type': 'basic:string:',
                                              'required': False,
                                          }],
-                                         run={'bash': 'echo {"stat": "42"}'})
+                                         run={
+                                             'language': 'bash',
+                                             'program': 'echo {"stat": "42"}'
+                                         })
 
         data = Data.objects.create(contributor=self.user,
                                    process=process)
@@ -73,6 +76,7 @@ class DataModelTest(TestCase):
         process = Process.objects.create(slug='test-second',
                                          type='test:second',
                                          contributor=self.user,
+                                         requirements={'expression-engine': 'jinja'},
                                          data_name='Process based data name, value: {{src.stat}}',
                                          input_schema=[{
                                              'name': 'src',
@@ -490,12 +494,12 @@ class StorageModelTestCase(TestCase):
 
 
 class UtilsTestCase(unittest.TestCase):
-    @override_settings(RESOLWE_CUSTOM_TEMPLATE_TAGS=['test_tags'])
     def test_render_template(self):
-        template = render_template('{{ 1 | increase }}', Context())
+        process_mock = MagicMock(requirements={'expression-engine': 'jinja'})
+        template = render_template(process_mock, '{{ 1 | increase }}', {})
         self.assertEqual(template, '2')
 
-    @override_settings(RESOLWE_CUSTOM_TEMPLATE_TAGS='test_tags')
     def test_render_template_error(self):
-        with self.assertRaises(KeyError):
-            render_template('{{ 1 | increase }}', Context())
+        process_mock = MagicMock(requirements={'expression-engine': 'jinja'})
+        with self.assertRaises(EvaluationError):
+            render_template(process_mock, '{{ 1 | missing_increase }}', {})

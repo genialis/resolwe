@@ -5,17 +5,31 @@ import unittest
 
 import mock
 
-from resolwe.flow.exprengines.dtlbash import ExpressionEngine
+from resolwe.flow.expression_engines.jinja import ExpressionEngine
+from resolwe.flow.execution_engines.bash import ExecutionEngine, ExecutionError
 
 
-class ExprengineTestCase(unittest.TestCase):
+class ExecutionEngineTestCase(unittest.TestCase):
     def test_invalid_template(self):
+        manager = mock.MagicMock()
+        manager.get_expression_engine.return_value = ExpressionEngine(manager)
+
         data_mock = mock.MagicMock(process_error=[])
-        data_mock.process.run = {'bash': '{% if reads.type.startswith("data:reads:") %}'}
+        data_mock.process.requirements = {
+            'expression-engine': 'jinja',
+        }
+        data_mock.process.run = {
+            'language': 'bash',
+            'program': '{% if reads.type.startswith("data:reads:") %}'
+        }
 
-        ExpressionEngine().eval(data_mock)
+        with self.assertRaises(ExecutionError):
+            ExecutionEngine(manager).evaluate(data_mock)
 
-        self.assertTrue('Error in process script' in data_mock.process_error[0])
+        # If no expression engine is passed, then there should be no error.
+        data_mock.process.requirements = {}
+        result = ExecutionEngine(manager).evaluate(data_mock)
+        self.assertEqual(result, data_mock.process.run['program'])
 
 
 class CeleryEngineTestCase(unittest.TestCase):

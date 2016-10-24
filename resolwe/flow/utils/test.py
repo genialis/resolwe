@@ -208,7 +208,7 @@ class ProcessTestCase(TestCase):
         # backward compatibility
         process_slug = slugify(process_slug.replace(':', '-'))
 
-        process = Process.objects.get(slug=process_slug)
+        process = Process.objects.filter(slug=process_slug).order_by('-version').first()
 
         def mock_upload(file_path):
             """Mock file upload."""

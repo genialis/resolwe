@@ -1,6 +1,9 @@
 - slug: all
   name: All process fields
+  requirements:
+    expression-engine: jinja
   type: "data:all"
   run:
-    bash: |
+    language: bash
+    program: |
       echo 'TODO'

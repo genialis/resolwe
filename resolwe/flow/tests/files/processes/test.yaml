@@ -1,5 +1,7 @@
 - slug: test1
   name: Test1
+  requirements:
+    expression-engine: jinja
   version: 0.0.1
   type: "data:test:blahbkah:"
   category: tests
@@ -16,6 +18,8 @@
 
 - slug: test-bloated
   name: Bloated Processor
+  requirements:
+    expression-engine: jinja
   version: 0.0.0
   type: "data:test:bloated:"
   category: tests

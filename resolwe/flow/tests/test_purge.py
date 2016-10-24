@@ -139,7 +139,8 @@ class PurgeE2ETest(PurgeTestFieldsMixin, ProcessTestCase):
                     }
                 ],
                 run={
-                    'bash': """
+                    'language': 'bash',
+                    'program': """
 touch these files should be removed
 touch this_file_should_stay
 mkdir -p directory/should/be
@@ -188,7 +189,8 @@ re-save-dir-list sample_dir_list dir1:ref2 dir2 dir3
                 input_schema=[],
                 output_schema=[field_schema],
                 run={
-                    'bash': script_setup + '\n' + script_save
+                    'language': 'bash',
+                    'program': script_setup + '\n' + script_save
                 }
             )
         )
@@ -207,7 +209,8 @@ re-save-dir-list sample_dir_list dir1:ref2 dir2 dir3
                 input_schema=[],
                 output_schema=[],
                 run={
-                    'bash': script_setup
+                    'language': 'bash',
+                    'program': script_setup
                 }
             ),
             descriptor_schema=descriptor_schema,
@@ -238,7 +241,8 @@ re-save-dir-list sample_dir_list dir1:ref2 dir2 dir3
                             'type': 'basic:file:'
                         }],
                         run={
-                            'bash': 'touch sample && re-save-file sample sample'
+                            'language': 'bash',
+                            'program': 'touch sample && re-save-file sample sample'
                         }
                     )
                 )

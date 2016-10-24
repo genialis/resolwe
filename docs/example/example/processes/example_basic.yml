@@ -8,6 +8,7 @@
     - name: words
       type: basic:integer
   run:
-    bash: |
+    language: bash
+    program: |
       WORDS=$(wc {{ document.file }})
       echo {"words": $WORDS}

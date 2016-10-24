@@ -8,7 +8,8 @@
     - name: out-doc
       type: basic:file
   run:
-    bash: |
+    language: bash
+    program: |
       re-import {{ document.file }}
       re-save-file out-doc $NAME
 
@@ -22,7 +23,8 @@
     - name: words
       type: basic:integer
   run:
-    bash: |
+    language: bash
+    program: |
       WORDS=$(wc {{ document.file }})
       re-save words $WORDS
 
@@ -36,6 +38,7 @@
     - name: lines
       type: basic:integer
   run:
-    bash: |
+    language: bash
+    program: |
       LINES=$(wc -l {{ document.file }})
       re-save lines $LINES

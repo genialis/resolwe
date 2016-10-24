@@ -14,6 +14,8 @@ from .local import FlowExecutor as LocalFlowExecutor
 class FlowExecutor(LocalFlowExecutor):
     """Docker executor."""
 
+    name = 'docker'
+
     def __init__(self, *args, **kwargs):
         """Initialize attributes."""
         super(FlowExecutor, self).__init__(*args, **kwargs)

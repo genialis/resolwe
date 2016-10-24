@@ -3,7 +3,8 @@
   version: 1.0.0
   type: "data:test:min"
   run:
-    bash: |
+    # Process registration should set 'language' to 'bash' if not set.
+    program: |
       echo 'Test Minimalistic Processor'
 
 - slug: test-min
@@ -11,7 +12,8 @@
   version: 1.0.1
   type: "data:test:min"
   run:
-    bash: |
+    # Process registration should set 'language' to 'bash' if not set.
+    program: |
       echo 'Test Minimalistic Processor'
 
 - slug: test-min
@@ -19,11 +21,14 @@
   version: 0.0.9
   type: "data:test:min"
   run:
-    bash: |
+    # Process registration should set 'language' to 'bash' if not set.
+    program: |
       echo 'Test Minimalistic Processor'
 
 - slug: test-bloated
   name: Bloated Processor
+  requirements:
+    expression-engine: jinja
   version: 0.0.0
   type: "data:test:bloated:"
   category: tests
@@ -186,5 +191,40 @@
               label: Tricky 2
               type: basic:string
   run:
-    bash: |
+    language: bash
+    program: |
       echo 'Test Bloated Processor'
+
+- slug: test-broken
+  name: Minimalistic Processor
+  requirements:
+    expression-engine: jinja
+  version: 1.0.0
+  type: "data:test:broken"
+  run:
+    language: bash
+    program: |
+      echo "This process has a broken template"
+      {% if
+
+- slug: test-broken-invalid-expression-engine
+  name: Minimalistic Processor
+  requirements:
+    expression-engine: invalid
+  version: 1.0.0
+  type: "data:test:broken"
+  run:
+    language: bash
+    program: |
+      echo "This process has an invalid expression engine"
+
+- slug: test-broken-invalid-execution-engine
+  name: Minimalistic Processor
+  requirements:
+    expression-engine: jinja
+  version: 1.0.0
+  type: "data:test:broken"
+  run:
+    language: invalid
+    program: |
+      echo "This process has an invalid execution engine"
