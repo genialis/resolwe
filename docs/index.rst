@@ -25,6 +25,5 @@ Contents
    overview
    intro
    proc
-   restapi
    ref
    contributing
