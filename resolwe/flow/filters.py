@@ -12,69 +12,56 @@ import rest_framework_filters as filters
 from .models import Collection, Data, DescriptorSchema, Process
 
 
-class DescriptorSchemaFilter(filters.FilterSet):
+class BaseResolweFilter(filters.FilterSet):
+    """Base filter for Resolwe's endpoints."""
+
+    id = filters.AllLookupsFilter()  # pylint: disable=invalid-name
+    slug = filters.AllLookupsFilter()
+    name = filters.AllLookupsFilter()
+    contributor = filters.NumberFilter()
+    created = filters.AllLookupsFilter()
+    modified = filters.AllLookupsFilter()
+
+
+class DescriptorSchemaFilter(BaseResolweFilter):
     """Filter the DescriptorSchema endpoint."""
 
     class Meta:
         """Filter configuration."""
 
         model = DescriptorSchema
-        fields = {
-            'slug': '__all__',
-            'id': '__all__',
-        }
 
 
-class CollectionFilter(filters.FilterSet):
+class CollectionFilter(BaseResolweFilter):
     """Filter the Collection endpoint."""
 
     data = filters.ModelChoiceFilter(queryset=Data.objects.all())
     descriptor_schema = filters.RelatedFilter(DescriptorSchemaFilter, name='descriptor_schema')
+    description = filters.AllLookupsFilter()
 
     class Meta:
         """Filter configuration."""
 
         model = Collection
-        fields = {
-            'contributor': ['exact', ],
-            'created': '__all__',
-            'data': ['exact', ],
-            'description': '__all__',
-            'descriptor_schema': ['exact', ],
-            'id': '__all__',
-            'modified': '__all__',
-            'name': '__all__',
-            'slug': '__all__',
-        }
 
 
-class DataFilter(filters.FilterSet):
+class DataFilter(BaseResolweFilter):
     """Filter the Data endpoint."""
 
     collection = filters.ModelChoiceFilter(queryset=Collection.objects.all())
     type = filters.CharFilter(name='process__type', lookup_type='startswith')
+    status = filters.AllLookupsFilter()
+    finished = filters.AllLookupsFilter()
+    started = filters.AllLookupsFilter()
+    process = filters.NumberFilter()
 
     class Meta:
         """Filter configuration."""
 
         model = Data
-        fields = {
-            'collection': ['exact', ],
-            'contributor': ['exact', ],
-            'created': '__all__',
-            'finished': '__all__',
-            'id': '__all__',
-            'modified': '__all__',
-            'name': '__all__',
-            'process': ['exact', ],
-            'slug': '__all__',
-            'started': '__all__',
-            'status': '__all__',
-            'type': ['exact', ],
-        }
 
 
-class ProcessFilter(filters.FilterSet):
+class ProcessFilter(BaseResolweFilter):
     """Filter the Process endpoint."""
 
     category = filters.CharFilter(name='category', lookup_type='startswith')
@@ -83,12 +70,3 @@ class ProcessFilter(filters.FilterSet):
         """Filter configuration."""
 
         model = Process
-        fields = {
-            'category': ['exact', ],
-            'contributor': ['exact', ],
-            'created': '__all__',
-            'id': '__all__',
-            'modified': '__all__',
-            'name': '__all__',
-            'slug': '__all__',
-        }
