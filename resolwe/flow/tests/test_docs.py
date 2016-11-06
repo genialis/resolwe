@@ -45,6 +45,3 @@ class TestAutoporocess(unittest.TestCase):
         self.assertTrue(os.path.isfile(os.path.join(self.build_output_dir, 'contents.html')))
         #  Confirm there is no content (no errors/warnings) in self.stderr_file:
         self.assertEqual(os.stat(self.stderr_file).st_size, 0)
-
-if __name__ == '__main__':
-    unittest.main()
