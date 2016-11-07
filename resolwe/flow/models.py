@@ -896,9 +896,12 @@ def validate_schema(instance, schema, test_required=True, path_prefix=None):
                 for data_id in field:
                     validate_data(data_id, type_[5:])  # remove `list:` from type
 
-    # Check that schema definitions exist for all fields
-    for _, _ in iterate_fields(instance, schema):
-        pass
+    try:
+        # Check that schema definitions exist for all fields
+        for _, _ in iterate_fields(instance, schema):
+            pass
+    except KeyError as ex:
+        raise ValidationError(str(ex))
 
 
 def _hydrate_values(output, output_schema, data):

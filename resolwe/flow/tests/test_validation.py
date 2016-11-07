@@ -202,7 +202,7 @@ class ValidationUnitTest(unittest.TestCase):
         ]
 
         instance = {'res': 42}
-        with six.assertRaisesRegex(self, KeyError, r'\(res\) missing in schema'):
+        with six.assertRaisesRegex(self, ValidationError, r'\(res\) missing in schema'):
             validate_schema(instance, schema)
 
     def test_file_prefix(self):

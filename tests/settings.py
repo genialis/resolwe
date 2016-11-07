@@ -128,4 +128,5 @@ REST_FRAMEWORK = {
         'resolwe.permissions.filters.ResolwePermissionsFilter',
         'rest_framework_filters.backends.DjangoFilterBackend',
     ),
+    'EXCEPTION_HANDLER': 'resolwe.flow.utils.exceptions.resolwe_exception_handler',
 }
