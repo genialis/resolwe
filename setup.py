@@ -46,7 +46,7 @@ setup(
         ]
     },
     install_requires=[
-        'django~=1.9.0',
+        'Django~=1.9.11',
         'djangorestframework>=3.4.0',
         'djangorestframework-filters>=0.9.0',
         'django-autoslug>=1.9.0',
@@ -58,7 +58,7 @@ setup(
         'psycopg2>=2.5.0',
         'jsonfield>=1.0.3',
         'mock>=1.3.0',
-        'pyyaml>=3.11',
+        'PyYAML>=3.11',
         'jsonschema>=2.4.0',
         'six>=1.10.0',
         'Sphinx>=1.4.6',
