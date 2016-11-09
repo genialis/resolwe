@@ -36,29 +36,13 @@ class CollectionFilter(BaseResolweFilter):
     """Filter the Collection endpoint."""
 
     data = filters.ModelChoiceFilter(queryset=Data.objects.all())
-    descriptor_schema = filters.RelatedFilter(DescriptorSchemaFilter, name='descriptor_schema')
+    descriptor_schema = filters.RelatedFilter(DescriptorSchemaFilter)
     description = filters.AllLookupsFilter()
 
     class Meta:
         """Filter configuration."""
 
         model = Collection
-
-
-class DataFilter(BaseResolweFilter):
-    """Filter the Data endpoint."""
-
-    collection = filters.ModelChoiceFilter(queryset=Collection.objects.all())
-    type = filters.CharFilter(name='process__type', lookup_type='startswith')
-    status = filters.AllLookupsFilter()
-    finished = filters.AllLookupsFilter()
-    started = filters.AllLookupsFilter()
-    process = filters.NumberFilter()
-
-    class Meta:
-        """Filter configuration."""
-
-        model = Data
 
 
 class ProcessFilter(BaseResolweFilter):
@@ -70,3 +54,19 @@ class ProcessFilter(BaseResolweFilter):
         """Filter configuration."""
 
         model = Process
+
+
+class DataFilter(BaseResolweFilter):
+    """Filter the Data endpoint."""
+
+    collection = filters.RelatedFilter(CollectionFilter)
+    type = filters.CharFilter(name='process__type', lookup_type='startswith')
+    status = filters.CharFilter(lookup_expr='iexact')
+    finished = filters.AllLookupsFilter()
+    started = filters.AllLookupsFilter()
+    process = filters.RelatedFilter(ProcessFilter)
+
+    class Meta:
+        """Filter configuration."""
+
+        model = Data
