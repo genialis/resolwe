@@ -18,6 +18,7 @@ Added
 - Data object's checksum is automatically calculated on save
 - ``get_or_create`` end point for ``Data`` objects
 - ``basic:file:html:`` field for HTML files
+- Helper function for comparing JSON fields in tests
 
 Changed
 -------

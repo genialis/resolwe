@@ -264,6 +264,53 @@ class ProcessTestCase(TestCase):
 
         return data
 
+    def get_json(self, file_name, storage):
+        """Return JSON saved in file and test JSON to compare it to.
+
+        The method returns a tuple of the saved JSON and the test JSON.
+        In your test you should then compare the test JSON to the saved
+        JSON that is commited to the repository.
+
+        The storage argument could be a Storage object, Storage ID or a
+        Python dictionary. The test JSON is assigned a json field of
+        the Storage object or the complete Python dictionary
+        (if a dict is given).
+
+        If the file does not exist it is created, the test JSON is
+        written to the new file and an exception is rased.
+
+        :param str file_name: file name (and relative path) of a JSON
+            file. Path should be relative to the ``tests/files``
+            directory of a Django app. The file name must have a ``.gz`` extension.
+        :param storage: Storage object, Storage ID or a dict.
+        :type storage: :class:`~resolwe.flow.models.Storage`,
+            :class:`str` or :class:`dict`
+        :return: (reference JSON, test JSON)
+        :rtype: tuple
+
+        """
+        self.assertEqual(os.path.splitext(file_name)[1], '.gz', msg='File extension must be .gz')
+
+        if isinstance(storage, Storage):
+            json_dict = storage.json
+        elif isinstance(storage, int):
+            json_dict = Storage.objects.get(pk=storage).json
+        elif isinstance(storage, dict):
+            json_dict = storage
+        else:
+            print(type(storage))
+            raise ValueError('Argument storage should be of type Storage, int or dict.')
+
+        file_path = os.path.join(self.files_path, file_name)
+        if not os.path.isfile(file_path):
+            with gzip.open(file_path, mode='wt') as f:
+                json.dump(json_dict, f)
+
+            self.fail(msg="Output file {} missing so it was created.".format(file_name))
+
+        with gzip.open(file_path, mode='rt') as f:
+            return json.load(f), json_dict
+
     def assertStatus(self, obj, status):  # pylint: disable=invalid-name
         """Check if object's status is equal to the given status.
 
