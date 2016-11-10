@@ -25,7 +25,8 @@ from django.test import TestCase, override_settings
 from django.utils.crypto import get_random_string
 from django.utils.text import slugify
 
-from resolwe.flow.models import Data, dict_dot, iterate_fields, Collection, DescriptorSchema, Process, Storage
+from resolwe.flow.models import (Data, dict_dot, iterate_fields, iterate_schema, Collection,
+                                 DescriptorSchema, Process, Storage)
 from resolwe.flow.managers import manager
 
 
@@ -327,6 +328,9 @@ class ProcessTestCase(TestCase):
     def assertFields(self, obj, path, value):  # pylint: disable=invalid-name
         """Compare object's field to the given value.
 
+        The file size is ignored. Use assertFile to validate
+        file contents.
+
         :param obj: object with the field to compare
         :type obj: ~resolwe.flow.models.Data
 
@@ -337,9 +341,32 @@ class ProcessTestCase(TestCase):
             :class:`~resolwe.flow.models.Data` object's field
 
         """
-        field = dict_dot(obj.output, path)
-        self.assertEqual(field, value,
-                         msg="Field 'output.{}' mismatch: {} != {}".format(path, field, value) +
+        field_schema, field = None, None
+        for field_schema, field, field_path in iterate_schema(obj.output, obj.process.output_schema, ''):
+            if path == field_path:
+                break
+
+        field_name = field_schema['name']
+        field_value = field[field_name]
+
+        def remove_file_size(field_value):
+            """Remove size value from file field."""
+            if 'size' in field_value:
+                del field_value['size']
+
+        # Ignore size in file fields
+        if field_schema['type'].startswith('basic:file:'):
+            remove_file_size(field_value)
+            remove_file_size(value)
+
+        elif field_schema['type'].startswith('list:basic:file:'):
+            for val in field_value:
+                remove_file_size(val)
+            for val in value:
+                remove_file_size(val)
+
+        self.assertEqual(field_value, value,
+                         msg="Field 'output.{}' mismatch: {} != {}".format(path, field_value, value) +
                          self._debug_info(obj))
 
     def _assert_file(self, obj, fn_tested, fn_correct, compression=None, file_filter=lambda _: False):

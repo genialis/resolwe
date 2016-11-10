@@ -34,6 +34,7 @@ Fixed
 - Take last version of process for spawned objects
 - Use default values for descriptor fields that are not given
 - Improve handling of validation errors
+- Ignore file size in assertFields
 
 ==================
 1.3.1 - 2016-07-27
