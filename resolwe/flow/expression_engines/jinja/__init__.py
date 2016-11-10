@@ -31,6 +31,10 @@ class NestedUndefined(jinja2.Undefined):
         """Override."""
         return NestedUndefined()
 
+    def __getitem__(self, *args, **kwargs):
+        """Override."""
+        return NestedUndefined()
+
 
 class ExpressionEngine(BaseExpressionEngine):
     """Jinja2-based expression engine."""

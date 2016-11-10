@@ -107,3 +107,7 @@ class ExpressionEngineTest(TestCase):
         self.assertEqual(expression, None)
         expression = engine.evaluate_inline('a.b.c().d', {})
         self.assertEqual(expression, None)
+        expression = engine.evaluate_inline('a.b.0.d', {'a': {'b': [{'d': 'Hello world'}]}})
+        self.assertEqual(expression, 'Hello world')
+        expression = engine.evaluate_inline('a.b.0.d', {})
+        self.assertEqual(expression, None)
