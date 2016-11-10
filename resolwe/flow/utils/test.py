@@ -345,6 +345,8 @@ class ProcessTestCase(TestCase):
         for field_schema, field, field_path in iterate_schema(obj.output, obj.process.output_schema, ''):
             if path == field_path:
                 break
+        else:
+            self.fail("Field not found in path {}".format(path))
 
         field_name = field_schema['name']
         field_value = field[field_name]
@@ -354,12 +356,14 @@ class ProcessTestCase(TestCase):
             if 'size' in field_value:
                 del field_value['size']
 
-        # Ignore size in file fields
-        if field_schema['type'].startswith('basic:file:'):
+        # Ignore size in file and dir fields
+        if (field_schema['type'].startswith('basic:file:') or
+                field_schema['type'].startswith('basic:dir:')):
             remove_file_size(field_value)
             remove_file_size(value)
 
-        elif field_schema['type'].startswith('list:basic:file:'):
+        elif (field_schema['type'].startswith('list:basic:file:') or
+              field_schema['type'].startswith('list:basic:dir:')):
             for val in field_value:
                 remove_file_size(val)
             for val in value:
