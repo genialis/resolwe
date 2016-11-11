@@ -78,6 +78,7 @@ from versionfield import VersionField
 from autoslug import AutoSlugField
 
 from .utils import get_data_checksum
+from .expression_engines import EvaluationError
 
 
 VERSION_NUMBER_BITS = (8, 10, 14)
@@ -550,11 +551,14 @@ class Data(BaseModel):
         hydrate_input_references(inputs, self.process.input_schema, hydrate_values=False)  # pylint: disable=no-member
         template_context = inputs
 
-        self.name = render_template(
-            self.process,
-            self.process.data_name,  # pylint: disable=no-member
-            template_context
-        )
+        try:
+            self.name = render_template(
+                self.process,
+                self.process.data_name,  # pylint: disable=no-member
+                template_context
+            )
+        except EvaluationError:
+            self.name = '?'
 
 
 class DescriptorSchema(BaseModel):

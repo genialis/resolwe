@@ -134,3 +134,7 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.run_process('test-broken', assert_status=Data.STATUS_ERROR)
         self.run_process('test-broken-invalid-expression-engine', assert_status=Data.STATUS_ERROR)
         self.run_process('test-broken-invalid-execution-engine', assert_status=Data.STATUS_ERROR)
+
+        # If evaluation of data_name template fails, the process should not abort as the
+        # template may be evaluatable later when the process completes.
+        self.run_process('test-broken-data-name')

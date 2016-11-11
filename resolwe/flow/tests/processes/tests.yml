@@ -228,3 +228,15 @@
     language: invalid
     program: |
       echo "This process has an invalid execution engine"
+
+- slug: test-broken-data-name
+  name: Minimalistic Processor
+  requirements:
+    expression-engine: jinja
+  data_name: "{% if"
+  version: 1.0.0
+  type: "data:test:broken"
+  run:
+    language: bash
+    program: |
+      echo "This process has a broken data name template"

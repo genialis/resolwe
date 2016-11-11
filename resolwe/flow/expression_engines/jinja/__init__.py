@@ -36,6 +36,18 @@ class NestedUndefined(jinja2.Undefined):
         return NestedUndefined()
 
 
+def propagate_errors_as_undefined(function):
+    """A filter decorator for propagating exceptions as undefined values."""
+    def wrapper(*args, **kwargs):
+        """Filter wrapper."""
+        try:
+            return function(*args, **kwargs)
+        except Exception:  # pylint: disable=broad-except
+            return NestedUndefined()
+
+    return wrapper
+
+
 class ExpressionEngine(BaseExpressionEngine):
     """Jinja2-based expression engine."""
 
@@ -54,6 +66,9 @@ class ExpressionEngine(BaseExpressionEngine):
         self._environment.filters.update(builtin_filters)
         # Register custom filters.
         self._register_custom_filters()
+        # Decorate all filters with undefined error propagation.
+        for name, function in self._environment.filters.items():
+            self._environment.filters[name] = propagate_errors_as_undefined(function)
 
     def _register_custom_filters(self):
         """Register any custom filter modules."""

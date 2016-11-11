@@ -111,3 +111,13 @@ class ExpressionEngineTest(TestCase):
         self.assertEqual(expression, 'Hello world')
         expression = engine.evaluate_inline('a.b.0.d', {})
         self.assertEqual(expression, None)
+
+        # Test that propagation of undefined values works.
+        expression = engine.evaluate_inline('foo.bar | name | default("bar")', {})
+        self.assertEqual(expression, 'bar')
+        expression = engine.evaluate_inline('foo.bar | id | default("bar")', {})
+        self.assertEqual(expression, 'bar')
+        expression = engine.evaluate_inline('foo.bar | type | default("bar")', {})
+        self.assertEqual(expression, 'bar')
+        expression = engine.evaluate_inline('foo.bar | basename | default("bar")', {})
+        self.assertEqual(expression, 'bar')
