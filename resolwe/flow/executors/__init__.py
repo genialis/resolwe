@@ -10,6 +10,7 @@ Flow Executors
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+from collections import defaultdict
 import json
 import logging
 import os
@@ -37,7 +38,6 @@ else:
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 CWD = os.getcwd()
-EXPORTED_FILES_MAPPER = {}
 
 
 def iterjson(text):
@@ -53,23 +53,27 @@ def iterjson(text):
         yield obj
 
 
-def hydrate_spawned_files(filename, data_id):
-    """Hydrate spawned files' paths."""
-    if filename not in EXPORTED_FILES_MAPPER:
-        raise KeyError('All files referenced in spawned processes must be exported using'
-                       '`re-export` command.')
-
-    export_fn = EXPORTED_FILES_MAPPER[filename]
-    return {'file_temp': export_fn, 'file': filename}
-
-
 class BaseFlowExecutor(BaseEngine):
     """Represents a workflow executor."""
+
+    exported_files_mapper = defaultdict(dict)
 
     def __init__(self, *args, **kwargs):
         """Initialize attributes."""
         super(BaseFlowExecutor, self).__init__(*args, **kwargs)
         self.data_id = None
+
+    def hydrate_spawned_files(self, filename, data_id):
+        """Hydrate spawned files' paths."""
+        if filename not in self.exported_files_mapper[self.data_id]:
+            raise KeyError('Use `re-export` to prepare the file for spawned process: {}'.format(filename))
+
+        export_fn = self.exported_files_mapper[self.data_id].pop(filename)
+
+        if self.exported_files_mapper[self.data_id] == {}:
+            self.exported_files_mapper.pop(self.data_id)
+
+        return {'file_temp': export_fn, 'file': filename}
 
     def get_tools(self):
         """Get tools paths."""
@@ -169,7 +173,7 @@ class BaseFlowExecutor(BaseEngine):
                         unique_name = 'export_{}'.format(uuid.uuid4().hex)
                         export_path = os.path.join(export_folder, unique_name)
 
-                        EXPORTED_FILES_MAPPER[file_name] = unique_name
+                        self.exported_files_mapper[self.data_id][file_name] = unique_name
 
                         shutil.move(file_name, export_path)
                     else:
@@ -254,9 +258,9 @@ class BaseFlowExecutor(BaseEngine):
                     value = fields[name]
 
                     if type_ == 'basic:file:':
-                        fields[name] = hydrate_spawned_files(value, data_id)
+                        fields[name] = self.hydrate_spawned_files(value, data_id)
                     elif type_ == 'list:basic:file:':
-                        fields[name] = [hydrate_spawned_files(fn, data_id) for fn in value]
+                        fields[name] = [self.hydrate_spawned_files(fn, data_id) for fn in value]
 
                 with transaction.atomic():
                     d = Data.objects.create(**d)

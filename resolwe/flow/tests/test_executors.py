@@ -130,6 +130,10 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.assertEqual(data.output['saved_file']['file'], 'foo.bar')
         self.assertTrue(os.path.isfile(file_path))
 
+    def test_spawn_missing_export(self):
+        with six.assertRaisesRegex(self, KeyError, 'Use `re-export`'):
+            self.run_process('test-spawn-missing-file')
+
     def test_broken(self):
         self.run_process('test-broken', assert_status=Data.STATUS_ERROR)
         self.run_process('test-broken-invalid-expression-engine', assert_status=Data.STATUS_ERROR)

@@ -1,3 +1,17 @@
+- slug: test-spawn-missing-file
+  name: Spawn new process
+  requirements:
+    expression-engine: jinja
+  data_name: Spawned data
+  version: 1.0.0
+  type: "data:test:spawn:bad"
+  run:
+    language: bash
+    program: |
+      touch foo.bar
+      echo 'run {"process": "test-save-file", "input": {"input_file": "foo.bar"}}'
+
+
 - slug: test-spawn-new
   name: Spawn new process
   requirements:
