@@ -7,6 +7,7 @@ from django.contrib.auth.models import User
 from django.core.urlresolvers import reverse
 from django.test import TestCase
 
+from guardian.shortcuts import assign_perm, remove_perm
 from rest_framework.test import APIRequestFactory, force_authenticate
 from rest_framework import status
 
@@ -17,7 +18,8 @@ factory = APIRequestFactory()  # pylint: disable=invalid-name
 
 
 MESSAGES = {
-    u'NOT_FOUND': u'Not found.',
+    'NOT_FOUND': 'Not found.',
+    'NO_PERMS': 'You do not have permission to perform this action.',
 }
 
 
@@ -132,41 +134,47 @@ class TestCollectionViewSetCase(TestCase):
 
     def test_add_remove_data(self):
         c = Collection.objects.create(slug="collection1", name="Collection 1", contributor=self.super_user)
+        assign_perm('view_collection', self.user, c)
+        assign_perm('edit_collection', self.user, c)
+        assign_perm('share_collection', self.user, c)
 
         proc = Process.objects.create(type='test:process', name='Test process', contributor=self.user)
         d = Data.objects.create(contributor=self.user, slug='test1', process=proc)
 
         request = factory.post(self.detail_url(c.pk), {'ids': [str(d.pk)]}, format='json')
+        force_authenticate(request, self.user)
 
         # user w/o permissions cannot add data
-        force_authenticate(request, self.user)
         resp = self.add_data_viewset(request, pk=c.pk)
-        self.assertEqual(resp.data[u'detail'], MESSAGES['NOT_FOUND'])
+        self.assertEqual(resp.data[u'detail'], MESSAGES['NO_PERMS'])
         self.assertEqual(c.data.count(), 0)
 
+        assign_perm('add_collection', self.user, c)
+
         # user w/ permissions can add data
-        force_authenticate(request, self.super_user)
         resp = self.add_data_viewset(request, pk=c.pk)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(c.data.count(), 1)
 
         request = factory.post(self.detail_url(c.pk), {'ids': [str(d.pk)]}, format='json')
-
-        # user w/o permissions cannot add data
         force_authenticate(request, self.user)
+        remove_perm('add_collection', self.user, c)
+
+        # user w/o permissions cannot remove data
         resp = self.remove_data_viewset(request, pk=c.pk)
-        self.assertEqual(resp.data[u'detail'], MESSAGES['NOT_FOUND'])
+        self.assertEqual(resp.data[u'detail'], MESSAGES['NO_PERMS'])
         self.assertEqual(c.data.count(), 1)
 
+        assign_perm('add_collection', self.user, c)
+
         # user w/ permissions can remove data
-        force_authenticate(request, self.super_user)
         resp = self.remove_data_viewset(request, pk=c.pk)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(c.data.count(), 0)
 
         request = factory.post(self.detail_url(c.pk), {'ids': ['42']}, format='json')
+        force_authenticate(request, self.user)
 
-        force_authenticate(request, self.super_user)
         resp = self.remove_data_viewset(request, pk=c.pk)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(c.data.count(), 0)

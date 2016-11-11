@@ -461,12 +461,6 @@ class CollectionViewSet(ResolweCreateModelMixin,
         """Add data to collection."""
         collection = self.get_object()
 
-        if not request.user.has_perm('add_collection', obj=collection):
-            if request.user.is_authenticated():
-                raise exceptions.PermissionDenied()
-            else:
-                raise exceptions.NotFound()
-
         if 'ids' not in request.data:
             return Response({"error": "`ids`parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -489,12 +483,6 @@ class CollectionViewSet(ResolweCreateModelMixin,
     def remove_data(self, request, pk=None):
         """Remove data from collection."""
         collection = self.get_object()
-
-        if not request.user.has_perm('add_collection', obj=collection):
-            if request.user.is_authenticated():
-                raise exceptions.PermissionDenied()
-            else:
-                raise exceptions.NotFound()
 
         if 'ids' not in request.data:
             return Response({"error": "`ids`parameter is required"}, status=status.HTTP_400_BAD_REQUEST)

@@ -29,14 +29,11 @@ class ResolwePermissions(permissions.DjangoObjectPermissions):
         if request.user.is_superuser:
             return True
 
-        # owners can do anything
-        content_type = ContentType.objects.get_for_model(obj)
-        perm = 'owner_{}'.format(content_type.name)
-        if request.user.has_perm(perm, obj):
-            return True
-
         # `share` permission is required for editing permissions
         if 'permissions' in view.action:
             self.perms_map['POST'] = ['%(app_label)s.share_%(model_name)s']
+
+        if view.action in ['add_data', 'remove_data']:
+            self.perms_map['POST'] = ['%(app_label)s.add_%(model_name)s']
 
         return super(ResolwePermissions, self).has_object_permission(request, view, obj)
