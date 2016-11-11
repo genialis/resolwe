@@ -11,6 +11,7 @@ from celery import shared_task  # pylint: disable=import-error
 
 
 @shared_task
-def celery_run(executor, data_id, script, verbosity):
+def celery_run(data_id, script, verbosity):
     """Run process executor."""
-    executor.run(data_id, script, verbosity)
+    from .managers import manager
+    manager.get_executor().run(data_id, script, verbosity)

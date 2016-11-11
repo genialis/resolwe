@@ -119,6 +119,10 @@ class BaseManager(object):
                 print("Running", program)
             self.run(data_id, program, verbosity=verbosity)
 
+    def get_executor(self):
+        """Return an executor instance."""
+        return self.executor
+
     def get_expression_engine(self, name):
         """Return an expression engine instance."""
         try:

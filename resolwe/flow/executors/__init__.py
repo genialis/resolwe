@@ -64,13 +64,7 @@ def hydrate_spawned_files(filename, data_id):
 
 
 class BaseFlowExecutor(BaseEngine):
-    """Represents a workflow executor.
-
-    .. WARNING::
-        Ensure this class can be serialized since some engines will
-        use it this way (e.g. Celery).
-
-    """
+    """Represents a workflow executor."""
 
     def __init__(self, *args, **kwargs):
         """Initialize attributes."""

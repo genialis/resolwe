@@ -24,4 +24,4 @@ class Manager(BaseManager):
 
     def run(self, data_id, script, run_sync=False, verbosity=1):
         """Run process."""
-        celery_run.delay(self.executor, data_id, script, verbosity)
+        celery_run.delay(data_id, script, verbosity)
