@@ -64,6 +64,10 @@ setup(
         'Sphinx>=1.4.6',
         'Jinja2>=2.8',
     ],
+    dependency_links=[
+        # Required due to issue https://github.com/neithere/django-autoslug/pull/18.
+        'git+https://github.com/kostko/django-autoslug.git@fix/empty-slug#egg=django-autoslug-1.9.4',
+    ],
     extras_require={
         'docs':  [
             'sphinx_rtd_theme',
