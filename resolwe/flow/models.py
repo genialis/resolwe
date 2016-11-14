@@ -59,6 +59,8 @@ Postgres ORM model for storing JSON.
 
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
+
+import copy
 import functools
 import json
 import os
@@ -299,7 +301,7 @@ def render_descriptor(data):
     if not data.descriptor_schema:
         return
 
-    inputs = data.input.copy()
+    inputs = copy.deepcopy(data.input)
     if data.process.input_schema:
         hydrate_input_references(inputs, data.process.input_schema, hydrate_values=False)
     template_context = inputs
@@ -547,7 +549,7 @@ class Data(BaseModel):
         if not self.process.data_name or self.named_by_user:  # pylint: disable=no-member
             return
 
-        inputs = self.input.copy()  # pylint: disable=no-member
+        inputs = copy.deepcopy(self.input)
         hydrate_input_references(inputs, self.process.input_schema, hydrate_values=False)  # pylint: disable=no-member
         template_context = inputs
 
@@ -1055,7 +1057,7 @@ def hydrate_input_references(input_, input_schema, hydrate_values=True):
                     continue
 
                 data = Data.objects.get(id=value)
-                output = data.output.copy()
+                output = copy.deepcopy(data.output)
                 # static = Data.static.to_python(data.static)
                 if hydrate_values:
                     _hydrate_values(output, data.process.output_schema, data)
@@ -1074,7 +1076,7 @@ def hydrate_input_references(input_, input_schema, hydrate_values=True):
                         continue
 
                     data = Data.objects.get(id=val)
-                    output = data.output.copy()
+                    output = copy.deepcopy(data.output)
                     # static = Data.static.to_python(data.static)
                     if hydrate_values:
                         _hydrate_values(output, data.process.output_schema, data)

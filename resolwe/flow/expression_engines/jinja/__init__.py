@@ -57,6 +57,7 @@ class ExpressionEngine(BaseExpressionEngine):
     """Jinja2-based expression engine."""
 
     name = 'jinja'
+    inline_tags = ('{{', '}}')
 
     def __init__(self, *args, **kwargs):
         """Construct the expression engine."""

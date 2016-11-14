@@ -21,6 +21,7 @@ Added
 - Helper function for comparing JSON fields in tests
 - Purge directories not belonging to any data objects
 - Ordering options to API endpoints
+- Workflow execution engine
 
 Changed
 -------

@@ -72,7 +72,7 @@
                 },
                 "program": {
                     "description": "Program definition",
-                    "type": "string"
+                    "type": ["string", "object", "array"]
                 }
             },
             "additionalProperties": false

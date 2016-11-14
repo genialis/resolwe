@@ -1,6 +1,8 @@
 """An execution engine that outputs bash programs."""
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+import copy
+
 from django.conf import settings
 
 from resolwe.flow.execution_engines.base import BaseExecutionEngine
@@ -17,7 +19,7 @@ class ExecutionEngine(BaseExecutionEngine):
     def evaluate(self, data):
         """Evaluate the code needed to compute a given Data object."""
         try:
-            inputs = data.input.copy()
+            inputs = copy.deepcopy(data.input)
             hydrate_input_references(inputs, data.process.input_schema)
             hydrate_input_uploads(inputs, data.process.input_schema)
 

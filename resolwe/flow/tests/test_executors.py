@@ -142,3 +142,22 @@ class ManagerRunProcessTest(ProcessTestCase):
         # If evaluation of data_name template fails, the process should not abort as the
         # template may be evaluatable later when the process completes.
         self.run_process('test-broken-data-name')
+
+    def test_workflow(self):
+        self.run_process('test-workflow-1')
+
+        workflow_data = Data.objects.get(process__slug='test-workflow-1')
+        step1_data = Data.objects.get(process__slug='test-example-1')
+        step2_data = Data.objects.get(process__slug='test-example-2')
+
+        # Workflow should output indices of all data objects, in order.
+        self.assertEqual(workflow_data.output['steps'], [step1_data.pk, step2_data.pk])
+
+        # Steps should execute with the correct variables.
+        self.assertEqual(step1_data.input['param1'], 'world')
+        self.assertEqual(step1_data.input['param2'], True)
+        self.assertEqual(step1_data.output['out1'], 'hello world')
+        self.assertEqual(step2_data.input['param1'], step1_data.pk)
+        self.assertEqual(step2_data.input['param2']['a'], step1_data.pk)
+        self.assertEqual(step2_data.input['param2']['b'], 'hello')
+        self.assertEqual(step2_data.output['out1'], 'simon says: hello world')

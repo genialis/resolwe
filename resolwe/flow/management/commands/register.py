@@ -21,6 +21,8 @@ from versionfield.utils import convert_version_string_to_int
 
 from resolwe.flow.models import DescriptorSchema, Process, iterate_schema, validation_schema, VERSION_NUMBER_BITS
 from resolwe.flow.finders import get_finders
+from resolwe.flow.managers import manager
+from resolwe.flow.engine import InvalidEngineError
 
 
 PROCESSOR_SCHEMA = validation_schema('processor')
@@ -143,6 +145,15 @@ class Command(BaseCommand):
             if 'run' in p:
                 # Set default language to 'bash' if not set.
                 p['run'].setdefault('language', 'bash')
+
+                # Transform output schema using the execution engine.
+                try:
+                    execution_engine = manager.get_execution_engine(p['run']['language'])
+                    extra_output_schema = execution_engine.get_output_schema(p)
+                    if extra_output_schema:
+                        p.setdefault('output_schema', []).extend(extra_output_schema)
+                except InvalidEngineError:
+                    pass
 
             slug = p['slug']
             version = p['version']

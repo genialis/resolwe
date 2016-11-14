@@ -62,7 +62,7 @@
             "properties": {
                 "type": {
                     "type": "string",
-                    "pattern": "^(basic:integer|data:[a-z0-9:]+):$"
+                    "pattern": "^(basic:integer|data(:[a-z0-9:]+)?):$"
                 },
                 "value": {
                     "type": "integer"
@@ -248,7 +248,7 @@
             "properties": {
                 "type": {
                     "type": "string",
-                    "pattern": "^list:(basic:integer|data:[a-z0-9:]+):$"
+                    "pattern": "^list:(basic:integer|data(:[a-z0-9:]+)?):$"
                 },
                 "value": {
                     "type": "array",

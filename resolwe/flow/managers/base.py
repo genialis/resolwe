@@ -104,7 +104,10 @@ class BaseManager(object):
                         # program must not be set to None as then the process will be stuck in waiting state.
                         program = ''
 
-                    data.status = Data.STATUS_WAITING
+                    if data.status != Data.STATUS_DONE:
+                        # The data object may already be marked as done by the execution engine. In this
+                        # case we must not revert the status to STATUS_WAITING.
+                        data.status = Data.STATUS_WAITING
                     data.save(render_name=True)
 
                     if program is not None:

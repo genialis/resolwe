@@ -14,3 +14,7 @@ class BaseExecutionEngine(BaseEngine):
     def get_expression_engine(self, name):
         """Return an expression engine by its name."""
         return self.manager.get_expression_engine(name)
+
+    def get_output_schema(self, process):
+        """Return any additional output schema for the process."""
+        return []
