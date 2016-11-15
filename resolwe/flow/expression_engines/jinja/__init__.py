@@ -45,6 +45,11 @@ def propagate_errors_as_undefined(function):
         except Exception:  # pylint: disable=broad-except
             return NestedUndefined()
 
+    # Copy over Jinja filter decoration attributes.
+    for attribute in dir(function):
+        if attribute.endswith('filter'):
+            setattr(wrapper, attribute, getattr(function, attribute))
+
     return wrapper
 
 

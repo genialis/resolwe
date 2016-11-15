@@ -121,3 +121,8 @@ class ExpressionEngineTest(TestCase):
         self.assertEqual(expression, 'bar')
         expression = engine.evaluate_inline('foo.bar | basename | default("bar")', {})
         self.assertEqual(expression, 'bar')
+
+        # Ensure that filter decorations are correctly copied when decorating filters to
+        # automatically propagate undefined values on exceptions.
+        expression = engine.evaluate_inline('foo | join(" ")', {'foo': ['a', 'b', 'c']})
+        self.assertEqual(expression, 'a b c')
