@@ -49,7 +49,7 @@ setup(
         'Django~=1.9.11',
         'djangorestframework>=3.4.0',
         'djangorestframework-filters>=0.9.0',
-        'django-autoslug>=1.9.0',
+        'django-autoslug==1.9.4-dev',
         'django-guardian>=1.4.2',
         'django-mathfilters>=0.3.0',
         # XXX: django-versionfield2 0.5.0 does not work yet:
@@ -66,7 +66,7 @@ setup(
     ],
     dependency_links=[
         # Required due to issue https://github.com/neithere/django-autoslug/pull/18.
-        'git+https://github.com/kostko/django-autoslug.git@fix/empty-slug#egg=django-autoslug-1.9.4',
+        'git+https://github.com/kostko/django-autoslug.git@fix/empty-slug#egg=django-autoslug-1.9.4-dev',
     ],
     extras_require={
         'docs':  [

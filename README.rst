@@ -89,14 +89,14 @@ From PyPI_
 
 .. code::
 
-    pip install resolwe
+    pip install --process-dependency-links resolwe
 
 From source
 -----------
 
 .. code::
 
-   pip install https://github.com/genialis/resolwe/archive/<git-tree-ish>.tar.gz
+   pip install --process-dependency-links https://github.com/genialis/resolwe/archive/<git-tree-ish>.tar.gz
 
 where ``<git-tree-ish>`` can represent any commit SHA, branch name, tag name,
 etc. in `Resolwe's GitHub repository`_. For example, to install the latest
@@ -104,7 +104,7 @@ Resolwe from the ``master`` branch, use:
 
 .. code::
 
-   pip install https://github.com/genialis/resolwe/archive/master.tar.gz
+   pip install --process-dependency-links https://github.com/genialis/resolwe/archive/master.tar.gz
 
 .. _`Resolwe's GitHub repository`: https://github.com/genialis/resolwe/
 
