@@ -9,6 +9,7 @@
 *.sublime-workspace
 sftp-config.json
 .idea
+.vscode
 
 # Ignore binaries.
 *.py[cod]
