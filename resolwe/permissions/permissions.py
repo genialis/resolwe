@@ -1,8 +1,6 @@
 """Custom permissions for Flow API."""
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-from django.contrib.contenttypes.models import ContentType
-
 from rest_framework import permissions
 
 

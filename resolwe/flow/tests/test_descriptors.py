@@ -15,6 +15,7 @@ class DescriptorTestCase(TestCase):
         self.process = Process.objects.create(name="Dummy process", contributor=self.user)
 
         self.descriptor_schema = DescriptorSchema.objects.create(
+            name='Descriptor schema',
             contributor=self.user,
             schema=[
                 {'name': 'test_field', 'type': 'basic:string:', 'default': 'default value'}
@@ -23,6 +24,7 @@ class DescriptorTestCase(TestCase):
 
     def test_default_values(self):
         data = Data.objects.create(
+            name='Data object',
             contributor=self.user,
             process=self.process,
             descriptor_schema=self.descriptor_schema,
@@ -30,6 +32,7 @@ class DescriptorTestCase(TestCase):
         self.assertEqual(data.descriptor['test_field'], 'default value')
 
         data = Data.objects.create(
+            name='Data object 2',
             contributor=self.user,
             process=self.process,
             descriptor_schema=self.descriptor_schema,
