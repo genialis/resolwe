@@ -50,6 +50,9 @@ setup(
         'djangorestframework>=3.4.0',
         'djangorestframework-filters>=0.9.0',
         'django-autoslug==1.9.4-dev',
+        # XXX: Doesn't work with with the latest django-filter 1.0.0
+        # This line should be completely removed when fixed
+        'django-filter==0.15.3',
         'django-guardian>=1.4.2',
         'django-mathfilters>=0.3.0',
         # XXX: django-versionfield2 0.5.0 does not work yet:
