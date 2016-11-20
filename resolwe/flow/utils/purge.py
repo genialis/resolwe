@@ -119,6 +119,22 @@ def data_purge(data_ids=None, delete=False, verbosity=0):
             getattr(data.descriptor_schema, 'schema', [])
         ))
 
+    # Remove any folders, which do not belong to any data objects.
+    if data_ids is None:
+        for directory in os.listdir(data_path):
+            directory_path = os.path.join(data_path, directory)
+            if not os.path.isdir(directory_path):
+                continue
+
+            try:
+                data_id = int(directory)
+            except ValueError:
+                continue
+
+            # Check if a data object with the given identifier exists.
+            if not Data.objects.filter(pk=data_id).exists():
+                unreferenced_files.add(directory_path)
+
     if verbosity >= 1:
         # Print unreferenced files
         if unreferenced_files:
@@ -128,7 +144,7 @@ def data_purge(data_ids=None, delete=False, verbosity=0):
         else:
             print("No unreferenced files")
 
-    # Go through unreferenced files and delete them
+    # Go through unreferenced files and delete them.
     if delete:
         for name in unreferenced_files:
             if os.path.isfile(name) or os.path.islink(name):

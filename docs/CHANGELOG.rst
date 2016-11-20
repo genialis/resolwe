@@ -19,6 +19,7 @@ Added
 - ``get_or_create`` end point for ``Data`` objects
 - ``basic:file:html:`` field for HTML files
 - Helper function for comparing JSON fields in tests
+- Purge directories not belonging to any data objects
 
 Changed
 -------

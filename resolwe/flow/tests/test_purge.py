@@ -313,7 +313,12 @@ class PurgeUnitTest(PurgeTestFieldsMixin, TestCase):
         as a reference in the Data object's output/descriptor.
         """
 
-        root = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.pk))
+        if isinstance(data, Data):
+            data_id = data.pk
+        else:
+            data_id = int(data)
+
+        root = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data_id))
         try:
             os.makedirs(root)
             self.test_files.add(root)
@@ -382,6 +387,24 @@ class PurgeUnitTest(PurgeTestFieldsMixin, TestCase):
             purge.data_purge(delete=True)
             os_mock.remove.assert_called_once_with(
                 os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(completed_data.pk), 'removeme'))
+
+        # Create dummy data directories for non-existant data objects.
+        self.create_test_file(990, 'dummy')
+        self.create_test_file(991, 'dummy')
+
+        # Check that only the 'removeme' file from the completed Data objects is removed
+        # together with directories not belonging to any data objects.
+        with patch('resolwe.flow.utils.purge.os', wraps=os) as os_mock:
+            os_mock.path.isfile = MagicMock(return_value=True)
+            os_mock.remove = MagicMock()
+            purge.data_purge(delete=True)
+            self.assertEqual(os_mock.remove.call_count, 3)
+            os_mock.remove.assert_any_call(
+                os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(completed_data.pk), 'removeme'))
+            os_mock.remove.assert_any_call(
+                os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], '990'))
+            os_mock.remove.assert_any_call(
+                os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], '991'))
 
         # Create another data object and check that if remove is called on one object,
         # only that object's data is removed.
