@@ -20,6 +20,7 @@ Added
 - ``basic:file:html:`` field for HTML files
 - Helper function for comparing JSON fields in tests
 - Purge directories not belonging to any data objects
+- Ordering options to API endpoints
 
 Changed
 -------
@@ -36,6 +37,8 @@ Fixed
 - Use default values for descriptor fields that are not given
 - Improve handling of validation errors
 - Ignore file size in assertFields
+- Order data objects in ``CollectionViewSet``
+
 
 ==================
 1.3.1 - 2016-07-27

@@ -31,14 +31,13 @@ class TestDataViewSetCase(TestCase):
 
         self.user = User.objects.create(is_superuser=True)
 
+        proc = Process.objects.create(type='test:process', name='Test process', contributor=self.user)
+        self.data_1 = Data.objects.create(contributor=self.user, slug='test1', process=proc)
+        self.data_2 = Data.objects.create(contributor=self.user, slug='test2', process=proc)
+
     @mock.patch('resolwe.flow.models.Process.objects.all')
     def test_prefetch(self, process_mock):
-        # TODO: find way to mock Data objects
-        proc = Process.objects.create(type='test:process', name='Test process', contributor=self.user)
-        Data.objects.create(contributor=self.user, slug='test1', process=proc)
-        Data.objects.create(contributor=self.user, slug='test2', process=proc)
-
-        request = factory.get('/', '', content_type='application/json')
+        request = factory.get('/', '', format='json')
         force_authenticate(request, self.user)
         self.data_viewset(request)
 

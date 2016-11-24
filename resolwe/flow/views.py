@@ -12,6 +12,7 @@ import pkgutil
 from importlib import import_module
 
 from django.db import IntegrityError, transaction
+from django.db.models.query import Prefetch
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser, Group, Permission
@@ -451,10 +452,16 @@ class CollectionViewSet(ResolweCreateModelMixin,
                         viewsets.GenericViewSet):
     """API view for :class:`Collection` objects."""
 
-    queryset = Collection.objects.all().prefetch_related('descriptor_schema', 'contributor')
+    queryset = Collection.objects.all().prefetch_related(
+        'descriptor_schema',
+        'contributor',
+        Prefetch('data', queryset=Data.objects.all().order_by('id'))
+    )
     serializer_class = CollectionSerializer
     permission_classes = (permissions_cls,)
     filter_class = CollectionFilter
+    ordering_fields = ('id', 'created', 'modified', 'name')
+    ordering = ('id',)
 
     @detail_route(methods=[u'post'])
     def add_data(self, request, pk=None):
@@ -505,6 +512,8 @@ class ProcessViewSet(ResolweCreateModelMixin,
     serializer_class = ProcessSerializer
     permission_classes = (permissions_cls,)
     filter_class = ProcessFilter
+    ordering_fields = ('id', 'created', 'modified', 'name')
+    ordering = ('id',)
 
 
 class DataViewSet(ResolweCreateDataModelMixin,
@@ -521,6 +530,8 @@ class DataViewSet(ResolweCreateDataModelMixin,
     serializer_class = DataSerializer
     permission_classes = (permissions_cls,)
     filter_class = DataFilter
+    ordering_fields = ('id', 'created', 'modified', 'started', 'finished', 'name')
+    ordering = ('id',)
 
 
 class DescriptorSchemaViewSet(mixins.RetrieveModelMixin,
@@ -533,6 +544,8 @@ class DescriptorSchemaViewSet(mixins.RetrieveModelMixin,
     serializer_class = DescriptorSchemaSerializer
     permission_classes = (permissions_cls,)
     filter_fields = ('contributor', 'name', 'description', 'created', 'modified', 'slug')
+    ordering_fields = ('id', 'created', 'modified', 'name')
+    ordering = ('id',)
 
 
 class TriggerViewSet(ResolweCreateModelMixin,
