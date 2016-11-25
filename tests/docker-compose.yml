@@ -3,7 +3,6 @@
 #
 postgresql:
     image: postgres:9.4
-    container_name: resolwe_postgresql
     environment:
         POSTGRES_USER: resolwe
         POSTGRES_DB: resolwe

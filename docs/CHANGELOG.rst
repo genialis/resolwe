@@ -28,6 +28,7 @@ Changed
 - Split expression engines into expression engines and execution engines
 - Use Jinja2 instead of Django Template syntax
 - Expression engine must be declared in ``requirements``
+- Set Docker Compose's project name to ``resolwe`` to avoid name clashes
 
 Fixed
 -----
