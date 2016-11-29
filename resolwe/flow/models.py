@@ -78,6 +78,7 @@ from django.contrib.staticfiles import finders
 
 from versionfield import VersionField
 from autoslug import AutoSlugField
+from guardian.shortcuts import assign_perm
 
 from .utils import get_data_checksum
 from .expression_engines import EvaluationError
@@ -485,6 +486,42 @@ class Data(BaseModel):
                 for data in value:
                     add_dependency(data)
 
+    def create_entity(self):
+        """Create entity if `flow_collection` is defined in process.
+
+        Following rules applies for adding `Data` object to `Entity`:
+        * Only add `Data object` to `Entity` if process has defined
+        `flow_collwection` field
+        * Add object to existing `Entity`, if all parents that are part
+        of it (but not necessary all parents), are part of the same
+        `Entity`
+        * If parents belong to different `Entities` or do not belong to
+        any `Entity`, create new `Entity`
+
+        """
+        ds_slug = self.process.flow_collection  # pylint: disable=no-member
+        if ds_slug:
+            entity_query = Entity.objects.filter(data__in=self.parents.all()).distinct()  # pylint: disable=no-member
+
+            if entity_query.count() == 1:
+                entity = entity_query.first()
+            else:
+
+                descriptor_schema = DescriptorSchema.objects.get(slug=ds_slug)
+                entity = Entity.objects.create(
+                    contributor=self.contributor,
+                    descriptor_schema=descriptor_schema,
+                    name=self.name,
+                )
+
+                for permission in list(zip(*entity._meta.permissions))[0]:  # pylint: disable=protected-access
+                    assign_perm(permission, entity.contributor, entity)
+
+                for collection in Collection.objects.filter(data=self):
+                    entity.collections.add(collection)
+
+            entity.data.add(self)
+
     def save(self, render_name=False, *args, **kwargs):
         """Save the data model."""
         # Generate the descriptor if one is not already set.
@@ -537,7 +574,11 @@ class Data(BaseModel):
 
             # We can only save dependencies after the data object has been saved. This
             # is why a transaction block is needed and the save method must be called first.
-            self.save_dependencies(self.input, self.process.input_schema)  # pylint: disable=no-member
+            if create:
+                self.save_dependencies(self.input, self.process.input_schema)  # pylint: disable=no-member
+
+        if create:
+            self.create_entity()
 
     def _render_name(self):
         """Render data name.
@@ -662,17 +703,9 @@ class BaseCollection(BaseModel):
     """Template for Postgres model for storing a collection."""
 
     class Meta(BaseModel.Meta):
-        """Collection Meta options."""
+        """BaseCollection Meta options."""
 
         abstract = True
-        permissions = (
-            ("view_collection", "Can view collection"),
-            ("edit_collection", "Can edit collection"),
-            ("share_collection", "Can share collection"),
-            ("download_collection", "Can download files from collection"),
-            ("add_collection", "Can add data objects to collection"),
-            ("owner_collection", "Is owner of the collection"),
-        )
 
     #: detailed description
     description = models.TextField(blank=True)
@@ -693,7 +726,36 @@ class BaseCollection(BaseModel):
 class Collection(BaseCollection):
     """Postgres model for storing a collection."""
 
-    pass
+    class Meta(BaseCollection.Meta):
+        """Collection Meta options."""
+
+        permissions = (
+            ("view_collection", "Can view collection"),
+            ("edit_collection", "Can edit collection"),
+            ("share_collection", "Can share collection"),
+            ("download_collection", "Can download files from collection"),
+            ("add_collection", "Can add data objects to collection"),
+            ("owner_collection", "Is owner of the collection"),
+        )
+
+
+class Entity(BaseCollection):
+    """Postgres model for storing entities."""
+
+    class Meta(BaseCollection.Meta):
+        """Entity Meta options."""
+
+        permissions = (
+            ("view_entity", "Can view entity"),
+            ("edit_entity", "Can edit entity"),
+            ("share_entity", "Can share entity"),
+            ("download_entity", "Can download files from entity"),
+            ("add_entity", "Can add data objects to entity"),
+            ("owner_entity", "Is owner of the entity"),
+        )
+
+    #: list of collections to which entity belongs
+    collections = models.ManyToManyField(Collection)
 
 
 def iterate_fields(fields, schema, path_prefix=None):

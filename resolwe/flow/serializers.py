@@ -12,7 +12,7 @@ from django.contrib import auth
 from rest_framework import serializers, status
 from rest_framework.exceptions import APIException, ValidationError
 from rest_framework.fields import empty
-from resolwe.flow.models import Process, Collection, Data, DescriptorSchema, Trigger, Storage
+from resolwe.flow.models import Process, Collection, Data, DescriptorSchema, Entity, Trigger, Storage
 
 
 class NoContentError(APIException):
@@ -185,6 +185,18 @@ class CollectionSerializer(ResolweBaseSerializer):
             self.fields['descriptor_schema'] = serializers.PrimaryKeyRelatedField(
                 queryset=DescriptorSchema.objects.all(), required=False
             )
+
+
+class EntitySerializer(CollectionSerializer):
+    """Serializer for Entity."""
+
+    collections = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
+
+    class Meta(CollectionSerializer.Meta):
+        """Serializer configuration."""
+
+        model = Entity
+        fields = CollectionSerializer.Meta.fields + ('collections',)
 
 
 class TriggerSerializer(ResolweBaseSerializer):

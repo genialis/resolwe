@@ -19,7 +19,7 @@ from guardian.shortcuts import assign_perm, remove_perm
 from rest_framework.test import APITestCase, APIRequestFactory, force_authenticate
 
 from resolwe.flow.managers import manager
-from resolwe.flow.models import Data, hydrate_size, Process, render_template, Storage
+from resolwe.flow.models import Data, DescriptorSchema, Entity, hydrate_size, Process, render_template, Storage
 from resolwe.flow.views import DataViewSet
 from resolwe.flow.expression_engines import EvaluationError
 
@@ -229,6 +229,26 @@ class DataModelTest(TestCase):
         self.assertIn(second, first.children.all())
         self.assertIn(third, first.children.all())
         self.assertIn(third, second.children.all())
+
+
+class EntityModelTest(TestCase):
+    def setUp(self):
+        user_model = get_user_model()
+
+        self.user = user_model.objects.create_user('test_user')
+        DescriptorSchema.objects.create(name='Sample', slug='sample', contributor=self.user)
+        self.process = Process.objects.create(name='Test process', contributor=self.user, flow_collection='sample')
+        # `Sample`is created automatically when `Data` object is created
+        self.data = Data.objects.create(name='Test data', contributor=self.user, process=self.process)
+
+    def test_delete_last_data(self):
+        self.data.delete()
+        self.assertEqual(Entity.objects.count(), 0)
+
+    def test_new_sample(self):
+        data = Data.objects.create(name='Test data', contributor=self.user, process=self.process)
+        entity = Entity.objects.last()
+        self.assertTrue(entity.data.filter(pk=data.pk).exists())
 
 
 class GetOrCreateTestCase(APITestCase):

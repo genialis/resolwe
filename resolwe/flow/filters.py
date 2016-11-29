@@ -9,7 +9,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import rest_framework_filters as filters
 
-from .models import Collection, Data, DescriptorSchema, Process
+from .models import Collection, Data, DescriptorSchema, Entity, Process
 
 
 class BaseResolweFilter(filters.FilterSet):
@@ -37,12 +37,25 @@ class CollectionFilter(BaseResolweFilter):
 
     data = filters.ModelChoiceFilter(queryset=Data.objects.all())
     descriptor_schema = filters.RelatedFilter(DescriptorSchemaFilter)
+    entity = filters.ModelChoiceFilter(queryset=Entity.objects.all())
+    descriptor_schema = filters.RelatedFilter(DescriptorSchemaFilter, name='descriptor_schema')
     description = filters.AllLookupsFilter()
 
     class Meta:
         """Filter configuration."""
 
         model = Collection
+
+
+class EntityFilter(CollectionFilter):
+    """Filter the Entity endpoint."""
+
+    collection = filters.ModelChoiceFilter(queryset=Collection.objects.all())
+
+    class Meta(CollectionFilter.Meta):
+        """Filter configuration."""
+
+        model = Entity
 
 
 class ProcessFilter(BaseResolweFilter):
