@@ -107,10 +107,10 @@ class BaseModel(models.Model):
     name = models.CharField(max_length=100)
 
     #: creation date and time
-    created = models.DateTimeField(auto_now_add=True)
+    created = models.DateTimeField(auto_now_add=True, db_index=True)
 
     #: modified date and time
-    modified = models.DateTimeField(auto_now=True)
+    modified = models.DateTimeField(auto_now=True, db_index=True)
 
     #: user that created the entry
     contributor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
@@ -361,11 +361,11 @@ class Data(BaseModel):
 
     #: process started date and time (set by
     #: :meth:`resolwe.flow.executors.BaseFlowExecutor.run` or its derivatives)
-    started = models.DateTimeField(blank=True, null=True)
+    started = models.DateTimeField(blank=True, null=True, db_index=True)
 
     #: process finished date date and time (set by
     #: :meth:`resolwe.flow.executors.BaseFlowExecutor.run` or its derivatives)
-    finished = models.DateTimeField(blank=True, null=True)
+    finished = models.DateTimeField(blank=True, null=True, db_index=True)
 
     #: checksum field calculated on inputs
     checksum = models.CharField(max_length=40, validators=[
