@@ -50,6 +50,7 @@ class ProcessFieldsTagsTest(TestCase):
                 {'name': 'basename', 'type': 'basic:string:'},
                 {'name': 'subtype', 'type': 'basic:string:'},
                 {'name': 'yesno', 'type': 'basic:string:'},
+                {'name': 'datalookup', 'type': 'basic:integer:'},
             ],
             run={
                 'language': 'bash',
@@ -60,6 +61,7 @@ re-save type {{ input_data | type }}
 re-save basename "{{ '/foo/bar/moo' | basename }}"
 re-save subtype "{{ 'data:test:inputobject:' | subtype('data:') }}"
 re-save yesno "{{ true | yesno('yes', 'no') }}"
+re-save datalookup "{{ 'input-data-object' | data_by_slug }}"
 """
             }
 
@@ -82,6 +84,7 @@ re-save yesno "{{ true | yesno('yes', 'no') }}"
         self.assertEqual(data.output['basename'], 'moo')
         self.assertEqual(data.output['subtype'], 'True')
         self.assertEqual(data.output['yesno'], 'yes')
+        self.assertEqual(data.output['datalookup'], input_data.pk)
 
 
 class ExpressionEngineTest(TestCase):

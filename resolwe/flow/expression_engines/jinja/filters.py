@@ -47,6 +47,11 @@ def yesno(value, true_value, false_value):
     return true_value if value else false_value
 
 
+def data_by_slug(slug):
+    """Return the primary key of a data object identified by the given slug."""
+    return Data.objects.get(slug=slug).pk
+
+
 # A dictionary of filters that will be registered.
 filters = {  # pylint: disable=invalid-name
     'name': name,
@@ -55,4 +60,5 @@ filters = {  # pylint: disable=invalid-name
     'basename': basename,
     'subtype': subtype,
     'yesno': yesno,
+    'data_by_slug': data_by_slug,
 }

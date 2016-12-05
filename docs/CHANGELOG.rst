@@ -22,6 +22,7 @@ Added
 - Purge directories not belonging to any data objects
 - Ordering options to API endpoints
 - Workflow execution engine
+- ``data_by_slug`` filter for jinja expression engine
 
 Changed
 -------
