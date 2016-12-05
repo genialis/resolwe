@@ -88,7 +88,7 @@ class ExpressionEngine(BaseExpressionEngine):
             except ImportError as error:
                 raise ImproperlyConfigured(
                     "Failed to load custom filter module '{}'.\n"
-                    "Error was: {}".format(filter_module, error)
+                    "Error was: {}".format(filter_module_name, error)
                 )
 
             try:
