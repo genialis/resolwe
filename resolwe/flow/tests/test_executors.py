@@ -144,7 +144,7 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.run_process('test-broken-data-name')
 
     def test_workflow(self):
-        self.run_process('test-workflow-1')
+        self.run_process('test-workflow-1', {'param1': 'world'})
 
         workflow_data = Data.objects.get(process__slug='test-workflow-1')
         step1_data = Data.objects.get(process__slug='test-example-1')

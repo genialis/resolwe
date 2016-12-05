@@ -54,13 +54,17 @@
     expression-engine: jinja
   version: 1.0.0
   type: data:test:workflow
+  input:
+    - name: param1
+      label: Param 1
+      type: basic:string
   run:
     language: workflow
     program:
       - id: step1
         run: test-example-1
         input:
-          param1: world
+          param1: '{{ input.param1 }}'
           param2: true
       - id: step2
         run: test-example-2

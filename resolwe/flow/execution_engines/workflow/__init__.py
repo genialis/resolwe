@@ -69,7 +69,7 @@ class ExecutionEngine(BaseExecutionEngine):
 
         # Expression engine evaluation context.
         context = {
-            'inputs': {},
+            'input': data.input,
             'steps': collections.OrderedDict(),
         }
 
