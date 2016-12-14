@@ -22,4 +22,4 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         """Call :func:`~resolwe.flow.utils.purge.data_purge`."""
-        data_purge(options['data'], options['force'])
+        data_purge(options['data'], options['force'], options['verbosity'])
