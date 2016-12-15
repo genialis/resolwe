@@ -58,6 +58,7 @@ setup(
         # XXX: django-versionfield2 0.5.0 does not work yet:
         # https://ci.genialis.com/job/resolwe-master/141/testReport/
         'django-versionfield2==0.4.0',
+        'elasticsearch-dsl~=2.2.0',
         'psycopg2>=2.5.0',
         'jsonfield>=1.0.3',
         'mock>=1.3.0',

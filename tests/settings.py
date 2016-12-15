@@ -134,3 +134,6 @@ REST_FRAMEWORK = {
     ),
     'EXCEPTION_HANDLER': 'resolwe.flow.utils.exceptions.resolwe_exception_handler',
 }
+
+ELASTICSEARCH_HOST = os.environ.get('GENESIS_ES_HOST', 'localhost')
+ELASTICSEARCH_PORT = int(os.environ.get('GENESIS_ES_PORT', '59200'))
