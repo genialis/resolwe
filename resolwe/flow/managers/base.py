@@ -14,7 +14,7 @@ from django.db import IntegrityError, transaction
 
 from resolwe.flow.engine import InvalidEngineError, load_engines
 from resolwe.flow.execution_engines import ExecutionError
-from resolwe.flow.models import Data, iterate_fields
+from resolwe.flow.models import Data, Process, iterate_fields
 from resolwe.utils import BraceMessage as __
 
 
@@ -65,7 +65,7 @@ class BaseManager(object):
         execution_engines = getattr(settings, 'FLOW_EXECUTION_ENGINES', ['resolwe.flow.execution_engines.bash'])
         self.execution_engines = self.load_execution_engines(execution_engines)
 
-    def run(self, data_id, script, run_sync=False, verbosity=1):
+    def run(self, data_id, script, priority='normal', run_sync=False, verbosity=1):
         """Run process."""
         raise NotImplementedError('`run` function not implemented')
 
@@ -111,16 +111,20 @@ class BaseManager(object):
                     data.save(render_name=True)
 
                     if program is not None:
-                        queue.append((data.id, program))
+                        priority = 'normal'
+                        if data.process.persistence == Process.PERSISTENCE_TEMP:
+                            priority = 'high'
+
+                        queue.append((data.id, priority, program))
 
         except IntegrityError as exp:
             logger.error(__("IntegrityError in manager {}", exp))
             return
 
-        for data_id, program in queue:
+        for data_id, priority, program in queue:
             if verbosity >= 1:
                 print("Running", program)
-            self.run(data_id, program, verbosity=verbosity)
+            self.run(data_id, program, priority=priority, verbosity=verbosity)
 
     def get_executor(self):
         """Return an executor instance."""

@@ -22,6 +22,10 @@ from ..tasks import celery_run
 class Manager(BaseManager):
     """Celey-based manager for job execution."""
 
-    def run(self, data_id, script, run_sync=False, verbosity=1):
+    def run(self, data_id, script, priority='normal', run_sync=False, verbosity=1):
         """Run process."""
-        celery_run.delay(data_id, script, verbosity)
+        queue = 'ordinary'
+        if priority == 'high':
+            queue = 'hipri'
+
+        celery_run.apply_async((data_id, script, verbosity), queue=queue)
