@@ -22,6 +22,10 @@ class ProcessRegisterTest(TestCase):
         call_command('register', path=[PROCESSES_DIR], stdout=out, stderr=err)
         self.assertTrue('Inserted test-min' in out.getvalue())
         self.assertTrue('Skip processor test-min: newer version installed' in err.getvalue())
+        self.assertTrue(
+            'Skip processor test-broken-invalid-execution-engine: '
+            'execution engine \'invalid\' not supported' in err.getvalue()
+        )
 
         out, err = StringIO(), StringIO()
         call_command('register', path=[PROCESSES_DIR], stdout=out, stderr=err)

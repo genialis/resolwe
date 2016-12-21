@@ -10,11 +10,12 @@ import mock
 import six
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.test import override_settings
 
 from resolwe.flow.executors.docker import FlowExecutor
 from resolwe.flow.executors import BaseFlowExecutor
-from resolwe.flow.models import Data
+from resolwe.flow.models import Data, Process
 from resolwe.flow.utils.test import ProcessTestCase
 
 try:
@@ -118,6 +119,9 @@ class ManagerRunProcessTest(ProcessTestCase):
         super(ManagerRunProcessTest, self).setUp()
         self._register_schemas(path=[PROCESSES_DIR])
 
+        user_model = get_user_model()
+        self.contributor = user_model.objects.create_user('test_user', 'test_pwd')
+
     def test_minimal_process(self):
         self.run_process('test-min')
 
@@ -135,6 +139,17 @@ class ManagerRunProcessTest(ProcessTestCase):
             self.run_process('test-spawn-missing-file')
 
     def test_broken(self):
+        Process.objects.create(
+            slug='test-broken-invalid-execution-engine',
+            name='Test Process',
+            contributor=self.contributor,
+            type='data:test',
+            version=1,
+            run={
+                'language': 'invalid',
+            }
+        )
+
         self.run_process('test-broken', assert_status=Data.STATUS_ERROR)
         self.run_process('test-broken-invalid-expression-engine', assert_status=Data.STATUS_ERROR)
         self.run_process('test-broken-invalid-execution-engine', assert_status=Data.STATUS_ERROR)

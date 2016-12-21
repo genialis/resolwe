@@ -142,6 +142,8 @@ class Command(BaseCommand):
             if 'output' in p:
                 p['output_schema'] = p.pop('output')
 
+            slug = p['slug']
+
             if 'run' in p:
                 # Set default language to 'bash' if not set.
                 p['run'].setdefault('language', 'bash')
@@ -153,9 +155,11 @@ class Command(BaseCommand):
                     if extra_output_schema:
                         p.setdefault('output_schema', []).extend(extra_output_schema)
                 except InvalidEngineError:
-                    pass
+                    self.stderr.write("Skip processor {}: execution engine '{}' not supported".format(
+                        slug, p['run']['language']
+                    ))
+                    continue
 
-            slug = p['slug']
             version = p['version']
             int_version = convert_version_string_to_int(version, VERSION_NUMBER_BITS)
 
