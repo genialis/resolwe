@@ -23,6 +23,7 @@ Added
 - Ordering options to API endpoints
 - Workflow execution engine
 - ``data_by_slug`` filter for jinja expression engine
+- Export RESOLWE_API_HOST environment variable in executor
 
 Changed
 -------

@@ -8,6 +8,7 @@ Abstract Manager
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import logging
+import os
 
 from django.conf import settings
 from django.db import IntegrityError, transaction
@@ -65,6 +66,16 @@ class BaseManager(object):
         execution_engines = getattr(settings, 'FLOW_EXECUTION_ENGINES', ['resolwe.flow.execution_engines.bash'])
         self.execution_engines = self.load_execution_engines(execution_engines)
 
+    def _include_environment_variables(self, program):
+        """Define environment variables."""
+        env_vars = {
+            'RESOLWE_API_HOST': getattr(settings, 'RESOLWE_API_HOST', 'localhost'),
+        }
+
+        # TODO: Use shlex.quote when py2 support dropped
+        export_commands = ['export {}="{}"'.format(key, value.replace('"', '\"')) for key, value in env_vars.items()]
+        return os.linesep.join(export_commands) + os.linesep + program
+
     def run(self, data_id, script, priority='normal', run_sync=False, verbosity=1):
         """Run process."""
         raise NotImplementedError('`run` function not implemented')
@@ -114,6 +125,8 @@ class BaseManager(object):
                         priority = 'normal'
                         if data.process.persistence == Process.PERSISTENCE_TEMP:
                             priority = 'high'
+
+                        program = self._include_environment_variables(program)
 
                         queue.append((data.id, priority, program))
 
