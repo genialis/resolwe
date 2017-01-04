@@ -595,13 +595,19 @@ class Data(BaseModel):
         template_context = inputs
 
         try:
-            self.name = render_template(
+            name = render_template(
                 self.process,
                 self.process.data_name,  # pylint: disable=no-member
                 template_context
             )
         except EvaluationError:
-            self.name = '?'
+            name = '?'
+
+        name_max_len = self._meta.get_field('name').max_length
+        if len(name) > name_max_len:
+            name = name[:(name_max_len - 3)] + '...'
+
+        self.name = name
 
 
 class DescriptorSchema(BaseModel):

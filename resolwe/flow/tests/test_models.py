@@ -127,6 +127,13 @@ class DataModelTest(TestCase):
         self.assertEqual(second.name, 'User\' data name')
         self.assertTrue(second.named_by_user)
 
+    def test_trim_name(self):
+        process = Process.objects.create(contributor=self.user, data_name='test' * 50)
+        data = Data.objects.create(contributor=self.user, process=process)
+
+        self.assertEqual(len(data.name), 100)
+        self.assertEqual(data.name[-3:], '...')
+
     def test_hydrate_file_size(self):
         proc = Process.objects.create(
             name='Test process',
