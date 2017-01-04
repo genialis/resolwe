@@ -6,7 +6,7 @@ import shutil
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import override_settings, TestCase
 
 from resolwe.flow.managers import manager
 from resolwe.flow.models import Process, Data
@@ -22,6 +22,7 @@ class EnvVarsTest(TestCase):
             data_dir = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.id))
             shutil.rmtree(data_dir, ignore_errors=True)
 
+    @override_settings(RESOLWE_API_HOST='some.special.host')
     def test_envvars(self):
         process = Process.objects.create(
             name='Test environment variables',
@@ -52,4 +53,4 @@ re-save resolweapihost $RESOLWE_API_HOST
         # update output
         data = Data.objects.get(pk=data.pk)
 
-        self.assertEqual(data.output['resolweapihost'], 'localhost')
+        self.assertEqual(data.output['resolweapihost'], 'some.special.host')

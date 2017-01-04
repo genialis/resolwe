@@ -10,8 +10,6 @@ PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
 
 SECRET_KEY = 'secret'
 
-RESOLWE_API_HOST = 'localhost'
-
 DEBUG = True
 
 MIDDLEWARE_CLASSES = (
