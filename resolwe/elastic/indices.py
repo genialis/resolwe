@@ -18,6 +18,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 from six import add_metaclass
 
+from elasticsearch.exceptions import NotFoundError
 import elasticsearch_dsl as dsl
 from elasticsearch_dsl.document import DocTypeMeta
 
@@ -228,8 +229,11 @@ class BaseIndex(object):
     def remove_object(self, obj):
         """Remove current object from the ElasticSearch."""
         obj_id = self.generate_id(obj)
-        index = self.document_class.get(obj_id)
-        index.delete()
+        try:
+            index = self.document_class.get(obj_id)
+            index.delete()
+        except NotFoundError:
+            pass  # object doesn't exist in index
 
     def search(self):
         """Return search query of document object."""
