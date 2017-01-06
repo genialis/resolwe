@@ -24,6 +24,7 @@ Added
 - Workflow execution engine
 - ``data_by_slug`` filter for jinja expression engine
 - Export RESOLWE_API_HOST environment variable in executor
+- Add ``check_installed()`` test utility function
 
 Changed
 -------

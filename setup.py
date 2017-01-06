@@ -90,6 +90,10 @@ setup(
             'resolwe-runtime-utils>=1.1.0',
             'testfixtures>=4.10.0',
         ],
+        ':python_version == "2.7"': [
+            # Backport of shutil.which function to Python 2
+            'shutilwhich',
+        ]
     },
 
     classifiers=[

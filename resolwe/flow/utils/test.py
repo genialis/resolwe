@@ -18,6 +18,7 @@ import shutil
 import subprocess
 import zipfile
 
+import six
 from six.moves import filterfalse
 
 from django.conf import settings
@@ -31,8 +32,28 @@ from resolwe.flow.models import (Data, dict_dot, iterate_fields, iterate_schema,
                                  DescriptorSchema, Process, Storage)
 from resolwe.flow.managers import manager
 
+if six.PY2:
+    # Monkey-patch shutil package with which function (available in Python 3.3+)
+    import shutilwhich  # pylint: disable=import-error,unused-import
+
 
 SCHEMAS_FIXTURE_CACHE = None
+
+
+def check_installed(command):
+    """Check if the given command is installed.
+
+    :param str command: name of the command
+
+    :return: (indicator of the availability of the command, message saying
+              command is not available)
+    :rtype: tuple(bool, str)
+
+    """
+    if shutil.which(command):
+        return True, ""
+    else:
+        return False, "Command '{}' is not found.".format(command)
 
 
 def check_docker():
