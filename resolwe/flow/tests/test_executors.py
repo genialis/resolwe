@@ -2,8 +2,6 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import os
-import shlex
-import subprocess
 import unittest
 
 import mock
@@ -16,7 +14,7 @@ from django.test import override_settings
 from resolwe.flow.executors.docker import FlowExecutor
 from resolwe.flow.executors import BaseFlowExecutor
 from resolwe.flow.models import Data, Process
-from resolwe.flow.utils.test import ProcessTestCase
+from resolwe.flow.utils.test import check_docker, ProcessTestCase
 
 try:
     import builtins  # py3
@@ -25,29 +23,6 @@ except ImportError:
 
 
 PROCESSES_DIR = os.path.join(os.path.dirname(__file__), 'processes')
-
-
-def check_docker():
-    """Check if Docker is installed and working.
-
-    :return: tuple (indicator of the availability of Docker, reason for
-             unavailability)
-    :rtype: (bool, str)
-
-    """
-    command = getattr(settings, 'FLOW_EXECUTOR', {}).get('COMMAND', 'docker')
-    info_command = '{} info'.format(command)
-    available, reason = True, ""
-    # TODO: use subprocess.DEVNULL after dropping support for Python 2
-    with open(os.devnull, 'wb') as DEVNULL:  # pylint: disable=invalid-name
-        try:
-            subprocess.check_call(shlex.split(info_command), stdout=DEVNULL, stderr=subprocess.STDOUT)
-        except OSError:
-            available, reason = False, "Docker command '{}' not found".format(command)
-        except subprocess.CalledProcessError:
-            available, reason = (False, "Docker command '{}' returned non-zero "
-                                        "exit status".format(info_command))
-    return available, reason
 
 
 class DockerExecutorTestCase(unittest.TestCase):

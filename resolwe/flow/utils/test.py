@@ -13,7 +13,9 @@ import gzip
 import io
 import json
 import os
+import shlex
 import shutil
+import subprocess
 import zipfile
 
 from six.moves import filterfalse
@@ -33,23 +35,46 @@ from resolwe.flow.managers import manager
 SCHEMAS_FIXTURE_CACHE = None
 
 
+def check_docker():
+    """Check if Docker is installed and working.
+
+    :return: (indicator of the availability of Docker, reason for
+              unavailability)
+    :rtype: tuple(bool, str)
+
+    """
+    command = getattr(settings, 'FLOW_EXECUTOR', {}).get('COMMAND', 'docker')
+    info_command = '{} info'.format(command)
+    available, reason = True, ""
+    # TODO: Use subprocess.DEVNULL after dropping support for Python 2
+    with open(os.devnull, 'wb') as DEVNULL:  # pylint: disable=invalid-name
+        try:
+            subprocess.check_call(shlex.split(info_command), stdout=DEVNULL, stderr=subprocess.STDOUT)
+        except OSError:
+            available, reason = False, "Docker command '{}' not found".format(command)
+        except subprocess.CalledProcessError:
+            available, reason = (False, "Docker command '{}' returned non-zero "
+                                        "exit status".format(info_command))
+    return available, reason
+
+
 # override all FLOW_EXECUTOR settings that are specified in FLOW_EXECUTOR['TEST']
-flow_executor_settings = copy.copy(getattr(settings, 'FLOW_EXECUTOR', {}))  # pylint: disable=invalid-name
-test_settings_overrides = getattr(settings, 'FLOW_EXECUTOR', {}).get('TEST', {})  # pylint: disable=invalid-name
-flow_executor_settings.update(test_settings_overrides)
+FLOW_EXECUTOR_SETTINGS = copy.copy(getattr(settings, 'FLOW_EXECUTOR', {}))
+TEST_SETTINGS_OVERRIDES = getattr(settings, 'FLOW_EXECUTOR', {}).get('TEST', {})
+FLOW_EXECUTOR_SETTINGS.update(TEST_SETTINGS_OVERRIDES)
 
 # update FLOW_DOCKER_MAPPINGS setting if necessary
-flow_docker_mappings = copy.copy(getattr(settings, 'FLOW_DOCKER_MAPPINGS', {}))  # pylint: disable=invalid-name
-for map_ in flow_docker_mappings:
+FLOW_DOCKER_MAPPINGS = copy.copy(getattr(settings, 'FLOW_DOCKER_MAPPINGS', {}))
+for map_ in FLOW_DOCKER_MAPPINGS:
     for map_entry in ['src', 'dest']:
         for setting in ['DATA_DIR', 'UPLOAD_DIR']:
             if settings.FLOW_EXECUTOR[setting] in map_[map_entry]:
                 map_[map_entry] = map_[map_entry].replace(
-                    settings.FLOW_EXECUTOR[setting], flow_executor_settings[setting], 1)
+                    settings.FLOW_EXECUTOR[setting], FLOW_EXECUTOR_SETTINGS[setting], 1)
 
 
-@override_settings(FLOW_EXECUTOR=flow_executor_settings)
-@override_settings(FLOW_DOCKER_MAPPINGS=flow_docker_mappings)
+@override_settings(FLOW_EXECUTOR=FLOW_EXECUTOR_SETTINGS)
+@override_settings(FLOW_DOCKER_MAPPINGS=FLOW_DOCKER_MAPPINGS)
 @override_settings(CELERY_ALWAYS_EAGER=True)
 class ProcessTestCase(TestCase):
     """Base class for writing process tests.

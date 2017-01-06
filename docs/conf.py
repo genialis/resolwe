@@ -77,6 +77,12 @@ todo_include_todos = False
 
 # Warn about all references where the target cannot be found
 nitpicky = True
+# Except for the following:
+nitpick_ignore = [
+    # This is needed to prevent warnings for container types, e.g.:
+    # :type foo: tuple(bool, str)
+    ('py:obj', ''),
+]
 
 # -- Options for HTML output ----------------------------------------------
 
