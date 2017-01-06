@@ -1,4 +1,4 @@
-"""Local workflow executor."""
+"""Docker workflow executor."""
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import os
@@ -38,6 +38,12 @@ class FlowExecutor(LocalFlowExecutor):
             data_id = 'test_{}'.format(random.randint(1000, 9999))
         command_args['container_name'] = '--name=resolwe_{}'.format(data_id)
 
+        # Configure Docker network mode for the container (if specified).
+        # By default, current Docker versions use the 'bridge' mode which
+        # creates a network stack on the default Docker bridge.
+        network = getattr(settings, 'FLOW_EXECUTOR', {}).get('NETWORK', '')
+        command_args['network'] = '--net={}'.format(network) if network else ''
+
         # render Docker mappings in FLOW_DOCKER_MAPPINGS setting
         mappings_template = getattr(settings, 'FLOW_DOCKER_MAPPINGS', [])
         context = {'data_id': self.data_id}
@@ -72,8 +78,8 @@ class FlowExecutor(LocalFlowExecutor):
 
         self.proc = subprocess.Popen(
             shlex.split(
-                '{command} run --rm --interactive {container_name} {volumes} '
-                '{envs} {workdir} {container_image} {shell}'.format(**command_args)),
+                '{command} run --rm --interactive {container_name} {network} {volumes} {envs} '
+                '{workdir} {container_image} {shell}'.format(**command_args)),
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             universal_newlines=True)
 
