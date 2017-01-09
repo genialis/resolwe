@@ -65,7 +65,7 @@ setup(
         'PyYAML>=3.11',
         'jsonschema>=2.4.0',
         'six>=1.10.0',
-        'Sphinx>=1.4.6',
+        'Sphinx>=1.5.1',
         'Jinja2>=2.8',
     ],
     dependency_links=[
