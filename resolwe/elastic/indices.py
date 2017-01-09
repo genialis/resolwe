@@ -19,7 +19,9 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from six import add_metaclass
 
 from elasticsearch.exceptions import NotFoundError
+from elasticsearch.helpers import bulk
 import elasticsearch_dsl as dsl
+from elasticsearch_dsl.connections import connections
 from elasticsearch_dsl.document import DocTypeMeta
 
 from django.conf import settings
@@ -104,6 +106,9 @@ class BaseIndex(object):
     #: mapping used for building document
     mapping = {}
 
+    #: list of built documents waiting to be pushed
+    push_queue = []
+
     def __init__(self):
         """Perform initial checks and save given object."""
         class_name = type(self).__name__
@@ -148,7 +153,7 @@ class BaseIndex(object):
         object_type = type(obj).__name__.lower()
         return '{}_{}'.format(object_type, self.get_object_id(obj))
 
-    def process_object(self, obj):
+    def process_object(self, obj, push=True):
         """Process current object and push it to the ElasticSearch."""
         document = self.document_class(meta={'id': self.generate_id(obj)})  # pylint: disable=not-callable
 
@@ -191,13 +196,16 @@ class BaseIndex(object):
         document.users_with_permissions = permissions['users']
         document.groups_with_permissions = permissions['groups']
 
-        document.save()
+        if push:
+            document.save()
+        else:
+            self.push_queue.append(document)
 
     def create_mapping(self):
         """Create the mappings in elasticsearch."""
         self.document_class.init()
 
-    def build(self, obj=None):
+    def build(self, obj=None, push=True):
         """Main function for building indexes."""
         # `.all()` forces new DB query
         if obj and obj not in self.queryset.all():
@@ -208,7 +216,12 @@ class BaseIndex(object):
         for obj in queryset:
             if self.filter(obj) is False:
                 continue
-            self.process_object(self.preprocess_object(obj))
+            self.process_object(self.preprocess_object(obj), push)
+
+    def push(self):
+        """Push built documents to ElasticSearch."""
+        bulk(connections.get_connection(), (doc.to_dict(True) for doc in self.push_queue))
+        self.push_queue = []
 
     def get_permissions(self, obj):
         """Return users and groups with ``view`` permission on the current object.

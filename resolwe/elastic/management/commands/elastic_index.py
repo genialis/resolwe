@@ -19,4 +19,5 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         """Command handle."""
-        index_builder.build()
+        index_builder.build(push=False)
+        index_builder.push()

@@ -113,7 +113,7 @@ class IndexBuilder(object):
                 if not re.match('No module named .*elastic_indexes.*', str(ex)):
                     raise
 
-    def build(self, obj=None):
+    def build(self, obj=None, push=True):
         """Trigger building of the indexes.
 
         Support passing ``obj`` parameter to the indexes, so we can
@@ -121,7 +121,17 @@ class IndexBuilder(object):
         """
         for index in self.indexes:
             index.create_mapping()
-            index.build(obj)
+            index.build(obj, push)
+
+    def push(self, index=None):
+        """Push built documents to ElasticSearch.
+
+        If ``index`` is specified, only that index will be pushed.
+        """
+        for ind in self.indexes:
+            if index and not isinstance(ind, index):
+                continue
+            ind.push()
 
     def destroy(self):
         """Delete all entries from ElasticSearch."""
