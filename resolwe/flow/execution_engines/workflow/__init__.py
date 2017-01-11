@@ -21,7 +21,7 @@ class ExecutionEngine(BaseExecutionEngine):
     def get_output_schema(self, process):
         """Return any additional output schema for the process."""
         return [
-            {'name': 'steps', 'type': 'list:data:'},
+            {'name': 'steps', 'label': "Steps", 'type': 'list:data:'},
         ]
 
     def _evaluate_expressions(self, expression_engine, step_id, values, context):
