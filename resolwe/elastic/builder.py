@@ -73,6 +73,7 @@ class IndexBuilder(object):
         connections.create_connection(hosts=['{}:{}'.format(elasticsearch_host, elasticsearch_port)])
 
         self.discover_indexes()
+        self.create_mappings()
         self.register_signals()
 
     def _connect_signal(self, index):
@@ -98,6 +99,11 @@ class IndexBuilder(object):
             if index.object_type:
                 self._connect_signal(index)
 
+    def create_mappings(self):
+        """Create mappings for all indexes."""
+        for index in self.indexes:
+            index.create_mapping()
+
     def discover_indexes(self):
         """Save list of index builders into ``_index_builders``."""
         for app_config in apps.get_app_configs():
@@ -120,7 +126,6 @@ class IndexBuilder(object):
         trigger build only for one object.
         """
         for index in self.indexes:
-            index.create_mapping()
             index.build(obj, push)
 
     def push(self, index=None):
@@ -139,6 +144,7 @@ class IndexBuilder(object):
         for index in self.indexes:
             index_name = index.document_class()._get_index()  # pylint: disable=protected-access
             connection.indices.delete(index_name, ignore=404)  # pylint: disable=no-member
+            index.create_mapping()
 
     def remove_object(self, obj):
         """Delete given object from all indexes."""
