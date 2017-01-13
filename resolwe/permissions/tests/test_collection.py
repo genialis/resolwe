@@ -15,7 +15,7 @@ MESSAGES = {
 
 
 class CollectionTestCase(ResolweAPITestCase):
-    fixtures = ['users.yaml', 'collections.yaml', 'permissions.yaml']
+    fixtures = ['users.yaml', 'data.yaml', 'collections.yaml', 'processes.yaml', 'permissions.yaml']
 
     def setUp(self):
         self.collection1 = Collection.objects.get(pk=1)

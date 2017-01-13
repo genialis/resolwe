@@ -9,7 +9,7 @@ from ..utils.test import ResolweAPITestCase
 
 
 class ProcessTestCase(ResolweAPITestCase):
-    fixtures = ['users.yaml', 'permissions.yaml', 'processes.yaml', 'collections.yaml']
+    fixtures = ['users.yaml', 'processes.yaml', 'data.yaml', 'collections.yaml', 'permissions.yaml']
 
     def setUp(self):
         self.process1 = Process.objects.get(pk=1)

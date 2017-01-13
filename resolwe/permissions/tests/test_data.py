@@ -30,7 +30,7 @@ MESSAGES = {
 
 
 class DataTestCase(ResolweAPITestCase):
-    fixtures = ['users.yaml', 'collections.yaml', 'permissions.yaml', 'processes.yaml', 'data.yaml']
+    fixtures = ['users.yaml', 'collections.yaml', 'processes.yaml', 'data.yaml', 'permissions.yaml']
 
     def setUp(self):
         self.data1 = Data.objects.get(pk=1)
