@@ -207,8 +207,7 @@ class BaseIndex(object):
 
     def build(self, obj=None, push=True):
         """Main function for building indexes."""
-        # `.all()` forces new DB query
-        if obj and obj not in self.queryset.all():
+        if obj and not self.queryset.filter(pk=self.get_object_id(obj)).exists():
             return
 
         queryset = [obj] if obj else self.queryset.all()
