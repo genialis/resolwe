@@ -9,7 +9,6 @@ Elastic Test Utils
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-from django.core.management import call_command
 from django.test import TestCase, override_settings
 
 from resolwe.elastic.builder import index_builder
@@ -29,7 +28,7 @@ class ElasticSearchTestCase(TestCase):
     def setUp(self):
         """Delete any existing data and prepare fresh indexes."""
         index_builder.destroy()  # clean after failed test
-        call_command('elastic_index', interactive=False, verbosity=0)
+        index_builder.build()
 
     def tearDown(self):
         """Delete existing data from ElasticSearch."""

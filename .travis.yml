@@ -11,6 +11,7 @@ addons:
 services:
   - docker
   - postgresql
+  - elasticsearch
 
 language: python
 
@@ -18,6 +19,7 @@ env:
   global:
     - RESOLWE_POSTGRESQL_USER=postgres
     - RESOLWE_POSTGRESQL_PORT=5432
+    - RESOLWE_ES_PORT=9200
 
 # NOTE: Explicit Python versions make Travis job description more informative
 matrix:
@@ -34,6 +36,12 @@ matrix:
       python: "3.5"
     - env: TOX_ENV=packaging
       python: "3.5"
+
+before_install:
+  # Manually install Elastic Search.
+  - curl -O https://download.elastic.co/elasticsearch/release/org/elasticsearch/distribution/deb/elasticsearch/2.4.3/elasticsearch-2.4.3.deb
+  - sudo dpkg -i --force-confnew elasticsearch-2.4.3.deb
+  - sudo service elasticsearch restart
 
 install: pip install tox
 

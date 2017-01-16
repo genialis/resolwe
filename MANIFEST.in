@@ -10,6 +10,7 @@ include tox.ini
 include .pylintrc
 include tests/.env
 recursive-include tests *.py *.yml *.rst
+recursive-include resolwe/elastic/tests *.py
 recursive-include resolwe/flow/tests *.py
 recursive-include resolwe/flow/tests/processes *.yml
 recursive-include resolwe/flow/tests/files *.py *.rst *.txt

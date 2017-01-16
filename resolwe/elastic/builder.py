@@ -86,7 +86,7 @@ class IndexBuilder(object):
         self.signals.append(pre_delete_signal)
         pre_delete.connect(pre_delete_signal, sender=index.object_type)
 
-    def _disconnect_signals(self):
+    def unregister_signals(self):
         """Delete signals for building indexes."""
         for signal in self.signals:
             post_save.disconnect(signal, sender=signal.index.object_type)
