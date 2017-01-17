@@ -283,8 +283,7 @@ class BaseFlowExecutor(BaseEngine):
 
         try:
             # Cleanup after processor
-            if data_id != 'no_data_id':
-                data_purge(data_ids=[data_id], delete=True, verbosity=verbosity)
+            data_purge(data_ids=[data_id], delete=True, verbosity=verbosity)
         except:  # pylint: disable=bare-except
             logger.error(__("Purge error:\n\n{}", traceback.format_exc()))
 

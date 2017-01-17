@@ -2,7 +2,6 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import os
-import random
 import shlex
 import subprocess
 
@@ -31,11 +30,7 @@ class FlowExecutor(LocalFlowExecutor):
             'container_image': settings.FLOW_EXECUTOR['CONTAINER_IMAGE'],
         }
 
-        if self.data_id != 'no_data_id':
-            data_id = self.data_id
-        else:
-            # set random container name for tests
-            data_id = 'test_{}'.format(random.randint(1000, 9999))
+        data_id = self.data_id
         command_args['container_name'] = '--name=resolwe_{}'.format(data_id)
 
         # Configure Docker network mode for the container (if specified).

@@ -240,3 +240,19 @@
     language: bash
     program: |
       echo "This process has a broken data name template"
+
+- slug: test-docker
+  name: Minimalistic Processor
+  version: 1.0.0
+  type: "data:test:min"
+  output:
+    - name: result
+      label: Result
+      type: basic:string
+  run:
+    program: |
+      if grep -Fq "docker" /proc/1/cgroup; then
+        echo '{"result": "OK"}'
+      else
+        echo '{"result": "ERROR: Not running in Docker."}'
+      fi

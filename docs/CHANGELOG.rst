@@ -26,6 +26,7 @@ Added
 - Export RESOLWE_API_HOST environment variable in executor
 - Add ``check_installed()`` test utility function
 - Add support for configuring the network mode of Docker executor
+- Add ``with_docker_executor`` test utility decorator
 
 Changed
 -------

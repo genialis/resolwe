@@ -59,6 +59,10 @@ class BaseManager(object):
 
     def __init__(self):
         """Initialize arguments."""
+        self.discover_engines()
+
+    def discover_engines(self):
+        """Discover configured engines."""
         executor = getattr(settings, 'FLOW_EXECUTOR', {}).get('NAME', 'resolwe.flow.executors.local')
         self.executor = self.load_executor(executor)
         expression_engines = getattr(settings, 'FLOW_EXPRESSION_ENGINES', ['resolwe.flow.expression_engines.jinja'])

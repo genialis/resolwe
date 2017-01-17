@@ -17,6 +17,7 @@ import shlex
 import shutil
 import subprocess
 import zipfile
+import unittest
 
 import six
 from six.moves import filterfalse
@@ -77,6 +78,31 @@ def check_docker():
             available, reason = (False, "Docker command '{}' returned non-zero "
                                         "exit status".format(info_command))
     return available, reason
+
+
+def with_docker_executor(method):
+    """Decorate unit test to run processes with Docker executor."""
+    # pylint: disable=missing-docstring
+    @unittest.skipUnless(*check_docker())
+    def wrapper(*args, **kwargs):
+        executor_settings = settings.FLOW_EXECUTOR.copy()
+        executor_settings.update({
+            'NAME': 'resolwe.flow.executors.docker',
+            'CONTAINER_IMAGE': 'resolwe/test:base'
+        })
+
+        try:
+            with override_settings(FLOW_EXECUTOR=executor_settings):
+                # Re-run engine discovery as the settings have changed.
+                manager.discover_engines()
+
+                # Run the actual unit test method.
+                method(*args, **kwargs)
+        finally:
+            # Re-run engine discovery as the settings have changed.
+            manager.discover_engines()
+
+    return wrapper
 
 
 # override all FLOW_EXECUTOR settings that are specified in FLOW_EXECUTOR['TEST']

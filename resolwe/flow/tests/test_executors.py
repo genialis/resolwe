@@ -9,53 +9,12 @@ import six
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.test import override_settings
 
-from resolwe.flow.executors.docker import FlowExecutor
 from resolwe.flow.executors import BaseFlowExecutor
 from resolwe.flow.models import Data, Process
-from resolwe.flow.utils.test import check_docker, ProcessTestCase
-
-try:
-    import builtins  # py3
-except ImportError:
-    import __builtin__ as builtins  # py2
-
+from resolwe.flow.utils.test import with_docker_executor, ProcessTestCase
 
 PROCESSES_DIR = os.path.join(os.path.dirname(__file__), 'processes')
-
-
-class DockerExecutorTestCase(unittest.TestCase):
-
-    @unittest.skipUnless(*check_docker())
-    @mock.patch('os.mkdir')
-    @mock.patch('os.chmod')
-    @mock.patch('os.chdir')
-    @mock.patch('resolwe.flow.executors.Data.objects.filter')
-    @mock.patch('resolwe.flow.executors.Data.objects.get')
-    def test_run_in_docker(self, data_get_mock, data_filter_mock, chdir_mock, chmod_mock, mkdir_mock):
-        executor_settings = settings.FLOW_EXECUTOR
-        executor_settings['CONTAINER_IMAGE'] = 'centos'
-
-        with override_settings(FLOW_EXECUTOR=executor_settings):
-            executor = FlowExecutor(manager=None)
-
-            script = 'if grep -Fq "docker" /proc/1/cgroup; then echo "Running inside Docker"; ' \
-                    'else echo "Running locally"; fi'
-
-            count = {'running': 0}
-
-            def assert_output(line):
-                if line.strip() == 'Running inside Docker':
-                    count['running'] += 1
-
-            write_mock = mock.MagicMock(side_effect=assert_output)
-            stdout_mock = mock.MagicMock(write=write_mock)
-            open_mock = mock.MagicMock(side_effect=[stdout_mock, mock.MagicMock()])
-            with mock.patch.object(builtins, 'open', open_mock):
-                executor.run('no_data_id', script, verbosity=0)
-
-            self.assertEqual(count['running'], 1)
 
 
 class GetToolsTestCase(unittest.TestCase):
@@ -151,3 +110,8 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.assertEqual(step2_data.input['param2']['a'], step1_data.pk)
         self.assertEqual(step2_data.input['param2']['b'], 'hello')
         self.assertEqual(step2_data.output['out1'], 'simon says: hello world')
+
+    @with_docker_executor
+    def test_run_in_docker(self):
+        data = self.run_process('test-docker')
+        self.assertEqual(data.output['result'], 'OK')
