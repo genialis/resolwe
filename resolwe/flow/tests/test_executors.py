@@ -115,3 +115,8 @@ class ManagerRunProcessTest(ProcessTestCase):
     def test_run_in_docker(self):
         data = self.run_process('test-docker')
         self.assertEqual(data.output['result'], 'OK')
+
+    @with_docker_executor
+    def test_executor_requirements(self):
+        data = self.run_process('test-requirements-docker')
+        self.assertEqual(data.output['result'], 'OK')

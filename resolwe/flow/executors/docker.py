@@ -27,7 +27,7 @@ class FlowExecutor(LocalFlowExecutor):
         # arguments passed to the Docker command
         command_args = {
             'command': self.command,
-            'container_image': settings.FLOW_EXECUTOR['CONTAINER_IMAGE'],
+            'container_image': self.requirements.get('image', settings.FLOW_EXECUTOR['CONTAINER_IMAGE']),
         }
 
         data_id = self.data_id

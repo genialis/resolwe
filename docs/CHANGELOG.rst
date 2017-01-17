@@ -27,6 +27,7 @@ Added
 - Add ``check_installed()`` test utility function
 - Add support for configuring the network mode of Docker executor
 - Add ``with_docker_executor`` test utility decorator
+- Support for Docker image requirements
 
 Changed
 -------

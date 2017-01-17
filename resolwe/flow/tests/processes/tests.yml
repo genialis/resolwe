@@ -256,3 +256,23 @@
       else
         echo '{"result": "ERROR: Not running in Docker."}'
       fi
+
+- slug: test-requirements-docker
+  name: Minimalistic Processor
+  version: 1.0.0
+  type: "data:test:min"
+  requirements:
+    executor:
+      docker:
+        image: "resolwe/test:requirements-docker"
+  output:
+    - name: result
+      label: Result
+      type: basic:string
+  run:
+    program: |
+      if [ -f /test-requirements-docker ]; then
+        echo '{"result": "OK"}'
+      else
+        echo '{"result": "ERROR: Incorrect Docker image used."}'
+      fi
