@@ -15,7 +15,6 @@ from guardian.shortcuts import assign_perm, remove_perm
 from resolwe.elastic.builder import index_builder
 from resolwe.elastic.utils.tests import ElasticSearchTestCase
 
-
 CUSTOM_SETTINGS = {
     'INSTALLED_APPS': settings.INSTALLED_APPS + ('resolwe.elastic.tests.test_app',),
 }
@@ -49,7 +48,7 @@ class IndexTest(ElasticSearchTestCase):
 
     def test_indexing(self):
         from .test_app.models import TestModel
-        from .test_app.elastic_indexes import TestSearchDocument
+        from .test_app.elastic_indexes import TestSearchDocument, TestSearchIndex
 
         # Create new object
         test_obj = TestModel.objects.create(name='Object name', number=43)
@@ -85,6 +84,11 @@ class IndexTest(ElasticSearchTestCase):
 
         es_objects = TestSearchDocument.search().execute()
         self.assertEqual(len(es_objects), 1)
+
+        # Create incorrect object (User object) and try to index it
+        user_model = get_user_model()
+        test_incorrect = user_model.objects.create(username='user_one')
+        TestSearchIndex().build(test_incorrect)
 
     def test_management_commands(self):
         from .test_app.models import TestModel

@@ -207,8 +207,11 @@ class BaseIndex(object):
 
     def build(self, obj=None, push=True):
         """Main function for building indexes."""
-        if obj and not self.queryset.filter(pk=self.get_object_id(obj)).exists():
-            return
+        if obj:
+            if self.queryset.model != obj._meta.model:  # pylint: disable=protected-access
+                return
+            if not self.queryset.filter(pk=self.get_object_id(obj)).exists():
+                return
 
         queryset = [obj] if obj else self.queryset.all()
 
