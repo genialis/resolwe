@@ -18,6 +18,7 @@ For building the index for the first time or manually updating it, run::
 .. automodule:: resolwe.elastic.indices
 .. automodule:: resolwe.elastic.viewsets
 .. automodule:: resolwe.elastic.builder
+.. automodule:: resolwe.elastic.pagination
 .. automodule:: resolwe.elastic.utils
 .. automodule:: resolwe.elastic.management.commands
 

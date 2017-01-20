@@ -19,6 +19,8 @@ from rest_framework.exceptions import APIException
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 
+from .pagination import LimitOffsetPostPagination
+
 __all__ = (
     'ElasticSearchMixin',
     'PaginationMixin',
@@ -149,6 +151,8 @@ class ElasticSearchBaseViewSet(PaginationMixin, ElasticSearchMixin, GenericViewS
 
     document_class = None
 
+    pagination_class = LimitOffsetPostPagination
+
     def custom_filter(self, search):
         """Perform custom search filtering.
 
@@ -167,7 +171,11 @@ class ElasticSearchBaseViewSet(PaginationMixin, ElasticSearchMixin, GenericViewS
         search = self.filter_permissions(search)
 
         if search.count() > ELASTICSEARCH_SIZE:
-            raise TooManyResults()
+            limit = self.get_query_param('limit')
+            offset = self.get_query_param('offset')
+
+            if not limit or not offset or limit > ELASTICSEARCH_SIZE:
+                raise TooManyResults()
 
         search = search.extra(size=ELASTICSEARCH_SIZE)
 
