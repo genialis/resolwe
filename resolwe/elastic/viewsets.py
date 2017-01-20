@@ -15,6 +15,7 @@ from elasticsearch_dsl.query import Q
 from django.conf import settings
 from django.contrib.auth import get_user_model
 
+from rest_framework.exceptions import APIException
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 
@@ -23,6 +24,16 @@ __all__ = (
     'PaginationMixin',
     'ElasticSearchBaseViewSet',
 )
+
+ELASTICSEARCH_SIZE = 10000  # maximum number of results returned by ElasticSearch
+
+
+class TooManyResults(APIException):
+    """Exception when elastic query returns more than ``ELASTICSEARCH_SIZE`` results."""
+
+    status_code = 400
+    default_detail = 'Query returned too many results. Please, add more filters or use pagination.'
+    default_code = 'bad_request'
 
 
 class ElasticSearchMixin(object):
@@ -154,6 +165,11 @@ class ElasticSearchBaseViewSet(PaginationMixin, ElasticSearchMixin, GenericViewS
         search = self.filter_search(search)
         search = self.order_search(search)
         search = self.filter_permissions(search)
+
+        if search.count() > ELASTICSEARCH_SIZE:
+            raise TooManyResults()
+
+        search = search.extra(size=ELASTICSEARCH_SIZE)
 
         return self.paginate_response(search)
 
