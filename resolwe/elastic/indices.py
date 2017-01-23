@@ -23,6 +23,7 @@ from elasticsearch.helpers import bulk
 import elasticsearch_dsl as dsl
 from elasticsearch_dsl.connections import connections
 from elasticsearch_dsl.document import DocTypeMeta
+from elasticsearch_dsl.exceptions import IllegalOperation
 
 from django.conf import settings
 
@@ -203,7 +204,16 @@ class BaseIndex(object):
 
     def create_mapping(self):
         """Create the mappings in elasticsearch."""
-        self.document_class.init()
+        try:
+            self.document_class.init()
+        except IllegalOperation as error:
+            if error.args[0].startswith('You cannot update analysis configuration'):
+                # Ignore mapping update errors, which are thrown even when the analysis
+                # configuration stays the same.
+                # TODO: Remove this when https://github.com/elastic/elasticsearch-dsl-py/pull/272 is merged.
+                return
+
+            raise
 
     def build(self, obj=None, push=True):
         """Main function for building indexes."""

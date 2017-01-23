@@ -23,12 +23,15 @@ CUSTOM_SETTINGS = {
 @override_settings(**CUSTOM_SETTINGS)
 class IndexTest(ElasticSearchTestCase):
     def setUp(self):
-        from .test_app.elastic_indexes import TestSearchIndex
+        from .test_app.elastic_indexes import TestSearchIndex, TestAnalyzerSearchIndex
 
         apps.clear_cache()
         call_command('migrate', verbosity=0, interactive=False, load_initial_data=False)
 
-        index_builder.indexes = [TestSearchIndex()]
+        index_builder.indexes = [
+            TestSearchIndex(),
+            TestAnalyzerSearchIndex(),
+        ]
         index_builder.register_signals()
 
         super(IndexTest, self).setUp()
@@ -45,6 +48,10 @@ class IndexTest(ElasticSearchTestCase):
         #       https://github.com/elastic/elasticsearch/pull/17986
         # wait for ElasticSearch to index the data
         time.sleep(2)
+
+    def test_mapping_multiple_times(self):
+        index_builder.create_mappings()
+        index_builder.create_mappings()
 
     def test_indexing(self):
         from .test_app.models import TestModel
