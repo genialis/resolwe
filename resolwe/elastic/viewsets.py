@@ -68,6 +68,8 @@ class ElasticSearchMixin(object):
 
         """
         ordering = self.get_query_param('ordering', self.ordering)
+        if not ordering:
+            return search
 
         ordering_field = ordering.lstrip('-')
         if ordering_field not in self.ordering_fields:

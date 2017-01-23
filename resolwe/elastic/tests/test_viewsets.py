@@ -90,3 +90,17 @@ class IndexViewsetTest(APITestCase, ElasticSearchTestCase):
 
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]['name'], 'Object name 2')
+
+    def test_without_ordering(self):
+        from .test_app.viewsets import TestEmptyOrderingViewSet
+
+        viewset = TestEmptyOrderingViewSet.as_view(actions={
+            'post': 'list_with_post',
+        })
+
+        request = factory.post('', {}, format='json')
+        force_authenticate(request, self.user_1)
+        response = viewset(request)
+
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['name'], 'Object name 1')

@@ -23,3 +23,8 @@ class TestViewSet(ElasticSearchBaseViewSet):
     filtering_fields = ('name',)
     ordering_fields = ('name')
     ordering = '-name'
+
+
+class TestEmptyOrderingViewSet(ElasticSearchBaseViewSet):
+    document_class = TestSearchDocument
+    serializer_class = TestSerializer
