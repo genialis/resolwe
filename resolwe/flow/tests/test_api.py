@@ -5,7 +5,9 @@ import mock
 
 from django.contrib.auth import get_user_model
 from django.core.urlresolvers import reverse
+from django.db import DEFAULT_DB_ALIAS, connections
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 
 from guardian.shortcuts import assign_perm, remove_perm
 from rest_framework.test import APIRequestFactory, force_authenticate
@@ -31,19 +33,21 @@ class TestDataViewSetCase(TestCase):
 
         user_model = get_user_model()
         self.user = user_model.objects.create(is_superuser=True)
+        self.proc = Process.objects.create(type='test:process', name='Test process', contributor=self.user)
 
-        proc = Process.objects.create(type='test:process', name='Test process', contributor=self.user)
-        self.data_1 = Data.objects.create(contributor=self.user, slug='test1', process=proc)
-        self.data_2 = Data.objects.create(contributor=self.user, slug='test2', process=proc)
-
-    @mock.patch('resolwe.flow.models.Process.objects.all')
-    def test_prefetch(self, process_mock):
+    def test_prefetch(self):
         request = factory.get('/', '', format='json')
         force_authenticate(request, self.user)
-        self.data_viewset(request)
 
-        # check that only one request is made to get all processes' types
-        self.assertEqual(process_mock.call_count, 1)
+        for _ in range(10):
+            Data.objects.create(contributor=self.user, process=self.proc)
+
+        # Check prefetch. The number of queries without prefetch depends on the
+        # number of Data objects. With prefetch 56 queries, without prefetch 73 queries
+        conn = connections[DEFAULT_DB_ALIAS]
+        with CaptureQueriesContext(conn) as captured_queries:
+            self.data_viewset(request)
+            self.assertLess(len(captured_queries), 65)
 
 
 class TestCollectionViewSetCase(TestCase):

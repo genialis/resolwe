@@ -38,6 +38,7 @@ Changed
 - Set Docker Compose's project name to ``resolwe`` to avoid name clashes
 - Expose ``check_docker()`` test utility function
 - Update versionfield to 0.5.0
+- Support Django 1.10 and update filters
 
 Fixed
 -----

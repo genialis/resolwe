@@ -224,6 +224,8 @@ class ProcessTestCase(TestCase):
                 shutil.rmtree(data_dir, ignore_errors=True)
                 shutil.rmtree(export_dir, ignore_errors=True)
 
+        Process.objects.all().delete()
+
         # remove uploaded files
         if not self._keep_all and not self._keep_failed:
             for fn in self._upload_files:
@@ -371,7 +373,6 @@ class ProcessTestCase(TestCase):
         elif isinstance(storage, dict):
             json_dict = storage
         else:
-            print(type(storage))
             raise ValueError('Argument storage should be of type Storage, int or dict.')
 
         file_path = os.path.join(self.files_path, file_name)
