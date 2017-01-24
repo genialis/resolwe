@@ -235,6 +235,12 @@ class BaseIndex(object):
         bulk(connections.get_connection(), (doc.to_dict(True) for doc in self.push_queue))
         self.push_queue = []
 
+    def destroy(self):
+        """Destroy an index."""
+        self.push_queue = []
+        index_name = self.document_class()._get_index()  # pylint: disable=protected-access,not-callable
+        connections.get_connection().indices.delete(index_name, ignore=404)  # pylint: disable=no-member
+
     def get_permissions(self, obj):
         """Return users and groups with ``view`` permission on the current object.
 

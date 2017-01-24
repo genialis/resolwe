@@ -140,10 +140,8 @@ class IndexBuilder(object):
 
     def destroy(self):
         """Delete all entries from ElasticSearch."""
-        connection = connections.get_connection()
         for index in self.indexes:
-            index_name = index.document_class()._get_index()  # pylint: disable=protected-access
-            connection.indices.delete(index_name, ignore=404)  # pylint: disable=no-member
+            index.destroy()
             index.create_mapping()
 
     def remove_object(self, obj):
