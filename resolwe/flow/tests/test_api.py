@@ -42,12 +42,14 @@ class TestDataViewSetCase(TestCase):
         for _ in range(10):
             Data.objects.create(contributor=self.user, process=self.proc)
 
-        # Check prefetch. The number of queries without prefetch depends on the
-        # number of Data objects. With prefetch 56 queries, without prefetch 73 queries
+        # Check prefetch. The number of queries without prefetch depends
+        # on the number of Data objects. With prefetch 56 queries,
+        # without prefetch 73 queries. Python 2 and 3 have slightly
+        # different number of queries, so we set a loose constraint in test.
         conn = connections[DEFAULT_DB_ALIAS]
         with CaptureQueriesContext(conn) as captured_queries:
             self.data_viewset(request)
-            self.assertLess(len(captured_queries), 65)
+            self.assertLess(len(captured_queries), 62)
 
 
 class TestCollectionViewSetCase(TestCase):

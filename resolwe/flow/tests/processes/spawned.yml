@@ -45,6 +45,6 @@
     language: bash
     program: |
       # TODO: use re-import when added to resolwe-runtime-utils
-      # re-import {{ input_file.file_temp }} {{ input_file.file }} "bar" "bar" 0.9
-      mv {{ input_file.file_temp }} {{ input_file.file }}
-      re-save-file saved_file {{ input_file.file }}
+      # re-import "{{ input_file.file_temp }}" "{{ input_file.file }}" "bar" "bar" 0.9
+      mv "{{ input_file.file_temp }}" "{{ input_file.file }}"
+      re-save-file saved_file "{{ input_file.file }}"

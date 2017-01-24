@@ -157,6 +157,15 @@ class ProcessTestCase(TestCase):
 
     """
 
+    def _update_schema_relations(self, schemas):
+        """Update foreign keys on process and descriptor schema.
+
+        The field contributor is updated.
+
+        """
+        for schema in schemas:
+            schema.contributor = self.admin
+
     def _register_schemas(self, **kwargs):
         """Register process and descriptor schemas.
 
@@ -167,21 +176,19 @@ class ProcessTestCase(TestCase):
         Process.objects.all().delete()
 
         cache_key = json.dumps(kwargs)
-
         global SCHEMAS_FIXTURE_CACHE  # pylint: disable=global-statement
         if not SCHEMAS_FIXTURE_CACHE:
             SCHEMAS_FIXTURE_CACHE = {}
 
         if cache_key in SCHEMAS_FIXTURE_CACHE:
-            Process.objects.bulk_create(SCHEMAS_FIXTURE_CACHE[cache_key]['processes'])
-            DescriptorSchema.objects.bulk_create(SCHEMAS_FIXTURE_CACHE[cache_key]['descriptor_schemas'])
+            process_schemas = SCHEMAS_FIXTURE_CACHE[cache_key]['processes']
+            self._update_schema_relations(process_schemas)
+            Process.objects.bulk_create(process_schemas)
+
+            descriptor_schemas = SCHEMAS_FIXTURE_CACHE[cache_key]['descriptor_schemas']
+            self._update_schema_relations(descriptor_schemas)
+            DescriptorSchema.objects.bulk_create(descriptor_schemas)
         else:
-            user_model = get_user_model()
-
-            if not user_model.objects.filter(is_superuser=True).exists():
-                user_model.objects.create_superuser(
-                    username="admin", email='admin@example.com', password="admin_pass")
-
             management.call_command('register', force=True, testing=True, verbosity='0', **kwargs)
 
             if cache_key not in SCHEMAS_FIXTURE_CACHE:
@@ -194,6 +201,7 @@ class ProcessTestCase(TestCase):
     def setUp(self):
         """Initialize test data."""
         super(ProcessTestCase, self).setUp()
+
         self.admin = get_user_model().objects.create_superuser(
             username="admin", email='admin@example.com', password="admin_pass")
         self._register_schemas()
@@ -223,8 +231,6 @@ class ProcessTestCase(TestCase):
                 d.delete()
                 shutil.rmtree(data_dir, ignore_errors=True)
                 shutil.rmtree(export_dir, ignore_errors=True)
-
-        Process.objects.all().delete()
 
         # remove uploaded files
         if not self._keep_all and not self._keep_failed:

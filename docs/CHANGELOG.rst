@@ -49,6 +49,8 @@ Fixed
 - Improve handling of validation errors
 - Ignore file size in assertFields
 - Order data objects in ``CollectionViewSet``
+- Fix tests for Django 1.10
+- Add quotes to paths in a test process test-save-file
 
 
 ==================
