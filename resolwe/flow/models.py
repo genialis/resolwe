@@ -101,7 +101,7 @@ class BaseModel(models.Model):
     slug = AutoSlugField(populate_from='name', unique_with='version', editable=True, max_length=100)
 
     #: process version
-    version = VersionField(number_bits=VERSION_NUMBER_BITS, default=0)
+    version = VersionField(number_bits=VERSION_NUMBER_BITS, default='0.0.0')
 
     #: object name
     name = models.CharField(max_length=100)

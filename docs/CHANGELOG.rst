@@ -37,6 +37,7 @@ Changed
 - Expression engine must be declared in ``requirements``
 - Set Docker Compose's project name to ``resolwe`` to avoid name clashes
 - Expose ``check_docker()`` test utility function
+- Update versionfield to 0.5.0
 
 Fixed
 -----

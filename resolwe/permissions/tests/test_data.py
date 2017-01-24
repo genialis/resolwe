@@ -132,7 +132,7 @@ class DataTestCase(ResolweAPITestCase):
 
         self.assertEqual(resp.data['started'], None)
         self.assertEqual(resp.data['finished'], None)
-        self.assertEqual(resp.data['checksum'], 'ee3cfc0e6e2ebce8f364c36c9905eb182d2a5da6')
+        self.assertEqual(resp.data['checksum'], 'f466c6a0e135f913011a6d4c13b0b5ab306fba85')
         self.assertEqual(resp.data['status'], 'RE')
         self.assertEqual(resp.data['process_progress'], 0)
         self.assertEqual(resp.data['process_rc'], None)

@@ -25,7 +25,7 @@
     persistence: RAW
     slug: 'test_process'
     type: 'data:test:'
-    version: 1
+    version: 1.0.0
 
 - model: flow.process
   pk: 2
@@ -48,4 +48,4 @@
     persistence: TMP
     slug: 'test_upload'
     type: 'data:test:'
-    version: 1
+    version: 1.0.0

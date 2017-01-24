@@ -13,7 +13,7 @@
     started: 2015-01-01T09:00:00.000
     status: OK
     process: 1
-    version: 0
+    version: 0.0.0
 
 - model: flow.data
   pk: 2
@@ -28,4 +28,4 @@
     started: 2015-01-01T09:00:00.000
     status: OK
     process: 1
-    version: 0
+    version: 0.0.0
