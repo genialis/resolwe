@@ -3,11 +3,12 @@ Change Log
 ##########
 
 All notable changes to this project are documented in this file.
+This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+==================
+1.4.0 - 2017-01-26
+==================
 
 Added
 -----
@@ -23,12 +24,18 @@ Added
 - Ordering options to API endpoints
 - Workflow execution engine
 - ``data_by_slug`` filter for jinja expression engine
-- Export RESOLWE_API_HOST environment variable in executor
+- Export ``RESOLWE_API_HOST`` environment variable in executor
 - Add ``check_installed()`` test utility function
 - Add support for configuring the network mode of Docker executor
 - Add ``with_docker_executor`` test utility decorator
 - Support for Docker image requirements
-- Support version in descriptor schema yaml files
+- Support version in descriptor schema YAML files
+- Add ``Entity`` model that allows grouping of ``Data`` objects
+- Introduce priority of Data objects
+- Data objects created with processes with temporary persistence are given
+  high priority.
+- Add ``resolwe.elastic`` application, a framework for advanced indexing of
+  Django models with ElasticSearch
 
 Changed
 -------
@@ -40,6 +47,8 @@ Changed
 - Expose ``check_docker()`` test utility function
 - Update versionfield to 0.5.0
 - Support Django 1.10 and update filters
+- Executor is no longer serialized
+- Put Data objects with high priority into ``hipri`` Celery queue.
 
 Fixed
 -----
@@ -48,7 +57,7 @@ Fixed
 - Take last version of process for spawned objects
 - Use default values for descriptor fields that are not given
 - Improve handling of validation errors
-- Ignore file size in assertFields
+- Ignore file size in ``assertFields``
 - Order data objects in ``CollectionViewSet``
 - Fix tests for Django 1.10
 - Add quotes to paths in a test process test-save-file
