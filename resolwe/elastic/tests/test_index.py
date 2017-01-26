@@ -1,6 +1,11 @@
 # pylint: disable=missing-docstring
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+import io
+import time
+
+import six
+
 from django.apps import apps
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -88,7 +93,7 @@ class IndexTest(ElasticSearchTestCase):
 
     def test_management_commands(self):
         from .test_app.models import TestModel
-        from .test_app.elastic_indexes import TestSearchDocument
+        from .test_app.elastic_indexes import TestSearchDocument, TestAnalyzerSearchDocument
 
         # Prepare test data
         TestModel.objects.create(name='Object name', number=43)
@@ -107,6 +112,62 @@ class IndexTest(ElasticSearchTestCase):
 
         es_objects = TestSearchDocument.search().execute()
         self.assertEqual(len(es_objects), 1)
+
+        # Purge index
+        call_command('elastic_purge', interactive=False, verbosity=0)
+
+        es_objects = TestSearchDocument.search().execute()
+        self.assertEqual(len(es_objects), 0)
+
+        # Recreate only a specific index
+        call_command('elastic_index', index=['TestAnalyzerSearchIndex'], interactive=False, verbosity=0)
+
+        es_objects = TestSearchDocument.search().execute()
+        self.assertEqual(len(es_objects), 0)
+        es_objects = TestAnalyzerSearchDocument.search().execute()
+        self.assertEqual(len(es_objects), 1)
+
+        # Purge only a specific index
+        call_command('elastic_purge', index=['TestAnalyzerSearchIndex'], interactive=False, verbosity=0)
+        # Sleep is required as otherwise ES may reject queries during index re-create.
+        time.sleep(1)
+
+        es_objects = TestAnalyzerSearchDocument.search().execute()
+        self.assertEqual(len(es_objects), 0)
+
+        call_command('elastic_index', exclude=['TestAnalyzerSearchIndex'], interactive=False, verbosity=0)
+        es_objects = TestAnalyzerSearchDocument.search().execute()
+        self.assertEqual(len(es_objects), 0)
+
+        call_command('elastic_index', interactive=False, verbosity=0)
+        es_objects = TestAnalyzerSearchDocument.search().execute()
+        self.assertEqual(len(es_objects), 1)
+
+        call_command('elastic_purge', exclude=['TestAnalyzerSearchIndex'], interactive=False, verbosity=0)
+        # Sleep is required as otherwise ES may reject queries during index re-create.
+        time.sleep(1)
+
+        es_objects = TestAnalyzerSearchDocument.search().execute()
+        self.assertEqual(len(es_objects), 1)
+
+        # Recreate an invalid index
+        if six.PY2:
+            output = io.BytesIO()
+        else:
+            output = io.StringIO()
+
+        call_command('elastic_index', index=['InvalidIndex'], interactive=False, verbosity=0, stderr=output)
+        self.assertIn("Unknown index: InvalidIndex", output.getvalue())
+
+        call_command('elastic_index', exclude=['InvalidIndex'], interactive=False, verbosity=0, stderr=output)
+        self.assertIn("Unknown index: InvalidIndex", output.getvalue())
+
+        # Purge an invalid index
+        call_command('elastic_purge', index=['InvalidIndex'], interactive=False, verbosity=0, stderr=output)
+        self.assertIn("Unknown index: InvalidIndex", output.getvalue())
+
+        call_command('elastic_purge', exclude=['InvalidIndex'], interactive=False, verbosity=0, stderr=output)
+        self.assertIn("Unknown index: InvalidIndex", output.getvalue())
 
     def test_permissions(self):
         from .test_app.models import TestModel
