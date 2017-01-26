@@ -17,7 +17,7 @@ from resolwe.elastic.builder import index_builder
 __all__ = ('ElasticSearchTestCase',)
 
 
-@override_settings(ELASTICSEARCH_INDEX_PREFIX='test_')
+@override_settings(ELASTICSEARCH_INDEX_PREFIX='test')
 class ElasticSearchTestCase(TestCase):
     """Base class for testing ElasticSearch based features.
 

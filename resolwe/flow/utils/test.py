@@ -198,8 +198,42 @@ class ProcessTestCase(TestCase):
             SCHEMAS_FIXTURE_CACHE[cache_key]['processes'] = list(Process.objects.all())
             SCHEMAS_FIXTURE_CACHE[cache_key]['descriptor_schemas'] = list(DescriptorSchema.objects.all())
 
+    def _test_data_dir(self, path):
+        """Return test data directory path.
+
+        Increase counter in the path name by 1.
+
+        """
+        while True:
+            try:
+                counter = 1
+                for name in os.listdir(path):
+                    if os.path.isdir(os.path.join(path, name)) and name.startswith('test'):
+                        try:
+                            current = int(name.split('_')[-1])
+                            if current >= counter:
+                                counter = current + 1
+                        except ValueError:
+                            pass
+
+                test_data_dir = os.path.join(path, 'test_{}'.format(counter))
+                os.makedirs(test_data_dir)
+                break
+            except OSError:
+                # Try again if a folder with the same name was created
+                # by another test on another thread
+                continue
+
+        return test_data_dir
+
     def setUp(self):
         """Initialize test data."""
+        flow_executor_settings = copy.copy(getattr(settings, 'FLOW_EXECUTOR', {}))
+        flow_executor_settings['DATA_DIR'] = self._test_data_dir(FLOW_EXECUTOR_SETTINGS['DATA_DIR'])
+
+        self.settings = override_settings(FLOW_EXECUTOR=flow_executor_settings)
+        self.settings.enable()
+
         super(ProcessTestCase, self).setUp()
 
         self.admin = get_user_model().objects.create_superuser(
@@ -236,6 +270,10 @@ class ProcessTestCase(TestCase):
         if not self._keep_all and not self._keep_failed:
             for fn in self._upload_files:
                 shutil.rmtree(fn, ignore_errors=True)
+
+            shutil.rmtree(settings.FLOW_EXECUTOR['DATA_DIR'], ignore_errors=True)
+
+        self.settings.disable()
 
     def keep_all(self):
         """Do not delete output files after test for all data."""

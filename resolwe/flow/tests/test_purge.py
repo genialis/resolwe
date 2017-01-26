@@ -10,7 +10,6 @@ from testfixtures import LogCapture
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.test import TestCase
 from django.utils.crypto import get_random_string
 
 from resolwe.flow.models import Process, DescriptorSchema, Data
@@ -253,7 +252,7 @@ re-save-dir-list sample_dir_list dir1:ref2 dir2 dir3
                 self.assertTrue('TestPurgeException' in str(log.records[0].msg))
 
 
-class PurgeUnitTest(PurgeTestFieldsMixin, TestCase):
+class PurgeUnitTest(PurgeTestFieldsMixin, ProcessTestCase):
 
     def assertFieldWorks(self, field_type, field_value, script_setup,  # pylint: disable=invalid-name
                          script_save, removed, not_removed):

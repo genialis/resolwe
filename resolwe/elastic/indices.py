@@ -16,6 +16,7 @@ Main two classes
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+import uuid
 from six import add_metaclass
 
 from elasticsearch.exceptions import NotFoundError
@@ -42,6 +43,13 @@ class BaseDocumentMeta(DocTypeMeta):
         """Wrapp index name into ``IndexPrefix`` and create new object."""
         if 'Meta' in namespace:
             index_prefix = getattr(settings, 'ELASTICSEARCH_INDEX_PREFIX', '')
+            if index_prefix.startswith('test'):
+                # Add a random ID to test index prefixes
+                index_prefix = '{}_{}_'.format(index_prefix, uuid.uuid4())
+            elif index_prefix != '':
+                # Add underscore to prefix if prefix given
+                index_prefix = '{}_'.format(index_prefix)
+
             namespace['Meta'].index = index_prefix + namespace['Meta'].index
         return super(BaseDocumentMeta, mcs).__new__(mcs, name, bases, namespace, **kwargs)
 
