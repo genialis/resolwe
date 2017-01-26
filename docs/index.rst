@@ -26,4 +26,5 @@ Contents
    intro
    proc
    ref
+   CHANGELOG
    contributing
