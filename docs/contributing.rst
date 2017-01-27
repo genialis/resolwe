@@ -142,9 +142,21 @@ Create source distribution::
 
     python setup.py sdist
 
-Build wheel::
+.. note::
 
-    python setup.py bdist_wheel
+    Currently, we don't built wheels since they don't have support for
+    dependency links which Resolwe temporarily introduced for a patched version
+    of the `django-autoslug`_ package until an `issue`_ is resolved upstream.
+
+    After this is resolved, the following step will be re-added:
+
+    Build wheel::
+
+        python setup.py bdist_wheel
+
+
+.. _django-autoslug: http://django-autoslug.readthedocs.io/en/latest/ 
+.. _issue: https://github.com/neithere/django-autoslug/pull/18
 
 Upload distribution to PyPI_::
 
