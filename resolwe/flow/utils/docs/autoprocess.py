@@ -39,7 +39,7 @@ from docutils import nodes
 from docutils.parsers.rst import Directive
 from sphinx import addnodes
 
-from resolwe.flow.models import iterate_schema
+from resolwe.flow.utils import iterate_schema
 
 
 PROCESS_CACHE = None

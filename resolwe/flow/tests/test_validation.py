@@ -7,7 +7,8 @@ import six
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 
-from resolwe.flow.models import Data, DescriptorSchema, Process, Storage, validate_schema
+from resolwe.flow.models import Data, DescriptorSchema, Process, Storage
+from resolwe.flow.models.utils import validate_schema
 from resolwe.test import TestCase
 
 
@@ -211,31 +212,31 @@ class ValidationUnitTest(TestCase):
         ]
         instance = {'result': {'file': 'result.txt'}}
 
-        with patch('resolwe.flow.models.os') as os_mock:
+        with patch('resolwe.flow.models.utils.os') as os_mock:
             validate_schema(instance, schema)
             self.assertEqual(os_mock.path.isfile.call_count, 0)
 
         # missing file
-        with patch('resolwe.flow.models.os') as os_mock:
+        with patch('resolwe.flow.models.utils.os') as os_mock:
             os_mock.path.isfile = MagicMock(return_value=False)
             with six.assertRaisesRegex(self, ValidationError, 'Referenced file .* does not exist'):
                 validate_schema(instance, schema, path_prefix='/home/genialis/')
             self.assertEqual(os_mock.path.isfile.call_count, 1)
 
-        with patch('resolwe.flow.models.os') as os_mock:
+        with patch('resolwe.flow.models.utils.os') as os_mock:
             os_mock.path.isfile = MagicMock(return_value=True)
             validate_schema(instance, schema, path_prefix='/home/genialis/')
             self.assertEqual(os_mock.path.isfile.call_count, 1)
 
         instance = {'result': {'file': 'result.txt', 'refs': ['user1.txt', 'user2.txt']}}
 
-        with patch('resolwe.flow.models.os') as os_mock:
+        with patch('resolwe.flow.models.utils.os') as os_mock:
             os_mock.path.isfile = MagicMock(return_value=True)
             validate_schema(instance, schema, path_prefix='/home/genialis/')
             self.assertEqual(os_mock.path.isfile.call_count, 3)
 
         # missing second `refs` file
-        with patch('resolwe.flow.models.os') as os_mock:
+        with patch('resolwe.flow.models.utils.os') as os_mock:
             os_mock.path.isfile = MagicMock(side_effect=[True, True, False])
             os_mock.path.isdir = MagicMock(return_value=False)
             with six.assertRaisesRegex(self, ValidationError,
@@ -251,17 +252,17 @@ class ValidationUnitTest(TestCase):
         instance = {'result': {'dir': 'results'}}
 
         # dir validation is not called if `path_prefix` is not given
-        with patch('resolwe.flow.models.os') as os_mock:
+        with patch('resolwe.flow.models.utils.os') as os_mock:
             validate_schema(instance, schema)
             self.assertEqual(os_mock.path.isdir.call_count, 0)
 
-        with patch('resolwe.flow.models.os') as os_mock:
+        with patch('resolwe.flow.models.utils.os') as os_mock:
             os_mock.path.isdir = MagicMock(return_value=True)
             validate_schema(instance, schema, path_prefix='/home/genialis/')
             self.assertEqual(os_mock.path.isdir.call_count, 1)
 
         # missing dir
-        with patch('resolwe.flow.models.os') as os_mock:
+        with patch('resolwe.flow.models.utils.os') as os_mock:
             os_mock.path.isdir = MagicMock(return_value=False)
             with six.assertRaisesRegex(self, ValidationError, 'Referenced dir .* does not exist'):
                 validate_schema(instance, schema, path_prefix='/home/genialis/')
@@ -269,7 +270,7 @@ class ValidationUnitTest(TestCase):
 
         instance = {'result': {'dir': 'results', 'refs': ['file01.txt', 'file02.txt']}}
 
-        with patch('resolwe.flow.models.os') as os_mock:
+        with patch('resolwe.flow.models.utils.os') as os_mock:
             os_mock.path.isdir = MagicMock(return_value=True)
             os_mock.path.isfile = MagicMock(return_value=True)
             validate_schema(instance, schema, path_prefix='/home/genialis/')
@@ -277,7 +278,7 @@ class ValidationUnitTest(TestCase):
             self.assertEqual(os_mock.path.isfile.call_count, 2)
 
         # missing second `refs` file
-        with patch('resolwe.flow.models.os') as os_mock:
+        with patch('resolwe.flow.models.utils.os') as os_mock:
             os_mock.path.isdir = MagicMock(side_effect=[True, False])
             os_mock.path.isfile = MagicMock(side_effect=[True, False])
             with six.assertRaisesRegex(self, ValidationError,
@@ -414,7 +415,7 @@ class ValidationUnitTest(TestCase):
             'data_list': 1
         }
 
-        with patch('resolwe.flow.models.Data') as data_mock:
+        with patch('resolwe.flow.models.data.Data') as data_mock:
             value_mock = MagicMock(**{
                 'exists.return_value': True,
                 'first.return_value': {'process__type': 'data:test:upload:'},
@@ -428,7 +429,7 @@ class ValidationUnitTest(TestCase):
             self.assertEqual(value_mock.first.call_count, 1)
 
         # subtype is OK
-        with patch('resolwe.flow.models.Data') as data_mock:
+        with patch('resolwe.flow.models.data.Data') as data_mock:
             value_mock = MagicMock(**{
                 'exists.return_value': True,
                 'first.return_value': {'process__type': 'data:test:upload:subtype:'},
@@ -442,7 +443,7 @@ class ValidationUnitTest(TestCase):
             self.assertEqual(value_mock.first.call_count, 1)
 
         # missing `Data` object
-        with patch('resolwe.flow.models.Data') as data_mock:
+        with patch('resolwe.flow.models.data.Data') as data_mock:
             value_mock = MagicMock(**{
                 'exists.return_value': False,
                 'first.return_value': {'process__type': 'data:test:upload:'},
@@ -457,7 +458,7 @@ class ValidationUnitTest(TestCase):
             self.assertEqual(value_mock.first.call_count, 0)
 
         # `Data` object of wrong type
-        with patch('resolwe.flow.models.Data') as data_mock:
+        with patch('resolwe.flow.models.data.Data') as data_mock:
             value_mock = MagicMock(**{
                 'exists.return_value': True,
                 'first.return_value': {'process__type': 'data:test:wrong:'},
@@ -600,7 +601,7 @@ class ValidationUnitTest(TestCase):
         with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
             validate_schema(instance, schema)
 
-        with patch('resolwe.flow.models.Storage') as storage_mock:
+        with patch('resolwe.flow.models.utils.Storage') as storage_mock:
             filter_mock = MagicMock()
             filter_mock.exists.return_value = True
             storage_mock.objects.filter.return_value = filter_mock
@@ -611,7 +612,7 @@ class ValidationUnitTest(TestCase):
             self.assertEqual(filter_mock.exists.call_count, 1)
 
         # non existing `Storage`
-        with patch('resolwe.flow.models.Storage') as storage_mock:
+        with patch('resolwe.flow.models.utils.Storage') as storage_mock:
             filter_mock = MagicMock()
             filter_mock.exists.return_value = False
             storage_mock.objects.filter.return_value = filter_mock
@@ -669,7 +670,7 @@ class ValidationUnitTest(TestCase):
             'data_list': [1, 3, 4]
         }
 
-        with patch('resolwe.flow.models.Data') as data_mock:
+        with patch('resolwe.flow.models.data.Data') as data_mock:
             value_mock = MagicMock(**{
                 'exists.return_value': True,
                 'first.return_value': {'process__type': 'data:test:upload:'},
@@ -683,7 +684,7 @@ class ValidationUnitTest(TestCase):
             self.assertEqual(value_mock.first.call_count, 3)
 
         # subtypes are OK
-        with patch('resolwe.flow.models.Data') as data_mock:
+        with patch('resolwe.flow.models.data.Data') as data_mock:
             value_mock = MagicMock(**{
                 'exists.return_value': True,
                 'first.side_effect': [
@@ -701,7 +702,7 @@ class ValidationUnitTest(TestCase):
             self.assertEqual(value_mock.first.call_count, 3)
 
         # one object does not exist
-        with patch('resolwe.flow.models.Data') as data_mock:
+        with patch('resolwe.flow.models.data.Data') as data_mock:
             value_mock = MagicMock(**{
                 'exists.side_effect': [True, False, True],
                 'first.return_value': {'process__type': 'data:test:upload:'},
@@ -716,7 +717,7 @@ class ValidationUnitTest(TestCase):
             self.assertEqual(value_mock.first.call_count, 1)
 
         # one object of wrong type
-        with patch('resolwe.flow.models.Data') as data_mock:
+        with patch('resolwe.flow.models.data.Data') as data_mock:
             value_mock = MagicMock(**{
                 'exists.return_value': True,
                 'first.side_effect': [

@@ -17,6 +17,7 @@ Added
 Changed
 -------
 - Support running tests in parallel
+- Split ``flow.models`` module to multiple files
 
 Fixed
 -----

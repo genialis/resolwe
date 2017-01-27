@@ -17,7 +17,8 @@ from guardian.shortcuts import assign_perm, remove_perm
 from rest_framework.test import APITestCase, APIRequestFactory, force_authenticate
 
 from resolwe.flow.managers import manager
-from resolwe.flow.models import Data, DescriptorSchema, Entity, hydrate_size, Process, render_template, Storage
+from resolwe.flow.models import Data, DescriptorSchema, Entity, Process, Storage
+from resolwe.flow.models.data import hydrate_size, render_template
 from resolwe.flow.views import DataViewSet
 from resolwe.flow.expression_engines import EvaluationError
 from resolwe.test import TestCase
@@ -388,7 +389,7 @@ class GetOrCreateTestCase(APITestCase):
         self.assertNotEqual(response.data['id'], self.data.pk)
 
 
-@patch('resolwe.flow.models.os')
+@patch('resolwe.flow.models.utils.os')
 class HydrateFileSizeUnitTest(TestCase):
 
     def setUp(self):

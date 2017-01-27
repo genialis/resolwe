@@ -8,7 +8,7 @@ from django.conf import settings
 from resolwe.flow.execution_engines.base import BaseExecutionEngine
 from resolwe.flow.execution_engines.exceptions import ExecutionError
 from resolwe.flow.expression_engines import EvaluationError
-from resolwe.flow.models import hydrate_input_references, hydrate_input_uploads
+from resolwe.flow.models.utils import hydrate_input_references, hydrate_input_uploads
 
 
 class ExecutionEngine(BaseExecutionEngine):

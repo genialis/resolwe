@@ -19,10 +19,13 @@ from django.utils.text import slugify
 
 from versionfield.utils import convert_version_string_to_int
 
-from resolwe.flow.models import DescriptorSchema, Process, iterate_schema, validation_schema, VERSION_NUMBER_BITS
+from resolwe.flow.models import DescriptorSchema, Process
+from resolwe.flow.models.base import VERSION_NUMBER_BITS
+from resolwe.flow.models.utils import validation_schema
 from resolwe.flow.finders import get_finders
 from resolwe.flow.managers import manager
 from resolwe.flow.engine import InvalidEngineError
+from resolwe.flow.utils import iterate_schema
 
 
 PROCESSOR_SCHEMA = validation_schema('processor')

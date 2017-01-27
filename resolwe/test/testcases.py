@@ -42,9 +42,9 @@ from django.utils.text import slugify
 
 from rest_framework.test import APITestCase, APIRequestFactory, force_authenticate
 
-from resolwe.flow.models import (Data, dict_dot, iterate_fields, iterate_schema, Collection,
-                                 DescriptorSchema, Process, Storage)
 from resolwe.flow.managers import manager
+from resolwe.flow.models import Collection, Data, DescriptorSchema, Process, Storage
+from resolwe.flow.utils import dict_dot, iterate_fields, iterate_schema
 
 if six.PY2:
     # Monkey-patch shutil package with which function (available in Python 3.3+)

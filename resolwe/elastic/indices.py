@@ -30,7 +30,7 @@ from django.conf import settings
 
 from guardian.models import GroupObjectPermission, UserObjectPermission
 
-from resolwe.flow.models import dict_dot
+from resolwe.flow.utils import dict_dot
 
 
 __all__ = ('BaseDocument', 'BaseIndex')

@@ -15,7 +15,8 @@ from django.db import IntegrityError, transaction
 
 from resolwe.flow.engine import InvalidEngineError, load_engines
 from resolwe.flow.execution_engines import ExecutionError
-from resolwe.flow.models import Data, Process, iterate_fields
+from resolwe.flow.models import Data, Process
+from resolwe.flow.utils import iterate_fields
 from resolwe.utils import BraceMessage as __
 
 

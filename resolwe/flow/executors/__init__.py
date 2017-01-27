@@ -25,7 +25,8 @@ from django.db import transaction
 from django.conf import settings
 
 from resolwe.flow.engine import BaseEngine
-from resolwe.flow.models import Data, dict_dot, iterate_fields, Process
+from resolwe.flow.models import Data, Process
+from resolwe.flow.utils import dict_dot, iterate_fields
 from resolwe.flow.utils.purge import data_purge
 from resolwe.utils import BraceMessage as __
 

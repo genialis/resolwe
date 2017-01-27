@@ -28,15 +28,14 @@ from rest_framework.response import Response
 
 from guardian import shortcuts
 
-from resolwe.flow.models import dict_dot, iterate_schema
-from resolwe.flow.utils import get_data_checksum
+from resolwe.flow.utils import dict_dot, get_data_checksum, iterate_schema
 from resolwe.permissions.shortcuts import get_object_perms, get_objects_for_user
 
 from .filters import DataFilter, CollectionFilter, EntityFilter, ProcessFilter
 from .managers import manager
-from .models import Collection, Process, Data, DescriptorSchema, Entity, Trigger, Storage
+from .models import Collection, Process, Data, DescriptorSchema, Entity, Storage
 from .serializers import (CollectionSerializer, ProcessSerializer, DataSerializer, EntitySerializer,
-                          DescriptorSchemaSerializer, TriggerSerializer, StorageSerializer)
+                          DescriptorSchemaSerializer, StorageSerializer)
 
 
 def assign_perm(*args, **kwargs):
@@ -639,21 +638,6 @@ class DescriptorSchemaViewSet(mixins.RetrieveModelMixin,
     filter_fields = ('contributor', 'name', 'description', 'created', 'modified', 'slug')
     ordering_fields = ('id', 'created', 'modified', 'name')
     ordering = ('id',)
-
-
-class TriggerViewSet(ResolweCreateModelMixin,
-                     mixins.RetrieveModelMixin,
-                     mixins.UpdateModelMixin,
-                     mixins.DestroyModelMixin,
-                     mixins.ListModelMixin,
-                     ResolwePermissionsMixin,
-                     viewsets.GenericViewSet):
-    """API view for :class:`Trigger` objects."""
-
-    queryset = Trigger.objects.all().prefetch_related('contributor')
-    serializer_class = TriggerSerializer
-    permission_classes = (permissions_cls,)
-    filter_fields = ('contributor', 'name', 'created', 'modified', 'slug', 'collection')
 
 
 class StorageViewSet(mixins.RetrieveModelMixin,

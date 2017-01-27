@@ -5,15 +5,13 @@ from django.conf.urls import include, url
 
 from rest_framework import routers
 
-from .flow.views import (CollectionViewSet, ProcessViewSet, DataViewSet,
-                         DescriptorSchemaViewSet, TriggerViewSet, StorageViewSet)
+from .flow.views import CollectionViewSet, ProcessViewSet, DataViewSet, DescriptorSchemaViewSet, StorageViewSet
 
 api_router = routers.DefaultRouter(trailing_slash=False)  # pylint: disable=invalid-name
 api_router.register(r'collection', CollectionViewSet)
 api_router.register(r'process', ProcessViewSet)
 api_router.register(r'data', DataViewSet)
 api_router.register(r'descriptorschema', DescriptorSchemaViewSet)
-api_router.register(r'trigger', TriggerViewSet)
 api_router.register(r'storage', StorageViewSet)
 
 
