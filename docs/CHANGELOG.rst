@@ -14,6 +14,10 @@ Changed
 -------
 - Support running tests in parallel
 
+Fixed
+-----
+- Configure parallel tests
+
 
 ==================
 1.4.1 - 2017-01-27

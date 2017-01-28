@@ -93,7 +93,7 @@ Running tests
 To run the tests, use::
 
     cd tests
-    ./manage.py test resolwe
+    ./manage.py test resolwe --parallel
 
 To run the tests with Tox_, use::
 
@@ -155,7 +155,7 @@ Create source distribution::
         python setup.py bdist_wheel
 
 
-.. _django-autoslug: http://django-autoslug.readthedocs.io/en/latest/ 
+.. _django-autoslug: http://django-autoslug.readthedocs.io/en/latest/
 .. _issue: https://github.com/neithere/django-autoslug/pull/18
 
 Upload distribution to PyPI_::
