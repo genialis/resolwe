@@ -12,7 +12,7 @@ from rest_framework import status, exceptions
 from resolwe.flow.models import Data, Collection
 from resolwe.flow.views import DataViewSet
 from resolwe.flow.serializers import ContributorSerializer
-from ..utils.test import ResolweAPITestCase
+from resolwe.test import ResolweAPITestCase
 
 if settings.USE_TZ:
     from django.utils.timezone import now  # pylint: disable=ungrouped-imports

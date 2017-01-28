@@ -1,15 +1,15 @@
 # pylint: disable=missing-docstring
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-import unittest
-
 import mock
 
 from resolwe.flow.expression_engines.jinja import ExpressionEngine
 from resolwe.flow.execution_engines.bash import ExecutionEngine, ExecutionError
+from resolwe.test import TestCase
 
 
-class ExecutionEngineTestCase(unittest.TestCase):
+class ExecutionEngineTestCase(TestCase):
+
     def test_invalid_template(self):
         manager = mock.MagicMock()
         manager.get_expression_engine.return_value = ExpressionEngine(manager)
@@ -32,6 +32,7 @@ class ExecutionEngineTestCase(unittest.TestCase):
         self.assertEqual(result, data_mock.process.run['program'])
 
 
-class CeleryEngineTestCase(unittest.TestCase):
+class CeleryEngineTestCase(TestCase):
+
     def test_passed_to_celery(self):
         pass

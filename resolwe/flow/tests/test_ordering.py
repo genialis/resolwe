@@ -12,6 +12,7 @@ from resolwe.flow.models import Process
 
 
 class ProcessOrderingTest(APITestCase):
+
     def setUp(self):
         user_model = get_user_model()
         user = user_model.objects.create(username='user')

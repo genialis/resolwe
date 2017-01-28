@@ -1,26 +1,14 @@
 # pylint: disable=missing-docstring
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-import os
-import shutil
-
-from django.conf import settings
-from django.contrib.auth import get_user_model
-from django.test import override_settings, TestCase
+from django.test import override_settings
 
 from resolwe.flow.managers import manager
 from resolwe.flow.models import Process, Data
+from resolwe.test import TestCase
 
 
 class EnvVarsTest(TestCase):
-    def setUp(self):
-        user_model = get_user_model()
-        self.contributor = user_model.objects.create_user('test_user', 'test_pwd')
-
-    def tearDown(self):
-        for data in Data.objects.all():
-            data_dir = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.id))
-            shutil.rmtree(data_dir, ignore_errors=True)
 
     @override_settings(RESOLWE_API_HOST='some.special.host')
     def test_envvars(self):

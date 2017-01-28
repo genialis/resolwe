@@ -5,7 +5,6 @@ import io
 import json
 import os
 import shutil
-import unittest
 import six
 
 from mock import MagicMock, patch
@@ -13,7 +12,6 @@ from mock import MagicMock, patch
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.test import TestCase
 
 from guardian.shortcuts import assign_perm, remove_perm
 from rest_framework.test import APITestCase, APIRequestFactory, force_authenticate
@@ -22,6 +20,7 @@ from resolwe.flow.managers import manager
 from resolwe.flow.models import Data, DescriptorSchema, Entity, hydrate_size, Process, render_template, Storage
 from resolwe.flow.views import DataViewSet
 from resolwe.flow.expression_engines import EvaluationError
+from resolwe.test import TestCase
 
 try:
     import builtins  # py3
@@ -31,18 +30,10 @@ except ImportError:
 
 class DataModelTest(TestCase):
 
-    def setUp(self):
-        self.user = get_user_model().objects.create_superuser('test', 'test@genialis.com', 'test')
-
-    def tearDown(self):
-        for data in Data.objects.all():
-            data_dir = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.id))
-            shutil.rmtree(data_dir, ignore_errors=True)
-
     def test_name(self):
         process = Process.objects.create(slug='test-first',
                                          type='data:test:first:',
-                                         contributor=self.user,
+                                         contributor=self.contributor,
                                          data_name='Process based data name',
                                          output_schema=[{
                                              'name': 'stat',
@@ -54,7 +45,7 @@ class DataModelTest(TestCase):
                                              'program': 'echo {"stat": "42"}'
                                          })
 
-        data = Data.objects.create(contributor=self.user,
+        data = Data.objects.create(contributor=self.contributor,
                                    process=process)
 
         self.assertEqual(data.name, 'Process based data name')
@@ -67,7 +58,7 @@ class DataModelTest(TestCase):
         self.assertTrue(data.named_by_user)
 
         data = Data.objects.create(name='Explicit data name',
-                                   contributor=self.user,
+                                   contributor=self.contributor,
                                    process=process)
 
         self.assertEqual(data.name, 'Explicit data name')
@@ -75,7 +66,7 @@ class DataModelTest(TestCase):
 
         process = Process.objects.create(slug='test-second',
                                          type='test:second',
-                                         contributor=self.user,
+                                         contributor=self.contributor,
                                          requirements={'expression-engine': 'jinja'},
                                          data_name='Process based data name, value: {{src.stat}}',
                                          input_schema=[{
@@ -84,7 +75,7 @@ class DataModelTest(TestCase):
                                              'required': False,
                                          }])
 
-        second = Data.objects.create(contributor=self.user,
+        second = Data.objects.create(contributor=self.contributor,
                                      process=process,
                                      input={'src': data.id})
 
@@ -106,7 +97,7 @@ class DataModelTest(TestCase):
         data.status = 'RE'
         data.save()
 
-        second = Data.objects.create(contributor=self.user,
+        second = Data.objects.create(contributor=self.contributor,
                                      process=process,
                                      input={'src': data.id})
 
@@ -128,8 +119,8 @@ class DataModelTest(TestCase):
         self.assertTrue(second.named_by_user)
 
     def test_trim_name(self):
-        process = Process.objects.create(contributor=self.user, data_name='test' * 50)
-        data = Data.objects.create(contributor=self.user, process=process)
+        process = Process.objects.create(contributor=self.contributor, data_name='test' * 50)
+        data = Data.objects.create(contributor=self.contributor, process=process)
 
         self.assertEqual(len(data.name), 100)
         self.assertEqual(data.name[-3:], '...')
@@ -137,7 +128,7 @@ class DataModelTest(TestCase):
     def test_hydrate_file_size(self):
         proc = Process.objects.create(
             name='Test process',
-            contributor=self.user,
+            contributor=self.contributor,
             output_schema=[
                 {'name': 'output_file', 'type': 'basic:file:'}
             ]
@@ -145,7 +136,7 @@ class DataModelTest(TestCase):
 
         data = Data.objects.create(
             name='Test data',
-            contributor=self.user,
+            contributor=self.contributor,
             process=proc,
         )
 
@@ -169,7 +160,7 @@ class DataModelTest(TestCase):
     def test_dependencies_single(self):
         process = Process.objects.create(slug='test-dependencies',
                                          type='data:test:dependencies:',
-                                         contributor=self.user,
+                                         contributor=self.contributor,
                                          input_schema=[{
                                              'name': 'src',
                                              'type': 'data:test:dependencies:',
@@ -177,16 +168,16 @@ class DataModelTest(TestCase):
                                          }])
 
         first = Data.objects.create(name='First data',
-                                    contributor=self.user,
+                                    contributor=self.contributor,
                                     process=process)
 
         second = Data.objects.create(name='Second data',
-                                     contributor=self.user,
+                                     contributor=self.contributor,
                                      process=process,
                                      input={'src': first.id})
 
         third = Data.objects.create(name='Third data',
-                                    contributor=self.user,
+                                    contributor=self.contributor,
                                     process=process,
                                     input={'src': first.id})
 
@@ -204,7 +195,7 @@ class DataModelTest(TestCase):
     def test_dependencies_list(self):
         process = Process.objects.create(slug='test-dependencies-list',
                                          type='data:test:dependencies:list:',
-                                         contributor=self.user,
+                                         contributor=self.contributor,
                                          input_schema=[{
                                              'name': 'src',
                                              'type': 'list:data:test:dependencies:list:',
@@ -212,16 +203,16 @@ class DataModelTest(TestCase):
                                          }])
 
         first = Data.objects.create(name='First data',
-                                    contributor=self.user,
+                                    contributor=self.contributor,
                                     process=process)
 
         second = Data.objects.create(name='Second data',
-                                     contributor=self.user,
+                                     contributor=self.contributor,
                                      process=process,
                                      input={'src': [first.id]})
 
         third = Data.objects.create(name='Third data',
-                                    contributor=self.user,
+                                    contributor=self.contributor,
                                     process=process,
                                     input={'src': [first.id, second.id]})
 
@@ -239,26 +230,29 @@ class DataModelTest(TestCase):
 
 
 class EntityModelTest(TestCase):
-    def setUp(self):
-        user_model = get_user_model()
 
-        self.user = user_model.objects.create_user('test_user')
-        DescriptorSchema.objects.create(name='Sample', slug='sample', contributor=self.user)
-        self.process = Process.objects.create(name='Test process', contributor=self.user, flow_collection='sample')
+    def setUp(self):
+        super(EntityModelTest, self).setUp()
+
+        DescriptorSchema.objects.create(name='Sample', slug='sample', contributor=self.contributor)
+        self.process = Process.objects.create(name='Test process',
+                                              contributor=self.contributor,
+                                              flow_collection='sample')
         # `Sample`is created automatically when `Data` object is created
-        self.data = Data.objects.create(name='Test data', contributor=self.user, process=self.process)
+        self.data = Data.objects.create(name='Test data', contributor=self.contributor, process=self.process)
 
     def test_delete_last_data(self):
         self.data.delete()
         self.assertEqual(Entity.objects.count(), 0)
 
     def test_new_sample(self):
-        data = Data.objects.create(name='Test data', contributor=self.user, process=self.process)
+        data = Data.objects.create(name='Test data', contributor=self.contributor, process=self.process)
         entity = Entity.objects.last()
         self.assertTrue(entity.data.filter(pk=data.pk).exists())
 
 
 class GetOrCreateTestCase(APITestCase):
+
     def setUp(self):
         user_model = get_user_model()
         self.user = user_model.objects.create(username='test_user', password='test_pwd')
@@ -395,8 +389,11 @@ class GetOrCreateTestCase(APITestCase):
 
 
 @patch('resolwe.flow.models.os')
-class HydrateFileSizeUnitTest(unittest.TestCase):
+class HydrateFileSizeUnitTest(TestCase):
+
     def setUp(self):
+        super(HydrateFileSizeUnitTest, self).setUp()
+
         self.process = Process(
             output_schema=[
                 {'name': 'test_file', 'type': 'basic:file:', 'required': False},
@@ -451,11 +448,13 @@ class HydrateFileSizeUnitTest(unittest.TestCase):
 
 
 class StorageModelTestCase(TestCase):
+
     def setUp(self):
-        self.user = get_user_model().objects.create(username="test_user")
+        super(StorageModelTestCase, self).setUp()
+
         self.proc = Process.objects.create(
             name='Test process',
-            contributor=self.user,
+            contributor=self.contributor,
             output_schema=[
                 {'name': 'json_field', 'type': 'basic:json:'},
             ],
@@ -465,7 +464,7 @@ class StorageModelTestCase(TestCase):
         """`basic:json:` fields are stored in Storage"""
         data = Data.objects.create(
             name='Test data',
-            contributor=self.user,
+            contributor=self.contributor,
             process=self.proc,
         )
 
@@ -481,7 +480,7 @@ class StorageModelTestCase(TestCase):
         """File is loaded and saved to storage"""
         data = Data.objects.create(
             name='Test data',
-            contributor=self.user,
+            contributor=self.contributor,
             process=self.proc,
         )
 
@@ -506,7 +505,7 @@ class StorageModelTestCase(TestCase):
         """`Storage` is deleted when `Data` object is deleted"""
         data = Data.objects.create(
             name='Test data',
-            contributor=self.user,
+            contributor=self.contributor,
             process=self.proc,
         )
 
@@ -520,7 +519,8 @@ class StorageModelTestCase(TestCase):
         self.assertEqual(Storage.objects.count(), 0)
 
 
-class UtilsTestCase(unittest.TestCase):
+class UtilsTestCase(TestCase):
+
     def test_render_template(self):
         process_mock = MagicMock(requirements={'expression-engine': 'jinja'})
         template = render_template(process_mock, '{{ 1 | increase }}', {})

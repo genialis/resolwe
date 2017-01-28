@@ -19,13 +19,13 @@ except ImportError:
 import six
 
 from resolwe.flow.models import Storage
-from resolwe.flow.utils.test import ProcessTestCase
+from resolwe.test import TestCase, ProcessTestCase
 
 
-class TestingFrameworkTestCase(unittest.TestCase):
+class TestingFrameworkTestCase(TestCase):
 
     @mock.patch("os.path.isfile")
-    @mock.patch("resolwe.flow.utils.test.dict_dot")
+    @mock.patch("resolwe.test.testcases.dict_dot")
     def test_assert_file_date_nofilter(self, dict_dot_mock, isfile_mock):
         isfile_mock.return_value = True
         output1_file = io.BytesIO(b"some line\ndate: 2016-02-10\n")
@@ -41,7 +41,7 @@ class TestingFrameworkTestCase(unittest.TestCase):
                               dummy_case, obj_mock, "", "")
 
     @mock.patch("os.path.isfile")
-    @mock.patch("resolwe.flow.utils.test.dict_dot")
+    @mock.patch("resolwe.test.testcases.dict_dot")
     def test_assert_file_date_filter(self, dict_dot_mock, isfile_mock):
         isfile_mock.return_value = True
         output1_file = io.BytesIO(b"some line\ndate: 2016-02-10\n")
@@ -161,7 +161,6 @@ class TestingFrameworkTestCase(unittest.TestCase):
         self.assertEqual(example_json, unzipped_json)
 
     def test_debug_info_non_ascii(self):
-
         non_ascii_text = 'Some non-ascii chars č ü €'
 
         dummy_case = ProcessTestCase.__new__(ProcessTestCase)

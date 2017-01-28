@@ -3,19 +3,17 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import os
 
-from django.contrib.auth import get_user_model
 from django.core.management import call_command
-from django.test import TestCase
 from django.utils.six import StringIO
+from django.test import TestCase as DjangoTestCase
+
+from resolwe.test import TestCase
 
 
 PROCESSES_DIR = os.path.join(os.path.dirname(__file__), 'processes')
 
 
 class ProcessRegisterTest(TestCase):
-
-    def setUp(self):
-        get_user_model().objects.create_superuser('test', 'test@genialis.com', 'test')
 
     def test_process_register_all(self):
         out, err = StringIO(), StringIO()
@@ -58,7 +56,7 @@ class ProcessRegisterTest(TestCase):
         self.assertEqual('', err.getvalue())
 
 
-class ProcessRegisterTestNoAdmin(TestCase):
+class ProcessRegisterTestNoAdmin(DjangoTestCase):
 
     def test_process_register_no_admin(self):
         err = StringIO()

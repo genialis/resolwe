@@ -5,7 +5,7 @@ from rest_framework import status
 
 from resolwe.flow.models import Collection
 from resolwe.flow.views import CollectionViewSet
-from ..utils.test import ResolweAPITestCase
+from resolwe.test import ResolweAPITestCase
 
 
 MESSAGES = {

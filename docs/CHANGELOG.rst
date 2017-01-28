@@ -10,6 +10,10 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Added
+-----
+- Add Resolwe test framework
+
 Changed
 -------
 - Support running tests in parallel

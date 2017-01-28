@@ -5,7 +5,7 @@ from rest_framework import status
 
 from resolwe.flow.models import Collection, Process
 from resolwe.flow.views import ProcessViewSet
-from ..utils.test import ResolweAPITestCase
+from resolwe.test import ResolweAPITestCase
 
 
 class ProcessTestCase(ResolweAPITestCase):

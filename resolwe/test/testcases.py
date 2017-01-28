@@ -1,8 +1,20 @@
 """.. Ignore pydocstyle D400.
 
-=======
-Testing
-=======
+==================
+Resolwe Test Cases
+==================
+
+.. autoclass:: resolwe.test.TestCase
+    :members:
+
+.. autoclass:: resolwe.test.ProcessTestCase
+    :members:
+
+.. autoclass:: resolwe.test.ResolweAPITestCase
+    :members:
+
+.. autoclass:: resolwe.test.ElasticSearchTestCase
+    :members:
 
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
@@ -13,11 +25,8 @@ import gzip
 import io
 import json
 import os
-import shlex
 import shutil
-import subprocess
 import zipfile
-import unittest
 
 import six
 from six.moves import filterfalse
@@ -25,10 +34,14 @@ from six.moves import filterfalse
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core import management
-from django.test import TestCase, override_settings
+from django.core.urlresolvers import reverse
+from django.test import TestCase as DjangoTestCase, override_settings
 from django.utils.crypto import get_random_string
 from django.utils.text import slugify
 
+from rest_framework.test import APITestCase, APIRequestFactory, force_authenticate
+
+from resolwe.elastic.builder import index_builder
 from resolwe.flow.models import (Data, dict_dot, iterate_fields, iterate_schema, Collection,
                                  DescriptorSchema, Process, Storage)
 from resolwe.flow.managers import manager
@@ -37,73 +50,13 @@ if six.PY2:
     # Monkey-patch shutil package with which function (available in Python 3.3+)
     import shutilwhich  # pylint: disable=import-error,unused-import
 
+__all__ = (
+    'TestCase', 'ProcessTestCase', 'ResolweAPITestCase',
+    'ElasticSearchTestCase',
+)
+
 
 SCHEMAS_FIXTURE_CACHE = None
-
-
-def check_installed(command):
-    """Check if the given command is installed.
-
-    :param str command: name of the command
-
-    :return: (indicator of the availability of the command, message saying
-              command is not available)
-    :rtype: tuple(bool, str)
-
-    """
-    if shutil.which(command):
-        return True, ""
-    else:
-        return False, "Command '{}' is not found.".format(command)
-
-
-def check_docker():
-    """Check if Docker is installed and working.
-
-    :return: (indicator of the availability of Docker, reason for
-              unavailability)
-    :rtype: tuple(bool, str)
-
-    """
-    command = getattr(settings, 'FLOW_EXECUTOR', {}).get('COMMAND', 'docker')
-    info_command = '{} info'.format(command)
-    available, reason = True, ""
-    # TODO: Use subprocess.DEVNULL after dropping support for Python 2
-    with open(os.devnull, 'wb') as DEVNULL:  # pylint: disable=invalid-name
-        try:
-            subprocess.check_call(shlex.split(info_command), stdout=DEVNULL, stderr=subprocess.STDOUT)
-        except OSError:
-            available, reason = False, "Docker command '{}' not found".format(command)
-        except subprocess.CalledProcessError:
-            available, reason = (False, "Docker command '{}' returned non-zero "
-                                        "exit status".format(info_command))
-    return available, reason
-
-
-def with_docker_executor(method):
-    """Decorate unit test to run processes with Docker executor."""
-    # pylint: disable=missing-docstring
-    @unittest.skipUnless(*check_docker())
-    def wrapper(*args, **kwargs):
-        executor_settings = settings.FLOW_EXECUTOR.copy()
-        executor_settings.update({
-            'NAME': 'resolwe.flow.executors.docker',
-            'CONTAINER_IMAGE': 'resolwe/test:base'
-        })
-
-        try:
-            with override_settings(FLOW_EXECUTOR=executor_settings):
-                # Re-run engine discovery as the settings have changed.
-                manager.discover_engines()
-
-                # Run the actual unit test method.
-                method(*args, **kwargs)
-        finally:
-            # Re-run engine discovery as the settings have changed.
-            manager.discover_engines()
-
-    return wrapper
-
 
 # override all FLOW_EXECUTOR settings that are specified in FLOW_EXECUTOR['TEST']
 FLOW_EXECUTOR_SETTINGS = copy.copy(getattr(settings, 'FLOW_EXECUTOR', {}))
@@ -120,6 +73,75 @@ for map_ in FLOW_DOCKER_MAPPINGS:
                     settings.FLOW_EXECUTOR[setting], FLOW_EXECUTOR_SETTINGS[setting], 1)
 
 
+class TestCase(DjangoTestCase):
+    """Base class for writing Resolwe tests."""
+
+    def _test_data_dir(self, path):
+        """Return test data directory path.
+
+        Increase counter in the path name by 1.
+
+        """
+        while True:
+            try:
+                counter = 1
+                for name in os.listdir(path):
+                    if os.path.isdir(os.path.join(path, name)) and name.startswith('test'):
+                        try:
+                            current = int(name.split('_')[-1])
+                            if current >= counter:
+                                counter = current + 1
+                        except ValueError:
+                            pass
+
+                test_data_dir = os.path.join(path, 'test_{}'.format(counter))
+                os.makedirs(test_data_dir)
+                break
+            except OSError:
+                # Try again if a folder with the same name was created
+                # by another test on another thread
+                continue
+
+        return test_data_dir
+
+    def setUp(self):
+        """Initialize test data."""
+        super(TestCase, self).setUp()
+
+        # Override data directory settings
+        data_dir = self._test_data_dir(FLOW_EXECUTOR_SETTINGS['DATA_DIR'])
+        flow_executor_settings = copy.copy(getattr(settings, 'FLOW_EXECUTOR', {}))
+        flow_executor_settings['DATA_DIR'] = data_dir
+
+        # Override Docker data directory mappings
+        flow_docker_mappings = copy.copy(getattr(settings, 'FLOW_DOCKER_MAPPINGS', []))
+        for mapping in flow_docker_mappings:
+            if mapping['dest'] == '/home/biolinux/data':
+                mapping['src'] = os.path.join(data_dir, '{data_id}')
+            elif mapping['dest'] == '/data_all':
+                mapping['src'] = data_dir
+
+        self.settings = override_settings(FLOW_EXECUTOR=flow_executor_settings,
+                                          FLOW_DOCKER_MAPPINGS=flow_docker_mappings)
+        self.settings.enable()
+
+        self._keep_all = False
+        self._keep_failed = False
+
+        user_model = get_user_model()
+        self.admin = user_model.objects.create_superuser(username='admin', email='admin@test.com', password='admin')
+        self.contributor = user_model.objects.create_user(username='contributor')
+
+    def tearDown(self):
+        """Clean up after the test."""
+        if not self._keep_all and not self._keep_failed:
+            shutil.rmtree(settings.FLOW_EXECUTOR['DATA_DIR'], ignore_errors=True)
+
+        self.settings.disable()
+
+        super(TestCase, self).tearDown()
+
+
 @override_settings(FLOW_EXECUTOR=FLOW_EXECUTOR_SETTINGS)
 @override_settings(FLOW_DOCKER_MAPPINGS=FLOW_DOCKER_MAPPINGS)
 @override_settings(CELERY_ALWAYS_EAGER=True)
@@ -134,12 +156,12 @@ class ProcessTestCase(TestCase):
 
     #. Put input files (if any) in ``tests/files`` directory of a
        Django application.
-    #. Run the process using :meth:`run_process`.
+    #. Run the process using :meth:`resolwe.test.ProcessTestCase.run_process`.
     #. Check if the process has the expected status using
-       :meth:`assertStatus`.
-    #. Check process's output using :meth:`assertFields`,
-       :meth:`assertFile`, :meth:`assertFileExists`,
-       :meth:`assertFiles` and :meth:`assertJSON`.
+       :meth:`resolwe.test.ProcessTestCase.assertStatus`.
+    #. Check process's output using :meth:`resolwe.test.ProcessTestCase.assertFields`,
+       :meth:`resolwe.test.ProcessTestCase.assertFile`, :meth:`resolwe.test.ProcessTestCase.assertFileExists`,
+       :meth:`resolwe.test.ProcessTestCase.assertFiles` and :meth:`resolwe.test.ProcessTestCase.assertJSON`.
 
     .. note::
         When creating a test case for a custom Django application,
@@ -198,46 +220,10 @@ class ProcessTestCase(TestCase):
             SCHEMAS_FIXTURE_CACHE[cache_key]['processes'] = list(Process.objects.all())
             SCHEMAS_FIXTURE_CACHE[cache_key]['descriptor_schemas'] = list(DescriptorSchema.objects.all())
 
-    def _test_data_dir(self, path):
-        """Return test data directory path.
-
-        Increase counter in the path name by 1.
-
-        """
-        while True:
-            try:
-                counter = 1
-                for name in os.listdir(path):
-                    if os.path.isdir(os.path.join(path, name)) and name.startswith('test'):
-                        try:
-                            current = int(name.split('_')[-1])
-                            if current >= counter:
-                                counter = current + 1
-                        except ValueError:
-                            pass
-
-                test_data_dir = os.path.join(path, 'test_{}'.format(counter))
-                os.makedirs(test_data_dir)
-                break
-            except OSError:
-                # Try again if a folder with the same name was created
-                # by another test on another thread
-                continue
-
-        return test_data_dir
-
     def setUp(self):
         """Initialize test data."""
-        flow_executor_settings = copy.copy(getattr(settings, 'FLOW_EXECUTOR', {}))
-        flow_executor_settings['DATA_DIR'] = self._test_data_dir(FLOW_EXECUTOR_SETTINGS['DATA_DIR'])
-
-        self.settings = override_settings(FLOW_EXECUTOR=flow_executor_settings)
-        self.settings.enable()
-
         super(ProcessTestCase, self).setUp()
 
-        self.admin = get_user_model().objects.create_superuser(
-            username="admin", email='admin@example.com', password="admin_pass")
         self._register_schemas()
 
         self.collection = Collection.objects.create(contributor=self.admin, name="Test collection")
@@ -253,8 +239,6 @@ class ProcessTestCase(TestCase):
 
     def tearDown(self):
         """Clean up after the test."""
-        super(ProcessTestCase, self).tearDown()
-
         # Delete Data objects and their files unless keep_failed
         for d in Data.objects.all():
             if self._keep_all or (self._keep_failed and d.status == "error"):
@@ -271,9 +255,7 @@ class ProcessTestCase(TestCase):
             for fn in self._upload_files:
                 shutil.rmtree(fn, ignore_errors=True)
 
-            shutil.rmtree(settings.FLOW_EXECUTOR['DATA_DIR'], ignore_errors=True)
-
-        self.settings.disable()
+        super(ProcessTestCase, self).tearDown()
 
     def keep_all(self):
         """Do not delete output files after test for all data."""
@@ -340,6 +322,7 @@ class ProcessTestCase(TestCase):
             new_path_dir = os.path.dirname(new_path)
             if not os.path.exists(new_path_dir):
                 os.makedirs(new_path_dir)
+
             shutil.copy2(old_path, new_path)
             self._upload_files.append(new_path)
             return {
@@ -674,3 +657,245 @@ class ProcessTestCase(TestCase):
             msg += "\n".join(data.process_warning)
 
         return msg
+
+
+@override_settings(CELERY_ALWAYS_EAGER=True)
+class ResolweAPITestCase(APITestCase):
+    """Base class for testing Resolwe REST API.
+
+    This class is derived from Django REST Framework's
+    :drf:`APITestCase <testing/#test-cases>` class and has implemented
+    some basic features that makes testing Resolwe API easier. These
+    features includes following functions:
+
+    .. automethod:: _get_list
+    .. automethod:: _get_detail
+    .. automethod:: _post
+    .. automethod:: _patch
+    .. automethod:: _delete
+    .. automethod:: _detail_permissions
+
+    It also has included 2 views made from referenced DRF's ``ViewSet``.
+    First mimic list view and has following links between request's
+    methods and ViewSet's methods:
+
+      *  ``GET`` -> ``list``
+      *  ``POST`` -> ``create``
+
+    Second mimic detail view and has following links between request's
+    methods and ViewSet's methods:
+
+      *  ``GET`` -> ``retrieve``
+      *  ``PUT`` -> ``update``
+      *  ``PATCH`` -> ``partial_update``
+      *  ``DELETE`` -> ``destroy``
+      *  ``POST`` -> ``permissions``
+
+    If any of the listed methods is not defined in the VievSet,
+    corresponding link is omitted.
+
+    .. note::
+        ``self.viewset`` (instance of DRF's ``Viewset``) and
+        ``self.resource_name`` (string) must be defined before calling
+        super ``setUp`` method to work properly.
+
+    ``self.factory`` is instance of DRF's ``APIRequestFactory``.
+
+    """
+
+    def setUp(self):
+        """Prepare data."""
+        super(ResolweAPITestCase, self).setUp()
+
+        # TODO: Remove this when removing fixtures
+        if get_user_model().objects.filter(pk=2).exists():
+            self.user1 = get_user_model().objects.get(pk=2)
+        if get_user_model().objects.filter(pk=3).exists():
+            self.user2 = get_user_model().objects.get(pk=3)
+        if get_user_model().objects.filter(pk=4).exists():
+            self.user3 = get_user_model().objects.get(pk=4)
+        if get_user_model().objects.filter(pk=5).exists():
+            self.admin = get_user_model().objects.get(pk=5)
+
+        if not hasattr(self, 'viewset'):
+            raise KeyError("`self.viewset` must be defined in child class")
+
+        if not hasattr(self, 'resource_name'):
+            raise KeyError("`self.resource_name` must be defined in child class")
+
+        self.factory = APIRequestFactory()
+
+        list_url_mapping = {}
+        if hasattr(self.viewset, 'list'):  # pylint: disable=no-member
+            list_url_mapping['get'] = 'list'
+        if hasattr(self.viewset, 'create'):  # pylint: disable=no-member
+            list_url_mapping['post'] = 'create'
+
+        self.list_view = self.viewset.as_view(list_url_mapping)  # pylint: disable=no-member
+
+        detail_url_mapping = {}
+        if hasattr(self.viewset, 'retrieve'):  # pylint: disable=no-member
+            detail_url_mapping['get'] = 'retrieve'
+        if hasattr(self.viewset, 'update'):  # pylint: disable=no-member
+            detail_url_mapping['put'] = 'update'
+        if hasattr(self.viewset, 'partial_update'):  # pylint: disable=no-member
+            detail_url_mapping['patch'] = 'partial_update'
+        if hasattr(self.viewset, 'destroy'):  # pylint: disable=no-member
+            detail_url_mapping['delete'] = 'destroy'
+        if hasattr(self.viewset, 'detail_permissions'):  # pylint: disable=no-member
+            detail_url_mapping['post'] = 'detail_permissions'
+
+        self.detail_view = self.viewset.as_view(detail_url_mapping)  # pylint: disable=no-member
+
+    def detail_url(self, pk):
+        """Get detail url."""
+        return reverse('resolwe-api:{}-detail'.format(self.resource_name), kwargs={'pk': pk})  # noqa pylint: disable=no-member
+
+    def detail_permissions(self, pk):
+        """Get detail permissions url."""
+        return reverse('resolwe-api:{}-permissions'.format(self.resource_name), kwargs={'pk': pk})  # noqa pylint: disable=no-member
+
+    @property
+    def list_url(self):
+        """Get list url."""
+        return reverse('resolwe-api:{}-list'.format(self.resource_name))  # pylint: disable=no-member
+
+    def _get_list(self, user=None):
+        """Make ``GET`` request to ``self.list_view`` view.
+
+        If ``user`` is not ``None``, the given user is authenticated
+        before making the request.
+
+        :param user: User to authenticate in request
+        :type user: :class:`~django.contrib.auth.models.User` or :data:`None`
+        :return: Rendered API response object
+        :rtype: :drf:`Response <responses/#response>`
+
+        """
+        request = self.factory.get(self.list_url, format='json')
+        force_authenticate(request, user)
+        resp = self.list_view(request)
+        resp.render()
+        return resp
+
+    def _get_detail(self, pk, user=None):
+        """Make ``GET`` request to ``self.detail_view`` view.
+
+        If ``user`` is not ``None``, the given user is authenticated
+        before making the request.
+
+        :param int pk: Primary key of the coresponding object
+        :param user: User to authenticate in request
+        :type user: :class:`~django.contrib.auth.models.User` or :data:`None`
+        :return: Rendered API response object
+        :rtype: :drf:`Response <responses/#response>`
+
+        """
+        request = self.factory.get(self.detail_url(pk), format='json')
+        force_authenticate(request, user)
+        resp = self.detail_view(request, pk=pk)
+        resp.render()
+        return resp
+
+    def _post(self, data={}, user=None):
+        """Make ``POST`` request to ``self.list_view`` view.
+
+        If ``user`` is not ``None``, the given user is authenticated
+        before making the request.
+
+        :param dict data: data for posting in request's body
+        :param user: User to authenticate in request
+        :type user: :class:`~django.contrib.auth.models.User` or :data:`None`
+        :return: Rendered API response object
+        :rtype: :drf:`Response <responses/#response>`
+
+        """
+        request = self.factory.post(self.list_url, data=data, format='json')
+        force_authenticate(request, user)
+        resp = self.list_view(request)
+        resp.render()
+        return resp
+
+    def _patch(self, pk, data={}, user=None):
+        """Make ``PATCH`` request to ``self.detail_view`` view.
+
+        If ``user`` is not ``None``, the given user is authenticated
+        before making the request.
+
+        :param int pk: Primary key of the coresponding object
+        :param dict data: data for posting in request's body
+        :param user: User to authenticate in request
+        :type user: :class:`~django.contrib.auth.models.User` or :data:`None`
+        :return: Rendered API response object
+        :rtype: :drf:`Response <responses/#response>`
+
+        """
+        request = self.factory.patch(self.detail_url(pk), data=data, format='json')
+        force_authenticate(request, user)
+        resp = self.detail_view(request, pk=pk)
+        resp.render()
+        return resp
+
+    def _delete(self, pk, user=None):
+        """Make ``DELETE`` request to ``self.detail_view`` view.
+
+        If ``user`` is not ``None``, the given user is authenticated
+        before making the request.
+
+        :param int pk: Primary key of the coresponding object
+        :param user: User to authenticate in request
+        :type user: :class:`~django.contrib.auth.models.User` or :data:`None`
+        :return: Rendered API response object
+        :rtype: :drf:`Response <responses/#response>`
+
+        """
+        request = self.factory.delete(self.detail_url(pk), format='json')
+        force_authenticate(request, user)
+        resp = self.detail_view(request, pk=pk)
+        resp.render()
+        return resp
+
+    def _detail_permissions(self, pk, data={}, user=None):
+        """Make ``POST`` request to ``self.detail_view`` view.
+
+        If ``user`` is not ``None``, the given user is authenticated
+        before making the request.
+
+        :param int pk: Primary key of the coresponding object
+        :param dict data: data for posting in request's body
+        :param user: User to authenticate in request
+        :type user: :class:`~django.contrib.auth.models.User` or :data:`None`
+        :return: Rendered API response object
+        :rtype: :drf:`Response <responses/#response>`
+
+        """
+        request = self.factory.post(self.detail_permissions(pk), data=data, format='json')
+        force_authenticate(request, user)
+        resp = self.detail_view(request, pk=pk)
+        resp.render()
+        return resp
+
+    def assertKeys(self, data, wanted):  # pylint: disable=invalid-name
+        """Assert dictionary keys."""
+        self.assertEqual(sorted(data.keys()), sorted(wanted))
+
+
+@override_settings(ELASTICSEARCH_INDEX_PREFIX='test')
+class ElasticSearchTestCase(DjangoTestCase):
+    """Base class for testing ElasticSearch based features.
+
+    This class should be used if tests depends on ElasticSearch. It takes care
+    for cleaning data before/after each test and prepare fresh index.
+    """
+
+    def setUp(self):
+        """Delete any existing data and prepare fresh indexes."""
+        super(ElasticSearchTestCase, self).setUp()
+
+        index_builder.destroy()  # clean after failed test
+        index_builder.build()
+
+    def tearDown(self):
+        """Delete existing data from ElasticSearch."""
+        index_builder.destroy()
+        super(ElasticSearchTestCase, self).tearDown()

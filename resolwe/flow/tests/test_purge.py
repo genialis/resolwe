@@ -14,7 +14,7 @@ from django.utils.crypto import get_random_string
 
 from resolwe.flow.models import Process, DescriptorSchema, Data
 from resolwe.flow.utils import purge
-from resolwe.flow.utils.test import ProcessTestCase
+from resolwe.test import ProcessTestCase
 
 
 class PurgeTestFieldsMixin(object):

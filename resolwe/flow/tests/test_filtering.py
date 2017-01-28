@@ -5,13 +5,14 @@ import datetime
 import six
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
 
 from resolwe.flow.filters import DataFilter, CollectionFilter
 from resolwe.flow.models import Collection, Data, DescriptorSchema, Process
+from resolwe.test import TestCase
 
 
 class DataFilterTestCase(TestCase):
+
     @classmethod
     def setUpTestData(cls):
         cls.user_1 = get_user_model().objects.create(username="first_user")
@@ -137,6 +138,7 @@ class DataFilterTestCase(TestCase):
 
 
 class CollectionFilterTestCase(TestCase):
+
     @classmethod
     def setUpTestData(cls):
         cls.user_1 = get_user_model().objects.create(username="first_user")

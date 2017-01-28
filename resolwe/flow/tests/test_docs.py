@@ -11,15 +11,18 @@ Current implementation of tests only checks that:
 # pylint: disable=missing-docstring, protected-access
 
 import os
-import unittest
 import shutil
 
 from sphinx import build_main
 
+from resolwe.test import TestCase
 
-class TestAutoporocess(unittest.TestCase):
+
+class TestAutoporocess(TestCase):
 
     def setUp(self):
+        super(TestAutoporocess, self).setUp()
+
         self.rst_source_files_dir = os.path.dirname(__file__) + "/files/"
         self.build_output_dir = os.path.dirname(__file__) + "/build"
         self.stderr_file = os.path.abspath(os.path.dirname(__file__) + "/files/errors.txt")
@@ -27,6 +30,7 @@ class TestAutoporocess(unittest.TestCase):
     def tearDown(self):
         # Remove the build folder and its contents
         shutil.rmtree(self.build_output_dir)
+        super(TestAutoporocess, self).tearDown()
 
     def test_build_ok(self):
         args = [

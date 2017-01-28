@@ -14,7 +14,7 @@ from guardian.shortcuts import assign_perm
 from rest_framework.test import APITestCase, APIRequestFactory, force_authenticate
 
 from resolwe.elastic.builder import index_builder
-from resolwe.elastic.utils.tests import ElasticSearchTestCase
+from resolwe.test import ElasticSearchTestCase
 
 
 factory = APIRequestFactory()  # pylint: disable=invalid-name
@@ -27,6 +27,7 @@ CUSTOM_SETTINGS = {
 
 @override_settings(**CUSTOM_SETTINGS)
 class IndexViewsetTest(APITestCase, ElasticSearchTestCase):
+
     def setUp(self):
         from .test_app.models import TestModel
         from .test_app.elastic_indexes import TestSearchIndex

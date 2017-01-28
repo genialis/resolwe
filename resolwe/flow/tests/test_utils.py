@@ -4,11 +4,11 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from mock import patch
 
 from django.core.exceptions import ValidationError
-from django.test import TestCase
 
 from rest_framework.response import Response
 
 from resolwe.flow.utils.exceptions import resolwe_exception_handler
+from resolwe.test import TestCase
 
 
 class ExceptionsTestCase(TestCase):

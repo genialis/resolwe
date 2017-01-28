@@ -13,7 +13,7 @@ from django.test import override_settings
 from guardian.shortcuts import assign_perm, remove_perm
 
 from resolwe.elastic.builder import index_builder
-from resolwe.elastic.utils.tests import ElasticSearchTestCase
+from resolwe.test import ElasticSearchTestCase
 
 CUSTOM_SETTINGS = {
     'INSTALLED_APPS': settings.INSTALLED_APPS + ('resolwe.elastic.tests.test_app',),
@@ -22,6 +22,7 @@ CUSTOM_SETTINGS = {
 
 @override_settings(**CUSTOM_SETTINGS)
 class IndexTest(ElasticSearchTestCase):
+
     def setUp(self):
         from .test_app.elastic_indexes import TestSearchIndex, TestAnalyzerSearchIndex
 

@@ -1,27 +1,13 @@
 # pylint: disable=missing-docstring
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-import os
-import shutil
-
-from django.conf import settings
-from django.contrib.auth import get_user_model
-from django.test import TestCase
-
 from resolwe.flow.managers import manager
 from resolwe.flow.models import Process, Data
 from resolwe.flow.expression_engines import EvaluationError
+from resolwe.test import TestCase
 
 
 class ProcessFieldsTagsTest(TestCase):
-    def setUp(self):
-        user_model = get_user_model()
-        self.contributor = user_model.objects.create_user('test_user', 'test_pwd')
-
-    def tearDown(self):
-        for data in Data.objects.all():
-            data_dir = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.id))
-            shutil.rmtree(data_dir, ignore_errors=True)
 
     def test_templatetags(self):
         input_process = Process.objects.create(
@@ -88,6 +74,7 @@ re-save datalookup "{{ 'input-data-object' | data_by_slug }}"
 
 
 class ExpressionEngineTest(TestCase):
+
     def test_jinja_engine(self):
         engine = manager.get_expression_engine('jinja')
         block = engine.evaluate_block('Hello {{ world }}', {'world': 'cruel world'})

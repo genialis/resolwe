@@ -1,19 +1,18 @@
 # pylint: disable=missing-docstring
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-import unittest
-
 from mock import MagicMock, patch
 import six
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.test import TestCase
 
 from resolwe.flow.models import Data, DescriptorSchema, Process, Storage, validate_schema
+from resolwe.test import TestCase
 
 
 class ValidationTest(TestCase):
+
     def test_validating_data_object(self):
         """Diferent validations are performed depending on status"""
         user = get_user_model().objects.create(username="test_user")
@@ -171,7 +170,8 @@ class ValidationTest(TestCase):
         data2.save()
 
 
-class ValidationUnitTest(unittest.TestCase):
+class ValidationUnitTest(TestCase):
+
     def test_required(self):
         schema = [
             {'name': 'value', 'type': 'basic:integer:', 'required': True},

@@ -1,37 +1,27 @@
 # pylint: disable=missing-docstring
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-import os
-import shutil
-
-from django.conf import settings
-from django.contrib.auth import get_user_model
-from django.test import TestCase
-
 from resolwe.flow.managers import manager
 from resolwe.flow.models import Data, Process
+from resolwe.test import TestCase
 
 
 class BackendTest(TestCase):
     def setUp(self):
-        u = get_user_model().objects.create_superuser('test', 'test@genialis.com', 'test')
+        super(BackendTest, self).setUp()
+
         self.p = Process(slug='test-processor',
                          name='Test Process',
-                         contributor=u,
+                         contributor=self.contributor,
                          type='data:test',
                          version=1)
         self.p.save()
 
         self.d = Data(slug='test-data',
                       name='Test Data',
-                      contributor=u,
+                      contributor=self.contributor,
                       process=self.p)
         self.d.save()
-
-    def tearDown(self):
-        for data in Data.objects.all():
-            data_dir = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.id))
-            shutil.rmtree(data_dir, ignore_errors=True)
 
     def test_manager(self):
         manager.communicate(verbosity=0)

@@ -2,7 +2,6 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 from copy import deepcopy
-import unittest
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
@@ -13,7 +12,7 @@ from rest_framework import exceptions, status
 
 from resolwe.flow.models import Collection
 from resolwe.flow.views import CollectionViewSet, ResolwePermissionsMixin
-from ..utils.test import ResolweAPITestCase
+from resolwe.test import TestCase, ResolweAPITestCase
 
 
 class CollectionPermissionsTestCase(ResolweAPITestCase):
@@ -142,8 +141,9 @@ class CollectionPermissionsTestCase(ResolweAPITestCase):
         self.assertEqual(UserObjectPermission.objects.filter(user=self.user2).count(), 0)
 
 
-class PermissionsMixinTestCase(unittest.TestCase):
+class PermissionsMixinTestCase(TestCase):
     def setUp(self):
+        super(PermissionsMixinTestCase, self).setUp()
         self.permissions_mixin = ResolwePermissionsMixin()
 
     def test_filter_owner_permission(self):

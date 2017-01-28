@@ -2,22 +2,22 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import os
-import unittest
 
 import mock
 import six
 
 from django.conf import settings
-from django.contrib.auth import get_user_model
 
 from resolwe.flow.executors import BaseFlowExecutor
 from resolwe.flow.models import Data, Process
-from resolwe.flow.utils.test import with_docker_executor, ProcessTestCase
+from resolwe.test import TestCase, ProcessTestCase, with_docker_executor
+
 
 PROCESSES_DIR = os.path.join(os.path.dirname(__file__), 'processes')
 
 
-class GetToolsTestCase(unittest.TestCase):
+class GetToolsTestCase(TestCase):
+
     @mock.patch('resolwe.flow.executors.apps')
     @mock.patch('resolwe.flow.executors.os')
     @mock.patch('resolwe.flow.executors.settings')
@@ -51,10 +51,8 @@ class GetToolsTestCase(unittest.TestCase):
 class ManagerRunProcessTest(ProcessTestCase):
     def setUp(self):
         super(ManagerRunProcessTest, self).setUp()
-        self._register_schemas(path=[PROCESSES_DIR])
 
-        user_model = get_user_model()
-        self.contributor = user_model.objects.create_user('test_user', 'test_pwd')
+        self._register_schemas(path=[PROCESSES_DIR])
 
     def test_minimal_process(self):
         self.run_process('test-min')
