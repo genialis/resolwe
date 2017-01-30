@@ -3,12 +3,11 @@
 
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-from django.db import models
-from django.conf import settings
-
-from versionfield import VersionField
 from autoslug import AutoSlugField
+from versionfield import VersionField
 
+from django.conf import settings
+from django.db import models
 
 VERSION_NUMBER_BITS = (8, 10, 14)
 

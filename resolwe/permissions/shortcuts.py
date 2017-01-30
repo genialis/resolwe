@@ -11,19 +11,19 @@ Permissions shortcuts
 from __future__ import unicode_literals
 
 from itertools import chain, groupby
+
 import six
 
-from django.db.models import Count, Q
+from django.conf import settings
 from django.contrib.auth.models import AnonymousUser, Group, Permission
 from django.contrib.contenttypes.models import ContentType
-from django.conf import settings
+from django.db.models import Count, Q
 from django.shortcuts import _get_queryset
 
-from guardian.exceptions import MixedContentTypeError, WrongAppError
-from guardian.utils import (
-    get_anonymous_user, get_group_obj_perms_model, get_identity, get_user_obj_perms_model)
-from guardian.shortcuts import get_users_with_perms, get_groups_with_perms, get_perms
 from guardian.compat import get_user_model
+from guardian.exceptions import MixedContentTypeError, WrongAppError
+from guardian.shortcuts import get_groups_with_perms, get_perms, get_users_with_perms
+from guardian.utils import get_anonymous_user, get_group_obj_perms_model, get_identity, get_user_obj_perms_model
 
 
 def _group_groups(perm_list):

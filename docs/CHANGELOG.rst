@@ -13,6 +13,7 @@ Unreleased
 Added
 -----
 - Add Resolwe test framework
+- Added ``isort`` linter to check order of imports
 
 Changed
 -------

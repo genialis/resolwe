@@ -10,8 +10,7 @@ from django.conf import settings
 
 from resolwe.flow.executors import BaseFlowExecutor
 from resolwe.flow.models import Data, Process
-from resolwe.test import TestCase, ProcessTestCase, with_docker_executor
-
+from resolwe.test import ProcessTestCase, TestCase, with_docker_executor
 
 PROCESSES_DIR = os.path.join(os.path.dirname(__file__), 'processes')
 

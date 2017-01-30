@@ -7,11 +7,11 @@ from datetime import datetime, timedelta
 
 from django.conf import settings
 
-from rest_framework import status, exceptions
+from rest_framework import exceptions, status
 
-from resolwe.flow.models import Data, Collection
-from resolwe.flow.views import DataViewSet
+from resolwe.flow.models import Collection, Data
 from resolwe.flow.serializers import ContributorSerializer
+from resolwe.flow.views import DataViewSet
 from resolwe.test import ResolweAPITestCase
 
 if settings.USE_TZ:

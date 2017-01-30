@@ -7,9 +7,9 @@ Elastic Index Builder
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-from importlib import import_module
 import inspect
 import re
+from importlib import import_module
 
 from elasticsearch_dsl.connections import connections
 
@@ -18,7 +18,6 @@ from django.conf import settings
 from django.db.models.signals import post_save, pre_delete
 
 from .indices import BaseIndex
-
 
 __all__ = ('index_builder',)
 

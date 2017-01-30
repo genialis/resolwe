@@ -2,11 +2,12 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import datetime
+
 import six
 
 from django.contrib.auth import get_user_model
 
-from resolwe.flow.filters import DataFilter, CollectionFilter
+from resolwe.flow.filters import CollectionFilter, DataFilter
 from resolwe.flow.models import Collection, Data, DescriptorSchema, Process
 from resolwe.test import TestCase
 

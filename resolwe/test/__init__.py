@@ -12,8 +12,8 @@ Resolwe Test Framework
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-from resolwe.test.testcases import TestCase, ProcessTestCase, ResolweAPITestCase, ElasticSearchTestCase
-from resolwe.test.utils import check_installed, check_docker, with_docker_executor
+from resolwe.test.testcases import ElasticSearchTestCase, ProcessTestCase, ResolweAPITestCase, TestCase
+from resolwe.test.utils import check_docker, check_installed, with_docker_executor
 
 __all__ = (
     'TestCase', 'ProcessTestCase', 'ResolweAPITestCase',

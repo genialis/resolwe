@@ -3,8 +3,8 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import mock
 
-from resolwe.flow.expression_engines.jinja import ExpressionEngine
 from resolwe.flow.execution_engines.bash import ExecutionEngine, ExecutionError
+from resolwe.flow.expression_engines.jinja import ExpressionEngine
 from resolwe.test import TestCase
 
 

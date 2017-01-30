@@ -4,6 +4,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import copy
 import json
 import os
+
 import six
 
 from django.conf import settings
@@ -22,7 +23,7 @@ from .collection import Collection
 from .descriptor import DescriptorSchema
 from .entity import Entity
 from .storage import Storage
-from .utils import validate_schema, hydrate_input_references, hydrate_size, render_descriptor, render_template
+from .utils import hydrate_input_references, hydrate_size, render_descriptor, render_template, validate_schema
 
 
 class Data(BaseModel):

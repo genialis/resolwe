@@ -4,11 +4,10 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import os
 
 from django.core.management import call_command
-from django.utils.six import StringIO
 from django.test import TestCase as DjangoTestCase
+from django.utils.six import StringIO
 
 from resolwe.test import TestCase
-
 
 PROCESSES_DIR = os.path.join(os.path.dirname(__file__), 'processes')
 

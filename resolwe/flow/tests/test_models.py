@@ -5,8 +5,8 @@ import io
 import json
 import os
 import shutil
-import six
 
+import six
 from mock import MagicMock, patch
 
 from django.conf import settings
@@ -14,13 +14,13 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 
 from guardian.shortcuts import assign_perm, remove_perm
-from rest_framework.test import APITestCase, APIRequestFactory, force_authenticate
+from rest_framework.test import APIRequestFactory, APITestCase, force_authenticate
 
+from resolwe.flow.expression_engines import EvaluationError
 from resolwe.flow.managers import manager
 from resolwe.flow.models import Data, DescriptorSchema, Entity, Process, Storage
 from resolwe.flow.models.data import hydrate_size, render_template
 from resolwe.flow.views import DataViewSet
-from resolwe.flow.expression_engines import EvaluationError
 from resolwe.test import TestCase
 
 try:

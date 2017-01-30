@@ -4,6 +4,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from importlib import import_module
 
 import jinja2
+
 from django.core.exceptions import ImproperlyConfigured
 
 from resolwe.flow.expression_engines.base import BaseExpressionEngine

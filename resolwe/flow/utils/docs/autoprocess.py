@@ -26,21 +26,19 @@ Third option documents only one process: the one with *slug* equal to
 
 """
 
+import fnmatch
 import os
 import re
-import fnmatch
 from itertools import groupby
 from operator import itemgetter
 
 import six
 import yaml
-
 from docutils import nodes
 from docutils.parsers.rst import Directive
 from sphinx import addnodes
 
 from resolwe.flow.utils import iterate_schema
-
 
 PROCESS_CACHE = None
 

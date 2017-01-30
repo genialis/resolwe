@@ -19,7 +19,6 @@ from resolwe.flow.models import Data, Process
 from resolwe.flow.utils import iterate_fields
 from resolwe.utils import BraceMessage as __
 
-
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 

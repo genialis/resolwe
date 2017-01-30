@@ -11,11 +11,10 @@ from django.core.management import call_command
 from django.test import override_settings
 
 from guardian.shortcuts import assign_perm
-from rest_framework.test import APITestCase, APIRequestFactory, force_authenticate
+from rest_framework.test import APIRequestFactory, APITestCase, force_authenticate
 
 from resolwe.elastic.builder import index_builder
 from resolwe.test import ElasticSearchTestCase
-
 
 factory = APIRequestFactory()  # pylint: disable=invalid-name
 

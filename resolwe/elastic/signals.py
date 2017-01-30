@@ -7,7 +7,7 @@ Elastic Signal Handlers
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-from django.db.models.signals import pre_delete, post_save
+from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
 
 from guardian.models import GroupObjectPermission, UserObjectPermission

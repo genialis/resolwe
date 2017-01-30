@@ -8,8 +8,8 @@ Signal Handlers
 from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
 
-from resolwe.flow.models import Data, Entity
 from resolwe.flow.managers import manager
+from resolwe.flow.models import Data, Entity
 
 
 @receiver(post_save, sender=Data)

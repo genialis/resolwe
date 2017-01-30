@@ -3,7 +3,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import os
 import pkgutil
-
 from importlib import import_module
 
 from django.core.exceptions import ImproperlyConfigured

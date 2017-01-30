@@ -8,25 +8,23 @@ Register Processes
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import os
-import yaml
 
 import jsonschema
+import yaml
+from versionfield.utils import convert_version_string_to_int
 
-from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
+from django.core.management.base import BaseCommand
 from django.db.models import Max
 from django.utils.text import slugify
 
-from versionfield.utils import convert_version_string_to_int
-
+from resolwe.flow.engine import InvalidEngineError
+from resolwe.flow.finders import get_finders
+from resolwe.flow.managers import manager
 from resolwe.flow.models import DescriptorSchema, Process
 from resolwe.flow.models.base import VERSION_NUMBER_BITS
 from resolwe.flow.models.utils import validation_schema
-from resolwe.flow.finders import get_finders
-from resolwe.flow.managers import manager
-from resolwe.flow.engine import InvalidEngineError
 from resolwe.flow.utils import iterate_schema
-
 
 PROCESSOR_SCHEMA = validation_schema('processor')
 DESCRIPTOR_SCHEMA = validation_schema('descriptor')

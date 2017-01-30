@@ -5,7 +5,7 @@ from django.conf.urls import include, url
 
 from rest_framework import routers
 
-from .flow.views import CollectionViewSet, ProcessViewSet, DataViewSet, DescriptorSchemaViewSet, StorageViewSet
+from .flow.views import CollectionViewSet, DataViewSet, DescriptorSchemaViewSet, ProcessViewSet, StorageViewSet
 
 api_router = routers.DefaultRouter(trailing_slash=False)  # pylint: disable=invalid-name
 api_router.register(r'collection', CollectionViewSet)

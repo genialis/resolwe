@@ -9,14 +9,14 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import sys
 
+from ..tasks import celery_run
+from .base import BaseManager
+
 try:
     import celery  # pylint: disable=unused-import
 except ImportError:
     print('Please install Celery using `pip install celery`', file=sys.stderr)
     sys.exit(1)
-
-from .base import BaseManager
-from ..tasks import celery_run
 
 
 class Manager(BaseManager):

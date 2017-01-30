@@ -11,7 +11,6 @@ from django.conf import settings
 
 from resolwe.flow.executors import BaseFlowExecutor
 
-
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 

@@ -1,5 +1,5 @@
 """Search router."""
-from rest_framework.routers import Route, DefaultRouter
+from rest_framework.routers import DefaultRouter, Route
 
 
 class SearchRouter(DefaultRouter):

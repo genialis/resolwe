@@ -8,13 +8,12 @@ from django.db import DEFAULT_DB_ALIAS, connections
 from django.test.utils import CaptureQueriesContext
 
 from guardian.shortcuts import assign_perm, remove_perm
-from rest_framework.test import APIRequestFactory, force_authenticate
 from rest_framework import exceptions, status
+from rest_framework.test import APIRequestFactory, force_authenticate
 
-from resolwe.flow.models import Data, Entity, Process, Collection, DescriptorSchema
-from resolwe.flow.views import DataViewSet, CollectionViewSet, EntityViewSet
+from resolwe.flow.models import Collection, Data, DescriptorSchema, Entity, Process
+from resolwe.flow.views import CollectionViewSet, DataViewSet, EntityViewSet
 from resolwe.test import TestCase
-
 
 factory = APIRequestFactory()  # pylint: disable=invalid-name
 

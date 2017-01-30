@@ -10,19 +10,19 @@ Flow Executors
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-from collections import defaultdict
 import json
 import logging
 import os
 import shutil
 import traceback
 import uuid
+from collections import defaultdict
 
 import six
 
 from django.apps import apps
-from django.db import transaction
 from django.conf import settings
+from django.db import transaction
 
 from resolwe.flow.engine import BaseEngine
 from resolwe.flow.models import Data, Process

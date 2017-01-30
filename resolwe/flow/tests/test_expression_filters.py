@@ -1,9 +1,9 @@
 # pylint: disable=missing-docstring
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-from resolwe.flow.managers import manager
-from resolwe.flow.models import Process, Data
 from resolwe.flow.expression_engines import EvaluationError
+from resolwe.flow.managers import manager
+from resolwe.flow.models import Data, Process
 from resolwe.test import TestCase
 
 

@@ -11,8 +11,9 @@ Command to run on local machine to migrate data from gendev::
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-from datetime import datetime
 import json
+from datetime import datetime
+
 import six
 
 from django.contrib.auth import get_user_model
@@ -24,7 +25,7 @@ from django.utils.text import slugify
 from guardian.models import GroupObjectPermission, UserObjectPermission
 from guardian.shortcuts import assign_perm, get_groups_with_perms, get_users_with_perms
 
-from resolwe.flow.models import Data, DescriptorSchema, Process, Collection, Storage, dict_dot, iterate_fields
+from resolwe.flow.models import Collection, Data, DescriptorSchema, Process, Storage, dict_dot, iterate_fields
 
 
 class Command(BaseCommand):

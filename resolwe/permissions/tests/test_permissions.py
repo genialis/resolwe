@@ -12,7 +12,7 @@ from rest_framework import exceptions, status
 
 from resolwe.flow.models import Collection
 from resolwe.flow.views import CollectionViewSet, ResolwePermissionsMixin
-from resolwe.test import TestCase, ResolweAPITestCase
+from resolwe.test import ResolweAPITestCase, TestCase
 
 
 class CollectionPermissionsTestCase(ResolweAPITestCase):

@@ -5,9 +5,9 @@ import copy
 import json
 import os
 import re
-import six
 
 import jsonschema
+import six
 
 from django.conf import settings
 from django.contrib.staticfiles import finders

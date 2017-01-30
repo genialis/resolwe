@@ -20,8 +20,8 @@ Resolwe Test Cases
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import copy
-import hashlib
 import gzip
+import hashlib
 import io
 import json
 import os
@@ -36,11 +36,12 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core import management
 from django.core.urlresolvers import reverse
-from django.test import TestCase as DjangoTestCase, override_settings
+from django.test import TestCase as DjangoTestCase
+from django.test import override_settings
 from django.utils.crypto import get_random_string
 from django.utils.text import slugify
 
-from rest_framework.test import APITestCase, APIRequestFactory, force_authenticate
+from rest_framework.test import APIRequestFactory, APITestCase, force_authenticate
 
 from resolwe.flow.managers import manager
 from resolwe.flow.models import Collection, Data, DescriptorSchema, Process, Storage

@@ -3,21 +3,20 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import six
 
-from django.contrib.contenttypes.models import ContentType
-from django.db.models.query import QuerySet
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser, Group
+from django.contrib.contenttypes.models import ContentType
+from django.db.models.query import QuerySet
 
 from guardian.compat import get_user_permission_full_codename
 from guardian.exceptions import MixedContentTypeError, WrongAppError
-from guardian.shortcuts import get_objects_for_group, assign_perm, remove_perm
-
+from guardian.shortcuts import assign_perm, get_objects_for_group, remove_perm
 from rest_framework import status
 from rest_framework.test import APIRequestFactory, force_authenticate
 
 from resolwe.flow.models import Collection, Data, Process, Storage
-from resolwe.permissions.shortcuts import get_objects_for_user, get_user_group_perms, get_object_perms
 from resolwe.flow.views import StorageViewSet
+from resolwe.permissions.shortcuts import get_object_perms, get_objects_for_user, get_user_group_perms
 from resolwe.test import TestCase
 
 factory = APIRequestFactory()  # pylint: disable=invalid-name

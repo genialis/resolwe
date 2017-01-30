@@ -12,7 +12,8 @@ from django.contrib import auth
 from rest_framework import serializers, status
 from rest_framework.exceptions import APIException, ValidationError
 from rest_framework.fields import empty
-from resolwe.flow.models import Process, Collection, Data, DescriptorSchema, Entity, Storage
+
+from resolwe.flow.models import Collection, Data, DescriptorSchema, Entity, Process, Storage
 
 
 class NoContentError(APIException):

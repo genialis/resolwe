@@ -10,16 +10,15 @@ import tempfile
 import unittest
 
 import mock
+import six
+
+from resolwe.flow.models import Storage
+from resolwe.test import ProcessTestCase, TestCase
 
 try:
     import builtins  # py3
 except ImportError:
     import __builtin__ as builtins  # py2
-
-import six
-
-from resolwe.flow.models import Storage
-from resolwe.test import TestCase, ProcessTestCase
 
 
 class TestingFrameworkTestCase(TestCase):

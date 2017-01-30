@@ -17,21 +17,20 @@ Main two classes
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import uuid
-from six import add_metaclass
 
+import elasticsearch_dsl as dsl
 from elasticsearch.exceptions import NotFoundError
 from elasticsearch.helpers import bulk
-import elasticsearch_dsl as dsl
 from elasticsearch_dsl.connections import connections
 from elasticsearch_dsl.document import DocTypeMeta
 from elasticsearch_dsl.exceptions import IllegalOperation
+from six import add_metaclass
 
 from django.conf import settings
 
 from guardian.models import GroupObjectPermission, UserObjectPermission
 
 from resolwe.flow.utils import dict_dot
-
 
 __all__ = ('BaseDocument', 'BaseIndex')
 

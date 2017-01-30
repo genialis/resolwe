@@ -11,31 +11,31 @@ import os
 import pkgutil
 from importlib import import_module
 
-from django.db import IntegrityError, transaction
-from django.db.models import Max
-from django.db.models.query import Prefetch
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser, Group, Permission
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ImproperlyConfigured
+from django.db import IntegrityError, transaction
+from django.db.models import Max
+from django.db.models.query import Prefetch
 from django.utils._os import upath
 
-
-from rest_framework import exceptions, mixins, viewsets, status
+from guardian import shortcuts
+from rest_framework import exceptions, mixins, status, viewsets
 from rest_framework.decorators import detail_route, list_route
 from rest_framework.response import Response
-
-from guardian import shortcuts
 
 from resolwe.flow.utils import dict_dot, get_data_checksum, iterate_schema
 from resolwe.permissions.shortcuts import get_object_perms, get_objects_for_user
 
-from .filters import DataFilter, CollectionFilter, EntityFilter, ProcessFilter
+from .filters import CollectionFilter, DataFilter, EntityFilter, ProcessFilter
 from .managers import manager
-from .models import Collection, Process, Data, DescriptorSchema, Entity, Storage
-from .serializers import (CollectionSerializer, ProcessSerializer, DataSerializer, EntitySerializer,
-                          DescriptorSchemaSerializer, StorageSerializer)
+from .models import Collection, Data, DescriptorSchema, Entity, Process, Storage
+from .serializers import (
+    CollectionSerializer, DataSerializer, DescriptorSchemaSerializer, EntitySerializer, ProcessSerializer,
+    StorageSerializer,
+)
 
 
 def assign_perm(*args, **kwargs):

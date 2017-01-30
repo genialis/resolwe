@@ -12,7 +12,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.utils.crypto import get_random_string
 
-from resolwe.flow.models import Process, DescriptorSchema, Data
+from resolwe.flow.models import Data, DescriptorSchema, Process
 from resolwe.flow.utils import purge
 from resolwe.test import ProcessTestCase
 

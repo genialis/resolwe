@@ -7,7 +7,6 @@ from resolwe.flow.models import Collection
 from resolwe.flow.views import CollectionViewSet
 from resolwe.test import ResolweAPITestCase
 
-
 MESSAGES = {
     u'NOT_FOUND': u'Not found.',
     u'NO_PERMISSION': u'You do not have permission to perform this action.',

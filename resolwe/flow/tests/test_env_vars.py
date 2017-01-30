@@ -4,7 +4,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from django.test import override_settings
 
 from resolwe.flow.managers import manager
-from resolwe.flow.models import Process, Data
+from resolwe.flow.models import Data, Process
 from resolwe.test import TestCase
 
 
