@@ -41,7 +41,6 @@ from django.utils.text import slugify
 
 from rest_framework.test import APITestCase, APIRequestFactory, force_authenticate
 
-from resolwe.elastic.builder import index_builder
 from resolwe.flow.models import (Data, dict_dot, iterate_fields, iterate_schema, Collection,
                                  DescriptorSchema, Process, Storage)
 from resolwe.flow.managers import manager
@@ -108,10 +107,17 @@ class TestCase(DjangoTestCase):
         """Initialize test data."""
         super(TestCase, self).setUp()
 
+        # Override flow executor settings
+        flow_executor_settings = copy.copy(getattr(settings, 'FLOW_EXECUTOR', {}))
+
         # Override data directory settings
         data_dir = self._test_data_dir(FLOW_EXECUTOR_SETTINGS['DATA_DIR'])
-        flow_executor_settings = copy.copy(getattr(settings, 'FLOW_EXECUTOR', {}))
         flow_executor_settings['DATA_DIR'] = data_dir
+
+        # Override container name prefix setting
+        container_name_prefix = getattr(settings, 'FLOW_EXECUTOR', {}).get('CONTAINER_NAME_PREFIX', 'resolwe')
+        container_name_prefix = '{}_{}'.format(container_name_prefix, os.path.basename(data_dir))
+        flow_executor_settings['CONTAINER_NAME_PREFIX'] = container_name_prefix
 
         # Override Docker data directory mappings
         flow_docker_mappings = copy.copy(getattr(settings, 'FLOW_DOCKER_MAPPINGS', []))
@@ -890,12 +896,19 @@ class ElasticSearchTestCase(DjangoTestCase):
 
     def setUp(self):
         """Delete any existing data and prepare fresh indexes."""
+        from resolwe.elastic.builder import index_builder, IndexBuilder
+
         super(ElasticSearchTestCase, self).setUp()
 
-        index_builder.destroy()  # clean after failed test
-        index_builder.build()
+        index_builder.destroy()  # Delete default indexes
+
+        self._test_index_builder = IndexBuilder()
 
     def tearDown(self):
-        """Delete existing data from ElasticSearch."""
-        index_builder.destroy()
+        """Delete indexes and data from ElasticSearch."""
+        self._test_index_builder.destroy()
         super(ElasticSearchTestCase, self).tearDown()
+
+    def push_indexes(self):
+        """Push documents to Elasticsearch."""
+        self._test_index_builder.push(index=None)

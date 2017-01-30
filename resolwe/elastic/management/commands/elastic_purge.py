@@ -19,4 +19,4 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         """Command handle."""
-        index_builder.destroy()
+        index_builder.delete()

@@ -30,8 +30,9 @@ class FlowExecutor(LocalFlowExecutor):
             'container_image': self.requirements.get('image', settings.FLOW_EXECUTOR['CONTAINER_IMAGE']),
         }
 
-        data_id = self.data_id
-        command_args['container_name'] = '--name=resolwe_{}'.format(data_id)
+        # set container name
+        container_name_prefix = getattr(settings, 'FLOW_EXECUTOR', {}).get('CONTAINER_NAME_PREFIX', 'resolwe')
+        command_args['container_name'] = '--name={}_{}'.format(container_name_prefix, self.data_id)
 
         # Configure Docker network mode for the container (if specified).
         # By default, current Docker versions use the 'bridge' mode which

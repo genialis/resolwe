@@ -21,6 +21,8 @@ Changed
 Fixed
 -----
 - Configure parallel tests
+- Isolate Elasticsearch indices for parallel tests
+- Fix docker container name for parallel tests
 
 
 ==================

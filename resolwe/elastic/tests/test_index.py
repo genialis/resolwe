@@ -12,6 +12,8 @@ from django.test import override_settings
 
 from guardian.shortcuts import assign_perm, remove_perm
 
+# Import signals manually because we ignore them in App ready for tests
+from resolwe.elastic import signals  # pylint: disable=unused-import
 from resolwe.elastic.builder import index_builder
 from resolwe.test import ElasticSearchTestCase
 
@@ -26,6 +28,8 @@ class IndexTest(ElasticSearchTestCase):
     def setUp(self):
         from .test_app.elastic_indexes import TestSearchIndex, TestAnalyzerSearchIndex
 
+        super(IndexTest, self).setUp()
+
         apps.clear_cache()
         call_command('migrate', verbosity=0, interactive=False, load_initial_data=False)
 
@@ -33,16 +37,12 @@ class IndexTest(ElasticSearchTestCase):
             TestSearchIndex(),
             TestAnalyzerSearchIndex(),
         ]
+
         index_builder.register_signals()
 
-        super(IndexTest, self).setUp()
-
     def tearDown(self):
-        super(IndexTest, self).tearDown()
-
-        index_builder.unregister_signals()
-        index_builder.indexes = []
         index_builder.destroy()
+        super(IndexTest, self).tearDown()
 
     def _wait_es(self):
         # TODO: Better solution for ES5:

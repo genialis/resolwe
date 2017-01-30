@@ -115,9 +115,6 @@ class BaseIndex(object):
     #: mapping used for building document
     mapping = {}
 
-    #: list of built documents waiting to be pushed
-    push_queue = []
-
     def __init__(self):
         """Perform initial checks and save given object."""
         class_name = type(self).__name__
@@ -129,6 +126,9 @@ class BaseIndex(object):
 
         if self.queryset is None:
             raise RuntimeError('`queryset` must be defined in {}'.format(class_name))
+
+        #: list of built documents waiting to be pushed
+        self.push_queue = []
 
         self._index_name = self.document_class()._get_index()  # pylint: disable=not-callable,protected-access
 

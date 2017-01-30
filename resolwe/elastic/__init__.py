@@ -27,4 +27,5 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 from elasticsearch_dsl.connections import connections
 
+
 default_app_config = 'resolwe.elastic.apps.ElasticConfig'  # pylint: disable=invalid-name

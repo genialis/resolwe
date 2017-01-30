@@ -33,13 +33,13 @@ class IndexViewsetTest(APITestCase, ElasticSearchTestCase):
         from .test_app.elastic_indexes import TestSearchIndex
         from .test_app.viewsets import TestViewSet
 
+        super(IndexViewsetTest, self).setUp()
+
         apps.clear_cache()
         call_command('migrate', verbosity=0, interactive=False, load_initial_data=False)
 
         index_builder.indexes = [TestSearchIndex()]
         index_builder.register_signals()
-
-        super(IndexViewsetTest, self).setUp()
 
         # Prepare users and groups
         user_model = get_user_model()
@@ -63,11 +63,8 @@ class IndexViewsetTest(APITestCase, ElasticSearchTestCase):
         })
 
     def tearDown(self):
-        super(IndexViewsetTest, self).tearDown()
-
-        index_builder.unregister_signals()
-        index_builder.indexes = []
         index_builder.destroy()
+        super(IndexViewsetTest, self).tearDown()
 
     def _wait_es(self):
         # TODO: Better solution for ES5:

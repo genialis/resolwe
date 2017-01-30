@@ -49,7 +49,7 @@ class ElasticSignal(object):
 
 
 class IndexBuilder(object):
-    """Find indexes and register coresponding signals.
+    """Find indexes and register corresponding signals.
 
     Indexes are auto collected from ``elastic_indexes.py`` files from
     all Django registered apps
@@ -59,14 +59,14 @@ class IndexBuilder(object):
 
     """
 
-    #: list of index builders
-    indexes = []
-
-    #: list of registered signals
-    signals = []
-
     def __init__(self):
         """Initialize index builder object."""
+        #: list of index builders
+        self.indexes = []
+
+        #: list of registered signals
+        self.signals = []
+
         # Set dafault connection for ElasticSearch
         elasticsearch_host = getattr(settings, 'ELASTICSEARCH_HOST', 'localhost')  # pylint: disable=invalid-name
         elasticsearch_port = getattr(settings, 'ELASTICSEARCH_PORT', 9200)  # pylint: disable=invalid-name
@@ -138,7 +138,7 @@ class IndexBuilder(object):
                 continue
             ind.push()
 
-    def destroy(self):
+    def delete(self):
         """Delete all entries from ElasticSearch."""
         for index in self.indexes:
             index.destroy()
@@ -148,6 +148,13 @@ class IndexBuilder(object):
         """Delete given object from all indexes."""
         for index in self.indexes:
             index.remove_object(obj)
+
+    def destroy(self):
+        """Delete all indexes from Elasticsearch and index builder."""
+        self.unregister_signals()
+        for index in self.indexes:
+            index.destroy()
+        self.indexes = []
 
 
 index_builder = IndexBuilder()  # pylint: disable=invalid-name
