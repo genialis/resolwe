@@ -77,7 +77,10 @@ setup(
         'test': [
             'check-manifest',
             'coverage>=4.2',
-            'pycodestyle>=2.1.0',
+            # pycodestyle 2.3.0 raises false-positive for variables
+            # starting with 'def'
+            # https://github.com/PyCQA/pycodestyle/issues/617
+            'pycodestyle~=2.2.0',
             'pydocstyle>=1.0.0',
             'pylint>=1.6.4',
             'readme_renderer',
