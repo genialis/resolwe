@@ -26,6 +26,7 @@ import io
 import json
 import os
 import shutil
+import uuid
 import zipfile
 
 import six
@@ -323,17 +324,18 @@ class ProcessTestCase(TestCase):
             if not os.path.isfile(old_path):
                 raise RuntimeError('Missing file: {}'.format(old_path))
 
-            new_path = os.path.join(self.upload_dir, file_path)
+            file_temp = '{}_{}'.format(file_path, uuid.uuid4())
+            upload_file_path = os.path.join(self.upload_dir, file_temp)
             # create directories needed by new_path
-            new_path_dir = os.path.dirname(new_path)
-            if not os.path.exists(new_path_dir):
-                os.makedirs(new_path_dir)
+            upload_file_dir = os.path.dirname(upload_file_path)
+            if not os.path.exists(upload_file_dir):
+                os.makedirs(upload_file_dir)
 
-            shutil.copy2(old_path, new_path)
-            self._upload_files.append(new_path)
+            shutil.copy2(old_path, upload_file_path)
+            self._upload_files.append(upload_file_path)
             return {
                 'file': file_path,
-                'file_temp': file_path,
+                'file_temp': file_temp,
             }
 
         for field_schema, fields in iterate_fields(input_, process.input_schema):
