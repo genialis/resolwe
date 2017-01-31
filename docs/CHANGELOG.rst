@@ -24,7 +24,7 @@ Fixed
 - Isolate Elasticsearch indices for parallel tests
 - Fix docker container name for parallel tests
 - Generate temporary names for upload files in tests
-
+- Fix permissions in Elasticsearch tests
 
 ==================
 1.4.1 - 2017-01-27

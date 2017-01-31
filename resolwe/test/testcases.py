@@ -899,12 +899,16 @@ class ElasticSearchTestCase(DjangoTestCase):
     def setUp(self):
         """Delete any existing data and prepare fresh indexes."""
         from resolwe.elastic.builder import index_builder, IndexBuilder
+        # Connect all signals
+        from resolwe.elastic import signals
 
         super(ElasticSearchTestCase, self).setUp()
 
         index_builder.destroy()  # Delete default indexes
 
         self._test_index_builder = IndexBuilder()
+        # Mock index builder
+        signals.index_builder = self._test_index_builder
 
     def tearDown(self):
         """Delete indexes and data from ElasticSearch."""

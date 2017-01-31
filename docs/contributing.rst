@@ -93,7 +93,7 @@ Running tests
 To run the tests, use::
 
     cd tests
-    ./manage.py test resolwe --parallel
+    ./manage.py test resolwe --parallel=2
 
 To run the tests with Tox_, use::
 
