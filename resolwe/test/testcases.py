@@ -13,6 +13,9 @@ Resolwe Test Cases
 .. autoclass:: resolwe.test.ResolweAPITestCase
     :members:
 
+.. autoclass:: resolwe.test.TransactionElasticSearchTestCase
+    :members:
+
 .. autoclass:: resolwe.test.ElasticSearchTestCase
     :members:
 
@@ -37,7 +40,7 @@ from django.contrib.auth import get_user_model
 from django.core import management
 from django.core.urlresolvers import reverse
 from django.test import TestCase as DjangoTestCase
-from django.test import override_settings
+from django.test import TransactionTestCase, override_settings
 from django.utils.crypto import get_random_string
 from django.utils.text import slugify
 
@@ -53,7 +56,7 @@ if six.PY2:
 
 __all__ = (
     'TestCase', 'ProcessTestCase', 'ResolweAPITestCase',
-    'ElasticSearchTestCase',
+    'ElasticSearchTestCase', 'TransactionElasticSearchTestCase',
 )
 
 
@@ -890,11 +893,12 @@ class ResolweAPITestCase(APITestCase):
 
 
 @override_settings(ELASTICSEARCH_INDEX_PREFIX='test')
-class ElasticSearchTestCase(DjangoTestCase):
-    """Base class for testing ElasticSearch based features.
+class TransactionElasticSearchTestCase(TransactionTestCase):
+    """Test class for ElasticSearch features based on Django's TransactionTestCase.
 
-    This class should be used if tests depends on ElasticSearch. It takes care
-    for cleaning data before/after each test and prepare fresh index.
+    Use this test class if tests depend on ElasticSearch and
+    you need to access the data base from another process.
+
     """
 
     def setUp(self):
@@ -903,7 +907,7 @@ class ElasticSearchTestCase(DjangoTestCase):
         # Connect all signals
         from resolwe.elastic import signals
 
-        super(ElasticSearchTestCase, self).setUp()
+        super(TransactionElasticSearchTestCase, self).setUp()
 
         index_builder.destroy()  # Delete default indexes
 
@@ -914,8 +918,21 @@ class ElasticSearchTestCase(DjangoTestCase):
     def tearDown(self):
         """Delete indexes and data from ElasticSearch."""
         self._test_index_builder.destroy()
-        super(ElasticSearchTestCase, self).tearDown()
+        super(TransactionElasticSearchTestCase, self).tearDown()
 
     def push_indexes(self):
         """Push documents to Elasticsearch."""
         self._test_index_builder.push(index=None)
+
+
+@override_settings(ELASTICSEARCH_INDEX_PREFIX='test')
+class ElasticSearchTestCase(DjangoTestCase, TransactionElasticSearchTestCase):
+    """Test class for ElasticSearch features.
+
+    Use this class if tests depend on ElasticSearch.
+    ElasticSearchTestCase takes care of cleaning the data before
+    and after each test and prepares a fresh index.
+
+    """
+
+    pass

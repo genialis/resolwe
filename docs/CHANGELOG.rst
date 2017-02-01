@@ -13,7 +13,8 @@ Unreleased
 Added
 -----
 - Add Resolwe test framework
-- Added ``isort`` linter to check order of imports
+- Add ``isort`` linter to check order of imports
+- Support ES test case based on Django's TransactionTestCase
 
 Changed
 -------
@@ -27,6 +28,7 @@ Fixed
 - Fix docker container name for parallel tests
 - Generate temporary names for upload files in tests
 - Fix permissions in Elasticsearch tests
+
 
 ==================
 1.4.1 - 2017-01-27
