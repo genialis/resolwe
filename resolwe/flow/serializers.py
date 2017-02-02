@@ -137,7 +137,7 @@ class DataSerializer(ResolweBaseSerializer):
                             'status', 'process_progress', 'process_rc', 'process_info',
                             'process_warning', 'process_error', 'process_type',
                             'process_input_schema', 'process_output_schema',
-                            'process_name')
+                            'process_name', 'descriptor_dirty')
         fields = ('slug', 'name', 'contributor', 'input', 'output', 'descriptor_schema',
                   'descriptor') + update_protected_fields + read_only_fields
 

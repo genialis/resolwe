@@ -14,12 +14,16 @@ from resolwe.test import TestCase
 
 class ValidationTest(TestCase):
 
+    def setUp(self):
+        super(ValidationTest, self).setUp()
+
+        self.user = get_user_model().objects.create(username="test_user")
+
     def test_validating_data_object(self):
         """Diferent validations are performed depending on status"""
-        user = get_user_model().objects.create(username="test_user")
         proc = Process.objects.create(
             name='Test process',
-            contributor=user,
+            contributor=self.user,
             input_schema=[
                 {'name': 'value', 'type': 'basic:integer:', 'required': True}
             ],
@@ -27,31 +31,20 @@ class ValidationTest(TestCase):
                 {'name': 'result', 'type': 'basic:string:', 'required': True}
             ]
         )
-        descriptor_schema = DescriptorSchema.objects.create(
-            name='Test descriptor schema',
-            contributor=user,
-            schema=[
-                {'name': 'description', 'type': 'basic:string:', 'required': True}
-            ]
-        )
 
         data = {
             'name': 'Test data',
-            'contributor': user,
-            'descriptor_schema': descriptor_schema,
+            'contributor': self.user,
             'process': proc,
         }
 
         with six.assertRaisesRegex(self, ValidationError, '"value" not given'):
-            Data.objects.create(input={}, descriptor={'description': 'Universal answer'}, **data)
-
-        with six.assertRaisesRegex(self, ValidationError, '"description" not given'):
-            Data.objects.create(input={'value': 42}, descriptor={}, **data)
+            Data.objects.create(input={}, **data)
 
         with six.assertRaisesRegex(self, ValidationError, 'Required field .* not given'):
-            Data.objects.create(input={}, descriptor={}, **data)
+            Data.objects.create(input={}, **data)
 
-        d = Data.objects.create(input={'value': 42}, descriptor={'description': 'Universal answer'}, **data)
+        d = Data.objects.create(input={'value': 42}, **data)
 
         d.status = Data.STATUS_DONE
         with six.assertRaisesRegex(self, ValidationError, '"result" not given'):
@@ -60,11 +53,41 @@ class ValidationTest(TestCase):
         d.output = {'result': 'forty-two'}
         d.save()
 
+    def test_validate_descriptor(self):
+        proc = Process.objects.create(name='Test process', contributor=self.user)
+        descriptor_schema = DescriptorSchema.objects.create(
+            name='Test descriptor schema',
+            contributor=self.user,
+            schema=[
+                {'name': 'description', 'type': 'basic:string:', 'required': True}
+            ]
+        )
+
+        data = Data.objects.create(
+            name='Test descriptor',
+            contributor=self.user,
+            process=proc,
+            descriptor={},
+            descriptor_schema=descriptor_schema
+        )
+        self.assertEqual(data.descriptor_dirty, True)
+
+        data.descriptor = {'description': 'some value'}
+        data.save()
+        self.assertEqual(data.descriptor_dirty, False)
+
+        data.descriptor = {}
+        data.save()
+        self.assertEqual(data.descriptor_dirty, True)
+
+        data.descriptor = {'description': 42}
+        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+            data.save()
+
     def test_referenced_storage(self):
-        user = get_user_model().objects.create(username="test_user")
         proc = Process.objects.create(
             name='Test process',
-            contributor=user,
+            contributor=self.user,
             output_schema=[
                 {'name': 'big_result', 'type': 'basic:json:', 'required': True}
             ]
@@ -72,7 +95,7 @@ class ValidationTest(TestCase):
 
         data = {
             'name': 'Test data',
-            'contributor': user,
+            'contributor': self.user,
             'process': proc,
         }
 
@@ -86,7 +109,7 @@ class ValidationTest(TestCase):
 
         storage = Storage.objects.create(
             name="storage",
-            contributor=user,
+            contributor=self.user,
             data_id=d.pk,
             json={'value': 42}
         )
@@ -94,28 +117,27 @@ class ValidationTest(TestCase):
         d.save()
 
     def test_referenced_data(self):
-        user = get_user_model().objects.create(username="test_user")
         proc1 = Process.objects.create(
             name='Referenced process',
-            contributor=user,
+            contributor=self.user,
             type='data:referenced:object:'
         )
         proc2 = Process.objects.create(
             name='Test process',
-            contributor=user,
+            contributor=self.user,
             input_schema=[
                 {'name': 'data_object', 'type': 'data:referenced:object:'}
             ]
         )
         d = Data.objects.create(
             name='Referenced object',
-            contributor=user,
+            contributor=self.user,
             process=proc1
         )
 
         data = {
             'name': 'Test data',
-            'contributor': user,
+            'contributor': self.user,
             'process': proc2,
             'input': {'data_object': d.pk}
         }
@@ -141,27 +163,26 @@ class ValidationTest(TestCase):
             Data.objects.create(**data)
 
     def test_delete_input(self):
-        user = get_user_model().objects.create(username="test_user")
         proc1 = Process.objects.create(
             name='Referenced process',
-            contributor=user,
+            contributor=self.user,
             type='data:referenced:object:'
         )
         proc2 = Process.objects.create(
             name='Test process',
-            contributor=user,
+            contributor=self.user,
             input_schema=[
                 {'name': 'data_object', 'type': 'data:referenced:object:'}
             ]
         )
         data1 = Data.objects.create(
             name='Referenced object',
-            contributor=user,
+            contributor=self.user,
             process=proc1
         )
         data2 = Data.objects.create(
             name='Test data',
-            contributor=user,
+            contributor=self.user,
             process=proc2,
             input={'data_object': data1.pk}
         )

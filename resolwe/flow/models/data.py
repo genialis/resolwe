@@ -23,7 +23,9 @@ from .collection import Collection
 from .descriptor import DescriptorSchema
 from .entity import Entity
 from .storage import Storage
-from .utils import hydrate_input_references, hydrate_size, render_descriptor, render_template, validate_schema
+from .utils import (
+    DirtyError, hydrate_input_references, hydrate_size, render_descriptor, render_template, validate_schema
+)
 
 
 class Data(BaseModel):
@@ -127,6 +129,9 @@ class Data(BaseModel):
 
     #: actual descriptor
     descriptor = JSONField(default=dict)
+
+    #: indicate whether `descriptor` doesn't match `descriptor_schema` (is dirty)
+    descriptor_dirty = models.BooleanField(default=False)
 
     #: track if user set the data name explicitly
     named_by_user = models.BooleanField(default=False)
@@ -262,7 +267,11 @@ class Data(BaseModel):
         render_descriptor(self)
 
         if self.descriptor_schema:
-            validate_schema(self.descriptor, self.descriptor_schema.schema)  # pylint: disable=no-member
+            try:
+                validate_schema(self.descriptor, self.descriptor_schema.schema)  # pylint: disable=no-member
+                self.descriptor_dirty = False
+            except DirtyError:
+                self.descriptor_dirty = True
         elif self.descriptor and self.descriptor != {}:
             raise ValueError("`descriptor_schema` must be defined if `descriptor` is given")
 

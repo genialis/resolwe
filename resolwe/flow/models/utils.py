@@ -28,6 +28,10 @@ from resolwe.flow.utils import dict_dot, iterate_fields, iterate_schema
 from .storage import LazyStorageJSON, Storage
 
 
+class DirtyError(ValidationError):
+    """Error raised when required fields missing."""
+
+
 def validation_schema(name):
     """Return json schema for json validation."""
     schemas = {
@@ -137,11 +141,14 @@ def validate_schema(instance, schema, test_required=True, path_prefix=None):
                 "Data object of type `{}` is required, but type `{}` is given. "
                 "(id:{})".format(type_, data['process__type'], data_pk))
 
+    is_dirty = False
+    dirty_field = ''
     for _schema, _fields, _ in iterate_schema(instance, schema):
         name = _schema['name']
 
-        if test_required and _schema.get('required', True) and name not in _fields:
-            raise ValidationError("Required field \"{}\" not given.".format(name))
+        if not is_dirty and test_required and _schema.get('required', True) and name not in _fields:
+            is_dirty = True
+            dirty_field = name
 
         if name in _fields:
             field = _fields[name]
@@ -183,6 +190,9 @@ def validate_schema(instance, schema, test_required=True, path_prefix=None):
             pass
     except KeyError as ex:
         raise ValidationError(str(ex))
+
+    if is_dirty:
+        raise DirtyError("Required field \"{}\" not given.".format(dirty_field))
 
 
 def _hydrate_values(output, output_schema, data):
