@@ -165,7 +165,7 @@ class CollectionSerializer(ResolweBaseSerializer):
 
         model = Collection
         update_protected_fields = ('contributor',)
-        read_only_fields = ('id', 'created', 'modified')
+        read_only_fields = ('id', 'created', 'modified', 'descriptor_dirty')
         fields = ('slug', 'name', 'description', 'settings', 'descriptor_schema', 'descriptor',
                   'data') + update_protected_fields + read_only_fields
 

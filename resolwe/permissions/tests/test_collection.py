@@ -41,9 +41,9 @@ class CollectionTestCase(ResolweAPITestCase):
         # check that you get right two objects
         self.assertEqual([p['id'] for p in resp.data], [1, 3])
         # check that (one of the) objects have expected keys
-        self.assertKeys(resp.data[0], [u'slug', u'name', u'created', u'modified', u'contributor',
-                                       u'description', u'id', u'settings', u'permissions',
-                                       u'descriptor_schema', u'descriptor', u'data'])
+        self.assertKeys(resp.data[0], ['slug', 'name', 'created', 'modified', 'contributor', 'description', 'id',
+                                       'settings', 'permissions', 'descriptor_schema', 'descriptor',
+                                       'descriptor_dirty', 'data'])
 
     def test_get_list_admin(self):
         resp = self._get_list(self.admin)
@@ -81,9 +81,9 @@ class CollectionTestCase(ResolweAPITestCase):
         # user w/ permissions
         resp = self._get_detail(1, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertKeys(resp.data, [u'slug', u'name', u'created', u'modified', u'contributor',
-                                    u'description', u'settings', u'id', u'permissions',
-                                    u'descriptor_schema', u'descriptor', u'data'])
+        self.assertKeys(resp.data, ['slug', 'name', 'created', 'modified', 'contributor', 'description', 'settings',
+                                    'id', 'permissions', 'descriptor_schema', 'descriptor', 'descriptor_dirty',
+                                    'data'])
 
         # user w/o permissions
         resp = self._get_detail(2, self.user2)

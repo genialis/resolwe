@@ -5,6 +5,7 @@ from django.contrib.postgres.fields import JSONField
 from django.db import models
 
 from .base import BaseModel
+from .utils import DirtyError, validate_schema
 
 
 class BaseCollection(BaseModel):
@@ -29,6 +30,22 @@ class BaseCollection(BaseModel):
 
     #: collection descriptor
     descriptor = JSONField(default=dict)
+
+    #: indicate whether `descriptor` doesn't match `descriptor_schema` (is dirty)
+    descriptor_dirty = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        """Perform descriptor validation and save object."""
+        if self.descriptor_schema:
+            try:
+                validate_schema(self.descriptor, self.descriptor_schema.schema)  # pylint: disable=no-member
+                self.descriptor_dirty = False
+            except DirtyError:
+                self.descriptor_dirty = True
+        elif self.descriptor and self.descriptor != {}:
+            raise ValueError("`descriptor_schema` must be defined if `descriptor` is given")
+
+        super(BaseCollection, self).save()
 
 
 class Collection(BaseCollection):

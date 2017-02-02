@@ -7,7 +7,7 @@ from mock import MagicMock, patch
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 
-from resolwe.flow.models import Data, DescriptorSchema, Process, Storage
+from resolwe.flow.models import Collection, Data, DescriptorSchema, Entity, Process, Storage
 from resolwe.flow.models.utils import validate_schema
 from resolwe.test import TestCase
 
@@ -17,7 +17,7 @@ class ValidationTest(TestCase):
     def setUp(self):
         super(ValidationTest, self).setUp()
 
-        self.user = get_user_model().objects.create(username="test_user")
+        self.user = get_user_model().objects.create(username='test_user')
 
     def test_validating_data_object(self):
         """Diferent validations are performed depending on status"""
@@ -41,7 +41,7 @@ class ValidationTest(TestCase):
         with six.assertRaisesRegex(self, ValidationError, '"value" not given'):
             Data.objects.create(input={}, **data)
 
-        with six.assertRaisesRegex(self, ValidationError, 'Required field .* not given'):
+        with six.assertRaisesRegex(self, ValidationError, 'Required fields .* not given'):
             Data.objects.create(input={}, **data)
 
         d = Data.objects.create(input={'value': 42}, **data)
@@ -53,7 +53,7 @@ class ValidationTest(TestCase):
         d.output = {'result': 'forty-two'}
         d.save()
 
-    def test_validate_descriptor(self):
+    def test_validate_data_descriptor(self):
         proc = Process.objects.create(name='Test process', contributor=self.user)
         descriptor_schema = DescriptorSchema.objects.create(
             name='Test descriptor schema',
@@ -83,6 +83,62 @@ class ValidationTest(TestCase):
         data.descriptor = {'description': 42}
         with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
             data.save()
+
+    def test_validate_collection_descriptor(self):  # pylint: disable=invalid-name
+        descriptor_schema = DescriptorSchema.objects.create(
+            name='Test descriptor schema',
+            contributor=self.user,
+            schema=[
+                {'name': 'description', 'type': 'basic:string:', 'required': True}
+            ]
+        )
+
+        collection = Collection.objects.create(
+            name='Test descriptor',
+            contributor=self.user,
+            descriptor_schema=descriptor_schema
+        )
+        self.assertEqual(collection.descriptor_dirty, True)
+
+        collection.descriptor = {'description': 'some value'}
+        collection.save()
+        self.assertEqual(collection.descriptor_dirty, False)
+
+        collection.descriptor = {}
+        collection.save()
+        self.assertEqual(collection.descriptor_dirty, True)
+
+        collection.descriptor = {'description': 42}
+        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+            collection.save()
+
+    def test_validate_entity_descriptor(self):
+        descriptor_schema = DescriptorSchema.objects.create(
+            name='Test descriptor schema',
+            contributor=self.user,
+            schema=[
+                {'name': 'description', 'type': 'basic:string:', 'required': True}
+            ]
+        )
+
+        entity = Entity.objects.create(
+            name='Test descriptor',
+            contributor=self.user,
+            descriptor_schema=descriptor_schema
+        )
+        self.assertEqual(entity.descriptor_dirty, True)
+
+        entity.descriptor = {'description': 'some value'}
+        entity.save()
+        self.assertEqual(entity.descriptor_dirty, False)
+
+        entity.descriptor = {}
+        entity.save()
+        self.assertEqual(entity.descriptor_dirty, True)
+
+        entity.descriptor = {'description': 42}
+        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+            entity.save()
 
     def test_referenced_storage(self):
         proc = Process.objects.create(

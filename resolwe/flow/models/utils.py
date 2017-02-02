@@ -142,13 +142,13 @@ def validate_schema(instance, schema, test_required=True, path_prefix=None):
                 "(id:{})".format(type_, data['process__type'], data_pk))
 
     is_dirty = False
-    dirty_field = ''
+    dirty_fields = []
     for _schema, _fields, _ in iterate_schema(instance, schema):
         name = _schema['name']
 
-        if not is_dirty and test_required and _schema.get('required', True) and name not in _fields:
+        if test_required and _schema.get('required', True) and name not in _fields:
             is_dirty = True
-            dirty_field = name
+            dirty_fields.append(name)
 
         if name in _fields:
             field = _fields[name]
@@ -192,7 +192,8 @@ def validate_schema(instance, schema, test_required=True, path_prefix=None):
         raise ValidationError(str(ex))
 
     if is_dirty:
-        raise DirtyError("Required field \"{}\" not given.".format(dirty_field))
+        dirty_fields = ['"{}"'.format(field) for field in dirty_fields]
+        raise DirtyError("Required fields {} not given.".format(', '.join(dirty_fields)))
 
 
 def _hydrate_values(output, output_schema, data):

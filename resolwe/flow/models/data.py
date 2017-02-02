@@ -24,7 +24,7 @@ from .descriptor import DescriptorSchema
 from .entity import Entity
 from .storage import Storage
 from .utils import (
-    DirtyError, hydrate_input_references, hydrate_size, render_descriptor, render_template, validate_schema
+    DirtyError, hydrate_input_references, hydrate_size, render_descriptor, render_template, validate_schema,
 )
 
 
