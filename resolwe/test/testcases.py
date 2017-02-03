@@ -152,6 +152,14 @@ class TestCase(DjangoTestCase):
 
         super(TestCase, self).tearDown()
 
+    def keep_all(self):
+        """Do not delete output files after test for all data."""
+        self._keep_all = True
+
+    def keep_failed(self):
+        """Do not delete output files after test for failed data."""
+        self._keep_failed = True
+
 
 @override_settings(FLOW_EXECUTOR=FLOW_EXECUTOR_SETTINGS)
 @override_settings(FLOW_DOCKER_MAPPINGS=FLOW_DOCKER_MAPPINGS)
@@ -240,8 +248,6 @@ class ProcessTestCase(TestCase):
         self.collection = Collection.objects.create(contributor=self.admin, name="Test collection")
         self.files_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'files')
         self.upload_dir = settings.FLOW_EXECUTOR['UPLOAD_DIR']
-        self._keep_all = False
-        self._keep_failed = False
         self._upload_files = []
 
         # create upload dir if it doesn't exist
@@ -267,14 +273,6 @@ class ProcessTestCase(TestCase):
                 shutil.rmtree(fn, ignore_errors=True)
 
         super(ProcessTestCase, self).tearDown()
-
-    def keep_all(self):
-        """Do not delete output files after test for all data."""
-        self._keep_all = True
-
-    def keep_failed(self):
-        """Do not delete output files after test for failed data."""
-        self._keep_failed = True
 
     def run_processor(self, *args, **kwargs):
         """Deprecated method: use run_process."""
