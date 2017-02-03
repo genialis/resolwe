@@ -15,11 +15,15 @@ Added
 - Add Resolwe test framework
 - Add ``isort`` linter to check order of imports
 - Support ES test case based on Django's TransactionTestCase
+- Add ability to set a custom command for the Docker executor via the
+  ``FLOW_DOCKER_COMMAND`` setting.
 
 Changed
 -------
 - Support running tests in parallel
 - Split ``flow.models`` module to multiple files
+- Remove ability to set a custom executor command for any executor via
+  the ``FLOW_EXECUTOR['COMMAND']`` setting.
 
 Fixed
 -----

@@ -51,7 +51,7 @@ def check_docker():
     :rtype: tuple(bool, str)
 
     """
-    command = getattr(settings, 'FLOW_EXECUTOR', {}).get('COMMAND', 'docker')
+    command = getattr(settings, 'FLOW_DOCKER_COMMAND', 'docker')
     info_command = '{} info'.format(command)
     available, reason = True, ""
     # TODO: Use subprocess.DEVNULL after dropping support for Python 2

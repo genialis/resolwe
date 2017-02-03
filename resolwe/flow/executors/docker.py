@@ -20,7 +20,7 @@ class FlowExecutor(LocalFlowExecutor):
         super(FlowExecutor, self).__init__(*args, **kwargs)
 
         self.mappings_tools = None
-        self.command = getattr(settings, 'FLOW_EXECUTOR', {}).get('COMMAND', 'docker')
+        self.command = getattr(settings, 'FLOW_DOCKER_COMMAND', 'docker')
 
     def start(self):
         """Start process execution."""

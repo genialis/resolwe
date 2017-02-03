@@ -7,8 +7,6 @@ import shlex
 import subprocess
 import time
 
-from django.conf import settings
-
 from resolwe.flow.executors import BaseFlowExecutor
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
@@ -27,7 +25,7 @@ class FlowExecutor(BaseFlowExecutor):
         self.kill_delay = 5
         self.proc = None
         self.stdout = None
-        self.command = getattr(settings, 'FLOW_EXECUTOR', {}).get('COMMAND', '/bin/bash')
+        self.command = '/bin/bash'
 
     def start(self):
         """Start process execution."""
