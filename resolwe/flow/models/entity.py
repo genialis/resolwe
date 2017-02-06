@@ -23,3 +23,6 @@ class Entity(BaseCollection):
 
     #: list of collections to which entity belongs
     collections = models.ManyToManyField('Collection')
+
+    #: indicate whether `descriptor` is completed (set by user)
+    descriptor_completed = models.BooleanField(default=False)

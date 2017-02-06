@@ -197,7 +197,7 @@ class EntitySerializer(CollectionSerializer):
         """Serializer configuration."""
 
         model = Entity
-        fields = CollectionSerializer.Meta.fields + ('collections',)
+        fields = CollectionSerializer.Meta.fields + ('collections', 'descriptor_completed')
 
 
 class StorageSerializer(ResolweBaseSerializer):
