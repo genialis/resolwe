@@ -190,8 +190,8 @@ class TestCase(TransactionTestCase, DjangoTestCase):
 class ProcessTestCase(TestCase):
     """Base class for writing process tests.
 
-    This class is subclass of Django's :class:`~django.test.TestCase`
-    with some specific functions used for testing processes.
+    It is a subclass of :class:`~resolwe.test.TestCase` with some
+    specific functions used for testing processes.
 
     To write a process test use standard Django's syntax for writing
     tests and follow the next steps:
@@ -914,11 +914,14 @@ class ResolweAPITestCase(APITestCase):
 
 
 @override_settings(ELASTICSEARCH_INDEX_PREFIX='test')
-class TransactionElasticSearchTestCase(TransactionTestCase):
-    """Test class for ElasticSearch features based on Django's TransactionTestCase.
+class TransactionElasticSearchTestCase(DjangoTransactionTestCase):
+    """Class for writing ElasticSearch tests not enclosed in a transaction.
 
-    Use this test class if tests depend on ElasticSearch and
-    you need to access the data base from another process.
+    It is based on Django's :class:`~django.test.TransactionTestCase`.
+    Use it if your tests depend on ElasticSearch and you need to access
+    the test's database from another thread/process.
+    This test class also takes care of cleaning the ElasticSearch data
+    before and after each test and prepares a fresh index.
 
     """
 
@@ -948,11 +951,12 @@ class TransactionElasticSearchTestCase(TransactionTestCase):
 
 @override_settings(ELASTICSEARCH_INDEX_PREFIX='test')
 class ElasticSearchTestCase(DjangoTestCase, TransactionElasticSearchTestCase):
-    """Test class for ElasticSearch features.
+    """Class for writing ElasticSearch tests.
 
-    Use this class if tests depend on ElasticSearch.
-    ElasticSearchTestCase takes care of cleaning the data before
-    and after each test and prepares a fresh index.
+    It is based on :class:`~resolwe.test.TransactionElasticSearchTestCase`
+    and Django's :class:`~django.test.TestCase`.
+    The latter encloses the test code in a database transaction that is
+    rolled back at the end of the test.
 
     """
 
