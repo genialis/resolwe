@@ -4,6 +4,9 @@
 Resolwe Test Cases
 ==================
 
+.. autoclass:: resolwe.test.TransactionTestCase
+    :members:
+
 .. autoclass:: resolwe.test.TestCase
     :members:
 
@@ -40,7 +43,8 @@ from django.contrib.auth import get_user_model
 from django.core import management
 from django.core.urlresolvers import reverse
 from django.test import TestCase as DjangoTestCase
-from django.test import TransactionTestCase, override_settings
+from django.test import TransactionTestCase as DjangoTransactionTestCase
+from django.test import override_settings
 from django.utils.crypto import get_random_string
 from django.utils.text import slugify
 
@@ -55,7 +59,7 @@ if six.PY2:
     import shutilwhich  # pylint: disable=import-error,unused-import
 
 __all__ = (
-    'TestCase', 'ProcessTestCase', 'ResolweAPITestCase',
+    'TestCase', 'TransactionTestCase', 'ProcessTestCase', 'ResolweAPITestCase',
     'ElasticSearchTestCase', 'TransactionElasticSearchTestCase',
 )
 
@@ -77,8 +81,14 @@ for map_ in FLOW_DOCKER_MAPPINGS:
                     settings.FLOW_EXECUTOR[setting], FLOW_EXECUTOR_SETTINGS[setting], 1)
 
 
-class TestCase(DjangoTestCase):
-    """Base class for writing Resolwe tests."""
+class TransactionTestCase(DjangoTransactionTestCase):
+    """Base class for writing Resolwe tests not enclosed in a transaction.
+
+    It is based on Django's :class:`~django.test.TransactionTestCase`.
+    Use it if you need to access the test's database from another
+    thread/process.
+
+    """
 
     def _test_data_dir(self, path):
         """Return test data directory path.
@@ -110,7 +120,7 @@ class TestCase(DjangoTestCase):
 
     def setUp(self):
         """Initialize test data."""
-        super(TestCase, self).setUp()
+        super(TransactionTestCase, self).setUp()
 
         # Override flow executor settings
         flow_executor_settings = copy.copy(getattr(settings, 'FLOW_EXECUTOR', {}))
@@ -150,7 +160,7 @@ class TestCase(DjangoTestCase):
 
         self.settings.disable()
 
-        super(TestCase, self).tearDown()
+        super(TransactionTestCase, self).tearDown()
 
     def keep_all(self):
         """Do not delete output files after test for all data."""
@@ -159,6 +169,19 @@ class TestCase(DjangoTestCase):
     def keep_failed(self):
         """Do not delete output files after test for failed data."""
         self._keep_failed = True
+
+
+class TestCase(TransactionTestCase, DjangoTestCase):
+    """Base class for writing Resolwe tests.
+
+    It is based on :class:`~resolwe.test.TransactionTestCase` and
+    Django's :class:`~django.test.TestCase`.
+    The latter encloses the test code in a database transaction that is
+    rolled back at the end of the test.
+
+    """
+
+    pass
 
 
 @override_settings(FLOW_EXECUTOR=FLOW_EXECUTOR_SETTINGS)

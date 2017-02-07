@@ -14,7 +14,8 @@ Added
 -----
 - Add Resolwe test framework
 - Add ``isort`` linter to check order of imports
-- Support ES test case based on Django's TransactionTestCase
+- Support basic test case based on Django's ``TransactionTestCase``
+- Support ES test case based on Django's ``TransactionTestCase``
 - Add ability to set a custom command for the Docker executor via the
   ``FLOW_DOCKER_COMMAND`` setting.
 
