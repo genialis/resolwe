@@ -90,7 +90,7 @@ class ElasticSearchMixin(object):
                     filters = [Q('match', **{field: item}) for item in value]
                     search = search.query('bool', should=filters)
                 else:
-                    search = search.query('wildcard', **{field: value})
+                    search = search.query('match', **{field: value})
 
         return search
 
