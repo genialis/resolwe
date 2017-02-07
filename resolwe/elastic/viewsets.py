@@ -50,6 +50,7 @@ class ElasticSearchMixin(object):
 
     filtering_fields = []
     ordering_fields = []
+    ordering_map = {}
     ordering = None
 
     def get_query_param(self, key, default=None):
@@ -75,7 +76,10 @@ class ElasticSearchMixin(object):
         if ordering_field not in self.ordering_fields:
             raise KeyError('Ordering by `{}` is not supported.'.format(ordering_field))
 
-        return search.sort(ordering)
+        ordering_field = self.ordering_map.get(ordering_field, ordering_field)
+        direction = '-' if ordering[0] == '-' else ''
+
+        return search.sort('{}{}'.format(direction, ordering_field))
 
     def filter_search(self, search):
         """Filter given search by the filter parameter given in request.
