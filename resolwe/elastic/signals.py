@@ -21,8 +21,7 @@ def _process_permission(perm):
     if not perm.permission.codename.startswith('view'):
         return
 
-    obj = perm.content_type.get_object_for_this_type(id=perm.object_pk)
-    index_builder.build(obj)
+    index_builder.build(perm.content_object)
 
 
 @receiver(post_save, sender=UserObjectPermission)
