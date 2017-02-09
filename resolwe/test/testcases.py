@@ -146,8 +146,7 @@ class TransactionTestCase(DjangoTransactionTestCase):
                                           FLOW_DOCKER_MAPPINGS=flow_docker_mappings)
         self.settings.enable()
 
-        self._keep_all = False
-        self._keep_failed = False
+        self._keep_data = False
 
         user_model = get_user_model()
         self.admin = user_model.objects.create_superuser(username='admin', email='admin@test.com', password='admin')
@@ -155,20 +154,16 @@ class TransactionTestCase(DjangoTransactionTestCase):
 
     def tearDown(self):
         """Clean up after the test."""
-        if not self._keep_all and not self._keep_failed:
+        if not self._keep_data:
             shutil.rmtree(settings.FLOW_EXECUTOR['DATA_DIR'], ignore_errors=True)
 
         self.settings.disable()
 
         super(TransactionTestCase, self).tearDown()
 
-    def keep_all(self):
-        """Do not delete output files after test for all data."""
-        self._keep_all = True
-
-    def keep_failed(self):
-        """Do not delete output files after test for failed data."""
-        self._keep_failed = True
+    def keep_data(self):
+        """Do not delete output files after tests."""
+        self._keep_data = True
 
 
 class TestCase(TransactionTestCase, DjangoTestCase):
@@ -279,9 +274,9 @@ class ProcessTestCase(TestCase):
 
     def tearDown(self):
         """Clean up after the test."""
-        # Delete Data objects and their files unless keep_failed
+        # delete Data objects and their files unless keep_data
         for d in Data.objects.all():
-            if self._keep_all or (self._keep_failed and d.status == "error"):
+            if self._keep_data:
                 print("KEEPING DATA: {}".format(d.pk))
             else:
                 data_dir = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(d.pk))
@@ -291,7 +286,7 @@ class ProcessTestCase(TestCase):
                 shutil.rmtree(export_dir, ignore_errors=True)
 
         # remove uploaded files
-        if not self._keep_all and not self._keep_failed:
+        if not self._keep_data:
             for fn in self._upload_files:
                 shutil.rmtree(fn, ignore_errors=True)
 

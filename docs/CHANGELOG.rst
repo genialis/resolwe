@@ -28,6 +28,8 @@ Changed
   the ``FLOW_EXECUTOR['COMMAND']`` setting.
 - Rename ``RESOLWE_API_HOST`` setting and environment variable in executor
   to ``RESOLWE_HOST_URL``
+- Remove keep_failed() function in tests.
+- Rename keep_all() to keep_data().
 
 Fixed
 -----
