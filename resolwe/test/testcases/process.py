@@ -3,6 +3,9 @@
 .. autoclass:: resolwe.test.ProcessTestCase
     :members:
 
+.. autoclass:: resolwe.test.TransactionProcessTestCase
+    :members:
+
 """
 
 from __future__ import absolute_import, division, print_function, unicode_literals
@@ -20,6 +23,7 @@ from six.moves import filterfalse
 
 from django.conf import settings
 from django.core import management
+from django.test import TestCase as DjangoTestCase
 from django.test import override_settings
 from django.utils.crypto import get_random_string
 from django.utils.text import slugify
@@ -27,10 +31,9 @@ from django.utils.text import slugify
 from resolwe.flow.managers import manager
 from resolwe.flow.models import Collection, Data, DescriptorSchema, Process, Storage
 from resolwe.flow.utils import dict_dot, iterate_fields, iterate_schema
-from resolwe.test import TestCase
+from resolwe.test import TransactionTestCase
 
 from .setting_overrides import FLOW_DOCKER_MAPPINGS, FLOW_EXECUTOR_SETTINGS
-
 
 SCHEMAS_FIXTURE_CACHE = None
 
@@ -38,23 +41,24 @@ SCHEMAS_FIXTURE_CACHE = None
 @override_settings(FLOW_EXECUTOR=FLOW_EXECUTOR_SETTINGS)
 @override_settings(FLOW_DOCKER_MAPPINGS=FLOW_DOCKER_MAPPINGS)
 @override_settings(CELERY_ALWAYS_EAGER=True)
-class ProcessTestCase(TestCase):
-    """Base class for writing process tests.
+class TransactionProcessTestCase(TransactionTestCase):
+    """Base class for writing process tests not enclosed in a transaction.
 
-    It is a subclass of :class:`~resolwe.test.TestCase` with some
-    specific functions used for testing processes.
+    It is a subclass of :class:`.TransactionTestCase` with some specific
+    functions used for testing processes.
 
     To write a process test use standard Django's syntax for writing
     tests and follow the next steps:
 
     #. Put input files (if any) in ``tests/files`` directory of a
        Django application.
-    #. Run the process using :meth:`resolwe.test.ProcessTestCase.run_process`.
+    #. Run the process using
+       :meth:`.run_process`.
     #. Check if the process has the expected status using
-       :meth:`resolwe.test.ProcessTestCase.assertStatus`.
-    #. Check process's output using :meth:`resolwe.test.ProcessTestCase.assertFields`,
-       :meth:`resolwe.test.ProcessTestCase.assertFile`, :meth:`resolwe.test.ProcessTestCase.assertFileExists`,
-       :meth:`resolwe.test.ProcessTestCase.assertFiles` and :meth:`resolwe.test.ProcessTestCase.assertJSON`.
+       :meth:`.assertStatus`.
+    #. Check process's output using :meth:`.assertFields`,
+       :meth:`.assertFile`, :meth:`.assertFileExists`,
+       :meth:`.assertFiles` and :meth:`.assertJSON`.
 
     .. note::
         When creating a test case for a custom Django application,
@@ -115,7 +119,7 @@ class ProcessTestCase(TestCase):
 
     def setUp(self):
         """Initialize test data."""
-        super(ProcessTestCase, self).setUp()
+        super(TransactionProcessTestCase, self).setUp()
 
         self._register_schemas()
 
@@ -148,7 +152,7 @@ class ProcessTestCase(TestCase):
             for fn in self._upload_files:
                 shutil.rmtree(fn, ignore_errors=True)
 
-        super(ProcessTestCase, self).tearDown()
+        super(TransactionProcessTestCase, self).tearDown()
 
     @property
     def files_path(self):
@@ -564,3 +568,16 @@ class ProcessTestCase(TestCase):
             msg += "\n".join(data.process_warning)
 
         return msg
+
+
+class ProcessTestCase(TransactionProcessTestCase, DjangoTestCase):
+    """Base class for writing process tests.
+
+    It is based on :class:`~.TransactionProcessTestCase` and
+    Django's :class:`~django.test.TestCase`.
+    The latter encloses the test code in a database transaction that is
+    rolled back at the end of the test.
+
+    """
+
+    pass

@@ -31,6 +31,7 @@ Added
 - Add SET_ENV setting to set environment variables in executor
 - Support file lists in archiver
 - Support ordering by version for descriptor schema
+- Support process test case based on Resolwe's ``TransactionTestCase``
 
 Changed
 -------
