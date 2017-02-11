@@ -93,10 +93,11 @@ html_theme = 'sphinx_rtd_theme'
 htmlhelp_basename = 'Resolwedoc'
 
 # Configuration for intersphinx
+_django_major_version = "{}.{}".format(*django.VERSION[:2])
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3', None),
-    'django': ('https://docs.djangoproject.com/en/dev/',
-               'https://docs.djangoproject.com/en/dev/_objects/'),
+    'django': ('https://docs.djangoproject.com/en/{}/'.format(_django_major_version),
+               'https://docs.djangoproject.com/en/{}/_objects/'.format(_django_major_version)),
 }
 
 # Configuration for extlinks
