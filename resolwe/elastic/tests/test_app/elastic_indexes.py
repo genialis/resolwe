@@ -3,6 +3,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import elasticsearch_dsl as dsl
 
+from resolwe.elastic.fields import Name, ProcessType
 from resolwe.elastic.indices import BaseDocument, BaseIndex
 
 from .models import TestModel
@@ -14,6 +15,9 @@ class TestSearchDocument(BaseDocument):
     num = dsl.Integer()
     json = dsl.Object()
 
+    field_name = Name()
+    field_process_type = ProcessType()
+
     class Meta:
         index = 'test_search'
 
@@ -21,6 +25,7 @@ class TestSearchDocument(BaseDocument):
 class TestSearchIndex(BaseIndex):
     mapping = {
         'num': 'number',
+        'field_name': 'name',
     }
 
     queryset = TestModel.objects.all()

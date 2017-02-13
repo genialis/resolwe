@@ -153,3 +153,57 @@ class IndexTest(ElasticSearchTestCase):
         es_objects = TestSearchDocument.search().execute()
         self.assertEqual(es_objects[0].users_with_permissions, [user_1.pk, user_3.pk])
         self.assertEqual(es_objects[0].groups_with_permissions, [group.pk])
+
+    def test_field_name(self):
+        from .test_app.models import TestModel
+        from .test_app.elastic_indexes import TestSearchDocument
+
+        TestModel.objects.create(name='Hello world', number=42)
+        self._wait_es()
+
+        es_objects = TestSearchDocument.search().execute()
+        self.assertEqual(len(es_objects), 1)
+
+        es_objects = TestSearchDocument.search().query('match', field_name='hello').execute()
+        self.assertEqual(len(es_objects), 1)
+
+        es_objects = TestSearchDocument.search().query('match', field_name='world').execute()
+        self.assertEqual(len(es_objects), 1)
+
+        es_objects = TestSearchDocument.search().query('match', **{'field_name.raw': 'hello'}).execute()
+        self.assertEqual(len(es_objects), 0)
+
+        es_objects = TestSearchDocument.search().query('match', **{'field_name.raw': 'Hello world'}).execute()
+        self.assertEqual(len(es_objects), 1)
+
+    def test_field_process_type(self):
+        from .test_app.models import TestModel
+        from .test_app.elastic_indexes import TestSearchDocument
+
+        TestModel.objects.create(field_process_type='data:geneset', number=42)
+        TestModel.objects.create(field_process_type='data:geneset:venn', number=42)
+        TestModel.objects.create(field_process_type='data:geneset:venn:omg', number=42)
+        self._wait_es()
+
+        es_objects = TestSearchDocument.search().execute()
+        self.assertEqual(len(es_objects), 3)
+
+        es_objects = TestSearchDocument.search().query('match', field_process_type='data').execute()
+        self.assertEqual(len(es_objects), 3)
+
+        es_objects = TestSearchDocument.search().query('match', field_process_type='data:geneset').execute()
+        self.assertEqual(len(es_objects), 3)
+
+        es_objects = TestSearchDocument.search().query('match', field_process_type='data:geneset:venn').execute()
+        self.assertEqual(len(es_objects), 2)
+
+        es_objects = TestSearchDocument.search().query('match', field_process_type='data:geneset:venn:omg').execute()
+        self.assertEqual(len(es_objects), 1)
+
+        # Check if tokenizer did not include intermediate terms.
+        es_objects = TestSearchDocument.search().query('match', field_process_type='geneset').execute()
+        self.assertEqual(len(es_objects), 0)
+        es_objects = TestSearchDocument.search().query('match', field_process_type='venn').execute()
+        self.assertEqual(len(es_objects), 0)
+        es_objects = TestSearchDocument.search().query('match', field_process_type='omg').execute()
+        self.assertEqual(len(es_objects), 0)

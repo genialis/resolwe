@@ -14,4 +14,6 @@ class TestModel(models.Model):
 
     name = models.CharField(max_length=30)
 
+    field_process_type = models.CharField(max_length=100)
+
     number = models.IntegerField()
