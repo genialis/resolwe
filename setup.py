@@ -65,6 +65,7 @@ setup(
         'six>=1.10.0',
         'Sphinx>=1.5.1',
         'Jinja2>=2.8',
+        'wrapt>=1.10.8',
     ],
     dependency_links=[
         # Required due to issue https://github.com/neithere/django-autoslug/pull/18.

@@ -13,6 +13,7 @@ Unreleased
 Added
 -----
 - Add Resolwe test framework
+- Add ``with_custom_executor`` and ``with_resolwe_host`` test decorators
 - Add ``isort`` linter to check order of imports
 - Support basic test case based on Django's ``TransactionTestCase``
 - Support ES test case based on Django's ``TransactionTestCase``
