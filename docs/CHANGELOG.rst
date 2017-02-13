@@ -36,6 +36,7 @@ Added
 - Add Null executor
 - If ``choices`` are defined in JSON schema, value of field is
   validated with them
+- Add tests for accessing Resolwe API from a process
 
 Changed
 -------
