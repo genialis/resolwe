@@ -10,7 +10,7 @@ from resolwe.test import TestCase
 
 class EnvVarsTest(TestCase):
 
-    @override_settings(RESOLWE_API_HOST='some.special.host')
+    @override_settings(RESOLWE_HOST_URL='some.special.host')
     def test_envvars(self):
         process = Process.objects.create(
             name='Test environment variables',
@@ -24,7 +24,7 @@ class EnvVarsTest(TestCase):
             run={
                 'language': 'bash',
                 'program': """
-re-save resolweapihost $RESOLWE_API_HOST
+re-save resolweapihost $RESOLWE_HOST_URL
 """
             }
         )

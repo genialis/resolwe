@@ -73,7 +73,7 @@ class BaseManager(object):
     def _include_environment_variables(self, program):
         """Define environment variables."""
         env_vars = {
-            'RESOLWE_API_HOST': getattr(settings, 'RESOLWE_API_HOST', 'localhost'),
+            'RESOLWE_HOST_URL': getattr(settings, 'RESOLWE_HOST_URL', 'localhost'),
         }
 
         # TODO: Use shlex.quote when py2 support dropped

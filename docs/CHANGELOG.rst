@@ -18,6 +18,7 @@ Added
 - Support ES test case based on Django's ``TransactionTestCase``
 - Add ability to set a custom command for the Docker executor via the
   ``FLOW_DOCKER_COMMAND`` setting.
+- ``get_url`` jinja filter
 
 Changed
 -------
@@ -25,6 +26,8 @@ Changed
 - Split ``flow.models`` module to multiple files
 - Remove ability to set a custom executor command for any executor via
   the ``FLOW_EXECUTOR['COMMAND']`` setting.
+- Rename ``RESOLWE_API_HOST`` setting and environment variable in executor
+  to ``RESOLWE_HOST_URL``
 
 Fixed
 -----

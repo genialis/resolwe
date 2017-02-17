@@ -3,6 +3,8 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import os
 
+from django.conf import settings
+
 from resolwe.flow.models import Data
 
 
@@ -52,6 +54,19 @@ def data_by_slug(slug):
     return Data.objects.get(slug=slug).pk
 
 
+def get_url(file_path):
+    """Return file's url based on base url set in settings."""
+    # Get only file path if whole file object is given
+    if isinstance(file_path, dict) and 'file' in file_path:
+        file_path = file_path['file']
+
+    data_dir = settings.FLOW_EXECUTOR['DATA_DIR']
+    file_path = file_path.lstrip(data_dir)
+    base_url = getattr(settings, 'RESOLWE_HOST_URL', 'localhost')
+
+    return "{}/data/{}".format(base_url, file_path)
+
+
 # A dictionary of filters that will be registered.
 filters = {  # pylint: disable=invalid-name
     'name': name,
@@ -61,4 +76,5 @@ filters = {  # pylint: disable=invalid-name
     'subtype': subtype,
     'yesno': yesno,
     'data_by_slug': data_by_slug,
+    'get_url': get_url,
 }

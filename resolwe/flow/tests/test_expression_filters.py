@@ -14,6 +14,17 @@ class ProcessFieldsTagsTest(TestCase):
             name='Input process',
             contributor=self.contributor,
             type='data:test:inputobject:',
+            output_schema=[
+                {'name': 'test_file', 'type': 'basic:file:'},
+            ],
+            run={
+                'language': 'bash',
+                'program': """
+mkdir -p path/to
+touch path/to/file.txt
+re-save-file test_file path/to/file.txt
+"""
+            }
         )
         input_data = Data.objects.create(
             name='Input Data object',
@@ -37,6 +48,7 @@ class ProcessFieldsTagsTest(TestCase):
                 {'name': 'subtype', 'type': 'basic:string:'},
                 {'name': 'yesno', 'type': 'basic:string:'},
                 {'name': 'datalookup', 'type': 'basic:integer:'},
+                {'name': 'file_url', 'type': 'basic:string:'},
             ],
             run={
                 'language': 'bash',
@@ -48,6 +60,7 @@ re-save basename "{{ '/foo/bar/moo' | basename }}"
 re-save subtype "{{ 'data:test:inputobject:' | subtype('data:') }}"
 re-save yesno "{{ true | yesno('yes', 'no') }}"
 re-save datalookup "{{ 'input-data-object' | data_by_slug }}"
+re-save file_url "{{ input_data.test_file | get_url }}"
 """
             }
 
@@ -61,8 +74,7 @@ re-save datalookup "{{ 'input-data-object' | data_by_slug }}"
 
         manager.communicate(verbosity=0)
 
-        # update output
-        data = Data.objects.get(pk=data.pk)
+        data.refresh_from_db()
 
         self.assertEqual(data.output['name'], input_data.name)
         self.assertEqual(data.output['id'], input_data.pk)
@@ -71,6 +83,7 @@ re-save datalookup "{{ 'input-data-object' | data_by_slug }}"
         self.assertEqual(data.output['subtype'], 'True')
         self.assertEqual(data.output['yesno'], 'yes')
         self.assertEqual(data.output['datalookup'], input_data.pk)
+        self.assertEqual(data.output['file_url'], 'localhost/data/{}/path/to/file.txt'.format(input_data.pk))
 
 
 class ExpressionEngineTest(TestCase):
