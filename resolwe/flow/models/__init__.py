@@ -60,6 +60,6 @@ Postgres ORM model for storing JSON.
 from .collection import Collection
 from .data import Data
 from .descriptor import DescriptorSchema
-from .entity import Entity
+from .entity import Entity, Relation, RelationType
 from .process import Process
 from .storage import Storage

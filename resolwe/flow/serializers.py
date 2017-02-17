@@ -8,12 +8,14 @@ Flow Serializers
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 from django.contrib import auth
+from django.db import transaction
 
 from rest_framework import serializers, status
 from rest_framework.exceptions import APIException, ValidationError
 from rest_framework.fields import empty
 
-from resolwe.flow.models import Collection, Data, DescriptorSchema, Entity, Process, Storage
+from resolwe.flow.models import Collection, Data, DescriptorSchema, Entity, Process, Relation, RelationType, Storage
+from resolwe.flow.models.entity import PositionInRelation
 
 
 class NoContentError(APIException):
@@ -210,3 +212,59 @@ class StorageSerializer(ResolweBaseSerializer):
         update_protected_fields = ('contributor', )
         read_only_fields = ('id', 'created', 'modified')
         fields = ('slug', 'name', 'data', 'json') + update_protected_fields + read_only_fields
+
+
+class PositionInRelationSerializer(serializers.ModelSerializer):
+    """Serializer for PositionInRelation objects."""
+
+    class Meta:
+        """PositionInRelationSerializer Meta options."""
+
+        model = PositionInRelation
+        fields = ('entity', 'position')
+
+
+class RelationSerializer(ResolweBaseSerializer):
+    """Serializer for Relation objects."""
+
+    entities = PositionInRelationSerializer(source='positioninrelation_set', many=True)
+    collection = serializers.PrimaryKeyRelatedField(queryset=Collection.objects.all(), required=True)
+
+    def __init__(self, *args, **kwargs):
+        """Initialize attributes."""
+        super(RelationSerializer, self).__init__(*args, **kwargs)
+
+        request = kwargs.get('context', {}).get('request', None)
+
+        if not hasattr(request, 'method') or request.method == "GET":
+            self.fields['type'] = serializers.CharField(source='type.name')
+        else:
+            self.fields['type'] = serializers.PrimaryKeyRelatedField(queryset=RelationType.objects.all())
+
+    class Meta:
+        """RelationSerializer Meta options."""
+
+        model = Relation
+        update_protected_fields = ('contributor', 'entities', 'type')
+        read_only_fields = ('id', 'created', 'modified')
+        fields = ('collection', 'entities', 'label') + update_protected_fields + read_only_fields
+
+    def create(self, validated_data):
+        """Create ``Relation`` object and add ``Entities``."""
+        # `entities` field is renamed to `positioninrelation_set` based on source of nested serializer
+
+        entities = validated_data.pop('positioninrelation_set', {})
+
+        # Prevent "Failed to populate slug Relation.slug from name" output
+        validated_data['name'] = 'Relation'
+
+        with transaction.atomic():
+            instance = Relation.objects.create(**validated_data)
+            for entity in entities:
+                PositionInRelation.objects.create(
+                    relation=instance,
+                    entity=entity['entity'],
+                    position=entity.get('position', None)
+                )
+
+        return instance

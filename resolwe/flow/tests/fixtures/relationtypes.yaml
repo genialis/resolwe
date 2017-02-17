@@ -1,0 +1,11 @@
+- model: flow.relationtype
+  pk: 1
+  fields:
+    name: group
+    ordered: False
+
+- model: flow.relationtype
+  pk: 2
+  fields:
+    name: series
+    ordered: True

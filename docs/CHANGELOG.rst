@@ -23,6 +23,7 @@ Added
   automatically granted based on permissions of previously the latest
   version of process or descriptor schema.
 - Set ``parent`` relation in spawned data objects and workflows
+- Relations between entities
 
 Changed
 -------
