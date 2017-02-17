@@ -768,6 +768,11 @@ class ResolweAPITestCase(APITestCase):
         if get_user_model().objects.filter(pk=5).exists():
             self.admin = get_user_model().objects.get(pk=5)
 
+        user_model = get_user_model()
+        # TODO: Change username to `admin` when fixtures are removed
+        self.admin = user_model.objects.create_superuser(username='admin2', email='admin@test.com', password='admin')
+        self.contributor = user_model.objects.create_user(username='contributor')
+
         if not hasattr(self, 'viewset'):
             raise KeyError("`self.viewset` must be defined in child class")
 
@@ -819,15 +824,13 @@ class ResolweAPITestCase(APITestCase):
 
         :param user: User to authenticate in request
         :type user: :class:`~django.contrib.auth.models.User` or :data:`None`
-        :return: Rendered API response object
+        :return: API response object
         :rtype: :drf:`Response <responses/#response>`
 
         """
         request = self.factory.get(self.list_url, format='json')
         force_authenticate(request, user)
-        resp = self.list_view(request)
-        resp.render()
-        return resp
+        return self.list_view(request)
 
     def _get_detail(self, pk, user=None):
         """Make ``GET`` request to ``self.detail_view`` view.
@@ -838,15 +841,13 @@ class ResolweAPITestCase(APITestCase):
         :param int pk: Primary key of the coresponding object
         :param user: User to authenticate in request
         :type user: :class:`~django.contrib.auth.models.User` or :data:`None`
-        :return: Rendered API response object
+        :return: API response object
         :rtype: :drf:`Response <responses/#response>`
 
         """
         request = self.factory.get(self.detail_url(pk), format='json')
         force_authenticate(request, user)
-        resp = self.detail_view(request, pk=pk)
-        resp.render()
-        return resp
+        return self.detail_view(request, pk=pk)
 
     def _post(self, data={}, user=None):
         """Make ``POST`` request to ``self.list_view`` view.
@@ -857,15 +858,13 @@ class ResolweAPITestCase(APITestCase):
         :param dict data: data for posting in request's body
         :param user: User to authenticate in request
         :type user: :class:`~django.contrib.auth.models.User` or :data:`None`
-        :return: Rendered API response object
+        :return: API response object
         :rtype: :drf:`Response <responses/#response>`
 
         """
         request = self.factory.post(self.list_url, data=data, format='json')
         force_authenticate(request, user)
-        resp = self.list_view(request)
-        resp.render()
-        return resp
+        return self.list_view(request)
 
     def _patch(self, pk, data={}, user=None):
         """Make ``PATCH`` request to ``self.detail_view`` view.
@@ -877,15 +876,13 @@ class ResolweAPITestCase(APITestCase):
         :param dict data: data for posting in request's body
         :param user: User to authenticate in request
         :type user: :class:`~django.contrib.auth.models.User` or :data:`None`
-        :return: Rendered API response object
+        :return: API response object
         :rtype: :drf:`Response <responses/#response>`
 
         """
         request = self.factory.patch(self.detail_url(pk), data=data, format='json')
         force_authenticate(request, user)
-        resp = self.detail_view(request, pk=pk)
-        resp.render()
-        return resp
+        return self.detail_view(request, pk=pk)
 
     def _delete(self, pk, user=None):
         """Make ``DELETE`` request to ``self.detail_view`` view.
@@ -896,15 +893,13 @@ class ResolweAPITestCase(APITestCase):
         :param int pk: Primary key of the coresponding object
         :param user: User to authenticate in request
         :type user: :class:`~django.contrib.auth.models.User` or :data:`None`
-        :return: Rendered API response object
+        :return: API response object
         :rtype: :drf:`Response <responses/#response>`
 
         """
         request = self.factory.delete(self.detail_url(pk), format='json')
         force_authenticate(request, user)
-        resp = self.detail_view(request, pk=pk)
-        resp.render()
-        return resp
+        return self.detail_view(request, pk=pk)
 
     def _detail_permissions(self, pk, data={}, user=None):
         """Make ``POST`` request to ``self.detail_view`` view.
@@ -916,15 +911,13 @@ class ResolweAPITestCase(APITestCase):
         :param dict data: data for posting in request's body
         :param user: User to authenticate in request
         :type user: :class:`~django.contrib.auth.models.User` or :data:`None`
-        :return: Rendered API response object
+        :return: API response object
         :rtype: :drf:`Response <responses/#response>`
 
         """
         request = self.factory.post(self.detail_permissions(pk), data=data, format='json')
         force_authenticate(request, user)
-        resp = self.detail_view(request, pk=pk)
-        resp.render()
-        return resp
+        return self.detail_view(request, pk=pk)
 
     def assertKeys(self, data, wanted):  # pylint: disable=invalid-name
         """Assert dictionary keys."""
