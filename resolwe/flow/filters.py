@@ -73,6 +73,7 @@ class DataFilter(BaseResolweFilter):
     """Filter the Data endpoint."""
 
     collection = filters.RelatedFilter(CollectionFilter)
+    entity = filters.ModelChoiceFilter(queryset=Entity.objects.all())
     type = filters.CharFilter(name='process__type', lookup_type='startswith')
     status = filters.CharFilter(lookup_expr='iexact')
     finished = filters.AllLookupsFilter()
