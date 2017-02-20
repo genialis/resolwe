@@ -35,6 +35,7 @@ import shutil
 import uuid
 import zipfile
 
+import mock
 import six
 from six.moves import filterfalse
 
@@ -161,9 +162,16 @@ class TransactionTestCase(DjangoTransactionTestCase):
 
         super(TransactionTestCase, self).tearDown()
 
-    def keep_data(self):
+    def keep_data(self, mock_purge=True):
         """Do not delete output files after tests."""
         self._keep_data = True
+
+        if mock_purge:
+            purge_mock_os = mock.patch('resolwe.flow.utils.purge.os', wraps=os).start()
+            purge_mock_os.remove = mock.MagicMock()
+
+            purge_mock_shutil = mock.patch('resolwe.flow.utils.purge.shutil', wraps=shutil).start()
+            purge_mock_shutil.rmtree = mock.MagicMock()
 
 
 class TestCase(TransactionTestCase, DjangoTestCase):
