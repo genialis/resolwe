@@ -1,8 +1,6 @@
 # pylint: disable=missing-docstring
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-import time
-
 from django.apps import apps
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -54,7 +52,6 @@ class IndexViewsetTest(APITestCase, ElasticSearchTestCase):
         # Assing permissions
         assign_perm('view_model', self.user_1, test_obj_1)
         assign_perm('view_model', group, test_obj_2)
-        self._wait_es()
 
         # Prepare test viewset
         self.test_viewset = TestViewSet.as_view(actions={
@@ -64,12 +61,6 @@ class IndexViewsetTest(APITestCase, ElasticSearchTestCase):
     def tearDown(self):
         index_builder.destroy()
         super(IndexViewsetTest, self).tearDown()
-
-    def _wait_es(self):
-        # TODO: Better solution for ES5:
-        #       https://github.com/elastic/elasticsearch/pull/17986
-        # wait for ElasticSearch to index the data
-        time.sleep(2)
 
     def test_permissions(self):
         # First user

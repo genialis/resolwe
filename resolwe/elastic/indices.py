@@ -205,7 +205,7 @@ class BaseIndex(object):
         document.groups_with_permissions = permissions['groups']
 
         if push:
-            document.save()
+            document.save(refresh=True)
         else:
             self.push_queue.append(document)
 
@@ -239,7 +239,7 @@ class BaseIndex(object):
 
     def push(self):
         """Push built documents to ElasticSearch."""
-        bulk(connections.get_connection(), (doc.to_dict(True) for doc in self.push_queue))
+        bulk(connections.get_connection(), (doc.to_dict(True) for doc in self.push_queue), refresh=True)
         self.push_queue = []
 
     def destroy(self):
@@ -269,7 +269,7 @@ class BaseIndex(object):
         obj_id = self.generate_id(obj)
         try:
             index = self.document_class.get(obj_id)
-            index.delete()
+            index.delete(refresh=True)
         except NotFoundError:
             pass  # object doesn't exist in index
 

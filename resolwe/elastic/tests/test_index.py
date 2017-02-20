@@ -1,8 +1,6 @@
 # pylint: disable=missing-docstring
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-import time
-
 from django.apps import apps
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -44,12 +42,6 @@ class IndexTest(ElasticSearchTestCase):
         index_builder.destroy()
         super(IndexTest, self).tearDown()
 
-    def _wait_es(self):
-        # TODO: Better solution for ES5:
-        #       https://github.com/elastic/elasticsearch/pull/17986
-        # wait for ElasticSearch to index the data
-        time.sleep(2)
-
     def test_mapping_multiple_times(self):
         index_builder.create_mappings()
         index_builder.create_mappings()
@@ -60,7 +52,6 @@ class IndexTest(ElasticSearchTestCase):
 
         # Create new object
         test_obj = TestModel.objects.create(name='Object name', number=43)
-        self._wait_es()
 
         es_objects = TestSearchDocument.search().execute()
         self.assertEqual(len(es_objects), 1)
@@ -71,7 +62,6 @@ class IndexTest(ElasticSearchTestCase):
         # Update existing object
         test_obj.name = 'Another name'
         test_obj.save()
-        self._wait_es()
 
         es_objects = TestSearchDocument.search().execute()
         self.assertEqual(len(es_objects), 1)
@@ -81,14 +71,12 @@ class IndexTest(ElasticSearchTestCase):
 
         # Create another object
         TestModel.objects.create(name='Another object', number=3)
-        self._wait_es()
 
         es_objects = TestSearchDocument.search().execute()
         self.assertEqual(len(es_objects), 2)
 
         # Delete object
         test_obj.delete()
-        self._wait_es()
 
         es_objects = TestSearchDocument.search().execute()
         self.assertEqual(len(es_objects), 1)
@@ -104,21 +92,18 @@ class IndexTest(ElasticSearchTestCase):
 
         # Prepare test data
         TestModel.objects.create(name='Object name', number=43)
-        self._wait_es()
 
         es_objects = TestSearchDocument.search().execute()
         self.assertEqual(len(es_objects), 1)
 
         # Purge index
         call_command('elastic_purge', interactive=False, verbosity=0)
-        self._wait_es()
 
         es_objects = TestSearchDocument.search().execute()
         self.assertEqual(len(es_objects), 0)
 
         # Recreate index
         call_command('elastic_index', interactive=False, verbosity=0)
-        self._wait_es()
 
         es_objects = TestSearchDocument.search().execute()
         self.assertEqual(len(es_objects), 1)
@@ -139,7 +124,6 @@ class IndexTest(ElasticSearchTestCase):
         assign_perm('view_model', user_1, test_obj)
         assign_perm('view_model', user_2, test_obj)
         assign_perm('view_model', group, test_obj)
-        self._wait_es()
 
         es_objects = TestSearchDocument.search().execute()
         self.assertEqual(es_objects[0].users_with_permissions, [user_1.pk, user_2.pk])
@@ -148,7 +132,6 @@ class IndexTest(ElasticSearchTestCase):
         # Change permissions
         remove_perm('view_model', user_2, test_obj)
         assign_perm('view_model', user_3, test_obj)
-        self._wait_es()
 
         es_objects = TestSearchDocument.search().execute()
         self.assertEqual(es_objects[0].users_with_permissions, [user_1.pk, user_3.pk])
@@ -159,7 +142,6 @@ class IndexTest(ElasticSearchTestCase):
         from .test_app.elastic_indexes import TestSearchDocument
 
         TestModel.objects.create(name='Hello world', number=42)
-        self._wait_es()
 
         es_objects = TestSearchDocument.search().execute()
         self.assertEqual(len(es_objects), 1)
@@ -183,7 +165,6 @@ class IndexTest(ElasticSearchTestCase):
         TestModel.objects.create(field_process_type='data:geneset', number=42)
         TestModel.objects.create(field_process_type='data:geneset:venn', number=42)
         TestModel.objects.create(field_process_type='data:geneset:venn:omg', number=42)
-        self._wait_es()
 
         es_objects = TestSearchDocument.search().execute()
         self.assertEqual(len(es_objects), 3)
