@@ -61,7 +61,8 @@ def get_url(file_path):
         file_path = file_path['file']
 
     data_dir = settings.FLOW_EXECUTOR['DATA_DIR']
-    file_path = file_path.lstrip(data_dir)
+    file_path = file_path[len(data_dir):]  # remove data_dir prefix
+    file_path = file_path.lstrip('/')
     base_url = getattr(settings, 'RESOLWE_HOST_URL', 'localhost')
 
     return "{}/data/{}".format(base_url, file_path)
