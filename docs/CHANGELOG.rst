@@ -39,6 +39,7 @@ Fixed
 - Generate temporary names for upload files in tests
 - Fix permissions in Elasticsearch tests
 - Do not purge data in tests
+- Set appropriate SELinux labels when mounting tools in Docker containers
 
 
 ==================

@@ -48,7 +48,9 @@ class FlowExecutor(LocalFlowExecutor):
 
         # create mappings for tools
         # NOTE: To prevent processes tampering with tools, all tools are mounted read-only
-        self.mappings_tools = [{'src': tool, 'dest': '/usr/local/bin/resolwe/{}'.format(i), 'mode': 'ro'}
+        # NOTE: Since the tools are shared among all containers they must use the shared SELinux
+        # label (z option)
+        self.mappings_tools = [{'src': tool, 'dest': '/usr/local/bin/resolwe/{}'.format(i), 'mode': 'ro,z'}
                                for i, tool in enumerate(self.get_tools())]
         mappings += self.mappings_tools
         # create Docker --volume parameters from mappings
