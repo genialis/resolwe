@@ -32,6 +32,8 @@ re-save-file test_file path/to/file.txt
             process=input_process,
         )
 
+        manager.communicate(verbosity=0)
+
         process = Process.objects.create(
             name='Test template tags',
             requirements={'expression-engine': 'jinja'},

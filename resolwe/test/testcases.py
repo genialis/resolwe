@@ -390,7 +390,13 @@ class ProcessTestCase(TestCase):
         self.collection.data.add(data)
 
         if run_manager:
-            manager.communicate(run_sync=True, verbosity=verbosity)
+            # Manager is normally run at the end of transaction. Because
+            # tests are wrapped in the transaction, we have to call it
+            # manually until there is no more resolving objects.
+            while True:
+                if not Data.objects.filter(status=Data.STATUS_RESOLVING).exists():
+                    break
+                manager.communicate(run_sync=True, verbosity=verbosity)
 
         # Fetch latest Data object from database
         data = Data.objects.get(pk=data.pk)
