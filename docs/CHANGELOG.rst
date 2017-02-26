@@ -33,6 +33,8 @@ Added
 - Support ordering by version for descriptor schema
 - Support process test case based on Resolwe's ``TransactionTestCase``
 - Add Null executor
+- Remove write and execute permission from data object dir content for
+  group and others after object is done
 
 Changed
 -------

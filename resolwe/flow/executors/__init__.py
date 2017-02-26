@@ -14,6 +14,7 @@ import json
 import logging
 import os
 import shutil
+import stat
 import traceback
 import uuid
 from collections import defaultdict
@@ -53,6 +54,17 @@ def iterjson(text):
 
         text = text[ndx:].lstrip('\r\n')
         yield obj
+
+
+def remove_perms(path, perms):
+    """Remove the given permissions from the given file/directory.
+
+    :param str path: Path to the file/directory which permissions will
+        be changed.
+    :param int perms: Permissions mask to be removed.
+    """
+    current = stat.S_IMODE(os.stat(path).st_mode)
+    os.chmod(path, current & ~perms)
 
 
 class BaseFlowExecutor(BaseEngine):
@@ -316,6 +328,20 @@ class BaseFlowExecutor(BaseEngine):
                 data_purge(data_ids=[data_id], delete=True, verbosity=verbosity)
             except:  # pylint: disable=bare-except
                 logger.error(__("Purge error:\n\n{}", traceback.format_exc()))
+
+        PERM_GRP_OTH_WRITE = stat.S_IWGRP | stat.S_IWOTH  # pylint: disable=invalid-name
+        PERM_GRP_OTH_EXEC = stat.S_IXGRP | stat.S_IXOTH  # pylint: disable=invalid-name
+
+        # Remove write and execute permission from data object dir
+        # content for group and others after object is done
+        remove_perms(output_path, PERM_GRP_OTH_WRITE)
+        for path, dirs, files in os.walk(output_path):
+            for file_name in files:
+                file_path = os.path.join(path, file_name)
+                remove_perms(file_path, PERM_GRP_OTH_WRITE & PERM_GRP_OTH_EXEC)
+            for dir_name in dirs:
+                dir_path = os.path.join(path, dir_name)
+                remove_perms(dir_path, PERM_GRP_OTH_WRITE)
 
         # if not update_data(data):  # Data was deleted
         #     # Restore original directory
