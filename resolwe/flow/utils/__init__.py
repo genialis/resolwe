@@ -15,6 +15,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import functools
 import hashlib
+import json
 
 from django.db import models
 
@@ -23,8 +24,8 @@ from .iterators import iterate_fields, iterate_schema  # pylint: disable=unused-
 
 def get_data_checksum(proc_input, proc_slug, proc_version):
     """Compute checksum of processor inputs, name and version."""
-    checksum = hashlib.sha1()
-    checksum.update(str(proc_input).encode('utf-8'))
+    checksum = hashlib.sha256()
+    checksum.update(json.dumps(proc_input, sort_keys=True).encode('utf-8'))
     checksum.update(proc_slug.encode('utf-8'))
     checksum.update(str(proc_version).encode('utf-8'))
     return checksum.hexdigest()
