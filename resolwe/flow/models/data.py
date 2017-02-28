@@ -217,7 +217,7 @@ class Data(BaseModel):
                 entity = entity_query.first()
             else:
 
-                descriptor_schema = DescriptorSchema.objects.get(slug=ds_slug)
+                descriptor_schema = DescriptorSchema.objects.filter(slug=ds_slug).order_by('version').last()
                 entity = Entity.objects.create(
                     contributor=self.contributor,
                     descriptor_schema=descriptor_schema,
