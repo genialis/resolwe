@@ -21,6 +21,7 @@ class BaseModel(models.Model):
         abstract = True
         unique_together = ('slug', 'version')
         default_permissions = ()
+        get_latest_by = 'version'
 
     #: URL slug
     slug = AutoSlugField(populate_from='name', unique_with='version', editable=True, max_length=100)

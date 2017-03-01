@@ -117,13 +117,13 @@ class ResolweCreateModelMixin(mixins.CreateModelMixin):
 
         ds_slug = request.data.get('descriptor_schema', None)
         if ds_slug:
-            ds_query = DescriptorSchema.objects.filter(slug=ds_slug).order_by('version')
+            ds_query = DescriptorSchema.objects.filter(slug=ds_slug)
             if not ds_query.exists():
                 return Response(
                     {'descriptor_schema': [
                         'Invalid descriptor_schema slug "{}" - object does not exist.'.format(ds_slug)]},
                     status=status.HTTP_400_BAD_REQUEST)
-            request.data['descriptor_schema'] = ds_query.last().pk
+            request.data['descriptor_schema'] = ds_query.latest().pk
 
         request.data['contributor'] = user.pk
         try:
@@ -157,13 +157,13 @@ class ResolweUpdateModelMixin(mixins.UpdateModelMixin):
         """Update a resource."""
         ds_slug = request.data.get('descriptor_schema', None)
         if ds_slug:
-            ds_query = DescriptorSchema.objects.filter(slug=ds_slug).order_by('version')
+            ds_query = DescriptorSchema.objects.filter(slug=ds_slug)
             if not ds_query.exists():
                 return Response(
                     {'descriptor_schema': [
                         'Invalid descriptor_schema slug "{}" - object does not exist.'.format(ds_slug)]},
                     status=status.HTTP_400_BAD_REQUEST)
-            request.data['descriptor_schema'] = ds_query.last().pk
+            request.data['descriptor_schema'] = ds_query.latest().pk
 
         return super(ResolweUpdateModelMixin, self).update(request, *args, **kwargs)
 
@@ -199,12 +199,12 @@ class ResolweCreateDataModelMixin(ResolweCreateModelMixin):
 
         # translate processe's slug to id
         process_slug = request.data.get('process', None)
-        process_query = Process.objects.filter(slug=process_slug).order_by('version')
+        process_query = Process.objects.filter(slug=process_slug)
         if not process_query.exists():
             # XXX: security - is it ok to reveal which processes (don't) exist?
             return Response({'process': ['Invalid process slug "{}" - object does not exist.'.format(process_slug)]},
                             status=status.HTTP_400_BAD_REQUEST)
-        process = process_query.last()
+        process = process_query.latest()
         request.data['process'] = process.pk
 
         # check that user has permission on the process
