@@ -27,6 +27,7 @@ from elasticsearch_dsl.exceptions import IllegalOperation
 from six import add_metaclass
 
 from django.conf import settings
+from django.contrib.contenttypes.models import ContentType
 
 from guardian.models import GroupObjectPermission, UserObjectPermission
 
@@ -255,12 +256,13 @@ class BaseIndex(object):
         contain list of ids of users/groups with ``view`` permission.
         """
         # TODO: Optimize this for bulk running
+        obj_ctype = ContentType.objects.get_for_model(obj)
         return {
             'users': list(UserObjectPermission.objects.filter(
-                object_pk=obj.id, permission__codename__startswith='view'
+                object_pk=obj.id, content_type=obj_ctype, permission__codename__startswith='view'
             ).distinct('user').values_list('user_id', flat=True)),
             'groups': list(GroupObjectPermission.objects.filter(
-                object_pk=obj.id, permission__codename__startswith='view'
+                object_pk=obj.id, content_type=obj_ctype, permission__codename__startswith='view'
             ).distinct('group').values_list('group', flat=True)),
         }
 
