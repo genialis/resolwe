@@ -29,6 +29,7 @@ import mock
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
+from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase as DjangoTestCase
 from django.test import TransactionTestCase as DjangoTransactionTestCase
 from django.test import override_settings
@@ -73,6 +74,13 @@ class TransactionTestCase(DjangoTransactionTestCase):
                 continue
 
         return test_data_dir
+
+    def _pre_setup(self, *args, **kwargs):
+        # NOTE: This is a work-around for Django issue #10827
+        # (https://code.djangoproject.com/ticket/10827) that clears the
+        # ContentType cache before permissions are setup.
+        ContentType.objects.clear_cache()
+        super(TransactionTestCase, self)._pre_setup(*args, **kwargs)
 
     def setUp(self):
         """Initialize test data."""
