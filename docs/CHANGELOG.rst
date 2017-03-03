@@ -40,6 +40,7 @@ Fixed
 - Fix permissions in Elasticsearch tests
 - Do not purge data in tests
 - Set appropriate SELinux labels when mounting tools in Docker containers
+- Data objects created by the workflow inherite it's permissions
 
 
 ==================

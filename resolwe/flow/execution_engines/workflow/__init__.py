@@ -5,7 +5,11 @@ import collections
 
 from six import string_types
 
+from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
+
+from guardian.models import GroupObjectPermission, UserObjectPermission
+from guardian.shortcuts import assign_perm
 
 from resolwe.flow.execution_engines.base import BaseExecutionEngine
 from resolwe.flow.execution_engines.exceptions import ExecutionError
@@ -104,6 +108,13 @@ class ExecutionEngine(BaseExecutionEngine):
                 contributor=data.contributor,
                 input=data_input,
             )
+
+            # Copy permissions.
+            data_ctype = ContentType.objects.get_for_model(data)
+            for perm in UserObjectPermission.objects.filter(object_pk=data.id, content_type=data_ctype):
+                assign_perm(perm.permission.codename, perm.user, data_object)
+            for perm in GroupObjectPermission.objects.filter(object_pk=data.id, content_type=data_ctype):
+                assign_perm(perm.permission.codename, perm.group, data_object)
 
             # Copy collections.
             for collection in data.collection_set.all():

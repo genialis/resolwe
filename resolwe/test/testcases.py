@@ -41,6 +41,7 @@ from six.moves import filterfalse
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.core import management
 from django.core.urlresolvers import reverse
 from django.test import TestCase as DjangoTestCase
@@ -152,6 +153,10 @@ class TransactionTestCase(DjangoTransactionTestCase):
         user_model = get_user_model()
         self.admin = user_model.objects.create_superuser(username='admin', email='admin@test.com', password='admin')
         self.contributor = user_model.objects.create_user(username='contributor')
+        self.user = user_model.objects.create_user(username='normal_user')
+
+        self.group = Group.objects.create(name='Users')
+        self.group.user_set.add(self.user)
 
     def tearDown(self):
         """Clean up after the test."""

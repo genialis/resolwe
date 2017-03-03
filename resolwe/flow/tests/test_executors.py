@@ -8,7 +8,10 @@ import six
 
 from django.conf import settings
 
+from guardian.shortcuts import assign_perm
+
 from resolwe.flow.executors import BaseFlowExecutor
+from resolwe.flow.managers import manager
 from resolwe.flow.models import Data, Process
 from resolwe.test import ProcessTestCase, TestCase, with_docker_executor
 
@@ -90,9 +93,19 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.run_process('test-broken-data-name')
 
     def test_workflow(self):
-        self.run_process('test-workflow-1', {'param1': 'world'})
-
+        self.run_process('test-workflow-1', {'param1': 'world'}, run_manager=False)
         workflow_data = Data.objects.get(process__slug='test-workflow-1')
+
+        # Assign permissions before manager is called
+        assign_perm('view_data', self.contributor, workflow_data)
+        assign_perm('view_data', self.group, workflow_data)
+
+        # One manager call for each created object
+        manager.communicate(run_sync=True, verbosity=0)
+        manager.communicate(run_sync=True, verbosity=0)
+        manager.communicate(run_sync=True, verbosity=0)
+
+        workflow_data.refresh_from_db()
         step1_data = Data.objects.get(process__slug='test-example-1')
         step2_data = Data.objects.get(process__slug='test-example-2')
 
@@ -107,6 +120,10 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.assertEqual(step2_data.input['param2']['a'], step1_data.pk)
         self.assertEqual(step2_data.input['param2']['b'], 'hello')
         self.assertEqual(step2_data.output['out1'], 'simon says: hello world')
+
+        self.contributor.has_perm('flow.view_data', step1_data)
+        # User inherites permission from group
+        self.user.has_perm('flow.view_data', step1_data)
 
     @with_docker_executor
     def test_run_in_docker(self):
