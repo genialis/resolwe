@@ -132,9 +132,13 @@ class TransactionTestCase(DjangoTransactionTestCase):
         flow_executor_settings['DATA_DIR'] = data_dir
 
         # Override container name prefix setting
-        container_name_prefix = getattr(settings, 'FLOW_EXECUTOR', {}).get('CONTAINER_NAME_PREFIX', 'resolwe')
-        container_name_prefix = '{}_{}'.format(container_name_prefix, os.path.basename(data_dir))
-        flow_executor_settings['CONTAINER_NAME_PREFIX'] = container_name_prefix
+        flow_executor_settings['CONTAINER_NAME_PREFIX'] = '{}_{}_{}'.format(
+            getattr(settings, 'FLOW_EXECUTOR', {}).get('CONTAINER_NAME_PREFIX', 'resolwe'),
+            # NOTE: This is necessary to avoid container name clashes when tests are run from
+            # different Resolwe code bases on the same system (e.g. on a CI server).
+            get_random_string(length=6),
+            os.path.basename(data_dir)
+        )
 
         # Override Docker data directory mappings
         flow_docker_mappings = copy.copy(getattr(settings, 'FLOW_DOCKER_MAPPINGS', []))
