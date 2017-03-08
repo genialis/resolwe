@@ -1,0 +1,8 @@
+- slug: test-proc
+  name: Test Processor
+  version: 1.0.0
+  type: "data:test:"
+  run:
+    language: bash
+    program: |
+      echo "I'm the old process."

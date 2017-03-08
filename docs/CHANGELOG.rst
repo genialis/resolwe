@@ -19,6 +19,9 @@ Added
 - Add ability to set a custom command for the Docker executor via the
   ``FLOW_DOCKER_COMMAND`` setting.
 - ``get_url`` jinja filter
+- When running ``register`` management command, permissions are
+  automatically granted based on permissions of previously the latest
+  version of process or descriptor schema.
 
 Changed
 -------

@@ -25,6 +25,7 @@ from resolwe.flow.models import DescriptorSchema, Process
 from resolwe.flow.models.base import VERSION_NUMBER_BITS
 from resolwe.flow.models.utils import validation_schema
 from resolwe.flow.utils import iterate_schema
+from resolwe.permissions.utils import copy_permissions
 
 PROCESSOR_SCHEMA = validation_schema('processor')
 DESCRIPTOR_SCHEMA = validation_schema('descriptor')
@@ -170,6 +171,12 @@ class Command(BaseCommand):
                 self.stderr.write("Skip processor {}: newer version installed".format(slug))
                 continue
 
+            previous_process_qs = Process.objects.filter(slug=slug)
+            if previous_process_qs.exists():
+                previous_process = previous_process_qs.latest()
+            else:
+                previous_process = None
+
             process_query = Process.objects.filter(slug=slug, version=version)
             if process_query.exists():
                 if not force:
@@ -180,7 +187,9 @@ class Command(BaseCommand):
                 process_query.update(**p)
                 log_processors.append("Updated {}".format(slug))
             else:
-                Process.objects.create(contributor=user, **p)
+                process = Process.objects.create(contributor=user, **p)
+                if previous_process:
+                    copy_permissions(previous_process, process)
                 log_processors.append("Inserted {}".format(slug))
 
         if verbosity > 0:
@@ -231,6 +240,12 @@ class Command(BaseCommand):
                 self.stderr.write("Skip descriptor schema {}: newer version installed".format(slug))
                 continue
 
+            previous_descriptor_qs = DescriptorSchema.objects.filter(slug=slug)
+            if previous_descriptor_qs.exists():
+                previous_descriptor = previous_descriptor_qs.latest()
+            else:
+                previous_descriptor = None
+
             descriptor_query = DescriptorSchema.objects.filter(slug=slug, version=version)
             if descriptor_query.exists():
                 if not force:
@@ -241,7 +256,9 @@ class Command(BaseCommand):
                 descriptor_query.update(**descriptor_schema)
                 log_descriptors.append("Updated {}".format(slug))
             else:
-                DescriptorSchema.objects.create(contributor=user, **descriptor_schema)
+                descriptor = DescriptorSchema.objects.create(contributor=user, **descriptor_schema)
+                if previous_descriptor:
+                    copy_permissions(previous_descriptor, descriptor)
                 log_descriptors.append("Inserted {}".format(slug))
 
         if len(log_descriptors) > 0 and verbosity > 0:

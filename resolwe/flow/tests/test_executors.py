@@ -121,9 +121,9 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.assertEqual(step2_data.input['param2']['b'], 'hello')
         self.assertEqual(step2_data.output['out1'], 'simon says: hello world')
 
-        self.contributor.has_perm('flow.view_data', step1_data)
+        self.assertTrue(self.contributor.has_perm('flow.view_data', step1_data))
         # User inherites permission from group
-        self.user.has_perm('flow.view_data', step1_data)
+        self.assertTrue(self.user.has_perm('flow.view_data', step1_data))
 
     @with_docker_executor
     def test_run_in_docker(self):

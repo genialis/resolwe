@@ -7,6 +7,10 @@ from django.core.management import call_command
 from django.test import TestCase as DjangoTestCase
 from django.utils.six import StringIO
 
+from guardian.models import UserObjectPermission
+from guardian.shortcuts import assign_perm
+
+from resolwe.flow.models import Process
 from resolwe.test import TestCase
 
 PROCESSES_DIR = os.path.join(os.path.dirname(__file__), 'processes')
@@ -54,6 +58,22 @@ class ProcessRegisterTest(TestCase):
         self.assertTrue('Updated test-bloated' in out.getvalue())
         self.assertEqual('', err.getvalue())
 
+    def test_inherit_perms(self):
+        out, err = StringIO(), StringIO()
+        first_version_path = os.path.join(PROCESSES_DIR, 'first_version')
+        call_command('register', path=[first_version_path], stdout=out, stderr=err)
+
+        process = Process.objects.latest()
+        assign_perm('view_process', self.user, process)
+
+        out, err = StringIO(), StringIO()
+        second_version_path = os.path.join(PROCESSES_DIR, 'second_version')
+        call_command('register', path=[second_version_path], stdout=out, stderr=err)
+
+        process = Process.objects.latest()
+
+        self.assertEqual(UserObjectPermission.objects.count(), 2)
+        self.assertTrue(self.user.has_perm('flow.view_process', process))
 
 class ProcessRegisterTestNoAdmin(DjangoTestCase):
 
