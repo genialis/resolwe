@@ -15,6 +15,7 @@ from resolwe.flow.execution_engines.base import BaseExecutionEngine
 from resolwe.flow.execution_engines.exceptions import ExecutionError
 from resolwe.flow.expression_engines import EvaluationError
 from resolwe.flow.models import Data, Process
+from resolwe.permissions.utils import copy_permissions
 
 
 class ExecutionEngine(BaseExecutionEngine):
@@ -110,11 +111,7 @@ class ExecutionEngine(BaseExecutionEngine):
             )
 
             # Copy permissions.
-            data_ctype = ContentType.objects.get_for_model(data)
-            for perm in UserObjectPermission.objects.filter(object_pk=data.id, content_type=data_ctype):
-                assign_perm(perm.permission.codename, perm.user, data_object)
-            for perm in GroupObjectPermission.objects.filter(object_pk=data.id, content_type=data_ctype):
-                assign_perm(perm.permission.codename, perm.group, data_object)
+            copy_permissions(data, data_object)
 
             # Copy collections.
             for collection in data.collection_set.all():
