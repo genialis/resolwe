@@ -75,6 +75,7 @@ class ProcessRegisterTest(TestCase):
         self.assertEqual(UserObjectPermission.objects.count(), 2)
         self.assertTrue(self.user.has_perm('flow.view_process', process))
 
+
 class ProcessRegisterTestNoAdmin(DjangoTestCase):
 
     def test_process_register_no_admin(self):

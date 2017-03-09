@@ -44,6 +44,8 @@ Fixed
 - Do not purge data in tests
 - Set appropriate SELinux labels when mounting tools in Docker containers
 - Data objects created by the workflow inherite it's permissions
+- If user doesn't have permissions on the latest versions of processes
+  and descriptor schemas, use older ones except returning error
 
 
 ==================

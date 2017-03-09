@@ -30,9 +30,26 @@ class TestDataViewSetCase(TestCase):
 
         self.data_viewset = DataViewSet.as_view(actions={
             'get': 'list',
+            'post': 'create',
         })
 
-        self.proc = Process.objects.create(type='test:process', name='Test process', contributor=self.contributor)
+        self.proc = Process.objects.create(
+            type='test:process',
+            name='Test process',
+            slug='test-process',
+            version='1.0.0',
+            contributor=self.contributor,
+        )
+
+        self.descriptor_schema = DescriptorSchema.objects.create(
+            name='Test schema',
+            slug='test-schema',
+            version='1.0.0',
+            contributor=self.contributor,
+        )
+
+        assign_perm('view_process', self.user, self.proc)
+        assign_perm('view_descriptorschema', self.user, self.descriptor_schema)
 
     def test_prefetch(self):
         request = factory.get('/', '', format='json')
@@ -49,6 +66,31 @@ class TestDataViewSetCase(TestCase):
         with CaptureQueriesContext(conn) as captured_queries:
             self.data_viewset(request)
             self.assertLess(len(captured_queries), 62)
+
+    def test_use_latest_with_perm(self):
+        Process.objects.create(
+            type='test:process',
+            name='Test process',
+            slug='test-process',
+            version='2.0.0',
+            contributor=self.contributor,
+        )
+        DescriptorSchema.objects.create(
+            name='Test schema',
+            slug='test-schema',
+            version='2.0.0',
+            contributor=self.contributor,
+        )
+
+        data = {'process': 'test-process', 'descriptor_schema': 'test-schema'}
+        request = factory.post('/', data, format='json')
+        force_authenticate(request, self.user)
+        self.data_viewset(request)
+
+        data = Data.objects.latest()
+        # Check that older versions are user if user doesn't have permissions on the latest
+        self.assertEqual(data.process, self.proc)
+        self.assertEqual(data.descriptor_schema, self.descriptor_schema)
 
 
 class TestCollectionViewSetCase(TestCase):

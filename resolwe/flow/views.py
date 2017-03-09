@@ -118,12 +118,14 @@ class ResolweCreateModelMixin(mixins.CreateModelMixin):
         ds_slug = request.data.get('descriptor_schema', None)
         if ds_slug:
             ds_query = DescriptorSchema.objects.filter(slug=ds_slug)
-            if not ds_query.exists():
+            ds_query = get_objects_for_user(request.user, 'view_descriptorschema', ds_query)
+            try:
+                request.data['descriptor_schema'] = ds_query.latest().pk
+            except DescriptorSchema.DoesNotExist:
                 return Response(
                     {'descriptor_schema': [
                         'Invalid descriptor_schema slug "{}" - object does not exist.'.format(ds_slug)]},
                     status=status.HTTP_400_BAD_REQUEST)
-            request.data['descriptor_schema'] = ds_query.latest().pk
 
         request.data['contributor'] = user.pk
         try:
@@ -158,12 +160,14 @@ class ResolweUpdateModelMixin(mixins.UpdateModelMixin):
         ds_slug = request.data.get('descriptor_schema', None)
         if ds_slug:
             ds_query = DescriptorSchema.objects.filter(slug=ds_slug)
-            if not ds_query.exists():
+            ds_query = get_objects_for_user(request.user, 'view_descriptorschema', ds_query)
+            try:
+                request.data['descriptor_schema'] = ds_query.latest().pk
+            except DescriptorSchema.DoesNotExist:
                 return Response(
                     {'descriptor_schema': [
                         'Invalid descriptor_schema slug "{}" - object does not exist.'.format(ds_slug)]},
                     status=status.HTTP_400_BAD_REQUEST)
-            request.data['descriptor_schema'] = ds_query.latest().pk
 
         return super(ResolweUpdateModelMixin, self).update(request, *args, **kwargs)
 
@@ -200,19 +204,13 @@ class ResolweCreateDataModelMixin(ResolweCreateModelMixin):
         # translate processe's slug to id
         process_slug = request.data.get('process', None)
         process_query = Process.objects.filter(slug=process_slug)
-        if not process_query.exists():
-            # XXX: security - is it ok to reveal which processes (don't) exist?
+        process_query = get_objects_for_user(request.user, 'view_process', process_query)
+        try:
+            process = process_query.latest()
+        except Process.DoesNotExist:
             return Response({'process': ['Invalid process slug "{}" - object does not exist.'.format(process_slug)]},
                             status=status.HTTP_400_BAD_REQUEST)
-        process = process_query.latest()
         request.data['process'] = process.pk
-
-        # check that user has permission on the process
-        if not request.user.has_perm('view_process', obj=process):
-            if request.user.is_authenticated():
-                raise exceptions.PermissionDenied
-            else:
-                raise exceptions.NotFound
 
         # perform "get_or_create" if requested - return existing object
         # if found
