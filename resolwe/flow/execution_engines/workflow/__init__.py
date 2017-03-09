@@ -109,6 +109,7 @@ class ExecutionEngine(BaseExecutionEngine):
                 contributor=data.contributor,
                 input=data_input,
             )
+            data_object.parents.add(data)
 
             # Copy permissions.
             copy_permissions(data, data_object)

@@ -22,6 +22,7 @@ Added
 - When running ``register`` management command, permissions are
   automatically granted based on permissions of previously the latest
   version of process or descriptor schema.
+- Set ``parent`` relation in spawned data objects and workflows
 
 Changed
 -------

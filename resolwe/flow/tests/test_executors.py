@@ -68,6 +68,10 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.assertEqual(data.output['saved_file']['file'], 'foo.bar')
         self.assertTrue(os.path.isfile(file_path))
 
+        parent_data = Data.objects.first()
+        self.assertEqual(data.parents.count(), 1)
+        self.assertEqual(data.parents.first(), parent_data)
+
     def test_spawn_missing_export(self):
         with six.assertRaisesRegex(self, KeyError, 'Use `re-export`'):
             self.run_process('test-spawn-missing-file')
@@ -120,6 +124,11 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.assertEqual(step2_data.input['param2']['a'], step1_data.pk)
         self.assertEqual(step2_data.input['param2']['b'], 'hello')
         self.assertEqual(step2_data.output['out1'], 'simon says: hello world')
+
+        self.assertEqual(step1_data.parents.count(), 1)
+        self.assertEqual(step1_data.parents.first(), workflow_data)
+        self.assertEqual(step2_data.parents.count(), 2)
+        six.assertCountEqual(self, step2_data.parents.all(), [workflow_data, step1_data])
 
         self.assertTrue(self.contributor.has_perm('flow.view_data', step1_data))
         # User inherites permission from group

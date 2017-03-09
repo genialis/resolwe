@@ -271,6 +271,7 @@ class BaseFlowExecutor(BaseEngine):
 
                 with transaction.atomic():
                     d = Data.objects.create(**d)
+                    d.parents.add(parent_data)
                     for collection in parent_data.collection_set.all():
                         collection.data.add(d)
 
