@@ -816,7 +816,14 @@ class ResolweAPITestCase(APITestCase):
         """Get list url."""
         return reverse('resolwe-api:{}-list'.format(self.resource_name))  # pylint: disable=no-member
 
-    def _get_list(self, user=None):
+    def _render_query_params(self, params):
+        """Generate query parameters from given dict."""
+        if not params:
+            return ''
+
+        return '?' + '&'.join('{}={}'.format(key, value) for key, value in six.iteritems(params))
+
+    def _get_list(self, user=None, query_params={}):
         """Make ``GET`` request to ``self.list_view`` view.
 
         If ``user`` is not ``None``, the given user is authenticated
@@ -828,11 +835,12 @@ class ResolweAPITestCase(APITestCase):
         :rtype: :drf:`Response <responses/#response>`
 
         """
-        request = self.factory.get(self.list_url, format='json')
+        url = self.list_url + self._render_query_params(query_params)
+        request = self.factory.get(url, format='json')
         force_authenticate(request, user)
         return self.list_view(request)
 
-    def _get_detail(self, pk, user=None):
+    def _get_detail(self, pk, user=None, query_params={}):
         """Make ``GET`` request to ``self.detail_view`` view.
 
         If ``user`` is not ``None``, the given user is authenticated
@@ -845,11 +853,12 @@ class ResolweAPITestCase(APITestCase):
         :rtype: :drf:`Response <responses/#response>`
 
         """
-        request = self.factory.get(self.detail_url(pk), format='json')
+        url = self.detail_url(pk) + self._render_query_params(query_params)
+        request = self.factory.get(url, format='json')
         force_authenticate(request, user)
         return self.detail_view(request, pk=pk)
 
-    def _post(self, data={}, user=None):
+    def _post(self, data={}, user=None, query_params={}):
         """Make ``POST`` request to ``self.list_view`` view.
 
         If ``user`` is not ``None``, the given user is authenticated
@@ -862,11 +871,12 @@ class ResolweAPITestCase(APITestCase):
         :rtype: :drf:`Response <responses/#response>`
 
         """
-        request = self.factory.post(self.list_url, data=data, format='json')
+        url = self.list_url + self._render_query_params(query_params)
+        request = self.factory.post(url, data=data, format='json')
         force_authenticate(request, user)
         return self.list_view(request)
 
-    def _patch(self, pk, data={}, user=None):
+    def _patch(self, pk, data={}, user=None, query_params={}):
         """Make ``PATCH`` request to ``self.detail_view`` view.
 
         If ``user`` is not ``None``, the given user is authenticated
@@ -880,11 +890,12 @@ class ResolweAPITestCase(APITestCase):
         :rtype: :drf:`Response <responses/#response>`
 
         """
-        request = self.factory.patch(self.detail_url(pk), data=data, format='json')
+        url = self.detail_url(pk) + self._render_query_params(query_params)
+        request = self.factory.patch(url, data=data, format='json')
         force_authenticate(request, user)
         return self.detail_view(request, pk=pk)
 
-    def _delete(self, pk, user=None):
+    def _delete(self, pk, user=None, query_params={}):
         """Make ``DELETE`` request to ``self.detail_view`` view.
 
         If ``user`` is not ``None``, the given user is authenticated
@@ -897,7 +908,8 @@ class ResolweAPITestCase(APITestCase):
         :rtype: :drf:`Response <responses/#response>`
 
         """
-        request = self.factory.delete(self.detail_url(pk), format='json')
+        url = self.detail_url(pk) + self._render_query_params(query_params)
+        request = self.factory.delete(url, format='json')
         force_authenticate(request, user)
         return self.detail_view(request, pk=pk)
 
