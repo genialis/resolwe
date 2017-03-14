@@ -263,7 +263,8 @@ class Data(BaseModel):
 
         self.save_storage(self.output, self.process.output_schema)  # pylint: disable=no-member
 
-        hydrate_size(self)
+        if self.status != Data.STATUS_ERROR:
+            hydrate_size(self)
 
         if create:
             validate_schema(self.input, self.process.input_schema)  # pylint: disable=no-member
@@ -279,13 +280,14 @@ class Data(BaseModel):
         elif self.descriptor and self.descriptor != {}:
             raise ValueError("`descriptor_schema` must be defined if `descriptor` is given")
 
-        path_prefix = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(self.pk))
-        output_schema = self.process.output_schema  # pylint: disable=no-member
-        if self.status == Data.STATUS_DONE:
-            validate_schema(self.output, output_schema, path_prefix=path_prefix)
-        else:
-            validate_schema(self.output, output_schema, path_prefix=path_prefix,
-                            test_required=False)
+        if self.status != Data.STATUS_ERROR:
+            path_prefix = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(self.pk))
+            output_schema = self.process.output_schema  # pylint: disable=no-member
+            if self.status == Data.STATUS_DONE:
+                validate_schema(self.output, output_schema, path_prefix=path_prefix)
+            else:
+                validate_schema(self.output, output_schema, path_prefix=path_prefix,
+                                test_required=False)
 
         with transaction.atomic():
             super(Data, self).save(*args, **kwargs)

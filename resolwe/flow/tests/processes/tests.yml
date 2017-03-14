@@ -25,6 +25,21 @@
     program: |
       echo 'Test Minimalistic Processor'
 
+- slug: test-missing-file
+  name: Save not existing file
+  requirements:
+    expression-engine: jinja
+  version: 0.0.1
+  type: "data:test:crash"
+  output:
+    - name: output
+      label: Output
+      type: basic:file
+  run:
+    language: bash
+    program: |
+      echo "{\"output\":{\"file\":\"i-dont-exist.zip\"}}"
+
 - slug: test-bloated
   name: Bloated Processor
   requirements:

@@ -22,6 +22,7 @@ import six
 
 from django.apps import apps
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import transaction
 
 from resolwe.flow.engine import BaseEngine
@@ -114,8 +115,25 @@ class BaseFlowExecutor(BaseEngine):
         for key, value in kwargs.items():
             setattr(data, key, value)
 
-        # Ensure that we only update the fields that were changed.
-        data.save(update_fields=kwargs.keys())
+        update_fields = list(kwargs.keys())
+        try:
+            # Ensure that we only update the fields that were changed.
+            data.save(update_fields=update_fields)
+        except ValidationError as ex:
+            data.process_error.append(str(ex))
+            data.status = Data.STATUS_ERROR
+
+            if 'process_error' not in update_fields:
+                update_fields.append('process_error')
+            if 'status' not in update_fields:
+                update_fields.append('status')
+
+            try:
+                data.save(update_fields=update_fields)
+            except:  # pylint: disable=bare-except
+                pass
+
+            raise ex
 
     def run(self, data_id, script, verbosity=1):
         """Execute the script and save results."""

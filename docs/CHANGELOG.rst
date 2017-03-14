@@ -45,6 +45,7 @@ Changed
 - Remove keep_failed() function in tests.
 - Rename keep_all() to keep_data().
 - Manager is automatically run when new data object is created
+- Outputs of Data objects with status ``Error`` are not validated
 
 Fixed
 -----
@@ -61,6 +62,8 @@ Fixed
 - Support ``data:`` and ``list:data:`` types
 - Sort permissions in tests
 - Support tabular files
+- Set Data object status to error if worker cannot update object in
+  database
 
 
 ==================

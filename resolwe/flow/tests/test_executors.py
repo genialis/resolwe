@@ -7,6 +7,7 @@ import mock
 import six
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 
 from guardian.shortcuts import assign_perm
 
@@ -58,6 +59,15 @@ class ManagerRunProcessTest(ProcessTestCase):
 
     def test_minimal_process(self):
         self.run_process('test-min')
+
+    def test_missing_file(self):
+        with self.assertRaises(ValidationError):
+            self.run_process('test-missing-file', assert_status=Data.STATUS_ERROR)
+
+        data = Data.objects.last()
+        self.assertEqual(data.status, Data.STATUS_ERROR)
+        self.assertEqual(len(data.process_error), 1)
+        self.assertIn('Referenced file does not exist', data.process_error[0])
 
     def test_spawn(self):
         self.run_process('test-spawn-new')
