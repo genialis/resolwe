@@ -63,7 +63,7 @@
                 },
                 "type": {
                     "type": "string",
-                    "pattern": "^(basic:(boolean|text|url:download|url:view|file|file:html|dir|json):$|data:[a-z0-9:]+:$)"
+                    "pattern": "^(basic:(boolean|text|url:download|url:view|file|file:html|dir|json):$|data:$|data:[a-z0-9:]+:$)"
                 },
                 "description": {
                     "type": "string"
@@ -170,7 +170,7 @@
                 },
                 "type": {
                     "type": "string",
-                    "pattern": "^list:(basic:(boolean|text|url:download|url:view):$|data:[a-z0-9:]+:$)"
+                    "pattern": "^list:(basic:(boolean|text|url:download|url:view):$|data:$|data:[a-z0-9:]+:$)"
                 },
                 "description": {
                     "type": "string"

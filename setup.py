@@ -43,6 +43,7 @@ setup(
     package_data={
         'resolwe': [
             'flow/static/flow/*.json',
+            'toolkit/processes/**/*.yml',
         ]
     },
     install_requires=[

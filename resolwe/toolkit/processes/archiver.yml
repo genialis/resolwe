@@ -1,0 +1,36 @@
+- slug: archiver
+  name: Archive Files
+  data_name: File archive
+  requirements:
+    expression-engine: jinja
+    executor:
+      docker:
+        image: "resolwe/process-archiver"
+  version: 0.0.1
+  type: "data:archive:"
+  category: other
+  persistence: TEMP
+  description: >
+    Create an archive of output files. The process does not support
+    nested outputs or directory fields.
+  input:
+    - name: data
+      label: Data list
+      type: list:data
+    - name: fields
+      label: Output file fields
+      type: list:basic:string
+  output:
+    - name: archive
+      label: Archive
+      type: basic:file
+  run:
+    language: bash
+    program: |
+      zip -0 results.zip {% for d in data %}{% for f in fields %} \
+                           {% if d[f].file %} \
+                             "{{ d[f].file }}" {% for r in d[f].refs %}"{{ r }}" {% endfor %} \
+                           {% endif %} \
+                         {% endfor %}{% endfor %}
+
+      echo "{\"archive\":{\"file\":\"results.zip\"}}"
