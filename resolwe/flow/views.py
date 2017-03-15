@@ -507,7 +507,7 @@ class EntityViewSet(CollectionViewSet):
     serializer_class = EntitySerializer
 
     queryset = Entity.objects.prefetch_related(
-        'data',
+        Prefetch('data', queryset=Data.objects.all().order_by('id')),
         'descriptor_schema',
         'contributor'
     ).annotate(
