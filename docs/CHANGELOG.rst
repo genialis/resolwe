@@ -26,6 +26,7 @@ Added
 - Relations between entities
 - Resolwe toolkit Docker images
 - Archive file process
+- File upload processes
 
 Changed
 -------
