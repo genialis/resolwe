@@ -3,6 +3,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import os
 
+from django.apps import apps
 from django.core.management import call_command
 
 from guardian.shortcuts import assign_perm
@@ -24,7 +25,8 @@ class TestRelationsAPI(ResolweAPITestCase):
         super(TestRelationsAPI, self).setUp()
 
         # Load fixtures with relation types
-        call_command('loaddata', os.path.join('resolwe', 'flow', 'tests', 'fixtures', 'relationtypes'), verbosity=0)
+        flow_config = apps.get_app_config('flow')
+        call_command('loaddata', os.path.join(flow_config.path, 'tests', 'fixtures', 'relationtypes'), verbosity=0)
 
         self.collection = Collection.objects.create(name='Test collection', contributor=self.contributor)
         collection_2 = Collection.objects.create(name='Second collection', contributor=self.contributor)
