@@ -24,7 +24,7 @@ except ImportError:
 class TestingFrameworkTestCase(TestCase):
 
     @mock.patch("os.path.isfile")
-    @mock.patch("resolwe.test.testcases.dict_dot")
+    @mock.patch("resolwe.test.testcases.process.dict_dot")
     def test_assert_file_date_nofilter(self, dict_dot_mock, isfile_mock):
         isfile_mock.return_value = True
         output1_file = io.BytesIO(b"some line\ndate: 2016-02-10\n")
@@ -40,7 +40,7 @@ class TestingFrameworkTestCase(TestCase):
                               dummy_case, obj_mock, "", "")
 
     @mock.patch("os.path.isfile")
-    @mock.patch("resolwe.test.testcases.dict_dot")
+    @mock.patch("resolwe.test.testcases.process.dict_dot")
     def test_assert_file_date_filter(self, dict_dot_mock, isfile_mock):
         isfile_mock.return_value = True
         output1_file = io.BytesIO(b"some line\ndate: 2016-02-10\n")
