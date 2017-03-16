@@ -20,3 +20,5 @@ include resolwe/flow/tests/fixtures/*.yaml
 recursive-include resolwe/permissions/tests *.py
 recursive-include resolwe/permissions/fixtures *.yaml readme.txt
 recursive-include resolwe/toolkit/docker_images Dockerfile README.md
+include resolwe/toolkit/docker_images/base/curlprogress.py
+include resolwe/toolkit/docker_images/base/re-import.sh
