@@ -53,6 +53,7 @@ Fixed
 - If user doesn't have permissions on the latest versions of processes
   and descriptor schemas, use older ones except returning error
 - Support ``data:`` and ``list:data:`` types
+- Sort permissions in tests
 
 
 ==================

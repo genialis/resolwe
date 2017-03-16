@@ -112,6 +112,11 @@ class ObjectPermsTestCase(TestCase):
             name="Test collection",
         )
 
+    def _sort_perms(self, perms):
+        for elm in perms:
+            elm['permissions'] = sorted(elm['permissions'])
+        return perms
+
     def test_all_permissions(self):
         self.group1.user_set.add(self.user1)
 
@@ -126,7 +131,7 @@ class ObjectPermsTestCase(TestCase):
             {'permissions': ['view'], 'type': 'user', 'id': self.user2.pk, 'name': 'test_user2'},
         ]
         perms = get_object_perms(self.collection)
-        six.assertCountEqual(self, expected_perms, perms)
+        six.assertCountEqual(self, self._sort_perms(expected_perms), self._sort_perms(perms))
 
         assign_perm("view_collection", self.group1, self.collection)
         assign_perm("edit_collection", self.group1, self.collection)
@@ -136,14 +141,14 @@ class ObjectPermsTestCase(TestCase):
             {'permissions': ['view'], 'type': 'group', 'id': self.group2.pk, 'name': 'Test group 2'},
         ])
         perms = get_object_perms(self.collection)
-        six.assertCountEqual(self, expected_perms, perms)
+        six.assertCountEqual(self, self._sort_perms(expected_perms), self._sort_perms(perms))
 
         assign_perm("view_collection", self.anonymous, self.collection)
         expected_perms.append(
             {'permissions': ['view'], 'type': 'public'},
         )
         perms = get_object_perms(self.collection)
-        six.assertCountEqual(self, expected_perms, perms)
+        six.assertCountEqual(self, self._sort_perms(expected_perms), self._sort_perms(perms))
 
     def test_user_permissions(self):
         self.group1.user_set.add(self.user1)
@@ -159,21 +164,22 @@ class ObjectPermsTestCase(TestCase):
             {'permissions': ['edit', 'view'], 'type': 'group', 'id': self.group1.pk, 'name': 'Test group 1'},
         ]
         perms = get_object_perms(self.collection, self.user1)
-        six.assertCountEqual(self, expected_perms, perms)
+
+        six.assertCountEqual(self, self._sort_perms(expected_perms), self._sort_perms(perms))
 
         self.group2.user_set.add(self.user1)
         expected_perms.append(
             {'permissions': ['view'], 'type': 'group', 'id': self.group2.pk, 'name': 'Test group 2'},
         )
         perms = get_object_perms(self.collection, self.user1)
-        six.assertCountEqual(self, expected_perms, perms)
+        six.assertCountEqual(self, self._sort_perms(expected_perms), self._sort_perms(perms))
 
         assign_perm("view_collection", self.anonymous, self.collection)
         expected_perms.append(
             {'permissions': ['view'], 'type': 'public'},
         )
         perms = get_object_perms(self.collection, self.user1)
-        six.assertCountEqual(self, expected_perms, perms)
+        six.assertCountEqual(self, self._sort_perms(expected_perms), self._sort_perms(perms))
 
 
 class StoragePermsTestCase(TestCase):
