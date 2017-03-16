@@ -24,6 +24,7 @@ PROJECT_APPS = (
     'resolwe.permissions',
     'resolwe.flow',
     'resolwe.elastic',
+    'resolwe.toolkit',
 )
 
 INSTALLED_APPS = (
@@ -95,6 +96,7 @@ STATIC_URL = '/static/'
 
 FLOW_EXECUTOR = {
     'NAME': 'resolwe.flow.executors.local',
+    'CONTAINER_IMAGE': 'resolwe/base',
     'DATA_DIR': os.path.join(PROJECT_ROOT, '.test_data'),
     'UPLOAD_DIR': os.path.join(PROJECT_ROOT, '.test_upload'),
 }
@@ -121,6 +123,18 @@ FLOW_PROCESSES_FINDERS = (
     'resolwe.flow.finders.FileSystemProcessesFinder',
     'resolwe.flow.finders.AppDirectoriesFinder',
 )
+
+FLOW_DOCKER_MAPPINGS = [
+    {'src': os.path.join(FLOW_EXECUTOR['DATA_DIR'], '{data_id}'),
+     'dest': '/data',
+     'mode': 'rw,Z'},
+    {'src': FLOW_EXECUTOR['DATA_DIR'],
+     'dest': '/data_all',
+     'mode': 'ro,z'},
+    {'src': FLOW_EXECUTOR['UPLOAD_DIR'],
+     'dest': '/upload',
+     'mode': 'rw,z'},
+]
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (

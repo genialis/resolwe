@@ -98,10 +98,11 @@
     runtime: polyglot
     language: bash
     program: |
+      FILENAME=$(basename "{{ src.file }}")  # get file name
+      NAME="${FILENAME%.*}"  # remove extension
+
       if [[ '.{{ src.file }}' =~ \.(xls|xlsx)$ ]]; then
         mv "{{ src.file_temp }}" "{{ src.file }}"
-        FILENAME=$(basename "{{ src.file }}")  # get file name
-        NAME="${FILENAME%.*}"  # remove extension
         parse_tabular_file.py "{{ src.file }}" "${NAME}.tab.gz"
         re-checkrc
         re-save-file src_file "{{ src.file }}"
@@ -110,12 +111,12 @@
         re-import "{{ src.file_temp }}" "{{ src.file }}" "csv" "csv" 0.1
         parse_tabular_file.py "${NAME}.csv" "${NAME}.tab.gz"
         re-checkrc
-        re-save-file src_file "{{ src.file }}"
+        re-save-file src_file "${NAME}.csv"
         re-save-file file "${NAME}.tab.gz"
       else
         re-import "{{ src.file_temp }}" "{{ src.file }}" "tab|tsv|txt" "tab" 0.1
         parse_tabular_file.py "${NAME}.tab" "${NAME}_tabular.tab.gz"
         re-checkrc
-        re-save-file src_file "{{ src.file }}"
+        re-save-file src_file "${NAME}.tab"
         re-save-file file "${NAME}_tabular.tab.gz"
       fi

@@ -120,8 +120,10 @@ class ProcessTestCase(TestCase):
         self._register_schemas()
 
         self.collection = Collection.objects.create(contributor=self.admin, name="Test collection")
-        self.files_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'files')
         self.upload_dir = settings.FLOW_EXECUTOR['UPLOAD_DIR']
+
+        self._keep_data = False
+        self._files_path = None
         self._upload_files = []
 
         # create upload dir if it doesn't exist
@@ -147,6 +149,18 @@ class ProcessTestCase(TestCase):
                 shutil.rmtree(fn, ignore_errors=True)
 
         super(ProcessTestCase, self).tearDown()
+
+    @property
+    def files_path(self):
+        """Path to test files."""
+        if self._files_path is None:
+            raise NotImplementedError
+
+        return self._files_path
+
+    @files_path.setter
+    def files_path(self, value):
+        self._files_path = value
 
     def run_processor(self, *args, **kwargs):
         """Deprecated method: use run_process."""
@@ -193,6 +207,9 @@ class ProcessTestCase(TestCase):
         process_slug = slugify(process_slug.replace(':', '-'))
 
         process = Process.objects.filter(slug=process_slug).order_by('-version').first()
+
+        if process is None:
+            self.fail('No process with slug "{}"'.format(process_slug))
 
         def mock_upload(file_path):
             """Mock file upload."""

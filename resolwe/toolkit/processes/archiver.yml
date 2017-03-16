@@ -20,6 +20,11 @@
     - name: fields
       label: Output file fields
       type: list:basic:string
+    - name: j
+      label: Junk paths
+      type: basic:boolean
+      description: Store just names of saved files (junk the path)
+      default: False
   output:
     - name: archive
       label: Archive
@@ -27,10 +32,11 @@
   run:
     language: bash
     program: |
-      zip -0 results.zip {% for d in data %}{% for f in fields %} \
-                           {% if d[f].file %} \
-                             "{{ d[f].file }}" {% for r in d[f].refs %}"{{ r }}" {% endfor %} \
-                           {% endif %} \
-                         {% endfor %}{% endfor %}
+      zip -0 {% if j %}-j {% endif %}results.zip \
+      {% for d in data %}{% for f in fields %} \
+        {% if d[f].file %} \
+          "{{ d[f].file }}" {% for r in d[f].refs %}"{{ r }}" {% endfor %} \
+        {% endif %} \
+      {% endfor %}{% endfor %}
 
-      echo "{\"archive\":{\"file\":\"results.zip\"}}"
+      re-save-file archive results.zip

@@ -97,7 +97,7 @@ class TransactionTestCase(DjangoTransactionTestCase):
         # Override Docker data directory mappings
         flow_docker_mappings = copy.copy(getattr(settings, 'FLOW_DOCKER_MAPPINGS', []))
         for mapping in flow_docker_mappings:
-            if mapping['dest'] == '/home/biolinux/data':
+            if mapping['dest'] == '/data':
                 mapping['src'] = os.path.join(data_dir, '{data_id}')
             elif mapping['dest'] == '/data_all':
                 mapping['src'] = data_dir

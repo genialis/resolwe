@@ -27,6 +27,7 @@ Added
 - Resolwe toolkit Docker images
 - Archive file process
 - File upload processes
+- Resolwe process tests
 
 Changed
 -------
