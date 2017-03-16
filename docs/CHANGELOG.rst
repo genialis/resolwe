@@ -24,6 +24,7 @@ Added
   version of process or descriptor schema.
 - Set ``parent`` relation in spawned data objects and workflows
 - Relations between entities
+- Resolwe toolkit Docker images
 
 Changed
 -------
