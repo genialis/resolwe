@@ -54,6 +54,7 @@ Fixed
   and descriptor schemas, use older ones except returning error
 - Support ``data:`` and ``list:data:`` types
 - Sort permissions in tests
+- Support tabular files
 
 
 ==================
