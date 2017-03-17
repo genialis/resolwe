@@ -76,6 +76,9 @@ class BaseManager(object):
             'RESOLWE_HOST_URL': getattr(settings, 'RESOLWE_HOST_URL', 'localhost'),
         }
 
+        set_env = getattr(settings, 'FLOW_EXECUTOR', {}).get('SET_ENV', {})
+        env_vars.update(set_env)
+
         # TODO: Use shlex.quote when py2 support dropped
         export_commands = ['export {}="{}"'.format(key, value.replace('"', '\"')) for key, value in env_vars.items()]
         return os.linesep.join(export_commands) + os.linesep + program

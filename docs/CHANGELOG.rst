@@ -28,6 +28,7 @@ Added
 - Archive file process
 - File upload processes
 - Resolwe process tests
+- Add SET_ENV setting to set environment variables in executor
 
 Changed
 -------
