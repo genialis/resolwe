@@ -249,3 +249,39 @@ class IndexTest(ElasticSearchTestCase):
         self.assertEqual(len(es_objects), 0)
         es_objects = TestSearchDocument.search().query('match', field_process_type='omg').execute()
         self.assertEqual(len(es_objects), 0)
+
+    def test_dependencies(self):
+        from .test_app.models import TestModelWithDependency, TestDependency
+        from .test_app.elastic_indexes import TestModelWithDependencyDocument
+
+        model = TestModelWithDependency.objects.create(name='Deps')
+        dep1 = TestDependency.objects.create(name='one')
+        dep2 = TestDependency.objects.create(name='two')
+        dep3 = TestDependency.objects.create(name='three')
+        model.dependencies.add(dep1)
+        model.dependencies.add(dep2)
+        dep3.testmodelwithdependency_set.add(model)
+
+        es_objects = TestModelWithDependencyDocument.search().query('match', name='deps').execute()
+        self.assertEqual(len(es_objects), 1)
+
+        es_objects = TestModelWithDependencyDocument.search().query('match', name='one').execute()
+        self.assertEqual(len(es_objects), 1)
+
+        es_objects = TestModelWithDependencyDocument.search().query('match', name='two').execute()
+        self.assertEqual(len(es_objects), 1)
+
+        es_objects = TestModelWithDependencyDocument.search().query('match', name='three').execute()
+        self.assertEqual(len(es_objects), 1)
+
+        es_objects = TestModelWithDependencyDocument.search().query('match', name='four').execute()
+        self.assertEqual(len(es_objects), 0)
+
+        dep3.name = 'four'
+        dep3.save()
+
+        es_objects = TestModelWithDependencyDocument.search().query('match', name='four').execute()
+        self.assertEqual(len(es_objects), 1)
+
+        es_objects = TestModelWithDependencyDocument.search().query('match', name='three').execute()
+        self.assertEqual(len(es_objects), 0)

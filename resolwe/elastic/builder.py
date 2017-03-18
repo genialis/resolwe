@@ -15,11 +15,16 @@ from elasticsearch_dsl.connections import connections
 
 from django.apps import apps
 from django.conf import settings
-from django.db.models.signals import post_save, pre_delete
+from django.db import models
+from django.db.models.fields.related_descriptors import ManyToManyDescriptor
+from django.db.models.signals import m2m_changed, post_save, pre_delete
 
 from .indices import BaseIndex
 
-__all__ = ('index_builder',)
+__all__ = (
+    'index_builder',
+    'ManyToManyDependency',
+)
 
 
 class ElasticSignal(object):
@@ -27,10 +32,12 @@ class ElasticSignal(object):
 
     To register the signal, add the following code::
 
-        from django.dispatch import receiver
-
         signal = ElasticSignal(<my_signal>, <method_name>)
-        receiver(<signal_type>, [sender=<my_model>])(signal)
+        signal.connect(<signal_type>, [sender=<my_model>])
+
+    You may later disconnect the signal by calling::
+
+        signal.disconnect()
 
     ``signal type`` can be i.e. ``django.db.models.signals.pre_save``.
 
@@ -40,11 +47,68 @@ class ElasticSignal(object):
         """Initialize signal."""
         self.index = index
         self.method_name = method_name
+        self.connections = []
+
+    def connect(self, signal, **kwargs):
+        """Connect a specific signal type to this receiver."""
+        signal.connect(self, **kwargs)
+        self.connections.append((signal, kwargs))
+
+    def disconnect(self):
+        """Disconnect all connected signal types from this receiver."""
+        for signal, kwargs in self.connections:
+            signal.disconnect(self, **kwargs)
 
     def __call__(self, sender, instance, **kwargs):
         """Process signal."""
         method = getattr(self.index, self.method_name)
         method(obj=instance)
+
+
+class Dependency(object):
+    """Abstract base class for index model dependencies."""
+
+    def __init__(self, model):
+        """Construct dependency."""
+        self.model = model
+        self.index = None
+
+    def connect(self, index):
+        """Connect signals needed for dependency updates."""
+        self.index = index
+
+        signal = ElasticSignal(self, 'process')
+        signal.connect(post_save, sender=self.model)
+        signal.connect(pre_delete, sender=self.model)
+        return signal
+
+    def process(self, obj):
+        """Process signals from dependencies."""
+        raise NotImplementedError
+
+
+class ManyToManyDependency(Dependency):
+    """Dependency on a many-to-many relation."""
+
+    def __init__(self, field):
+        """Construct m2m dependency."""
+        super(ManyToManyDependency, self).__init__(field.rel.to)
+        self.field = field
+
+    def connect(self, index):
+        """Connect signals needed for dependency updates."""
+        signal = super(ManyToManyDependency, self).connect(index)
+        signal.connect(m2m_changed, sender=self.field.through)
+        return signal
+
+    def process(self, obj):
+        """Process signals from dependencies."""
+        if isinstance(obj, self.index.object_type):
+            self.index.build(obj)
+        elif isinstance(obj, self.field.rel.to):
+            for instance in getattr(obj, self.field.rel.get_accessor_name()).all():
+                self.index.build(instance, push=False)
+            self.index.push()
 
 
 class IndexBuilder(object):
@@ -78,18 +142,28 @@ class IndexBuilder(object):
     def _connect_signal(self, index):
         """Create signals for building indexes."""
         post_save_signal = ElasticSignal(index, 'build')
+        post_save_signal.connect(post_save, sender=index.object_type)
         self.signals.append(post_save_signal)
-        post_save.connect(post_save_signal, sender=index.object_type)
 
         pre_delete_signal = ElasticSignal(index, 'remove_object')
+        pre_delete_signal.connect(pre_delete, sender=index.object_type)
         self.signals.append(pre_delete_signal)
-        pre_delete.connect(pre_delete_signal, sender=index.object_type)
+
+        # Connect signals for all dependencies.
+        for dependency in index.get_dependencies():
+            # Automatically convert m2m fields to dependencies.
+            if isinstance(dependency, (models.ManyToManyField, ManyToManyDescriptor)):
+                dependency = ManyToManyDependency(dependency)
+            elif not isinstance(dependency, Dependency):
+                raise TypeError("Unsupported dependency type: {}".format(repr(dependency)))
+
+            signal = dependency.connect(index)
+            self.signals.append(signal)
 
     def unregister_signals(self):
         """Delete signals for building indexes."""
         for signal in self.signals:
-            post_save.disconnect(signal, sender=signal.index.object_type)
-            pre_delete.disconnect(signal, sender=signal.index.object_type)
+            signal.disconnect()
         self.signals = []
 
     def register_signals(self):

@@ -17,3 +17,15 @@ class TestModel(models.Model):
     field_process_type = models.CharField(max_length=100)
 
     number = models.IntegerField()
+
+
+class TestModelWithDependency(models.Model):
+
+    name = models.CharField(max_length=30)
+
+    dependencies = models.ManyToManyField('TestDependency')
+
+
+class TestDependency(models.Model):
+
+    name = models.CharField(max_length=30)

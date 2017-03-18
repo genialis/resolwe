@@ -266,6 +266,10 @@ class BaseIndex(object):
             ).distinct('group').values_list('group', flat=True)),
         }
 
+    def get_dependencies(self):
+        """Return dependencies, which should trigger updates of this index."""
+        return []
+
     def remove_object(self, obj):
         """Remove current object from the ElasticSearch."""
         obj_id = self.generate_id(obj)

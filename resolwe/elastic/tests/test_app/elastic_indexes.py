@@ -6,7 +6,7 @@ import elasticsearch_dsl as dsl
 from resolwe.elastic.fields import Name, ProcessType
 from resolwe.elastic.indices import BaseDocument, BaseIndex
 
-from .models import TestModel
+from .models import TestModel, TestModelWithDependency
 
 
 class TestSearchDocument(BaseDocument):
@@ -54,3 +54,24 @@ class TestAnalyzerSearchIndex(BaseIndex):
     queryset = TestModel.objects.all()
     object_type = TestModel
     document_class = TestAnalyzerSearchDocument
+
+
+class TestModelWithDependencyDocument(BaseDocument):
+    # pylint: disable=no-member
+    name = dsl.String()
+
+    class Meta:
+        index = 'test_model_with_dependency_search'
+
+
+class TestModelWithDependencySearchIndex(BaseIndex):
+    queryset = TestModelWithDependency.objects.all().prefetch_related('dependencies')
+    object_type = TestModelWithDependency
+    document_class = TestModelWithDependencyDocument
+
+    def get_dependencies(self):
+        return [TestModelWithDependency.dependencies]
+
+    def get_name_value(self, obj):
+        names = [dep.name for dep in obj.dependencies.all()]
+        return '{}: {}'.format(obj.name, ', '.join(names))
