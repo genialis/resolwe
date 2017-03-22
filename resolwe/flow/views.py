@@ -684,9 +684,9 @@ class RelationViewSet(mixins.CreateModelMixin,
         serializer = PositionInRelationSerializer(data=request.data, many=True)
         if not serializer.is_valid():
             Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        instances = serializer.save(relation=relation)
+        serializer.save(relation=relation)
 
-        return Response(instances)
+        return Response()
 
     @detail_route(methods=[u'post'])
     def remove_entity(self, request, pk=None):
