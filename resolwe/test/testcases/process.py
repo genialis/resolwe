@@ -117,13 +117,25 @@ class TransactionProcessTestCase(TransactionTestCase):
             SCHEMAS_FIXTURE_CACHE[cache_key]['processes'] = list(Process.objects.all())
             SCHEMAS_FIXTURE_CACHE[cache_key]['descriptor_schemas'] = list(DescriptorSchema.objects.all())
 
+    def _create_collection(self):
+        """Create a test collection for admin user.
+
+        :return: created test collection
+        :rtype: Collection
+
+        """
+        return Collection.objects.create(
+            name="Test collection",
+            contributor=self.admin,
+        )
+
     def setUp(self):
         """Initialize test data."""
         super(TransactionProcessTestCase, self).setUp()
 
         self._register_schemas()
 
-        self.collection = Collection.objects.create(contributor=self.admin, name="Test collection")
+        self.collection = self._create_collection()
         self.upload_dir = settings.FLOW_EXECUTOR['UPLOAD_DIR']
 
         self._keep_data = False
