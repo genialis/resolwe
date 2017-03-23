@@ -81,6 +81,12 @@ class TestRelationsAPI(ResolweAPITestCase):
         ])
 
     def test_filtering(self):
+        # Filtering by id
+        query_params = {'id': self.relation_group.pk}
+        resp = self._get_list(user=self.contributor, query_params=query_params)
+        self.assertEqual(len(resp.data), 1)
+        self.assertEqual(resp.data[0]['id'], self.relation_group.pk)
+
         # Filtering by collection
         query_params = {'collection': self.collection.pk}
         resp = self._get_list(user=self.contributor, query_params=query_params)
