@@ -74,6 +74,7 @@ def with_docker_executor(method):
         executor_settings = settings.FLOW_EXECUTOR.copy()
         executor_settings.update({
             'NAME': 'resolwe.flow.executors.docker',
+            'CONTAINER_IMAGE': 'resolwe/base',
         })
 
         try:

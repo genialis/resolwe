@@ -96,7 +96,6 @@ STATIC_URL = '/static/'
 
 FLOW_EXECUTOR = {
     'NAME': 'resolwe.flow.executors.local',
-    'CONTAINER_IMAGE': 'resolwe/base',
     'DATA_DIR': os.path.join(PROJECT_ROOT, '.test_data'),
     'UPLOAD_DIR': os.path.join(PROJECT_ROOT, '.test_upload'),
 }
