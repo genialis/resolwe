@@ -42,6 +42,7 @@ class TestRelationsAPI(ResolweAPITestCase):
             contributor=self.contributor,
             collection=self.collection,
             type=rel_type_group,
+            label='replicates',
             name='Group relation',
         )
         PositionInRelation.objects.create(relation=self.relation_group, entity=self.entity_1)
@@ -51,6 +52,7 @@ class TestRelationsAPI(ResolweAPITestCase):
             contributor=self.contributor,
             collection=collection_2,
             type=rel_type_series,
+            label='time-series',
             name='Series relation',
         )
         PositionInRelation.objects.create(relation=self.relation_series, entity=self.entity_1, position='beginning')
@@ -81,6 +83,18 @@ class TestRelationsAPI(ResolweAPITestCase):
     def test_filtering(self):
         # Filtering by collection
         query_params = {'collection': self.collection.pk}
+        resp = self._get_list(user=self.contributor, query_params=query_params)
+        self.assertEqual(len(resp.data), 1)
+        self.assertEqual(resp.data[0]['id'], self.relation_group.pk)
+
+        # Filtering by type
+        query_params = {'type': 'group'}
+        resp = self._get_list(user=self.contributor, query_params=query_params)
+        self.assertEqual(len(resp.data), 1)
+        self.assertEqual(resp.data[0]['id'], self.relation_group.pk)
+
+        # Filtering by label
+        query_params = {'label': 'replicates'}
         resp = self._get_list(user=self.contributor, query_params=query_params)
         self.assertEqual(len(resp.data), 1)
         self.assertEqual(resp.data[0]['id'], self.relation_group.pk)

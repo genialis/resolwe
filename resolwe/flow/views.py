@@ -625,9 +625,17 @@ class RelationViewSet(mixins.CreateModelMixin,
         # query_params must be casted to dict, otherwise list values cannot be retrieved
         query_params = dict(self.request.query_params)
 
+        relation_type = query_params.get('type', None)
+        label = query_params.get('label', None)
         entities = query_params.get('entity', None)
         positions = query_params.get('position', None)
         collection = query_params.get('collection', None)
+
+        if relation_type:
+            queryset = queryset.filter(type__name=relation_type[0])
+
+        if label:
+            queryset = queryset.filter(label=label[0])
 
         if positions is not None and (entities is None or len(positions) != len(entities)):
             raise exceptions.ParseError(
