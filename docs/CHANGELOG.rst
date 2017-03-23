@@ -29,6 +29,7 @@ Added
 - File upload processes
 - Resolwe process tests
 - Add SET_ENV setting to set environment variables in executor
+- Support file lists in archiver
 
 Changed
 -------

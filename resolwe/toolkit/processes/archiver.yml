@@ -33,10 +33,15 @@
     language: bash
     program: |
       zip -0 {% if j %}-j {% endif %}results.zip \
-      {% for d in data %}{% for f in fields %} \
-        {% if d[f].file %} \
-          "{{ d[f].file }}" {% for r in d[f].refs %}"{{ r }}" {% endfor %} \
+      {% for d in data %}{% for field in fields %} \
+        {% if d[field].file %} \
+          "{{ d[field].file }}" {% for ref in d[field].refs %}"{{ ref }}" {% endfor %} \
         {% endif %} \
-      {% endfor %}{% endfor %}
+        {% for file in d[field] %} \
+          {% if file.file %} \
+            "{{ file.file }}" {% for ref in file.refs %}"{{ ref }}" {% endfor %} \
+          {% endif %} \
+        {% endfor %} \
+      {% endfor %}{% endfor %} \
 
       re-save-file archive results.zip
