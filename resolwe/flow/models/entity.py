@@ -1,7 +1,7 @@
 """Resolwe entity model."""
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-from django.contrib.postgres.fields import JSONField
+from django.contrib.postgres.fields import ArrayField, JSONField
 from django.db import models
 
 from .base import BaseModel
@@ -28,6 +28,9 @@ class Entity(BaseCollection):
 
     #: indicate whether `descriptor` is completed (set by user)
     descriptor_completed = models.BooleanField(default=False)
+
+    #: tags for categorizing objects
+    tags = ArrayField(models.CharField(max_length=255), default=list)
 
 
 class RelationType(models.Model):

@@ -247,9 +247,13 @@ class EntityModelTest(TestCase):
         self.assertEqual(Entity.objects.count(), 0)
 
     def test_new_sample(self):
-        data = Data.objects.create(name='Test data', contributor=self.contributor, process=self.process)
+        data = Data.objects.create(name='Test data', contributor=self.contributor, process=self.process,
+                                   tags=['foo', 'bar'])
         entity = Entity.objects.last()
         self.assertTrue(entity.data.filter(pk=data.pk).exists())
+
+        # Make sure tags are copied.
+        self.assertEqual(entity.tags, data.tags)
 
 
 class GetOrCreateTestCase(APITestCase):

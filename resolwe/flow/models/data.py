@@ -142,6 +142,9 @@ class Data(BaseModel):
         symmetrical=False, related_name='children'
     )
 
+    #: tags for categorizing objects
+    tags = ArrayField(models.CharField(max_length=255), default=list)
+
     def __init__(self, *args, **kwargs):
         """Initialize attributes."""
         super(Data, self).__init__(*args, **kwargs)
@@ -222,6 +225,7 @@ class Data(BaseModel):
                     contributor=self.contributor,
                     descriptor_schema=descriptor_schema,
                     name=self.name,
+                    tags=self.tags,
                 )
 
                 for permission in list(zip(*entity._meta.permissions))[0]:  # pylint: disable=protected-access

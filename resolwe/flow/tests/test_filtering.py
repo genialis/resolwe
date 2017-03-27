@@ -60,6 +60,7 @@ class DataFilterTestCase(TestCase):
             status=Data.STATUS_ERROR,
             started=datetime.datetime(2016, 8, 30, 15, 0),
             finished=datetime.datetime(2016, 8, 30, 15, 30),
+            tags=['foo', 'bar', 'moo']
         )
         cls.data_2.created = datetime.datetime(2016, 8, 30, 14, 59)
         cls.data_2.save()
@@ -72,6 +73,7 @@ class DataFilterTestCase(TestCase):
             status=Data.STATUS_DONE,
             started=datetime.datetime(2013, 1, 15, 8, 0),
             finished=datetime.datetime(2013, 1, 15, 10, 0),
+            tags=['bar']
         )
         cls.data_3.created = datetime.datetime(2013, 1, 15, 7, 59)
         cls.data_3.save()
@@ -136,6 +138,11 @@ class DataFilterTestCase(TestCase):
     def test_filter_process(self):
         self._apply_filter({'process': self.proc_1.pk}, [self.data_1])
         self._apply_filter({'process__slug': 'test-process-1'}, [self.data_1])
+
+    def test_filter_tags(self):
+        self._apply_filter({'tags': 'foo'}, [self.data_2])
+        self._apply_filter({'tags': 'bar'}, [self.data_2, self.data_3])
+        self._apply_filter({'tags': 'bar,moo'}, [self.data_2])
 
 
 class CollectionFilterTestCase(TestCase):

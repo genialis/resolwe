@@ -141,7 +141,7 @@ class DataSerializer(ResolweBaseSerializer):
                             'process_input_schema', 'process_output_schema',
                             'process_name', 'descriptor_dirty')
         fields = ('slug', 'name', 'contributor', 'input', 'output', 'descriptor_schema',
-                  'descriptor') + update_protected_fields + read_only_fields
+                  'descriptor', 'tags') + update_protected_fields + read_only_fields
 
     def __init__(self, *args, **kwargs):
         """Initialize attributes."""
@@ -199,7 +199,7 @@ class EntitySerializer(CollectionSerializer):
         """Serializer configuration."""
 
         model = Entity
-        fields = CollectionSerializer.Meta.fields + ('collections', 'descriptor_completed')
+        fields = CollectionSerializer.Meta.fields + ('collections', 'descriptor_completed', 'tags')
 
 
 class StorageSerializer(ResolweBaseSerializer):

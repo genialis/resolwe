@@ -8,6 +8,7 @@ Flow Filters
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import rest_framework_filters as filters
+from django_filters.filters import BaseCSVFilter
 
 from .models import Collection, Data, DescriptorSchema, Entity, Process
 
@@ -47,10 +48,20 @@ class CollectionFilter(BaseResolweFilter):
         model = Collection
 
 
+class TagsFilter(BaseCSVFilter, filters.CharFilter):
+    """Filter for tags."""
+
+    def __init__(self, *args, **kwargs):
+        """Construct tags filter."""
+        kwargs.setdefault('lookup_type', 'contains')
+        super(TagsFilter, self).__init__(*args, **kwargs)
+
+
 class EntityFilter(CollectionFilter):
     """Filter the Entity endpoint."""
 
     collection = filters.ModelChoiceFilter(queryset=Collection.objects.all())
+    tags = TagsFilter()
 
     class Meta(CollectionFilter.Meta):
         """Filter configuration."""
@@ -79,6 +90,7 @@ class DataFilter(BaseResolweFilter):
     finished = filters.AllLookupsFilter()
     started = filters.AllLookupsFilter()
     process = filters.RelatedFilter(ProcessFilter)
+    tags = TagsFilter()
 
     class Meta:
         """Filter configuration."""
