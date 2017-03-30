@@ -128,7 +128,7 @@ class ElasticSearchMixin(object):
 class PaginationMixin(object):
     """Mixin for making paginated response in case pagination parameters are provided."""
 
-    def paginate_response(self, queryset):
+    def paginate_response(self, queryset, serializers_kwargs={}):
         """Optionally return paginated response.
 
         If pagination parameters are provided in the request, then paginated response
@@ -137,10 +137,10 @@ class PaginationMixin(object):
         """
         page = self.paginate_queryset(queryset)
         if page is not None:
-            serializer = self.get_serializer(page, many=True)
+            serializer = self.get_serializer(page, many=True, **serializers_kwargs)
             return self.get_paginated_response(serializer.data)
 
-        serializer = self.get_serializer(queryset, many=True)
+        serializer = self.get_serializer(queryset, many=True, **serializers_kwargs)
         return Response(serializer.data)
 
 
