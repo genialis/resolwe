@@ -757,7 +757,7 @@ class DescriptorSchemaViewSet(mixins.RetrieveModelMixin,
     serializer_class = DescriptorSchemaSerializer
     permission_classes = (permissions_cls,)
     filter_fields = ('contributor', 'name', 'description', 'created', 'modified', 'slug')
-    ordering_fields = ('id', 'created', 'modified', 'name')
+    ordering_fields = ('id', 'created', 'modified', 'name', 'version')
     ordering = ('id',)
 
 
