@@ -28,3 +28,13 @@ class TestViewSet(ElasticSearchBaseViewSet):
 class TestEmptyOrderingViewSet(ElasticSearchBaseViewSet):
     document_class = TestSearchDocument
     serializer_class = TestSerializer
+
+
+class TestCustomFieldFilterViewSet(ElasticSearchBaseViewSet):
+    document_class = TestSearchDocument
+    serializer_class = TestSerializer
+    filtering_fields = ('name',)
+
+    def custom_filter_name(self, value, search):
+        """Test for custom filter name, which queries the 'num' field instead of 'name'."""
+        return search.query('match', num=value)

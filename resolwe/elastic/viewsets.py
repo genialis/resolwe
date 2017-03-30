@@ -90,7 +90,12 @@ class ElasticSearchMixin(object):
         for field in self.filtering_fields:
             value = self.get_query_param(field, None)
             if value:
-                if isinstance(value, list):
+                custom_filter = getattr(self, 'custom_filter_{}'.format(field), None)
+                if custom_filter is not None:
+                    search = custom_filter(value, search)
+                elif isinstance(value, list):
+                    # Default is 'should' between matches. If you need anything else,
+                    # a custom filter for this field should be implemented.
                     filters = [Q('match', **{field: item}) for item in value]
                     search = search.query('bool', should=filters)
                 else:

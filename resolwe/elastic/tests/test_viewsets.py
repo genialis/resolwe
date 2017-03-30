@@ -92,3 +92,23 @@ class IndexViewsetTest(APITestCase, ElasticSearchTestCase):
 
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]['name'], 'Object name 1')
+
+    def test_custom_filter(self):
+        from .test_app.viewsets import TestCustomFieldFilterViewSet
+
+        viewset = TestCustomFieldFilterViewSet.as_view(actions={
+            'post': 'list_with_post',
+        })
+
+        request = factory.post('', {'name': '1'}, format='json')
+        force_authenticate(request, self.user_1)
+        response = viewset(request)
+
+        self.assertEqual(len(response.data), 0)
+
+        request = factory.post('', {'name': '43'}, format='json')
+        force_authenticate(request, self.user_1)
+        response = viewset(request)
+
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['name'], 'Object name 1')
