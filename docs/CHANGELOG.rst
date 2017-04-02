@@ -43,6 +43,7 @@ Changed
   to ``RESOLWE_HOST_URL``
 - Remove keep_failed() function in tests.
 - Rename keep_all() to keep_data().
+- Manager is automatically run when new data object is created
 
 Fixed
 -----

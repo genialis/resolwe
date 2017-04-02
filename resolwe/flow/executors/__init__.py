@@ -251,49 +251,53 @@ class BaseFlowExecutor(BaseEngine):
         if process_rc < return_code:
             process_rc = return_code
 
-        if spawn_processors and process_rc == 0:
-            parent_data = Data.objects.get(pk=self.data_id)
+        # This transaction is needed to make sure that processing of
+        # current data object is finished before manager for spawned
+        # processes is triggered.
+        with transaction.atomic():
+            if spawn_processors and process_rc == 0:
+                parent_data = Data.objects.get(pk=self.data_id)
 
-            # Spawn processors
-            for d in spawn_processors:
-                d['contributor'] = parent_data.contributor
-                d['process'] = Process.objects.filter(slug=d['process']).latest()
+                # Spawn processors
+                for d in spawn_processors:
+                    d['contributor'] = parent_data.contributor
+                    d['process'] = Process.objects.filter(slug=d['process']).latest()
 
-                for field_schema, fields in iterate_fields(d.get('input', {}), d['process'].input_schema):
-                    type_ = field_schema['type']
-                    name = field_schema['name']
-                    value = fields[name]
+                    for field_schema, fields in iterate_fields(d.get('input', {}), d['process'].input_schema):
+                        type_ = field_schema['type']
+                        name = field_schema['name']
+                        value = fields[name]
 
-                    if type_ == 'basic:file:':
-                        fields[name] = self.hydrate_spawned_files(value, data_id)
-                    elif type_ == 'list:basic:file:':
-                        fields[name] = [self.hydrate_spawned_files(fn, data_id) for fn in value]
+                        if type_ == 'basic:file:':
+                            fields[name] = self.hydrate_spawned_files(value, data_id)
+                        elif type_ == 'list:basic:file:':
+                            fields[name] = [self.hydrate_spawned_files(fn, data_id) for fn in value]
 
-                with transaction.atomic():
-                    d = Data.objects.create(**d)
-                    d.parents.add(parent_data)
-                    for collection in parent_data.collection_set.all():
-                        collection.data.add(d)
+                    with transaction.atomic():
+                        d = Data.objects.create(**d)
+                        d.parents.add(parent_data)
+                        for collection in parent_data.collection_set.all():
+                            collection.data.add(d)
 
-        if process_rc == 0:
-            self.update_data_status(
-                status=Data.STATUS_DONE,
-                process_progress=100,
-                finished=now()
-            )
-        else:
-            self.update_data_status(
-                status=Data.STATUS_ERROR,
-                process_progress=100,
-                process_rc=process_rc,
-                finished=now()
-            )
+            if process_rc == 0:
+                self.update_data_status(
+                    status=Data.STATUS_DONE,
+                    process_progress=100,
+                    finished=now()
+                )
+            else:
+                self.update_data_status(
+                    status=Data.STATUS_ERROR,
+                    process_progress=100,
+                    process_rc=process_rc,
+                    finished=now()
+                )
 
-        try:
-            # Cleanup after processor
-            data_purge(data_ids=[data_id], delete=True, verbosity=verbosity)
-        except:  # pylint: disable=bare-except
-            logger.error(__("Purge error:\n\n{}", traceback.format_exc()))
+            try:
+                # Cleanup after processor
+                data_purge(data_ids=[data_id], delete=True, verbosity=verbosity)
+            except:  # pylint: disable=bare-except
+                logger.error(__("Purge error:\n\n{}", traceback.format_exc()))
 
         # if not update_data(data):  # Data was deleted
         #     # Restore original directory

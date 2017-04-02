@@ -14,9 +14,9 @@ from resolwe.flow.models import Data, Entity
 
 
 @receiver(post_save, sender=Data)
-def manager_post_save_handler(sender, instance, **kwargs):
+def manager_post_save_handler(sender, instance, created, **kwargs):
     """Run newly created (spawned) processes."""
-    if instance.status == Data.STATUS_DONE or instance.status == Data.STATUS_ERROR:
+    if instance.status == Data.STATUS_DONE or instance.status == Data.STATUS_ERROR or created:
         # Run manager at the end of the potential transaction. Otherwise
         # tasks are send to workers before transaction ends and therefore
         # workers cannot access objects created inside transaction.
