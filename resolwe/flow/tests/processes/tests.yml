@@ -276,3 +276,21 @@
       else
         echo '{"result": "ERROR: Incorrect Docker image used."}'
       fi
+
+- slug: test-save-number
+  name: Save number
+  version: 1.0.0
+  type: "data:test:save"
+  requirements:
+    expression-engine: jinja
+  input:
+    - name: number
+      label: Number
+      type: basic:integer
+  output:
+    - name: number
+      label: Number
+      type: basic:integer
+  run:
+    program: |
+      re-save number {{ number }}

@@ -16,7 +16,7 @@ from resolwe.test.testcases import TestCase, TransactionTestCase
 from resolwe.test.testcases.api import ResolweAPITestCase
 from resolwe.test.testcases.elastic import ElasticSearchTestCase, TransactionElasticSearchTestCase
 from resolwe.test.testcases.process import ProcessTestCase, TransactionProcessTestCase
-from resolwe.test.utils import check_docker, check_installed, with_docker_executor
+from resolwe.test.utils import check_docker, check_installed, with_docker_executor, with_null_executor
 
 __all__ = (
     'TestCase', 'TransactionTestCase',

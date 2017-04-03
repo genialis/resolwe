@@ -88,3 +88,26 @@ def with_docker_executor(method):
             manager.discover_engines()
 
     return wrapper
+
+
+def with_null_executor(method):
+    """Decorate unit test to run processes with Null executor."""
+    # pylint: disable=missing-docstring
+    def wrapper(*args, **kwargs):
+        executor_settings = settings.FLOW_EXECUTOR.copy()
+        executor_settings.update({
+            'NAME': 'resolwe.flow.executors.null',
+        })
+
+        try:
+            with override_settings(FLOW_EXECUTOR=executor_settings):
+                # Re-run engine discovery as the settings have changed.
+                manager.discover_engines()
+
+                # Run the actual unit test method.
+                method(*args, **kwargs)
+        finally:
+            # Re-run engine discovery as the settings have changed.
+            manager.discover_engines()
+
+    return wrapper

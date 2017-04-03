@@ -13,7 +13,7 @@ from guardian.shortcuts import assign_perm
 from resolwe.flow.executors import BaseFlowExecutor
 from resolwe.flow.managers import manager
 from resolwe.flow.models import Data, Process
-from resolwe.test import ProcessTestCase, TestCase, with_docker_executor
+from resolwe.test import ProcessTestCase, TestCase, with_docker_executor, with_null_executor
 
 PROCESSES_DIR = os.path.join(os.path.dirname(__file__), 'processes')
 
@@ -143,3 +143,9 @@ class ManagerRunProcessTest(ProcessTestCase):
     def test_executor_requirements(self):
         data = self.run_process('test-requirements-docker')
         self.assertEqual(data.output['result'], 'OK')
+
+    @with_null_executor
+    def test_null_executor(self):
+        data = self.run_process('test-save-number', {'number': 19}, assert_status=Data.STATUS_WAITING)
+        self.assertEqual(data.input['number'], 19)
+        self.assertEqual(data.output, {})
