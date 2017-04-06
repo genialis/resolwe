@@ -91,8 +91,18 @@ class BaseManager(object):
         """Resolving task dependancy and execution."""
         queue = []
         try:
-            with transaction.atomic():
-                for data in Data.objects.select_for_update().filter(status=Data.STATUS_RESOLVING):
+            for data in Data.objects.filter(status=Data.STATUS_RESOLVING):
+                with transaction.atomic():
+                    # Lock for update. Note that we want this transaction to be as short as
+                    # possible in order to reduce contention and avoid deadlocks. This is
+                    # why we do not lock all resolving objects for update, but instead only
+                    # lock one object at a time. This allows managers running in parallel
+                    # to process different objects.
+                    data = Data.objects.select_for_update().get(pk=data.pk)
+                    if data.status != Data.STATUS_RESOLVING:
+                        # The object might have already been processed while waiting for
+                        # the lock to be obtained. In this case, skip the object.
+                        continue
 
                     dep_status = dependency_status(data)
 
@@ -111,6 +121,11 @@ class BaseManager(object):
                     if data.process.run:
                         try:
                             execution_engine = data.process.run.get('language', None)
+                            # Evaluation by the execution engine may spawn additional data objects
+                            # and perform other queries on the database. Queries of all possible
+                            # execution engines need to be audited for possibilities of deadlocks
+                            # in case any additional locks are introduced. Currently, we only take
+                            # an explicit lock on the currently processing object.
                             program = self.get_execution_engine(execution_engine).evaluate(data)
                         except (ExecutionError, InvalidEngineError) as error:
                             data.status = Data.STATUS_ERROR
@@ -136,6 +151,10 @@ class BaseManager(object):
                         program = self._include_environment_variables(program)
 
                         queue.append((data.id, priority, program))
+
+                    # All data objects created by the execution engine are commited after this
+                    # point and may be processed by other managers running in parallel. At the
+                    # same time, lock for the current data object is released.
 
         except IntegrityError as exp:
             logger.error(__("IntegrityError in manager {}", exp))
