@@ -51,3 +51,14 @@ class TestManager(TransactionProcessTestCase):
 
         # Created and spawned objects should be done.
         self.assertEqual(Data.objects.filter(status=Data.STATUS_DONE).count(), 2)
+
+    def test_workflow(self):
+        """Test that manager is run for workflows."""
+        workflow = Process.objects.filter(slug='test-workflow-1').latest()
+        Data.objects.create(name='Test data 1', contributor=self.contributor, process=workflow,
+                            input={'param1': 'world'})
+        Data.objects.create(name='Test data 2', contributor=self.contributor, process=workflow,
+                            input={'param1': 'foobar'})
+
+        # Created and spawned objects should be done.
+        self.assertEqual(Data.objects.filter(status=Data.STATUS_DONE).count(), 6)
