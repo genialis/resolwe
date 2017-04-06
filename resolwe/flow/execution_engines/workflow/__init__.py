@@ -5,11 +5,7 @@ import collections
 
 from six import string_types
 
-from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
-
-from guardian.models import GroupObjectPermission, UserObjectPermission
-from guardian.shortcuts import assign_perm
 
 from resolwe.flow.execution_engines.base import BaseExecutionEngine
 from resolwe.flow.execution_engines.exceptions import ExecutionError
