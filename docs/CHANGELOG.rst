@@ -64,6 +64,8 @@ Fixed
 - Support tabular files
 - Set Data object status to error if worker cannot update object in
   database
+- Data objects returned in `CollectionViewset` and `EntityViewset` are
+  filtered by permissions of user in request
 
 
 ==================

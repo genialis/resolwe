@@ -8,6 +8,7 @@ Flow Serializers
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 from django.contrib import auth
+from django.contrib.auth.models import AnonymousUser
 from django.db import transaction
 
 from rest_framework import serializers, status
@@ -16,6 +17,7 @@ from rest_framework.fields import empty
 
 from resolwe.flow.models import Collection, Data, DescriptorSchema, Entity, Process, Relation, RelationType, Storage
 from resolwe.flow.models.entity import PositionInRelation
+from resolwe.permissions.shortcuts import get_objects_for_user
 
 
 class NoContentError(APIException):
@@ -171,18 +173,36 @@ class CollectionSerializer(ResolweBaseSerializer):
         fields = ('slug', 'name', 'description', 'settings', 'descriptor_schema', 'descriptor',
                   'data') + update_protected_fields + read_only_fields
 
+    def _serialize_data(self, data):
+        """Return serialized data or list of ids, depending on `hydrate_data` query param."""
+        if self.request and self.request.query_params.get('hydrate_data', False):
+            return DataSerializer(data, many=True, read_only=True).data
+        else:
+            return [d.id for d in data]
+
+    def _filter_queryset(self, perms, queryset):
+        """Filter object objects by permissions of user in request."""
+        user = self.request.user if self.request else AnonymousUser()
+        return get_objects_for_user(user, perms, queryset)
+
+    def get_data(self, collection):
+        """Return serialized list of data objects on collection that user has `view` permission on."""
+        data = self._filter_queryset('view_data', collection.data.all())
+
+        return self._serialize_data(data)
+
     def __init__(self, *args, **kwargs):
         """Initialize attributes."""
         super(CollectionSerializer, self).__init__(*args, **kwargs)
 
-        request = kwargs.get('context', {}).get('request', None)
+        self.request = kwargs.get('context', {}).get('request', None)
 
-        if request and request.query_params.get('hydrate_data', False):
-            self.fields['data'] = DataSerializer(many=True, read_only=True)
+        if not hasattr(self.request, 'method') or self.request.method == "GET":
+            self.fields['data'] = serializers.SerializerMethodField()
         else:
             self.fields['data'] = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
 
-        if not hasattr(request, 'method') or request.method == "GET":
+        if not hasattr(self.request, 'method') or self.request.method == "GET":
             self.fields['descriptor_schema'] = DescriptorSchemaSerializer(required=False)
         else:
             self.fields['descriptor_schema'] = serializers.PrimaryKeyRelatedField(
@@ -200,6 +220,12 @@ class EntitySerializer(CollectionSerializer):
 
         model = Entity
         fields = CollectionSerializer.Meta.fields + ('collections', 'descriptor_completed', 'tags')
+
+    def get_data(self, entity):
+        """Return serialized list of data objects on entity that user has `view` permission on."""
+        data = self._filter_queryset('view_data', entity.data.all())
+
+        return self._serialize_data(data)
 
 
 class StorageSerializer(ResolweBaseSerializer):
