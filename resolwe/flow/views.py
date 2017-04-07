@@ -258,10 +258,11 @@ class ResolweCreateDataModelMixin(ResolweCreateModelMixin):
             for permission in list(zip(*instance._meta.permissions))[0]:  # pylint: disable=protected-access
                 assign_perm(permission, instance.contributor, instance)
 
-        collections = self.request.data.get('collections', [])
-        for c in collections:
-            collection = Collection.objects.get(pk=c)
-            collection.data.add(instance)
+            # Assign data object to all specified collections.
+            collections = self.request.data.get('collections', [])
+            for c in collections:
+                collection = Collection.objects.get(pk=c)
+                collection.data.add(instance)
 
 
 class ResolwePermissionsMixin(object):
