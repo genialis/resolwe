@@ -169,7 +169,6 @@ def get_object_perms(obj, user=None):
     else:
         user_options = {
             'attach_perms': True,
-            'with_superusers': True,
             'with_group_users': False
         }
         for user, perms in six.iteritems(get_users_with_perms(obj, **user_options)):

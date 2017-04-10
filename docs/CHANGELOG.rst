@@ -46,6 +46,8 @@ Changed
 - Rename keep_all() to keep_data().
 - Manager is automatically run when new data object is created
 - Outputs of Data objects with status ``Error`` are not validated
+- Superusers are no longer included in response in ``permissions``
+  endpoint of resources
 
 Fixed
 -----
