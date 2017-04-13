@@ -3,12 +3,26 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import elasticsearch_dsl as dsl
 
+# pylint: disable=invalid-name
 # Process type analyzer. During indexing we tokenize by type paths, during search,
 # we do not tokenize at all.
-# pylint: disable=invalid-name
 process_type_tokenizer = dsl.tokenizer('process_type_tokenizer', type='path_hierarchy', delimiter=':')
 process_type_analyzer = dsl.analyzer('process_type_analyzer', tokenizer=process_type_tokenizer, filter=['lowercase'])
 process_type_search_analyzer = dsl.analyzer('process_type_search_analyzer', tokenizer='keyword', filter=['lowercase'])
+
+# Name analyzer.
+name_analyzer = dsl.analyzer(
+    'name_analyzer',
+    type='pattern',
+    # The pattern matches token separators.
+    pattern=r'''
+          ([^\p{L}\d]+)                 # swallow non letters and numbers,
+        | (?<=\D)(?=\d)                 # or non-number followed by number,
+        | (?<=\d)(?=\D)                 # or number followed by non-number,
+    ''',
+    flags='CASE_INSENSITIVE|COMMENTS',
+    lowercase=True,
+)
 # pylint: enable=invalid-name
 
 
@@ -27,7 +41,10 @@ class Name(RawStringSubfieldMixin, dsl.String):
     Includes a 'raw' subfield for sorting.
     """
 
-    pass
+    def __init__(self, *args, **kwargs):
+        """Construct field."""
+        kwargs.setdefault('analyzer', name_analyzer)
+        super(Name, self).__init__(*args, **kwargs)
 
 
 class ProcessType(RawStringSubfieldMixin, dsl.String):

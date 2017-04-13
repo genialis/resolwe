@@ -202,7 +202,7 @@ class IndexTest(ElasticSearchTestCase):
         from .test_app.models import TestModel
         from .test_app.elastic_indexes import TestSearchDocument
 
-        TestModel.objects.create(name='Hello world', number=42)
+        TestModel.objects.create(name='Hello world FOO_BAR-G17-SA', number=42)
 
         es_objects = TestSearchDocument.search().execute()
         self.assertEqual(len(es_objects), 1)
@@ -216,7 +216,24 @@ class IndexTest(ElasticSearchTestCase):
         es_objects = TestSearchDocument.search().query('match', **{'field_name.raw': 'hello'}).execute()
         self.assertEqual(len(es_objects), 0)
 
-        es_objects = TestSearchDocument.search().query('match', **{'field_name.raw': 'Hello world'}).execute()
+        es_objects = TestSearchDocument.search().query(
+            'match', **{'field_name.raw': 'Hello world FOO_BAR-G17-SA'}
+        ).execute()
+        self.assertEqual(len(es_objects), 1)
+
+        es_objects = TestSearchDocument.search().query('match', field_name='foo').execute()
+        self.assertEqual(len(es_objects), 1)
+
+        es_objects = TestSearchDocument.search().query('match', field_name='bar').execute()
+        self.assertEqual(len(es_objects), 1)
+
+        es_objects = TestSearchDocument.search().query('match', field_name='g17').execute()
+        self.assertEqual(len(es_objects), 1)
+
+        es_objects = TestSearchDocument.search().query('match', field_name='g17-sa').execute()
+        self.assertEqual(len(es_objects), 1)
+
+        es_objects = TestSearchDocument.search().query('match', field_name='17').execute()
         self.assertEqual(len(es_objects), 1)
 
     def test_field_process_type(self):
