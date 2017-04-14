@@ -690,6 +690,15 @@ class RelationViewSet(mixins.CreateModelMixin,
         except IntegrityError as ex:
             return Response({u'error': str(ex)}, status=status.HTTP_409_CONFLICT)
 
+    def perform_create(self, serializer):
+        """Create a relation."""
+        with transaction.atomic():
+            instance = serializer.save()
+
+            # Assign all permissions to the object contributor.
+            for permission in list(zip(*instance._meta.permissions))[0]:  # pylint: disable=protected-access
+                assign_perm(permission, instance.contributor, instance)
+
     @detail_route(methods=[u'post'])
     def add_entity(self, request, pk=None):
         """Add ``Entity`` to ``Relation``."""
