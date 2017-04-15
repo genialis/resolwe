@@ -84,7 +84,8 @@ setup(
             # https://github.com/PyCQA/pycodestyle/issues/617
             'pycodestyle~=2.2.0',
             'pydocstyle>=1.0.0',
-            'pylint>=1.6.4',
+            # Pylint 1.7.0 introduces new warning/errors and is temporarily
+            'pylint~=1.6.4',
             'readme_renderer',
             'resolwe-runtime-utils>=1.1.0',
             'testfixtures>=4.10.0',
