@@ -269,7 +269,7 @@ class IndexTest(ElasticSearchTestCase):
 
     def test_dependencies(self):
         from .test_app.models import TestModelWithDependency, TestDependency
-        from .test_app.elastic_indexes import TestModelWithDependencyDocument
+        from .test_app.elastic_indexes import TestModelWithDependencyDocument, TestModelWithFilterDependencyDocument
 
         model = TestModelWithDependency.objects.create(name='Deps')
         dep1 = TestDependency.objects.create(name='one')
@@ -302,3 +302,20 @@ class IndexTest(ElasticSearchTestCase):
 
         es_objects = TestModelWithDependencyDocument.search().query('match', name='three').execute()
         self.assertEqual(len(es_objects), 0)
+
+        # Ensure that previous updates did not cause the filtered version to be updated.
+        es_objects = TestModelWithFilterDependencyDocument.search().execute()
+        self.assertEqual(len(es_objects), 1)
+        # If the filtered version would be updated, this would instead equal 'Deps: one, two, four'.
+        self.assertEqual(es_objects[0].name, 'Deps: ')
+
+        dep4 = TestDependency.objects.create(name='hello')
+        dep5 = TestDependency.objects.create(name='hello')
+        model.dependencies.add(dep4)
+        dep5.testmodelwithdependency_set.add(model)
+
+        es_objects = TestModelWithFilterDependencyDocument.search().execute()
+        self.assertEqual(len(es_objects), 1)
+        # It is correct that even non-dependencies are contained in the name as dependencies are
+        # only used to determine when to trigger updates.
+        self.assertEqual(es_objects[0].name, 'Deps: one, two, four, hello, hello')

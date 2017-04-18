@@ -43,10 +43,11 @@ class ElasticSignal(object):
 
     """
 
-    def __init__(self, index, method_name):
+    def __init__(self, index, method_name, pass_kwargs=False):
         """Initialize signal."""
         self.index = index
         self.method_name = method_name
+        self.pass_kwargs = pass_kwargs
         self.connections = []
 
     def connect(self, signal, **kwargs):
@@ -62,7 +63,10 @@ class ElasticSignal(object):
     def __call__(self, sender, instance, **kwargs):
         """Process signal."""
         method = getattr(self.index, self.method_name)
-        method(obj=instance)
+        if self.pass_kwargs:
+            method(obj=instance, **kwargs)
+        else:
+            method(obj=instance)
 
 
 class Dependency(object):
@@ -77,12 +81,12 @@ class Dependency(object):
         """Connect signals needed for dependency updates."""
         self.index = index
 
-        signal = ElasticSignal(self, 'process')
+        signal = ElasticSignal(self, 'process', pass_kwargs=True)
         signal.connect(post_save, sender=self.model)
         signal.connect(pre_delete, sender=self.model)
         return signal
 
-    def process(self, obj):
+    def process(self, obj, **kwargs):
         """Process signals from dependencies."""
         raise NotImplementedError
 
@@ -101,11 +105,37 @@ class ManyToManyDependency(Dependency):
         signal.connect(m2m_changed, sender=self.field.through)
         return signal
 
-    def process(self, obj):
+    def filter(self, obj):
+        """Determine if dependent object should be processed.
+
+        If ``False`` is returned, processing of the dependent object will
+        be aborted.
+        """
+        pass
+
+    def process(self, obj, pk_set=None, action=None, **kwargs):
         """Process signals from dependencies."""
+        if action not in (None, 'post_add', 'post_remove', 'post_clear'):
+            return
+
         if isinstance(obj, self.index.object_type):
+            if action != 'post_clear':
+                # Check filter before rebuilding index.
+                filtered = [
+                    dep
+                    for dep in self.field.rel.to.objects.filter(pk__in=pk_set)
+                    if self.filter(dep) is not False
+                ]
+
+                if not filtered:
+                    return
+
             self.index.build(obj)
         elif isinstance(obj, self.field.rel.to):
+            # Check filter before rebuilding index.
+            if self.filter(obj) is False:
+                return
+
             for instance in getattr(obj, self.field.rel.get_accessor_name()).all():
                 self.index.build(instance, push=False)
             self.index.push()

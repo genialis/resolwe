@@ -3,6 +3,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import elasticsearch_dsl as dsl
 
+from resolwe.elastic.builder import ManyToManyDependency
 from resolwe.elastic.fields import Name, ProcessType
 from resolwe.elastic.indices import BaseDocument, BaseIndex
 
@@ -71,6 +72,32 @@ class TestModelWithDependencySearchIndex(BaseIndex):
 
     def get_dependencies(self):
         return [TestModelWithDependency.dependencies]
+
+    def get_name_value(self, obj):
+        names = [dep.name for dep in obj.dependencies.all()]
+        return '{}: {}'.format(obj.name, ', '.join(names))
+
+
+class TestModelWithFilterDependencyDocument(BaseDocument):
+    # pylint: disable=no-member
+    name = dsl.String()
+
+    class Meta:
+        index = 'test_model_with_filter_dependency_search'
+
+
+class FilterHelloDependency(ManyToManyDependency):
+    def filter(self, obj):
+        return obj.name == 'hello'
+
+
+class TestModelWithFilterDependencySearchIndex(BaseIndex):
+    queryset = TestModelWithDependency.objects.all().prefetch_related('dependencies')
+    object_type = TestModelWithDependency
+    document_class = TestModelWithFilterDependencyDocument
+
+    def get_dependencies(self):
+        return [FilterHelloDependency(TestModelWithDependency.dependencies)]
 
     def get_name_value(self, obj):
         names = [dep.name for dep in obj.dependencies.all()]
