@@ -25,6 +25,7 @@ Contents
    overview
    intro
    proc
+   api
    ref
    CHANGELOG
    contributing

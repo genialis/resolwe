@@ -18,6 +18,8 @@ from rest_framework.fields import empty
 from resolwe.flow.models import Collection, Data, DescriptorSchema, Entity, Process, Relation, RelationType, Storage
 from resolwe.flow.models.entity import PositionInRelation
 from resolwe.permissions.shortcuts import get_objects_for_user
+from resolwe.rest.fields import ProjectableJSONField
+from resolwe.rest.serializers import SelectiveFieldMixin
 
 
 class NoContentError(APIException):
@@ -27,7 +29,7 @@ class NoContentError(APIException):
     detail = 'The content has not changed'
 
 
-class ContributorSerializer(serializers.ModelSerializer):
+class ContributorSerializer(SelectiveFieldMixin, serializers.ModelSerializer):
     """Serializer for contributor User objects."""
 
     class Meta:
@@ -59,7 +61,7 @@ class ContributorSerializer(serializers.ModelSerializer):
         return self.Meta.model.objects.get(pk=data)
 
 
-class ResolweBaseSerializer(serializers.ModelSerializer):
+class ResolweBaseSerializer(SelectiveFieldMixin, serializers.ModelSerializer):
     """Base serializer for all `Resolwe` objects.
 
     This class is inherited from `django_rest_framework`'s
@@ -94,6 +96,11 @@ class ResolweBaseSerializer(serializers.ModelSerializer):
 
         super(ResolweBaseSerializer, self).__init__(instance, data, **kwargs)
 
+    @property
+    def request(self):
+        """Extract request object from serializer context."""
+        return self.context.get('request', None)
+
 
 class ProcessSerializer(ResolweBaseSerializer):
     """Serializer for Process objects."""
@@ -112,6 +119,8 @@ class ProcessSerializer(ResolweBaseSerializer):
 class DescriptorSchemaSerializer(ResolweBaseSerializer):
     """Serializer for DescriptorSchema objects."""
 
+    schema = ProjectableJSONField(required=False)
+
     class Meta:
         """TemplateSerializer Meta options."""
 
@@ -124,10 +133,13 @@ class DescriptorSchemaSerializer(ResolweBaseSerializer):
 class DataSerializer(ResolweBaseSerializer):
     """Serializer for Data objects."""
 
+    input = ProjectableJSONField(required=False)
+    output = ProjectableJSONField(required=False)
+    descriptor = ProjectableJSONField(required=False)
     process_name = serializers.CharField(source='process.name', read_only=True)
     process_type = serializers.CharField(source='process.type', read_only=True)
-    process_input_schema = serializers.JSONField(source='process.input_schema', read_only=True)
-    process_output_schema = serializers.JSONField(source='process.output_schema', read_only=True)
+    process_input_schema = ProjectableJSONField(source='process.input_schema', read_only=True)
+    process_output_schema = ProjectableJSONField(source='process.output_schema', read_only=True)
 
     name = serializers.CharField(read_only=False, required=False)
     slug = serializers.CharField(read_only=False, required=False)
@@ -145,24 +157,26 @@ class DataSerializer(ResolweBaseSerializer):
         fields = ('slug', 'name', 'contributor', 'input', 'output', 'descriptor_schema',
                   'descriptor', 'tags') + update_protected_fields + read_only_fields
 
-    def __init__(self, *args, **kwargs):
-        """Initialize attributes."""
-        super(DataSerializer, self).__init__(*args, **kwargs)
+    def get_fields(self):
+        """Dynamically adapt fields based on the current request."""
+        fields = super(DataSerializer, self).get_fields()
 
-        request = kwargs.get('context', {}).get('request', None)
-
-        if not hasattr(request, 'method') or request.method == "GET":
-            self.fields['descriptor_schema'] = DescriptorSchemaSerializer(required=False)
+        if self.request.method == "GET":
+            fields['descriptor_schema'] = DescriptorSchemaSerializer(required=False)
         else:
-            self.fields['descriptor_schema'] = serializers.PrimaryKeyRelatedField(
+            fields['descriptor_schema'] = serializers.PrimaryKeyRelatedField(
                 queryset=DescriptorSchema.objects.all(), required=False
             )
+
+        return fields
 
 
 class CollectionSerializer(ResolweBaseSerializer):
     """Serializer for Collection objects."""
 
     slug = serializers.CharField(read_only=False, required=False)
+    settings = ProjectableJSONField(required=False)
+    descriptor = ProjectableJSONField(required=False)
 
     class Meta:
         """CollectionSerializer Meta options."""
@@ -176,7 +190,9 @@ class CollectionSerializer(ResolweBaseSerializer):
     def _serialize_data(self, data):
         """Return serialized data or list of ids, depending on `hydrate_data` query param."""
         if self.request and self.request.query_params.get('hydrate_data', False):
-            return DataSerializer(data, many=True, read_only=True).data
+            serializer = DataSerializer(data, many=True, read_only=True)
+            serializer.bind('data', self)
+            return serializer.data
         else:
             return [d.id for d in data]
 
@@ -191,23 +207,23 @@ class CollectionSerializer(ResolweBaseSerializer):
 
         return self._serialize_data(data)
 
-    def __init__(self, *args, **kwargs):
-        """Initialize attributes."""
-        super(CollectionSerializer, self).__init__(*args, **kwargs)
+    def get_fields(self):
+        """Dynamically adapt fields based on the current request."""
+        fields = super(CollectionSerializer, self).get_fields()
 
-        self.request = kwargs.get('context', {}).get('request', None)
-
-        if not hasattr(self.request, 'method') or self.request.method == "GET":
-            self.fields['data'] = serializers.SerializerMethodField()
+        if self.request.method == "GET":
+            fields['data'] = serializers.SerializerMethodField()
         else:
-            self.fields['data'] = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
+            fields['data'] = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
 
-        if not hasattr(self.request, 'method') or self.request.method == "GET":
-            self.fields['descriptor_schema'] = DescriptorSchemaSerializer(required=False)
+        if self.request.method == "GET":
+            fields['descriptor_schema'] = DescriptorSchemaSerializer(required=False)
         else:
-            self.fields['descriptor_schema'] = serializers.PrimaryKeyRelatedField(
+            fields['descriptor_schema'] = serializers.PrimaryKeyRelatedField(
                 queryset=DescriptorSchema.objects.all(), required=False
             )
+
+        return fields
 
 
 class EntitySerializer(CollectionSerializer):
@@ -231,6 +247,8 @@ class EntitySerializer(CollectionSerializer):
 class StorageSerializer(ResolweBaseSerializer):
     """Serializer for Storage objects."""
 
+    json = ProjectableJSONField()
+
     class Meta:
         """StorageSerializer Meta options."""
 
@@ -240,8 +258,10 @@ class StorageSerializer(ResolweBaseSerializer):
         fields = ('slug', 'name', 'data', 'json') + update_protected_fields + read_only_fields
 
 
-class PositionInRelationSerializer(serializers.ModelSerializer):
+class PositionInRelationSerializer(SelectiveFieldMixin, serializers.ModelSerializer):
     """Serializer for PositionInRelation objects."""
+
+    position = ProjectableJSONField(required=False)
 
     class Meta:
         """PositionInRelationSerializer Meta options."""
@@ -256,17 +276,6 @@ class RelationSerializer(ResolweBaseSerializer):
     entities = PositionInRelationSerializer(source='positioninrelation_set', many=True)
     collection = serializers.PrimaryKeyRelatedField(queryset=Collection.objects.all(), required=True)
 
-    def __init__(self, *args, **kwargs):
-        """Initialize attributes."""
-        super(RelationSerializer, self).__init__(*args, **kwargs)
-
-        request = kwargs.get('context', {}).get('request', None)
-
-        if not hasattr(request, 'method') or request.method == "GET":
-            self.fields['type'] = serializers.CharField(source='type.name')
-        else:
-            self.fields['type'] = serializers.PrimaryKeyRelatedField(queryset=RelationType.objects.all())
-
     class Meta:
         """RelationSerializer Meta options."""
 
@@ -274,6 +283,17 @@ class RelationSerializer(ResolweBaseSerializer):
         update_protected_fields = ('contributor', 'entities', 'type')
         read_only_fields = ('id', 'created', 'modified')
         fields = ('collection', 'entities', 'label') + update_protected_fields + read_only_fields
+
+    def get_fields(self):
+        """Dynamically adapt fields based on the current request."""
+        fields = super(RelationSerializer, self).get_fields()
+
+        if self.request.method == "GET":
+            fields['type'] = serializers.CharField(source='type.name')
+        else:
+            fields['type'] = serializers.PrimaryKeyRelatedField(queryset=RelationType.objects.all())
+
+        return fields
 
     def create(self, validated_data):
         """Create ``Relation`` object and add ``Entities``."""
