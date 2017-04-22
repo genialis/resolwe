@@ -11,15 +11,13 @@ import inspect
 import re
 from importlib import import_module
 
-from elasticsearch_dsl.connections import connections
-
 from django.apps import apps
-from django.conf import settings
 from django.db import models
 from django.db.models.fields.related_descriptors import ManyToManyDescriptor
 from django.db.models.signals import m2m_changed, post_save, pre_delete
 
 from .indices import BaseIndex
+from .utils import prepare_connection
 
 __all__ = (
     'index_builder',
@@ -160,10 +158,7 @@ class IndexBuilder(object):
         #: list of registered signals
         self.signals = []
 
-        # Set dafault connection for ElasticSearch
-        elasticsearch_host = getattr(settings, 'ELASTICSEARCH_HOST', 'localhost')  # pylint: disable=invalid-name
-        elasticsearch_port = getattr(settings, 'ELASTICSEARCH_PORT', 9200)  # pylint: disable=invalid-name
-        connections.create_connection(hosts=['{}:{}'.format(elasticsearch_host, elasticsearch_port)])
+        prepare_connection()
 
         self.discover_indexes()
         self.create_mappings()

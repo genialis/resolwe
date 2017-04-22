@@ -13,6 +13,12 @@ from django.dispatch import receiver
 from guardian.models import GroupObjectPermission, UserObjectPermission
 
 from .builder import index_builder
+from .utils import prepare_connection
+
+try:
+    import celery
+except ImportError:
+    celery = None
 
 
 def _process_permission(perm):
@@ -46,3 +52,17 @@ def remove_user_permission(sender, instance, **kwargs):
 def remove_group_permission(sender, instance, **kwargs):
     """Process indexes after removing group permission."""
     _process_permission(instance)
+
+
+if celery is not None:
+    @receiver(celery.signals.worker_process_init)
+    def refresh_connection(sender, **kwargs):
+        """Refresh connection to Elasticsearch when worker is started.
+
+        File descriptors (sockets) can be shared between multiple
+        processes. If same connection is used by multiple processes at
+        the same time, this can cause timeouts in some of the tasks.
+        So connection needs to be reestablished after worker is started
+        to make sure that it is unique per worker.
+        """
+        prepare_connection()
