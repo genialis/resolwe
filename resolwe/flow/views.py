@@ -41,7 +41,7 @@ from .serializers import (
 
 
 def assign_perm(*args, **kwargs):
-    """Wrapper for assign_perm function.
+    """Assign permissions wrapper.
 
     Call original assign_perms function from django-guardian, but don't
     raise exception if permission is not found
@@ -54,7 +54,7 @@ def assign_perm(*args, **kwargs):
 
 
 def remove_perm(*args, **kwargs):
-    """Wrapper for remove_perm function.
+    """Remove permissions wrapper.
 
     Call original remove_perms function from django-guardian, but don't
     raise exception if permission is not found
@@ -375,7 +375,7 @@ class ResolwePermissionsMixin(object):
 
     @detail_route(methods=['get', 'post'], url_path='permissions')
     def detail_permissions(self, request, pk=None):
-        """API endpoint to get/set permissions."""
+        """Get or set permissions API endpoint."""
         obj = self.get_object()
 
         if request.method == 'POST':
@@ -393,7 +393,7 @@ class ResolwePermissionsMixin(object):
 
     @list_route(methods=['get', 'post'], url_path='permissions')
     def list_permissions(self, request):
-        """API endpoint to batch get/set permissions."""
+        """Batch get or set permissions API endpoint."""
         # TODO: Implement batch get/set permissions
         return Response(status=status.HTTP_501_NOT_IMPLEMENTED)
 

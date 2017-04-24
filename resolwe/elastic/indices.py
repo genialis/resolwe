@@ -224,7 +224,7 @@ class BaseIndex(object):
             raise
 
     def build(self, obj=None, push=True):
-        """Main function for building indexes."""
+        """Build indexes."""
         if obj:
             if self.queryset.model != obj._meta.model:  # pylint: disable=protected-access
                 return

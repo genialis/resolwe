@@ -36,6 +36,6 @@ class LazyStorageJSON(object):
         return self._json[key]
 
     def __repr__(self):
-        """String representation."""
+        """Format the object representation."""
         self._get_storage()
         return self._json.__repr__()

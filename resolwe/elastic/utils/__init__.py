@@ -18,5 +18,14 @@ __all__ = ('const',)
 
 
 def const(con):
-    """Convenience function to be used in `mapping` dict."""
+    """Define a constant mapping for elastic search index.
+
+    This helper may be used to define index mappings, where the indexed
+    value is always set to a specific constant. Example:
+
+    .. code-block:: python
+
+        mapping = {'field': const('I am a constant')}
+
+    """
     return lambda obj: con

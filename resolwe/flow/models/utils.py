@@ -128,7 +128,7 @@ def validate_schema(instance, schema, test_required=True, path_prefix=None):
             validate_refs(field)
 
     def validate_data(data_pk, type_):
-        """"Check that `Data` objects exist and is of right type."""
+        """Check that `Data` objects exist and is of right type."""
         from .data import Data  # prevent circular import
 
         data_qs = Data.objects.filter(pk=data_pk).values('process__type')
@@ -324,7 +324,7 @@ def hydrate_input_uploads(input_, input_schema, hydrate_values=True):
 
 
 def hydrate_size(data):
-    """"Add file and dir sizes.
+    """Add file and dir sizes.
 
     Add sizes to ``basic:file:``, ``list:basic:file``, ``basic:dir:``
     and ``list:basic:dir:`` fields.

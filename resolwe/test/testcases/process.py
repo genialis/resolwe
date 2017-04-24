@@ -167,7 +167,11 @@ class TransactionProcessTestCase(TransactionTestCase):
         self._files_path = value
 
     def run_processor(self, *args, **kwargs):
-        """Deprecated method: use run_process."""
+        """Run process.
+
+        Deprecated method: use run_process.
+
+        """
         return self.run_process(*args, **kwargs)
         # TODO: warning
 

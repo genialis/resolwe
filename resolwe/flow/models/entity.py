@@ -43,7 +43,7 @@ class RelationType(models.Model):
     ordered = models.BooleanField(default=False)
 
     def __str__(self):
-        """String representation of RelationType."""
+        """Format the object representation."""
         return self.name
 
 

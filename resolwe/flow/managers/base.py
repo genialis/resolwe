@@ -88,7 +88,7 @@ class BaseManager(object):
         raise NotImplementedError('`run` function not implemented')
 
     def communicate(self, run_sync=False, verbosity=1):
-        """Resolving task dependancy and execution."""
+        """Resolve task dependencies and run the task."""
         queue = []
         try:
             for data in Data.objects.filter(status=Data.STATUS_RESOLVING):

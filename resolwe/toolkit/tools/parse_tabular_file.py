@@ -18,7 +18,7 @@ def parse_arguments():
 
 
 def main():
-    """Invoked when run directly as a program."""
+    """Run the program."""
     args = parse_arguments()
 
     ext = os.path.splitext(args.input_file)[-1].lower()

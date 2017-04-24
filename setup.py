@@ -83,7 +83,7 @@ setup(
             # starting with 'def'
             # https://github.com/PyCQA/pycodestyle/issues/617
             'pycodestyle~=2.2.0',
-            'pydocstyle>=1.0.0',
+            'pydocstyle>=2.0.0',
             # Pylint 1.7.0 introduces new warning/errors and is temporarily
             'pylint~=1.6.4',
             'readme_renderer',

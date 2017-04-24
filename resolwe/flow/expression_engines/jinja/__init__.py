@@ -38,7 +38,7 @@ class NestedUndefined(jinja2.Undefined):
 
 
 def propagate_errors_as_undefined(function):
-    """A filter decorator for propagating exceptions as undefined values."""
+    """Propagate exceptions as undefined values filter."""
     def wrapper(*args, **kwargs):
         """Filter wrapper."""
         try:
