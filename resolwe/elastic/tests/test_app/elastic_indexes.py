@@ -18,6 +18,7 @@ class TestSearchDocument(BaseDocument):
 
     field_name = Name()
     field_process_type = ProcessType()
+    none_test = dsl.Integer()
 
     class Meta:
         index = 'test_search'
@@ -27,6 +28,7 @@ class TestSearchIndex(BaseIndex):
     mapping = {
         'num': 'number',
         'field_name': 'name',
+        'none_test': 'this.does.not.exist',
     }
 
     queryset = TestModel.objects.all()

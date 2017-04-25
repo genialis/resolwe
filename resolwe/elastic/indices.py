@@ -182,7 +182,11 @@ class BaseIndex(object):
                     setattr(document, field, self.mapping[field](obj))
                     continue
 
-                object_attr = dict_dot(obj, self.mapping[field])
+                try:
+                    object_attr = dict_dot(obj, self.mapping[field])
+                except (KeyError, AttributeError):
+                    object_attr = None
+
                 if callable(object_attr):
                     # use method on object
                     setattr(document, field, object_attr(obj))
