@@ -50,7 +50,9 @@ setup(
     install_requires=[
         'Django~=1.10.5',
         'djangorestframework>=3.4.0',
-        'djangorestframework-filters>=0.9.1',
+        # XXX: Temporarily pin djangorestframework-filters since version 0.10.0
+        # requires django-filter 1.0 which breaks Resolwe
+        'djangorestframework-filters==0.9.1',
         'django-autoslug==1.9.4-dev',
         'django-guardian>=1.4.2',
         'django-mathfilters>=0.3.0',
