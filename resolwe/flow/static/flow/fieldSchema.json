@@ -63,7 +63,7 @@
                 },
                 "type": {
                     "type": "string",
-                    "pattern": "^(basic:(boolean|text|url:download|url:view|file|file:html|dir|json):$|data:$|data:[a-z0-9:]+:$)"
+                    "pattern": "^(basic:(boolean|text|date|datetime|url:download|url:view|file|file:html|dir|json):$|data:$|data:[a-z0-9:]+:$)"
                 },
                 "description": {
                     "type": "string"
@@ -102,7 +102,7 @@
                 },
                 "type": {
                     "type": "string",
-                    "pattern": "^basic:(date|datetime|decimal|integer|string):$"
+                    "pattern": "^basic:(decimal|integer|string):$"
                 },
                 "description": {
                     "type": "string"
@@ -170,7 +170,7 @@
                 },
                 "type": {
                     "type": "string",
-                    "pattern": "^list:(basic:(boolean|text|url:download|url:view):$|data:$|data:[a-z0-9:]+:$)"
+                    "pattern": "^list:(basic:(boolean|text|date|datetime|url:download|url:view|file|file:html|dir):$|data:$|data:[a-z0-9:]+:$)"
                 },
                 "description": {
                     "type": "string"
@@ -209,7 +209,7 @@
                 },
                 "type": {
                     "type": "string",
-                    "pattern": "^list:basic:(date|datetime|decimal|integer|string|file|file:html|dir):$"
+                    "pattern": "^list:basic:(decimal|integer|string):$"
                 },
                 "description": {
                     "type": "string"
