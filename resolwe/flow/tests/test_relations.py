@@ -224,6 +224,27 @@ class TestRelationsAPI(ResolweAPITestCase):
         self.add_entity_viewset(request, pk=self.relation_group.pk)
 
         self.assertEqual(self.relation_group.positioninrelation_set.count(), 3)
+        self.assertEqual(self.relation_group.positioninrelation_set.last().position, None)
+
+    def test_add_entity_with_position(self):
+        data = [{'entity': self.entity_3.pk, 'position': 'latest'}]
+
+        request = self.factory.post('', data=data, format='json')
+        force_authenticate(request, self.contributor)
+        self.add_entity_viewset(request, pk=self.relation_group.pk)
+
+        self.assertEqual(self.relation_group.positioninrelation_set.count(), 3)
+        self.assertEqual(self.relation_group.positioninrelation_set.last().position, 'latest')
+
+    def test_add_entity_position_none(self):
+        data = [{'entity': self.entity_3.pk, 'position': None}]
+
+        request = self.factory.post('', data=data, format='json')
+        force_authenticate(request, self.contributor)
+        self.add_entity_viewset(request, pk=self.relation_group.pk)
+
+        self.assertEqual(self.relation_group.positioninrelation_set.count(), 3)
+        self.assertEqual(self.relation_group.positioninrelation_set.last().position, None)
 
     def test_add_entity_missing_key(self):
         data = [{'foo': self.entity_3.pk}]

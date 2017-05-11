@@ -261,7 +261,7 @@ class StorageSerializer(ResolweBaseSerializer):
 class PositionInRelationSerializer(SelectiveFieldMixin, serializers.ModelSerializer):
     """Serializer for PositionInRelation objects."""
 
-    position = ProjectableJSONField(required=False)
+    position = ProjectableJSONField(allow_null=True, required=False)
 
     class Meta:
         """PositionInRelationSerializer Meta options."""
