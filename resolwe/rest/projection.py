@@ -57,6 +57,11 @@ def apply_subfield_projection(field, value, deep=False):
             else:
                 current_projection.append([item[current_level]])
 
+    if deep and not current_projection:
+        # For deep projections, an empty projection means that all fields should
+        # be returned without any projection.
+        return value
+
     # Apply projection.
     return apply_projection(current_projection, value)
 

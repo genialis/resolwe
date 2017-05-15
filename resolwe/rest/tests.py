@@ -37,6 +37,7 @@ class ProjectionTest(TestCase):
             },
             'another': 3,
         }
+        self.data_output = data_output
         self.data = Data.objects.create(name="Test data", contributor=self.contributor, process=process,
                                         output=data_output)
         self.data_2 = Data.objects.create(name="Test data 2", contributor=self.contributor, process=process,
@@ -66,6 +67,14 @@ class ProjectionTest(TestCase):
         self.assertEqual(len(data['data']), 2)
         for item in data['data']:
             six.assertCountEqual(self, item.keys(), ['name'])
+
+        # Test top-level JSON projection.
+        data = self.get_projection(['data__output'])[0]
+        six.assertCountEqual(self, data.keys(), ['data', 'permissions'])
+        self.assertEqual(len(data['data']), 2)
+        for item in data['data']:
+            six.assertCountEqual(self, item.keys(), ['output'])
+            self.assertEqual(item['output'], self.data_output)
 
         # Test nested projection into JSON.
         data = self.get_projection(['data__name', 'data__output__foo__bar'])[0]
