@@ -44,7 +44,7 @@ class AccessAPIFromExecutorProcessTestCase(TransactionProcessTestCase, LiveServe
         """
         process = Process.objects.create(
             name='Test accessing API from process',
-            requirements={'expression-engine': 'jinja'},
+            requirements={'expression-engine': 'jinja', 'resources': {'network': True}},
             contributor=self.contributor,
             type='data:test:api-access',
             input_schema=[],

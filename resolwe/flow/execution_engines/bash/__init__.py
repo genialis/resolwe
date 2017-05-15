@@ -23,10 +23,14 @@ class ExecutionEngine(BaseExecutionEngine):
             hydrate_input_references(inputs, data.process.input_schema)
             hydrate_input_uploads(inputs, data.process.input_schema)
 
+            # Include special 'proc' variable in the context.
             inputs['proc'] = {
                 'data_id': data.id,
                 'data_dir': settings.FLOW_EXECUTOR['DATA_DIR'],
             }
+
+            # Include special 'requirements' variable in the context.
+            inputs['requirements'] = data.process.requirements
 
             script_template = data.process.run.get('program', '')
 

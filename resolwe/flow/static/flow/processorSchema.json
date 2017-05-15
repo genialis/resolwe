@@ -114,6 +114,32 @@
                         }
                     },
                     "additionalProperties": false
+                },
+                "resources": {
+                    "description": "Resource requirements for this process",
+                    "type": "object",
+                    "properties": {
+                        "cores": {
+                            "description": "Number of CPU cores",
+                            "type": "integer"
+                        },
+                        "memory": {
+                            "description": "Amount of memory in megabytes",
+                            "type": "integer"
+                        },
+                        "temporary_storage": {
+                            "description": "Amount of temporary filesystem storage in megabytes",
+                            "type": "integer"
+                        },
+                        "output_storage": {
+                            "description": "Amount of output filesystem storage in megabytes",
+                            "type": "integer"
+                        },
+                        "network": {
+                            "description": "External network access",
+                            "type": "boolean"
+                        }
+                    }
                 }
             },
             "additionalProperties": false

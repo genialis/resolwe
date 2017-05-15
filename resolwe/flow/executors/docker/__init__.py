@@ -1,13 +1,16 @@
 """Docker workflow executor."""
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+import json
 import os
 import shlex
 import subprocess
+import tempfile
 
 from django.conf import settings
 
-from .local import FlowExecutor as LocalFlowExecutor
+from ..local import FlowExecutor as LocalFlowExecutor
+from .seccomp import SECCOMP_POLICY
 
 
 class FlowExecutor(LocalFlowExecutor):
@@ -20,6 +23,7 @@ class FlowExecutor(LocalFlowExecutor):
         super(FlowExecutor, self).__init__(*args, **kwargs)
 
         self.mappings_tools = None
+        self.policy_file = None
         self.command = getattr(settings, 'FLOW_DOCKER_COMMAND', 'docker')
 
     def start(self):
@@ -30,15 +34,66 @@ class FlowExecutor(LocalFlowExecutor):
             'container_image': self.requirements.get('image', settings.FLOW_EXECUTOR['CONTAINER_IMAGE']),
         }
 
+        # Get limit defaults and overrides.
+        limit_defaults = getattr(settings, 'FLOW_DOCKER_LIMIT_DEFAULTS', {})
+        limit_overrides = getattr(settings, 'FLOW_DOCKER_LIMIT_OVERRIDES', {})
+
+        # Set resource limits.
+        limits = []
+        if 'cores' in self.resources:
+            # Each core is equivalent to 1024 CPU shares. The default for Docker containers
+            # is 1024 shares (we don't need to explicitly set that).
+            limits.append('--cpu-shares={}'.format(int(self.resources['cores']) * 1024))
+
+        memory = limit_overrides.get('memory', {}).get(self.process.slug, None)
+        if memory is None:
+            memory = int(self.resources.get(
+                'memory',
+                # If no memory resource is configured, check settings.
+                limit_defaults.get('memory', 4096)
+            ))
+
+        # Set both memory and swap limits as we want to enforce the total amount of memory
+        # used (otherwise swap would not count against the limit).
+        limits.append('--memory={0}m --memory-swap={0}m'.format(memory))
+
+        command_args['limits'] = ' '.join(limits)
+
         # set container name
         container_name_prefix = getattr(settings, 'FLOW_EXECUTOR', {}).get('CONTAINER_NAME_PREFIX', 'resolwe')
         command_args['container_name'] = '--name={}_{}'.format(container_name_prefix, self.data_id)
 
-        # Configure Docker network mode for the container (if specified).
-        # By default, current Docker versions use the 'bridge' mode which
-        # creates a network stack on the default Docker bridge.
-        network = getattr(settings, 'FLOW_EXECUTOR', {}).get('NETWORK', '')
-        command_args['network'] = '--net={}'.format(network) if network else ''
+        if 'network' in self.resources:
+            # Configure Docker network mode for the container (if specified).
+            # By default, current Docker versions use the 'bridge' mode which
+            # creates a network stack on the default Docker bridge.
+            network = getattr(settings, 'FLOW_EXECUTOR', {}).get('NETWORK', '')
+            command_args['network'] = '--net={}'.format(network) if network else ''
+        else:
+            # No network if not specified.
+            command_args['network'] = '--net=none'
+
+        # Security options.
+        security = []
+
+        # Generate and set seccomp policy to limit syscalls.
+        self.policy_file = tempfile.NamedTemporaryFile(mode='w')
+        json.dump(SECCOMP_POLICY, self.policy_file)
+        self.policy_file.file.flush()
+        if not getattr(settings, 'FLOW_DOCKER_DISABLE_SECCOMP', False):
+            security.append('--security-opt seccomp={}'.format(self.policy_file.name))
+
+        # Drop all capabilities and only add ones that are needed.
+        security.append('--cap-drop=all')
+        # TODO: We should not required dac_override, but we need to fix permissions first (e.g., use --user).
+        security.append('--cap-add=dac_override')
+        # TODO: We should not require setuid/setgid, but we need to get rid of gosu first (e.g., use --user).
+        security.append('--cap-add=setuid')
+        security.append('--cap-add=setgid')
+        # TODO: We should not required chown, but we need to fix permissions first (e.g., use --user).
+        security.append('--cap-add=chown')
+
+        command_args['security'] = ' '.join(security)
 
         # render Docker mappings in FLOW_DOCKER_MAPPINGS setting
         mappings_template = getattr(settings, 'FLOW_DOCKER_MAPPINGS', [])
@@ -76,8 +131,8 @@ class FlowExecutor(LocalFlowExecutor):
 
         self.proc = subprocess.Popen(
             shlex.split(
-                '{command} run --rm --interactive {container_name} {network} {volumes} {envs} '
-                '{workdir} {container_image} {shell}'.format(**command_args)),
+                '{command} run --rm --interactive {container_name} {network} {volumes} {envs} {limits} '
+                '{security} {workdir} {container_image} {shell}'.format(**command_args)),
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             universal_newlines=True)
 
@@ -97,6 +152,9 @@ class FlowExecutor(LocalFlowExecutor):
     def end(self):
         """End process execution."""
         self.proc.wait()
+        if self.policy_file is not None:
+            self.policy_file.close()
+            self.policy_file = None
 
         return self.proc.returncode
 

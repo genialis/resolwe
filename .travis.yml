@@ -20,6 +20,8 @@ env:
     - RESOLWE_POSTGRESQL_USER=postgres
     - RESOLWE_POSTGRESQL_PORT=5432
     - RESOLWE_ES_PORT=9200
+    # We need to disable SECCOMP as it is not supported on Travis.
+    - RESOLWE_DOCKER_DISABLE_SECCOMP=1
 
 # NOTE: Explicit Python versions make Travis job description more informative
 matrix:
@@ -42,6 +44,8 @@ before_install:
   - curl -O https://download.elastic.co/elasticsearch/release/org/elasticsearch/distribution/deb/elasticsearch/2.4.3/elasticsearch-2.4.3.deb
   - sudo dpkg -i --force-confnew elasticsearch-2.4.3.deb
   - sudo service elasticsearch restart
+  # Show docker information.
+  - sudo docker info
 
 install: pip install tox
 

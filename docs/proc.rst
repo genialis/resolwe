@@ -151,6 +151,7 @@ Field                            Short description     Required Default
 :ref:`input <io>`                list of input fields  optional <empty list>
 :ref:`output <io>`               list of result fields optional <empty list>
 :ref:`run <run>`                 the algorithm         required
+:ref:`requirements <reqs>`       requirements          optional <empty dict>
 ================================ ===================== ======== ==============
 
 .. _slug:
@@ -260,6 +261,36 @@ The algorithm that transforms inputs into outputs. Bash runtime is supported,
 but we envision more runtimes in the future (`e.g.,` a Python or R runtime). Commands should be written to a ``bash`` subfield.
 
 TODO: link a few lines from the all_fields.yml process
+
+.. _reqs:
+
+Requirements
+------------
+
+A dictionary defining optional features that should be available in order for the process
+to run. There are several different types of requirements that may be specified:
+
+- ``expression-engine`` defines the name of the engine that should be used to evaluate
+  expressions embedded in the ``run`` section. Currently, only the ``jinja`` expression
+  engine is supported. By default no expression engine is set, so expressions cannot be
+  used and will be ignored.
+- ``executor`` defines executor-specific options. The value should be a dictionary,
+  where each key defines requirements for a specific executor. The following executor
+  requirements are available:
+
+  - ``docker``:
+
+    - ``image`` defines the name of the Docker container image that the process should
+      run under.
+- ``resources`` define resources that should be made available to the process. The
+  following resources may be requested:
+
+  - ``cores`` defines the number of CPU cores available to the process. By default, this
+    value is set to ``1`` core.
+  - ``memory`` defines the amount of memory (in megabytes) that the process may use. By
+    default, this value is set to ``4096`` MiB.
+  - ``network`` should be a boolean value, specifying whether the process requires network
+    access. By default this value is ``false``.
 
 Types
 =====

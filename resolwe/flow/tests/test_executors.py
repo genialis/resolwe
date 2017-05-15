@@ -159,3 +159,23 @@ class ManagerRunProcessTest(ProcessTestCase):
         data = self.run_process('test-save-number', {'number': 19}, assert_status=Data.STATUS_WAITING)
         self.assertEqual(data.input['number'], 19)
         self.assertEqual(data.output, {})
+
+    @with_docker_executor
+    def test_memory_resource(self):
+        # This process should be terminated due to too much memory usage.
+        self.run_process('test-memory-resource-alloc', assert_status=Data.STATUS_ERROR)
+        # This process should run normally (honors the limits).
+        self.run_process('test-memory-resource-noalloc')
+
+    @with_docker_executor
+    def test_cpu_resource(self):
+        # Currently there is no good way to test this reliably, so we just check if the
+        # resource limit specification still makes the process run.
+        self.run_process('test-cpu-resource-1core')
+        self.run_process('test-cpu-resource-2core')
+
+    @with_docker_executor
+    def test_network_resource(self):
+        self.run_process('test-network-resource-enabled')
+        self.run_process('test-network-resource-disabled', assert_status=Data.STATUS_ERROR)
+        self.run_process('test-network-resource-policy', assert_status=Data.STATUS_ERROR)

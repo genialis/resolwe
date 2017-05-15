@@ -64,7 +64,9 @@ class BaseFlowExecutor(BaseEngine):
         """Initialize attributes."""
         super(BaseFlowExecutor, self).__init__(*args, **kwargs)
         self.data_id = None
+        self.process = None
         self.requirements = {}
+        self.resources = {}
 
     def hydrate_spawned_files(self, filename, data_id):
         """Hydrate spawned files' paths."""
@@ -143,9 +145,10 @@ class BaseFlowExecutor(BaseEngine):
         self.data_id = data_id
 
         # Fetch data instance to get any executor requirements.
-        self.requirements = Data.objects.get(
-            pk=data_id
-        ).process.requirements.get('executor', {}).get(self.name, {})
+        self.process = Data.objects.get(pk=data_id).process
+        requirements = self.process.requirements
+        self.requirements = requirements.get('executor', {}).get(self.name, {})
+        self.resources = requirements.get('resources', {})
 
         data_dir = settings.FLOW_EXECUTOR['DATA_DIR']
         dir_mode = getattr(settings, 'FLOW_EXECUTOR', {}).get('DATA_DIR_MODE', 0o755)

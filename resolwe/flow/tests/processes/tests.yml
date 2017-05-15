@@ -328,3 +328,90 @@
       required: false
   run:
     program: "true"
+
+- slug: test-memory-resource-alloc
+  name: Test memory resource (allocation)
+  version: 1.0.0
+  type: "data:test:memory"
+  requirements:
+    resources:
+      # Limit memory to 10 MB.
+      memory: 10
+  run:
+    program: |
+      # Prevent everything from being output to stdout as in this case it
+      # will be a lot of data.
+      set +x
+
+      # Allocate around 200 MB.
+      for index in $(seq 310); do
+        value=$(seq -w -s '' $index $(($index + 100000)))
+        eval array$index=$value
+      done
+
+- slug: test-memory-resource-noalloc
+  name: Test memory resource (no allocation)
+  version: 1.0.0
+  type: "data:test:memory"
+  requirements:
+    resources:
+      # Limit memory to 10 MB.
+      memory: 10
+  run:
+    program: "true"
+
+- slug: test-cpu-resource-1core
+  name: Test CPU resource (1 core)
+  version: 1.0.0
+  type: "data:test:cpu"
+  requirements:
+    resources:
+      # Limit CPU to one core.
+      cores: 1
+  run:
+    program: "true"
+
+- slug: test-cpu-resource-2core
+  name: Test CPU resource (2 cores)
+  version: 1.0.0
+  type: "data:test:cpu"
+  requirements:
+    resources:
+      # Limit CPU to two cores.
+      cores: 2
+  run:
+    program: "true"
+
+- slug: test-network-resource-enabled
+  name: Test network resource (enabled)
+  version: 1.0.0
+  type: "data:test:network"
+  requirements:
+    resources:
+      network: true
+  run:
+    program: |
+      curl --connect-timeout 5 https://google.com
+
+- slug: test-network-resource-disabled
+  name: Test network resource (disabled)
+  version: 1.0.0
+  type: "data:test:network"
+  run:
+    program: |
+      curl --connect-timeout 5 https://google.com
+
+- slug: test-network-resource-policy
+  name: Test network resource (policy test)
+  version: 1.0.0
+  type: "data:test:network"
+  requirements:
+    executor:
+      docker:
+        image: "resolwe/test:base"
+    resources:
+      network: true
+  run:
+    program: |
+      # Should fail as raw sockets are not allowed.
+      ping -c 1 8.8.8.8

@@ -5,6 +5,7 @@ Django settings for running tests for Resolwe package.
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import os
+from distutils.util import strtobool  # pylint: disable=import-error,no-name-in-module
 
 PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
 
@@ -99,9 +100,14 @@ FLOW_EXECUTOR = {
     'DATA_DIR': os.path.join(PROJECT_ROOT, '.test_data'),
     'UPLOAD_DIR': os.path.join(PROJECT_ROOT, '.test_upload'),
 }
-# Set custom Docker command if set via environment variable
+
+# Set custom Docker command if set via environment variable.
 if 'RESOLWE_DOCKER_COMMAND' in os.environ:
     FLOW_DOCKER_COMMAND = os.environ['RESOLWE_DOCKER_COMMAND']
+
+# Disable SECCOMP if set via environment variable.
+FLOW_DOCKER_DISABLE_SECCOMP = strtobool(os.environ.get('RESOLWE_DOCKER_DISABLE_SECCOMP', '0'))
+
 FLOW_API = {
     'PERMISSIONS': 'resolwe.permissions.permissions',
 }
