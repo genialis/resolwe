@@ -103,7 +103,7 @@ class ManyToManyDependency(Dependency):
         signal.connect(m2m_changed, sender=self.field.through)
         return signal
 
-    def filter(self, obj):
+    def filter(self, obj, update_fields=None):
         """Determine if dependent object should be processed.
 
         If ``False`` is returned, processing of the dependent object will
@@ -111,7 +111,7 @@ class ManyToManyDependency(Dependency):
         """
         pass
 
-    def process(self, obj, pk_set=None, action=None, **kwargs):
+    def process(self, obj, pk_set=None, action=None, update_fields=None, **kwargs):
         """Process signals from dependencies."""
         if action not in (None, 'post_add', 'post_remove', 'post_clear'):
             return
@@ -131,7 +131,7 @@ class ManyToManyDependency(Dependency):
             self.index.build(obj)
         elif isinstance(obj, self.field.rel.to):
             # Check filter before rebuilding index.
-            if self.filter(obj) is False:
+            if self.filter(obj, update_fields=update_fields) is False:
                 return
 
             for instance in getattr(obj, self.field.rel.get_accessor_name()).all():

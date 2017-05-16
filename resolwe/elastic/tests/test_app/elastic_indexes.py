@@ -89,7 +89,7 @@ class TestModelWithFilterDependencyDocument(BaseDocument):
 
 
 class FilterHelloDependency(ManyToManyDependency):
-    def filter(self, obj):
+    def filter(self, obj, update_fields=None):
         return obj.name == 'hello'
 
 
