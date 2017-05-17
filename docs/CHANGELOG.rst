@@ -61,6 +61,7 @@ Fixed
 - Generate temporary names for upload files in tests
 - Fix permissions in Elasticsearch tests
 - Do not purge data in tests
+- Remove primary keys before using cached schemas' in process tests
 - Set appropriate SELinux labels when mounting tools in Docker containers
 - Data objects created by the workflow inherite it's permissions
 - If user doesn't have permissions on the latest versions of processes

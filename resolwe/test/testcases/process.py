@@ -92,7 +92,25 @@ class TransactionProcessTestCase(TransactionTestCase):
         global variable based on ``path`` key in ``kwargs``.
 
         """
-        Process.objects.all().delete()
+        def remove_pks(schemas):
+            """Remove primary keys from the given schemas."""
+            for s in schemas:
+                s.pk = None
+            return schemas
+
+        schemas_types = [
+            {
+                'name': 'processes',
+                'model': Process,
+            },
+            {
+                'name': 'descriptor_schemas',
+                'model': DescriptorSchema,
+            },
+        ]
+
+        for schemas in schemas_types:
+            schemas['model'].objects.all().delete()
 
         cache_key = json.dumps(kwargs)
         global SCHEMAS_FIXTURE_CACHE  # pylint: disable=global-statement
@@ -100,22 +118,26 @@ class TransactionProcessTestCase(TransactionTestCase):
             SCHEMAS_FIXTURE_CACHE = {}
 
         if cache_key in SCHEMAS_FIXTURE_CACHE:
-            process_schemas = SCHEMAS_FIXTURE_CACHE[cache_key]['processes']
-            self._update_schema_relations(process_schemas)
-            Process.objects.bulk_create(process_schemas)
-
-            descriptor_schemas = SCHEMAS_FIXTURE_CACHE[cache_key]['descriptor_schemas']
-            self._update_schema_relations(descriptor_schemas)
-            DescriptorSchema.objects.bulk_create(descriptor_schemas)
+            for schemas in schemas_types:
+                # NOTE: Schemas' current primary keys may not be unique on the next runs of
+                # processes' tests, therefore we must remove them and let the DB re-create them
+                # properly.
+                # WARNING: Cached schemas' primary keys will be set on every call to bulk_create(),
+                # therefore we need to remove them and let the DB re-create them every time. For
+                # more details, see:
+                # https://github.com/django/django/blob/1.10.7/django/db/models/query.py#L455-L456
+                schemas_cache = remove_pks(SCHEMAS_FIXTURE_CACHE[cache_key][schemas['name']])
+                self._update_schema_relations(schemas_cache)
+                schemas['model'].objects.bulk_create(schemas_cache)
         else:
             management.call_command('register', force=True, testing=True, verbosity='0', **kwargs)
 
             if cache_key not in SCHEMAS_FIXTURE_CACHE:
                 SCHEMAS_FIXTURE_CACHE[cache_key] = {}
 
-            # list forces db query execution
-            SCHEMAS_FIXTURE_CACHE[cache_key]['processes'] = list(Process.objects.all())
-            SCHEMAS_FIXTURE_CACHE[cache_key]['descriptor_schemas'] = list(DescriptorSchema.objects.all())
+            # NOTE: list() forces DB query execution
+            for schemas in schemas_types:
+                SCHEMAS_FIXTURE_CACHE[cache_key][schemas['name']] = list(schemas['model'].objects.all())
 
     def _create_collection(self):
         """Create a test collection for admin user.
