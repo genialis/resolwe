@@ -51,9 +51,9 @@ class IndexViewsetTest(APITestCase, ElasticSearchTestCase):
         test_obj_3 = TestModel.objects.create(name='Object name 3', number=45)
 
         # Assing permissions
-        assign_perm('view_model', self.user_1, test_obj_1)
-        assign_perm('view_model', group, test_obj_2)
-        assign_perm('view_model', AnonymousUser(), test_obj_3)
+        assign_perm('view_testmodel', self.user_1, test_obj_1)
+        assign_perm('view_testmodel', group, test_obj_2)
+        assign_perm('view_testmodel', AnonymousUser(), test_obj_3)
 
         # Prepare test viewset
         self.test_viewset = TestViewSet.as_view(actions={
@@ -127,3 +127,36 @@ class IndexViewsetTest(APITestCase, ElasticSearchTestCase):
 
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]['name'], 'Object name 1')
+
+    def test_combined_viewset(self):
+        from .test_app.viewsets import TestCombinedViewSet
+
+        viewset = TestCombinedViewSet.as_view(actions={
+            'get': 'list'
+        })
+
+        # Test database-only access.
+        request = factory.get('', {}, format='json')
+        force_authenticate(request, self.user_1)
+        response = viewset(request)
+
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['name'], 'Object name 1')
+        self.assertEqual(response.data[0]['field_process_type'], '')
+        self.assertEqual(response.data[0]['number'], 43)
+
+        # Test combined access.
+        request = factory.get('', {'name': '43'}, format='json')
+        force_authenticate(request, self.user_1)
+        response = viewset(request)
+
+        self.assertEqual(len(response.data), 0)
+
+        request = factory.get('', {'name': '1'}, format='json')
+        force_authenticate(request, self.user_1)
+        response = viewset(request)
+
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['name'], 'Object name 1')
+        self.assertEqual(response.data[0]['field_process_type'], '')
+        self.assertEqual(response.data[0]['number'], 43)

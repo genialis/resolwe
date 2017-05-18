@@ -8,8 +8,8 @@ class TestModel(models.Model):
 
     class Meta:
         permissions = (
-            ("view_model", "Can view model"),
-            ("edit_model", "Can edit model"),
+            ('view_testmodel', "Can view model"),
+            ('edit_testmodel', "Can edit model"),
         )
 
     name = models.CharField(max_length=30)

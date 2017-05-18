@@ -12,6 +12,7 @@ from .models import TestModel, TestModelWithDependency
 
 class TestSearchDocument(BaseDocument):
     # pylint: disable=no-member
+    id = dsl.Integer()  # pylint: disable=invalid-name
     name = dsl.String()
     num = dsl.Integer()
     json = dsl.Object()

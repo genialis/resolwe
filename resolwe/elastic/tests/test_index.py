@@ -182,9 +182,9 @@ class IndexTest(ElasticSearchTestCase):
 
         # Create test object
         test_obj = TestModel.objects.create(name='Object name', number=43)
-        assign_perm('view_model', user_1, test_obj)
-        assign_perm('view_model', user_2, test_obj)
-        assign_perm('view_model', group, test_obj)
+        assign_perm('view_testmodel', user_1, test_obj)
+        assign_perm('view_testmodel', user_2, test_obj)
+        assign_perm('view_testmodel', group, test_obj)
 
         es_objects = TestSearchDocument.search().execute()
         self.assertEqual(es_objects[0].users_with_permissions, [user_1.pk, user_2.pk])
@@ -192,8 +192,8 @@ class IndexTest(ElasticSearchTestCase):
         self.assertEqual(es_objects[0].public_permission, False)
 
         # Change permissions
-        remove_perm('view_model', user_2, test_obj)
-        assign_perm('view_model', user_3, test_obj)
+        remove_perm('view_testmodel', user_2, test_obj)
+        assign_perm('view_testmodel', user_3, test_obj)
 
         es_objects = TestSearchDocument.search().execute()
         self.assertEqual(es_objects[0].users_with_permissions, [user_1.pk, user_3.pk])
@@ -201,7 +201,7 @@ class IndexTest(ElasticSearchTestCase):
         self.assertEqual(es_objects[0].public_permission, False)
 
         # Change permissions
-        assign_perm('view_model', AnonymousUser(), test_obj)
+        assign_perm('view_testmodel', AnonymousUser(), test_obj)
 
         es_objects = TestSearchDocument.search().execute()
         self.assertEqual(es_objects[0].public_permission, True)

@@ -29,7 +29,7 @@ class Migration(migrations.Migration):
                 ('number', models.IntegerField()),
             ],
             options={
-                'permissions': (('view_model', 'Can view model'), ('edit_model', 'Can edit model')),
+                'permissions': (('view_testmodel', 'Can view model'), ('edit_testmodel', 'Can edit model')),
             },
         ),
         migrations.CreateModel(

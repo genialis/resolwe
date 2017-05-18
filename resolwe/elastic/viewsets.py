@@ -172,8 +172,8 @@ class ElasticSearchBaseViewSet(PaginationMixin, ElasticSearchMixin, GenericViewS
         """
         return search
 
-    def list_with_post(self, request):
-        """Endpoint handler."""
+    def search(self):
+        """Handle the search request."""
         search = self.document_class().search()  # pylint: disable=not-callable
 
         search = self.custom_filter(search)
@@ -190,8 +190,77 @@ class ElasticSearchBaseViewSet(PaginationMixin, ElasticSearchMixin, GenericViewS
                 raise TooManyResults()
 
         search = search.extra(size=ELASTICSEARCH_SIZE)
+        return search
 
+    def list_with_post(self, request):
+        """Endpoint handler."""
+        search = self.search()
         return self.paginate_response(search)
+
+    def list(self, request):
+        """Endpoint handler."""
+        return self.list_with_post(request)
+
+
+class ElasticSearchCombinedViewSet(ElasticSearchBaseViewSet):
+    """ViewSet, which combines database and ES queries.
+
+    To use this viewset, you should mixin the viewset that handles
+    the database part, for example:
+
+    .. code:: python
+
+        class MyCombinedViewSet(ElasticSearchCombinedViewSet, MyViewSet):
+            # ...
+
+    Whenever any of the filters declared in ``filtering_fields`` are
+    used, the search part is used. Otherwise, only the database part is
+    used. In both cases, search results are only used to get the primary
+    keys to filter the database query.
+
+    In order for this to work, your index must store the primary key
+    in a field (by default it should be called ``id``). You can change
+    this by setting ``primary_key_field``.
+    """
+
+    primary_key_field = 'id'
+
+    def is_search_request(self):
+        """Check if current request is a search request."""
+        return any([
+            self.get_query_param(field, None) is not None
+            for field in self.filtering_fields
+        ])
+
+    def list_with_post(self, request):
+        """Endpoint handler."""
+        if self.is_search_request():
+            search = self.search()
+
+            page = self.paginate_queryset(search)
+            if page is None:
+                items = search
+            else:
+                items = page
+
+            try:
+                queryset = self.get_queryset().filter(
+                    pk__in=[item[self.primary_key_field] for item in items]
+                )
+            except KeyError:
+                raise KeyError("Combined viewset requires that your index contains a field with "
+                               "the primary key. By default this field is called 'id', but you "
+                               "can change it by setting primary_key_field.")
+
+            # Pagination must be handled differently.
+            serializer = self.get_serializer(queryset, many=True)
+            if page is not None:
+                return self.get_paginated_response(serializer.data)
+
+            return Response(serializer.data)
+        else:
+            queryset = self.filter_queryset(self.get_queryset())
+            return self.paginate_response(queryset)
 
     def list(self, request):
         """Endpoint handler."""
