@@ -159,7 +159,7 @@ def validate_schema(instance, schema, test_required=True, path_prefix=None):
             except jsonschema.exceptions.ValidationError as ex:
                 raise ValidationError(ex.message)
 
-            choices = _schema.get('choices', [])
+            choices = [choice['value'] for choice in _schema.get('choices', [])]
             allow_custom_choice = _schema.get('allow_custom_choice', False)
             if choices and not allow_custom_choice and field not in choices:
                 raise ValidationError(

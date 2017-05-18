@@ -276,7 +276,11 @@ class ValidationUnitTest(TestCase):
 
     def test_choices(self):
         schema = [
-            {'name': 'value', 'type': 'basic:integer:', 'choices': [7, 13]},
+            {
+                'name': 'value',
+                'type': 'basic:integer:',
+                'choices': [{'value': 7, 'label': '7'}, {'value': 13, 'label': '13'}]
+            },
         ]
 
         instance = {'value': 7}
@@ -287,7 +291,12 @@ class ValidationUnitTest(TestCase):
             validate_schema(instance, schema)
 
         schema = [
-            {'name': 'value', 'type': 'basic:integer:', 'choices': [7, 13], 'allow_custom_choice': True},
+            {
+                'name': 'value',
+                'type': 'basic:integer:',
+                'choices': [{'value': 7, 'label': '7'}, {'value': 13, 'label': '13'}],
+                'allow_custom_choice': True
+            },
         ]
 
         instance = {'value': 7}
