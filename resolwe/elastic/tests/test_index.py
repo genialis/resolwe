@@ -9,7 +9,7 @@ import six
 from django.apps import apps
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Group
+from django.contrib.auth.models import AnonymousUser, Group
 from django.core.management import call_command
 from django.test import override_settings
 
@@ -189,6 +189,7 @@ class IndexTest(ElasticSearchTestCase):
         es_objects = TestSearchDocument.search().execute()
         self.assertEqual(es_objects[0].users_with_permissions, [user_1.pk, user_2.pk])
         self.assertEqual(es_objects[0].groups_with_permissions, [group.pk])
+        self.assertEqual(es_objects[0].public_permission, False)
 
         # Change permissions
         remove_perm('view_model', user_2, test_obj)
@@ -197,6 +198,13 @@ class IndexTest(ElasticSearchTestCase):
         es_objects = TestSearchDocument.search().execute()
         self.assertEqual(es_objects[0].users_with_permissions, [user_1.pk, user_3.pk])
         self.assertEqual(es_objects[0].groups_with_permissions, [group.pk])
+        self.assertEqual(es_objects[0].public_permission, False)
+
+        # Change permissions
+        assign_perm('view_model', AnonymousUser(), test_obj)
+
+        es_objects = TestSearchDocument.search().execute()
+        self.assertEqual(es_objects[0].public_permission, True)
 
     def test_field_name(self):
         from .test_app.models import TestModel

@@ -29,6 +29,7 @@ from six import add_metaclass
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 
+from guardian.conf.settings import ANONYMOUS_USER_NAME
 from guardian.models import GroupObjectPermission, UserObjectPermission
 
 from resolwe.flow.utils import dict_dot
@@ -68,6 +69,9 @@ class BaseDocument(dsl.DocType):
 
     #: list of group ids with view permission on the object
     groups_with_permissions = dsl.String(multi=True)
+
+    #: identifies if object has public view permission assigned
+    public_permission = dsl.Boolean()
 
 
 class BaseIndex(object):
@@ -208,6 +212,7 @@ class BaseIndex(object):
         permissions = self.get_permissions(obj)
         document.users_with_permissions = permissions['users']
         document.groups_with_permissions = permissions['groups']
+        document.public_permission = permissions['public']
 
         if push:
             document.save(refresh=True)
@@ -260,14 +265,19 @@ class BaseIndex(object):
         contain list of ids of users/groups with ``view`` permission.
         """
         # TODO: Optimize this for bulk running
-        obj_ctype = ContentType.objects.get_for_model(obj)
+        filters = {
+            'object_pk': obj.id,
+            'content_type': ContentType.objects.get_for_model(obj),
+            'permission__codename__startswith': 'view',
+        }
         return {
-            'users': list(UserObjectPermission.objects.filter(
-                object_pk=obj.id, content_type=obj_ctype, permission__codename__startswith='view'
-            ).distinct('user').values_list('user_id', flat=True)),
-            'groups': list(GroupObjectPermission.objects.filter(
-                object_pk=obj.id, content_type=obj_ctype, permission__codename__startswith='view'
-            ).distinct('group').values_list('group', flat=True)),
+            'users': list(
+                UserObjectPermission.objects.filter(**filters).distinct('user').values_list('user_id', flat=True)
+            ),
+            'groups': list(
+                GroupObjectPermission.objects.filter(**filters).distinct('group').values_list('group', flat=True)
+            ),
+            'public': UserObjectPermission.objects.filter(user__username=ANONYMOUS_USER_NAME, **filters).exists(),
         }
 
     def get_dependencies(self):

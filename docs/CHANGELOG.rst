@@ -33,7 +33,7 @@ Added
 - Support ordering by version for descriptor schema
 - Support process test case based on Resolwe's ``TransactionTestCase``
 - Add Null executor
-- If ``choices`` are defined in JSON schema, value of field is 
+- If ``choices`` are defined in JSON schema, value of field is
   validated with them
 
 Changed
@@ -70,6 +70,7 @@ Fixed
   database
 - Data objects returned in `CollectionViewset` and `EntityViewset` are
   filtered by permissions of user in request
+- Public permissions are taken into account in elastic app
 
 
 ==================

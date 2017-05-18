@@ -120,6 +120,7 @@ class ElasticSearchMixin(object):
         filters.extend([
             Q('match', groups_with_permissions=group.pk) for group in user.groups.all()
         ])
+        filters.append(Q('match', public_permission=True))
 
         # `minimum_should_match` is set to 1 by default
         return search.query('bool', should=filters)

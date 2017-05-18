@@ -4,7 +4,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from django.apps import apps
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Group
+from django.contrib.auth.models import AnonymousUser, Group
 from django.core.management import call_command
 from django.test import override_settings
 
@@ -48,10 +48,12 @@ class IndexViewsetTest(APITestCase, ElasticSearchTestCase):
         # Prepare test data
         test_obj_1 = TestModel.objects.create(name='Object name 1', number=43)
         test_obj_2 = TestModel.objects.create(name='Object name 2', number=44)
+        test_obj_3 = TestModel.objects.create(name='Object name 3', number=45)
 
         # Assing permissions
         assign_perm('view_model', self.user_1, test_obj_1)
         assign_perm('view_model', group, test_obj_2)
+        assign_perm('view_model', AnonymousUser(), test_obj_3)
 
         # Prepare test viewset
         self.test_viewset = TestViewSet.as_view(actions={
@@ -67,17 +69,28 @@ class IndexViewsetTest(APITestCase, ElasticSearchTestCase):
         request = factory.post('', {}, format='json')
         force_authenticate(request, self.user_1)
         response = self.test_viewset(request)
+        response = sorted(response.data, key=lambda obj: obj['name'])
 
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]['name'], 'Object name 1')
+        self.assertEqual(len(response), 2)
+        self.assertEqual(response[0]['name'], 'Object name 1')
+        self.assertEqual(response[1]['name'], 'Object name 3')
 
         # Second user
         request = factory.post('', {}, format='json')
         force_authenticate(request, self.user_2)
         response = self.test_viewset(request)
+        response = sorted(response.data, key=lambda obj: obj['name'])
+
+        self.assertEqual(len(response), 2)
+        self.assertEqual(response[0]['name'], 'Object name 2')
+        self.assertEqual(response[1]['name'], 'Object name 3')
+
+        # Public user
+        request = factory.post('', {}, format='json')
+        response = self.test_viewset(request)
 
         self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]['name'], 'Object name 2')
+        self.assertEqual(response.data[0]['name'], 'Object name 3')
 
     def test_without_ordering(self):
         from .test_app.viewsets import TestEmptyOrderingViewSet
@@ -89,9 +102,11 @@ class IndexViewsetTest(APITestCase, ElasticSearchTestCase):
         request = factory.post('', {}, format='json')
         force_authenticate(request, self.user_1)
         response = viewset(request)
+        response = sorted(response.data, key=lambda obj: obj['name'])
 
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]['name'], 'Object name 1')
+        self.assertEqual(len(response), 2)
+        self.assertEqual(response[0]['name'], 'Object name 1')
+        self.assertEqual(response[1]['name'], 'Object name 3')
 
     def test_custom_filter(self):
         from .test_app.viewsets import TestCustomFieldFilterViewSet
