@@ -274,6 +274,28 @@ class ValidationUnitTest(TestCase):
         instance = {}
         validate_schema(instance, schema, test_required=False)
 
+    def test_choices(self):
+        schema = [
+            {'name': 'value', 'type': 'basic:integer:', 'choices': [7, 13]},
+        ]
+
+        instance = {'value': 7}
+        validate_schema(instance, schema)
+
+        instance = {'value': 8}
+        with six.assertRaisesRegex(self, ValidationError, 'Value must match one of predefined choices.'):
+            validate_schema(instance, schema)
+
+        schema = [
+            {'name': 'value', 'type': 'basic:integer:', 'choices': [7, 13], 'allow_custom_choice': True},
+        ]
+
+        instance = {'value': 7}
+        validate_schema(instance, schema)
+
+        instance = {'value': 8}
+        validate_schema(instance, schema)
+
     def test_missing_in_schema(self):
         schema = [
             {'name': 'result', 'type': 'basic:integer:', 'required': False}
