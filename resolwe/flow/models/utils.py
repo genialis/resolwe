@@ -163,7 +163,9 @@ def validate_schema(instance, schema, test_required=True, path_prefix=None):
             allow_custom_choice = _schema.get('allow_custom_choice', False)
             if choices and not allow_custom_choice and field not in choices:
                 raise ValidationError(
-                    "Value must match one of predefined choices.")
+                    "Value of field '{}' must match one of predefined choices. "
+                    "Current value: {}".format(name, field)
+                )
 
             if type_ == 'basic:file:':
                 validate_file(field, _schema.get('validate_regex'))

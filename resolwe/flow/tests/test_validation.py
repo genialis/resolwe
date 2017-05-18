@@ -287,7 +287,8 @@ class ValidationUnitTest(TestCase):
         validate_schema(instance, schema)
 
         instance = {'value': 8}
-        with six.assertRaisesRegex(self, ValidationError, 'Value must match one of predefined choices.'):
+        error_msg = "Value of field 'value' must match one of predefined choices. Current value: 8"
+        with six.assertRaisesRegex(self, ValidationError, error_msg):
             validate_schema(instance, schema)
 
         schema = [
