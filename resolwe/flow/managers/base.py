@@ -114,8 +114,6 @@ class BaseManager(object):
                         continue
 
                     elif dep_status != Data.STATUS_DONE:
-                        data.status = Data.STATUS_RESOLVING
-                        data.save()
                         continue
 
                     if data.process.run:
