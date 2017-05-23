@@ -36,6 +36,10 @@ def dependency_status(data):
             name = field_schema['name']
             value = fields[name]
 
+            # None values are valid and should be ignored.
+            if value is None:
+                continue
+
             if field_schema['type'].lower().startswith('data:'):
                 value = [value]
 

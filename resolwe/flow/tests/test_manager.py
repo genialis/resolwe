@@ -62,3 +62,25 @@ class TestManager(TransactionProcessTestCase):
 
         # Created and spawned objects should be done.
         self.assertEqual(Data.objects.filter(status=Data.STATUS_DONE).count(), 6)
+
+    def test_dependencies(self):
+        """Test that manager handles dependencies correctly."""
+        process_parent = Process.objects.filter(slug='test-dependency-parent').latest()
+        process_child = Process.objects.filter(slug='test-dependency-child').latest()
+        data_parent = Data.objects.create(name='Test parent', contributor=self.contributor,
+                                          process=process_parent)
+        data_child1 = Data.objects.create(name='Test child', contributor=self.contributor,
+                                          process=process_child, input={})
+        data_child2 = Data.objects.create(name='Test child', contributor=self.contributor,
+                                          process=process_child, input={'parent': data_parent.pk})
+        data_child3 = Data.objects.create(name='Test child', contributor=self.contributor,
+                                          process=process_child, input={'parent': None})
+
+        data_parent.refresh_from_db()
+        data_child1.refresh_from_db()
+        data_child2.refresh_from_db()
+        data_child3.refresh_from_db()
+        self.assertEqual(data_parent.status, Data.STATUS_DONE)
+        self.assertEqual(data_child1.status, Data.STATUS_DONE)
+        self.assertEqual(data_child2.status, Data.STATUS_DONE)
+        self.assertEqual(data_child3.status, Data.STATUS_DONE)

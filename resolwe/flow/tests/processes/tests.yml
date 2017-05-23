@@ -309,3 +309,22 @@
   run:
     program: |
       re-save number {{ number }}
+
+- slug: test-dependency-parent
+  name: Test dependency - parent
+  version: 1.0.0
+  type: "data:test:dependency:parent"
+  run:
+    program: "true"
+
+- slug: test-dependency-child
+  name: Test dependency - child
+  version: 1.0.0
+  type: "data:test:dependency:child"
+  input:
+    - name: parent
+      label: Parent
+      type: "data:test:dependency:parent"
+      required: false
+  run:
+    program: "true"
