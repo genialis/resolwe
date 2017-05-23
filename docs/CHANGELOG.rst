@@ -74,6 +74,7 @@ Fixed
 - Data objects returned in `CollectionViewset` and `EntityViewset` are
   filtered by permissions of user in request
 - Public permissions are taken into account in elastic app
+- Treat ``None`` field value as if the field is missing
 
 
 ==================

@@ -268,6 +268,9 @@ class ValidationUnitTest(TestCase):
         instance = {'value': 42, 'description': 'universal answer'}
         validate_schema(instance, schema)
 
+        instance = {'value': 42, 'description': 'universal answer', 'comment': None}
+        validate_schema(instance, schema)
+
         instance = {'value': 42, 'description': 'test', 'comment': 'Lorem ipsum'}
         validate_schema(instance, schema)
 

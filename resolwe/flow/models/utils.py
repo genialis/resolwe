@@ -145,14 +145,19 @@ def validate_schema(instance, schema, test_required=True, path_prefix=None):
     dirty_fields = []
     for _schema, _fields, _ in iterate_schema(instance, schema):
         name = _schema['name']
+        is_required = _schema.get('required', True)
 
-        if test_required and _schema.get('required', True) and name not in _fields:
+        if test_required and is_required and name not in _fields:
             is_dirty = True
             dirty_fields.append(name)
 
         if name in _fields:
             field = _fields[name]
             type_ = _schema.get('type', "")
+
+            # Treat None as if the field is missing.
+            if not is_required and field is None:
+                continue
 
             try:
                 jsonschema.validate([{"type": type_, "value": field}], TYPE_SCHEMA)
