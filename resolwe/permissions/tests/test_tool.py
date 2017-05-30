@@ -3,7 +3,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 from rest_framework import status
 
-from resolwe.flow.models import Collection, Process
+from resolwe.flow.models import Process
 from resolwe.flow.views import ProcessViewSet
 from resolwe.test import ResolweAPITestCase
 
@@ -53,33 +53,3 @@ class ProcessTestCase(ResolweAPITestCase):
     def test_delete(self):
         resp = self._delete(1, self.admin)
         self.assertEqual(resp.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
-
-    def test_collection_processes(self):
-        data = {'collections': {'add': ['1']}}
-
-        # add new `process` to `collection`
-        self.assertFalse(Collection.objects.get(pk=1).public_processes.filter(pk=self.process1.pk).exists())
-        resp = self._detail_permissions(1, data, self.user1)
-        self.assertEqual(resp.status_code, 200)
-        self.process1.refresh_from_db()
-        self.assertTrue(Collection.objects.get(pk=1).public_processes.filter(pk=self.process1.pk).exists())
-
-        data = {'collections': {'remove': ['1']}}
-
-        # remove existing `process` from `collection`
-        resp = self._detail_permissions(1, data, self.user1)
-        self.assertEqual(resp.status_code, 200)
-        self.process1.refresh_from_db()
-        self.assertFalse(Collection.objects.get(pk=1).public_processes.filter(pk=self.process1.pk).exists())
-
-        # remove non-existent `process` from `collection`
-        resp = self._detail_permissions(1, data, self.user1)
-        self.assertEqual(resp.status_code, 200)
-
-        data = {'collections': {'add': ['42', '1']}}
-
-        # combination of valid and invalid `collection`s
-        self.assertFalse(Collection.objects.get(pk=1).public_processes.filter(pk=self.process1.pk).exists())
-        resp = self._detail_permissions(1, data, self.user1)
-        self.assertEqual(resp.status_code, 200)
-        self.assertTrue(Collection.objects.get(pk=1).public_processes.filter(pk=self.process1.pk).exists())

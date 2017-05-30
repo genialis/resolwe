@@ -9,7 +9,6 @@ from rest_framework import status
 from rest_framework.decorators import detail_route, list_route
 from rest_framework.response import Response
 
-from resolwe.flow.models import Collection
 from resolwe.permissions.shortcuts import get_object_perms
 
 from .utils import check_owner_permission, check_public_permissions, check_user_permissions, update_permission
@@ -77,25 +76,3 @@ class ResolwePermissionsMixin(object):
         """Batch get or set permissions API endpoint."""
         # TODO: Implement batch get/set permissions
         return Response(status=status.HTTP_501_NOT_IMPLEMENTED)
-
-
-class ResolweProcessPermissionsMixin(ResolwePermissionsMixin):
-    """Process permissions mixin."""
-
-    def _update_permission(self, obj, data):
-        """Update collection permissions."""
-        super(ResolweProcessPermissionsMixin, self)._update_permission(obj, data)
-
-        if 'collections' in data:
-            if 'add' in data['collections']:
-                for _id in data['collections']['add']:
-                    try:
-                        Collection.objects.get(pk=_id).public_processes.add(obj)
-                    except Collection.DoesNotExist:
-                        pass
-            if 'remove' in data['collections']:
-                for _id in data['collections']['remove']:
-                    try:
-                        Collection.objects.get(pk=_id).public_processes.remove(obj)
-                    except Collection.DoesNotExist:
-                        pass

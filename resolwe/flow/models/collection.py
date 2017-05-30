@@ -21,8 +21,6 @@ class BaseCollection(BaseModel):
 
     settings = JSONField(default=dict)
 
-    public_processes = models.ManyToManyField('flow.Process')
-
     data = models.ManyToManyField('flow.Data')
 
     #: collection descriptor schema

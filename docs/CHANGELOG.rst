@@ -57,6 +57,8 @@ Changed
 - Outputs of Data objects with status ``Error`` are not validated
 - Superusers are no longer included in response in ``permissions``
   endpoint of resources
+- Remove ``public_processes`` field from the ``Collection`` model as it
+  is never used
 
 Fixed
 -----

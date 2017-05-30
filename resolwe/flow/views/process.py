@@ -7,7 +7,7 @@ from resolwe.flow.filters import ProcessFilter
 from resolwe.flow.models import Process
 from resolwe.flow.serializers import ProcessSerializer
 from resolwe.permissions.loader import get_permissions_class
-from resolwe.permissions.mixins import ResolweProcessPermissionsMixin
+from resolwe.permissions.mixins import ResolwePermissionsMixin
 
 from .mixins import ResolweCheckSlugMixin, ResolweCreateModelMixin
 
@@ -15,7 +15,7 @@ from .mixins import ResolweCheckSlugMixin, ResolweCreateModelMixin
 class ProcessViewSet(ResolweCreateModelMixin,
                      mixins.RetrieveModelMixin,
                      mixins.ListModelMixin,
-                     ResolweProcessPermissionsMixin,
+                     ResolwePermissionsMixin,
                      ResolweCheckSlugMixin,
                      viewsets.GenericViewSet):
     """API view for :class:`Process` objects."""
