@@ -6,7 +6,7 @@ from rest_framework import mixins, viewsets
 from resolwe.flow.filters import ProcessFilter
 from resolwe.flow.models import Process
 from resolwe.flow.serializers import ProcessSerializer
-from resolwe.permissions.loader import permissions_cls
+from resolwe.permissions.loader import get_permissions_class
 from resolwe.permissions.mixins import ResolweProcessPermissionsMixin
 
 from .mixins import ResolweCheckSlugMixin, ResolweCreateModelMixin
@@ -22,7 +22,7 @@ class ProcessViewSet(ResolweCreateModelMixin,
 
     queryset = Process.objects.all().prefetch_related('contributor')
     serializer_class = ProcessSerializer
-    permission_classes = (permissions_cls,)
+    permission_classes = (get_permissions_class(),)
     filter_class = ProcessFilter
     ordering_fields = ('id', 'created', 'modified', 'name', 'version')
     ordering = ('id',)

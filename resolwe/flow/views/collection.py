@@ -10,8 +10,9 @@ from rest_framework.response import Response
 from resolwe.flow.filters import CollectionFilter
 from resolwe.flow.models import Collection, Data
 from resolwe.flow.serializers import CollectionSerializer
-from resolwe.permissions.loader import permissions_cls
+from resolwe.permissions.loader import get_permissions_class
 from resolwe.permissions.mixins import ResolwePermissionsMixin
+from resolwe.permissions.utils import remove_permission, update_permission
 
 from .mixins import ResolweCheckSlugMixin, ResolweCreateModelMixin, ResolweUpdateModelMixin
 
@@ -32,10 +33,23 @@ class CollectionViewSet(ResolweCreateModelMixin,
         Prefetch('data', queryset=Data.objects.all().order_by('id'))
     )
     serializer_class = CollectionSerializer
-    permission_classes = (permissions_cls,)
+    permission_classes = (get_permissions_class(),)
     filter_class = CollectionFilter
     ordering_fields = ('id', 'created', 'modified', 'name')
     ordering = ('id',)
+
+    def set_content_permissions(self, user, obj, payload):
+        """Apply permissions to data objects and entities in ``Collection``."""
+        for entity in obj.entity_set.all():
+            if user.has_perm('share_entity', entity):
+                update_permission(entity, payload)
+
+        # Data doesn't have "ADD" permission, so it has to be removed
+        payload = remove_permission(payload, 'add')
+
+        for data in obj.data.all():
+            if user.has_perm('share_data', data):
+                update_permission(data, payload)
 
     @detail_route(methods=[u'post'])
     def add_data(self, request, pk=None):

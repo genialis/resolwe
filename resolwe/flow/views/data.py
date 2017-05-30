@@ -13,7 +13,7 @@ from resolwe.flow.managers import manager
 from resolwe.flow.models import Collection, Data, Process
 from resolwe.flow.serializers import DataSerializer
 from resolwe.flow.utils import dict_dot, get_data_checksum, iterate_schema
-from resolwe.permissions.loader import permissions_cls
+from resolwe.permissions.loader import get_permissions_class
 from resolwe.permissions.mixins import ResolwePermissionsMixin
 from resolwe.permissions.shortcuts import get_objects_for_user
 
@@ -32,7 +32,7 @@ class DataViewSet(ResolweCreateModelMixin,
 
     queryset = Data.objects.all().prefetch_related('process', 'descriptor_schema', 'contributor')
     serializer_class = DataSerializer
-    permission_classes = (permissions_cls,)
+    permission_classes = (get_permissions_class(),)
     filter_class = DataFilter
     ordering_fields = ('id', 'created', 'modified', 'started', 'finished', 'name')
     ordering = ('id',)

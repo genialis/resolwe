@@ -11,6 +11,7 @@ from rest_framework.response import Response
 from resolwe.flow.filters import EntityFilter
 from resolwe.flow.models import Collection, Data, Entity
 from resolwe.flow.serializers import EntitySerializer
+from resolwe.permissions.utils import remove_permission, update_permission
 
 from .collection import CollectionViewSet
 
@@ -41,6 +42,15 @@ class EntityViewSet(CollectionViewSet):
                 raise exceptions.PermissionDenied()
             else:
                 raise exceptions.NotFound()
+
+    def set_content_permissions(self, user, obj, payload):
+        """Apply permissions to data objects in ``Entity``."""
+        # Data doesn't have "ADD" permission, so it has to be removed
+        payload = remove_permission(payload, 'add')
+
+        for data in obj.data.all():
+            if user.has_perm('share_data', data):
+                update_permission(data, payload)
 
     @detail_route(methods=[u'post'])
     def add_to_collection(self, request, pk=None):

@@ -40,6 +40,8 @@ Added
 - Add cpu core, memory and network resource limits
 - Add scheduling class for processes (interactive, batch), which replaces
   the previously unused process priority field
+- Add ``share_content`` flag to the collection and entity permissions
+  endpoint to also share the content of the coresponding object
 
 Changed
 -------

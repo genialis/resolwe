@@ -10,12 +10,14 @@ from guardian.models import GroupObjectPermission, UserObjectPermission
 from guardian.shortcuts import assign_perm
 from rest_framework import exceptions, status
 
-from resolwe.flow.models import Collection
-from resolwe.flow.views import CollectionViewSet, ResolwePermissionsMixin
+from resolwe.flow.models import Collection, Data, Entity, Process
+from resolwe.flow.views import CollectionViewSet
+from resolwe.permissions.utils import check_owner_permission, check_public_permissions, check_user_permissions
 from resolwe.test import ResolweAPITestCase, TestCase
 
 
-class CollectionPermissionsTestCase(ResolweAPITestCase):
+class CollectionPermissionsTest(ResolweAPITestCase):
+
     def setUp(self):
         self.user1 = get_user_model().objects.create(username="test_user1")
         self.user2 = get_user_model().objects.create(username="test_user2")
@@ -32,7 +34,25 @@ class CollectionPermissionsTestCase(ResolweAPITestCase):
         self.resource_name = 'collection'
         self.viewset = CollectionViewSet
 
-        super(CollectionPermissionsTestCase, self).setUp()
+        super(CollectionPermissionsTest, self).setUp()
+
+    def _create_data(self):
+        process = Process.objects.create(
+            name='Test process',
+            contributor=self.user1,
+        )
+
+        return Data.objects.create(
+            name='Test data',
+            contributor=self.user1,
+            process=process,
+        )
+
+    def _create_entity(self):
+        return Entity.objects.create(
+            name='Test entity',
+            contributor=self.user1,
+        )
 
     def test_public_user(self):
         """Public user cannot create/edit anything"""
@@ -140,11 +160,48 @@ class CollectionPermissionsTestCase(ResolweAPITestCase):
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(UserObjectPermission.objects.filter(user=self.user2).count(), 0)
 
+    def test_share_content(self):
+        data_1, data_2 = self._create_data(), self._create_data()
+        entity_1, entity_2 = self._create_entity(), self._create_entity()
 
-class PermissionsMixinTestCase(TestCase):
-    def setUp(self):
-        super(PermissionsMixinTestCase, self).setUp()
-        self.permissions_mixin = ResolwePermissionsMixin()
+        self.collection.data.add(data_1, data_2)
+        self.collection.entity_set.add(entity_1, entity_2)
+
+        assign_perm("view_collection", self.user1, self.collection)
+        assign_perm("share_collection", self.user1, self.collection)
+        assign_perm("view_data", self.user1, data_1)
+        assign_perm("view_data", self.user1, data_2)
+        assign_perm("share_data", self.user1, data_1)
+        assign_perm("view_entity", self.user1, entity_1)
+        assign_perm("view_entity", self.user1, entity_2)
+        assign_perm("share_entity", self.user1, entity_1)
+
+        data = {'users': {'add': {self.user2.pk: ['view']}}}
+        resp = self._detail_permissions(self.collection.pk, data, self.user1)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(UserObjectPermission.objects.filter(user=self.user2).count(), 1)
+
+        data = {'users': {'add': {self.user2.pk: ['view']}}, 'share_content': 'true'}
+        resp = self._detail_permissions(self.collection.pk, data, self.user1)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(UserObjectPermission.objects.filter(user=self.user2).count(), 3)
+        self.assertTrue(UserObjectPermission.objects.filter(user=self.user2, object_pk=data_1.pk).exists())
+        self.assertFalse(UserObjectPermission.objects.filter(user=self.user2, object_pk=data_2.pk).exists())
+        self.assertTrue(UserObjectPermission.objects.filter(user=self.user2, object_pk=entity_1.pk).exists())
+        self.assertFalse(UserObjectPermission.objects.filter(user=self.user2, object_pk=entity_2.pk).exists())
+
+        data = {'users': {'remove': {self.user2.pk: ['view']}}}
+        resp = self._detail_permissions(self.collection.pk, data, self.user1)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(UserObjectPermission.objects.filter(user=self.user2).count(), 2)
+
+        data = {'users': {'remove': {self.user2.pk: ['view']}}, 'share_content': 'true'}
+        resp = self._detail_permissions(self.collection.pk, data, self.user1)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(UserObjectPermission.objects.filter(user=self.user2).count(), 0)
+
+
+class PermissionsUtilitiesTest(TestCase):
 
     def test_filter_owner_permission(self):
         """Check that ``owner`` permission is catched everywhere"""
@@ -168,27 +225,27 @@ class PermissionsMixinTestCase(TestCase):
             }
         }
 
-        self.permissions_mixin._filter_owner_permission(data_template)  # pylint: disable=protected-access
+        check_owner_permission(data_template)  # pylint: disable=protected-access
 
         data = deepcopy(data_template)
         data['users']['add'][1].append('owner')
         with self.assertRaises(exceptions.PermissionDenied):
-            self.permissions_mixin._filter_owner_permission(data)  # pylint: disable=protected-access
+            check_owner_permission(data)  # pylint: disable=protected-access
 
         data = deepcopy(data_template)
         data['users']['remove'][3].append('owner')
         with self.assertRaises(exceptions.PermissionDenied):
-            self.permissions_mixin._filter_owner_permission(data)  # pylint: disable=protected-access
+            check_owner_permission(data)  # pylint: disable=protected-access
 
         data = deepcopy(data_template)
         data['groups']['add'][1].append('owner')
         with self.assertRaises(exceptions.PermissionDenied):
-            self.permissions_mixin._filter_owner_permission(data)  # pylint: disable=protected-access
+            check_owner_permission(data)  # pylint: disable=protected-access
 
         data = deepcopy(data_template)
         data['groups']['remove'][2].append('owner')
         with self.assertRaises(exceptions.PermissionDenied):
-            self.permissions_mixin._filter_owner_permission(data)  # pylint: disable=protected-access
+            check_owner_permission(data)  # pylint: disable=protected-access
 
     def test_filter_user_permissions(self):
         """Check that user cannot change his own permissions"""
@@ -204,36 +261,36 @@ class PermissionsMixinTestCase(TestCase):
         }
 
         with self.assertRaises(exceptions.PermissionDenied):
-            self.permissions_mixin._filter_user_permissions(data, 1)  # pylint: disable=protected-access
+            check_user_permissions(data, 1)  # pylint: disable=protected-access
 
         with self.assertRaises(exceptions.PermissionDenied):
-            self.permissions_mixin._filter_user_permissions(data, 2)  # pylint: disable=protected-access
+            check_user_permissions(data, 2)  # pylint: disable=protected-access
 
-        self.permissions_mixin._filter_user_permissions(data, 3)  # pylint: disable=protected-access
+        check_user_permissions(data, 3)  # pylint: disable=protected-access
 
     def test_filter_public_permissions(self):
         """Check that public user cannot get to open permissions"""
         data = {'public': {'add': ['view']}}
-        self.permissions_mixin._filter_public_permissions(data)  # pylint: disable=protected-access
+        check_public_permissions(data)  # pylint: disable=protected-access
 
         data = {'public': {'add': ['download']}}
-        self.permissions_mixin._filter_public_permissions(data)  # pylint: disable=protected-access
+        check_public_permissions(data)  # pylint: disable=protected-access
 
         data = {'public': {'add': ['add']}}
-        self.permissions_mixin._filter_public_permissions(data)  # pylint: disable=protected-access
+        check_public_permissions(data)  # pylint: disable=protected-access
 
         data = {'public': {'add': ['edit']}}
         with self.assertRaises(exceptions.PermissionDenied):
-            self.permissions_mixin._filter_public_permissions(data)  # pylint: disable=protected-access
+            check_public_permissions(data)  # pylint: disable=protected-access
 
         data = {'public': {'add': ['share']}}
         with self.assertRaises(exceptions.PermissionDenied):
-            self.permissions_mixin._filter_public_permissions(data)  # pylint: disable=protected-access
+            check_public_permissions(data)  # pylint: disable=protected-access
 
         data = {'public': {'add': ['owner']}}
         with self.assertRaises(exceptions.PermissionDenied):
-            self.permissions_mixin._filter_public_permissions(data)  # pylint: disable=protected-access
+            check_public_permissions(data)  # pylint: disable=protected-access
 
         data = {'public': {'add': ['view', 'edit']}}
         with self.assertRaises(exceptions.PermissionDenied):
-            self.permissions_mixin._filter_public_permissions(data)  # pylint: disable=protected-access
+            check_public_permissions(data)  # pylint: disable=protected-access

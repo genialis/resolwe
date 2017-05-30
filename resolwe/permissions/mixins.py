@@ -1,17 +1,18 @@
 """Permissions functions used in Resolwe Viewsets."""
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-from django.contrib.auth import get_user_model
-from django.contrib.auth.models import AnonymousUser, Group
+from distutils.util import strtobool  # pylint: disable=import-error,no-name-in-module
+
 from django.contrib.contenttypes.models import ContentType
 
-from guardian.shortcuts import assign_perm, remove_perm
-from rest_framework import exceptions, status
+from rest_framework import status
 from rest_framework.decorators import detail_route, list_route
 from rest_framework.response import Response
 
 from resolwe.flow.models import Collection
 from resolwe.permissions.shortcuts import get_object_perms
+
+from .utils import check_owner_permission, check_public_permissions, check_user_permissions, update_permission
 
 
 class ResolwePermissionsMixin(object):
@@ -37,90 +38,15 @@ class ResolwePermissionsMixin(object):
 
         return SerializerWithPermissions
 
-    def _fetch_user(self, query):
-        """Get user by ``pk`` or ``username``. Return ``None`` if doesn't exist."""
-        user_model = get_user_model()
+    def set_content_permissions(self, user, obj, payload):
+        """Overwritte this function in sub-classes if needed.
 
-        user_filter = {'pk': query} if query.isdigit() else {'username': query}
-        try:
-            return user_model.objects.get(**user_filter)
-        except user_model.DoesNotExist:
-            raise exceptions.ParseError("User ({}) does not exists.".format(user_filter))
-
-    def _fetch_group(self, query):
-        """Get group by ``pk`` or ``name``. Return ``None`` if doesn't exist."""
-        group_filter = {'pk': query} if query.isdigit() else {'name': query}
-        try:
-            return Group.objects.get(**group_filter)
-        except Group.DoesNotExist:
-            raise exceptions.ParseError("Group ({}) does not exists.".format(group_filter))
-
-    def _update_permission(self, obj, data):
-        """Update object permissions."""
-        content_type = ContentType.objects.get_for_model(obj)
-        full_permissions = list(zip(*obj._meta.permissions))[0]  # pylint: disable=protected-access
-
-        def set_permissions(entity_type, perm_type):
-            """Set object permissions."""
-            perm_func = assign_perm if perm_type == 'add' else remove_perm
-            fetch = self._fetch_user if entity_type == 'users' else self._fetch_group
-
-            for entity_id in data.get(entity_type, {}).get(perm_type, []):
-                entity = fetch(entity_id)
-                if entity:
-                    perms = data[entity_type][perm_type][entity_id]
-                    if perms == u'ALL':
-                        perms = full_permissions
-                    for perm in perms:
-                        perm_func('{}_{}'.format(perm.lower(), content_type), entity, obj)
-
-        set_permissions('users', 'add')
-        set_permissions('users', 'remove')
-        set_permissions('groups', 'add')
-        set_permissions('groups', 'remove')
-
-        def set_public_permissions(perm_type):
-            """Set public permissions."""
-            perm_func = assign_perm if perm_type == 'add' else remove_perm
-            user = AnonymousUser()
-            perms = data.get('public', {}).get(perm_type, [])
-            if perms == u'ALL':
-                perms = full_permissions
-            for perm in perms:
-                perm_func('{}_{}'.format(perm.lower(), content_type), user, obj)
-
-        set_public_permissions('add')
-        set_public_permissions('remove')
-
-    def _filter_owner_permission(self, data):
-        """Raise ``PermissionDenied``if ``owner`` found in ``data``."""
-        for entity_type in ['users', 'groups']:
-            if entity_type in data:
-                for perm_type in ['add', 'remove']:
-                    if perm_type in data[entity_type]:
-                        for entity_id in data[entity_type][perm_type]:
-                            for perm in data[entity_type][perm_type][entity_id]:
-                                if perm == 'owner':
-                                    raise exceptions.PermissionDenied("Only owners can grant/revoke owner permission")
-
-    def _filter_public_permissions(self, data):
-        """Raise ``PermissionDenied`` if public permissions are too open."""
-        allowed_public_permissions = ['view', 'add', 'download']
-
-        if 'public' in data:
-            for perm_type in ['add', 'remove']:
-                if perm_type in data['public']:
-                    for perm in data['public'][perm_type]:
-                        if perm not in allowed_public_permissions:
-                            raise exceptions.PermissionDenied("Permissions for public users are too open")
-
-    def _filter_user_permissions(self, data, user_pk):
-        """Raise ``PermissionDenied`` if ``data`` includes ``user_pk``."""
-        if 'users' in data:
-            for perm_type in ['add', 'remove']:
-                if perm_type in data['users']:
-                    if user_pk in data['users'][perm_type].keys():
-                        raise exceptions.PermissionDenied("You cannot change your own permissions")
+        It will be called if ``share_content`` query parameter will be
+        passed with the request. So it should take care of sharing
+        content of current object, i.e. data objects and samples
+        attached to a collection.
+        """
+        pass
 
     @detail_route(methods=['get', 'post'], url_path='permissions')
     def detail_permissions(self, request, pk=None):
@@ -129,14 +55,20 @@ class ResolwePermissionsMixin(object):
 
         if request.method == 'POST':
             content_type = ContentType.objects.get_for_model(obj)
+            payload = request.data
+            share_content = strtobool(payload.pop('share_content', 'false'))
+            user = request.user
+            is_owner = user.has_perm('owner_{}'.format(content_type), obj=obj)
 
-            owner_perm = 'owner_{}'.format(content_type)
-            if not (request.user.has_perm(owner_perm, obj=obj) or request.user.is_superuser):
-                self._filter_owner_permission(request.data)
-            self._filter_public_permissions(request.data)
-            self._filter_user_permissions(request.data, request.user.pk)
+            if not (is_owner or user.is_superuser):
+                check_owner_permission(payload)
+            check_public_permissions(payload)
+            check_user_permissions(payload, request.user.pk)
 
-            self._update_permission(obj, request.data)
+            update_permission(obj, payload)
+
+            if share_content:
+                self.set_content_permissions(user, obj, payload)
 
         return Response(get_object_perms(obj))
 
