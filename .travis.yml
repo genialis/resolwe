@@ -20,10 +20,6 @@ env:
     - RESOLWE_POSTGRESQL_USER=postgres
     - RESOLWE_POSTGRESQL_PORT=5432
     - RESOLWE_ES_PORT=9200
-    # XXX: Work-around for the "No module named 'six'" issue with the latest
-    # version of setuptools (36.0.0):
-    # https://github.com/pypa/setuptools/issues/1042
-    - VIRTUALENV_NO_DOWNLOAD=1
 
 # NOTE: Explicit Python versions make Travis job description more informative
 matrix:
