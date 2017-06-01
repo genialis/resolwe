@@ -17,8 +17,7 @@ from resolwe.test.testcases.api import ResolweAPITestCase
 from resolwe.test.testcases.elastic import ElasticSearchTestCase, TransactionElasticSearchTestCase
 from resolwe.test.testcases.process import ProcessTestCase, TransactionProcessTestCase
 from resolwe.test.utils import (
-    check_docker, check_installed, with_custom_executor, with_docker_executor, with_null_executor,
-    with_resolwe_host,
+    check_docker, check_installed, with_custom_executor, with_docker_executor, with_null_executor, with_resolwe_host,
 )
 
 __all__ = (

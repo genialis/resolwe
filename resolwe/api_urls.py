@@ -6,8 +6,8 @@ from django.conf.urls import include, url
 from rest_framework import routers
 
 from .flow.views import (
-    CollectionViewSet, DataViewSet, DescriptorSchemaViewSet, EntityViewSet, ProcessViewSet,
-    RelationViewSet, StorageViewSet,
+    CollectionViewSet, DataViewSet, DescriptorSchemaViewSet, EntityViewSet, ProcessViewSet, RelationViewSet,
+    StorageViewSet,
 )
 
 api_router = routers.DefaultRouter(trailing_slash=False)  # pylint: disable=invalid-name
