@@ -160,3 +160,20 @@ class IndexViewsetTest(APITestCase, ElasticSearchTestCase):
         self.assertEqual(response.data[0]['name'], 'Object name 1')
         self.assertEqual(response.data[0]['field_process_type'], '')
         self.assertEqual(response.data[0]['number'], 43)
+
+        # Test combined order.
+        request = factory.get('', {'name': 'Object', 'ordering': 'name'})
+        force_authenticate(request, self.user_1)
+        response = viewset(request)
+
+        self.assertEqual(len(response.data), 2)
+        self.assertEqual(response.data[0]['name'], 'Object name 1')
+        self.assertEqual(response.data[1]['name'], 'Object name 3')
+
+        request = factory.get('', {'name': 'Object', 'ordering': '-name'})
+        force_authenticate(request, self.user_1)
+        response = viewset(request)
+
+        self.assertEqual(len(response.data), 2)
+        self.assertEqual(response.data[0]['name'], 'Object name 3')
+        self.assertEqual(response.data[1]['name'], 'Object name 1')

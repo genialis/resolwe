@@ -22,7 +22,7 @@ class TestViewSet(ElasticSearchBaseViewSet):
     serializer_class = TestSerializer
 
     filtering_fields = ('name',)
-    ordering_fields = ('name')
+    ordering_fields = ('name',)
     ordering = '-name'
 
 
@@ -57,3 +57,5 @@ class TestCombinedViewSet(ElasticSearchCombinedViewSet, TestModelViewSet):
     document_class = TestSearchDocument
 
     filtering_fields = ('name',)
+    ordering_map = {'name': 'field_name.raw'}
+    ordering_fields = ('name',)

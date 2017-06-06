@@ -14,6 +14,7 @@ from elasticsearch_dsl.query import Q
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.db.models import Case, IntegerField, Value, When
 
 from rest_framework.exceptions import APIException
 from rest_framework.response import Response
@@ -244,8 +245,17 @@ class ElasticSearchCombinedViewSet(ElasticSearchBaseViewSet):
                 items = page
 
             try:
+                primary_keys = []
+                order_map_cases = []
+                for order, item in enumerate(items):
+                    pk = item[self.primary_key_field]
+                    primary_keys.append(pk)
+                    order_map_cases.append(When(pk=pk, then=Value(order)))
+
                 queryset = self.get_queryset().filter(
-                    pk__in=[item[self.primary_key_field] for item in items]
+                    pk__in=primary_keys
+                ).order_by(
+                    Case(*order_map_cases, output_field=IntegerField()).asc()
                 )
             except KeyError:
                 raise KeyError("Combined viewset requires that your index contains a field with "
