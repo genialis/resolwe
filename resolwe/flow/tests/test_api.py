@@ -119,6 +119,24 @@ class TestCollectionViewSetCase(TestCase):
 
         self.detail_url = lambda pk: reverse('resolwe-api:collection-detail', kwargs={'pk': pk})
 
+    def _create_data(self):
+        process = Process.objects.create(
+            name='Test process',
+            contributor=self.contributor,
+        )
+
+        return Data.objects.create(
+            name='Test data',
+            contributor=self.contributor,
+            process=process,
+        )
+
+    def _create_entity(self):
+        return Entity.objects.create(
+            name='Test entity',
+            contributor=self.contributor,
+        )
+
     def test_set_descriptor_schema(self):
         d_schema = DescriptorSchema.objects.create(slug="new-schema", name="New Schema", contributor=self.contributor)
 
@@ -225,6 +243,58 @@ class TestCollectionViewSetCase(TestCase):
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(c.data.count(), 0)
 
+    def test_delete(self):
+        collection = Collection.objects.create(
+            name="Test collection",
+            contributor=self.contributor,
+        )
+
+        data_1, data_2 = self._create_data(), self._create_data()
+        entity_1, entity_2 = self._create_entity(), self._create_entity()
+
+        collection.data.add(data_1, data_2)
+        collection.entity_set.add(entity_1, entity_2)
+
+        assign_perm("view_collection", self.user, collection)
+        assign_perm("edit_collection", self.user, collection)
+        assign_perm("view_data", self.user, data_1)
+        assign_perm("view_data", self.user, data_2)
+        assign_perm("edit_data", self.user, data_1)
+        assign_perm("view_entity", self.user, entity_1)
+        assign_perm("view_entity", self.user, entity_2)
+        assign_perm("edit_entity", self.user, entity_1)
+
+        request = factory.delete(self.detail_url(collection.pk))
+        force_authenticate(request, self.user)
+        self.collection_detail_viewset(request, pk=collection.pk)
+
+        self.assertTrue(Data.objects.filter(pk=data_1.pk).exists())
+        self.assertTrue(Data.objects.filter(pk=data_2.pk).exists())
+        self.assertTrue(Entity.objects.filter(pk=entity_1.pk).exists())
+        self.assertTrue(Entity.objects.filter(pk=entity_2.pk).exists())
+
+        # Recreate the initial state and test with `delete_content` flag.
+        collection = Collection.objects.create(
+            name="Test collection",
+            contributor=self.contributor,
+        )
+
+        collection.data.add(data_1, data_2)
+        collection.entity_set.add(entity_1, entity_2)
+
+        assign_perm("view_collection", self.user, collection)
+        assign_perm("edit_collection", self.user, collection)
+
+        request = factory.delete('{}?delete_content=1'.format(self.detail_url(collection.pk)))
+        force_authenticate(request, self.user)
+        self.collection_detail_viewset(request, pk=collection.pk)
+
+        # Only objects with `edit` permission can be deleted.
+        self.assertFalse(Data.objects.filter(pk=data_1.pk).exists())
+        self.assertTrue(Data.objects.filter(pk=data_2.pk).exists())
+        self.assertFalse(Entity.objects.filter(pk=entity_1.pk).exists())
+        self.assertTrue(Entity.objects.filter(pk=entity_2.pk).exists())
+
 
 class EntityViewSetTest(TestCase):
     def setUp(self):
@@ -245,6 +315,31 @@ class EntityViewSetTest(TestCase):
         assign_perm('add_entity', self.contributor, self.entity)
 
         self.entityviewset = EntityViewSet()
+
+        self.entity_detail_viewset = EntityViewSet.as_view(actions={
+            'get': 'retrieve',
+            'put': 'update',
+            'patch': 'partial_update',
+            'delete': 'destroy',
+        })
+        self.entity_list_viewset = EntityViewSet.as_view(actions={
+            'get': 'list',
+            'post': 'create',
+        })
+
+        self.detail_url = lambda pk: reverse('resolwe-api:entity-detail', kwargs={'pk': pk})
+
+    def _create_data(self):
+        process = Process.objects.create(
+            name='Test process',
+            contributor=self.contributor,
+        )
+
+        return Data.objects.create(
+            name='Test data',
+            contributor=self.contributor,
+            process=process,
+        )
 
     def test_add_to_collection(self):
         request_mock = mock.MagicMock(data={'ids': [self.collection.pk]}, user=self.contributor)
@@ -302,3 +397,45 @@ class EntityViewSetTest(TestCase):
         request_mock = mock.MagicMock(data={'ids': [self.data_2.pk]}, user=self.contributor)
         self.entityviewset.remove_data(request_mock)
         self.assertEqual(Entity.objects.count(), 0)
+
+    def test_delete(self):
+        entity = Entity.objects.create(
+            name="Test entity",
+            contributor=self.contributor,
+        )
+
+        data_1, data_2 = self._create_data(), self._create_data()
+
+        entity.data.add(data_1, data_2)
+
+        assign_perm("view_entity", self.user, entity)
+        assign_perm("edit_entity", self.user, entity)
+        assign_perm("view_data", self.user, data_1)
+        assign_perm("view_data", self.user, data_2)
+        assign_perm("edit_data", self.user, data_1)
+
+        request = factory.delete(self.detail_url(entity.pk))
+        force_authenticate(request, self.user)
+        self.entity_detail_viewset(request, pk=entity.pk)
+
+        self.assertTrue(Data.objects.filter(pk=data_1.pk).exists())
+        self.assertTrue(Data.objects.filter(pk=data_2.pk).exists())
+
+        # Recreate the initial state and test with `delete_content` flag.
+        entity = Entity.objects.create(
+            name="Test entity",
+            contributor=self.contributor,
+        )
+
+        entity.data.add(data_1, data_2)
+
+        assign_perm("view_entity", self.user, entity)
+        assign_perm("edit_entity", self.user, entity)
+
+        request = factory.delete('{}?delete_content=1'.format(self.detail_url(entity.pk)))
+        force_authenticate(request, self.user)
+        self.entity_detail_viewset(request, pk=entity.pk)
+
+        # Only objects with `edit` permission can be deleted.
+        self.assertFalse(Data.objects.filter(pk=data_1.pk).exists())
+        self.assertTrue(Data.objects.filter(pk=data_2.pk).exists())

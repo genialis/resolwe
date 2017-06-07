@@ -1,6 +1,8 @@
 """Entity viewset."""
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+from distutils.util import strtobool  # pylint: disable=import-error,no-name-in-module
+
 from django.db.models import Max
 from django.db.models.query import Prefetch
 
@@ -51,6 +53,26 @@ class EntityViewSet(CollectionViewSet):
         for data in obj.data.all():
             if user.has_perm('share_data', data):
                 update_permission(data, payload)
+
+    def destroy(self, request, *args, **kwargs):
+        """Destroy a model instance.
+
+        If ``delete_content`` flag is set in query parameters, also all
+        Data objects contained in entity will be deleted.
+        """
+        obj = self.get_object()
+        user = request.user
+
+        if strtobool(request.query_params.get('delete_content', 'false')):
+            for data in obj.data.all():
+                if user.has_perm('edit_data', data):
+                    data.delete()
+
+        # NOTE: Collection's ``destroy`` method should be skiped, so we
+        # intentionaly call it's parent.
+        return super(CollectionViewSet, self).destroy(  # pylint: disable=no-member,bad-super-call
+            request, *args, **kwargs
+        )
 
     @detail_route(methods=[u'post'])
     def add_to_collection(self, request, pk=None):

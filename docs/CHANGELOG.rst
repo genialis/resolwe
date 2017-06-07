@@ -42,6 +42,8 @@ Added
   the previously unused process priority field
 - Add ``share_content`` flag to the collection and entity permissions
   endpoint to also share the content of the coresponding object
+- Add ``delete_content`` flag to the collection and entity destroy
+  method on API to also delete the content of the coresponding object
 
 Changed
 -------

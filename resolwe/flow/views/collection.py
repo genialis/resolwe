@@ -1,6 +1,8 @@
 """Collection viewset."""
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+from distutils.util import strtobool  # pylint: disable=import-error,no-name-in-module
+
 from django.db.models.query import Prefetch
 
 from rest_framework import mixins, status, viewsets
@@ -50,6 +52,27 @@ class CollectionViewSet(ResolweCreateModelMixin,
         for data in obj.data.all():
             if user.has_perm('share_data', data):
                 update_permission(data, payload)
+
+    def destroy(self, request, *args, **kwargs):
+        """Destroy a model instance.
+
+        If ``delete_content`` flag is set in query parameters, also all
+        Data objects and Entities, on which user has ``EDIT``
+        permission, contained in collection will be deleted.
+        """
+        obj = self.get_object()
+        user = request.user
+
+        if strtobool(request.query_params.get('delete_content', 'false')):
+            for entity in obj.entity_set.all():
+                if user.has_perm('edit_entity', entity):
+                    entity.delete()
+
+            for data in obj.data.all():
+                if user.has_perm('edit_data', data):
+                    data.delete()
+
+        return super(CollectionViewSet, self).destroy(request, *args, **kwargs)  # pylint: disable=no-member
 
     @detail_route(methods=[u'post'])
     def add_data(self, request, pk=None):
