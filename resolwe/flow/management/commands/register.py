@@ -138,6 +138,14 @@ class Command(BaseCommand):
 
                 p['persistence'] = persistence_mapping[p['persistence']]
 
+            if 'scheduling_class' in p:
+                scheduling_class_mapping = {
+                    'interactive': Process.SCHEDULING_CLASS_INTERACTIVE,
+                    'batch': Process.SCHEDULING_CLASS_BATCH
+                }
+
+                p['scheduling_class'] = scheduling_class_mapping[p['scheduling_class']]
+
             if 'input' in p:
                 p['input_schema'] = p.pop('input')
 

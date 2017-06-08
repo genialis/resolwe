@@ -415,3 +415,35 @@
     program: |
       # Should fail as raw sockets are not allowed.
       ping -c 1 8.8.8.8
+
+- slug: test-scheduling-class-interactive-ok
+  name: Test scheduling class interactive (ok)
+  version: 1.0.0
+  type: "data:test:schedulingclass"
+  scheduling_class: interactive
+  run:
+    program: "true"
+
+- slug: test-scheduling-class-interactive-fail
+  name: Test scheduling class interactive (fail)
+  version: 1.0.0
+  type: "data:test:schedulingclass"
+  scheduling_class: interactive
+  run:
+    program: |
+      set +x
+
+      # This program should be killed as it will use too much CPU time. We use
+      # a counter to prevent it blocking the test in case it is not killed.
+      i=0
+      while (($i < 10000000)); do
+        let i++;
+      done
+
+- slug: test-scheduling-class-batch
+  name: Test scheduling class batch
+  version: 1.0.0
+  type: "data:test:schedulingclass"
+  scheduling_class: batch
+  run:
+    program: "true"

@@ -8,6 +8,7 @@ import six
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.test import override_settings
 
 from guardian.shortcuts import assign_perm
 
@@ -179,3 +180,10 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.run_process('test-network-resource-enabled')
         self.run_process('test-network-resource-disabled', assert_status=Data.STATUS_ERROR)
         self.run_process('test-network-resource-policy', assert_status=Data.STATUS_ERROR)
+
+    @with_docker_executor
+    @override_settings(FLOW_DOCKER_LIMIT_DEFAULTS={'cpu_time_interactive': 1})
+    def test_scheduling_class(self):
+        self.run_process('test-scheduling-class-interactive-ok')
+        self.run_process('test-scheduling-class-interactive-fail', assert_status=Data.STATUS_ERROR)
+        self.run_process('test-scheduling-class-batch')

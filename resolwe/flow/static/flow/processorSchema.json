@@ -37,7 +37,12 @@
         "persistence": {
             "description": "Processor data persistence",
             "type": "string",
-            "pattern": "^RAW|CACHED|TEMP$"
+            "enum": ["RAW", "CACHED", "TEMP"]
+        },
+        "scheduling_class": {
+            "description": "Scheduling class",
+            "type": "string",
+            "enum": ["interactive", "batch"]
         },
         "description": {
             "description": "Processor details",

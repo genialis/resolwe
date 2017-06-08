@@ -148,6 +148,9 @@ class BaseManager(object):
                     if program is not None:
                         priority = 'normal'
                         if data.process.persistence == Process.PERSISTENCE_TEMP:
+                            # TODO: This should probably be removed.
+                            priority = 'high'
+                        if data.process.scheduling_class == Process.SCHEDULING_CLASS_INTERACTIVE:
                             priority = 'high'
 
                         program = self._include_environment_variables(program)

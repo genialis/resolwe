@@ -37,6 +37,9 @@ Added
 - If ``choices`` are defined in JSON schema, value of field is
   validated with them
 - Add tests for accessing Resolwe API from a process
+- Add cpu core, memory and network resource limits
+- Add scheduling class for processes (interactive, batch), which replaces
+  the previously unused process priority field
 
 Changed
 -------

@@ -9,6 +9,8 @@ import tempfile
 
 from django.conf import settings
 
+from resolwe.flow.models import Process
+
 from ..local import FlowExecutor as LocalFlowExecutor
 from .seccomp import SECCOMP_POLICY
 
@@ -56,6 +58,11 @@ class FlowExecutor(LocalFlowExecutor):
         # Set both memory and swap limits as we want to enforce the total amount of memory
         # used (otherwise swap would not count against the limit).
         limits.append('--memory={0}m --memory-swap={0}m'.format(memory))
+
+        # Set ulimits for interactive processes to prevent them from running too long.
+        if self.process.scheduling_class == Process.SCHEDULING_CLASS_INTERACTIVE:
+            # TODO: This is not very good as each child gets the same limit.
+            limits.append('--ulimit cpu={}'.format(limit_defaults.get('cpu_time_interactive', 30)))
 
         command_args['limits'] = ' '.join(limits)
 
@@ -146,6 +153,9 @@ class FlowExecutor(LocalFlowExecutor):
         # create a Bash command to add all the tools to PATH
         tools_paths = ':'.join([map_["dest"] for map_ in self.mappings_tools])
         add_tools_path = 'export PATH=$PATH:{}'.format(tools_paths)
+        # Spawn another child bash, to avoid running anything as PID 1, which has special
+        # signal handling (e.g., cannot be SIGKILL-ed from inside).
+        self.proc.stdin.write('/bin/bash --login; exit $?' + os.linesep)
         self.proc.stdin.write(os.linesep.join(['set -x', 'set +B', add_tools_path, script]) + os.linesep)
         self.proc.stdin.close()
 

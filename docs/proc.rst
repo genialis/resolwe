@@ -147,7 +147,7 @@ Field                            Short description     Required Default
 :ref:`type <type>`               data type             required
 :ref:`category <category>`       menu category         optional <empty string>
 :ref:`persistence <persistence>` storage optimization  optional RAW
-:ref:`priority <priority>`       queue optimization    optional NORMAL
+:ref:`scheduling_class <sch>`    scheduling class      optional batch
 :ref:`input <io>`                list of input fields  optional <empty list>
 :ref:`output <io>`               list of result fields optional <empty list>
 :ref:`run <run>`                 the algorithm         required
@@ -209,12 +209,20 @@ Persistence
 
 Use RAW for imports. CACHED or TMP processes should be idempotent.
 
-.. _priority:
+.. _sch:
 
-Priority
---------
+Scheduling class
+----------------
 
-TODO
+The scheduling class specifies how the process should be treated by the
+scheduler. There are two possible values:
+
+* ``batch`` is for long running tasks, which require high throughput.
+* ``interactive`` is for short running tasks, which require low latency.
+  Processes in this scheduling class are given a limited amount of time
+  to execute (default: 30 seconds).
+
+The default value for processes is ``batch``.
 
 .. _io:
 

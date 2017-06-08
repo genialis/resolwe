@@ -112,8 +112,8 @@ class ProcessSerializer(ResolweBaseSerializer):
         update_protected_fields = ('contributor', )
         read_only_fields = ('id', 'created', 'modified')
         fields = ('slug', 'name', 'data_name', 'version', 'type', 'flow_collection', 'category',
-                  'persistence', 'priority', 'description', 'input_schema', 'output_schema',
-                  'requirements', 'run') + update_protected_fields + read_only_fields
+                  'persistence', 'description', 'input_schema', 'output_schema', 'requirements',
+                  'run', 'scheduling_class') + update_protected_fields + read_only_fields
 
 
 class DescriptorSchemaSerializer(ResolweBaseSerializer):

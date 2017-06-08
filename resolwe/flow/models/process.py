@@ -32,13 +32,11 @@ class Process(BaseModel):
         (PERSISTENCE_TEMP, 'Temp'),
     )
 
-    #: high priority
-    PRIORITY_HIGH = 'HI'
-    #: normal priority
-    PRIORITY_NORMAL = 'NO'
-    PRIORITY_CHOICES = (
-        (PRIORITY_NORMAL, 'Normal'),
-        (PRIORITY_HIGH, 'High'),
+    SCHEDULING_CLASS_INTERACTIVE = 'IN'
+    SCHEDULING_CLASS_BATCH = 'BA'
+    SCHEDULING_CLASS_CHOICES = (
+        (SCHEDULING_CLASS_INTERACTIVE, "Interactive"),
+        (SCHEDULING_CLASS_BATCH, "Batch"),
     )
 
     #: data type
@@ -72,15 +70,6 @@ class Process(BaseModel):
 
         If persistence is set to ``PERSISTENCE_CACHED`` or
         ``PERSISTENCE_TEMP``, the process must be idempotent.
-
-    """
-
-    priority = models.CharField(max_length=2, choices=PRIORITY_CHOICES, default=PRIORITY_NORMAL)
-    """
-    Process' execution priority. It can be one of the following:
-
-    - :attr:`PRIORITY_NORMAL`
-    - :attr:`PRIORITY_HIGH`
 
     """
 
@@ -155,11 +144,15 @@ class Process(BaseModel):
     - default by: *dev*
     - changable by: *dev*
 
-    Required definitions:
-
-    - ``engine`` .. engine to run the processor with
-    - ``script`` .. script with code to run
-
     """
 
     requirements = JSONField(default=dict)
+    """
+    process requirements
+    """
+
+    scheduling_class = models.CharField(max_length=2, choices=SCHEDULING_CLASS_CHOICES,
+                                        default=SCHEDULING_CLASS_BATCH)
+    """
+    process scheduling class
+    """
