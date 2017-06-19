@@ -126,14 +126,3 @@ class EntityViewSet(CollectionViewSet):
             collection.data.add(*request.data['ids'])
 
         return resp
-
-    @detail_route(methods=[u'post'])
-    def remove_data(self, request, pk=None):
-        """Remove Data from Entity and delete it if it is empty."""
-        resp = super(EntityViewSet, self).remove_data(request, pk)
-
-        entity = self.get_object()
-        if entity.data.count() == 0:
-            entity.delete()
-
-        return resp

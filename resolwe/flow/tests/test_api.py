@@ -386,18 +386,6 @@ class EntityViewSetTest(TestCase):
         self.assertEqual(self.entity.data.count(), 1)
         self.assertEqual(self.collection.data.count(), 1)
 
-    def test_remove_data(self):
-        self.entity.data.add(self.data_2)
-        self.entityviewset.get_object = lambda: self.entity
-
-        # entity is removed only when last data object is removed
-        request_mock = mock.MagicMock(data={'ids': [self.data.pk]}, user=self.contributor)
-        self.entityviewset.remove_data(request_mock)
-        self.assertEqual(Entity.objects.count(), 1)
-        request_mock = mock.MagicMock(data={'ids': [self.data_2.pk]}, user=self.contributor)
-        self.entityviewset.remove_data(request_mock)
-        self.assertEqual(Entity.objects.count(), 0)
-
     def test_delete(self):
         entity = Entity.objects.create(
             name="Test entity",
