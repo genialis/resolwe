@@ -29,6 +29,7 @@ from resolwe.flow.engine import BaseEngine
 from resolwe.flow.models import Data, Process
 from resolwe.flow.utils import dict_dot, iterate_fields
 from resolwe.flow.utils.purge import data_purge
+from resolwe.permissions.utils import copy_permissions
 from resolwe.utils import BraceMessage as __
 
 if settings.USE_TZ:
@@ -297,6 +298,11 @@ class BaseFlowExecutor(BaseEngine):
                     with transaction.atomic():
                         d = Data.objects.create(**d)
                         d.parents.add(parent_data)
+
+                        # Copy permissions.
+                        copy_permissions(parent_data, d)
+
+                        # Copy collections.
                         for collection in parent_data.collection_set.all():
                             collection.data.add(d)
 

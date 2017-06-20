@@ -78,6 +78,7 @@ Fixed
   filtered by permissions of user in request
 - Public permissions are taken into account in elastic app
 - Treat ``None`` field value as if the field is missing
+- Copy parent's permissions to spawned Data objects
 
 
 ==================

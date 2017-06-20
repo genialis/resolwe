@@ -4,6 +4,9 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import os
 
 from django.contrib.contenttypes.models import ContentType
+from django.db import transaction
+
+from guardian.shortcuts import assign_perm
 
 from resolwe.flow.models import Data, Process
 from resolwe.test import TransactionProcessTestCase
@@ -11,7 +14,7 @@ from resolwe.test import TransactionProcessTestCase
 PROCESSES_DIR = os.path.join(os.path.dirname(__file__), 'processes')
 
 
-# NOTE: Manager is triggered on the commit of the transastion. Because
+# NOTE: Manager is triggered on the commit of the transaction. Because
 #       of this it should be tested in TransactionTestCase, as it won't
 #       be triggered if whole test is wrapped in a transaction.
 class TestManager(TransactionProcessTestCase):
@@ -41,16 +44,22 @@ class TestManager(TransactionProcessTestCase):
         self.assertEqual(data.status, Data.STATUS_DONE)
 
     def test_spawned_process(self):
-        """Test that manager is run for spawned processes."""
+        """Test that manager is run for spawned processes and permissions are copied."""
         process = Process.objects.filter(slug='test-spawn-new').latest()
-        Data.objects.create(
-            name='Test data',
-            contributor=self.contributor,
-            process=process,
-        )
+        with transaction.atomic():
+            data = Data.objects.create(
+                name='Test data',
+                contributor=self.contributor,
+                process=process,
+            )
+            assign_perm('view_data', self.user, data)
 
         # Created and spawned objects should be done.
         self.assertEqual(Data.objects.filter(status=Data.STATUS_DONE).count(), 2)
+
+        # Check that permissions are inherited.
+        child = Data.objects.last()
+        self.assertTrue(self.user.has_perm('view_data', child))
 
     def test_workflow(self):
         """Test that manager is run for workflows."""
