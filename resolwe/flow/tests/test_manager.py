@@ -3,7 +3,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import os
 
-from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
 
 from guardian.shortcuts import assign_perm
@@ -18,13 +17,6 @@ PROCESSES_DIR = os.path.join(os.path.dirname(__file__), 'processes')
 #       of this it should be tested in TransactionTestCase, as it won't
 #       be triggered if whole test is wrapped in a transaction.
 class TestManager(TransactionProcessTestCase):
-
-    def _pre_setup(self, *args, **kwargs):
-        # NOTE: This is a work-around for Django issue #10827
-        # (https://code.djangoproject.com/ticket/10827) that clears the
-        # ContentType cache before permissions are setup.
-        ContentType.objects.clear_cache()
-        super(TestManager, self)._pre_setup(*args, **kwargs)
 
     def setUp(self):
         super(TestManager, self).setUp()
