@@ -36,7 +36,6 @@ class LimitOffsetPostPagination(LimitOffsetPagination):
         """Return limit parameter."""
         if self.limit_query_param:
             try:
-                print(get_query_param(request, self.limit_query_param))
                 return _positive_int(
                     get_query_param(request, self.limit_query_param),
                     strict=True,
