@@ -12,8 +12,8 @@ from rest_framework import exceptions, status
 from rest_framework.test import APIRequestFactory, force_authenticate
 
 from resolwe.flow.models import Collection, Data, DescriptorSchema, Entity, Process
-from resolwe.flow.views import CollectionViewSet, DataViewSet, EntityViewSet
-from resolwe.test import TestCase
+from resolwe.flow.views import CollectionViewSet, DataViewSet, EntityViewSet, ProcessViewSet
+from resolwe.test import ResolweAPITestCase, TestCase
 
 factory = APIRequestFactory()  # pylint: disable=invalid-name
 
@@ -294,6 +294,29 @@ class TestCollectionViewSetCase(TestCase):
         self.assertTrue(Data.objects.filter(pk=data_2.pk).exists())
         self.assertFalse(Entity.objects.filter(pk=entity_1.pk).exists())
         self.assertTrue(Entity.objects.filter(pk=entity_2.pk).exists())
+
+
+class ProcessTestCase(ResolweAPITestCase):
+    def setUp(self):
+        self.resource_name = 'process'
+        self.viewset = ProcessViewSet
+
+        super(ProcessTestCase, self).setUp()
+
+    def test_create_new(self):
+        post_data = {
+            'name': 'Test process',
+            'slug': 'test-process',
+            'type': 'data:test:',
+        }
+
+        # Normal user is not allowed to create new processes.
+        resp = self._post(post_data, self.contributor)
+        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+
+        # Superuser can create process.
+        resp = self._post(post_data, self.admin)
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
 
 
 class EntityViewSetTest(TestCase):

@@ -1,7 +1,7 @@
 """Process viewset."""
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-from rest_framework import mixins, viewsets
+from rest_framework import exceptions, mixins, viewsets
 
 from resolwe.flow.filters import ProcessFilter
 from resolwe.flow.models import Process
@@ -26,3 +26,10 @@ class ProcessViewSet(ResolweCreateModelMixin,
     filter_class = ProcessFilter
     ordering_fields = ('id', 'created', 'modified', 'name', 'version')
     ordering = ('id',)
+
+    def create(self, request, *args, **kwargs):
+        """Only superusers can create new processes."""
+        if not request.user.is_superuser:
+            raise exceptions.NotFound
+
+        return super(ProcessViewSet, self).create(request, *args, **kwargs)
