@@ -19,15 +19,6 @@ MIDDLEWARE_CLASSES = (
     'django.contrib.auth.middleware.AuthenticationMiddleware',
 )
 
-# Apps from this project
-PROJECT_APPS = (
-    'resolwe',
-    'resolwe.permissions',
-    'resolwe.flow',
-    'resolwe.elastic',
-    'resolwe.toolkit',
-)
-
 INSTALLED_APPS = (
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -40,7 +31,13 @@ INSTALLED_APPS = (
     'guardian',
     'mathfilters',
     'versionfield',
-) + PROJECT_APPS
+
+    'resolwe',
+    'resolwe.permissions',
+    'resolwe.flow',
+    'resolwe.elastic',
+    'resolwe.toolkit',
+)
 
 ROOT_URLCONF = 'tests.urls'
 
