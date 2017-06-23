@@ -4,7 +4,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from django.db import IntegrityError, transaction
 
 from guardian.shortcuts import assign_perm
-from rest_framework import exceptions, mixins, status
+from rest_framework import mixins, status
 from rest_framework.decorators import list_route
 from rest_framework.response import Response
 
@@ -26,10 +26,6 @@ class ResolweCreateModelMixin(mixins.CreateModelMixin):
 
     def create(self, request, *args, **kwargs):
         """Create a resource."""
-        user = request.user
-        if not user.is_authenticated():
-            raise exceptions.NotFound
-
         ds_slug = request.data.get('descriptor_schema', None)
         if ds_slug:
             ds_query = DescriptorSchema.objects.filter(slug=ds_slug)
@@ -42,7 +38,7 @@ class ResolweCreateModelMixin(mixins.CreateModelMixin):
                         'Invalid descriptor_schema slug "{}" - object does not exist.'.format(ds_slug)]},
                     status=status.HTTP_400_BAD_REQUEST)
 
-        request.data['contributor'] = user.pk
+        request.data['contributor'] = request.user.pk
         try:
             return super(ResolweCreateModelMixin, self).create(request, *args, **kwargs)
 

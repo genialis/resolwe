@@ -5,7 +5,7 @@ from distutils.util import strtobool  # pylint: disable=import-error,no-name-in-
 
 from django.db.models.query import Prefetch
 
-from rest_framework import mixins, status, viewsets
+from rest_framework import exceptions, mixins, status, viewsets
 from rest_framework.decorators import detail_route
 from rest_framework.response import Response
 
@@ -52,6 +52,13 @@ class CollectionViewSet(ResolweCreateModelMixin,
         for data in obj.data.all():
             if user.has_perm('share_data', data):
                 update_permission(data, payload)
+
+    def create(self, request, *args, **kwargs):
+        """Only authenticated usesr can create new collections."""
+        if not request.user.is_authenticated():
+            raise exceptions.NotFound
+
+        return super(CollectionViewSet, self).create(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
         """Destroy a model instance.

@@ -61,6 +61,8 @@ Changed
   endpoint of resources
 - Remove ``public_processes`` field from the ``Collection`` model as it
   is never used
+- Public users can create new ``Data`` objects with processes and
+  descriptor schemas on which they have appropriate permissions
 
 Fixed
 -----
