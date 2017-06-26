@@ -75,7 +75,7 @@ class Data(BaseModel):
     finished = models.DateTimeField(blank=True, null=True, db_index=True)
 
     #: checksum field calculated on inputs
-    checksum = models.CharField(max_length=64, validators=[
+    checksum = models.CharField(max_length=64, db_index=True, validators=[
         RegexValidator(
             regex=r'^[0-9a-f]{64}$',
             message='Checksum is exactly 40 alphanumerics',
