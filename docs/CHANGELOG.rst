@@ -63,6 +63,8 @@ Changed
   is never used
 - Public users can create new ``Data`` objects with processes and
   descriptor schemas on which they have appropriate permissions
+- Add custom ``ResolweSlugField`` and use it instead of
+  ``django-autoslug``
 
 Fixed
 -----

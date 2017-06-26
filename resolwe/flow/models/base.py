@@ -1,13 +1,12 @@
 """Base model for all Resolwe models."""
-
-
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-from autoslug import AutoSlugField
 from versionfield import VersionField
 
 from django.conf import settings
 from django.db import IntegrityError, models, transaction
+
+from .fields import ResolweSlugField
 
 VERSION_NUMBER_BITS = (8, 10, 14)
 
@@ -27,7 +26,7 @@ class BaseModel(models.Model):
         get_latest_by = 'version'
 
     #: URL slug
-    slug = AutoSlugField(populate_from='name', unique_with='version', editable=True, max_length=100)
+    slug = ResolweSlugField(populate_from='name', unique_with='version', max_length=100)
 
     #: process version
     version = VersionField(number_bits=VERSION_NUMBER_BITS, default='0.0.0')

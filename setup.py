@@ -53,7 +53,9 @@ setup(
         # XXX: Temporarily pin djangorestframework-filters since version 0.10.0
         # requires django-filter 1.0 which breaks Resolwe
         'djangorestframework-filters==0.9.1',
-        'django-autoslug==1.9.4-dev',
+        # XXX: Remove django-autoslug after all migrations that import
+        # it are deleted
+        'django-autoslug==1.9.3',
         'django-guardian>=1.4.2',
         'django-mathfilters>=0.3.0',
         'django-versionfield2>=0.5.0',
@@ -66,10 +68,6 @@ setup(
         'Sphinx>=1.5.1',
         'Jinja2>=2.8',
         'wrapt>=1.10.8',
-    ],
-    dependency_links=[
-        # Required due to issue https://github.com/neithere/django-autoslug/pull/18.
-        'git+https://github.com/kostko/django-autoslug.git@fix/empty-slug#egg=django-autoslug-1.9.4-dev',
     ],
     extras_require={
         'docs':  [
