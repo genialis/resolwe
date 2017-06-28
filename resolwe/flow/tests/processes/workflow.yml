@@ -18,7 +18,7 @@
   run:
     language: bash
     program: |
-      re-save out1 "hello {{ param1 }}"
+      re-save out1 "hello "{{ param1 }}
 
 - slug: test-example-2
   name: Example process
@@ -46,7 +46,7 @@
   run:
     language: bash
     program: |
-      re-save out1 "simon says: {{ param1.out1 }}"
+      re-save out1 "simon says: "{{ param1.out1 }}
 
 - slug: test-workflow-1
   name: Workflow test

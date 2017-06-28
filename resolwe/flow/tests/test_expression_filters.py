@@ -41,6 +41,7 @@ re-save-file test_file path/to/file.txt
             type='test:data:templatetags:',
             input_schema=[
                 {'name': 'input_data', 'type': 'data:test:inputobject:'},
+                {'name': 'spacy', 'type': 'basic:string:'},
             ],
             output_schema=[
                 {'name': 'name', 'type': 'basic:string:'},
@@ -51,18 +52,26 @@ re-save-file test_file path/to/file.txt
                 {'name': 'yesno', 'type': 'basic:string:'},
                 {'name': 'datalookup', 'type': 'basic:integer:'},
                 {'name': 'file_url', 'type': 'basic:string:'},
+                {'name': 'unsafe', 'type': 'basic:string:'},
+                {'name': 'safe', 'type': 'basic:string:'},
             ],
             run={
                 'language': 'bash',
                 'program': """
-re-save name "{{ input_data | name }}"
+re-save name {{ input_data | name }}
 re-save id {{ input_data | id }}
 re-save type {{ input_data | type }}
-re-save basename "{{ '/foo/bar/moo' | basename }}"
-re-save subtype "{{ 'data:test:inputobject:' | subtype('data:') }}"
-re-save yesno "{{ true | yesno('yes', 'no') }}"
-re-save datalookup "{{ 'input-data-object' | data_by_slug }}"
-re-save file_url "{{ input_data.test_file | get_url }}"
+re-save basename {{ '/foo/bar/moo' | basename }}
+re-save subtype {{ 'data:test:inputobject:' | subtype('data:') }}
+re-save yesno {{ true | yesno('yes', 'no') }}
+re-save datalookup {{ 'input-data-object' | data_by_slug }}
+re-save file_url {{ input_data.test_file | get_url }}
+re-save unsafe {{ spacy }}
+
+function save-safe() {
+    re-save safe $1
+}
+save-safe {{ spacy | safe }}
 """
             }
 
@@ -71,7 +80,10 @@ re-save file_url "{{ input_data.test_file | get_url }}"
             name='Data object',
             contributor=self.contributor,
             process=process,
-            input={'input_data': input_data.pk},
+            input={
+                'input_data': input_data.pk,
+                'spacy': 'this has \'some\' spaces',
+            },
         )
 
         manager.communicate(verbosity=0)
@@ -86,6 +98,8 @@ re-save file_url "{{ input_data.test_file | get_url }}"
         self.assertEqual(data.output['yesno'], 'yes')
         self.assertEqual(data.output['datalookup'], input_data.pk)
         self.assertEqual(data.output['file_url'], 'localhost/data/{}/path/to/file.txt'.format(input_data.pk))
+        self.assertEqual(data.output['unsafe'], 'this has \'some\' spaces')
+        self.assertEqual(data.output['safe'], 'this')
 
 
 class ExpressionEngineTest(TestCase):

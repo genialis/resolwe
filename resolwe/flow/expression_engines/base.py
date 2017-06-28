@@ -17,10 +17,10 @@ class BaseExpressionEngine(BaseEngine):
 
         return text[2:-2]
 
-    def evaluate_block(self, template, context=None):
+    def evaluate_block(self, template, context=None, escape=None, safe_wrapper=None):
         """Evaluate a template block."""
         raise NotImplementedError
 
-    def evaluate_inline(self, expression, context=None):
+    def evaluate_inline(self, expression, context=None, escape=None, safe_wrapper=None):
         """Evaluate an inline expression."""
         raise NotImplementedError

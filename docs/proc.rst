@@ -265,8 +265,10 @@ fieldSchema.json.
 Run
 ---
 
-The algorithm that transforms inputs into outputs. Bash runtime is supported,
-but we envision more runtimes in the future (`e.g.,` a Python or R runtime). Commands should be written to a ``bash`` subfield.
+The algorithm that transforms inputs into outputs. Bash and workflow languages
+are currently supported and we envision more language support in the future (`e.g.,`
+directly writing processes in Python or R). Commands should be written to a
+``program`` subfield.
 
 TODO: link a few lines from the all_fields.yml process
 
@@ -380,7 +382,12 @@ The algorithm
 
 Algorithm is the key component of a process. The algorithm transforms process's
 inputs into outputs. It is written as a sequence of Bash commands in process's
-``run.bash`` field.
+``run.program`` field.
+
+.. note::
+
+    In this section, we assume that the program is written using the ``bash``
+    language and having the ``expression-engine`` requirement set to ``jinja``.
 
 To write the algorithm in a different language (`e.g.,` Python), just put it in
 a file with an appropriate *shebang* at the top (`e.g.,` ``#!/usr/bin/env
@@ -447,9 +454,9 @@ TODO: Write about BioLinux and what is available in the Docker runtime.
 Inputs
 ------
 
-To access values stored in process's input fields, use `Django's template
+To access values stored in process's input fields, use `Jinja2's template
 language syntax for accessing variables`_. For example, to access the value
-of process's ``input.fastq`` field, write ``{{ input.fastq }}``.
+of process's ``fastq`` input field, write ``{{ fastq }}``.
 
 In addition to all process's input fields, Resolwe provides the following
 system variables:
@@ -474,11 +481,33 @@ referenced data objects:
 For example, to use these filters on the ``reads`` field, use
 ``{{ reads|id }}``, ``{{ reads|type }}`` or ``{{ reads|name }}``, respectively.
 
-You can also use any `Django's built in template tags and filters`_ in your
+You can also use any `Jinja2's built in template tags and filters`_ in your
 algorithm.
 
-.. _Django's template language syntax for accessing variables: https://docs.djangoproject.com/en/1.8/ref/templates/language/#variables
-.. _Django's built in template tags and filters: https://docs.djangoproject.com/en/stable/ref/templates/builtins/
+.. note::
+
+    All input variables should be considered *unsafe* and will be automatically
+    quoted when used in your scripts. For example, the following call:
+
+    .. code-block:: bash
+
+      volcanoplot.py {{ reads.fastq.0.file }}
+
+    will actually be transformed into something like (depending on the value):
+
+    .. code-block:: bash
+
+      volcanoplot.py '/path/to/reads with spaces.gz'
+
+    If you do not want this behaviour for a certain variable and you are sure
+    that it is safe to do so, you can use the ``safe`` filter as follows:
+
+    .. code-block:: bash
+
+      volcanoplot.py {{ known_good_input | safe }}
+
+.. _Jinja2's template language syntax for accessing variables: http://jinja.pocoo.org/docs/2.9/templates/#variables
+.. _Jinja2's built in template tags and filters: http://jinja.pocoo.org/docs/2.9/templates/#builtin-filters
 
 .. _algorithm-outputs:
 

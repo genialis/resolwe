@@ -3,12 +3,21 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import copy
 
+import shellescape
+import six
+
 from django.conf import settings
 
 from resolwe.flow.execution_engines.base import BaseExecutionEngine
 from resolwe.flow.execution_engines.exceptions import ExecutionError
 from resolwe.flow.expression_engines import EvaluationError
 from resolwe.flow.models.utils import hydrate_input_references, hydrate_input_uploads
+
+
+class SafeString(six.text_type):
+    """String wrapper for marking strings safe."""
+
+    pass
 
 
 class ExecutionEngine(BaseExecutionEngine):
@@ -40,6 +49,17 @@ class ExecutionEngine(BaseExecutionEngine):
             if not expression_engine:
                 return script_template
 
-            return self.get_expression_engine(expression_engine).evaluate_block(script_template, inputs)
+            return self.get_expression_engine(expression_engine).evaluate_block(
+                script_template, inputs,
+                escape=self._escape,
+                safe_wrapper=SafeString,
+            )
         except EvaluationError as error:
             raise ExecutionError('{}'.format(error))
+
+    def _escape(self, value):
+        """Escape given value unless it is safe."""
+        if isinstance(value, SafeString):
+            return value
+
+        return shellescape.quote(value)

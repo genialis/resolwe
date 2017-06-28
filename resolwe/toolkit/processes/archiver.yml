@@ -35,11 +35,11 @@
       zip -0 {% if j %}-j {% endif %}results.zip \
       {% for d in data %}{% for field in fields %} \
         {% if d[field].file %} \
-          "{{ d[field].file }}" {% for ref in d[field].refs %}"{{ ref }}" {% endfor %} \
+          {{ d[field].file }} {% for ref in d[field].refs %}{{ ref }} {% endfor %} \
         {% endif %} \
         {% for file in d[field] %} \
           {% if file.file %} \
-            "{{ file.file }}" {% for ref in file.refs %}"{{ ref }}" {% endfor %} \
+            {{ file.file }} {% for ref in file.refs %}{{ ref }} {% endfor %} \
           {% endif %} \
         {% endfor %} \
       {% endfor %}{% endfor %} \
