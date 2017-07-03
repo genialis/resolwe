@@ -6,9 +6,9 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+==================
+1.5.0 - 2017-07-04
+==================
 
 Added
 -----
@@ -17,29 +17,27 @@ Added
 - Add ``isort`` linter to check order of imports
 - Support basic test case based on Django's ``TransactionTestCase``
 - Support ES test case based on Django's ``TransactionTestCase``
+- Support process test case based on Resolwe's ``TransactionTestCase``
 - Add ability to set a custom command for the Docker executor via the
   ``FLOW_DOCKER_COMMAND`` setting.
 - ``get_url`` jinja filter
 - When running ``register`` management command, permissions are
-  automatically granted based on permissions of previously the latest
-  version of process or descriptor schema.
-- Set ``parent`` relation in spawned data objects and workflows
+  automatically granted based on the permissions of previous latest
+  version of the process or descriptor schema.
+- Set ``parent`` relation in spawned ``Data`` objects and workflows
 - Relations between entities
 - Resolwe toolkit Docker images
 - Archive file process
 - File upload processes
 - Resolwe process tests
-- Add SET_ENV setting to set environment variables in executor
-- Support file lists in archiver
+- Add ``SET_ENV`` setting to set environment variables in executor
 - Support ordering by version for descriptor schema
-- Support process test case based on Resolwe's ``TransactionTestCase``
-- Add Null executor
+- Add ``NullExecutor``
 - If ``choices`` are defined in JSON schema, value of field is
   validated with them
-- Add tests for accessing Resolwe API from a process
 - Add cpu core, memory and network resource limits
-- Add scheduling class for processes (interactive, batch), which replaces
-  the previously unused process priority field
+- Add scheduling class for processes (``interactive``, ``batch``), which
+  replaces the previously unused process priority field
 - Add ``share_content`` flag to the collection and entity permissions
   endpoint to also share the content of the coresponding object
 - Add ``delete_content`` flag to the collection and entity destroy
@@ -51,12 +49,12 @@ Changed
 - Split ``flow.models`` module to multiple files
 - Remove ability to set a custom executor command for any executor via
   the ``FLOW_EXECUTOR['COMMAND']`` setting.
-- Rename ``RESOLWE_API_HOST`` setting and environment variable in executor
-  to ``RESOLWE_HOST_URL``
-- Remove keep_failed() function in tests.
-- Rename keep_all() to keep_data().
-- Manager is automatically run when new data object is created
-- Outputs of Data objects with status ``Error`` are not validated
+- Rename ``RESOLWE_API_HOST`` setting and environment variable in
+  executor to ``RESOLWE_HOST_URL``
+- Remove ``keep_failed`` function in tests.
+- Rename ``keep_all`` function to ``keep_data``.
+- Manager is automatically run when new ``Data`` object is created
+- Outputs of ``Data`` objects with status ``Error`` are not validated
 - Superusers are no longer included in response in ``permissions``
   endpoint of resources
 - Remove ``public_processes`` field from the ``Collection`` model as it
@@ -72,25 +70,24 @@ Fixed
   over API
 - Configure parallel tests
 - Isolate Elasticsearch indices for parallel tests
-- Fix docker container name for parallel tests
+- Fix Docker container name for parallel tests
 - Generate temporary names for upload files in tests
 - Fix permissions in Elasticsearch tests
 - Do not purge data in tests
 - Remove primary keys before using cached schemas' in process tests
-- Set appropriate SELinux labels when mounting tools in Docker containers
-- Data objects created by the workflow inherite it's permissions
+- Set appropriate SELinux labels when mounting tools in Docker
+  containers
+- ``Data`` objects created by the workflow inherit its permissions
 - If user doesn't have permissions on the latest versions of processes
-  and descriptor schemas, use older ones except returning error
+  and descriptor schemas, older ones are used or error is returned
 - Support ``data:`` and ``list:data:`` types
-- Sort permissions in tests
-- Support tabular files
-- Set Data object status to error if worker cannot update object in
-  database
-- Data objects returned in `CollectionViewset` and `EntityViewset` are
-  filtered by permissions of user in request
+- Set ``Data`` object status to error if worker cannot update the object
+  in the database
+- ``Data`` objects returned in ``CollectionViewset`` and
+  ``EntityViewset`` are filtered by permissions of the user in request
 - Public permissions are taken into account in elastic app
 - Treat ``None`` field value as if the field is missing
-- Copy parent's permissions to spawned Data objects
+- Copy parent's permissions to spawned ``Data`` objects
 
 
 ==================
