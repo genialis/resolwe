@@ -22,6 +22,7 @@ Changed
 
 Added
 -----
+- Support for the SLURM workload manager
 - Support for dispatching ``Data`` objects to different managers
 - Support for passing secrets to processes in a controlled way using a newly
   defined ``basic:secret`` input type
