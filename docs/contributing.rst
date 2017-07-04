@@ -150,12 +150,13 @@ Upload distribution to PyPI_::
 
     twine upload dist/*
 
-Tag the new version::
+Tag the new version and sign it with your `GPG key`_::
 
-    git tag <new-version>
+    git tag -s -m "Version <new-version>" <new-version>
 
 Push changes to the main `Resolwe's git repository`_::
 
    git push <resolwe-upstream-name> master <new-version>
 
 .. _Semantic versioning: https://packaging.python.org/en/latest/distributing/#semantic-versioning-preferred
+.. _GPG key: https://www.gnupg.org/
