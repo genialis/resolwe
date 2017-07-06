@@ -18,6 +18,8 @@ Fixed
 -----
 - Set contributor of ``Data`` object to public user if it is created by
   not authenticated user
+- Remove remaining references to calling ``pip`` with
+  ``--process-dependency-links`` argument
 
 
 ==================
