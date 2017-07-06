@@ -84,15 +84,15 @@ example, on a Fedora/RHEL-based system, that would mean installing ``gcc``,
 .. _PyPi: https://pypi.python.org/
 .. _GCC: https://gcc.gnu.org/
 
-From PyPI_
-----------
+Using PyPI_
+-----------
 
 .. code::
 
     pip install resolwe
 
-From source
------------
+Using source on GitHub_
+-----------------------
 
 .. code::
 
@@ -107,6 +107,7 @@ Resolwe from the ``master`` branch, use:
    pip install https://github.com/genialis/resolwe/archive/master.tar.gz
 
 .. _`Resolwe's GitHub repository`: https://github.com/genialis/resolwe/
+.. _GitHub: `Resolwe's GitHub repository`_
 
 
 Contribute
