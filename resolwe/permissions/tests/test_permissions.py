@@ -11,7 +11,7 @@ from guardian.shortcuts import assign_perm
 from rest_framework import exceptions, status
 
 from resolwe.flow.models import Collection, Data, Entity, Process
-from resolwe.flow.views import CollectionViewSet
+from resolwe.flow.views import CollectionViewSet, DataViewSet
 from resolwe.permissions.utils import check_owner_permission, check_public_permissions, check_user_permissions
 from resolwe.test import ResolweAPITestCase, TestCase
 
@@ -199,6 +199,44 @@ class CollectionPermissionsTest(ResolweAPITestCase):
         resp = self._detail_permissions(self.collection.pk, data, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(UserObjectPermission.objects.filter(user=self.user2).count(), 0)
+
+
+class DataPermissionsTest(ResolweAPITestCase):
+
+    def setUp(self):
+        self.user1 = get_user_model().objects.create(username="test_user1")
+        self.user2 = get_user_model().objects.create(username="test_user2")
+        # public user is already created bt django-guardian
+        self.public = get_user_model().objects.get(username="public")
+
+        self.data = self._create_data()
+
+        self.resource_name = 'data'
+        self.viewset = DataViewSet
+
+        super(DataPermissionsTest, self).setUp()
+
+    def _create_data(self):
+        process = Process.objects.create(
+            name='Test process',
+            contributor=self.user1,
+        )
+
+        return Data.objects.create(
+            name='Test data',
+            contributor=self.user1,
+            process=process,
+        )
+
+    def test_user_with_share(self):
+        assign_perm("view_data", self.user1, self.data)
+        assign_perm("share_data", self.user1, self.data)
+
+        # Can add 'add' permissions to users.
+        data = {'users': {'add': {self.user2.pk: ['add', 'downlaod', 'view']}}}
+        resp = self._detail_permissions(self.data.pk, data, self.user1)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(UserObjectPermission.objects.filter(user=self.user2).count(), 1)
 
 
 class PermissionsUtilitiesTest(TestCase):
