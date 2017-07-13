@@ -68,6 +68,11 @@ class EntityViewSet(CollectionViewSet):
                 if user.has_perm('edit_data', data):
                     data.delete()
 
+            # If all data objects in an entity are removed, the entity may
+            # have already been removed, so there is no need to call destroy.
+            if not Entity.objects.filter(pk=obj.pk).exists():
+                return Response(status=status.HTTP_204_NO_CONTENT)
+
         # NOTE: Collection's ``destroy`` method should be skiped, so we
         # intentionaly call it's parent.
         return super(CollectionViewSet, self).destroy(  # pylint: disable=no-member,bad-super-call

@@ -419,11 +419,11 @@ class EntityViewSetTest(TestCase):
 
         entity.data.add(data_1, data_2)
 
-        assign_perm("view_entity", self.user, entity)
-        assign_perm("edit_entity", self.user, entity)
-        assign_perm("view_data", self.user, data_1)
-        assign_perm("view_data", self.user, data_2)
-        assign_perm("edit_data", self.user, data_1)
+        assign_perm('view_entity', self.user, entity)
+        assign_perm('edit_entity', self.user, entity)
+        assign_perm('view_data', self.user, data_1)
+        assign_perm('view_data', self.user, data_2)
+        assign_perm('edit_data', self.user, data_1)
 
         request = factory.delete(self.detail_url(entity.pk))
         force_authenticate(request, self.user)
@@ -440,8 +440,8 @@ class EntityViewSetTest(TestCase):
 
         entity.data.add(data_1, data_2)
 
-        assign_perm("view_entity", self.user, entity)
-        assign_perm("edit_entity", self.user, entity)
+        assign_perm('view_entity', self.user, entity)
+        assign_perm('edit_entity', self.user, entity)
 
         request = factory.delete('{}?delete_content=1'.format(self.detail_url(entity.pk)))
         force_authenticate(request, self.user)
@@ -450,3 +450,24 @@ class EntityViewSetTest(TestCase):
         # Only objects with `edit` permission can be deleted.
         self.assertFalse(Data.objects.filter(pk=data_1.pk).exists())
         self.assertTrue(Data.objects.filter(pk=data_2.pk).exists())
+
+        # Ensure that deletion works correctly when all data objects of an entity
+        # are deleted.
+        entity = Entity.objects.create(
+            name="Test entity",
+            contributor=self.contributor,
+        )
+
+        assign_perm('view_entity', self.user, entity)
+        assign_perm('edit_entity', self.user, entity)
+        assign_perm('edit_data', self.user, data_2)
+
+        entity.data.add(data_2)
+
+        request = factory.delete('{}?delete_content=1'.format(self.detail_url(entity.pk)))
+        force_authenticate(request, self.user)
+        response = self.entity_detail_viewset(request, pk=entity.pk)
+
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(Entity.objects.filter(pk=entity.pk).exists())
+        self.assertFalse(Data.objects.filter(pk=data_2.pk).exists())
