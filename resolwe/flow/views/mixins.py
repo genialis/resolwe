@@ -3,7 +3,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 from django.db import IntegrityError, transaction
 
-from guardian.shortcuts import assign_perm
 from guardian.utils import get_anonymous_user
 from rest_framework import mixins, status
 from rest_framework.decorators import list_route
@@ -11,6 +10,7 @@ from rest_framework.response import Response
 
 from resolwe.flow.models import DescriptorSchema
 from resolwe.permissions.shortcuts import get_objects_for_user
+from resolwe.permissions.utils import assign_contributor_permissions
 
 
 class ResolweCreateModelMixin(mixins.CreateModelMixin):
@@ -56,8 +56,7 @@ class ResolweCreateModelMixin(mixins.CreateModelMixin):
             instance = serializer.save()
 
             # Assign all permissions to the object contributor.
-            for permission in list(zip(*instance._meta.permissions))[0]:  # pylint: disable=protected-access
-                assign_perm(permission, instance.contributor, instance)
+            assign_contributor_permissions(instance)
 
 
 class ResolweUpdateModelMixin(mixins.UpdateModelMixin):
