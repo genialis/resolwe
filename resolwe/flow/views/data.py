@@ -51,10 +51,14 @@ class DataViewSet(ResolweCreateModelMixin,
                                 status=status.HTTP_400_BAD_REQUEST)
 
             if not request.user.has_perm('add_collection', obj=collection):
-                if request.user.is_authenticated():
-                    raise exceptions.PermissionDenied
+                if request.user.has_perm('view_collection', obj=collection):
+                    raise exceptions.PermissionDenied(
+                        "You don't have `ADD` permission on collection (id: {}).".format(collection_id)
+                    )
                 else:
-                    raise exceptions.NotFound
+                    raise exceptions.NotFound(
+                        "Collection not found (id: {}).".format(collection_id)
+                    )
 
         # translate processe's slug to id
         process_slug = request.data.get('process', None)

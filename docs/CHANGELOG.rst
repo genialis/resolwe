@@ -9,6 +9,11 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Changed
+-------
+- Add more descriptive message if user has no permission to add
+  ``Data`` object to the collection when the object is created
+
 Fixed
 -----
 - Set contributor of ``Data`` object to public user if it is created by

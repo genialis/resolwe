@@ -109,7 +109,8 @@ class DataTestCase(ResolweAPITestCase):
     def test_post_public_user(self):
         collection_n = Data.objects.count()
         resp = self._post(self.data)
-        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+        # User has no permission to add Data object to the collection.
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(Data.objects.count(), collection_n)
 
     def test_post_protected_fields(self):
