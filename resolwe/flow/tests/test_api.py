@@ -3,10 +3,12 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import mock
 
+from django.contrib.auth.models import AnonymousUser
 from django.core.urlresolvers import reverse
 from django.db import DEFAULT_DB_ALIAS, connections
 from django.test.utils import CaptureQueriesContext
 
+from guardian.conf.settings import ANONYMOUS_USER_NAME
 from guardian.shortcuts import assign_perm, remove_perm
 from rest_framework import exceptions, status
 from rest_framework.test import APIRequestFactory, force_authenticate
@@ -91,6 +93,19 @@ class TestDataViewSetCase(TestCase):
         # Check that older versions are user if user doesn't have permissions on the latest
         self.assertEqual(data.process, self.proc)
         self.assertEqual(data.descriptor_schema, self.descriptor_schema)
+
+    def test_public_create(self):
+        assign_perm('view_process', AnonymousUser(), self.proc)
+
+        data = {'process': 'test-process'}
+        request = factory.post('/', data, format='json')
+        resp = self.data_viewset(request)
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Data.objects.count(), 1)
+
+        data = Data.objects.latest()
+        self.assertEqual(data.contributor.username, ANONYMOUS_USER_NAME)
+        self.assertEqual(data.process.slug, 'test-process')
 
 
 class TestCollectionViewSetCase(TestCase):

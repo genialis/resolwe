@@ -5,6 +5,15 @@ Change Log
 All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
+==========
+Unreleased
+==========
+
+Fixed
+-----
+- Set contributor of ``Data`` object to public user if it is created by
+  not authenticated user
+
 
 ==================
 1.5.0 - 2017-07-04

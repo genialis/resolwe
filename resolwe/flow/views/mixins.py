@@ -4,6 +4,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from django.db import IntegrityError, transaction
 
 from guardian.shortcuts import assign_perm
+from guardian.utils import get_anonymous_user
 from rest_framework import mixins, status
 from rest_framework.decorators import list_route
 from rest_framework.response import Response
@@ -38,7 +39,11 @@ class ResolweCreateModelMixin(mixins.CreateModelMixin):
                         'Invalid descriptor_schema slug "{}" - object does not exist.'.format(ds_slug)]},
                     status=status.HTTP_400_BAD_REQUEST)
 
-        request.data['contributor'] = request.user.pk
+        if request.user.is_anonymous():
+            request.data['contributor'] = get_anonymous_user().pk
+        else:
+            request.data['contributor'] = request.user.pk
+
         try:
             return super(ResolweCreateModelMixin, self).create(request, *args, **kwargs)
 
