@@ -20,6 +20,8 @@ Changed
 
 Changed
 -------
+- **BACKWARD INCOMPATIBILE:** Rename ``permissions`` attribute on API 
+  endpoints to ``current_user_permissions``
 - Add more descriptive message if user has no permission to add
   ``Data`` object to the collection when the object is created
 

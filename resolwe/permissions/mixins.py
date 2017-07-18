@@ -32,7 +32,7 @@ class ResolwePermissionsMixin(object):
                 """Object serializer."""
                 # TODO: These permissions queries may be expensive. Should we limit or optimize this?
                 data = super(SerializerWithPermissions, serializer_self).to_representation(instance)
-                data['permissions'] = get_object_perms(instance, self.request.user)
+                data['current_user_permissions'] = get_object_perms(instance, self.request.user)
                 return data
 
         return SerializerWithPermissions
