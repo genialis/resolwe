@@ -154,6 +154,12 @@ class CollectionPermissionsTest(ResolweAPITestCase):
 
         assign_perm("owner_collection", self.user1, self.collection)
 
+        # ``owner`` permission cannot be assigned to a group
+        data = {'groups': {'add': {self.group.pk: ['owner']}}}
+        resp = self._detail_permissions(self.collection.pk, data, self.user1)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(GroupObjectPermission.objects.filter(group=self.group).count(), 0)
+
         # User with owner permission can grant ``owner`` permission
         data = {'users': {'add': {self.user2.pk: ['owner']}}}
         resp = self._detail_permissions(self.collection.pk, data, self.user1)
@@ -257,27 +263,33 @@ class PermissionsUtilitiesTest(TestCase):
             }
         }
 
-        check_owner_permission(data_template)  # pylint: disable=protected-access
+        check_owner_permission(data_template, False)
 
         data = deepcopy(data_template)
         data['users']['add'][1].append('owner')
         with self.assertRaises(exceptions.PermissionDenied):
-            check_owner_permission(data)  # pylint: disable=protected-access
+            check_owner_permission(data, False)
+        check_owner_permission(data, True)
 
         data = deepcopy(data_template)
         data['users']['remove'][3].append('owner')
         with self.assertRaises(exceptions.PermissionDenied):
-            check_owner_permission(data)  # pylint: disable=protected-access
+            check_owner_permission(data, False)
+        check_owner_permission(data, True)
 
         data = deepcopy(data_template)
         data['groups']['add'][1].append('owner')
-        with self.assertRaises(exceptions.PermissionDenied):
-            check_owner_permission(data)  # pylint: disable=protected-access
+        with self.assertRaises(exceptions.ParseError):
+            check_owner_permission(data, False)
+        with self.assertRaises(exceptions.ParseError):
+            check_owner_permission(data, True)
 
         data = deepcopy(data_template)
         data['groups']['remove'][2].append('owner')
-        with self.assertRaises(exceptions.PermissionDenied):
-            check_owner_permission(data)  # pylint: disable=protected-access
+        with self.assertRaises(exceptions.ParseError):
+            check_owner_permission(data, False)
+        with self.assertRaises(exceptions.ParseError):
+            check_owner_permission(data, True)
 
     def test_filter_user_permissions(self):
         """Check that user cannot change his own permissions"""
@@ -293,36 +305,36 @@ class PermissionsUtilitiesTest(TestCase):
         }
 
         with self.assertRaises(exceptions.PermissionDenied):
-            check_user_permissions(data, 1)  # pylint: disable=protected-access
+            check_user_permissions(data, 1)
 
         with self.assertRaises(exceptions.PermissionDenied):
-            check_user_permissions(data, 2)  # pylint: disable=protected-access
+            check_user_permissions(data, 2)
 
-        check_user_permissions(data, 3)  # pylint: disable=protected-access
+        check_user_permissions(data, 3)
 
     def test_filter_public_permissions(self):
         """Check that public user cannot get to open permissions"""
         data = {'public': {'add': ['view']}}
-        check_public_permissions(data)  # pylint: disable=protected-access
+        check_public_permissions(data)
 
         data = {'public': {'add': ['download']}}
-        check_public_permissions(data)  # pylint: disable=protected-access
+        check_public_permissions(data)
 
         data = {'public': {'add': ['add']}}
-        check_public_permissions(data)  # pylint: disable=protected-access
+        check_public_permissions(data)
 
         data = {'public': {'add': ['edit']}}
         with self.assertRaises(exceptions.PermissionDenied):
-            check_public_permissions(data)  # pylint: disable=protected-access
+            check_public_permissions(data)
 
         data = {'public': {'add': ['share']}}
         with self.assertRaises(exceptions.PermissionDenied):
-            check_public_permissions(data)  # pylint: disable=protected-access
+            check_public_permissions(data)
 
         data = {'public': {'add': ['owner']}}
         with self.assertRaises(exceptions.PermissionDenied):
-            check_public_permissions(data)  # pylint: disable=protected-access
+            check_public_permissions(data)
 
         data = {'public': {'add': ['view', 'edit']}}
         with self.assertRaises(exceptions.PermissionDenied):
-            check_public_permissions(data)  # pylint: disable=protected-access
+            check_public_permissions(data)

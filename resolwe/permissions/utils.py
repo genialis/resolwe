@@ -46,12 +46,18 @@ def fetch_group(query):
     return Group.objects.get(**group_filter)
 
 
-def check_owner_permission(payload):
+def check_owner_permission(payload, allow_user_owner):
     """Raise ``PermissionDenied``if ``owner`` found in ``data``."""
     for entity_type in ['users', 'groups']:
         for perm_type in ['add', 'remove']:
             for perms in payload.get(entity_type, {}).get(perm_type, {}).values():
                 if 'owner' in perms:
+                    if entity_type == 'users' and allow_user_owner:
+                        continue
+
+                    if entity_type == 'groups':
+                        raise exceptions.ParseError("Owner permission cannot be assigned to a group")
+
                     raise exceptions.PermissionDenied("Only owners can grant/revoke owner permission")
 
 

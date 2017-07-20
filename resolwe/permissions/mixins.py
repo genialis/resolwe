@@ -4,7 +4,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from distutils.util import strtobool  # pylint: disable=import-error,no-name-in-module
 
 from django.contrib.contenttypes.models import ContentType
-from django.db import IntegrityError, transaction
+from django.db import transaction
 
 from guardian.models import UserObjectPermission
 from rest_framework import exceptions, status
@@ -61,8 +61,8 @@ class ResolwePermissionsMixin(object):
             user = request.user
             is_owner = user.has_perm('owner_{}'.format(content_type), obj=obj)
 
-            if not (is_owner or user.is_superuser):
-                check_owner_permission(payload)
+            allow_owner = is_owner or user.is_superuser
+            check_owner_permission(payload, allow_owner)
             check_public_permissions(payload)
             check_user_permissions(payload, request.user.pk)
 
