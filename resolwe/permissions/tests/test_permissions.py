@@ -5,6 +5,7 @@ from copy import deepcopy
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
+from django.contrib.contenttypes.models import ContentType
 
 from guardian.models import GroupObjectPermission, UserObjectPermission
 from guardian.shortcuts import assign_perm
@@ -21,6 +22,7 @@ class CollectionPermissionsTest(ResolweAPITestCase):
     def setUp(self):
         self.user1 = get_user_model().objects.create(username="test_user1")
         self.user2 = get_user_model().objects.create(username="test_user2")
+        self.owner = get_user_model().objects.create(username="owner")
         # public user is already created bt django-guardian
         self.public = get_user_model().objects.get(username="public")
 
@@ -30,6 +32,7 @@ class CollectionPermissionsTest(ResolweAPITestCase):
             contributor=self.user1,
             name="Test collection 1"
         )
+        assign_perm('owner_collection', self.owner, self.collection)
 
         self.resource_name = 'collection'
         self.viewset = CollectionViewSet
@@ -42,11 +45,14 @@ class CollectionPermissionsTest(ResolweAPITestCase):
             contributor=self.user1,
         )
 
-        return Data.objects.create(
+        data = Data.objects.create(
             name='Test data',
             contributor=self.user1,
             process=process,
         )
+        assign_perm('owner_data', self.owner, data)
+
+        return data
 
     def _create_entity(self):
         return Entity.objects.create(
@@ -127,7 +133,7 @@ class CollectionPermissionsTest(ResolweAPITestCase):
         self.assertEqual(GroupObjectPermission.objects.count(), 0)
 
     def test_protect_owner(self):
-        """Only owners can modify ``owner``permission"""
+        """Only owners can modify `owner` permission"""
         assign_perm("view_collection", self.user1, self.collection)
         assign_perm("download_collection", self.user1, self.collection)
         assign_perm("add_collection", self.user1, self.collection)
@@ -148,17 +154,43 @@ class CollectionPermissionsTest(ResolweAPITestCase):
 
         assign_perm("owner_collection", self.user1, self.collection)
 
-        # User with share permission can grant ``owner`` permission
+        # User with owner permission can grant ``owner`` permission
         data = {'users': {'add': {self.user2.pk: ['owner']}}}
         resp = self._detail_permissions(self.collection.pk, data, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(UserObjectPermission.objects.filter(user=self.user2).count(), 1)
 
-        # User with share permission can revoke ``owner`` permission
+        # User with owner permission can revoke ``owner`` permission
         data = {'users': {'remove': {self.user2.pk: ['owner']}}}
         resp = self._detail_permissions(self.collection.pk, data, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(UserObjectPermission.objects.filter(user=self.user2).count(), 0)
+
+        # User with owner permission cannot remove all owners
+        data = {'users': {'remove': {self.user1.pk: ['owner'], self.owner.pk: ['owner']}}}
+        resp = self._detail_permissions(self.collection.pk, data, self.user1)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(resp.data['detail'], "Object must have at least one owner.")
+
+        owner_count = UserObjectPermission.objects.filter(
+            object_pk=self.collection.pk,
+            content_type=ContentType.objects.get_for_model(self.collection),
+            permission__codename__startswith='owner_'
+        ).count()
+        self.assertEqual(owner_count, 2)
+
+        # User can delete his owner permission if there is at least one other owner
+        data = {'users': {'remove': {self.user1.pk: ['owner']}}}
+        resp = self._detail_permissions(self.collection.pk, data, self.user1)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+
+        user1_owner = UserObjectPermission.objects.filter(
+            object_pk=self.collection.pk,
+            content_type=ContentType.objects.get_for_model(self.collection),
+            permission__codename__startswith='owner_',
+            user=self.user1
+        ).exists()
+        self.assertFalse(user1_owner)
 
     def test_share_content(self):
         data_1, data_2 = self._create_data(), self._create_data()

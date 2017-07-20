@@ -4,8 +4,10 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from distutils.util import strtobool  # pylint: disable=import-error,no-name-in-module
 
 from django.contrib.contenttypes.models import ContentType
+from django.db import IntegrityError, transaction
 
-from rest_framework import status
+from guardian.models import UserObjectPermission
+from rest_framework import exceptions, status
 from rest_framework.decorators import detail_route, list_route
 from rest_framework.response import Response
 
@@ -64,7 +66,17 @@ class ResolwePermissionsMixin(object):
             check_public_permissions(payload)
             check_user_permissions(payload, request.user.pk)
 
-            update_permission(obj, payload)
+            with transaction.atomic():
+                update_permission(obj, payload)
+
+                owner_count = UserObjectPermission.objects.filter(
+                    object_pk=obj.id,
+                    content_type=content_type,
+                    permission__codename__startswith='owner_'
+                ).count()
+
+                if not owner_count:
+                    raise exceptions.ParseError('Object must have at least one owner.')
 
             if share_content:
                 self.set_content_permissions(user, obj, payload)

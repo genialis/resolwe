@@ -27,6 +27,8 @@ Changed
 -------
 - Add more descriptive message if user has no permission to add
   ``Data`` object to the collection when the object is created
+- API ``permissions`` endpoint raises error if no owner is assigned to
+  the object after applied changes
 
 Fixed
 -----
