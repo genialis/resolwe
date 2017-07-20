@@ -68,6 +68,9 @@ setup(
         'Sphinx>=1.5.1',
         'Jinja2>=2.8',
         'wrapt>=1.10.8',
+        # XXX: Temporarily pin urllib3 since the latest version of the requests
+        # package (2.18.1) explicitly requires urllib3<1.22,>=1.21.1
+        'urllib3==1.21.1',
     ],
     extras_require={
         'docs':  [
