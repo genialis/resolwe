@@ -13,11 +13,15 @@ Changed
 -------
 - **BACKWARD INCOMPATIBLE:** Quote all unsafe strings when evaluating
   expressions in Bash execution engine
-- **BACKWARD INCOMPATIBILE:** Rename ``permissions`` attribute on API 
+- **BACKWARD INCOMPATIBILE:** Rename ``permissions`` attribute on API
   endpoints to ``current_user_permissions``
 - API ``permissions`` endpoint raises error if no owner is assigned to
   the object after applied changes
 - ``owner`` permission cannot be assigned to a group
+
+Fixed
+-----
+- Add `basic:url:link` field to the JSON schema
 
 ==================
 1.5.1 - 2017-07-20

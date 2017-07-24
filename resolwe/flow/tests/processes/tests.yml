@@ -48,7 +48,9 @@
   type: "data:test:bloated:"
   category: tests
   persistence: CACHED
-  description: A very bloated processor.
+  description: >
+    A very bloated processor. All fields types are defined to make sure
+    that they can be registered.
   input:
     - name: boolean
       label: Boolean
@@ -94,6 +96,11 @@
       type: basic:url:view
       default:
         name: Google
+        url: "http://www.google.com/"
+    - name: url_link
+      label: URL view
+      type: basic:url:link
+      default:
         url: "http://www.google.com/"
     - name: group
       label: Group

@@ -42,6 +42,8 @@ class ProcessRegisterTest(TestCase):
 
     def test_process_register_filter(self):
         out, err = StringIO(), StringIO()
+        # Fields types are also tested here, as process won't register
+        # if any of them fail.
         call_command('register', path=[PROCESSES_DIR], schemas=['test-bloated'], stdout=out, stderr=err)
         self.assertTrue('Inserted test-bloated' in out.getvalue())
         self.assertTrue('Inserted test-min' not in out.getvalue())

@@ -682,13 +682,19 @@ class ValidationUnitTest(TestCase):
 
     def test_url_field(self):
         schema = [
-            {'name': 'webpage', 'type': 'basic:url:view:'},
+            {'name': 'url_view', 'type': 'basic:url:view:', 'required': False},
+            {'name': 'url_download', 'type': 'basic:url:download:', 'required': False},
+            {'name': 'url_link', 'type': 'basic:url:link:', 'required': False},
         ]
 
-        instance = {'webpage': {'url': 'http://www.genialis.com'}}
+        instance = {
+            'url_view': {'url': 'http://www.genialis.com'},
+            'url_download': {'url': 'http://www.genialis.com'},
+            'url_link': {'url': 'http://www.genialis.com'},
+        }
         validate_schema(instance, schema)
 
-        instance = {'webpage': {
+        instance = {'url_view': {
             'url': 'http://www.genialis.com',
             'name': 'Genialis',
             'refs': ['http://www.genialis.com/jobs']
