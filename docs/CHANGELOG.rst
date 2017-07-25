@@ -24,6 +24,9 @@ Changed
 Fixed
 -----
 - Add `basic:url:link` field to the JSON schema
+- Return more descriptive error if non-existing permission is sent to
+  the ``permissions`` endpoint
+
 
 ==================
 1.5.1 - 2017-07-20

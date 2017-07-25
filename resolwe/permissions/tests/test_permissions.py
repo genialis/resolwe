@@ -238,6 +238,29 @@ class CollectionPermissionsTest(ResolweAPITestCase):
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(UserObjectPermission.objects.filter(user=self.user2).count(), 0)
 
+    def test_nonexisting_permission(self):
+        assign_perm("view_collection", self.owner, self.collection)
+        assign_perm("share_collection", self.owner, self.collection)
+
+        # Add one valid permission to make sure that no permission is applied if any of them is unknown.
+        data = {'users': {'add': {self.user1.pk: ['view'], self.user2.pk: ['view', 'foo']}}}
+        resp = self._detail_permissions(self.collection.pk, data, self.owner)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(resp.data['detail'], 'Unknown permission: foo')
+        self.assertEqual(UserObjectPermission.objects.filter(user=self.user1).count(), 0)
+        self.assertEqual(UserObjectPermission.objects.filter(user=self.user2).count(), 0)
+
+        assign_perm("view_collection", self.user1, self.collection)
+        assign_perm("view_collection", self.user2, self.collection)
+
+        # Add one valid permission to make sure that no permission is applied if any of them is unknown.
+        data = {'users': {'remove': {self.user1.pk: ['view'], self.user2.pk: ['view', 'foo']}}}
+        resp = self._detail_permissions(self.collection.pk, data, self.owner)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(resp.data['detail'], 'Unknown permission: foo')
+        self.assertEqual(UserObjectPermission.objects.filter(user=self.user1).count(), 1)
+        self.assertEqual(UserObjectPermission.objects.filter(user=self.user2).count(), 1)
+
 
 class PermissionsUtilitiesTest(TestCase):
 
