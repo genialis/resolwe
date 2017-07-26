@@ -140,10 +140,11 @@ class IndexViewsetTest(APITestCase, ElasticSearchTestCase):
         force_authenticate(request, self.user_1)
         response = viewset(request)
 
-        self.assertEqual(len(response.data), 1)
+        self.assertEqual(len(response.data), 2)
         self.assertEqual(response.data[0]['name'], 'Object name 1')
         self.assertEqual(response.data[0]['field_process_type'], '')
         self.assertEqual(response.data[0]['number'], 43)
+        self.assertEqual(response.data[1]['name'], 'Object name 3')
 
         # Test combined access.
         request = factory.get('', {'name': '43'}, format='json')

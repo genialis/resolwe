@@ -31,8 +31,7 @@ class CollectionTestCase(ResolweAPITestCase):
 
     def test_get_list(self):
         resp = self._get_list(self.user1)
-        self.assertEqual(len(resp.data), 2)
-        # self.assertEqual(len(resp.data), 3)
+        self.assertEqual(len(resp.data), 3)
 
     def test_get_list_public_user(self):
         # public user
@@ -51,8 +50,7 @@ class CollectionTestCase(ResolweAPITestCase):
 
     def test_get_list_groups(self):
         resp = self._get_list(self.user3)
-        self.assertEqual(len(resp.data), 1)
-        # self.assertEqual(len(resp.data), 3)
+        self.assertEqual(len(resp.data), 3)
 
     def test_post(self):
         # logged-in user

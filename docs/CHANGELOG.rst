@@ -18,6 +18,8 @@ Changed
 - API ``permissions`` endpoint raises error if no owner is assigned to
   the object after applied changes
 - ``owner`` permission cannot be assigned to a group
+- Objects with public permissions are included in list API views for
+  logged-in users
 
 Fixed
 -----

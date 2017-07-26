@@ -301,7 +301,7 @@ def get_objects_for_user(user, perms, klass=None, use_groups=True, any_perm=Fals
     # queryset
     user_model = get_user_obj_perms_model(queryset.model)
     user_obj_perms_queryset = (user_model.objects
-                               .filter(user=user)
+                               .filter(Q(user=user) | Q(user=get_anonymous_user()))
                                .filter(permission__content_type=ctype))
 
     if len(codenames):
