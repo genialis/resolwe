@@ -9,7 +9,7 @@
     expression-engine: jinja
     executor:
       docker:
-        image: "resolwe/base"
+        image: "resolwe/base:fedora-26"
   data_name: '{{ src.file|default("?") }}'
   version: 0.0.3
   type: data:file
@@ -39,7 +39,7 @@
     expression-engine: jinja
     executor:
       docker:
-        image: "resolwe/base"
+        image: "resolwe/base:fedora-26"
   data_name: '{{ src.file|default("?") }}'
   version: 0.0.3
   type: data:file:image

@@ -22,6 +22,6 @@ recursive-include resolwe/permissions/fixtures *.yaml readme.txt
 recursive-include resolwe/toolkit/tests *.py
 recursive-include resolwe/toolkit/tests/files *
 # include Dockerfiles and files needed to build Docker images
-recursive-include resolwe/toolkit/docker_images Dockerfile README.md
+recursive-include resolwe/toolkit/docker_images Dockerfile Dockerfile.* README.md
 include resolwe/toolkit/docker_images/base/curlprogress.py
 include resolwe/toolkit/docker_images/base/re-import.sh

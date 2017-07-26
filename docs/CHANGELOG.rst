@@ -13,6 +13,7 @@ Added
 -----
 - ``descriptor`` jinja filter to get the descriptor (or part of it) in
   processes
+- Ubuntu 16.04 based Docker image for Resolwe
 
 Changed
 -------
@@ -27,6 +28,7 @@ Changed
   logged-in users
 - Owner permission is assigned to the contributor of the processes and
   descriptor schemas in the ``register`` management command
+- The base image Dockerfile is renamed to Dockerfile.fedora-26
 
 Fixed
 -----

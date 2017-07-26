@@ -1,8 +1,12 @@
-# Base Docker image
+# Base Docker images
 
-It is based on [`docker.io/fedora:25`](https://hub.docker.com/_/fedora/).
-
-The only thing that is added are [Resolwe Runtime Utilities](
+This images include [Resolwe Runtime Utilities](
 http://resolwe-runtime-utils.readthedocs.io).
 
-It is used as the base image for all other Resolwe toolkit Docker images.
+The `fedora-26` image is based on [`docker.io/fedora:26`](
+https://hub.docker.com/_/fedora/).
+and the `ubuntu-16.04` image is based on [`docker.io/ubuntu:16.04`](
+https://hub.docker.com/_/ubuntu/).
+
+The base images are used as bases for all the other
+Resolwe toolkit Docker images.
