@@ -8,7 +8,7 @@ from django.contrib.auth.models import Group
 from django.contrib.contenttypes.models import ContentType
 
 from guardian.models import GroupObjectPermission, UserObjectPermission
-from guardian.shortcuts import assign_perm
+from guardian.shortcuts import assign_perm, get_perms
 from rest_framework import exceptions, status
 
 from resolwe.flow.models import Collection, Data, Entity, Process
@@ -223,10 +223,10 @@ class CollectionPermissionsTest(ResolweAPITestCase):
         resp = self._detail_permissions(self.collection.pk, data, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(UserObjectPermission.objects.filter(user=self.user2).count(), 3)
-        self.assertTrue(UserObjectPermission.objects.filter(user=self.user2, object_pk=data_1.pk).exists())
-        self.assertFalse(UserObjectPermission.objects.filter(user=self.user2, object_pk=data_2.pk).exists())
-        self.assertTrue(UserObjectPermission.objects.filter(user=self.user2, object_pk=entity_1.pk).exists())
-        self.assertFalse(UserObjectPermission.objects.filter(user=self.user2, object_pk=entity_2.pk).exists())
+        self.assertEqual(len(get_perms(self.user2, data_1)), 1)
+        self.assertEqual(len(get_perms(self.user2, data_2)), 0)
+        self.assertEqual(len(get_perms(self.user2, entity_1)), 1)
+        self.assertEqual(len(get_perms(self.user2, entity_2)), 0)
 
         data = {'users': {'remove': {self.user2.pk: ['view']}}}
         resp = self._detail_permissions(self.collection.pk, data, self.user1)
