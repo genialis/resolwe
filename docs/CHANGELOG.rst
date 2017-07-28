@@ -20,6 +20,8 @@ Changed
 - ``owner`` permission cannot be assigned to a group
 - Objects with public permissions are included in list API views for
   logged-in users
+- Owner permission is assigned to the contributor of the processes and
+  descriptor schemas in the ``register`` management command
 
 Fixed
 -----

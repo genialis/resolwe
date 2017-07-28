@@ -8,7 +8,7 @@ from django.test import TestCase as DjangoTestCase
 from django.utils.six import StringIO
 
 from guardian.models import UserObjectPermission
-from guardian.shortcuts import assign_perm
+from guardian.shortcuts import assign_perm, get_perms
 
 from resolwe.flow.models import Process
 from resolwe.test import TestCase
@@ -27,6 +27,10 @@ class ProcessRegisterTest(TestCase):
             'Skip processor test-broken-invalid-execution-engine: '
             'execution engine \'invalid\' not supported' in err.getvalue()
         )
+
+        # Check that contributor gets all permissions.
+        process = Process.objects.first()
+        self.assertEqual(len(get_perms(self.admin, process)), 3)
 
         out, err = StringIO(), StringIO()
         call_command('register', path=[PROCESSES_DIR], stdout=out, stderr=err)
@@ -74,7 +78,7 @@ class ProcessRegisterTest(TestCase):
 
         process = Process.objects.latest()
 
-        self.assertEqual(UserObjectPermission.objects.count(), 2)
+        self.assertEqual(UserObjectPermission.objects.filter(user=self.user).count(), 2)
         self.assertTrue(self.user.has_perm('flow.view_process', process))
 
 

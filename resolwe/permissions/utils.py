@@ -158,7 +158,7 @@ def update_permission(obj, data):
         set_public_permissions('remove')
 
 
-def assign_contributor_permissions(obj):
+def assign_contributor_permissions(obj, contributor=None):
     """Assign all permissions to object's contributor."""
     for permission in list(zip(*obj._meta.permissions))[0]:  # pylint: disable=protected-access
-        assign_perm(permission, obj.contributor, obj)
+        assign_perm(permission, contributor if contributor else obj.contributor, obj)

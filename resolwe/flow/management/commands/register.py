@@ -25,7 +25,7 @@ from resolwe.flow.models import DescriptorSchema, Process
 from resolwe.flow.models.base import VERSION_NUMBER_BITS
 from resolwe.flow.models.utils import validation_schema
 from resolwe.flow.utils import iterate_schema
-from resolwe.permissions.utils import copy_permissions
+from resolwe.permissions.utils import assign_contributor_permissions, copy_permissions
 
 PROCESSOR_SCHEMA = validation_schema('processor')
 DESCRIPTOR_SCHEMA = validation_schema('descriptor')
@@ -196,6 +196,7 @@ class Command(BaseCommand):
                 log_processors.append("Updated {}".format(slug))
             else:
                 process = Process.objects.create(contributor=user, **p)
+                assign_contributor_permissions(process)
                 if previous_process:
                     copy_permissions(previous_process, process)
                 log_processors.append("Inserted {}".format(slug))
@@ -265,6 +266,7 @@ class Command(BaseCommand):
                 log_descriptors.append("Updated {}".format(slug))
             else:
                 descriptor = DescriptorSchema.objects.create(contributor=user, **descriptor_schema)
+                assign_contributor_permissions(descriptor)
                 if previous_descriptor:
                     copy_permissions(previous_descriptor, descriptor)
                 log_descriptors.append("Inserted {}".format(slug))
