@@ -3,7 +3,10 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import os
 
+import yaml
+
 from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.test import TestCase as DjangoTestCase
 from django.utils.six import StringIO
 
@@ -11,7 +14,7 @@ from guardian.models import UserObjectPermission
 from guardian.shortcuts import assign_perm, get_perms
 
 from resolwe.flow.models import Process
-from resolwe.test import TestCase
+from resolwe.test import ProcessTestCase, TestCase
 
 PROCESSES_DIR = os.path.join(os.path.dirname(__file__), 'processes')
 
@@ -88,3 +91,53 @@ class ProcessRegisterTestNoAdmin(DjangoTestCase):
         err = StringIO()
         self.assertRaises(SystemExit, call_command, 'register', path=[PROCESSES_DIR], stderr=err)
         self.assertEqual('Admin does not exist: create a superuser\n', err.getvalue())
+
+
+class ListDockerImagesTest(ProcessTestCase):
+
+    def setUp(self):
+        super(ListDockerImagesTest, self).setUp()
+
+        # Make sure the test processes are in the database
+        self._register_schemas(path=[PROCESSES_DIR])
+
+    def test_basic_list(self):
+        # List Docker images and check if there's at least one
+        out, err = StringIO(), StringIO()
+        call_command('list_docker_images', stdout=out, stderr=err)
+        self.assertNotEqual('', out.getvalue())
+        self.assertEqual('', err.getvalue())
+
+    def test_basic_list_yaml(self):
+        # List Docker images in YAML format and see if the output is valid YAML
+        out, err = StringIO(), StringIO()
+        call_command('list_docker_images', format='yaml', stdout=out, stderr=err)
+        self.assertNotEqual('', out.getvalue())
+        self.assertEqual('', err.getvalue())
+        imgs = yaml.safe_load(out.getvalue())
+        self.assertTrue(isinstance(imgs, list))
+        self.assertTrue(len(imgs) != 0)
+        self.assertTrue(isinstance(imgs[0], dict))
+
+    def test_invalid_format(self):
+        # An unsupported format option should return an error
+        self.assertRaises(CommandError, call_command, 'list_docker_images', format='invalid')
+
+    def test_list_has_test_image(self):
+        # The returned list must contain the image 'resolwe/test:base'
+        out, err = StringIO(), StringIO()
+        call_command('list_docker_images', stdout=out, stderr=err)
+        self.assertEqual('', err.getvalue())
+        self.assertTrue('resolwe/test:base' in out.getvalue())
+
+    def test_list_has_test_image_yaml(self):
+        # The returned list must contain the image 'resolwe/test:base',
+        # in the YAML output as well
+        out, err = StringIO(), StringIO()
+        call_command('list_docker_images', format='yaml', stdout=out, stderr=err)
+        self.assertEqual('', err.getvalue())
+        imgs = yaml.safe_load(out.getvalue())
+        self.assertTrue(isinstance(imgs, list))
+        self.assertTrue(len(imgs) != 0)
+        self.assertTrue(isinstance(imgs[0], dict))
+        self.assertTrue(dict(name='resolwe/test', tag='base') in imgs)

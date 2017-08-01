@@ -14,6 +14,8 @@ Added
 - ``descriptor`` jinja filter to get the descriptor (or part of it) in
   processes
 - Ubuntu 14.04/16.04 based Docker images for Resolwe
+- Add ``list_docker_images`` management command that lists all Docker
+  images required by registered processes in either plain text or YAML
 
 Changed
 -------
