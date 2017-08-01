@@ -16,6 +16,7 @@ Main two classes
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+import threading
 import uuid
 
 import elasticsearch_dsl as dsl
@@ -33,6 +34,8 @@ from guardian.conf.settings import ANONYMOUS_USER_NAME
 from guardian.models import GroupObjectPermission, UserObjectPermission
 
 from resolwe.flow.utils import dict_dot
+
+from .utils import prepare_connection
 
 __all__ = ('BaseDocument', 'BaseIndex')
 
@@ -136,6 +139,27 @@ class BaseIndex(object):
 
         self._index_name = self.document_class()._get_index()  # pylint: disable=not-callable,protected-access
 
+        #: id of thread id where connection was established
+        self.connection_thread_id = None
+
+    def _refresh_connection(self):
+        """Refresh connection to Elasticsearch when worker is started.
+
+        File descriptors (sockets) can be shared between multiple
+        threads. If same connection is used by multiple threads at the
+        same time, this can cause timeouts in some of the pushes. So
+        connection needs to be reestablished in each thread to make sure
+        that it is unique per thread.
+        """
+        # Thread with same id can be created when one terminates, but it
+        # is ok, as we are only concerned about concurent pushes.
+        current_thread_id = threading.current_thread().ident
+
+        if current_thread_id != self.connection_thread_id:
+            prepare_connection()
+
+            self.connection_thread_id = current_thread_id
+
     def filter(self, obj):
         """Determine if object should be processed.
 
@@ -215,6 +239,7 @@ class BaseIndex(object):
         document.public_permission = permissions['public']
 
         if push:
+            self._refresh_connection()
             document.save(refresh=True)
         else:
             self.push_queue.append(document)
@@ -249,11 +274,15 @@ class BaseIndex(object):
 
     def push(self):
         """Push built documents to ElasticSearch."""
+        self._refresh_connection()
+
         bulk(connections.get_connection(), (doc.to_dict(True) for doc in self.push_queue), refresh=True)
         self.push_queue = []
 
     def destroy(self):
         """Destroy an index."""
+        self._refresh_connection()
+
         self.push_queue = []
         index_name = self.document_class()._get_index()  # pylint: disable=protected-access,not-callable
         connections.get_connection().indices.delete(index_name, ignore=404)  # pylint: disable=no-member
