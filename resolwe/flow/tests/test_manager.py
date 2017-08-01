@@ -7,7 +7,7 @@ from django.db import transaction
 
 from guardian.shortcuts import assign_perm
 
-from resolwe.flow.models import Data, Process
+from resolwe.flow.models import Collection, Data, DescriptorSchema, Process
 from resolwe.test import TransactionProcessTestCase
 
 PROCESSES_DIR = os.path.join(os.path.dirname(__file__), 'processes')
@@ -20,6 +20,8 @@ class TestManager(TransactionProcessTestCase):
 
     def setUp(self):
         super(TestManager, self).setUp()
+
+        self.collection = Collection.objects.create(contributor=self.contributor)
 
         self._register_schemas(path=[PROCESSES_DIR])
 
@@ -37,13 +39,23 @@ class TestManager(TransactionProcessTestCase):
 
     def test_spawned_process(self):
         """Test that manager is run for spawned processes and permissions are copied."""
+        DescriptorSchema.objects.create(
+            name='Test schema', slug='test-schema', contributor=self.contributor
+        )
+        spawned_process = Process.objects.filter(slug='test-save-file').latest()
+        # Patch the process to create Entity, so its bahaviour can be tested.
+        spawned_process.flow_collection = 'test-schema'
+        spawned_process.save()
+
         process = Process.objects.filter(slug='test-spawn-new').latest()
+
         with transaction.atomic():
             data = Data.objects.create(
                 name='Test data',
                 contributor=self.contributor,
                 process=process,
             )
+            self.collection.data.add(data)
             assign_perm('view_data', self.user, data)
 
         # Created and spawned objects should be done.
@@ -52,6 +64,10 @@ class TestManager(TransactionProcessTestCase):
         # Check that permissions are inherited.
         child = Data.objects.last()
         self.assertTrue(self.user.has_perm('view_data', child))
+        self.assertEqual(child.collection_set.count(), 1)
+        self.assertEqual(child.collection_set.first().pk, self.collection.pk)
+        self.assertEqual(child.entity_set.first().collections.count(), 1)
+        self.assertEqual(child.entity_set.first().collections.first().pk, self.collection.pk)
 
     def test_workflow(self):
         """Test that manager is run for workflows."""

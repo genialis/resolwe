@@ -19,7 +19,6 @@ from resolwe.flow.expression_engines.exceptions import EvaluationError
 from resolwe.flow.utils import dict_dot, get_data_checksum, iterate_fields, iterate_schema
 
 from .base import BaseModel
-from .collection import Collection
 from .descriptor import DescriptorSchema
 from .entity import Entity
 from .storage import Storage
@@ -230,9 +229,6 @@ class Data(BaseModel):
 
                 for permission in list(zip(*entity._meta.permissions))[0]:  # pylint: disable=protected-access
                     assign_perm(permission, entity.contributor, entity)
-
-                for collection in Collection.objects.filter(data=self):
-                    entity.collections.add(collection)
 
             entity.data.add(self)
 

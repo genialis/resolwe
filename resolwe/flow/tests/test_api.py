@@ -107,6 +107,26 @@ class TestDataViewSetCase(TestCase):
         self.assertEqual(data.contributor.username, ANONYMOUS_USER_NAME)
         self.assertEqual(data.process.slug, 'test-process')
 
+    def test_create_entity(self):
+        collection = Collection.objects.create(name='Test collection', contributor=self.contributor)
+        process = Process.objects.create(
+            name='Entity process', contributor=self.contributor, flow_collection='test-schema'
+        )
+        assign_perm('view_collection', self.user, collection)
+        assign_perm('add_collection', self.user, collection)
+        assign_perm('view_process', self.user, process)
+
+        data = {'process': 'entity-process', 'collections': [collection.pk]}
+        request = factory.post('/', data, format='json')
+        force_authenticate(request, self.user)
+        resp = self.data_viewset(request)
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+
+        # Test that one Entity was created and that it was added to the same collection as Data object.
+        self.assertEqual(Entity.objects.count(), 1)
+        self.assertEqual(Entity.objects.first().collections.count(), 1)
+        self.assertEqual(Entity.objects.first().collections.first().pk, collection.pk)
+
 
 class TestCollectionViewSetCase(TestCase):
     def setUp(self):

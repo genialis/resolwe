@@ -24,9 +24,10 @@ from django.apps import apps
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Count
 
 from resolwe.flow.engine import BaseEngine
-from resolwe.flow.models import Data, Process
+from resolwe.flow.models import Data, Entity, Process
 from resolwe.flow.utils import dict_dot, iterate_fields
 from resolwe.flow.utils.purge import data_purge
 from resolwe.permissions.utils import copy_permissions
@@ -302,9 +303,17 @@ class BaseFlowExecutor(BaseEngine):
                         # Copy permissions.
                         copy_permissions(parent_data, d)
 
+                        # Entity is added to the collection only when it is
+                        # created - when it only contains 1 Data object.
+                        entities = Entity.objects.filter(data=d).annotate(num_data=Count('data')).filter(num_data=1)
+
                         # Copy collections.
                         for collection in parent_data.collection_set.all():
                             collection.data.add(d)
+
+                            # Add entities to which data belongs to the collection.
+                            for entity in entities:
+                                entity.collections.add(collection)
 
             if process_rc == 0:
                 self.update_data_status(

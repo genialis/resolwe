@@ -2,6 +2,7 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 from django.db import transaction
+from django.db.models import Count
 
 from guardian.shortcuts import assign_perm
 from rest_framework import exceptions, mixins, status, viewsets
@@ -10,7 +11,7 @@ from rest_framework.response import Response
 
 from resolwe.flow.filters import DataFilter
 from resolwe.flow.managers import manager
-from resolwe.flow.models import Collection, Data, Process
+from resolwe.flow.models import Collection, Data, Entity, Process
 from resolwe.flow.serializers import DataSerializer
 from resolwe.flow.utils import dict_dot, get_data_checksum, iterate_schema
 from resolwe.permissions.loader import get_permissions_class
@@ -115,8 +116,16 @@ class DataViewSet(ResolweCreateModelMixin,
             for permission in list(zip(*instance._meta.permissions))[0]:  # pylint: disable=protected-access
                 assign_perm(permission, instance.contributor, instance)
 
+            # Entity is added to the collection only when it is
+            # created - when it only contains 1 Data object.
+            entities = Entity.objects.filter(data=instance).annotate(num_data=Count('data')).filter(num_data=1)
+
             # Assign data object to all specified collections.
             collections = self.request.data.get('collections', [])
             for c in collections:
                 collection = Collection.objects.get(pk=c)
                 collection.data.add(instance)
+
+                # Add entities to which data belongs to the collection.
+                for entity in entities:
+                    entity.collections.add(c)
