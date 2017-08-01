@@ -9,6 +9,11 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Added
+-----
+- ``descriptor`` jinja filter to get the descriptor (or part of it) in
+  processes
+
 Changed
 -------
 - **BACKWARD INCOMPATIBLE:** Quote all unsafe strings when evaluating

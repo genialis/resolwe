@@ -281,6 +281,7 @@ def hydrate_input_references(input_, input_schema, hydrate_values=True):
                     # _hydrate_values(static, data.static_schema, data)
                 output["__id"] = data.id
                 output["__type"] = data.process.type
+                output["__descriptor"] = data.descriptor
                 fields[name] = output
 
             elif field_schema['type'].startswith('list:data:'):

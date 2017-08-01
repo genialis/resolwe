@@ -3,7 +3,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 from resolwe.flow.expression_engines import EvaluationError
 from resolwe.flow.managers import manager
-from resolwe.flow.models import Data, Process
+from resolwe.flow.models import Data, DescriptorSchema, Process, Storage
 from resolwe.test import TestCase
 
 
@@ -26,10 +26,24 @@ re-save-file test_file path/to/file.txt
 """
             }
         )
+        descriptor_schema = DescriptorSchema.objects.create(
+            name='Test schema',
+            slug='test-schema',
+            contributor=self.contributor,
+            schema=[
+                {'name': 'descriptions', 'required': False, 'group': [
+                    {'name': 'text', 'type': 'basic:string:'},
+                ]}
+            ]
+
+        )
+
         input_data = Data.objects.create(
             name='Input Data object',
             contributor=self.contributor,
             process=input_process,
+            descriptor_schema=descriptor_schema,
+            descriptor={'descriptions': {'text': 'This is test Data object.'}}
         )
 
         manager.communicate(verbosity=0)
@@ -54,6 +68,8 @@ re-save-file test_file path/to/file.txt
                 {'name': 'file_url', 'type': 'basic:string:'},
                 {'name': 'unsafe', 'type': 'basic:string:'},
                 {'name': 'safe', 'type': 'basic:string:'},
+                {'name': 'description_text', 'type': 'basic:string:'},
+                {'name': 'description_full', 'type': 'basic:json:'},
             ],
             run={
                 'language': 'bash',
@@ -67,6 +83,8 @@ re-save yesno {{ true | yesno('yes', 'no') }}
 re-save datalookup {{ 'input-data-object' | data_by_slug }}
 re-save file_url {{ input_data.test_file | get_url }}
 re-save unsafe {{ spacy }}
+re-save description_text {{ input_data | descriptor('descriptions.text') }}
+re-save description_full {{ input_data | descriptor }}
 
 function save-safe() {
     re-save safe $1
@@ -100,6 +118,10 @@ save-safe {{ spacy | safe }}
         self.assertEqual(data.output['file_url'], 'localhost/data/{}/path/to/file.txt'.format(input_data.pk))
         self.assertEqual(data.output['unsafe'], 'this has \'some\' spaces')
         self.assertEqual(data.output['safe'], 'this')
+        self.assertEqual(data.output['description_text'], 'This is test Data object.')
+
+        storage = Storage.objects.get(pk=data.output['description_full'])
+        self.assertEqual(storage.json, {'descriptions': {'text': 'This is test Data object.'}})
 
 
 class ExpressionEngineTest(TestCase):

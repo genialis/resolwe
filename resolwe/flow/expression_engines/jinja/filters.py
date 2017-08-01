@@ -1,11 +1,13 @@
 """Filters for Jinja expression engine."""
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+import json
 import os
 
 from django.conf import settings
 
 from resolwe.flow.models import Data
+from resolwe.flow.utils import dict_dot
 
 
 def _get_data_attr(data, attr):
@@ -68,6 +70,27 @@ def get_url(file_path):
     return "{}/data/{}".format(base_url, file_path)
 
 
+def descriptor(obj, path=''):
+    """Return descriptor of given object.
+
+    If ``path`` is specified, only the content on that path is
+    returned.
+    """
+    if isinstance(obj, dict):
+        # Current object is hydrated, so we need to get descriptor from
+        # dict representation.
+        desc = obj['__descriptor']
+    else:
+        desc = obj.descriptor
+
+    resp = dict_dot(desc, path)
+
+    if isinstance(resp, list) or isinstance(resp, dict):
+        return json.dumps(resp)
+
+    return resp
+
+
 # A dictionary of filters that will be registered.
 filters = {  # pylint: disable=invalid-name
     'name': name,
@@ -78,4 +101,5 @@ filters = {  # pylint: disable=invalid-name
     'yesno': yesno,
     'data_by_slug': data_by_slug,
     'get_url': get_url,
+    'descriptor': descriptor,
 }
