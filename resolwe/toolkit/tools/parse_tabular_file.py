@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 """Parse tabular file."""
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import argparse
 import csv
 import gzip
@@ -38,11 +36,10 @@ def main():
                         outline = line.strip().split(',')
                         csvwriter.writerow(outline)
             elif ext in ('.xls', '.xlsx'):
-                with open(args.input_file) as infile:
-                    workbook = xlrd.open_workbook(args.input_file)
-                    worksheet = workbook.sheets()[0]
-                    for rownum in range(worksheet.nrows):
-                        csvwriter.writerow(worksheet.row_values(rownum))
+                workbook = xlrd.open_workbook(args.input_file)
+                worksheet = workbook.sheets()[0]
+                for rownum in range(worksheet.nrows):
+                    csvwriter.writerow(worksheet.row_values(rownum))
             else:
                 print('{"proc.error":"File extension not recognized."}')
         except:
