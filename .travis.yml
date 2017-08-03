@@ -38,6 +38,8 @@ matrix:
       python: "3.5"
     - env: TOX_ENV=packaging
       python: "3.5"
+    - env: TOX_ENV=migrations
+      python: "3.5"
 
 before_install:
   # Manually install Elastic Search.
