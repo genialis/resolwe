@@ -8,7 +8,6 @@ import mock
 import six
 
 from django.conf import settings
-from django.core.exceptions import ValidationError
 from django.test import override_settings
 
 from guardian.shortcuts import assign_perm
@@ -63,8 +62,7 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.run_process('test-min')
 
     def test_missing_file(self):
-        with self.assertRaises(ValidationError):
-            self.run_process('test-missing-file', assert_status=Data.STATUS_ERROR)
+        self.run_process('test-missing-file', assert_status=Data.STATUS_ERROR)
 
         data = Data.objects.last()
         self.assertEqual(data.status, Data.STATUS_ERROR)
@@ -107,6 +105,12 @@ class ManagerRunProcessTest(ProcessTestCase):
         # If evaluation of data_name template fails, the process should not abort as the
         # template may be evaluatable later when the process completes.
         self.run_process('test-broken-data-name')
+
+    def test_invalid_storage_file(self):
+        data = self.run_process('test-broken-invalide-storage', assert_status=Data.STATUS_ERROR)
+
+        self.assertEqual(data.status, Data.STATUS_ERROR)
+        self.assertIn("Value of 'storage' must be a valid JSON, current: 1a", data.process_error)
 
     def test_workflow(self):
         self.run_process('test-workflow-1', {'param1': 'world'}, run_manager=False)

@@ -454,3 +454,16 @@
   scheduling_class: batch
   run:
     program: "true"
+
+- slug: test-broken-invalide-storage
+  name: Test invalide storage file
+  version: 1.0.0
+  type: "data:test:brokenstorage"
+  output:
+    - name: storage
+      label: Storage
+      type: basic:json
+  run:
+    program: |
+      echo "1a" >> storage.json
+      re-save storage storage.json
