@@ -26,6 +26,10 @@ from .utils import (
     DirtyError, hydrate_input_references, hydrate_size, render_descriptor, render_template, validate_schema,
 )
 
+# Compat between Python 2.7/3.4 and Python 3.5
+if not hasattr(json, 'JSONDecodeError'):
+    json.JSONDecodeError = ValueError
+
 
 class Data(BaseModel):
     """Postgres model for storing data."""
@@ -166,8 +170,16 @@ class Data(BaseModel):
                 if isinstance(value, six.string_types):
                     file_path = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(self.pk), value)
                     if os.path.isfile(file_path):
-                        with open(file_path) as file_handler:
-                            value = json.load(file_handler)
+                        try:
+                            with open(file_path) as file_handler:
+                                value = json.load(file_handler)
+                        except json.JSONDecodeError:
+                            with open(file_path) as file_handler:
+                                content = file_handler.read()
+                                content = content.rstrip()
+                                raise ValidationError(
+                                    "Value of '{}' must be a valid JSON, current: {}".format(name, content)
+                                )
 
                 storage = Storage.objects.create(
                     name='Storage for data id {}'.format(self.pk),

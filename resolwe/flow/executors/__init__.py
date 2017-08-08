@@ -25,6 +25,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Count
+from django.urls import reverse
 
 from resolwe.flow.engine import BaseEngine
 from resolwe.flow.models import Data, Entity, Process
@@ -67,6 +68,8 @@ class BaseFlowExecutor(BaseEngine):
         super(BaseFlowExecutor, self).__init__(*args, **kwargs)
         self.data_id = None
         self.process = None
+        # Flag to mark current object as failed.
+        self.process_failed = False
         self.requirements = {}
         self.resources = {}
 
@@ -123,21 +126,45 @@ class BaseFlowExecutor(BaseEngine):
         try:
             # Ensure that we only update the fields that were changed.
             data.save(update_fields=update_fields)
-        except ValidationError as ex:
-            data.process_error.append(str(ex))
-            data.status = Data.STATUS_ERROR
 
-            if 'process_error' not in update_fields:
-                update_fields.append('process_error')
-            if 'status' not in update_fields:
-                update_fields.append('status')
+            if kwargs.get('status', None) == Data.STATUS_ERROR:
+                self.process_failed = True
+                logger.error(
+                    __("Error occured while running a '{}' process.", self.process.name),
+                    extra={
+                        'data_id': self.data_id,
+                        'api_url': '{}{}'.format(
+                            getattr(settings, 'RESOLWE_HOST_URL', ''),
+                            reverse('resolwe-api:data-detail', kwargs={'pk': self.data_id})
+                        ),
+                    }
+                )
+
+        except ValidationError as exc:
+            data = Data.objects.get(pk=self.data_id)
+
+            data.process_error.append(exc.message)
+            data.status = Data.STATUS_ERROR
+            self.process_failed = True
+
+            logger.error(
+                __("Error occured while running a '{}' process.", self.process.name),
+                exc_info=True,
+                extra={
+                    'data_id': self.data_id,
+                    'api_url': '{}{}'.format(
+                        getattr(settings, 'RESOLWE_HOST_URL', ''),
+                        reverse('resolwe-api:data-detail', kwargs={'pk': self.data_id})
+                    ),
+                }
+            )
+
+            update_fields = ['process_error', 'status']
 
             try:
                 data.save(update_fields=update_fields)
             except:  # pylint: disable=bare-except
                 pass
-
-            raise ex
 
     def run(self, data_id, script, verbosity=1):
         """Execute the script and save results."""
@@ -145,6 +172,7 @@ class BaseFlowExecutor(BaseEngine):
             print('RUN: {} {}'.format(data_id, script))
 
         self.data_id = data_id
+        self.process_failed = False
 
         # Fetch data instance to get any executor requirements.
         self.process = Data.objects.get(pk=data_id).process
@@ -315,7 +343,7 @@ class BaseFlowExecutor(BaseEngine):
                             for entity in entities:
                                 entity.collections.add(collection)
 
-            if process_rc == 0:
+            if process_rc == 0 and not self.process_failed:
                 self.update_data_status(
                     status=Data.STATUS_DONE,
                     process_progress=100,
