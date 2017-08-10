@@ -16,6 +16,7 @@ Main two classes
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+import logging
 import threading
 import uuid
 
@@ -34,10 +35,13 @@ from guardian.conf.settings import ANONYMOUS_USER_NAME
 from guardian.models import GroupObjectPermission, UserObjectPermission
 
 from resolwe.flow.utils import dict_dot
+from resolwe.utils import BraceMessage as __
 
 from .utils import prepare_connection
 
 __all__ = ('BaseDocument', 'BaseIndex')
+
+logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
 class BaseDocumentMeta(DocTypeMeta):
@@ -198,40 +202,50 @@ class BaseIndex(object):
             if field in ['users_with_permissions', 'groups_with_permissions']:
                 continue  # These fields are handled separately
 
-            # use get_X_value function
-            get_value_function = getattr(self, 'get_{}_value'.format(field), None)
-            if get_value_function:
-                setattr(document, field, get_value_function(obj))
-                continue
-
-            # use `mapping` dict
-            if field in self.mapping:
-                if callable(self.mapping[field]):
-                    setattr(document, field, self.mapping[field](obj))
+            try:
+                # use get_X_value function
+                get_value_function = getattr(self, 'get_{}_value'.format(field), None)
+                if get_value_function:
+                    setattr(document, field, get_value_function(obj))
                     continue
 
+                # use `mapping` dict
+                if field in self.mapping:
+                    if callable(self.mapping[field]):
+                        setattr(document, field, self.mapping[field](obj))
+                        continue
+
+                    try:
+                        object_attr = dict_dot(obj, self.mapping[field])
+                    except (KeyError, AttributeError):
+                        object_attr = None
+
+                    if callable(object_attr):
+                        # use method on object
+                        setattr(document, field, object_attr(obj))
+                    else:
+                        # use attribute on object
+                        setattr(document, field, object_attr)
+                    continue
+
+                # get value from the object
                 try:
-                    object_attr = dict_dot(obj, self.mapping[field])
-                except (KeyError, AttributeError):
-                    object_attr = None
+                    object_value = dict_dot(obj, field)
+                    setattr(document, field, object_value)
+                    continue
+                except KeyError:
+                    pass
 
-                if callable(object_attr):
-                    # use method on object
-                    setattr(document, field, object_attr(obj))
-                else:
-                    # use attribute on object
-                    setattr(document, field, object_attr)
-                continue
+                raise AttributeError("Cannot determine mapping for field {}".format(field))
 
-            # get value from the object
-            try:
-                object_value = dict_dot(obj, field)
-                setattr(document, field, object_value)
-                continue
-            except KeyError:
-                pass
-
-            raise AttributeError('Cannot determine mapping for field {}'.format(field))
+            except:  # pylint: disable=bare-except
+                logger.exception(
+                    __(
+                        "Error occurred while setting value of field '{}' in '{}' Elasticsearch index.",
+                        field, self.__class__.__name__
+                    ),
+                    extra={'object_type': self.object_type, 'obj_id': obj.pk}
+                )
 
         permissions = self.get_permissions(obj)
         document.users_with_permissions = permissions['users']
@@ -270,7 +284,22 @@ class BaseIndex(object):
         for obj in queryset:
             if self.filter(obj) is False:
                 continue
-            self.process_object(self.preprocess_object(obj), push)
+
+            try:
+                obj = self.preprocess_object(obj)
+            except:  # pylint: disable=bare-except
+                logger.exception(
+                    __("Error occurred while preprocessing '{}' Elasticsearch index.", self.__class__.__name__),
+                    extra={'object_type': self.object_type, 'obj_id': obj.pk}
+                )
+
+            try:
+                self.process_object(obj, push)
+            except:  # pylint: disable=bare-except
+                logger.exception(
+                    __("Error occurred while processing '{}' Elasticsearch index.", self.__class__.__name__),
+                    extra={'object_type': self.object_type, 'obj_id': obj.pk}
+                )
 
     def push(self):
         """Push built documents to ElasticSearch."""

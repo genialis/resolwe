@@ -35,6 +35,8 @@ Fixed
 - Add `basic:url:link` field to the JSON schema
 - Return more descriptive error if non-existing permission is sent to
   the ``permissions`` endpoint
+- Handle errors occurred while processing Elasticsearch indices and log
+  them
 
 
 ==================
