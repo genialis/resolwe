@@ -52,6 +52,8 @@ class DataTestCase(ResolweAPITestCase):
             data_dir = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.id))
             shutil.rmtree(data_dir, ignore_errors=True)
 
+        super(DataTestCase, self).tearDown()
+
     def test_get_list(self):
         resp = self._get_list(self.user1)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)

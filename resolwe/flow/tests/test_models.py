@@ -259,6 +259,8 @@ class EntityModelTest(TestCase):
 class GetOrCreateTestCase(APITestCase):
 
     def setUp(self):
+        super(GetOrCreateTestCase, self).setUp()
+
         user_model = get_user_model()
         self.user = user_model.objects.create(username='test_user', password='test_pwd')
 
@@ -299,6 +301,8 @@ class GetOrCreateTestCase(APITestCase):
         for data in Data.objects.all():
             data_dir = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.id))
             shutil.rmtree(data_dir, ignore_errors=True)
+
+        super(GetOrCreateTestCase, self).tearDown()
 
     def test_get_same(self):
         request = self.factory.post(
