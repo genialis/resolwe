@@ -13,7 +13,7 @@ Added
 -----
 - ``descriptor`` jinja filter to get the descriptor (or part of it) in
   processes
-- Ubuntu 16.04 based Docker image for Resolwe
+- Ubuntu 14.04/16.04 based Docker images for Resolwe
 
 Changed
 -------
