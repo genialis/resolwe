@@ -302,6 +302,7 @@ def hydrate_input_references(input_, input_schema, hydrate_values=True):
 
                     output["__id"] = data.id
                     output["__type"] = data.process.type
+                    output["__descriptor"] = data.descriptor
                     outputs.append(output)
 
                 fields[name] = outputs

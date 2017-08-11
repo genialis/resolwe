@@ -55,6 +55,7 @@ re-save-file test_file path/to/file.txt
             type='test:data:templatetags:',
             input_schema=[
                 {'name': 'input_data', 'type': 'data:test:inputobject:'},
+                {'name': 'input_data_list', 'type': 'list:data:test:inputobject:'},
                 {'name': 'spacy', 'type': 'basic:string:'},
             ],
             output_schema=[
@@ -70,6 +71,8 @@ re-save-file test_file path/to/file.txt
                 {'name': 'safe', 'type': 'basic:string:'},
                 {'name': 'description_text', 'type': 'basic:string:'},
                 {'name': 'description_full', 'type': 'basic:json:'},
+                {'name': 'list_description_text', 'type': 'basic:string:'},
+                {'name': 'list_description_full', 'type': 'basic:json:'},
             ],
             run={
                 'language': 'bash',
@@ -85,6 +88,8 @@ re-save file_url {{ input_data.test_file | get_url }}
 re-save unsafe {{ spacy }}
 re-save description_text {{ input_data | descriptor('descriptions.text') }}
 re-save description_full {{ input_data | descriptor }}
+re-save list_description_text {{ input_data_list[0] | descriptor('descriptions.text') }}
+re-save list_description_full {{ input_data_list[0] | descriptor }}
 
 function save-safe() {
     re-save safe $1
@@ -100,6 +105,7 @@ save-safe {{ spacy | safe }}
             process=process,
             input={
                 'input_data': input_data.pk,
+                'input_data_list': [input_data.pk],
                 'spacy': 'this has \'some\' spaces',
             },
         )
@@ -119,8 +125,12 @@ save-safe {{ spacy | safe }}
         self.assertEqual(data.output['unsafe'], 'this has \'some\' spaces')
         self.assertEqual(data.output['safe'], 'this')
         self.assertEqual(data.output['description_text'], 'This is test Data object.')
+        self.assertEqual(data.output['list_description_text'], 'This is test Data object.')
 
         storage = Storage.objects.get(pk=data.output['description_full'])
+        self.assertEqual(storage.json, {'descriptions': {'text': 'This is test Data object.'}})
+
+        storage = Storage.objects.get(pk=data.output['list_description_full'])
         self.assertEqual(storage.json, {'descriptions': {'text': 'This is test Data object.'}})
 
 
