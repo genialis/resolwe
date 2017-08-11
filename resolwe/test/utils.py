@@ -101,7 +101,7 @@ def with_custom_executor(wrapped=None, **custom_executor_settings):
     return wrapper(wrapped)  # pylint: disable=no-value-for-parameter
 
 
-def with_docker_executor(wrapped=None, image='resolwe/base'):
+def with_docker_executor(wrapped=None, image='resolwe/base:fedora-26'):
     """Decorate unit test to run processes with the Docker executor.
 
     :param str image: custom Docker image to use when running the Docker
