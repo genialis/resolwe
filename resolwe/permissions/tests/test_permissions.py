@@ -261,6 +261,47 @@ class CollectionPermissionsTest(ResolweAPITestCase):
         self.assertEqual(UserObjectPermission.objects.filter(user=self.user1).count(), 1)
         self.assertEqual(UserObjectPermission.objects.filter(user=self.user2).count(), 1)
 
+    def test_nonexisting_user_group(self):
+        assign_perm("view_collection", self.owner, self.collection)
+        assign_perm("share_collection", self.owner, self.collection)
+
+        user_perms_count = UserObjectPermission.objects.count()
+        group_perms_count = GroupObjectPermission.objects.count()
+
+        # Whole request should fail, so `user1` shouldn't have any permission assigned.
+        data = {'users': {'add': {'999': ['view'], self.user1.pk: ['view']}}}
+        resp = self._detail_permissions(self.collection.pk, data, self.owner)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(resp.data['detail'], 'Unknown user: 999')
+        self.assertEqual(UserObjectPermission.objects.count(), user_perms_count)
+
+        # Whole request should fail, so `group` shouldn't have any permission assigned.
+        data = {'groups': {'add': {'999': ['view'], self.group.pk: ['view']}}}
+        resp = self._detail_permissions(self.collection.pk, data, self.owner)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(resp.data['detail'], 'Unknown group: 999')
+        self.assertEqual(GroupObjectPermission.objects.count(), group_perms_count)
+
+        assign_perm("view_collection", self.user1, self.collection)
+        assign_perm("view_collection", self.group, self.collection)
+
+        user_perms_count = UserObjectPermission.objects.count()
+        group_perms_count = GroupObjectPermission.objects.count()
+
+        # Whole request should fail, so `user1` shouldn't have any permission removed.
+        data = {'users': {'remove': {'999': ['view'], self.user1.pk: ['view']}}}
+        resp = self._detail_permissions(self.collection.pk, data, self.owner)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(resp.data['detail'], 'Unknown user: 999')
+        self.assertEqual(UserObjectPermission.objects.count(), user_perms_count)
+
+        # Whole request should fail, so `group` shouldn't have any permission removed.
+        data = {'groups': {'remove': {'999': ['view'], self.group.pk: ['view']}}}
+        resp = self._detail_permissions(self.collection.pk, data, self.owner)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(resp.data['detail'], 'Unknown group: 999')
+        self.assertEqual(GroupObjectPermission.objects.count(), group_perms_count)
+
 
 class PermissionsUtilitiesTest(TestCase):
 

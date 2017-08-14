@@ -39,6 +39,8 @@ Fixed
   the ``permissions`` endpoint
 - Handle errors occurred while processing Elasticsearch indices and log
   them
+- Return 400 error with a descriptive message if permissions on API are
+  assigned to a non-existing user/group
 
 
 ==================

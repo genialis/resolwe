@@ -36,15 +36,24 @@ def copy_permissions(src_obj, dest_obj):
 
 
 def fetch_user(query):
-    """Get user by ``pk`` or ``username``. Return ``None`` if doesn't exist."""
+    """Get user by ``pk`` or ``username``. Raise error if it doesn't exist."""
     user_filter = {'pk': query} if query.isdigit() else {'username': query}
-    return get_user_model().objects.get(**user_filter)
+    user_model = get_user_model()
+
+    try:
+        return user_model.objects.get(**user_filter)
+    except user_model.DoesNotExist:
+        raise exceptions.ParseError("Unknown user: {}".format(query))
 
 
 def fetch_group(query):
-    """Get group by ``pk`` or ``name``. Return ``None`` if doesn't exist."""
+    """Get group by ``pk`` or ``name``. Raise error if it doesn't exist."""
     group_filter = {'pk': query} if query.isdigit() else {'name': query}
-    return Group.objects.get(**group_filter)
+
+    try:
+        return Group.objects.get(**group_filter)
+    except Group.DoesNotExist:
+        raise exceptions.ParseError("Unknown group: {}".format(query))
 
 
 def check_owner_permission(payload, allow_user_owner):
