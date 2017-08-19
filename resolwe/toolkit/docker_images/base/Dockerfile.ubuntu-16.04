@@ -13,10 +13,10 @@ RUN apt-get update && \
     # Install Resolwe Runtime Utils
     pip3 install resolwe-runtime-utils && \
     # XXX: Remove this hack after obsoleting re-checkrc
-    echo 're-checkrc() { _re-checkrc $? "$@"; }' >> ~/.bash_profile && \
+    echo 're-checkrc() { _re-checkrc $? "$@"; }' >> /etc/profile.d/resolwe-base.sh && \
     # XXX: Remove this hack after updating processes to no longer implicitly assume $NAME is set
     # when calling re-import.sh
-    cat /re-import.sh >> ~/.bash_profile && \
+    cat /re-import.sh >> /etc/profile.d/resolwe-base.sh && \
     rm /re-import.sh && \
     # XXX: Remove this after Resolwe learns how to mount re-* tools into every container
     chmod +x /usr/local/bin/curlprogress.py && \
