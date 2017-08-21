@@ -25,7 +25,7 @@ class FlowExecutor(LocalFlowExecutor):
         super(FlowExecutor, self).__init__(*args, **kwargs)
 
         self.mappings_tools = None
-        self.policy_file = None
+        self.temporary_files = []
         self.command = getattr(settings, 'FLOW_DOCKER_COMMAND', 'docker')
 
     def start(self):
@@ -84,21 +84,15 @@ class FlowExecutor(LocalFlowExecutor):
         security = []
 
         # Generate and set seccomp policy to limit syscalls.
-        self.policy_file = tempfile.NamedTemporaryFile(mode='w')
-        json.dump(SECCOMP_POLICY, self.policy_file)
-        self.policy_file.file.flush()
+        policy_file = tempfile.NamedTemporaryFile(mode='w')
+        json.dump(SECCOMP_POLICY, policy_file)
+        policy_file.file.flush()
         if not getattr(settings, 'FLOW_DOCKER_DISABLE_SECCOMP', False):
-            security.append('--security-opt seccomp={}'.format(self.policy_file.name))
+            security.append('--security-opt seccomp={}'.format(policy_file.name))
+        self.temporary_files.append(policy_file)
 
         # Drop all capabilities and only add ones that are needed.
         security.append('--cap-drop=all')
-        # TODO: We should not required dac_override, but we need to fix permissions first (e.g., use --user).
-        security.append('--cap-add=dac_override')
-        # TODO: We should not require setuid/setgid, but we need to get rid of gosu first (e.g., use --user).
-        security.append('--cap-add=setuid')
-        security.append('--cap-add=setgid')
-        # TODO: We should not required chown, but we need to fix permissions first (e.g., use --user).
-        security.append('--cap-add=chown')
 
         command_args['security'] = ' '.join(security)
 
@@ -107,6 +101,24 @@ class FlowExecutor(LocalFlowExecutor):
         context = {'data_id': self.data_id}
         mappings = [{key.format(**context): value.format(**context) for key, value in template.items()}
                     for template in mappings_template]
+
+        # Generate dummy passwd and create mappings for it. This is required because some tools
+        # inside the container may try to lookup the given UID/GID and will crash if they don't
+        # exist. So we create minimal user/group files.
+        passwd_file = tempfile.NamedTemporaryFile(mode='w')
+        passwd_file.write('root:x:0:0:root:/root:/bin/bash\n')
+        passwd_file.write('user:x:{}:{}:user:/:/bin/bash\n'.format(os.getuid(), os.getgid()))
+        passwd_file.file.flush()
+        self.temporary_files.append(passwd_file)
+
+        group_file = tempfile.NamedTemporaryFile(mode='w')
+        group_file.write('root:x:0:\n')
+        group_file.write('user:x:{}:user\n'.format(os.getgid()))
+        group_file.file.flush()
+        self.temporary_files.append(group_file)
+
+        mappings.append({'src': passwd_file.name, 'dest': '/etc/passwd', 'mode': 'ro'})
+        mappings.append({'src': group_file.name, 'dest': '/etc/group', 'mode': 'ro'})
 
         # create mappings for tools
         # NOTE: To prevent processes tampering with tools, all tools are mounted read-only
@@ -126,20 +138,16 @@ class FlowExecutor(LocalFlowExecutor):
             if '{data_id}' in template['src']:
                 command_args['workdir'] = '--workdir={}'.format(template['dest'])
 
-        # create environment variables to pass certain information to the
-        # process running in the container
-        command_args['envs'] = ' '.join(['--env={name}={value}'.format(**env) for env in [
-            {'name': 'HOST_UID', 'value': os.getuid()},
-            {'name': 'HOST_GID', 'value': os.getgid()},
-        ]])
+        # Change user inside the container.
+        command_args['user'] = '--user={}:{}'.format(os.getuid(), os.getgid())
 
-        # a login Bash shell is needed to source ~/.bash_profile
-        command_args['shell'] = '/bin/bash --login'
+        # A non-login Bash shell should be used here (a subshell will be spawned later).
+        command_args['shell'] = '/bin/bash'
 
         self.proc = subprocess.Popen(
             shlex.split(
-                '{command} run --rm --interactive {container_name} {network} {volumes} {envs} {limits} '
-                '{security} {workdir} {container_image} {shell}'.format(**command_args)),
+                '{command} run --rm --interactive {container_name} {network} {volumes} {limits} '
+                '{security} {workdir} {user} {container_image} {shell}'.format(**command_args)),
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             universal_newlines=True)
 
@@ -155,16 +163,20 @@ class FlowExecutor(LocalFlowExecutor):
         add_tools_path = 'export PATH=$PATH:{}'.format(tools_paths)
         # Spawn another child bash, to avoid running anything as PID 1, which has special
         # signal handling (e.g., cannot be SIGKILL-ed from inside).
+        # A login Bash shell is needed to source /etc/profile.
         self.proc.stdin.write('/bin/bash --login; exit $?' + os.linesep)
         self.proc.stdin.write(os.linesep.join(['set -x', 'set +B', add_tools_path, script]) + os.linesep)
         self.proc.stdin.close()
 
     def end(self):
         """End process execution."""
-        self.proc.wait()
-        if self.policy_file is not None:
-            self.policy_file.close()
-            self.policy_file = None
+        try:
+            self.proc.wait()
+        finally:
+            # Cleanup temporary files.
+            for temporary_file in self.temporary_files:
+                temporary_file.close()
+            self.temporary_files = []
 
         return self.proc.returncode
 
