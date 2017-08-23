@@ -286,7 +286,7 @@
   requirements:
     executor:
       docker:
-        image: "resolwe/test:requirements-docker"
+        image: resolwe/test:requirements-docker
   output:
     - name: result
       label: Result
@@ -415,7 +415,7 @@
   requirements:
     executor:
       docker:
-        image: "resolwe/test:base"
+        image: resolwe/test:base
     resources:
       network: true
   run:

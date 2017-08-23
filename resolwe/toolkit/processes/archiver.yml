@@ -5,7 +5,7 @@
     expression-engine: jinja
     executor:
       docker:
-        image: "resolwe/archiver"
+        image: resolwe/archiver
   version: 0.0.1
   type: "data:archive:"
   category: other
