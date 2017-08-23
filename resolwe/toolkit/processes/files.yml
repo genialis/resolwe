@@ -11,7 +11,7 @@
       docker:
         image: "resolwe/base:fedora-26"
   data_name: '{{ src.file|default("?") }}'
-  version: 0.0.3
+  version: 0.0.4
   type: data:file
   category: upload
   persistence: RAW
@@ -41,7 +41,7 @@
       docker:
         image: "resolwe/base:fedora-26"
   data_name: '{{ src.file|default("?") }}'
-  version: 0.0.3
+  version: 0.0.4
   type: data:file:image
   category: upload
   persistence: RAW
