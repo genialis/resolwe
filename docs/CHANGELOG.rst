@@ -5,9 +5,9 @@ Change Log
 All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
-==========
-Unreleased
-==========
+==================
+2.0.0 - 2017-08-24
+==================
 
 Added
 -----
@@ -37,7 +37,7 @@ Changed
 
 Fixed
 -----
-- Add `basic:url:link` field to the JSON schema
+- Add ``basic:url:link`` field to the JSON schema
 - Return more descriptive error if non-existing permission is sent to
   the ``permissions`` endpoint
 - Handle errors occurred while processing Elasticsearch indices and log
