@@ -33,14 +33,21 @@ class Command(BaseCommand):
         if options['format'] != 'plain' and options['format'] != 'yaml':
             raise CommandError("Unknown output format: %s" % options['format'])
 
-        # Gather a list of all custom Docker requirements the processes are using
-        all_docker_requirements = [
-            p.requirements['executor']['docker']
-            for p in Process.objects.filter(requirements__icontains='docker')
-        ]
-
-        # Filter the list to include only unique images (also, the 'images' field is optional)
-        unique_docker_images = set(i['image'] for i in all_docker_requirements if 'image' in i)
+        # Gather only unique latest custom Docker requirements that the processes are using
+        # The 'image' field is optional, so be careful about that as well
+        unique_docker_images = set(
+            p.requirements['executor']['docker']['image']
+            for p in Process.objects.order_by(
+                'slug', '-version'
+            ).distinct(
+                'slug'
+            ).only(
+                'requirements'
+            ).filter(
+                requirements__icontains='docker'
+            )
+            if 'image' in p.requirements.get('executor', {}).get('docker', {})
+        )
 
         # Add the default image if it exists
         if 'CONTAINER_IMAGE' in settings.FLOW_EXECUTOR:
@@ -48,6 +55,9 @@ class Command(BaseCommand):
             default_docker_image = settings.FLOW_EXECUTOR['CONTAINER_IMAGE']
 
             unique_docker_images.add(default_docker_image)
+
+        # Sort the set of unique Docker images for nicer output
+        unique_docker_images = sorted(unique_docker_images)
 
         # Convert the set of unique Docker images into a list of dicts
         imgs = [
