@@ -10,6 +10,10 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Added
+-----
+- ``assertAlmostEqualList`` test case helper
+
 Changed
 -------
 - **BACKWARD INCOMPATIBLE:** Run Docker containers as non-root user

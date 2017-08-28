@@ -38,7 +38,22 @@ from django.utils.crypto import get_random_string
 from .setting_overrides import FLOW_EXECUTOR_SETTINGS
 
 
-class TransactionTestCase(DjangoTransactionTestCase):
+class TestCaseHelpers(object):
+    """Mixin for test case helpers."""
+
+    def assertAlmostEqualList(self, actual, expected):  # pylint: disable=invalid-name
+        """Assert almost equality of two lists."""
+        # pylint: disable=no-member
+        self.assertEqual(type(actual), type(expected))
+
+        if isinstance(actual, (list, tuple)):
+            for actual_item, expected_item in zip(actual, expected):
+                self.assertAlmostEqualList(actual_item, expected_item)
+        else:
+            self.assertAlmostEqual(actual, expected)
+
+
+class TransactionTestCase(TestCaseHelpers, DjangoTransactionTestCase):
     """Base class for writing Resolwe tests not enclosed in a transaction.
 
     It is based on Django's :class:`~django.test.TransactionTestCase`.
