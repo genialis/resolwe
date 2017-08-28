@@ -467,3 +467,25 @@
     program: |
       echo "1a" >> storage.json
       re-save storage storage.json
+
+- slug: test-docker-image-versioning
+  name: Test process Docker image versioning
+  version: 1.0.1
+  type: "data:test:dockerversioning"
+  requirements:
+    executor:
+      docker:
+        image: resolwe/test:versioning-1
+  run:
+    program: "true"
+
+- slug: test-docker-image-versioning
+  name: Test process Docker image versioning
+  version: 1.0.2
+  type: "data:test:dockerversioning"
+  requirements:
+    executor:
+      docker:
+        image: resolwe/test:versioning-2
+  run:
+    program: "true"

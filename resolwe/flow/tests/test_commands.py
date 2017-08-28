@@ -141,3 +141,21 @@ class ListDockerImagesTest(ProcessTestCase):
         self.assertTrue(len(imgs) != 0)
         self.assertTrue(isinstance(imgs[0], dict))
         self.assertTrue(dict(name='resolwe/test', tag='base') in imgs)
+
+    def test_list_is_sorted(self):
+        # The returned list must be sorted alphabetically
+        out, err = StringIO(), StringIO()
+        call_command('list_docker_images', stdout=out, stderr=err)
+        self.assertEqual('', err.getvalue())
+        self.assertNotEqual('', out.getvalue())
+        lines = out.getvalue().split('\n')[:-1]
+        self.assertEqual(lines, sorted(lines))
+
+    def test_list_versions(self):
+        # The returned list must contain only the Docker image from
+        # the latest version of a given process
+        out, err = StringIO(), StringIO()
+        call_command('list_docker_images', stdout=out, stderr=err)
+        self.assertEqual('', err.getvalue())
+        self.assertIn('resolwe/test:versioning-2', out.getvalue())
+        self.assertNotIn('resolwe/test:versioning-1', out.getvalue())
