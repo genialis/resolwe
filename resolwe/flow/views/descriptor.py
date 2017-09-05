@@ -3,6 +3,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 from rest_framework import mixins, viewsets
 
+from resolwe.flow.filters import DescriptorSchemaFilter
 from resolwe.flow.models import DescriptorSchema
 from resolwe.flow.serializers import DescriptorSchemaSerializer
 from resolwe.permissions.loader import get_permissions_class
@@ -18,6 +19,6 @@ class DescriptorSchemaViewSet(mixins.RetrieveModelMixin,
     queryset = DescriptorSchema.objects.all().prefetch_related('contributor')
     serializer_class = DescriptorSchemaSerializer
     permission_classes = (get_permissions_class(),)
-    filter_fields = ('contributor', 'name', 'description', 'created', 'modified', 'slug')
+    filter_class = DescriptorSchemaFilter
     ordering_fields = ('id', 'created', 'modified', 'name', 'version')
     ordering = ('id',)
