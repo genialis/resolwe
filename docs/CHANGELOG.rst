@@ -13,6 +13,7 @@ Unreleased
 Added
 -----
 - ``assertAlmostEqualList`` test case helper
+- Add filtering by id on ``descriptor_schma`` API endpoint
 
 Changed
 -------
