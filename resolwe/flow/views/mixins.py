@@ -13,6 +13,26 @@ from resolwe.permissions.shortcuts import get_objects_for_user
 from resolwe.permissions.utils import assign_contributor_permissions
 
 
+def get_descriptor_schames(query, user):
+    """Return filtered queryset od DescriptorSchama-s.
+
+    Queryset is filtered  by primary key (if ``query`` parameter is of
+    type ``int``` or slug (otherwise). Additionaly filter by ``VIEW``
+    permission is aplied for given user ``user``.
+    """
+    queryset_filter = {}
+
+    if isinstance(query, int):
+        queryset_filter['pk'] = query
+    else:
+        queryset_filter['slug'] = query
+
+    queryset = DescriptorSchema.objects.filter(**queryset_filter)
+    queryset = get_objects_for_user(user, 'view_descriptorschema', queryset)
+
+    return queryset
+
+
 class ResolweCreateModelMixin(mixins.CreateModelMixin):
     """Mixin to support creating new `Resolwe` models.
 
@@ -27,16 +47,15 @@ class ResolweCreateModelMixin(mixins.CreateModelMixin):
 
     def create(self, request, *args, **kwargs):
         """Create a resource."""
-        ds_slug = request.data.get('descriptor_schema', None)
-        if ds_slug:
-            ds_query = DescriptorSchema.objects.filter(slug=ds_slug)
-            ds_query = get_objects_for_user(request.user, 'view_descriptorschema', ds_query)
+        ds_query = request.data.get('descriptor_schema', None)
+        if ds_query:
+            ds_query = get_descriptor_schames(ds_query, request.user)
             try:
                 request.data['descriptor_schema'] = ds_query.latest().pk
             except DescriptorSchema.DoesNotExist:
                 return Response(
                     {'descriptor_schema': [
-                        'Invalid descriptor_schema slug "{}" - object does not exist.'.format(ds_slug)]},
+                        'Invalid descriptor_schema slug "{}" - object does not exist.'.format(ds_query)]},
                     status=status.HTTP_400_BAD_REQUEST)
 
         if request.user.is_anonymous():
@@ -72,16 +91,15 @@ class ResolweUpdateModelMixin(mixins.UpdateModelMixin):
 
     def update(self, request, *args, **kwargs):
         """Update a resource."""
-        ds_slug = request.data.get('descriptor_schema', None)
-        if ds_slug:
-            ds_query = DescriptorSchema.objects.filter(slug=ds_slug)
-            ds_query = get_objects_for_user(request.user, 'view_descriptorschema', ds_query)
+        ds_query = request.data.get('descriptor_schema', None)
+        if ds_query:
+            ds_query = get_descriptor_schames(ds_query, request.user)
             try:
                 request.data['descriptor_schema'] = ds_query.latest().pk
             except DescriptorSchema.DoesNotExist:
                 return Response(
                     {'descriptor_schema': [
-                        'Invalid descriptor_schema slug "{}" - object does not exist.'.format(ds_slug)]},
+                        'Invalid descriptor_schema slug "{}" - object does not exist.'.format(ds_query)]},
                     status=status.HTTP_400_BAD_REQUEST)
 
         return super(ResolweUpdateModelMixin, self).update(request, *args, **kwargs)
