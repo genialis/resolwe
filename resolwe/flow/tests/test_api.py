@@ -69,6 +69,25 @@ class TestDataViewSetCase(TestCase):
             self.data_viewset(request)
             self.assertLess(len(captured_queries), 62)
 
+    def test_descriptor_schema(self):
+        # Descriptor schema can be assigned by slug.
+        data = {'process': 'test-process', 'descriptor_schema': 'test-schema'}
+        request = factory.post('/', data, format='json')
+        force_authenticate(request, self.user)
+        self.data_viewset(request)
+
+        data = Data.objects.latest()
+        self.assertEqual(data.descriptor_schema, self.descriptor_schema)
+
+        # Descriptor schema can be assigned by id.
+        data = {'process': 'test-process', 'descriptor_schema': self.descriptor_schema.pk}
+        request = factory.post('/', data, format='json')
+        force_authenticate(request, self.user)
+        self.data_viewset(request)
+
+        data = Data.objects.latest()
+        self.assertEqual(data.descriptor_schema, self.descriptor_schema)
+
     def test_use_latest_with_perm(self):
         Process.objects.create(
             type='test:process',
