@@ -177,3 +177,11 @@ class TestingFrameworkTestCase(TestCase):
                         self,
                         ProcessTestCase._debug_info(dummy_case, obj_mock),   # pylint: disable=protected-access
                         non_ascii_text)
+
+    def test_assert_almost_equal_generic(self):  # pylint: disable=invalid-name
+        self.assertAlmostEqualGeneric(1.00000001, 1.0)
+        self.assertAlmostEqualGeneric([1.00000001], [1.0])
+        self.assertAlmostEqualGeneric({'foo': 1.00000001}, {'foo': 1.0})
+        self.assertAlmostEqualGeneric({'foo': [1.00000001]}, {'foo': [1.0]})
+        self.assertAlmostEqualGeneric({'foo': 1.00000001, 'bar': 'moo'}, {'foo': 1.0, 'bar': 'moo'})
+        self.assertAlmostEqualGeneric(1.00000001, 1.0, msg="Test message")

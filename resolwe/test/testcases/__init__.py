@@ -4,6 +4,9 @@
 Resolwe Test Cases
 ==================
 
+.. autoclass:: resolwe.test.TestCaseHelpers
+    :members:
+
 .. autoclass:: resolwe.test.TransactionTestCase
     :members:
 
@@ -41,16 +44,32 @@ from .setting_overrides import FLOW_EXECUTOR_SETTINGS
 class TestCaseHelpers(object):
     """Mixin for test case helpers."""
 
-    def assertAlmostEqualList(self, actual, expected):  # pylint: disable=invalid-name
-        """Assert almost equality of two lists."""
-        # pylint: disable=no-member
-        self.assertEqual(type(actual), type(expected))
+    def assertAlmostEqualGeneric(self, actual, expected, msg=None):  # pylint: disable=invalid-name
+        """Assert almost equality for common types of objects.
 
-        if isinstance(actual, (list, tuple)):
+        This is the same as :meth:`~unittest.TestCase.assertEqual`, but using
+        :meth:`~unittest.TestCase.assertAlmostEqual` when floats are encountered
+        inside common containers (currently this includes :class:`dict`,
+        :class:`list` and :class:`tuple` types).
+
+        :param actual: object to compare
+        :param expected: object to compare against
+        :param msg: optional message printed on failures
+        """
+        # pylint: disable=no-member
+        self.assertEqual(type(actual), type(expected), msg=msg)
+
+        if isinstance(actual, dict):
+            self.assertEqual(actual.keys(), expected.keys(), msg=msg)
+            for key in actual.keys():
+                self.assertAlmostEqualGeneric(actual[key], expected[key], msg=msg)
+        elif isinstance(actual, (list, tuple)):
             for actual_item, expected_item in zip(actual, expected):
-                self.assertAlmostEqualList(actual_item, expected_item)
+                self.assertAlmostEqualGeneric(actual_item, expected_item, msg=msg)
+        elif isinstance(actual, float):
+            self.assertAlmostEqual(actual, expected, msg=msg)
         else:
-            self.assertAlmostEqual(actual, expected)
+            self.assertEqual(actual, expected, msg=msg)
 
 
 class TransactionTestCase(TestCaseHelpers, DjangoTransactionTestCase):

@@ -12,7 +12,7 @@ Resolwe Test Framework
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-from resolwe.test.testcases import TestCase, TransactionTestCase
+from resolwe.test.testcases import TestCase, TestCaseHelpers, TransactionTestCase
 from resolwe.test.testcases.api import ResolweAPITestCase
 from resolwe.test.testcases.elastic import ElasticSearchTestCase, TransactionElasticSearchTestCase
 from resolwe.test.testcases.process import ProcessTestCase, TransactionProcessTestCase
@@ -21,7 +21,7 @@ from resolwe.test.utils import (
 )
 
 __all__ = (
-    'TestCase', 'TransactionTestCase',
+    'TestCase', 'TestCaseHelpers', 'TransactionTestCase',
     'ResolweAPITestCase',
     'ElasticSearchTestCase', 'TransactionElasticSearchTestCase',
     'ProcessTestCase', 'TransactionProcessTestCase',

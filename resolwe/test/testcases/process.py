@@ -583,9 +583,9 @@ class TransactionProcessTestCase(TransactionTestCase):
         with gzip.open(file_path, mode='rt') as f:
             file_obj = json.load(f)
 
-        self.assertEqual(storage_obj, file_obj,
-                         msg="Storage {} field '{}' does not match file {}".format(
-                             storage.id, field_path, file_name) + self._debug_info(obj))
+        self.assertAlmostEqualGeneric(storage_obj, file_obj,
+                                      msg="Storage {} field '{}' does not match file {}".format(
+                                          storage.id, field_path, file_name) + self._debug_info(obj))
 
     def _debug_info(self, data):
         """Return data's debugging information."""

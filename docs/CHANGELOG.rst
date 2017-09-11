@@ -12,10 +12,11 @@ Unreleased
 
 Added
 -----
-- ``assertAlmostEqualList`` test case helper
 - Add filtering by id on ``descriptor_schma`` API endpoint
 - Support assigning descriptor schema by id (if set value is of type
   int) on ``Collection``, ``Data`` and ``Entity`` endpoints
+- ``assertAlmostEqualGeneric`` test case helper, which enables recursive
+  comparison for almost equality of floats in nested containers
 
 Changed
 -------
