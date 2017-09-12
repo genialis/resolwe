@@ -28,6 +28,7 @@ import os
 import shutil
 
 import mock
+import six
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -60,7 +61,7 @@ class TestCaseHelpers(object):
         self.assertEqual(type(actual), type(expected), msg=msg)
 
         if isinstance(actual, dict):
-            self.assertEqual(actual.keys(), expected.keys(), msg=msg)
+            six.assertCountEqual(self, actual.keys(), expected.keys(), msg=msg)
             for key in actual.keys():
                 self.assertAlmostEqualGeneric(actual[key], expected[key], msg=msg)
         elif isinstance(actual, (list, tuple)):
