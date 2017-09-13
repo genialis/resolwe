@@ -151,6 +151,8 @@ class TransactionTestCase(TestCaseHelpers, DjangoTransactionTestCase):
                 mapping['src'] = os.path.join(data_dir, '{data_id}')
             elif mapping['dest'] == '/data_all':
                 mapping['src'] = data_dir
+            elif mapping['dest'] == '/upload':
+                mapping['src'] = upload_dir
 
         self.settings = override_settings(FLOW_EXECUTOR=flow_executor_settings,
                                           FLOW_DOCKER_MAPPINGS=flow_docker_mappings)
