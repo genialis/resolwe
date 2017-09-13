@@ -22,6 +22,9 @@ Changed
 -------
 - **BACKWARD INCOMPATIBLE:** Run Docker containers as non-root user
 
+Fixed
+-----
+- Use per-process upload dir in tests to avoid race conditions
 
 ==================
 2.0.0 - 2017-08-24

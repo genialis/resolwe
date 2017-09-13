@@ -82,8 +82,8 @@ class TransactionTestCase(TestCaseHelpers, DjangoTransactionTestCase):
 
     """
 
-    def _test_data_dir(self, path):
-        """Return test data directory path.
+    def _test_dir(self, data_path, upload_path):
+        """Return test data and upload directory paths.
 
         Increase counter in the path name by 1.
 
@@ -91,8 +91,8 @@ class TransactionTestCase(TestCaseHelpers, DjangoTransactionTestCase):
         while True:
             try:
                 counter = 1
-                for name in os.listdir(path):
-                    if os.path.isdir(os.path.join(path, name)) and name.startswith('test'):
+                for name in os.listdir(data_path):
+                    if os.path.isdir(os.path.join(data_path, name)) and name.startswith('test'):
                         try:
                             current = int(name.split('_')[-1])
                             if current >= counter:
@@ -100,15 +100,18 @@ class TransactionTestCase(TestCaseHelpers, DjangoTransactionTestCase):
                         except ValueError:
                             pass
 
-                test_data_dir = os.path.join(path, 'test_{}'.format(counter))
+                test_data_dir = os.path.join(data_path, 'test_{}'.format(counter))
+                test_upload_dir = os.path.join(upload_path, 'test_{}'.format(counter))
                 os.makedirs(test_data_dir)
+                # If the following command fails, this may leave an empty data directory.
+                os.makedirs(test_upload_dir)
                 break
             except OSError:
                 # Try again if a folder with the same name was created
                 # by another test on another thread
                 continue
 
-        return test_data_dir
+        return test_data_dir, test_upload_dir
 
     def _pre_setup(self, *args, **kwargs):
         # NOTE: This is a work-around for Django issue #10827
@@ -125,8 +128,12 @@ class TransactionTestCase(TestCaseHelpers, DjangoTransactionTestCase):
         flow_executor_settings = copy.copy(getattr(settings, 'FLOW_EXECUTOR', {}))
 
         # Override data directory settings
-        data_dir = self._test_data_dir(FLOW_EXECUTOR_SETTINGS['DATA_DIR'])
+        data_dir, upload_dir = self._test_dir(
+            data_path=FLOW_EXECUTOR_SETTINGS['DATA_DIR'],
+            upload_path=FLOW_EXECUTOR_SETTINGS['UPLOAD_DIR'],
+        )
         flow_executor_settings['DATA_DIR'] = data_dir
+        flow_executor_settings['UPLOAD_DIR'] = upload_dir
 
         # Override container name prefix setting
         flow_executor_settings['CONTAINER_NAME_PREFIX'] = '{}_{}_{}'.format(
@@ -163,6 +170,7 @@ class TransactionTestCase(TestCaseHelpers, DjangoTransactionTestCase):
         """Clean up after the test."""
         if not self._keep_data:
             shutil.rmtree(settings.FLOW_EXECUTOR['DATA_DIR'], ignore_errors=True)
+            shutil.rmtree(settings.FLOW_EXECUTOR['UPLOAD_DIR'], ignore_errors=True)
 
         self.settings.disable()
 
