@@ -8,8 +8,8 @@ COPY re-import.sh /re-import.sh
 COPY curlprogress.py /usr/local/bin/
 
 RUN apt-get update && \
-    # Install Python 3
-    apt-get install -y --no-install-recommends python3 python3-pip && \
+    # Install Python 3, curl and p7zip-full, the latter two needed by re-import.
+    apt-get install -y --no-install-recommends python3 python3-pip curl p7zip-full && \
     # Install Resolwe Runtime Utils
     pip3 install resolwe-runtime-utils && \
     # XXX: Remove this hack after obsoleting re-checkrc
