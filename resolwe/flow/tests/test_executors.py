@@ -160,6 +160,11 @@ class ManagerRunProcessTest(ProcessTestCase):
         data = self.run_process('test-requirements-docker')
         self.assertEqual(data.output['result'], 'OK')
 
+    @with_docker_executor
+    def test_docker_uid_gid(self):
+        data = self.run_process('test-docker-uid-gid')
+        self.assertEqual(data.output['result'], 'OK')
+
     @with_null_executor
     def test_null_executor(self):
         data = self.run_process('test-save-number', {'number': 19}, assert_status=Data.STATUS_WAITING)

@@ -117,8 +117,8 @@ class FlowExecutor(LocalFlowExecutor):
         group_file.file.flush()
         self.temporary_files.append(group_file)
 
-        mappings.append({'src': passwd_file.name, 'dest': '/etc/passwd', 'mode': 'ro'})
-        mappings.append({'src': group_file.name, 'dest': '/etc/group', 'mode': 'ro'})
+        mappings.append({'src': passwd_file.name, 'dest': '/etc/passwd', 'mode': 'ro,Z'})
+        mappings.append({'src': group_file.name, 'dest': '/etc/group', 'mode': 'ro,Z'})
 
         # create mappings for tools
         # NOTE: To prevent processes tampering with tools, all tools are mounted read-only
