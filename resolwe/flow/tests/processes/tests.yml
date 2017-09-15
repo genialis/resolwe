@@ -489,3 +489,24 @@
         image: resolwe/test:versioning-2
   run:
     program: "true"
+
+- slug: test-docker-uid-gid
+  name: Minimalistic Processor
+  version: 1.0.0
+  type: "data:test:min"
+  output:
+    - name: result
+      label: Result
+      type: basic:string
+  run:
+    program: |
+      # Check if we are running as non-root.
+      if [[ $UID == 0 || $GID == 0 ]]; then
+        echo '{"result": "ERROR: Running as root."}'
+      else
+        echo '{"result": "OK"}'
+      fi
+
+      # Ensure that we can resolve both our user and group names.
+      getent passwd $UID || exit 1
+      getent group $GID || exit 1

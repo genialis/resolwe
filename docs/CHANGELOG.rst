@@ -6,6 +6,15 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Fixed
+-----
+- Correctly relabel SELinux contexts on user/group files
+
+
 ==================
 3.0.0 - 2017-09-13
 ==================
