@@ -109,6 +109,9 @@ def remove_permission(payload, permission):
 def update_permission(obj, data):
     """Update object permissions."""
     content_type = ContentType.objects.get_for_model(obj)
+    # Camel case class names are converted into a space-separated
+    # content types, so spaces have to be removed.
+    content_type = str(content_type).replace(' ', '')
     full_permissions = list(zip(*obj._meta.permissions))[0]  # pylint: disable=protected-access
 
     def apply_perm(perm_func, perms, entity):
