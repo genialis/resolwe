@@ -10,6 +10,11 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Fixed
+-----
+- Serialize ``current_user_permissions`` field in a way that is 
+  compatible with DRF 3.6.4+
+
 
 ==================
 3.0.1 - 2017-09-15

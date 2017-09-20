@@ -7,13 +7,24 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
 
 from guardian.models import UserObjectPermission
-from rest_framework import exceptions, status
+from rest_framework import exceptions, serializers, status
 from rest_framework.decorators import detail_route, list_route
 from rest_framework.response import Response
 
 from resolwe.permissions.shortcuts import get_object_perms
 
 from .utils import check_owner_permission, check_public_permissions, check_user_permissions, update_permission
+
+
+class CurrentUserPermissionsSerializer(serializers.Serializer):  # pylint: disable=abstract-method
+    """Current user permissions serializer."""
+
+    id = serializers.IntegerField()  # pylint: disable=invalid-name
+    type = serializers.CharField(max_length=50)  # pylint: disable=invalid-name
+    name = serializers.CharField(max_length=100)
+    permissions = serializers.ListField(
+        child=serializers.CharField(max_length=30)
+    )
 
 
 class ResolwePermissionsMixin(object):
@@ -29,6 +40,12 @@ class ResolwePermissionsMixin(object):
 
         class SerializerWithPermissions(base_class):
             """Augment serializer class."""
+
+            def get_fields(serializer_self):  # pylint: disable=no-self-argument
+                """Return serializer's fields."""
+                fields = super(SerializerWithPermissions, serializer_self).get_fields()
+                fields['current_user_permissions'] = CurrentUserPermissionsSerializer(read_only=True)
+                return fields
 
             def to_representation(serializer_self, instance):  # pylint: disable=no-self-argument
                 """Object serializer."""
