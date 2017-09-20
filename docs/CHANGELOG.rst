@@ -10,9 +10,13 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Added
+-----
+- ``resolwe/base`` Docker image based on Ubuntu 17.04
+
 Fixed
 -----
-- Serialize ``current_user_permissions`` field in a way that is 
+- Serialize ``current_user_permissions`` field in a way that is
   compatible with DRF 3.6.4+
 
 
