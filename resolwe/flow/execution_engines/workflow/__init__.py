@@ -10,7 +10,7 @@ from django.db import transaction
 from resolwe.flow.execution_engines.base import BaseExecutionEngine
 from resolwe.flow.execution_engines.exceptions import ExecutionError
 from resolwe.flow.expression_engines import EvaluationError
-from resolwe.flow.models import Data, Process
+from resolwe.flow.models import Data, DataDependency, Process
 from resolwe.permissions.utils import copy_permissions
 
 
@@ -105,7 +105,11 @@ class ExecutionEngine(BaseExecutionEngine):
                 contributor=data.contributor,
                 input=data_input,
             )
-            data_object.parents.add(data)
+            DataDependency.objects.create(
+                parent=data,
+                child=data_object,
+                kind=DataDependency.KIND_SUBPROCESS,
+            )
 
             # Copy permissions.
             copy_permissions(data, data_object)

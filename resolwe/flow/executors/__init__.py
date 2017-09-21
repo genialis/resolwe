@@ -28,7 +28,7 @@ from django.db.models import Count
 from django.urls import reverse
 
 from resolwe.flow.engine import BaseEngine
-from resolwe.flow.models import Data, Entity, Process
+from resolwe.flow.models import Data, DataDependency, Entity, Process
 from resolwe.flow.utils import dict_dot, iterate_fields
 from resolwe.flow.utils.purge import data_purge
 from resolwe.permissions.utils import copy_permissions
@@ -326,7 +326,11 @@ class BaseFlowExecutor(BaseEngine):
 
                     with transaction.atomic():
                         d = Data.objects.create(**d)
-                        d.parents.add(parent_data)
+                        DataDependency.objects.create(
+                            parent=parent_data,
+                            child=d,
+                            kind=DataDependency.KIND_SUBPROCESS,
+                        )
 
                         # Copy permissions.
                         copy_permissions(parent_data, d)

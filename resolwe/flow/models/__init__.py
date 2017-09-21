@@ -31,6 +31,9 @@ Postgres ORM model for keeping the data structured.
 .. autoclass:: resolwe.flow.models.Data
     :members:
 
+.. autoclass:: resolwe.flow.models.DataDependency
+    :members:
+
 DescriptorSchema model
 ======================
 
@@ -58,7 +61,7 @@ Postgres ORM model for storing JSON.
 """
 
 from .collection import Collection
-from .data import Data
+from .data import Data, DataDependency
 from .descriptor import DescriptorSchema
 from .entity import Entity, Relation, RelationType
 from .process import Process

@@ -14,7 +14,7 @@ from guardian.shortcuts import assign_perm
 
 from resolwe.flow.executors import BaseFlowExecutor
 from resolwe.flow.managers import manager
-from resolwe.flow.models import Data, Process
+from resolwe.flow.models import Data, DataDependency, Process
 from resolwe.test import ProcessTestCase, TestCase, with_docker_executor, with_null_executor
 
 PROCESSES_DIR = os.path.join(os.path.dirname(__file__), 'processes')
@@ -82,6 +82,9 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.assertEqual(data.parents.count(), 1)
         self.assertEqual(data.parents.first(), parent_data)
 
+        # Check correct dependency type is created.
+        self.assertEqual({d.kind for d in data.parents_dependency.all()}, {DataDependency.KIND_SUBPROCESS})
+
     def test_spawn_missing_export(self):
         with six.assertRaisesRegex(self, KeyError, 'Use `re-export`'):
             self.run_process('test-spawn-missing-file')
@@ -145,6 +148,11 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.assertEqual(step1_data.parents.first(), workflow_data)
         self.assertEqual(step2_data.parents.count(), 2)
         six.assertCountEqual(self, step2_data.parents.all(), [workflow_data, step1_data])
+
+        # Check correct dependency type is created.
+        self.assertEqual({d.kind for d in step1_data.parents_dependency.all()}, {DataDependency.KIND_SUBPROCESS})
+        self.assertEqual({d.kind for d in step2_data.parents_dependency.all()},
+                         {DataDependency.KIND_SUBPROCESS, DataDependency.KIND_IO})
 
         self.assertTrue(self.contributor.has_perm('flow.view_data', step1_data))
         # User inherites permission from group
