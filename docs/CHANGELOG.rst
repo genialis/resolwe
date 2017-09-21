@@ -13,6 +13,7 @@ Unreleased
 Added
 -----
 - ``resolwe/base`` Docker image based on Ubuntu 17.04
+- Support different dependency kinds between data objects
 
 Fixed
 -----

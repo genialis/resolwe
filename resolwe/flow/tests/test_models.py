@@ -18,7 +18,7 @@ from rest_framework.test import APIRequestFactory, APITestCase, force_authentica
 
 from resolwe.flow.expression_engines import EvaluationError
 from resolwe.flow.managers import manager
-from resolwe.flow.models import Data, DescriptorSchema, Entity, Process, Storage
+from resolwe.flow.models import Data, DataDependency, DescriptorSchema, Entity, Process, Storage
 from resolwe.flow.models.data import hydrate_size, render_template
 from resolwe.flow.views import DataViewSet
 from resolwe.test import TestCase
@@ -193,6 +193,11 @@ class DataModelTest(TestCase):
         self.assertIn(second, first.children.all())
         self.assertIn(third, first.children.all())
 
+        # Check correct dependency type is created.
+        self.assertEqual({d.kind for d in first.children_dependency.all()}, {DataDependency.KIND_IO})
+        self.assertEqual({d.kind for d in second.parents_dependency.all()}, {DataDependency.KIND_IO})
+        self.assertEqual({d.kind for d in third.parents_dependency.all()}, {DataDependency.KIND_IO})
+
     def test_dependencies_list(self):
         process = Process.objects.create(slug='test-dependencies-list',
                                          type='data:test:dependencies:list:',
@@ -228,6 +233,12 @@ class DataModelTest(TestCase):
         self.assertIn(second, first.children.all())
         self.assertIn(third, first.children.all())
         self.assertIn(third, second.children.all())
+
+        # Check correct dependency type is created.
+        self.assertEqual({d.kind for d in first.children_dependency.all()}, {DataDependency.KIND_IO})
+        self.assertEqual({d.kind for d in second.children_dependency.all()}, {DataDependency.KIND_IO})
+        self.assertEqual({d.kind for d in second.parents_dependency.all()}, {DataDependency.KIND_IO})
+        self.assertEqual({d.kind for d in third.parents_dependency.all()}, {DataDependency.KIND_IO})
 
 
 class EntityModelTest(TestCase):

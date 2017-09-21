@@ -142,7 +142,9 @@ class Data(BaseModel):
     #: dependencies between data objects
     parents = models.ManyToManyField(
         'self',
-        symmetrical=False, related_name='children'
+        through='DataDependency',
+        symmetrical=False,
+        related_name='children'
     )
 
     #: tags for categorizing objects
@@ -196,7 +198,11 @@ class Data(BaseModel):
         def add_dependency(value):
             """Add parent Data dependency."""
             try:
-                self.parents.add(Data.objects.get(pk=value))  # pylint: disable=no-member
+                DataDependency.objects.update_or_create(
+                    parent=Data.objects.get(pk=value),
+                    child=self,
+                    defaults={'kind': DataDependency.KIND_IO},
+                )
             except Data.DoesNotExist:
                 pass
 
@@ -336,3 +342,23 @@ class Data(BaseModel):
             name = name[:(name_max_len - 3)] + '...'
 
         self.name = name
+
+
+class DataDependency(models.Model):
+    """Dependency relation between data objects."""
+
+    #: child uses parent's output as its input
+    KIND_IO = 'io'
+    #: child was spawned by the parent
+    KIND_SUBPROCESS = 'subprocess'
+    KIND_CHOICES = (
+        (KIND_IO, "Input/output dependency"),
+        (KIND_SUBPROCESS, "Subprocess"),
+    )
+
+    #: child data object
+    child = models.ForeignKey(Data, on_delete=models.CASCADE, related_name='parents_dependency')
+    #: parent data object
+    parent = models.ForeignKey(Data, on_delete=models.CASCADE, related_name='children_dependency')
+    #: kind of dependency
+    kind = models.CharField(max_length=16, choices=KIND_CHOICES)

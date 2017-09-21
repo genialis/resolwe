@@ -7,7 +7,7 @@ from django.db import transaction
 
 from guardian.shortcuts import assign_perm
 
-from resolwe.flow.models import Collection, Data, DescriptorSchema, Process
+from resolwe.flow.models import Collection, Data, DataDependency, DescriptorSchema, Process
 from resolwe.test import TransactionProcessTestCase
 
 PROCESSES_DIR = os.path.join(os.path.dirname(__file__), 'processes')
@@ -72,13 +72,17 @@ class TestManager(TransactionProcessTestCase):
     def test_workflow(self):
         """Test that manager is run for workflows."""
         workflow = Process.objects.filter(slug='test-workflow-1').latest()
-        Data.objects.create(name='Test data 1', contributor=self.contributor, process=workflow,
-                            input={'param1': 'world'})
-        Data.objects.create(name='Test data 2', contributor=self.contributor, process=workflow,
-                            input={'param1': 'foobar'})
+        data1 = Data.objects.create(name='Test data 1', contributor=self.contributor, process=workflow,
+                                    input={'param1': 'world'})
+        data2 = Data.objects.create(name='Test data 2', contributor=self.contributor, process=workflow,
+                                    input={'param1': 'foobar'})
 
         # Created and spawned objects should be done.
         self.assertEqual(Data.objects.filter(status=Data.STATUS_DONE).count(), 6)
+
+        # Check correct dependency type is created.
+        self.assertEqual({d.kind for d in data1.children_dependency.all()}, {DataDependency.KIND_SUBPROCESS})
+        self.assertEqual({d.kind for d in data2.children_dependency.all()}, {DataDependency.KIND_SUBPROCESS})
 
     def test_dependencies(self):
         """Test that manager handles dependencies correctly."""
