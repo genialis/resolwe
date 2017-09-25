@@ -19,6 +19,9 @@ Fixed
 -----
 - Serialize ``current_user_permissions`` field in a way that is
   compatible with DRF 3.6.4+
+- Fix ``ResolwePermissionsMixin`` (and ResolwePermissionsMixin all API
+  endpoints) to work correctly with multi-words model names, i.e.
+  DescriptorSchema
 
 
 ==================
