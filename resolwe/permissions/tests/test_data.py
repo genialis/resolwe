@@ -211,6 +211,15 @@ class DataTestCase(ResolweAPITestCase):
                                     'descriptor_schema', 'descriptor', 'id', 'process_name', 'process_input_schema',
                                     'process_output_schema', 'current_user_permissions', 'descriptor_dirty', 'tags'])
 
+        # user w/ public permissions
+        resp = self._get_detail(1, self.user2)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertKeys(resp.data, ['slug', 'name', 'created', 'modified', 'contributor', 'started', 'finished',
+                                    'checksum', 'status', 'process', 'process_progress', 'process_rc', 'process_info',
+                                    'process_warning', 'process_error', 'input', 'output', 'process_type',
+                                    'descriptor_schema', 'descriptor', 'id', 'process_name', 'process_input_schema',
+                                    'process_output_schema', 'current_user_permissions', 'descriptor_dirty', 'tags'])
+
     def test_get_detail_no_perms(self):
         # public user w/o permissions
         resp = self._get_detail(2)
