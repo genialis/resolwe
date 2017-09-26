@@ -1,6 +1,8 @@
 """Custom permissions for Flow API."""
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+from django.http import Http404
+
 from rest_framework import permissions
 
 
@@ -34,4 +36,36 @@ class ResolwePermissions(permissions.DjangoObjectPermissions):
         if view.action in ['add_data', 'remove_data']:
             self.perms_map['POST'] = ['%(app_label)s.add_%(model_name)s']
 
-        return super(ResolwePermissions, self).has_object_permission(request, view, obj)
+        if hasattr(view, 'get_queryset'):
+            queryset = view.get_queryset()
+        else:
+            queryset = getattr(view, 'queryset', None)
+
+        assert queryset is not None, (
+            'Cannot apply DjangoObjectPermissions on a view that '
+            'does not set `.queryset` or have a `.get_queryset()` method.'
+        )
+
+        model_cls = queryset.model
+        user = request.user
+
+        perms = self.get_required_object_permissions(request.method, model_cls)
+
+        if not user.has_perms(perms, obj):
+            # If the user does not have permissions we need to determine if
+            # they have read permissions to see 403, or not, and simply see
+            # a 404 response.
+
+            if request.method in permissions.SAFE_METHODS:
+                # Read permissions already checked and failed, no need
+                # to make another lookup.
+                raise Http404
+
+            read_perms = self.get_required_object_permissions('GET', model_cls)
+            if not user.has_perms(read_perms, obj):
+                raise Http404
+
+            # Has read permissions.
+            return False
+
+        return True
