@@ -19,6 +19,8 @@ Fixed
 -----
 - Serialize ``current_user_permissions`` field in a way that is
   compatible with DRF 3.6.4+
+- API requests on single object endpoints are allowed to all users if
+  object has appropriate public permissions
 
 
 ==================

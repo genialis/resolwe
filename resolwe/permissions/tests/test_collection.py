@@ -88,6 +88,13 @@ class CollectionTestCase(ResolweAPITestCase):
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
         self.assertEqual(resp.data[u'detail'], MESSAGES['NOT_FOUND'])
 
+        # user w/ public permissions
+        resp = self._get_detail(1, self.user2)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertKeys(resp.data, ['slug', 'name', 'created', 'modified', 'contributor', 'description', 'settings',
+                                    'id', 'current_user_permissions', 'descriptor_schema', 'descriptor',
+                                    'descriptor_dirty', 'data'])
+
     def test_patch(self):
         data = {'name': 'New collection'}
         resp = self._patch(1, data, self.user1)
