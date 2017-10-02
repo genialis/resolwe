@@ -14,6 +14,11 @@ Added
 -----
 - ``resolwe/base`` Docker image based on Ubuntu 17.04
 - Support different dependency kinds between data objects
+- ``--pull`` option to the ``list_docker_images`` management command
+
+Changed
+-------
+- Pull Docker images after process registration is complete
 
 Fixed
 -----

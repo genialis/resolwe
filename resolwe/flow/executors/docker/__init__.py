@@ -8,6 +8,7 @@ import subprocess
 import tempfile
 
 from django.conf import settings
+from django.core.management import call_command
 
 from resolwe.flow.models import Process
 
@@ -183,3 +184,8 @@ class FlowExecutor(LocalFlowExecutor):
     def terminate(self, data_id):
         """Terminate a running script."""
         subprocess.call(shlex.split('{} rm -f {}'.format(self.command, data_id)))
+
+    def post_register_hook(self):
+        """Pull Docker images required by processes after the 'register' command is done."""
+        if not getattr(settings, 'FLOW_DOCKER_DONT_PULL', False):
+            call_command('list_docker_images', pull=True)

@@ -320,3 +320,6 @@ class Command(BaseCommand):
                 self.find_schemas(desc_path, filters=schemas, schema_type='descriptor', verbosity=verbosity))
 
         self.register_descriptors(descriptor_schemas, user_admin, force, verbosity=verbosity)
+
+        self.stdout.write("Running executor post-registration hook...")
+        manager.get_executor().post_register_hook()

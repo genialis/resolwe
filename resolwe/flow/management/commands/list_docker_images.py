@@ -8,6 +8,8 @@ List Docker images
 
 import functools
 import operator
+import shlex
+import subprocess
 
 import yaml
 
@@ -18,7 +20,7 @@ from resolwe.flow.models import Process
 
 
 class Command(BaseCommand):
-    """List Docker images used by processes."""
+    """List Docker images used by processes.  Optionally also pull them."""
 
     help = "List Docker images used by processes in either plain text or YAML (for Ansible)"
 
@@ -26,6 +28,12 @@ class Command(BaseCommand):
         """Add an argument to specify output format."""
         parser.add_argument('--format', dest='format', default='plain',
                             help="Set output format ('plain' [default] or 'yaml')")
+        parser.add_argument('--pull', dest='pull', default=False, action='store_true',
+                            help="Pull all images with Docker")
+        parser.add_argument('--ignore-pull-errors', dest='ignore_pull_errors',
+                            default=getattr(settings, 'FLOW_DOCKER_IGNORE_PULL_ERRORS', False),
+                            action='store_true',
+                            help="Don't fail whenever a Docker image can't be pulled")
 
     def handle(self, *args, **options):
         """Handle command list_docker_images."""
@@ -59,16 +67,38 @@ class Command(BaseCommand):
         # Sort the set of unique Docker images for nicer output
         unique_docker_images = sorted(unique_docker_images)
 
-        # Convert the set of unique Docker images into a list of dicts
-        imgs = [
-            dict(name=s[0], tag=s[1] if len(s) == 2 else 'latest')
-            for s in (img.split(':') for img in unique_docker_images)
-        ]
+        # Pull images if requested or just output the list in specified format
+        if options['pull']:
+            # Get the desired 'docker' command from settings or use the default
+            docker = getattr(settings, 'FLOW_DOCKER_COMMAND', 'docker')
 
-        # Output list in specified format
-        if options['format'] == 'yaml':
-            out = yaml.safe_dump(imgs, default_flow_style=True, default_style="'")
+            # Pull each image
+            for img in unique_docker_images:
+                ret = subprocess.call(shlex.split('{} pull {}'.format(docker, img)))
+
+                if ret != 0:
+                    errmsg = "Failed to pull Docker image '{}'!".format(img)
+
+                    if not options['ignore_pull_errors']:
+                        # Print error and stop execution
+                        raise CommandError(errmsg)
+                    else:
+                        # Print error, but keep going
+                        self.stderr.write(errmsg)
+                else:
+                    self.stdout.write("Docker image '{}' pulled successfully!".format(img))
         else:
-            out = functools.reduce(operator.add, ('{name}:{tag}\n'.format(**i) for i in imgs), '')
+            # Convert the set of unique Docker images into a list of dicts for easier output
+            imgs = [
+                dict(name=s[0], tag=s[1] if len(s) == 2 else 'latest')
+                for s in (img.split(':') for img in unique_docker_images)
+            ]
 
-        self.stdout.write(out, ending='')
+            # Output in YAML or plaintext (one image per line), as requested
+            if options['format'] == 'yaml':
+                out = yaml.safe_dump(imgs, default_flow_style=True, default_style="'")
+            else:
+                out = functools.reduce(operator.add,
+                                       ('{name}:{tag}\n'.format(**i) for i in imgs), '')
+
+            self.stdout.write(out, ending='')

@@ -102,6 +102,12 @@ FLOW_EXECUTOR = {
 if 'RESOLWE_DOCKER_COMMAND' in os.environ:
     FLOW_DOCKER_COMMAND = os.environ['RESOLWE_DOCKER_COMMAND']
 
+# Ignore errors when pulling Docker images from 'list_docker_images --pull' command.
+FLOW_DOCKER_IGNORE_PULL_ERRORS = strtobool(os.environ.get('RESOLWE_DOCKER_IGNORE_PULL_ERRORS', '1'))
+
+# Don't pull Docker images if set via the environment variable.
+FLOW_DOCKER_DONT_PULL = strtobool(os.environ.get('RESOLWE_DOCKER_DONT_PULL', '0'))
+
 # Disable SECCOMP if set via environment variable.
 FLOW_DOCKER_DISABLE_SECCOMP = strtobool(os.environ.get('RESOLWE_DOCKER_DISABLE_SECCOMP', '0'))
 

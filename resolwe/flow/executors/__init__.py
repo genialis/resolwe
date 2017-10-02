@@ -381,3 +381,11 @@ class BaseFlowExecutor(BaseEngine):
     def terminate(self, data_id):
         """Terminate a running script."""
         raise NotImplementedError('subclasses of BaseFlowExecutor may require a terminate() method')
+
+    def post_register_hook(self):
+        """Run hook after the 'register' management command finishes.
+
+        Subclasses may implement this hook to e.g. pull Docker images at this point.
+        By default, it does nothing.
+        """
+        pass
