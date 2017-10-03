@@ -60,10 +60,14 @@ re-save-file test_file path/to/file.txt
             ],
             output_schema=[
                 {'name': 'name', 'type': 'basic:string:'},
+                {'name': 'list_name', 'type': 'list:basic:string:'},
                 {'name': 'id', 'type': 'basic:integer:'},
+                {'name': 'list_id', 'type': 'list:basic:string:'},
                 {'name': 'type', 'type': 'basic:string:'},
+                {'name': 'list_type', 'type': 'list:basic:string:'},
                 {'name': 'basename', 'type': 'basic:string:'},
                 {'name': 'subtype', 'type': 'basic:string:'},
+                {'name': 'list_subtype', 'type': 'list:basic:string:'},
                 {'name': 'yesno', 'type': 'basic:string:'},
                 {'name': 'datalookup', 'type': 'basic:integer:'},
                 {'name': 'file_url', 'type': 'basic:string:'},
@@ -78,10 +82,14 @@ re-save-file test_file path/to/file.txt
                 'language': 'bash',
                 'program': """
 re-save name {{ input_data | name }}
+re-save list_name {{ input_data_list | name }}
 re-save id {{ input_data | id }}
+re-save list_id {{ input_data_list | id }}
 re-save type {{ input_data | type }}
+re-save list_type {{ input_data_list | type }}
 re-save basename {{ '/foo/bar/moo' | basename }}
 re-save subtype {{ 'data:test:inputobject:' | subtype('data:') }}
+re-save list_subtype {{ ['data:test:inputobject:'] | subtype('data:') }}
 re-save yesno {{ true | yesno('yes', 'no') }}
 re-save datalookup {{ 'input-data-object' | data_by_slug }}
 re-save file_url {{ input_data.test_file | get_url }}
@@ -116,6 +124,7 @@ save-safe {{ spacy | safe }}
 
         self.assertEqual(data.output['name'], input_data.name)
         self.assertEqual(data.output['id'], input_data.pk)
+        self.assertEqual(data.output['list_id'], [input_data.id])
         self.assertEqual(data.output['type'], input_process.type)
         self.assertEqual(data.output['basename'], 'moo')
         self.assertEqual(data.output['subtype'], 'True')
@@ -133,6 +142,10 @@ save-safe {{ spacy | safe }}
         storage = Storage.objects.get(pk=data.output['list_description_full'])
         self.assertEqual(storage.json, {'descriptions': {'text': 'This is test Data object.'}})
 
+        # Return values of jinja filters are casted to strings when inserted to bash
+        self.assertEqual(data.output['list_name'], str([input_data.name]))
+        self.assertEqual(data.output['list_type'], str([input_process.type]))
+        self.assertEqual(data.output['list_subtype'], '[True]')
 
 class ExpressionEngineTest(TestCase):
 

@@ -10,6 +10,13 @@ from resolwe.flow.models import Data
 from resolwe.flow.utils import dict_dot
 
 
+def apply_filter_list(func, obj):
+    """Apply `func` to list or tuple `obj` element-wise and directly otherwise."""
+    if isinstance(obj, (list, tuple)):
+        return [func(item) for item in obj]
+    return func(obj)
+
+
 def _get_data_attr(data, attr):
     """Get data object field."""
     if isinstance(data, dict):
@@ -23,17 +30,17 @@ def _get_data_attr(data, attr):
 
 def name(data):
     """Return `name` of `Data`."""
-    return _get_data_attr(data, 'name')
+    return apply_filter_list(lambda datum: _get_data_attr(datum, 'name'), data)
 
 
 def id_(obj):
     """Return ``id`` key of dict."""
-    return obj['__id']
+    return apply_filter_list(lambda item: item['__id'], obj)
 
 
 def type_(obj):
     """Return ``type`` key of dict."""
-    return obj['__type']
+    return apply_filter_list(lambda item: item['__type'], obj)
 
 
 def basename(path):
@@ -43,7 +50,7 @@ def basename(path):
 
 def subtype(basetype, supertype):
     """Check if ``basetype`` is a subtype of supertype."""
-    return basetype.startswith(supertype)
+    return apply_filter_list(lambda item: item.startswith(supertype), basetype)
 
 
 def yesno(value, true_value, false_value):
