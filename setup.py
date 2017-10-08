@@ -50,9 +50,7 @@ setup(
     install_requires=[
         'Django~=1.10.5',
         'djangorestframework>=3.4.0',
-        # XXX: Temporarily pin djangorestframework-filters since version 0.10.0
-        # requires django-filter 1.0 which breaks Resolwe
-        'djangorestframework-filters==0.9.1',
+        'djangorestframework-filters~=0.10.0',
         # XXX: Remove django-autoslug after all migrations that import
         # it are deleted
         'django-autoslug==1.9.3',

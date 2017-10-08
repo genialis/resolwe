@@ -87,7 +87,7 @@ class DataFilterTestCase(TestCase):
 
     def _apply_filter(self, filters, expected):
         filtered = DataFilter(filters, queryset=Data.objects.all())
-        six.assertCountEqual(self, filtered, expected)
+        six.assertCountEqual(self, filtered.qs, expected)
 
     def test_filter_id(self):
         self._apply_filter({'id': self.data_1.pk}, [self.data_1])
@@ -208,7 +208,7 @@ class CollectionFilterTestCase(TestCase):
 
     def _apply_filter(self, filters, expected):
         filtered = CollectionFilter(filters, queryset=Collection.objects.all())
-        six.assertCountEqual(self, filtered, expected)
+        six.assertCountEqual(self, filtered.qs, expected)
 
     def test_filter_id(self):
         self._apply_filter({'id': self.collection_1.pk}, [self.collection_1])
