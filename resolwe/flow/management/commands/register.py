@@ -74,7 +74,8 @@ class Command(BaseCommand):
                 if not schema_file.lower().endswith(('.yml', '.yaml')):
                     continue
 
-                schemas = yaml.load(open(schema_file))
+                with open(schema_file) as fn:
+                    schemas = yaml.load(fn)
                 if not schemas:
                     self.stderr.write("Could not read YAML file {}".format(schema_file))
                     continue

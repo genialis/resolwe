@@ -21,6 +21,7 @@ Fixed
   compatible with DRF 3.6.4+
 - API requests on single object endpoints are allowed to all users if
   object has appropriate public permissions
+- Close schema (YAML) files after ``register`` command stops using them
 
 
 ==================
