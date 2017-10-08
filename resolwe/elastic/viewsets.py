@@ -113,7 +113,7 @@ class ElasticSearchMixin(object):
         user = self.request.user
         if user.is_superuser:
             return search
-        if user.is_anonymous():
+        if user.is_anonymous:
             user_model = get_user_model()
             user = user_model.objects.get(**{user_model.USERNAME_FIELD: settings.ANONYMOUS_USER_NAME})
 

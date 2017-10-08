@@ -58,7 +58,7 @@ class ResolweCreateModelMixin(mixins.CreateModelMixin):
                         'Invalid descriptor_schema slug "{}" - object does not exist.'.format(ds_query)]},
                     status=status.HTTP_400_BAD_REQUEST)
 
-        if request.user.is_anonymous():
+        if request.user.is_anonymous:
             request.data['contributor'] = get_anonymous_user().pk
         else:
             request.data['contributor'] = request.user.pk
@@ -116,7 +116,7 @@ class ResolweCheckSlugMixin(object):
         ``True`` if slug already exists and ``False`` otherwise.
 
         """
-        if not request.user.is_authenticated():
+        if not request.user.is_authenticated:
             return Response(status=status.HTTP_401_UNAUTHORIZED)
 
         if 'name' not in request.query_params:

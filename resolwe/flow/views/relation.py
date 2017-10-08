@@ -89,7 +89,7 @@ class RelationViewSet(mixins.CreateModelMixin,
     def create(self, request, *args, **kwargs):
         """Create a resource."""
         user = request.user
-        if not user.is_authenticated():
+        if not user.is_authenticated:
             raise exceptions.NotFound
 
         relation_type = request.data.get('type')

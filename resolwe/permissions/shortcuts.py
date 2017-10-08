@@ -145,7 +145,7 @@ def get_object_perms(obj, user=None):
     perms_list = []
 
     if user:
-        if user.is_authenticated():
+        if user.is_authenticated:
             user_perms, group_perms = get_user_group_perms(user, obj)
         else:
             user_perms, group_perms = [], []
@@ -263,7 +263,7 @@ def get_objects_for_user(user, perms, klass=None, use_groups=True, any_perm=Fals
     # Check if the user is anonymous. The
     # django.contrib.auth.models.AnonymousUser object doesn't work for queries
     # and it's nice to be able to pass in request.user blindly.
-    if user.is_anonymous():
+    if user.is_anonymous:
         user = get_anonymous_user()
 
     global_perms = set()

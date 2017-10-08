@@ -40,7 +40,7 @@ class EntityViewSet(CollectionViewSet):
 
         collection = collection_query.first()
         if not user.has_perm('add_collection', obj=collection):
-            if user.is_authenticated():
+            if user.is_authenticated:
                 raise exceptions.PermissionDenied()
             else:
                 raise exceptions.NotFound()

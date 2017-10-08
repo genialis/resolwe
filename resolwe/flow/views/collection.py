@@ -55,7 +55,7 @@ class CollectionViewSet(ResolweCreateModelMixin,
 
     def create(self, request, *args, **kwargs):
         """Only authenticated usesr can create new collections."""
-        if not request.user.is_authenticated():
+        if not request.user.is_authenticated:
             raise exceptions.NotFound
 
         return super(CollectionViewSet, self).create(request, *args, **kwargs)
