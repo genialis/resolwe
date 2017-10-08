@@ -45,13 +45,15 @@ def validation_schema(name):
         raise ValueError()
 
     field_schema_file = finders.find('flow/{}'.format(schemas['field']), all=True)[0]
-    field_schema = open(field_schema_file, 'r').read()
+    with open(field_schema_file, 'r') as fn:
+        field_schema = fn.read()
 
     if name == 'field':
         return json.loads(field_schema.replace('{{PARENT}}', ''))
 
     schema_file = finders.find('flow/{}'.format(schemas[name]), all=True)[0]
-    schema = open(schema_file, 'r').read()
+    with open(schema_file, 'r') as fn:
+        schema = fn.read()
 
     return json.loads(schema.replace('{{FIELD}}', field_schema).replace('{{PARENT}}', '/field'))
 

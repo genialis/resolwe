@@ -293,6 +293,7 @@ class BaseFlowExecutor(BaseEngine):
             raise ex
         finally:
             # Store results
+            stdout.close()
             log_file.close()
             json_file.close()
             os.chdir(CWD)

@@ -22,6 +22,10 @@ Fixed
 - API requests on single object endpoints are allowed to all users if
   object has appropriate public permissions
 - Close schema (YAML) files after ``register`` command stops using them
+- Close schema files used for validating JSON schemas after they are no
+  longer used
+- Close stdout used to retrieve process results in executor after the
+  process is finished
 
 
 ==================
