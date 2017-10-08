@@ -11,7 +11,7 @@ class Storage(BaseModel):
     """Postgres model for storing storages."""
 
     #: corresponding data object
-    data = models.ForeignKey('Data')
+    data = models.ForeignKey('Data', on_delete=models.CASCADE)
 
     #: actual JSON stored
     json = JSONField()
