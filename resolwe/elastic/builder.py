@@ -94,7 +94,7 @@ class ManyToManyDependency(Dependency):
 
     def __init__(self, field):
         """Construct m2m dependency."""
-        super(ManyToManyDependency, self).__init__(field.rel.to)
+        super(ManyToManyDependency, self).__init__(field.rel.model)
         self.field = field
 
     def connect(self, index):
@@ -121,7 +121,7 @@ class ManyToManyDependency(Dependency):
                 # Check filter before rebuilding index.
                 filtered = [
                     dep
-                    for dep in self.field.rel.to.objects.filter(pk__in=pk_set)
+                    for dep in self.field.rel.model.objects.filter(pk__in=pk_set)
                     if self.filter(dep) is not False
                 ]
 
@@ -129,7 +129,7 @@ class ManyToManyDependency(Dependency):
                     return
 
             self.index.build(obj)
-        elif isinstance(obj, self.field.rel.to):
+        elif isinstance(obj, self.field.rel.model):
             # Check filter before rebuilding index.
             if self.filter(obj, update_fields=update_fields) is False:
                 return
