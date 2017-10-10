@@ -35,7 +35,6 @@ from guardian.conf.settings import ANONYMOUS_USER_NAME
 from guardian.models import GroupObjectPermission, UserObjectPermission
 
 from resolwe.flow.utils import dict_dot
-from resolwe.utils import BraceMessage as __
 
 from .utils import prepare_connection
 
@@ -240,10 +239,8 @@ class BaseIndex(object):
 
             except:  # pylint: disable=bare-except
                 logger.exception(
-                    __(
-                        "Error occurred while setting value of field '{}' in '{}' Elasticsearch index.",
-                        field, self.__class__.__name__
-                    ),
+                    "Error occurred while setting value of field '%s' in '%s' Elasticsearch index.",
+                    field, self.__class__.__name__,
                     extra={'object_type': self.object_type, 'obj_id': obj.pk}
                 )
 
@@ -276,18 +273,41 @@ class BaseIndex(object):
 
         if obj is not None:
             if self.queryset.model != obj._meta.model:  # pylint: disable=protected-access
+                logger.debug(
+                    "Object type mismatch, aborting build of '%s' Elasticsearch index.",
+                    self.__class__.__name__
+                )
                 return
+
             if not self.queryset.filter(pk=self.get_object_id(obj)).exists():
+                logger.debug(
+                    "Object not in predefined queryset, aborting build of '%s' Elasticsearch index.",
+                    self.__class__.__name__
+                )
                 return
-            build_list = [obj]
 
         elif queryset is not None:
             if self.queryset.model != queryset.model:
+                logger.debug(
+                    "Queryset type mismatch, aborting build of '%s' Elasticsearch index.",
+                    self.__class__.__name__
+                )
                 return
+
+        logger.info("Building '%s' Elasticsearch index...", self.__class__.__name__)
+
+        if obj is not None:
+            build_list = [obj]
+
+        elif queryset is not None:
             build_list = self.queryset.intersection(queryset)
+
+            logger.debug("Found %s elements to build.", build_list.count())
 
         else:
             build_list = self.queryset.all()
+
+            logger.debug("Found %s elements to build.", build_list.count())
 
         for obj in build_list:
             if self.filter(obj) is False:
@@ -297,7 +317,8 @@ class BaseIndex(object):
                 obj = self.preprocess_object(obj)
             except:  # pylint: disable=bare-except
                 logger.exception(
-                    __("Error occurred while preprocessing '{}' Elasticsearch index.", self.__class__.__name__),
+                    "Error occurred while preprocessing '%s' Elasticsearch index.",
+                    self.__class__.__name__,
                     extra={'object_type': self.object_type, 'obj_id': obj.pk}
                 )
 
@@ -305,9 +326,12 @@ class BaseIndex(object):
                 self.process_object(obj)
             except:  # pylint: disable=bare-except
                 logger.exception(
-                    __("Error occurred while processing '{}' Elasticsearch index.", self.__class__.__name__),
+                    "Error occurred while processing '%s' Elasticsearch index.",
+                    self.__class__.__name__,
                     extra={'object_type': self.object_type, 'obj_id': obj.pk}
                 )
+
+        logger.debug("Finished building '%s' Elasticsearch index.", self.__class__.__name__)
 
         if push:
             self.push()
@@ -316,8 +340,13 @@ class BaseIndex(object):
         """Push built documents to ElasticSearch."""
         self._refresh_connection()
 
+        logger.info("Pushing builded documents to Elasticsearch server...")
+        logger.debug("Found %s documents to push.", len(self.push_queue))
+
         bulk(connections.get_connection(), (doc.to_dict(True) for doc in self.push_queue), refresh=True)
         self.push_queue = []
+
+        logger.debug("Finished pushing builded documents to Elasticsearch server.")
 
     def destroy(self):
         """Destroy an index."""
