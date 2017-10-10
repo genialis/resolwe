@@ -271,17 +271,29 @@ class BaseIndex(object):
 
             raise
 
-    def build(self, obj=None, push=True):
+    def build(self, obj=None, queryset=None, push=True):
         """Build indexes."""
-        if obj:
+        if obj is not None and queryset is not None:
+            raise ValueError(
+                "Only one of 'obj' and 'queryset' parameters can be passed to the build method."
+            )
+
+        if obj is not None:
             if self.queryset.model != obj._meta.model:  # pylint: disable=protected-access
                 return
             if not self.queryset.filter(pk=self.get_object_id(obj)).exists():
                 return
+            build_list = [obj]
 
-        queryset = [obj] if obj else self.queryset.all()
+        elif queryset is not None:
+            if self.queryset.model != queryset.model:
+                return
+            build_list = self.queryset.intersection(queryset)
 
-        for obj in queryset:
+        else:
+            build_list = self.queryset.all()
+
+        for obj in build_list:
             if self.filter(obj) is False:
                 continue
 

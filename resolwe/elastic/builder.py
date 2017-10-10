@@ -217,14 +217,14 @@ class IndexBuilder(object):
                 if not re.match('No module named .*elastic_indexes.*', str(ex)):
                     raise
 
-    def build(self, obj=None, push=True):
+    def build(self, obj=None, queryset=None, push=True):
         """Trigger building of the indexes.
 
         Support passing ``obj`` parameter to the indexes, so we can
         trigger build only for one object.
         """
         for index in self.indexes:
-            index.build(obj, push)
+            index.build(obj, queryset, push)
 
     def push(self, index=None):
         """Push built documents to ElasticSearch.

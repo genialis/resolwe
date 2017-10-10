@@ -91,6 +91,48 @@ class IndexTest(ElasticSearchTestCase):
         test_incorrect = user_model.objects.create(username='user_one')
         TestSearchIndex().build(test_incorrect)
 
+    def test_bulk_indexing(self):
+        from .test_app.models import TestModel
+        from .test_app.elastic_indexes import TestSearchDocument
+
+        first_obj = TestModel.objects.create(name='First name', number=42)
+        TestModel.objects.create(name='Second name', number=43)
+
+        # Delete whole index
+        index_builder.delete()
+        es_objects = TestSearchDocument.search().execute()
+        self.assertEqual(len(es_objects), 0)
+
+        # Build empty queryset
+        index_builder.build(queryset=TestModel.objects.none())
+        es_objects = TestSearchDocument.search().execute()
+        self.assertEqual(len(es_objects), 0)
+
+        # Build only the subset of queryset defined in index
+        index_builder.build(queryset=TestModel.objects.filter(pk=first_obj.pk))
+        es_objects = TestSearchDocument.search().execute()
+        self.assertEqual(len(es_objects), 1)
+
+        # Delete whole index
+        index_builder.delete()
+        es_objects = TestSearchDocument.search().execute()
+        self.assertEqual(len(es_objects), 0)
+
+        # Build only object
+        index_builder.build(obj=first_obj)
+        es_objects = TestSearchDocument.search().execute()
+        self.assertEqual(len(es_objects), 1)
+
+        # Delete whole index
+        index_builder.delete()
+        es_objects = TestSearchDocument.search().execute()
+        self.assertEqual(len(es_objects), 0)
+
+        # Build whole queryset defined in index
+        index_builder.build()
+        es_objects = TestSearchDocument.search().execute()
+        self.assertEqual(len(es_objects), 2)
+
     def test_management_commands(self):
         from .test_app.models import TestModel
         from .test_app.elastic_indexes import TestSearchDocument, TestAnalyzerSearchDocument
