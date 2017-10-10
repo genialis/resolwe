@@ -20,8 +20,7 @@ class Command(ElasticIndexFilterMixin, BaseCommand):
 
     def handle_index(self, index):
         """Process index."""
-        index.build(push=False)
-        index.push()
+        index.build()
 
     def handle(self, *args, **options):
         """Command handle."""
@@ -29,5 +28,4 @@ class Command(ElasticIndexFilterMixin, BaseCommand):
             self.filter_indices(options)
         else:
             # Process all indices.
-            index_builder.build(push=False)
-            index_builder.push()
+            index_builder.build()

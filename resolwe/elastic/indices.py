@@ -194,7 +194,7 @@ class BaseIndex(object):
         object_type = type(obj).__name__.lower()
         return '{}_{}'.format(object_type, self.get_object_id(obj))
 
-    def process_object(self, obj, push=True):
+    def process_object(self, obj):
         """Process current object and push it to the ElasticSearch."""
         document = self.document_class(meta={'id': self.generate_id(obj)})  # pylint: disable=not-callable
 
@@ -252,11 +252,7 @@ class BaseIndex(object):
         document.groups_with_permissions = permissions['groups']
         document.public_permission = permissions['public']
 
-        if push:
-            self._refresh_connection()
-            document.save(refresh=True)
-        else:
-            self.push_queue.append(document)
+        self.push_queue.append(document)
 
     def create_mapping(self):
         """Create the mappings in elasticsearch."""
@@ -306,12 +302,15 @@ class BaseIndex(object):
                 )
 
             try:
-                self.process_object(obj, push)
+                self.process_object(obj)
             except:  # pylint: disable=bare-except
                 logger.exception(
                     __("Error occurred while processing '{}' Elasticsearch index.", self.__class__.__name__),
                     extra={'object_type': self.object_type, 'obj_id': obj.pk}
                 )
+
+        if push:
+            self.push()
 
     def push(self):
         """Push built documents to ElasticSearch."""
