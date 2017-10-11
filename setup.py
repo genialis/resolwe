@@ -48,7 +48,7 @@ setup(
         ]
     },
     install_requires=[
-        'Django~=1.10.5',
+        'Django~=1.11.0',
         'djangorestframework~=3.7.0',
         'djangorestframework-filters~=0.10.0',
         # XXX: Remove django-autoslug after all migrations that import
