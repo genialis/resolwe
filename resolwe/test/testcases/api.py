@@ -10,6 +10,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import six
 
 from django.contrib.auth import get_user_model
+from django.contrib.contenttypes.models import ContentType
 from django.core.urlresolvers import reverse
 from django.test import override_settings
 
@@ -59,6 +60,13 @@ class ResolweAPITestCase(APITestCase):
     ``self.factory`` is instance of DRF's ``APIRequestFactory``.
 
     """
+
+    def _pre_setup(self, *args, **kwargs):
+        # NOTE: This is a work-around for Django issue #10827
+        # (https://code.djangoproject.com/ticket/10827) that clears the
+        # ContentType cache before permissions are setup.
+        ContentType.objects.clear_cache()
+        super(ResolweAPITestCase, self)._pre_setup(*args, **kwargs)
 
     def setUp(self):
         """Prepare data."""

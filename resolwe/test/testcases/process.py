@@ -22,6 +22,7 @@ import zipfile
 from six.moves import filterfalse
 
 from django.conf import settings
+from django.contrib.contenttypes.models import ContentType
 from django.core import management
 from django.test import TestCase as DjangoTestCase
 from django.test import override_settings
@@ -150,6 +151,13 @@ class TransactionProcessTestCase(TransactionTestCase):
             name="Test collection",
             contributor=self.admin,
         )
+
+    def _pre_setup(self, *args, **kwargs):
+        # NOTE: This is a work-around for Django issue #10827
+        # (https://code.djangoproject.com/ticket/10827) that clears the
+        # ContentType cache before permissions are setup.
+        ContentType.objects.clear_cache()
+        super(TransactionProcessTestCase, self)._pre_setup(*args, **kwargs)
 
     def setUp(self):
         """Initialize test data."""

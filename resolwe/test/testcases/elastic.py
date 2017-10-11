@@ -10,6 +10,7 @@
 
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase as DjangoTestCase
 from django.test import TransactionTestCase as DjangoTransactionTestCase
 from django.test import override_settings
@@ -26,6 +27,13 @@ class TransactionElasticSearchTestCase(DjangoTransactionTestCase):
     before and after each test and prepares a fresh index.
 
     """
+
+    def _pre_setup(self, *args, **kwargs):
+        # NOTE: This is a work-around for Django issue #10827
+        # (https://code.djangoproject.com/ticket/10827) that clears the
+        # ContentType cache before permissions are setup.
+        ContentType.objects.clear_cache()
+        super(TransactionElasticSearchTestCase, self)._pre_setup(*args, **kwargs)
 
     def setUp(self):
         """Delete any existing data and prepare fresh indexes."""
