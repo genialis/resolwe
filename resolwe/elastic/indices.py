@@ -340,6 +340,10 @@ class BaseIndex(object):
         """Push built documents to ElasticSearch."""
         self._refresh_connection()
 
+        if not self.push_queue:
+            logger.info("No documents to push, skipping push.")
+            return
+
         logger.info("Pushing builded documents to Elasticsearch server...")
         logger.debug("Found %s documents to push.", len(self.push_queue))
 
