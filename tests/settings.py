@@ -158,3 +158,8 @@ REST_FRAMEWORK = {
 
 ELASTICSEARCH_HOST = os.environ.get('RESOLWE_ES_HOST', 'localhost')
 ELASTICSEARCH_PORT = int(os.environ.get('RESOLWE_ES_PORT', '59200'))
+
+# Testing.
+
+TEST_PROCESS_REQUIRE_TAGS = False
+TEST_PROCESS_PROFILE = False

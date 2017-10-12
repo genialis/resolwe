@@ -10,12 +10,14 @@
 
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+import contextlib
 import gzip
 import hashlib
 import io
 import json
 import os
 import shutil
+import time
 import uuid
 import zipfile
 
@@ -34,9 +36,66 @@ from resolwe.flow.models import Collection, Data, DescriptorSchema, Process, Sto
 from resolwe.flow.utils import dict_dot, iterate_fields, iterate_schema
 from resolwe.test import TransactionTestCase
 
+from ..utils import get_processes_from_tags, has_process_tag
 from .setting_overrides import FLOW_DOCKER_MAPPINGS, FLOW_EXECUTOR_SETTINGS
 
 SCHEMAS_FIXTURE_CACHE = None
+
+
+class TestProfiler(object):
+    """Simple test profiler."""
+
+    def __init__(self, test):
+        """Initialize test profiler.
+
+        :param test: Unit test instance
+        """
+        self._test = test
+        self._start = time.time()
+
+        if getattr(settings, 'TEST_PROCESS_PROFILE', False):
+            self._file = open('profile-resolwe-process-tests-{}.json'.format(os.getpid()), 'a')
+        else:
+            self._file = None
+
+        # Automatically cleanup when test completes.
+        test.addCleanup(self.close)
+
+    def add(self, data):
+        """Add output to profile log.
+
+        :param data: Arbitrary data dictionary
+        """
+        if not self._file:
+            return
+
+        data.update({
+            'test': self._test.id(),
+        })
+
+        self._file.write(json.dumps(data))
+        self._file.write('\n')
+
+    @contextlib.contextmanager
+    def add_block(self, name):
+        """Profile a named block of code.
+
+        :param name: Block name
+        """
+        block_start = time.time()
+        try:
+            yield
+        finally:
+            block_end = time.time()
+            self.add({name: block_end - block_start})
+
+    def close(self):
+        """Close profiler log."""
+        if not self._file:
+            return
+
+        self.add({'total': time.time() - self._start})
+        self._file.close()
 
 
 @override_settings(FLOW_EXECUTOR=FLOW_EXECUTOR_SETTINGS)
@@ -168,6 +227,9 @@ class TransactionProcessTestCase(TransactionTestCase):
         self.collection = self._create_collection()
         self.upload_dir = settings.FLOW_EXECUTOR['UPLOAD_DIR']
 
+        self._profiler = TestProfiler(self)
+        self._preparation_stage = 0
+        self._executed_processes = set()
         self._keep_data = False
         self._files_path = None
         self._upload_files = []
@@ -195,6 +257,28 @@ class TransactionProcessTestCase(TransactionTestCase):
                 shutil.rmtree(fn, ignore_errors=True)
 
         super(TransactionProcessTestCase, self).tearDown()
+
+        # Ensure all tagged processes were tested.
+        if getattr(settings, 'TEST_PROCESS_REQUIRE_TAGS', False):
+            test = getattr(self, self._testMethodName)
+            for slug in get_processes_from_tags(test):
+                if slug not in self._executed_processes:
+                    self.fail(
+                        'Test was tagged with process "{}", but this process was not '
+                        'executed during test. Remove the tag or test the process.'.format(slug)
+                    )
+
+    @contextlib.contextmanager
+    def preparation_stage(self):
+        """Context manager to mark input preparation stage."""
+        with self._profiler.add_block('preparation'):
+            self._preparation_stage += 1
+            try:
+                yield
+            finally:
+                self._preparation_stage -= 1
+
+        # TODO: Handle automatic caching.
 
     @property
     def files_path(self):
@@ -255,6 +339,23 @@ class TransactionProcessTestCase(TransactionTestCase):
         """
         # backward compatibility
         process_slug = slugify(process_slug.replace(':', '-'))
+
+        # Enforce correct process tags.
+        if getattr(settings, 'TEST_PROCESS_REQUIRE_TAGS', False) and not self._preparation_stage:
+            test = getattr(self, self._testMethodName)
+            if not has_process_tag(test, process_slug):
+                self.fail(
+                    'Tried to run process with slug "{0}" outside of preparation_stage\n'
+                    'block while test is not tagged for this process. Either tag the\n'
+                    'test using tag_process decorator or move this under the preparation\n'
+                    'stage block if this process is only used to prepare upstream inputs.\n'
+                    '\n'
+                    'To tag the test you can add the following decorator:\n'
+                    '    @tag_process(\'{0}\')\n'
+                    ''.format(process_slug)
+                )
+
+        self._executed_processes.add(process_slug)
 
         process = Process.objects.filter(slug=process_slug).order_by('-version').first()
 

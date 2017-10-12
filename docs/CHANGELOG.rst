@@ -12,11 +12,12 @@ Unreleased
 
 Added
 -----
-- **BACKWARD INCOMPATIBLE:** Add option to build only subset of 
+- **BACKWARD INCOMPATIBLE:** Add option to build only subset of
   specified queryset in elasticsearch index builder
 - ``resolwe/base`` Docker image based on Ubuntu 17.04
 - Support different dependency kinds between data objects
 - ``--pull`` option to the ``list_docker_images`` management command
+- Test profiling and process tagging
 
 Changed
 -------

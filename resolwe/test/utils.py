@@ -18,7 +18,7 @@ import six
 import wrapt
 
 from django.conf import settings
-from django.test import override_settings
+from django.test import override_settings, tag
 
 from resolwe.flow.managers import manager
 
@@ -30,6 +30,8 @@ __all__ = (
     'check_installed', 'check_docker', 'with_custom_executor', 'with_docker_executor',
     'with_null_executor', 'with_resolwe_host',
 )
+
+TAG_PROCESS = 'resolwe.process'
 
 
 def check_installed(command):
@@ -158,3 +160,35 @@ def with_resolwe_host(wrapped_method, instance, args, kwargs):
     with override_settings(RESOLWE_HOST_URL=resolwe_host_url):
         # Run the actual unit test method.
         return with_custom_executor(NETWORK='host')(wrapped_method)(*args, **kwargs)
+
+
+def generate_process_tag(slug):
+    """Generate test tag for a given process."""
+    return '{}.{}'.format(TAG_PROCESS, slug)
+
+
+def tag_process(*slugs):
+    """Decorate unit test to tag it for a specific process."""
+    slugs = [generate_process_tag(slug) for slug in slugs]
+    slugs.append(TAG_PROCESS)  # Also tag with a general process tag.
+    return tag(*slugs)
+
+
+def has_process_tag(test, slug):
+    """Check if a given test method/class is tagged for a specific process."""
+    tags = getattr(test, 'tags', set())
+    return generate_process_tag(slug) in tags
+
+
+def get_processes_from_tags(test):
+    """Extract process slugs from tags."""
+    tags = getattr(test, 'tags', set())
+    slugs = set()
+
+    for tag_name in tags:
+        if not tag_name.startswith('{}.'.format(TAG_PROCESS)):
+            continue
+
+        slugs.add(tag_name[len(TAG_PROCESS) + 1:])
+
+    return slugs
