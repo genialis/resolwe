@@ -378,6 +378,7 @@ class EntityViewSetTest(TestCase):
         super(EntityViewSetTest, self).setUp()
 
         self.collection = Collection.objects.create(name="Test Collection", contributor=self.contributor)
+        self.collection2 = Collection.objects.create(name="Test Collection 2", contributor=self.contributor)
         self.entity = Entity.objects.create(name="Test entity", contributor=self.contributor)
         process = Process.objects.create(name="Test process", contributor=self.contributor)
         self.data = Data.objects.create(name="Test data", contributor=self.contributor, process=process)
@@ -387,9 +388,13 @@ class EntityViewSetTest(TestCase):
         Data.objects.create(name="Dummy data", contributor=self.contributor, process=process)
 
         self.entity.data.add(self.data)
+        self.entity.collections.add(self.collection2)
 
         assign_perm('add_collection', self.contributor, self.collection)
         assign_perm('add_entity', self.contributor, self.entity)
+        assign_perm('view_collection', self.contributor, self.collection)
+        assign_perm('view_collection', self.contributor, self.collection2)
+        assign_perm('view_entity', self.contributor, self.entity)
 
         self.entityviewset = EntityViewSet()
 
@@ -418,14 +423,37 @@ class EntityViewSetTest(TestCase):
             process=process,
         )
 
+    def test_list_filter_collections(self):
+        request = factory.get('/', {}, format='json')
+        force_authenticate(request, self.contributor)
+        resp = self.entity_list_viewset(request)
+        self.assertEqual(len(resp.data), 1)
+
+        request = factory.get('/', {'collections': 999999}, format='json')
+        force_authenticate(request, self.contributor)
+        resp = self.entity_list_viewset(request)
+        self.assertEqual(len(resp.data), 0)
+
+        request = factory.get('/', {'collections': self.collection.pk}, format='json')
+        force_authenticate(request, self.contributor)
+        resp = self.entity_list_viewset(request)
+        self.assertEqual(len(resp.data), 0)
+
+        request = factory.get('/', {'collections': self.collection2.pk}, format='json')
+        force_authenticate(request, self.contributor)
+        resp = self.entity_list_viewset(request)
+        self.assertEqual(len(resp.data), 1)
+
     def test_add_to_collection(self):
         request_mock = mock.MagicMock(data={'ids': [self.collection.pk]}, user=self.contributor)
         self.entityviewset.get_object = lambda: self.entity
 
+        self.assertEqual(self.entity.collections.count(), 1)
+
         self.entityviewset.add_to_collection(request_mock)
 
         self.assertEqual(self.collection.data.count(), 1)
-        self.assertEqual(self.entity.collections.count(), 1)
+        self.assertEqual(self.entity.collections.count(), 2)
 
     def test_remove_from_collection(self):
         # Manually add Entity and it's Data objects to the Collection
@@ -435,10 +463,12 @@ class EntityViewSetTest(TestCase):
         request_mock = mock.MagicMock(data={'ids': [self.collection.pk]}, user=self.contributor)
         self.entityviewset.get_object = lambda: self.entity
 
+        self.assertEqual(self.entity.collections.count(), 2)
+
         self.entityviewset.remove_from_collection(request_mock)
 
         self.assertEqual(self.collection.data.count(), 0)
-        self.assertEqual(self.entity.collections.count(), 0)
+        self.assertEqual(self.entity.collections.count(), 1)
 
     def test_add_remove_permissions(self):
         request_mock = mock.MagicMock(data={'ids': [self.collection.pk]}, user=self.contributor)

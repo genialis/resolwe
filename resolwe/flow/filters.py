@@ -67,14 +67,14 @@ class TagsFilter(BaseCSVFilter, filters.CharFilter):
 class EntityFilter(CollectionFilter):
     """Filter the Entity endpoint."""
 
-    collection = filters.ModelChoiceFilter(queryset=Collection.objects.all())
+    collections = filters.ModelChoiceFilter(queryset=Collection.objects.all())
     tags = TagsFilter()
 
     class Meta(BaseResolweFilter.Meta):
         """Filter configuration."""
 
         model = Entity
-        fields = BaseResolweFilter.Meta.fields + ['collection', 'tags']
+        fields = BaseResolweFilter.Meta.fields + ['collections', 'tags']
 
 
 class ProcessFilter(BaseResolweFilter):
