@@ -98,6 +98,16 @@ def descriptor(obj, path=''):
     return resp
 
 
+def all_(obj):
+    """Return True if all items in obj are true or if obj is empty."""
+    return all(obj)
+
+
+def any_(obj):
+    """Return True if any item in obj is true. If obj is empty, return False."""
+    return any(obj)
+
+
 # A dictionary of filters that will be registered.
 filters = {  # pylint: disable=invalid-name
     'name': name,
@@ -109,4 +119,6 @@ filters = {  # pylint: disable=invalid-name
     'data_by_slug': data_by_slug,
     'get_url': get_url,
     'descriptor': descriptor,
+    'all': all_,
+    'any': any_,
 }

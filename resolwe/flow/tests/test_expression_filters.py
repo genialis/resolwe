@@ -77,6 +77,8 @@ re-save-file test_file path/to/file.txt
                 {'name': 'description_full', 'type': 'basic:json:'},
                 {'name': 'list_description_text', 'type': 'basic:string:'},
                 {'name': 'list_description_full', 'type': 'basic:json:'},
+                {'name': 'all', 'type': 'basic:string:'},
+                {'name': 'any', 'type': 'basic:string:'},
             ],
             run={
                 'language': 'bash',
@@ -98,6 +100,8 @@ re-save description_text {{ input_data | descriptor('descriptions.text') }}
 re-save description_full {{ input_data | descriptor }}
 re-save list_description_text {{ input_data_list[0] | descriptor('descriptions.text') }}
 re-save list_description_full {{ input_data_list[0] | descriptor }}
+re-save all {{ [true, false] | all }}
+re-save any {{ [true, false] | any }}
 
 function save-safe() {
     re-save safe $1
@@ -147,6 +151,10 @@ save-safe {{ spacy | safe }}
         self.assertEqual(data.output['list_type'], str([input_process.type]))
         self.assertEqual(data.output['list_subtype'], '[True]')
 
+        self.assertEqual(data.output['all'], 'False')
+        self.assertEqual(data.output['any'], 'True')
+
+
 class ExpressionEngineTest(TestCase):
 
     def test_jinja_engine(self):
@@ -175,6 +183,10 @@ class ExpressionEngineTest(TestCase):
         self.assertEqual(expression, 'Hello world')
         expression = engine.evaluate_inline('a.b.0.d', {})
         self.assertEqual(expression, None)
+        expression = engine.evaluate_inline('[world, false] | all', {'world': True})
+        self.assertFalse(expression)
+        expression = engine.evaluate_inline('[world, false] | any', {'world': True})
+        self.assertTrue(expression)
 
         # Test that propagation of undefined values works.
         expression = engine.evaluate_inline('foo.bar | name | default("bar")', {})
