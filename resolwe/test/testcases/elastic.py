@@ -16,7 +16,7 @@ from django.test import TransactionTestCase as DjangoTransactionTestCase
 from django.test import override_settings
 
 
-@override_settings(ELASTICSEARCH_INDEX_PREFIX='test')
+@override_settings(ELASTICSEARCH_TESTING=True)
 class TransactionElasticSearchTestCase(DjangoTransactionTestCase):
     """Class for writing ElasticSearch tests not enclosed in a transaction.
 
@@ -59,7 +59,7 @@ class TransactionElasticSearchTestCase(DjangoTransactionTestCase):
         self._test_index_builder.push(index=None)
 
 
-@override_settings(ELASTICSEARCH_INDEX_PREFIX='test')
+@override_settings(ELASTICSEARCH_TESTING=True)
 class ElasticSearchTestCase(DjangoTestCase, TransactionElasticSearchTestCase):
     """Class for writing ElasticSearch tests.
 

@@ -8,10 +8,12 @@ Elastic Index Builder
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import inspect
+import os
 import re
 from importlib import import_module
 
 from django.apps import apps
+from django.conf import settings
 from django.db import models
 from django.db.models.fields.related_descriptors import ManyToManyDescriptor
 from django.db.models.signals import m2m_changed, post_save, pre_delete
@@ -212,6 +214,13 @@ class IndexBuilder(object):
                 for attr_name in dir(indexes_module):
                     attr = getattr(indexes_module, attr_name)
                     if inspect.isclass(attr) and issubclass(attr, BaseIndex) and attr is not BaseIndex:
+                        # Make sure that parallel tests have different indices
+                        if getattr(settings, 'ELASTICSEARCH_TESTING', False):
+                            # pylint: disable=protected-access
+                            attr.document_class._doc_type.index = "{}_test_{}".format(
+                                attr.document_class._doc_type.index, os.getpid()
+                            )
+
                         self.indexes.append(attr())
             except ImportError as ex:
                 if not re.match('No module named .*elastic_indexes.*', str(ex)):

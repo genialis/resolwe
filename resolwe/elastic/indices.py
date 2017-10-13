@@ -18,17 +18,13 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import logging
 import threading
-import uuid
 
 import elasticsearch_dsl as dsl
 from elasticsearch.exceptions import NotFoundError
 from elasticsearch.helpers import bulk
 from elasticsearch_dsl.connections import connections
-from elasticsearch_dsl.document import DocTypeMeta
 from elasticsearch_dsl.exceptions import IllegalOperation
-from six import add_metaclass
 
-from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 
 from guardian.conf.settings import ANONYMOUS_USER_NAME
@@ -43,25 +39,6 @@ __all__ = ('BaseDocument', 'BaseIndex')
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
-class BaseDocumentMeta(DocTypeMeta):
-    """Meta class for ``BaseDocument``."""
-
-    def __new__(mcs, name, bases, namespace, **kwargs):
-        """Wrapp index name into ``IndexPrefix`` and create new object."""
-        if 'Meta' in namespace:
-            index_prefix = getattr(settings, 'ELASTICSEARCH_INDEX_PREFIX', '')
-            if index_prefix.startswith('test'):
-                # Add a random ID to test index prefixes
-                index_prefix = '{}_{}_'.format(index_prefix, uuid.uuid4())
-            elif index_prefix != '':
-                # Add underscore to prefix if prefix given
-                index_prefix = '{}_'.format(index_prefix)
-
-            namespace['Meta'].index = index_prefix + namespace['Meta'].index
-        return super(BaseDocumentMeta, mcs).__new__(mcs, name, bases, namespace, **kwargs)
-
-
-@add_metaclass(BaseDocumentMeta)
 class BaseDocument(dsl.DocType):
     """Base document class to build ElasticSearch documents.
 
