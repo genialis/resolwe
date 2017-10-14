@@ -26,16 +26,16 @@ name_analyzer = dsl.analyzer(
 # pylint: enable=invalid-name
 
 
-class RawStringSubfieldMixin(object):
+class RawKeywordSubfieldMixin(object):
     """String field with a 'raw' subfield (e.g. for sorting)."""
 
     def __init__(self, *args, **kwargs):
         """Construct field."""
-        kwargs.setdefault('fields', {})['raw'] = {'type': 'string', 'index': 'not_analyzed'}
-        super(RawStringSubfieldMixin, self).__init__(*args, **kwargs)
+        kwargs.setdefault('fields', {})['raw'] = {'type': 'keyword'}
+        super(RawKeywordSubfieldMixin, self).__init__(*args, **kwargs)
 
 
-class Name(RawStringSubfieldMixin, dsl.String):
+class Name(RawKeywordSubfieldMixin, dsl.String):
     """Field for names supporting term matches.
 
     Includes a 'raw' subfield for sorting.
@@ -47,7 +47,7 @@ class Name(RawStringSubfieldMixin, dsl.String):
         super(Name, self).__init__(*args, **kwargs)
 
 
-class ProcessType(RawStringSubfieldMixin, dsl.String):
+class ProcessType(RawKeywordSubfieldMixin, dsl.String):
     """Field for process type supporting hierarchical type matches.
 
     Includes a 'raw' subfield for sorting.

@@ -12,6 +12,7 @@ Unreleased
 
 Changed
 -------
+- **BACKWARD INCOMPATIBLE:** Use Elasticsearch version 5.x
 - Terminate the executor if listener response with error message
 
 Added
