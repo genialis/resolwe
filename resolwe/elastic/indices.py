@@ -175,7 +175,7 @@ class BaseIndex(object):
         document = self.document_class(meta={'id': self.generate_id(obj)})  # pylint: disable=not-callable
 
         for field in document._doc_type.mapping:  # pylint: disable=protected-access
-            if field in ['users_with_permissions', 'groups_with_permissions']:
+            if field in ['users_with_permissions', 'groups_with_permissions', 'public_permission']:
                 continue  # These fields are handled separately
 
             try:
