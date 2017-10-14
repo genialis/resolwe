@@ -10,6 +10,10 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Changed
+-------
+- **BACKWARD INCOMPATIBLE:** Use Elasticsearch version 5.x
+
 Added
 -----
 - Add ``sort`` argument to ``assertFile`` and ``assertFiles`` methods in
