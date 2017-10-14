@@ -216,10 +216,17 @@ class IndexBuilder(object):
                     if inspect.isclass(attr) and issubclass(attr, BaseIndex) and attr is not BaseIndex:
                         # Make sure that parallel tests have different indices
                         if getattr(settings, 'ELASTICSEARCH_TESTING', False):
-                            # pylint: disable=protected-access
-                            attr.document_class._doc_type.index = "{}_test_{}".format(
-                                attr.document_class._doc_type.index, os.getpid()
-                            )
+                            index = attr.document_class._doc_type.index  # pylint: disable=protected-access
+                            testing_postfix = '_test_{}'.format(os.getpid())
+
+                            if not index.endswith(testing_postfix):
+                                # Replace current postfix with the new one.
+                                if attr.testing_postfix:
+                                    index = index[:-len(attr.testing_postfix)]
+                                index = index + testing_postfix
+                                attr.testing_postfix = testing_postfix
+
+                            attr.document_class._doc_type.index = index  # pylint: disable=protected-access
 
                         self.indexes.append(attr())
             except ImportError as ex:

@@ -99,6 +99,9 @@ class BaseIndex(object):
     #: document class used to create index
     document_class = None
 
+    #: auto generated ES index postfix used in tests
+    testing_postfix = ''
+
     #: mapping used for building document
     mapping = {}
 
