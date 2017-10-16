@@ -330,8 +330,16 @@ class ValidationUnitTest(TestCase):
 
         # missing file
         with patch('resolwe.flow.models.utils.os') as os_mock:
+            os_mock.path.exists = MagicMock(return_value=False)
+            with six.assertRaisesRegex(self, ValidationError, 'Referenced path .* does not exist.'):
+                validate_schema(instance, schema, path_prefix='/home/genialis/')
+            self.assertEqual(os_mock.path.exists.call_count, 1)
+
+        # File is not a normal file
+        with patch('resolwe.flow.models.utils.os') as os_mock:
+            os_mock.path.exists = MagicMock(return_value=True)
             os_mock.path.isfile = MagicMock(return_value=False)
-            with six.assertRaisesRegex(self, ValidationError, 'Referenced file .* does not exist'):
+            with six.assertRaisesRegex(self, ValidationError, 'Referenced path .* is not a file.'):
                 validate_schema(instance, schema, path_prefix='/home/genialis/')
             self.assertEqual(os_mock.path.isfile.call_count, 1)
 
@@ -351,8 +359,8 @@ class ValidationUnitTest(TestCase):
         with patch('resolwe.flow.models.utils.os') as os_mock:
             os_mock.path.isfile = MagicMock(side_effect=[True, True, False])
             os_mock.path.isdir = MagicMock(return_value=False)
-            with six.assertRaisesRegex(self, ValidationError,
-                                       'File referenced in `refs` .* does not exist'):
+            message = 'Path referenced in `refs` .* is neither a file or directory.'
+            with six.assertRaisesRegex(self, ValidationError, message):
                 validate_schema(instance, schema, path_prefix='/home/genialis/')
             self.assertEqual(os_mock.path.isfile.call_count, 3)
             self.assertEqual(os_mock.path.isdir.call_count, 1)
@@ -369,14 +377,23 @@ class ValidationUnitTest(TestCase):
             self.assertEqual(os_mock.path.isdir.call_count, 0)
 
         with patch('resolwe.flow.models.utils.os') as os_mock:
+            os_mock.path.exists = MagicMock(return_value=True)
             os_mock.path.isdir = MagicMock(return_value=True)
             validate_schema(instance, schema, path_prefix='/home/genialis/')
             self.assertEqual(os_mock.path.isdir.call_count, 1)
 
-        # missing dir
+        # missing path
         with patch('resolwe.flow.models.utils.os') as os_mock:
+            os_mock.path.exists = MagicMock(return_value=False)
+            with six.assertRaisesRegex(self, ValidationError, 'Referenced path .* does not exist.'):
+                validate_schema(instance, schema, path_prefix='/home/genialis/')
+            self.assertEqual(os_mock.path.exists.call_count, 1)
+
+        # not a dir
+        with patch('resolwe.flow.models.utils.os') as os_mock:
+            os_mock.path.exists = MagicMock(return_value=True)
             os_mock.path.isdir = MagicMock(return_value=False)
-            with six.assertRaisesRegex(self, ValidationError, 'Referenced dir .* does not exist'):
+            with six.assertRaisesRegex(self, ValidationError, 'Referenced path .* is not a directory'):
                 validate_schema(instance, schema, path_prefix='/home/genialis/')
             self.assertEqual(os_mock.path.isdir.call_count, 1)
 
@@ -393,8 +410,8 @@ class ValidationUnitTest(TestCase):
         with patch('resolwe.flow.models.utils.os') as os_mock:
             os_mock.path.isdir = MagicMock(side_effect=[True, False])
             os_mock.path.isfile = MagicMock(side_effect=[True, False])
-            with six.assertRaisesRegex(self, ValidationError,
-                                       'File referenced in `refs` .* does not exist'):
+            message = 'Path referenced in `refs` .* is neither a file or directory'
+            with six.assertRaisesRegex(self, ValidationError, message):
                 validate_schema(instance, schema, path_prefix='/home/genialis/')
             self.assertEqual(os_mock.path.isdir.call_count, 2)
             self.assertEqual(os_mock.path.isfile.call_count, 2)

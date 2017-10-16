@@ -133,6 +133,9 @@
                         "size": {
                             "type": "number"
                         },
+                        "total_size": {
+                            "type": "number"
+                        },
                         "is_remote": {
                             "type": "boolean"
                         },
@@ -167,6 +170,9 @@
                             "type": "string"
                         },
                         "size": {
+                            "type": "number"
+                        },
+                        "total_size": {
                             "type": "number"
                         },
                         "refs": {
@@ -281,6 +287,9 @@
                             "size": {
                                 "type": "number"
                             },
+                            "total_size": {
+                                "type": "number"
+                            },
                             "is_remote": {
                                 "type": "boolean"
                             },
@@ -320,6 +329,9 @@
                                 "type": "string"
                             },
                             "size": {
+                                "type": "number"
+                            },
+                            "total_size": {
                                 "type": "number"
                             },
                             "refs": {

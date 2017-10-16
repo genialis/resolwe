@@ -436,18 +436,38 @@ class HydrateFileSizeUnitTest(TestCase):
         hydrate_size(self.data)
         self.assertEqual(self.data.output['test_file']['size'], 42000)
 
+    def test_data_with_refs(self, os_mock):
+        os_mock.path.isfile.return_value = True
+        os_mock.path.getsize.side_effect = [42000, 8000, 42]
+        self.data.output = {
+            'test_file': {
+                'file': 'test_file.tmp',
+                'refs': ['ref_file1.tmp', 'ref_file2.tmp']
+            }
+        }
+        hydrate_size(self.data)
+        self.assertEqual(self.data.output['test_file']['size'], 42000)
+        self.assertEqual(self.data.output['test_file']['total_size'], 50042)
+
     def test_list(self, os_mock):
         os_mock.path.isfile.return_value = True
-        os_mock.path.getsize.side_effect = [34, 42000]
+        os_mock.path.getsize.side_effect = [34, 42000, 42]
         self.data.output = {
             'file_list': [
-                {'file': 'test_01.tmp'},
-                {'file': 'test_02.tmp'}
+                {
+                    'file': 'test_01.tmp',
+                },
+                {
+                    'file': 'test_02.tmp',
+                    'refs': ['ref_file1.tmp']
+                },
             ]
         }
         hydrate_size(self.data)
         self.assertEqual(self.data.output['file_list'][0]['size'], 34)
+        self.assertEqual(self.data.output['file_list'][0]['total_size'], 34)
         self.assertEqual(self.data.output['file_list'][1]['size'], 42000)
+        self.assertEqual(self.data.output['file_list'][1]['total_size'], 42042)
 
     def test_change_size(self, os_mock):
         """Size is not changed after object is done."""

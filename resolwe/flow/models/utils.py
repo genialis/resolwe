@@ -86,12 +86,13 @@ def validate_schema(instance, schema, test_required=True, path_prefix=None):
 
     def validate_refs(field):
         """Validate reference paths."""
-        if 'refs' in field:
-            for refs_filename in field['refs']:
-                refs_path = os.path.join(path_prefix, refs_filename)
-                if not (os.path.isfile(refs_path) or os.path.isdir(refs_path)):
-                    raise ValidationError(
-                        "File referenced in `refs` ({}) does not exist".format(refs_path))
+        for ref_filename in field.get('refs', []):
+            ref_path = os.path.join(path_prefix, ref_filename)
+            if not os.path.exists(ref_path):
+                raise ValidationError("Path referenced in `refs` ({}) does not exist.".format(ref_path))
+            if not (os.path.isfile(ref_path) or os.path.isdir(ref_path)):
+                raise ValidationError(
+                    "Path referenced in `refs` ({}) is neither a file or directory.".format(ref_path))
 
     def validate_file(field, regex):
         """Validate file name (and check that it exists)."""
@@ -103,8 +104,10 @@ def validate_schema(instance, schema, test_required=True, path_prefix=None):
 
         if path_prefix:
             path = os.path.join(path_prefix, filename)
+            if not os.path.exists(path):
+                raise ValidationError("Referenced path ({}) does not exist.".format(path))
             if not os.path.isfile(path):
-                raise ValidationError("Referenced file ({}) does not exist".format(path))
+                raise ValidationError("Referenced path ({}) is not a file.".format(path))
 
             validate_refs(field)
 
@@ -114,8 +117,10 @@ def validate_schema(instance, schema, test_required=True, path_prefix=None):
 
         if path_prefix:
             path = os.path.join(path_prefix, dirname)
+            if not os.path.exists(path):
+                raise ValidationError("Referenced path ({}) does not exist.".format(path))
             if not os.path.isdir(path):
-                raise ValidationError("Referenced dir ({}) does not exist".format(path))
+                raise ValidationError("Referenced path ({}) is not a directory.".format(path))
 
             validate_refs(field)
 
@@ -332,25 +337,16 @@ def hydrate_input_uploads(input_, input_schema, hydrate_values=True):
                 value['file_temp'] = 'Invalid value for file_temp in DB'
 
 
-def hydrate_size(data):
+def hydrate_size(data, force=False):
     """Add file and dir sizes.
 
     Add sizes to ``basic:file:``, ``list:basic:file``, ``basic:dir:``
     and ``list:basic:dir:`` fields.
 
+    ``force`` parameter is used to recompute file sizes also on objects
+    that already have these values, e.g. in migrations.
     """
     from .data import Data  # prevent circular import
-
-    def add_file_size(obj):
-        """Add file size to the basic:file field."""
-        if data.status in [Data.STATUS_DONE, Data.STATUS_ERROR] and 'size' in obj:
-            return
-
-        path = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.pk), obj['file'])
-        if not os.path.isfile(path):
-            raise ValidationError("Referenced file does not exist ({})".format(path))
-
-        obj['size'] = os.path.getsize(path)
 
     def get_dir_size(path):
         """Get directory size."""
@@ -358,12 +354,47 @@ def hydrate_size(data):
         for dirpath, _, filenames in os.walk(path):
             for file_name in filenames:
                 file_path = os.path.join(dirpath, file_name)
+                if not os.path.isfile(file_path):  # Skip all "not normal" files (links, ...)
+                    continue
                 total_size += os.path.getsize(file_path)
         return total_size
 
+    def get_refs_size(obj, obj_path):
+        """Caculate size of all references of ``obj``.
+
+        :param dict obj: Data object's output field (of type file/dir).
+        :param str obj_path: Path to ``obj``.
+        """
+        total_size = 0
+        for ref in obj.get('refs', []):
+            ref_path = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.pk), ref)
+            if ref_path in obj_path:
+                # It is a common case that ``obj['file']`` is also contained in
+                # one of obj['ref']. In that case, we need to make sure that it's
+                # size is not counted twice:
+                continue
+            if os.path.isfile(ref_path):
+                total_size += os.path.getsize(ref_path)
+            elif os.path.isdir(ref_path):
+                total_size += get_dir_size(ref_path)
+
+        return total_size
+
+    def add_file_size(obj):
+        """Add file size to the basic:file field."""
+        if data.status in [Data.STATUS_DONE, Data.STATUS_ERROR] and 'size' in obj and not force:
+            return
+
+        path = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.pk), obj['file'])
+        if not os.path.isfile(path):
+            raise ValidationError("Referenced file does not exist ({})".format(path))
+
+        obj['size'] = os.path.getsize(path)
+        obj['total_size'] = obj['size'] + get_refs_size(obj, path)
+
     def add_dir_size(obj):
         """Add directory size to the basic:dir field."""
-        if data.status in [Data.STATUS_DONE, Data.STATUS_ERROR] and 'size' in obj:
+        if data.status in [Data.STATUS_DONE, Data.STATUS_ERROR] and 'size' in obj and not force:
             return
 
         path = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.pk), obj['dir'])
@@ -371,6 +402,7 @@ def hydrate_size(data):
             raise ValidationError("Referenced dir does not exist ({})".format(path))
 
         obj['size'] = get_dir_size(path)
+        obj['total_size'] = obj['size'] + get_refs_size(obj, path)
 
     for field_schema, fields in iterate_fields(data.output, data.process.output_schema):
         name = field_schema['name']
