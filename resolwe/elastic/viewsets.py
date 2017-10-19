@@ -184,10 +184,9 @@ class ElasticSearchBaseViewSet(PaginationMixin, ElasticSearchMixin, GenericViewS
         search = self.filter_permissions(search)
 
         if search.count() > ELASTICSEARCH_SIZE:
-            limit = self.get_query_param('limit')
-            offset = self.get_query_param('offset')
+            limit = self.paginator.get_limit(self.request)
 
-            if not limit or not offset or limit > ELASTICSEARCH_SIZE:
+            if not limit or limit > ELASTICSEARCH_SIZE:
                 raise TooManyResults()
 
         search = search.extra(size=ELASTICSEARCH_SIZE)
