@@ -10,6 +10,7 @@ Permissions shortcuts
 """
 from __future__ import unicode_literals
 
+from collections import defaultdict
 from itertools import chain, groupby
 
 import six
@@ -21,9 +22,44 @@ from django.db.models import Count, Q
 from django.shortcuts import _get_queryset
 
 from guardian.compat import get_user_model
+from guardian.ctypes import get_content_type
 from guardian.exceptions import MixedContentTypeError, WrongAppError
-from guardian.shortcuts import get_groups_with_perms, get_perms, get_users_with_perms
+from guardian.models import GroupObjectPermission
+from guardian.shortcuts import get_perms, get_users_with_perms
 from guardian.utils import get_anonymous_user, get_group_obj_perms_model, get_identity, get_user_obj_perms_model
+
+
+# XXX: This is a copy of guardian.shortcuts.get_groups_with_perms with a fixed bug
+#      Use the original version once the following fix is merged and released:
+#      https://github.com/django-guardian/django-guardian/pull/529
+def get_groups_with_perms(obj, attach_perms=False):
+    """Return queryset of all ``Group`` objects with *any* object permissions for the given ``obj``."""
+    ctype = get_content_type(obj)
+    group_model = get_group_obj_perms_model(obj)
+
+    if not attach_perms:
+        # It's much easier without attached perms so we do it first if that is the case
+        group_rel_name = group_model.group.field.related_query_name()  # pylint: disable=no-member
+        if group_model.objects.is_generic():
+            group_filters = {
+                '%s__content_type' % group_rel_name: ctype,
+                '%s__object_pk' % group_rel_name: obj.pk,
+            }
+        else:
+            group_filters = {'%s__content_object' % group_rel_name: obj}
+        return Group.objects.filter(**group_filters).distinct()
+    else:
+        group_perms_mapping = defaultdict(list)
+        groups_with_perms = get_groups_with_perms(obj)
+        queryset = group_model.objects.filter(group__in=groups_with_perms).prefetch_related('group', 'permission')
+        if group_model is GroupObjectPermission:
+            queryset = queryset.filter(object_pk=obj.pk, content_type=ctype)
+        else:
+            queryset = queryset.filter(content_object_id=obj.pk)
+
+        for group_perm in queryset:
+            group_perms_mapping[group_perm.group].append(group_perm.permission.codename)
+        return dict(group_perms_mapping)
 
 
 def _group_groups(perm_list):

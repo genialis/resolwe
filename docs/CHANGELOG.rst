@@ -37,6 +37,8 @@ Fixed
   longer used
 - Close stdout used to retrieve process results in executor after the
   process is finished
+- Remove unrelated permissions occasionally listed among group
+  permissions on ``permissions`` endpoint
 
 
 ==================
