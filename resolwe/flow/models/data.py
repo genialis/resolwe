@@ -127,7 +127,7 @@ class Data(BaseModel):
     output = JSONField(default=dict)
 
     #: total size of data's outputs in bytes
-    size = models.BigIntegerField(blank=True, null=True)
+    size = models.BigIntegerField()
 
     #: data descriptor schema
     descriptor_schema = models.ForeignKey('DescriptorSchema', blank=True, null=True, on_delete=models.PROTECT)

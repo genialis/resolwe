@@ -48,6 +48,7 @@ class DataFilterTestCase(TestCase):
             status=Data.STATUS_DONE,
             started=datetime.datetime(2016, 7, 30, 14, 0),
             finished=datetime.datetime(2016, 7, 30, 14, 30),
+            size=42,
         )
         cls.data_1.created = datetime.datetime(2016, 7, 30, 13, 59)
         cls.data_1.save()
@@ -60,7 +61,8 @@ class DataFilterTestCase(TestCase):
             status=Data.STATUS_ERROR,
             started=datetime.datetime(2016, 8, 30, 15, 0),
             finished=datetime.datetime(2016, 8, 30, 15, 30),
-            tags=['foo', 'bar', 'moo']
+            tags=['foo', 'bar', 'moo'],
+            size=42,
         )
         cls.data_2.created = datetime.datetime(2016, 8, 30, 14, 59)
         cls.data_2.save()

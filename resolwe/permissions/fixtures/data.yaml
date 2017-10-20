@@ -14,6 +14,7 @@
     status: OK
     process: 1
     version: 0.0.0
+    size: 42
 
 - model: flow.data
   pk: 2
@@ -29,3 +30,4 @@
     status: OK
     process: 1
     version: 0.0.0
+    size: 42
