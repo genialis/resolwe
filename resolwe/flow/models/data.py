@@ -126,6 +126,9 @@ class Data(BaseModel):
     #: actual outputs of the process
     output = JSONField(default=dict)
 
+    #: total size of data's outputs in bytes
+    size = models.BigIntegerField(blank=True, null=True)
+
     #: data descriptor schema
     descriptor_schema = models.ForeignKey('DescriptorSchema', blank=True, null=True, on_delete=models.PROTECT)
 
@@ -279,6 +282,9 @@ class Data(BaseModel):
 
         if self.status != Data.STATUS_ERROR:
             hydrate_size(self)
+            # If only specified fields are updated (e.g. in executor), size needs to be added
+            if 'update_fields' in kwargs:
+                kwargs['update_fields'].append('size')
 
         if create:
             validate_schema(self.input, self.process.input_schema)  # pylint: disable=no-member
