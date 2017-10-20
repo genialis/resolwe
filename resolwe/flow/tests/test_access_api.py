@@ -10,10 +10,10 @@ from django.test import LiveServerTestCase
 from guardian.shortcuts import assign_perm
 
 from resolwe.flow.models import Collection, Process, Storage
-from resolwe.test import TransactionProcessTestCase, check_installed, with_docker_executor, with_resolwe_host
+from resolwe.test import ProcessTestCase, check_installed, with_docker_executor, with_resolwe_host
 
 
-class AccessAPIFromExecutorProcessTestCase(TransactionProcessTestCase, LiveServerTestCase):
+class AccessAPIFromExecutorProcessTestCase(ProcessTestCase, LiveServerTestCase):
 
     def _create_collection(self):
         """Create a test collection that will be accessed via a test process.
@@ -70,7 +70,7 @@ echo "{\"collection-list\": $(curl --silent --show-error $RESOLWE_HOST_URL/colle
         return process
 
     def setUp(self):
-        """Custom initilization of :class:`~TransactionProcessTestCase`."""
+        """Custom initilization of :class:`~ProcessTestCase`."""
         super(AccessAPIFromExecutorProcessTestCase, self).setUp()
 
         self.process = self.create_process()

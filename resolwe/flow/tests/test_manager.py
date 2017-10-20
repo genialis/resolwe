@@ -8,15 +8,12 @@ from django.db import transaction
 from guardian.shortcuts import assign_perm
 
 from resolwe.flow.models import Collection, Data, DataDependency, DescriptorSchema, Process
-from resolwe.test import TransactionProcessTestCase
+from resolwe.test import ProcessTestCase
 
 PROCESSES_DIR = os.path.join(os.path.dirname(__file__), 'processes')
 
 
-# NOTE: Manager is triggered on the commit of the transaction. Because
-#       of this it should be tested in TransactionTestCase, as it won't
-#       be triggered if whole test is wrapped in a transaction.
-class TestManager(TransactionProcessTestCase):
+class TestManager(ProcessTestCase):
 
     def setUp(self):
         super(TestManager, self).setUp()

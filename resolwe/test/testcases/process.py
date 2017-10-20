@@ -3,9 +3,6 @@
 .. autoclass:: resolwe.test.ProcessTestCase
     :members:
 
-.. autoclass:: resolwe.test.TransactionProcessTestCase
-    :members:
-
 """
 
 from __future__ import absolute_import, division, print_function, unicode_literals
@@ -26,12 +23,11 @@ from six.moves import filterfalse
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.core import management
-from django.test import TestCase as DjangoTestCase
+from django.db import transaction
 from django.test import override_settings
 from django.utils.crypto import get_random_string
 from django.utils.text import slugify
 
-from resolwe.flow.managers import manager
 from resolwe.flow.models import Collection, Data, DescriptorSchema, Process, Storage
 from resolwe.flow.utils import dict_dot, iterate_fields, iterate_schema
 from resolwe.test import TransactionTestCase
@@ -101,8 +97,8 @@ class TestProfiler(object):
 @override_settings(FLOW_EXECUTOR=FLOW_EXECUTOR_SETTINGS)
 @override_settings(FLOW_DOCKER_MAPPINGS=FLOW_DOCKER_MAPPINGS)
 @override_settings(CELERY_ALWAYS_EAGER=True)
-class TransactionProcessTestCase(TransactionTestCase):
-    """Base class for writing process tests not enclosed in a transaction.
+class ProcessTestCase(TransactionTestCase):
+    """Base class for writing process tests.
 
     It is a subclass of :class:`.TransactionTestCase` with some specific
     functions used for testing processes.
@@ -216,11 +212,11 @@ class TransactionProcessTestCase(TransactionTestCase):
         # (https://code.djangoproject.com/ticket/10827) that clears the
         # ContentType cache before permissions are setup.
         ContentType.objects.clear_cache()
-        super(TransactionProcessTestCase, self)._pre_setup(*args, **kwargs)
+        super(ProcessTestCase, self)._pre_setup(*args, **kwargs)
 
     def setUp(self):
         """Initialize test data."""
-        super(TransactionProcessTestCase, self).setUp()
+        super(ProcessTestCase, self).setUp()
 
         self._register_schemas()
 
@@ -256,7 +252,7 @@ class TransactionProcessTestCase(TransactionTestCase):
             for fn in self._upload_files:
                 shutil.rmtree(fn, ignore_errors=True)
 
-        super(TransactionProcessTestCase, self).tearDown()
+        super(ProcessTestCase, self).tearDown()
 
         # Ensure all tagged processes were tested.
         if getattr(settings, 'TEST_PROCESS_REQUIRE_TAGS', False):
@@ -302,8 +298,7 @@ class TransactionProcessTestCase(TransactionTestCase):
         # TODO: warning
 
     def run_process(self, process_slug, input_={}, assert_status=Data.STATUS_DONE,
-                    descriptor=None, descriptor_schema=None, run_manager=True,
-                    verbosity=0):
+                    descriptor=None, descriptor_schema=None, verbosity=0):
         """Run the specified process with the given inputs.
 
         If input is a file, file path should be given relative to the
@@ -311,6 +306,11 @@ class TransactionProcessTestCase(TransactionTestCase):
         If ``assert_status`` is given, check if
         :class:`~resolwe.flow.models.Data` object's status matches
         it after the process has finished.
+
+        .. note::
+
+            If you need to delay calling the manager, you must put the
+            desired code in a ``with transaction.atomic()`` block.
 
         :param str process_slug: slug of the
             :class:`~resolwe.flow.models.Process` to run
@@ -405,21 +405,14 @@ class TransactionProcessTestCase(TransactionTestCase):
             descriptor=descriptor or {})
         self.collection.data.add(data)
 
-        if run_manager:
-            # Manager is normally run at the end of transaction. Because
-            # tests are wrapped in the transaction, we have to call it
-            # manually until there is no more resolving objects.
-            while True:
-                if not Data.objects.filter(status=Data.STATUS_RESOLVING).exists():
-                    break
-                manager.communicate(run_sync=True, verbosity=verbosity)
-
         # Fetch latest Data object from database
         data = Data.objects.get(pk=data.pk)
-        if not run_manager and assert_status == Data.STATUS_DONE:
-            assert_status = Data.STATUS_RESOLVING
 
         if assert_status:
+            if not transaction.get_autocommit() and assert_status == Data.STATUS_DONE:
+                # We are in an atomic transaction block, hence the data object will not be done
+                # until after the block. Therefore the expected status is resolving.
+                assert_status = Data.STATUS_RESOLVING
             self.assertStatus(data, assert_status)
 
         return data
@@ -715,16 +708,3 @@ class TransactionProcessTestCase(TransactionTestCase):
             msg += "\n".join(data.process_warning)
 
         return msg
-
-
-class ProcessTestCase(TransactionProcessTestCase, DjangoTestCase):
-    """Base class for writing process tests.
-
-    It is based on :class:`~.TransactionProcessTestCase` and
-    Django's :class:`~django.test.TestCase`.
-    The latter encloses the test code in a database transaction that is
-    rolled back at the end of the test.
-
-    """
-
-    pass

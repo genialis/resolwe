@@ -23,6 +23,7 @@ Added
 Changed
 -------
 - **BACKWARD INCOMPATIBLE:** Bump Django requirement to version 1.11.x
+- **BACKWARD INCOMPATIBLE:** Make ``ProcessTestCase`` non-transactional
 - Pull Docker images after process registration is complete
 - Generalize jinja filters to accept lists of data objects
 

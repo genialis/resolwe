@@ -8,12 +8,12 @@ import mock
 import six
 
 from django.conf import settings
+from django.db import transaction
 from django.test import override_settings
 
 from guardian.shortcuts import assign_perm
 
 from resolwe.flow.executors import BaseFlowExecutor
-from resolwe.flow.managers import manager
 from resolwe.flow.models import Data, DataDependency, Process
 from resolwe.test import ProcessTestCase, TestCase, with_docker_executor, with_null_executor
 
@@ -116,17 +116,14 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.assertIn("Value of 'storage' must be a valid JSON, current: 1a", data.process_error)
 
     def test_workflow(self):
-        self.run_process('test-workflow-1', {'param1': 'world'}, run_manager=False)
-        workflow_data = Data.objects.get(process__slug='test-workflow-1')
+        with transaction.atomic():
+            # We need this transaction to delay calling the manager until we've
+            # assigned permissions
+            self.run_process('test-workflow-1', {'param1': 'world'})
+            workflow_data = Data.objects.get(process__slug='test-workflow-1')
 
-        # Assign permissions before manager is called
-        assign_perm('view_data', self.contributor, workflow_data)
-        assign_perm('view_data', self.group, workflow_data)
-
-        # One manager call for each created object
-        manager.communicate(run_sync=True, verbosity=0)
-        manager.communicate(run_sync=True, verbosity=0)
-        manager.communicate(run_sync=True, verbosity=0)
+            assign_perm('view_data', self.contributor, workflow_data)
+            assign_perm('view_data', self.group, workflow_data)
 
         workflow_data.refresh_from_db()
         step1_data = Data.objects.get(process__slug='test-example-1')
