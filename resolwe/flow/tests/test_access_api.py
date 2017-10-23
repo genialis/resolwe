@@ -10,7 +10,7 @@ from django.test import LiveServerTestCase
 from guardian.shortcuts import assign_perm
 
 from resolwe.flow.models import Collection, Process, Storage
-from resolwe.test import ProcessTestCase, check_installed, with_docker_executor, with_resolwe_host
+from resolwe.test import ProcessTestCase, check_installed, tag_process, with_docker_executor, with_resolwe_host
 
 
 class AccessAPIFromExecutorProcessTestCase(ProcessTestCase, LiveServerTestCase):
@@ -88,12 +88,14 @@ echo "{\"collection-list\": $(curl --silent --show-error $RESOLWE_HOST_URL/colle
 
     @unittest.skipUnless(*check_installed('curl'))
     @with_resolwe_host
+    @tag_process('test-accessing-api-from-process')
     def test_access_api_from_local_executor_process(self):  # pylint: disable=invalid-name
         """Test if a process running via local executor can access API."""
         data = self.run_process(self.process.slug)
         self.check_results(data)
 
     @unittest.skipUnless(*check_installed('curl'))
+    @tag_process('test-accessing-api-from-process')
     def test_access_api_from_local_executor_process_without_decorator(self):  # pylint: disable=invalid-name
         """Test if a process running via local executor cannot access API."""
         data = self.run_process(self.process.slug)
@@ -106,6 +108,7 @@ echo "{\"collection-list\": $(curl --silent --show-error $RESOLWE_HOST_URL/colle
     )
     @with_resolwe_host
     @with_docker_executor
+    @tag_process('test-accessing-api-from-process')
     def test_access_api_from_docker_executor_process(self):
         """Test if a process running via Docker executor can access API."""
         # pylint: disable=invalid-name
@@ -119,6 +122,7 @@ echo "{\"collection-list\": $(curl --silent --show-error $RESOLWE_HOST_URL/colle
     )
     @with_docker_executor
     @with_resolwe_host
+    @tag_process('test-accessing-api-from-process')
     def test_access_api_from_docker_executor_process_reverse_decorators(self):
         """Test if a process running via Docker executor can access API."""
         # pylint: disable=invalid-name

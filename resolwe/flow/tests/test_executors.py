@@ -15,7 +15,7 @@ from guardian.shortcuts import assign_perm
 
 from resolwe.flow.executors import BaseFlowExecutor
 from resolwe.flow.models import Data, DataDependency, Process
-from resolwe.test import ProcessTestCase, TestCase, with_docker_executor, with_null_executor
+from resolwe.test import ProcessTestCase, TestCase, tag_process, with_docker_executor, with_null_executor
 
 PROCESSES_DIR = os.path.join(os.path.dirname(__file__), 'processes')
 
@@ -58,9 +58,11 @@ class ManagerRunProcessTest(ProcessTestCase):
 
         self._register_schemas(path=[PROCESSES_DIR])
 
+    @tag_process('test-min')
     def test_minimal_process(self):
         self.run_process('test-min')
 
+    @tag_process('test-missing-file')
     def test_missing_file(self):
         self.run_process('test-missing-file', assert_status=Data.STATUS_ERROR)
 
@@ -69,6 +71,7 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.assertEqual(len(data.process_error), 1)
         self.assertIn('Referenced file does not exist', data.process_error[0])
 
+    @tag_process('test-spawn-new')
     def test_spawn(self):
         self.run_process('test-spawn-new')
 
@@ -85,10 +88,13 @@ class ManagerRunProcessTest(ProcessTestCase):
         # Check correct dependency type is created.
         self.assertEqual({d.kind for d in data.parents_dependency.all()}, {DataDependency.KIND_SUBPROCESS})
 
+    @tag_process('test-spawn-missing-file')
     def test_spawn_missing_export(self):
         with six.assertRaisesRegex(self, KeyError, 'Use `re-export`'):
             self.run_process('test-spawn-missing-file')
 
+    @tag_process('test-broken', 'test-broken-invalid-execution-engine', 'test-broken-invalid-expression-engine',
+                 'test-broken-data-name')
     def test_broken(self):
         Process.objects.create(
             slug='test-broken-invalid-execution-engine',
@@ -109,12 +115,14 @@ class ManagerRunProcessTest(ProcessTestCase):
         # template may be evaluatable later when the process completes.
         self.run_process('test-broken-data-name')
 
+    @tag_process('test-broken-invalide-storage')
     def test_invalid_storage_file(self):
         data = self.run_process('test-broken-invalide-storage', assert_status=Data.STATUS_ERROR)
 
         self.assertEqual(data.status, Data.STATUS_ERROR)
         self.assertIn("Value of 'storage' must be a valid JSON, current: 1a", data.process_error)
 
+    @tag_process('test-workflow-1')
     def test_workflow(self):
         with transaction.atomic():
             # We need this transaction to delay calling the manager until we've
@@ -156,21 +164,25 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.assertTrue(self.user.has_perm('flow.view_data', step1_data))
 
     @with_docker_executor
+    @tag_process('test-docker')
     def test_run_in_docker(self):
         data = self.run_process('test-docker')
         self.assertEqual(data.output['result'], 'OK')
 
     @with_docker_executor
+    @tag_process('test-requirements-docker')
     def test_executor_requirements(self):
         data = self.run_process('test-requirements-docker')
         self.assertEqual(data.output['result'], 'OK')
 
     @with_docker_executor
+    @tag_process('test-docker-uid-gid')
     def test_docker_uid_gid(self):
         data = self.run_process('test-docker-uid-gid')
         self.assertEqual(data.output['result'], 'OK')
 
     @with_null_executor
+    @tag_process('test-save-number')
     def test_null_executor(self):
         data = self.run_process('test-save-number', {'number': 19}, assert_status=Data.STATUS_WAITING)
         self.assertEqual(data.input['number'], 19)
@@ -179,6 +191,7 @@ class ManagerRunProcessTest(ProcessTestCase):
     # TODO: Debug why the 'test-memory-resource-alloc' process doesn't end with and error on Travis
     @unittest.skipIf(os.environ.get('TRAVIS', '') == 'true', "Fails on Travis CI")
     @with_docker_executor
+    @tag_process('test-memory-resource-alloc', 'test-memory-resource-noalloc')
     def test_memory_resource(self):
         # This process should be terminated due to too much memory usage.
         self.run_process('test-memory-resource-alloc', assert_status=Data.STATUS_ERROR)
@@ -186,6 +199,7 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.run_process('test-memory-resource-noalloc')
 
     @with_docker_executor
+    @tag_process('test-cpu-resource-1core', 'test-cpu-resource-2core')
     def test_cpu_resource(self):
         # Currently there is no good way to test this reliably, so we just check if the
         # resource limit specification still makes the process run.
@@ -193,6 +207,7 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.run_process('test-cpu-resource-2core')
 
     @with_docker_executor
+    @tag_process('test-network-resource-enabled', 'test-network-resource-disabled', 'test-network-resource-policy')
     def test_network_resource(self):
         self.run_process('test-network-resource-enabled')
         self.run_process('test-network-resource-disabled', assert_status=Data.STATUS_ERROR)
@@ -200,6 +215,8 @@ class ManagerRunProcessTest(ProcessTestCase):
 
     @with_docker_executor
     @override_settings(FLOW_DOCKER_LIMIT_DEFAULTS={'cpu_time_interactive': 1})
+    @tag_process('test-scheduling-class-interactive-ok', 'test-scheduling-class-interactive-fail',
+                 'test-scheduling-class-batch')
     def test_scheduling_class(self):
         self.run_process('test-scheduling-class-interactive-ok')
         self.run_process('test-scheduling-class-interactive-fail', assert_status=Data.STATUS_ERROR)
