@@ -5,7 +5,6 @@ import six
 
 from django.db import IntegrityError, transaction
 
-from guardian.shortcuts import assign_perm
 from rest_framework import exceptions, mixins, permissions, status, viewsets
 from rest_framework.decorators import detail_route
 from rest_framework.response import Response
@@ -13,6 +12,7 @@ from rest_framework.response import Response
 from resolwe.flow.models import Relation
 from resolwe.flow.models.entity import PositionInRelation, RelationType
 from resolwe.flow.serializers import PositionInRelationSerializer, RelationSerializer
+from resolwe.permissions.utils import assign_contributor_permissions
 
 
 class RelationViewSet(mixins.CreateModelMixin,
@@ -117,9 +117,7 @@ class RelationViewSet(mixins.CreateModelMixin,
         with transaction.atomic():
             instance = serializer.save()
 
-            # Assign all permissions to the object contributor.
-            for permission in list(zip(*instance._meta.permissions))[0]:  # pylint: disable=protected-access
-                assign_perm(permission, instance.contributor, instance)
+            assign_contributor_permissions(instance)
 
     @detail_route(methods=[u'post'])
     def add_entity(self, request, pk=None):

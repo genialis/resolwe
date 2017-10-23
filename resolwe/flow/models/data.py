@@ -13,11 +13,9 @@ from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.db import models, transaction
 
-from guardian.shortcuts import assign_perm
-
 from resolwe.flow.expression_engines.exceptions import EvaluationError
 from resolwe.flow.utils import dict_dot, get_data_checksum, iterate_fields, iterate_schema
-from resolwe.permissions.utils import copy_permissions
+from resolwe.permissions.utils import assign_contributor_permissions, copy_permissions
 
 from .base import BaseModel
 from .descriptor import DescriptorSchema
@@ -248,8 +246,7 @@ class Data(BaseModel):
                     tags=self.tags,
                 )
 
-                for permission in list(zip(*entity._meta.permissions))[0]:  # pylint: disable=protected-access
-                    assign_perm(permission, entity.contributor, entity)
+                assign_contributor_permissions(entity)
 
             entity.data.add(self)
 

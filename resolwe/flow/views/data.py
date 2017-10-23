@@ -4,7 +4,6 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from django.db import transaction
 from django.db.models import Count
 
-from guardian.shortcuts import assign_perm
 from rest_framework import exceptions, mixins, status, viewsets
 from rest_framework.decorators import list_route
 from rest_framework.response import Response
@@ -17,7 +16,7 @@ from resolwe.flow.utils import dict_dot, get_data_checksum, iterate_schema
 from resolwe.permissions.loader import get_permissions_class
 from resolwe.permissions.mixins import ResolwePermissionsMixin
 from resolwe.permissions.shortcuts import get_objects_for_user
-from resolwe.permissions.utils import copy_permissions
+from resolwe.permissions.utils import assign_contributor_permissions, copy_permissions
 
 from .mixins import ResolweCheckSlugMixin, ResolweCreateModelMixin, ResolweUpdateModelMixin
 
@@ -113,9 +112,7 @@ class DataViewSet(ResolweCreateModelMixin,
         with transaction.atomic():
             instance = serializer.save()
 
-            # Assign all permissions to the object contributor.
-            for permission in list(zip(*instance._meta.permissions))[0]:  # pylint: disable=protected-access
-                assign_perm(permission, instance.contributor, instance)
+            assign_contributor_permissions(instance)
 
             # Entity is added to the collection only when it is
             # created - when it only contains 1 Data object.
