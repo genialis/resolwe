@@ -11,9 +11,11 @@ from guardian.models import GroupObjectPermission, UserObjectPermission
 from guardian.shortcuts import assign_perm, get_perms
 from rest_framework import exceptions, status
 
-from resolwe.flow.models import Collection, Data, Entity, Process
-from resolwe.flow.views import CollectionViewSet
-from resolwe.permissions.utils import check_owner_permission, check_public_permissions, check_user_permissions
+from resolwe.flow.models import Collection, Data, DescriptorSchema, Entity, Process
+from resolwe.flow.views import CollectionViewSet, DescriptorSchemaViewSet
+from resolwe.permissions.utils import (
+    assign_contributor_permissions, check_owner_permission, check_public_permissions, check_user_permissions,
+)
 from resolwe.test import ResolweAPITestCase, TestCase
 
 
@@ -301,6 +303,46 @@ class CollectionPermissionsTest(ResolweAPITestCase):
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(resp.data['detail'], 'Unknown group: 999')
         self.assertEqual(GroupObjectPermission.objects.count(), group_perms_count)
+
+
+class DescriptorSchemaPermissionsTest(ResolweAPITestCase):
+
+    def setUp(self):
+        self.user = get_user_model().objects.create(username='user')
+        self.group = Group.objects.create(name='Test group')
+
+        self.resource_name = 'collection'
+        self.viewset = DescriptorSchemaViewSet
+
+        super(DescriptorSchemaPermissionsTest, self).setUp()
+
+        self.descriptor_schema = DescriptorSchema.objects.create(contributor=self.contributor)
+        assign_contributor_permissions(self.descriptor_schema)
+
+    def test_set_permissions(self):
+        # Can add permissions to users.
+        data = {'users': {'add': {self.user.pk: ['view']}}}
+        resp = self._detail_permissions(self.descriptor_schema.pk, data, self.contributor)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(UserObjectPermission.objects.filter(user=self.user).count(), 1)
+
+        # Can add permissions to groups.
+        data = {'groups': {'add': {self.group.pk: ['view']}}}
+        resp = self._detail_permissions(self.descriptor_schema.pk, data, self.contributor)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(GroupObjectPermission.objects.count(), 1)
+
+        # Can remove permissions from users.
+        data = {'users': {'remove': {self.user.pk: ['view']}}}
+        resp = self._detail_permissions(self.descriptor_schema.pk, data, self.contributor)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(UserObjectPermission.objects.filter(user=self.user).count(), 0)
+
+        # Can remove permissions from groups.
+        data = {'groups': {'remove': {self.group.pk: ['view']}}}
+        resp = self._detail_permissions(self.descriptor_schema.pk, data, self.contributor)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(GroupObjectPermission.objects.count(), 0)
 
 
 class PermissionsUtilitiesTest(TestCase):
