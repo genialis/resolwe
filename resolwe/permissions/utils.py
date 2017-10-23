@@ -43,6 +43,11 @@ def get_full_perm(perm, obj):
     return '{}_{}'.format(perm.lower(), ctype)
 
 
+def get_all_perms(obj):
+    """Return a list of all permissions on ``obj``."""
+    return list(zip(*obj._meta.permissions))[0]  # pylint: disable=protected-access
+
+
 def change_perm_ctype(perm, dest_obj):
     """Keep permission action and change content type to ``dest_obj``."""
     action = get_perm_action(perm)
@@ -62,7 +67,7 @@ def copy_permissions(src_obj, dest_obj):
 
     src_obj_ctype = ContentType.objects.get_for_model(src_obj)
     dest_obj_ctype = ContentType.objects.get_for_model(dest_obj)
-    dest_all_perms = list(zip(*dest_obj._meta.permissions))[0]  # pylint: disable=protected-access
+    dest_all_perms = get_all_perms(dest_obj)
 
     relabel = (src_obj_ctype != dest_obj_ctype)
 
@@ -146,7 +151,7 @@ def remove_permission(payload, permission):
 
 def update_permission(obj, data):
     """Update object permissions."""
-    full_permissions = list(zip(*obj._meta.permissions))[0]  # pylint: disable=protected-access
+    full_permissions = get_all_perms(obj)
 
     def apply_perm(perm_func, perms, entity):
         """Apply permissions using given ``perm_func``.
@@ -206,5 +211,5 @@ def update_permission(obj, data):
 
 def assign_contributor_permissions(obj, contributor=None):
     """Assign all permissions to object's contributor."""
-    for permission in list(zip(*obj._meta.permissions))[0]:  # pylint: disable=protected-access
+    for permission in get_all_perms(obj):
         assign_perm(permission, contributor if contributor else obj.contributor, obj)
