@@ -4,11 +4,13 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import mock
 
 from django.contrib.auth.models import AnonymousUser
+from django.contrib.contenttypes.models import ContentType
 from django.core.urlresolvers import reverse
 from django.db import DEFAULT_DB_ALIAS, connections
 from django.test.utils import CaptureQueriesContext
 
 from guardian.conf.settings import ANONYMOUS_USER_NAME
+from guardian.models import UserObjectPermission
 from guardian.shortcuts import assign_perm, remove_perm
 from rest_framework import exceptions, status
 from rest_framework.test import APIRequestFactory, force_authenticate
@@ -35,23 +37,27 @@ class TestDataViewSetCase(TestCase):
             'post': 'create',
         })
 
+        self.collection = Collection.objects.create(contributor=self.contributor)
+
         self.proc = Process.objects.create(
-            type='test:process',
-            name='Test process',
+            type='data:test:process',
             slug='test-process',
             version='1.0.0',
             contributor=self.contributor,
+            flow_collection='test-schema',
+            input_schema=[{'name': 'input_data', 'type': 'data:test:', 'required': False}],
         )
 
         self.descriptor_schema = DescriptorSchema.objects.create(
-            name='Test schema',
             slug='test-schema',
             version='1.0.0',
             contributor=self.contributor,
         )
 
-        assign_perm('view_process', self.user, self.proc)
-        assign_perm('view_descriptorschema', self.user, self.descriptor_schema)
+        assign_perm('view_collection', self.contributor, self.collection)
+        assign_perm('add_collection', self.contributor, self.collection)
+        assign_perm('view_process', self.contributor, self.proc)
+        assign_perm('view_descriptorschema', self.contributor, self.descriptor_schema)
 
     def test_prefetch(self):
         request = factory.get('/', '', format='json')
@@ -73,7 +79,7 @@ class TestDataViewSetCase(TestCase):
         # Descriptor schema can be assigned by slug.
         data = {'process': 'test-process', 'descriptor_schema': 'test-schema'}
         request = factory.post('/', data, format='json')
-        force_authenticate(request, self.user)
+        force_authenticate(request, self.contributor)
         self.data_viewset(request)
 
         data = Data.objects.latest()
@@ -82,7 +88,7 @@ class TestDataViewSetCase(TestCase):
         # Descriptor schema can be assigned by id.
         data = {'process': 'test-process', 'descriptor_schema': self.descriptor_schema.pk}
         request = factory.post('/', data, format='json')
-        force_authenticate(request, self.user)
+        force_authenticate(request, self.contributor)
         self.data_viewset(request)
 
         data = Data.objects.latest()
@@ -105,7 +111,7 @@ class TestDataViewSetCase(TestCase):
 
         data = {'process': 'test-process', 'descriptor_schema': 'test-schema'}
         request = factory.post('/', data, format='json')
-        force_authenticate(request, self.user)
+        force_authenticate(request, self.contributor)
         self.data_viewset(request)
 
         data = Data.objects.latest()
@@ -126,25 +132,61 @@ class TestDataViewSetCase(TestCase):
         self.assertEqual(data.contributor.username, ANONYMOUS_USER_NAME)
         self.assertEqual(data.process.slug, 'test-process')
 
-    def test_create_entity(self):
-        collection = Collection.objects.create(name='Test collection', contributor=self.contributor)
-        process = Process.objects.create(
-            name='Entity process', contributor=self.contributor, flow_collection='test-schema'
-        )
-        assign_perm('view_collection', self.user, collection)
-        assign_perm('add_collection', self.user, collection)
-        assign_perm('view_process', self.user, process)
+    def test_inherit_permissions(self):
+        data_ctype = ContentType.objects.get_for_model(Data)
+        entity_ctype = ContentType.objects.get_for_model(Entity)
 
-        data = {'process': 'entity-process', 'collections': [collection.pk]}
+        assign_perm('view_collection', self.user, self.collection)
+        assign_perm('add_collection', self.user, self.collection)
+
+        post_data = {'process': 'test-process', 'collections': [self.collection.pk]}
+        request = factory.post('/', post_data, format='json')
+        force_authenticate(request, self.contributor)
+        resp = self.data_viewset(request)
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+
+        data = Data.objects.last()
+        entity = Entity.objects.last()
+
+        self.assertTrue(self.user.has_perm('view_data', data))
+        self.assertTrue(self.user.has_perm('view_entity', entity))
+        self.assertTrue(self.user.has_perm('add_entity', entity))
+        self.assertEqual(UserObjectPermission.objects.filter(content_type=data_ctype, user=self.user).count(), 1)
+        self.assertEqual(UserObjectPermission.objects.filter(content_type=entity_ctype, user=self.user).count(), 2)
+
+        # Add some permissions and run another process in same entity.
+        assign_perm('edit_collection', self.user, self.collection)
+        assign_perm('share_entity', self.user, entity)
+
+        post_data = {
+            'process': 'test-process',
+            'collections': [self.collection.pk],
+            'input': {'input_data': data.pk},
+        }
+        request = factory.post('/', post_data, format='json')
+        force_authenticate(request, self.contributor)
+        resp = self.data_viewset(request)
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+
+        data_2 = Data.objects.last()
+        self.assertTrue(self.user.has_perm('view_data', data_2))
+        self.assertTrue(self.user.has_perm('edit_data', data_2))
+        self.assertTrue(self.user.has_perm('share_data', data_2))
+        self.assertFalse(self.user.has_perm('edit_entity', entity))
+        self.assertEqual(UserObjectPermission.objects.filter(content_type=data_ctype, user=self.user).count(), 4)
+        self.assertEqual(UserObjectPermission.objects.filter(content_type=entity_ctype, user=self.user).count(), 3)
+
+    def test_create_entity(self):
+        data = {'process': 'test-process', 'collections': [self.collection.pk]}
         request = factory.post('/', data, format='json')
-        force_authenticate(request, self.user)
+        force_authenticate(request, self.contributor)
         resp = self.data_viewset(request)
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
 
         # Test that one Entity was created and that it was added to the same collection as Data object.
         self.assertEqual(Entity.objects.count(), 1)
         self.assertEqual(Entity.objects.first().collections.count(), 1)
-        self.assertEqual(Entity.objects.first().collections.first().pk, collection.pk)
+        self.assertEqual(Entity.objects.first().collections.first().pk, self.collection.pk)
 
 
 class TestCollectionViewSetCase(TestCase):

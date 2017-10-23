@@ -17,6 +17,7 @@ from resolwe.flow.utils import dict_dot, get_data_checksum, iterate_schema
 from resolwe.permissions.loader import get_permissions_class
 from resolwe.permissions.mixins import ResolwePermissionsMixin
 from resolwe.permissions.shortcuts import get_objects_for_user
+from resolwe.permissions.utils import copy_permissions
 
 from .mixins import ResolweCheckSlugMixin, ResolweCreateModelMixin, ResolweUpdateModelMixin
 
@@ -118,14 +119,15 @@ class DataViewSet(ResolweCreateModelMixin,
 
             # Entity is added to the collection only when it is
             # created - when it only contains 1 Data object.
-            entities = Entity.objects.filter(data=instance).annotate(num_data=Count('data')).filter(num_data=1)
+            entities = Entity.objects.annotate(num_data=Count('data')).filter(data=instance, num_data=1)
 
             # Assign data object to all specified collections.
-            collections = self.request.data.get('collections', [])
-            for c in collections:
-                collection = Collection.objects.get(pk=c)
+            collection_pks = self.request.data.get('collections', [])
+            for collection in Collection.objects.filter(pk__in=collection_pks):
                 collection.data.add(instance)
+                copy_permissions(collection, instance)
 
                 # Add entities to which data belongs to the collection.
                 for entity in entities:
-                    entity.collections.add(c)
+                    entity.collections.add(collection)
+                    copy_permissions(collection, entity)

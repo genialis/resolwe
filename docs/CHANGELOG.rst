@@ -28,6 +28,8 @@ Changed
 - **BACKWARD INCOMPATIBLE:** Make ``ProcessTestCase`` non-transactional
 - Pull Docker images after process registration is complete
 - Generalize jinja filters to accept lists of data objects
+- When new ``Data`` object is created, permissions are copied from
+  collections and entity to which it belongs
 
 Fixed
 -----

@@ -17,6 +17,7 @@ from guardian.shortcuts import assign_perm
 
 from resolwe.flow.expression_engines.exceptions import EvaluationError
 from resolwe.flow.utils import dict_dot, get_data_checksum, iterate_fields, iterate_schema
+from resolwe.permissions.utils import copy_permissions
 
 from .base import BaseModel
 from .descriptor import DescriptorSchema
@@ -235,6 +236,8 @@ class Data(BaseModel):
 
             if entity_query.count() == 1:
                 entity = entity_query.first()
+
+                copy_permissions(entity, self)
             else:
 
                 descriptor_schema = DescriptorSchema.objects.filter(slug=ds_slug).latest()
