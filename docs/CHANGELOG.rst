@@ -33,6 +33,7 @@ Changed
 - Generalize Jinja filters to accept lists of ``Data`` objects
 - When new ``Data`` object is created, permissions are copied from
   collections and entity to which it belongs
+- Move common test environment preparation to ``TestCaseHelpers`` mixin
 
 Fixed
 -----

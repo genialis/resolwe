@@ -23,7 +23,6 @@ from six.moves import filterfalse
 from django.conf import settings
 from django.core import management
 from django.db import transaction
-from django.test import override_settings
 from django.utils.crypto import get_random_string
 from django.utils.text import slugify
 
@@ -32,7 +31,6 @@ from resolwe.flow.utils import dict_dot, iterate_fields, iterate_schema
 from resolwe.test import TransactionTestCase
 
 from ..utils import get_processes_from_tags, has_process_tag
-from .setting_overrides import FLOW_DOCKER_MAPPINGS, FLOW_EXECUTOR_SETTINGS
 
 SCHEMAS_FIXTURE_CACHE = None
 
@@ -93,9 +91,6 @@ class TestProfiler(object):
         self._file.close()
 
 
-@override_settings(FLOW_EXECUTOR=FLOW_EXECUTOR_SETTINGS)
-@override_settings(FLOW_DOCKER_MAPPINGS=FLOW_DOCKER_MAPPINGS)
-@override_settings(CELERY_ALWAYS_EAGER=True)
 class ProcessTestCase(TransactionTestCase):
     """Base class for writing process tests.
 
