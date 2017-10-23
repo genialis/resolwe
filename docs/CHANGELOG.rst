@@ -42,6 +42,8 @@ Fixed
   process is finished
 - Remove unrelated permissions occasionally listed among group
   permissions on ``permissions`` endpoint
+- Fix ``ResolwePermissionsMixin`` to work correctly with multi-words 
+  model names, i.e. DescriptorSchema
 
 
 ==================

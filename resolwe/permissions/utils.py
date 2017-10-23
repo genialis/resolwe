@@ -21,18 +21,56 @@ from guardian.shortcuts import assign_perm, remove_perm
 from rest_framework import exceptions
 
 
+def get_perm_action(perm):
+    """Split action from permission of format.
+
+    Input permission can be in the form of '<action>_<object_type>'
+    or '<action>'.
+    """
+    return perm.split('_', 1)[0]
+
+
+def get_full_perm(perm, obj):
+    """Join action with the content type of ``obj``.
+
+    Permission is returned in the format of ``<action>_<object_type>``.
+    """
+    ctype = ContentType.objects.get_for_model(obj)
+    # Camel case class names are converted into a space-separated
+    # content types, so spaces have to be removed.
+    ctype = str(ctype).replace(' ', '')
+
+    return '{}_{}'.format(perm.lower(), ctype)
+
+
+def change_perm_ctype(perm, dest_obj):
+    """Keep permission action and change content type to ``dest_obj``."""
+    action = get_perm_action(perm)
+    return get_full_perm(action, dest_obj)
+
+
 def copy_permissions(src_obj, dest_obj):
     """Copy permissions form ``src_obj`` to ``dest_obj``."""
+    def _process_permission(codename, user_or_group, dest_obj, relabel):
+        """Process single permission."""
+        if relabel:
+            codename = change_perm_ctype(codename, dest_obj)
+            if codename not in dest_all_perms:
+                return  # dest object doesn't have matching permission
+
+        assign_perm(codename, user_or_group, dest_obj)
+
     src_obj_ctype = ContentType.objects.get_for_model(src_obj)
     dest_obj_ctype = ContentType.objects.get_for_model(dest_obj)
+    dest_all_perms = list(zip(*dest_obj._meta.permissions))[0]  # pylint: disable=protected-access
 
-    if src_obj_ctype != dest_obj_ctype:
-        raise AssertionError('Content types of source and destination objects are not equal.')
+    relabel = (src_obj_ctype != dest_obj_ctype)
 
     for perm in UserObjectPermission.objects.filter(object_pk=src_obj.pk, content_type=src_obj_ctype):
-        assign_perm(perm.permission.codename, perm.user, dest_obj)
+        _process_permission(perm.permission.codename, perm.user, dest_obj, relabel)
+
     for perm in GroupObjectPermission.objects.filter(object_pk=src_obj.pk, content_type=src_obj_ctype):
-        assign_perm(perm.permission.codename, perm.group, dest_obj)
+        _process_permission(perm.permission.codename, perm.group, dest_obj, relabel)
 
 
 def fetch_user(query):
@@ -108,7 +146,6 @@ def remove_permission(payload, permission):
 
 def update_permission(obj, data):
     """Update object permissions."""
-    content_type = ContentType.objects.get_for_model(obj)
     full_permissions = list(zip(*obj._meta.permissions))[0]  # pylint: disable=protected-access
 
     def apply_perm(perm_func, perms, entity):
@@ -135,7 +172,7 @@ def update_permission(obj, data):
         if perms == u'ALL':
             perms = full_permissions
         for perm in perms:
-            perm_codename = '{}_{}'.format(perm.lower(), content_type)
+            perm_codename = get_full_perm(perm, obj)
             if perm_codename not in full_permissions:
                 raise exceptions.ParseError("Unknown permission: {}".format(perm))
             perm_func(perm_codename, entity, obj)
