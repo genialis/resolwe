@@ -18,6 +18,8 @@ Added
 - Support different dependency kinds between data objects
 - ``--pull`` option to the ``list_docker_images`` management command
 - Test profiling and process tagging
+- New test runner, which supports partial test suite execution based
+  on changed files
 - Add 'all' and 'any' jinja filters
 
 Changed

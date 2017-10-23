@@ -37,6 +37,7 @@ INSTALLED_APPS = (
     'resolwe.flow',
     'resolwe.elastic',
     'resolwe.toolkit',
+    'resolwe.test_helpers',
 )
 
 ROOT_URLCONF = 'tests.urls'
@@ -161,5 +162,6 @@ ELASTICSEARCH_PORT = int(os.environ.get('RESOLWE_ES_PORT', '59200'))
 
 # Testing.
 
+TEST_RUNNER = 'resolwe.test_helpers.test_runner.ResolweRunner'
 TEST_PROCESS_REQUIRE_TAGS = False
 TEST_PROCESS_PROFILE = False
