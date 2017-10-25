@@ -6,37 +6,31 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+==================
+4.0.0 - 2017-10-25
+==================
 
 Added
 -----
 - **BACKWARD INCOMPATIBLE:** Add option to build only subset of
-  specified queryset in elasticsearch index builder
-- ``resolwe/base`` Docker image based on Ubuntu 17.04
-- Support different dependency kinds between data objects
+  specified queryset in Elasticsearch index builder
 - ``--pull`` option to the ``list_docker_images`` management command
 - Test profiling and process tagging
 - New test runner, which supports partial test suite execution based
   on changed files
-- Add 'all' and 'any' jinja filters
+- Add ``all`` and ``any`` Jinja filters
 
 Changed
 -------
 - **BACKWARD INCOMPATIBLE:** Bump Django requirement to version 1.11.x
 - **BACKWARD INCOMPATIBLE:** Make ``ProcessTestCase`` non-transactional
 - Pull Docker images after process registration is complete
-- Generalize jinja filters to accept lists of data objects
+- Generalize Jinja filters to accept lists of ``Data`` objects
 - When new ``Data`` object is created, permissions are copied from
   collections and entity to which it belongs
 
 Fixed
 -----
-- Serialize ``current_user_permissions`` field in a way that is
-  compatible with DRF 3.6.4+
-- API requests on single object endpoints are allowed to all users if
-  object has appropriate public permissions
 - Close schema (YAML) files after ``register`` command stops using them
 - Close schema files used for validating JSON schemas after they are no
   longer used
@@ -44,8 +38,26 @@ Fixed
   process is finished
 - Remove unrelated permissions occasionally listed among group
   permissions on ``permissions`` endpoint
-- Fix ``ResolwePermissionsMixin`` to work correctly with multi-words 
-  model names, i.e. DescriptorSchema
+- Fix ``ResolwePermissionsMixin`` to work correctly with multi-words
+  model names, i.e. ``DescriptorSchema``
+- Fix incorrect handling of offset/limit in Elasticsearch viewsets
+
+
+==================
+3.1.0 - 2017-10-05
+==================
+
+Added
+-----
+- ``resolwe/base`` Docker image based on Ubuntu 17.04
+- Support different dependency kinds between data objects
+
+Fixed
+-----
+- Serialize ``current_user_permissions`` field in a way that is
+  compatible with DRF 3.6.4+
+- API requests on single object endpoints are allowed to all users if
+  object has appropriate public permissions
 
 
 ==================
