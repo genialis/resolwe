@@ -103,7 +103,7 @@ class Process(BaseModel):
 
     Implicitly defined fields (by
     :func:`resolwe.flow.management.commands.register` or
-    :meth:`resolwe.flow.executors.BaseFlowExecutor.run` or its
+    ``resolwe.flow.executors.run.BaseFlowExecutor.run`` or its
     derivatives):
 
     - ``progress`` of type ``basic:float`` (from 0.0 to 1.0)

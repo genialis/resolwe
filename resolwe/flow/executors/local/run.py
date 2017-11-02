@@ -7,7 +7,7 @@ import shlex
 import subprocess
 import time
 
-from resolwe.flow.executors import BaseFlowExecutor
+from ..run import BaseFlowExecutor
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 

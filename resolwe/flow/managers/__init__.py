@@ -27,7 +27,7 @@ def load_manager(manager_name):
             builtin_managers = []
         if manager_name not in ['resolwe.flow.managers.{}'.format(b) for b in builtin_managers]:
             manager_reprs = map(repr, sorted(builtin_managers))
-            error_msg = ("{} isn't an available managers.\n"
+            error_msg = ("{} isn't an available manager.\n"
                          "Try using 'resolwe.flow.managers.XXX', where XXX is one of:\n"
                          "    {}\n"
                          "Error was: {}".format(manager_name, ", ".join(manager_reprs), ex))
@@ -37,5 +37,5 @@ def load_manager(manager_name):
             raise
 
 
-FLOW_MANAGER = getattr(settings, 'FLOW_MANAGER', 'resolwe.flow.managers.local')
-manager = load_manager(FLOW_MANAGER).Manager()  # pylint: disable=invalid-name
+FLOW_MANAGER = getattr(settings, 'FLOW_MANAGER', {}).get('NAME', 'resolwe.flow.managers.local')
+manager = load_manager(FLOW_MANAGER).Manager(static=True)  # pylint: disable=invalid-name

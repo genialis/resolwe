@@ -4,23 +4,21 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import copy
 
 from django.conf import settings
-from django.test import override_settings
 
 from resolwe.flow.managers import manager
 from resolwe.flow.models import Data, Process
-from resolwe.test import TestCase
+from resolwe.test import TransactionTestCase
 
 
-class EnvVarsTest(TestCase):
+class EnvVarsTest(TransactionTestCase):
 
-    @override_settings(RESOLWE_HOST_URL='some.special.host')
     def test_envvars(self):
         flow_executor = copy.copy(getattr(settings, 'FLOW_EXECUTOR', {}))
         flow_executor['SET_ENV'] = {
             'SET_ENV_TEST': 'test_var',
         }
 
-        with override_settings(FLOW_EXECUTOR=flow_executor):
+        with manager.override_settings(FLOW_EXECUTOR=flow_executor, RESOLWE_HOST_URL='some.special.host'):
             process = Process.objects.create(
                 name='Test environment variables',
                 requirements={'expression-engine': 'jinja'},
@@ -47,7 +45,7 @@ re-save setenvtest $SET_ENV_TEST
                 input={},
             )
 
-            manager.communicate(verbosity=0)
+            manager.execution_barrier()
 
             # update output
             data = Data.objects.get(pk=data.pk)

@@ -4,12 +4,13 @@
 Flow Executors
 ==============
 
-.. autoclass:: resolwe.flow.executors.BaseFlowExecutor
+.. autoclass:: resolwe.flow.executors.run.BaseFlowExecutor
     :members:
 
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+import datetime
 import json
 import logging
 import os
@@ -18,31 +19,34 @@ import traceback
 import uuid
 from collections import defaultdict
 
+# NOTE: If the imports here are changed, the executors' requirements.txt
+# file must also be updated accordingly.
+import redis
 import six
 
-from django.apps import apps
-from django.conf import settings
-from django.core.exceptions import ValidationError
-from django.db import transaction
-from django.db.models import Count
-from django.urls import reverse
+from .protocol import ExecutorFiles, ExecutorProtocol  # pylint: disable=import-error
 
-from resolwe.flow.engine import BaseEngine
-from resolwe.flow.models import Data, DataDependency, Entity, Process
-from resolwe.flow.utils import dict_dot, iterate_fields
-from resolwe.flow.utils.purge import data_purge
-from resolwe.permissions.utils import copy_permissions
-from resolwe.utils import BraceMessage as __
+DESERIALIZED_FILES = {}  # pylint: disable=invalid-name
+with open(ExecutorFiles.EXECUTOR_SETTINGS, 'rt') as _settings_file:
+    DESERIALIZED_FILES[ExecutorFiles.EXECUTOR_SETTINGS] = json.load(_settings_file)
+    for _file_name in DESERIALIZED_FILES[ExecutorFiles.EXECUTOR_SETTINGS][ExecutorFiles.FILE_LIST_KEY]:
+        with open(_file_name, 'rt') as _json_file:
+            DESERIALIZED_FILES[_file_name] = json.load(_json_file)
 
-if settings.USE_TZ:
-    from django.utils.timezone import now  # pylint: disable=ungrouped-imports
-else:
-    import datetime
-    now = datetime.datetime.now  # pylint: disable=invalid-name
+EXECUTOR_SETTINGS = DESERIALIZED_FILES[ExecutorFiles.EXECUTOR_SETTINGS]
+SETTINGS = DESERIALIZED_FILES[ExecutorFiles.DJANGO_SETTINGS]
+DATA = DESERIALIZED_FILES[ExecutorFiles.DATA]
+DATA_META = DESERIALIZED_FILES[ExecutorFiles.DATA_META]
+PROCESS = DESERIALIZED_FILES[ExecutorFiles.PROCESS]
+PROCESS_META = DESERIALIZED_FILES[ExecutorFiles.PROCESS_META]
+
+_REDIS_RETRIES = 60
+
+
+now = datetime.datetime.now  # pylint: disable=invalid-name
 
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
-CWD = os.getcwd()
 
 
 def iterjson(text):
@@ -58,46 +62,25 @@ def iterjson(text):
         yield obj
 
 
-class BaseFlowExecutor(BaseEngine):
+class BaseFlowExecutor(object):
     """Represents a workflow executor."""
 
     exported_files_mapper = defaultdict(dict)
 
     def __init__(self, *args, **kwargs):
         """Initialize attributes."""
-        super(BaseFlowExecutor, self).__init__(*args, **kwargs)
         self.data_id = None
         self.process = None
-        # Flag to mark current object as failed.
-        self.process_failed = False
         self.requirements = {}
         self.resources = {}
-
-    def hydrate_spawned_files(self, filename, data_id):
-        """Hydrate spawned files' paths."""
-        if filename not in self.exported_files_mapper[self.data_id]:
-            raise KeyError('Use `re-export` to prepare the file for spawned process: {}'.format(filename))
-
-        export_fn = self.exported_files_mapper[self.data_id].pop(filename)
-
-        if self.exported_files_mapper[self.data_id] == {}:
-            self.exported_files_mapper.pop(self.data_id)
-
-        return {'file_temp': export_fn, 'file': filename}
+        # The Redis connection instance used to communicate with the manager listener.
+        self.redis = redis.StrictRedis(**SETTINGS['FLOW_EXECUTOR'].get('REDIS_CONNECTION', {}))
+        # This channel name will be used for all listener communication; Data object-specific.
+        self.queue_response_channel = '{}.{}'.format(EXECUTOR_SETTINGS['REDIS_CHANNEL_PAIR'][1], DATA['id'])
 
     def get_tools(self):
         """Get tools paths."""
-        tools_paths = []
-        for app_config in apps.get_app_configs():
-            proc_path = os.path.join(app_config.path, 'tools')
-            if os.path.isdir(proc_path):
-                tools_paths.append(proc_path)
-
-        custom_tools_paths = getattr(settings, 'RESOLWE_CUSTOM_TOOLS_PATHS', [])
-        if not isinstance(custom_tools_paths, list):
-            raise KeyError("`RESOLWE_CUSTOM_TOOLS_PATHS` setting must be a list.")
-        tools_paths.extend(custom_tools_paths)
-
+        tools_paths = SETTINGS['FLOW_EXECUTOR_TOOLS_PATHS']
         return tools_paths
 
     def start(self):
@@ -106,7 +89,7 @@ class BaseFlowExecutor(BaseEngine):
 
     def run_script(self, script):
         """Run process script."""
-        raise NotImplementedError('`run_script` function must be defined')
+        raise NotImplementedError("Subclasses of BaseFlowExecutor must implement a run_script() method.")
 
     def end(self):
         """End process execution."""
@@ -116,55 +99,58 @@ class BaseFlowExecutor(BaseEngine):
         """Get process' standard output."""
         return self.stdout  # pylint: disable=no-member
 
-    def update_data_status(self, **kwargs):
-        """Update (PATCH) data object."""
-        data = Data.objects.get(pk=self.data_id)
-        for key, value in kwargs.items():
-            setattr(data, key, value)
+    def _send_manager_command(self, cmd, expect_reply=True, extra_fields={}):
+        """Send a properly formatted command to the manager.
 
-        update_fields = list(kwargs.keys())
+        :param cmd: The command to send (:class:`str`).
+        :param expect_reply: If ``True``, wait for the manager to reply
+            with an acknowledgement packet.
+        :param extra_fields: A dictionary of extra information that's
+            merged into the packet body (i.e. not under an extra key).
+        """
+        packet = {
+            ExecutorProtocol.DATA_ID: DATA['id'],
+            ExecutorProtocol.COMMAND: cmd,
+        }
+        packet.update(extra_fields)
+
+        # TODO what happens here if the push fails? we don't have any realistic recourse,
+        # so just let it explode and stop processing
+        queue_channel = EXECUTOR_SETTINGS['REDIS_CHANNEL_PAIR'][0]
         try:
-            # Ensure that we only update the fields that were changed.
-            data.save(update_fields=update_fields)
+            self.redis.rpush(queue_channel, json.dumps(packet))
+        except Exception:  # pylint: disable=broad-except
+            logger.error("Error sending command to manager:\n\n%s", traceback.format_exc())
+            raise
 
-            if kwargs.get('status', None) == Data.STATUS_ERROR:
-                self.process_failed = True
-                logger.error(
-                    __("Error occured while running a '{}' process.", self.process.name),
-                    extra={
-                        'data_id': self.data_id,
-                        'api_url': '{}{}'.format(
-                            getattr(settings, 'RESOLWE_HOST_URL', ''),
-                            reverse('resolwe-api:data-detail', kwargs={'pk': self.data_id})
-                        ),
-                    }
-                )
+        if not expect_reply:
+            return
 
-        except ValidationError as exc:
-            data = Data.objects.get(pk=self.data_id)
+        while True:
+            for _ in range(_REDIS_RETRIES):
+                response = self.redis.blpop(self.queue_response_channel, timeout=1)
+                if response:
+                    break
+            else:
+                # NOTE: If there's still no response after a few seconds, the system is broken
+                # enough that it makes sense to give up; we're isolated here, so if the manager
+                # doesn't respond, we can't really do much more than just crash
+                raise RuntimeError("No response from the manager after {} retries.".format(_REDIS_RETRIES))
 
-            data.process_error.append(exc.message)
-            data.status = Data.STATUS_ERROR
-            self.process_failed = True
+            _, item = response
+            packet = json.loads(item.decode('utf-8'))
+            assert packet[ExecutorProtocol.RESULT] == ExecutorProtocol.RESULT_OK
+            break
 
-            logger.error(
-                __("Error occured while running a '{}' process.", self.process.name),
-                exc_info=True,
-                extra={
-                    'data_id': self.data_id,
-                    'api_url': '{}{}'.format(
-                        getattr(settings, 'RESOLWE_HOST_URL', ''),
-                        reverse('resolwe-api:data-detail', kwargs={'pk': self.data_id})
-                    ),
-                }
-            )
+    def update_data_status(self, **kwargs):
+        """Update (PATCH) Data object.
 
-            update_fields = ['process_error', 'status']
-
-            try:
-                data.save(update_fields=update_fields)
-            except:  # pylint: disable=bare-except
-                pass
+        :param kwargs: The dictionary of
+            :class:`~resolwe.flow.models.Data` attributes to be changed.
+        """
+        self._send_manager_command(ExecutorProtocol.UPDATE, extra_fields={
+            ExecutorProtocol.UPDATE_CHANGESET: kwargs
+        })
 
     def run(self, data_id, script, verbosity=1):
         """Execute the script and save results."""
@@ -172,43 +158,33 @@ class BaseFlowExecutor(BaseEngine):
             print('RUN: {} {}'.format(data_id, script))
 
         self.data_id = data_id
-        self.process_failed = False
 
         # Fetch data instance to get any executor requirements.
-        self.process = Data.objects.get(pk=data_id).process
-        requirements = self.process.requirements
-        self.requirements = requirements.get('executor', {}).get(self.name, {})
+        self.process = PROCESS
+        requirements = self.process['requirements']
+        self.requirements = requirements.get('executor', {}).get(self.name, {})  # pylint: disable=no-member
         self.resources = requirements.get('resources', {})
 
-        data_dir = settings.FLOW_EXECUTOR['DATA_DIR']
-        dir_mode = getattr(settings, 'FLOW_EXECUTOR', {}).get('DATA_DIR_MODE', 0o755)
-
-        output_path = os.path.join(data_dir, str(data_id))
-
-        os.mkdir(output_path)
-        # os.mkdir is not guaranteed to set the given mode
-        os.chmod(output_path, dir_mode)
-        os.chdir(output_path)
-
+        os.chdir(EXECUTOR_SETTINGS['DATA_DIR'])
         log_file = open('stdout.txt', 'w+')
         json_file = open('jsonout.txt', 'w+')
 
         proc_pid = self.start()
 
         self.update_data_status(
-            status=Data.STATUS_PROCESSING,
-            started=now(),
+            status=DATA_META['STATUS_PROCESSING'],
+            started=now().isoformat(),
             process_pid=proc_pid
         )
 
-        # Run processor and handle intermediate results
+        # Run process and handle intermediate results
         self.run_script(script)
-        spawn_processors = []
+        spawn_processes = []
         output = {}
         process_error, process_warning, process_info = [], [], []
         process_progress, process_rc = 0, 0
 
-        # read processor output
+        # read process output
         try:
             stdout = self.get_stdout()
             while True:
@@ -218,16 +194,16 @@ class BaseFlowExecutor(BaseEngine):
 
                 try:
                     if line.strip().startswith('run'):
-                        # Save processor and spawn if no errors
+                        # Save process and spawn if no errors
                         log_file.write(line)
                         log_file.flush()
 
                         for obj in iterjson(line[3:].strip()):
-                            spawn_processors.append(obj)
+                            spawn_processes.append(obj)
                     elif line.strip().startswith('export'):
                         file_name = line[6:].strip()
 
-                        export_folder = settings.FLOW_EXECUTOR['UPLOAD_DIR']
+                        export_folder = SETTINGS['FLOW_EXECUTOR']['UPLOAD_DIR']
                         unique_name = 'export_{}'.format(uuid.uuid4().hex)
                         export_path = os.path.join(export_folder, unique_name)
 
@@ -246,7 +222,7 @@ class BaseFlowExecutor(BaseEngine):
                                             process_rc = 1
                                             updates['process_rc'] = process_rc
                                         updates['process_error'] = process_error
-                                        updates['status'] = Data.STATUS_ERROR
+                                        updates['status'] = DATA_META['STATUS_ERROR']
                                     elif key == 'proc.warning':
                                         process_warning.append(val)
                                         updates['process_warning'] = process_warning
@@ -257,22 +233,24 @@ class BaseFlowExecutor(BaseEngine):
                                         process_rc = int(val)
                                         updates['process_rc'] = process_rc
                                         if process_rc != 0:
-                                            updates['status'] = Data.STATUS_ERROR
+                                            updates['status'] = DATA_META['STATUS_ERROR']
                                     elif key == 'proc.progress':
                                         process_progress = int(float(val) * 100)
                                         updates['process_progress'] = process_progress
                                 else:
-                                    dict_dot(output, key, val)
+                                    output[key] = val
                                     updates['output'] = output
 
                         if updates:
-                            updates['modified'] = now()
+                            updates['modified'] = now().isoformat()
                             self.update_data_status(**updates)
 
                         if process_rc > 0:
                             log_file.close()
                             json_file.close()
-                            os.chdir(CWD)
+                            self._send_manager_command(ExecutorProtocol.FINISH, extra_fields={
+                                ExecutorProtocol.FINISH_PROCESS_RC: process_rc
+                            })
                             return
 
                         # Debug output
@@ -286,7 +264,7 @@ class BaseFlowExecutor(BaseEngine):
                     log_file.flush()
 
         except MemoryError as ex:
-            logger.error(__("Out of memory: {}", ex))
+            logger.error("Out of memory: %s", ex)
 
         except IOError as ex:
             # TODO: if ex.errno == 28: no more free space
@@ -296,96 +274,22 @@ class BaseFlowExecutor(BaseEngine):
             stdout.close()
             log_file.close()
             json_file.close()
-            os.chdir(CWD)
 
         return_code = self.end()
 
         if process_rc < return_code:
             process_rc = return_code
 
-        # This transaction is needed to make sure that processing of
-        # current data object is finished before manager for spawned
-        # processes is triggered.
-        with transaction.atomic():
-            if spawn_processors and process_rc == 0:
-                parent_data = Data.objects.get(pk=self.data_id)
-
-                # Spawn processors
-                for d in spawn_processors:
-                    d['contributor'] = parent_data.contributor
-                    d['process'] = Process.objects.filter(slug=d['process']).latest()
-
-                    for field_schema, fields in iterate_fields(d.get('input', {}), d['process'].input_schema):
-                        type_ = field_schema['type']
-                        name = field_schema['name']
-                        value = fields[name]
-
-                        if type_ == 'basic:file:':
-                            fields[name] = self.hydrate_spawned_files(value, data_id)
-                        elif type_ == 'list:basic:file:':
-                            fields[name] = [self.hydrate_spawned_files(fn, data_id) for fn in value]
-
-                    with transaction.atomic():
-                        d = Data.objects.create(**d)
-                        DataDependency.objects.create(
-                            parent=parent_data,
-                            child=d,
-                            kind=DataDependency.KIND_SUBPROCESS,
-                        )
-
-                        # Copy permissions.
-                        copy_permissions(parent_data, d)
-
-                        # Entity is added to the collection only when it is
-                        # created - when it only contains 1 Data object.
-                        entities = Entity.objects.filter(data=d).annotate(num_data=Count('data')).filter(num_data=1)
-
-                        # Copy collections.
-                        for collection in parent_data.collection_set.all():
-                            collection.data.add(d)
-
-                            # Add entities to which data belongs to the collection.
-                            for entity in entities:
-                                entity.collections.add(collection)
-
-            if process_rc == 0 and not self.process_failed:
-                self.update_data_status(
-                    status=Data.STATUS_DONE,
-                    process_progress=100,
-                    finished=now()
-                )
-            else:
-                self.update_data_status(
-                    status=Data.STATUS_ERROR,
-                    process_progress=100,
-                    process_rc=process_rc,
-                    finished=now()
-                )
-
-            try:
-                # Cleanup after processor
-                data_purge(data_ids=[data_id], delete=True, verbosity=verbosity)
-            except:  # pylint: disable=bare-except
-                logger.error(__("Purge error:\n\n{}", traceback.format_exc()))
-
-        # if not update_data(data):  # Data was deleted
-        #     # Restore original directory
-        #     os.chdir(settings.PROJECT_ROOT)
-        #     return
-
-        # Restore original directory
-        # os.chdir(settings.PROJECT_ROOT)
-
-        # return data_id
+        # send a notification to the executor listener that we're done
+        finish_fields = {
+            ExecutorProtocol.FINISH_PROCESS_RC: process_rc
+        }
+        if spawn_processes and process_rc == 0:
+            finish_fields[ExecutorProtocol.FINISH_SPAWN_PROCESSES] = spawn_processes
+            finish_fields[ExecutorProtocol.FINISH_EXPORTED_FILES] = self.exported_files_mapper
+        self._send_manager_command(ExecutorProtocol.FINISH, extra_fields=finish_fields)
+        # the feedback key deletes itself once the list is drained
 
     def terminate(self, data_id):
         """Terminate a running script."""
-        raise NotImplementedError('subclasses of BaseFlowExecutor may require a terminate() method')
-
-    def post_register_hook(self):
-        """Run hook after the 'register' management command finishes.
-
-        Subclasses may implement this hook to e.g. pull Docker images at this point.
-        By default, it does nothing.
-        """
-        pass
+        raise NotImplementedError("Subclasses of BaseFlowExecutor must implement a terminate() method.")

@@ -42,6 +42,7 @@ setup(
     packages=find_packages(exclude=['tests', 'tests.*', '*.tests', '*.tests.*']),
     package_data={
         'resolwe': [
+            'flow/executors/requirements.txt',
             'flow/static/flow/*.json',
             'toolkit/processes/**.yml',
             'toolkit/tools/**.py',
@@ -74,6 +75,9 @@ setup(
         # django-filter and doesn't work with the latest version, so we
         # have to pin it
         'django-filter~=1.0.0',
+        'redis',
+        'asgi-redis',
+        'channels',
     ],
     python_requires='>=3.4, <3.6',
     extras_require={

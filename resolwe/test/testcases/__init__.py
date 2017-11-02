@@ -27,7 +27,6 @@ import copy
 import os
 import shutil
 
-import mock
 import six
 
 from django.conf import settings
@@ -37,58 +36,10 @@ from django.contrib.contenttypes.models import ContentType
 from django.test import SimpleTestCase as DjangoSimpleTestCase
 from django.test import TestCase as DjangoTestCase
 from django.test import TransactionTestCase as DjangoTransactionTestCase
-from django.test import override_settings
-from django.utils.crypto import get_random_string
 
-from .setting_overrides import FLOW_DOCKER_MAPPINGS, FLOW_EXECUTOR_SETTINGS, _get_updated_docker_mappings
+from .setting_overrides import FLOW_EXECUTOR_SETTINGS
 
 
-def _test_dirs(*base_dirs):
-    """Create unique test directory paths.
-
-    Look at existing directories that start with the 'test_' prefix in
-    the given base directories. Use the value of largest test directory
-    counter found in all given base directories and increase it by 1.
-    Then use it to create unique test directories with the same name in
-    all base directories.
-
-    :param *base_dirs: paths of base test directories
-
-    :return: paths of the created test directories
-
-    """
-    while True:
-        counter = 1
-        created_dirs = []
-        for base_dir_ in base_dirs:
-            existing_test_dirs = [
-                int(name.replace('test_', '', 1)) for name in os.listdir(base_dir_) if
-                os.path.isdir(os.path.join(base_dir_, name)) and name.startswith('test_') and
-                name.replace('test_', '', 1).isdecimal()
-            ]
-            largest = max(existing_test_dirs) if existing_test_dirs else 0
-            if largest >= counter:
-                counter = largest + 1
-        try:
-            for dir_ in base_dirs:
-                test_dir = os.path.join(dir_, 'test_{}'.format(counter))
-                created_dirs.append(test_dir)
-                os.makedirs(test_dir)
-            break
-        except OSError:
-            # A directory with the same name was already created in the mean time (e.g. by another
-            # test on another thread).
-            # Remove already created directories and try again.
-            for dir_ in created_dirs:
-                os.rmdir(dir_)
-            continue
-
-    return created_dirs
-
-
-@override_settings(FLOW_EXECUTOR=FLOW_EXECUTOR_SETTINGS)
-@override_settings(FLOW_DOCKER_MAPPINGS=FLOW_DOCKER_MAPPINGS)
-@override_settings(CELERY_ALWAYS_EAGER=True)
 class TestCaseHelpers(DjangoSimpleTestCase):
     """Mixin for test case helpers."""
 
@@ -97,68 +48,47 @@ class TestCaseHelpers(DjangoSimpleTestCase):
         # (https://code.djangoproject.com/ticket/10827) that clears the
         # ContentType cache before permissions are setup.
         ContentType.objects.clear_cache()
-        super(TestCaseHelpers, self)._pre_setup(*args, **kwargs)
-
-    def _override_executor_settings(self):
-        """Override Resolwe Flow Executor's settings to avoid clashes.
-
-        When Resolwe's tests are run in parallel or from different
-        Resolwe's code bases on the same system (e.g. on a CI server),
-        we must ensure executor's test directories and containers have
-        unique names to avoid clashes.
-
-        """
-        flow_executor_settings = copy.copy(getattr(settings, 'FLOW_EXECUTOR', {}))
-
-        # Create unique executor's test directories.
-        executor_dirs = ('DATA_DIR', 'UPLOAD_DIR')
-        for exec_dir, new_dir_path in zip(
-                executor_dirs,
-                _test_dirs(*(flow_executor_settings[d] for d in executor_dirs))):
-            flow_executor_settings[exec_dir] = new_dir_path
-
-        # Update FLOW_DOCKER_MAPPINGS setting.
-        flow_docker_mappings = _get_updated_docker_mappings(flow_executor_settings)
-
-        # Create unique container name prefix.
-        flow_executor_settings['CONTAINER_NAME_PREFIX'] = '{}_{}_{}'.format(
-            flow_executor_settings.get('CONTAINER_NAME_PREFIX', 'resolwe'),
-            get_random_string(length=6),
-            os.path.basename(flow_executor_settings['DATA_DIR'])
-        )
-
-        self.settings = override_settings(FLOW_EXECUTOR=flow_executor_settings,
-                                          FLOW_DOCKER_MAPPINGS=flow_docker_mappings)
+        super()._pre_setup(*args, **kwargs)
 
     def _clean_up(self):
         """Clean up after test."""
         if not self._keep_data:
+            # Do delete this here. See comment below near the makedirs
+            # in setUp.
             shutil.rmtree(settings.FLOW_EXECUTOR['DATA_DIR'], ignore_errors=True)
             shutil.rmtree(settings.FLOW_EXECUTOR['UPLOAD_DIR'], ignore_errors=True)
-
-        self.settings.disable()
+            shutil.rmtree(settings.FLOW_EXECUTOR['RUNTIME_DIR'], ignore_errors=True)
 
     def setUp(self):
         """Prepare environment for test."""
-        super(TestCaseHelpers, self).setUp()
+        super().setUp()
 
-        self._override_executor_settings()
-        self.settings.enable()
+        # Directories need to be recreated here in case a previous
+        # TestCase deleted them. Moving this logic into the test runner
+        # and manager infrastructure would not work, because the manager
+        # and listener can't know where the testcase boundaries are,
+        # they just see a series of data objects; deleting too soon
+        # might cause problems for some tests. The runner does not have
+        # any code between tests, so could only remove data at the very
+        # end, by which time it's already too late, since some tests may
+        # deal specifically with the purging functionality and should
+        # start in a clean environment, without the sediment
+        # (e.g. jsonout.txt, stdout.txt) from previous tests.
+        os.makedirs(FLOW_EXECUTOR_SETTINGS['DATA_DIR'], exist_ok=True)
+        os.makedirs(FLOW_EXECUTOR_SETTINGS['UPLOAD_DIR'], exist_ok=True)
+        os.makedirs(FLOW_EXECUTOR_SETTINGS['RUNTIME_DIR'], exist_ok=True)
 
-        self._keep_data = False
+        self._keep_data = settings.FLOW_MANAGER_KEEP_DATA
 
         self.addCleanup(self._clean_up)
 
     def keep_data(self, mock_purge=True):
-        """Do not delete output files after test."""
-        self._keep_data = True
-
-        if mock_purge:
-            purge_mock_os = mock.patch('resolwe.flow.utils.purge.os', wraps=os).start()
-            purge_mock_os.remove = mock.MagicMock()
-
-            purge_mock_shutil = mock.patch('resolwe.flow.utils.purge.shutil', wraps=shutil).start()
-            purge_mock_shutil.rmtree = mock.MagicMock()
+        """Do not delete output files after tests."""
+        self.fail(
+            "*ERROR* TestCaseHelpers.keep_data() is deprecated and does not work anymore.\n"
+            "Using it will result in attribute errors in the future.\n"
+            "Please use the command line options --keep-data and --no-mock-purge instead.\n"
+        )
 
     def assertAlmostEqualGeneric(self, actual, expected, msg=None):  # pylint: disable=invalid-name
         """Assert almost equality for common types of objects.
@@ -199,7 +129,7 @@ class TransactionTestCase(TestCaseHelpers, DjangoTransactionTestCase):
 
     def setUp(self):
         """Initialize test data."""
-        super(TransactionTestCase, self).setUp()
+        super().setUp()
 
         user_model = get_user_model()
         self.admin = user_model.objects.create_superuser(username='admin', email='admin@test.com', password='admin')

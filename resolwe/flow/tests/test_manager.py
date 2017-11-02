@@ -7,6 +7,7 @@ from django.db import transaction
 
 from guardian.shortcuts import assign_perm
 
+from resolwe.flow.managers import manager
 from resolwe.flow.models import Collection, Data, DataDependency, DescriptorSchema, Process
 from resolwe.test import ProcessTestCase
 
@@ -30,6 +31,8 @@ class TestManager(ProcessTestCase):
             contributor=self.contributor,
             process=process,
         )
+
+        manager.execution_barrier()
 
         data.refresh_from_db()
         self.assertEqual(data.status, Data.STATUS_DONE)
@@ -55,6 +58,8 @@ class TestManager(ProcessTestCase):
             self.collection.data.add(data)
             assign_perm('view_data', self.user, data)
 
+        manager.execution_barrier()
+
         # Created and spawned objects should be done.
         self.assertEqual(Data.objects.filter(status=Data.STATUS_DONE).count(), 2)
 
@@ -73,6 +78,8 @@ class TestManager(ProcessTestCase):
                                     input={'param1': 'world'})
         data2 = Data.objects.create(name='Test data 2', contributor=self.contributor, process=workflow,
                                     input={'param1': 'foobar'})
+
+        manager.execution_barrier()
 
         # Created and spawned objects should be done.
         self.assertEqual(Data.objects.filter(status=Data.STATUS_DONE).count(), 6)
@@ -93,6 +100,8 @@ class TestManager(ProcessTestCase):
                                           process=process_child, input={'parent': data_parent.pk})
         data_child3 = Data.objects.create(name='Test child', contributor=self.contributor,
                                           process=process_child, input={'parent': None})
+
+        manager.execution_barrier()
 
         data_parent.refresh_from_db()
         data_child1.refresh_from_db()

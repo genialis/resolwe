@@ -24,6 +24,7 @@ INSTALLED_APPS = (
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.staticfiles',
+    'channels',
 
     # 'kombu.transport.django',  # required for Celery to work with Django DB.
 
@@ -87,6 +88,23 @@ DATABASES = {
     }
 }
 
+REDIS_CONNECTION = {
+    'host': 'localhost',
+    'port': int(os.environ.get('RESOLWE_REDIS_PORT', 56379)),
+    'db': int(os.environ.get('RESOLWE_REDIS_DATABASE', 1)),
+}
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'asgi_redis.RedisChannelLayer',
+        'ROUTING': 'resolwe.flow.routing.channel_routing',
+        'CONFIG': {
+            'hosts': [(REDIS_CONNECTION['host'], REDIS_CONNECTION['port'])],
+            'expiry': 3600,
+        },
+    },
+}
+
 BROKER_URL = 'django://'
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_ACCEPT_CONTENT = [CELERY_TASK_SERIALIZER]
@@ -97,6 +115,21 @@ FLOW_EXECUTOR = {
     'NAME': 'resolwe.flow.executors.local',
     'DATA_DIR': os.path.join(PROJECT_ROOT, '.test_data'),
     'UPLOAD_DIR': os.path.join(PROJECT_ROOT, '.test_upload'),
+    'RUNTIME_DIR': os.path.join(PROJECT_ROOT, '.test_runtime'),
+    'REDIS_CONNECTION': REDIS_CONNECTION,
+    'TEST': {
+        'DATA_DIR': os.path.join(PROJECT_ROOT, '.test_data/test'),
+        'UPLOAD_DIR': os.path.join(PROJECT_ROOT, '.test_upload/test'),
+        'RUNTIME_DIR': os.path.join(PROJECT_ROOT, '.test_runtime/test'),
+    },
+}
+
+FLOW_MANAGER = {
+    'REDIS_PREFIX': 'resolwe.flow.manager',
+    'REDIS_CONNECTION': REDIS_CONNECTION,
+    'TEST': {
+        'REDIS_PREFIX': 'resolwe.flow.manager-test',
+    },
 }
 
 # Set custom Docker command if set via environment variable.

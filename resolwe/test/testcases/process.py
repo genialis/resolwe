@@ -203,7 +203,7 @@ class ProcessTestCase(TransactionTestCase):
 
     def setUp(self):
         """Initialize test data."""
-        super(ProcessTestCase, self).setUp()
+        super().setUp()
 
         self._register_schemas()
 
@@ -213,7 +213,6 @@ class ProcessTestCase(TransactionTestCase):
         self._profiler = TestProfiler(self)
         self._preparation_stage = 0
         self._executed_processes = set()
-        self._keep_data = False
         self._files_path = None
         self._upload_files = []
 
@@ -239,7 +238,7 @@ class ProcessTestCase(TransactionTestCase):
             for fn in self._upload_files:
                 shutil.rmtree(fn, ignore_errors=True)
 
-        super(ProcessTestCase, self).tearDown()
+        super().tearDown()
 
         # Ensure all tagged processes were tested.
         if getattr(settings, 'TEST_PROCESS_REQUIRE_TAGS', False):

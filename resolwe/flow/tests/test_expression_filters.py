@@ -4,10 +4,10 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from resolwe.flow.expression_engines import EvaluationError
 from resolwe.flow.managers import manager
 from resolwe.flow.models import Data, DescriptorSchema, Process, Storage
-from resolwe.test import TestCase
+from resolwe.test import TestCase, TransactionTestCase
 
 
-class ProcessFieldsTagsTest(TestCase):
+class ProcessFieldsTagsTest(TransactionTestCase):
 
     def test_templatetags(self):
         input_process = Process.objects.create(
@@ -46,7 +46,7 @@ re-save-file test_file path/to/file.txt
             descriptor={'descriptions': {'text': 'This is test Data object.'}}
         )
 
-        manager.communicate(verbosity=0)
+        manager.communicate(verbosity=0, run_sync=True)
 
         process = Process.objects.create(
             name='Test template tags',
@@ -122,7 +122,7 @@ save-safe {{ spacy | safe }}
             },
         )
 
-        manager.communicate(verbosity=0)
+        manager.communicate(verbosity=0, run_sync=True)
 
         data.refresh_from_db()
 

@@ -12,3 +12,7 @@ elasticsearch:
     image: elasticsearch:2.4
     ports:
         - "59200:9200"
+redis:
+    image: redis:3.2
+    ports:
+        - "56379:6379"

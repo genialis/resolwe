@@ -4,6 +4,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import os
 import shutil
 import tempfile
+import unittest
 
 from mock import MagicMock, patch
 from testfixtures import LogCapture
@@ -221,6 +222,7 @@ re-save-dir-list sample_dir_list dir1:ref2 dir2 dir3
         self.assertFilesRemoved(data, *removed)
         self.assertFilesNotRemoved(data, *not_removed)
 
+    @unittest.skipIf(True, "since PR308: manager now separated into parts, executor not logging here anymore")
     def test_exception_logging(self):
         with patch('resolwe.flow.utils.purge.os', wraps=os) as os_mock:
             # Ensure that purge raises an exception, so we can check whether the exception

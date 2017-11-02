@@ -7,12 +7,8 @@ import shlex
 import subprocess
 import tempfile
 
-from django.conf import settings
-from django.core.management import call_command
-
-from resolwe.flow.models import Process
-
-from ..local import FlowExecutor as LocalFlowExecutor
+from ..local.run import FlowExecutor as LocalFlowExecutor
+from ..run import PROCESS_META, SETTINGS
 from .seccomp import SECCOMP_POLICY
 
 
@@ -25,21 +21,22 @@ class FlowExecutor(LocalFlowExecutor):
         """Initialize attributes."""
         super(FlowExecutor, self).__init__(*args, **kwargs)
 
+        self.container_name_prefix = None
         self.mappings_tools = None
         self.temporary_files = []
-        self.command = getattr(settings, 'FLOW_DOCKER_COMMAND', 'docker')
+        self.command = SETTINGS.get('FLOW_DOCKER_COMMAND', 'docker')
 
     def start(self):
         """Start process execution."""
         # arguments passed to the Docker command
         command_args = {
             'command': self.command,
-            'container_image': self.requirements.get('image', settings.FLOW_EXECUTOR['CONTAINER_IMAGE']),
+            'container_image': self.requirements.get('image', SETTINGS['FLOW_EXECUTOR']['CONTAINER_IMAGE']),
         }
 
         # Get limit defaults and overrides.
-        limit_defaults = getattr(settings, 'FLOW_DOCKER_LIMIT_DEFAULTS', {})
-        limit_overrides = getattr(settings, 'FLOW_DOCKER_LIMIT_OVERRIDES', {})
+        limit_defaults = SETTINGS.get('FLOW_DOCKER_LIMIT_DEFAULTS', {})
+        limit_overrides = SETTINGS.get('FLOW_DOCKER_LIMIT_OVERRIDES', {})
 
         # Set resource limits.
         limits = []
@@ -48,7 +45,7 @@ class FlowExecutor(LocalFlowExecutor):
             # is 1024 shares (we don't need to explicitly set that).
             limits.append('--cpu-shares={}'.format(int(self.resources['cores']) * 1024))
 
-        memory = limit_overrides.get('memory', {}).get(self.process.slug, None)
+        memory = limit_overrides.get('memory', {}).get(self.process['slug'], None)
         if memory is None:
             memory = int(self.resources.get(
                 'memory',
@@ -61,21 +58,21 @@ class FlowExecutor(LocalFlowExecutor):
         limits.append('--memory={0}m --memory-swap={0}m'.format(memory))
 
         # Set ulimits for interactive processes to prevent them from running too long.
-        if self.process.scheduling_class == Process.SCHEDULING_CLASS_INTERACTIVE:
+        if self.process['scheduling_class'] == PROCESS_META['SCHEDULING_CLASS_INTERACTIVE']:
             # TODO: This is not very good as each child gets the same limit.
             limits.append('--ulimit cpu={}'.format(limit_defaults.get('cpu_time_interactive', 30)))
 
         command_args['limits'] = ' '.join(limits)
 
         # set container name
-        container_name_prefix = getattr(settings, 'FLOW_EXECUTOR', {}).get('CONTAINER_NAME_PREFIX', 'resolwe')
-        command_args['container_name'] = '--name={}_{}'.format(container_name_prefix, self.data_id)
+        self.container_name_prefix = SETTINGS.get('FLOW_EXECUTOR', {}).get('CONTAINER_NAME_PREFIX', 'resolwe')
+        command_args['container_name'] = '--name={}_{}'.format(self.container_name_prefix, self.data_id)
 
         if 'network' in self.resources:
             # Configure Docker network mode for the container (if specified).
             # By default, current Docker versions use the 'bridge' mode which
             # creates a network stack on the default Docker bridge.
-            network = getattr(settings, 'FLOW_EXECUTOR', {}).get('NETWORK', '')
+            network = SETTINGS.get('FLOW_EXECUTOR', {}).get('NETWORK', '')
             command_args['network'] = '--net={}'.format(network) if network else ''
         else:
             # No network if not specified.
@@ -88,7 +85,7 @@ class FlowExecutor(LocalFlowExecutor):
         policy_file = tempfile.NamedTemporaryFile(mode='w')
         json.dump(SECCOMP_POLICY, policy_file)
         policy_file.file.flush()
-        if not getattr(settings, 'FLOW_DOCKER_DISABLE_SECCOMP', False):
+        if not SETTINGS.get('FLOW_DOCKER_DISABLE_SECCOMP', False):
             security.append('--security-opt seccomp={}'.format(policy_file.name))
         self.temporary_files.append(policy_file)
 
@@ -98,7 +95,7 @@ class FlowExecutor(LocalFlowExecutor):
         command_args['security'] = ' '.join(security)
 
         # render Docker mappings in FLOW_DOCKER_MAPPINGS setting
-        mappings_template = getattr(settings, 'FLOW_DOCKER_MAPPINGS', [])
+        mappings_template = SETTINGS.get('FLOW_DOCKER_MAPPINGS', [])
         context = {'data_id': self.data_id}
         mappings = [{key.format(**context): value.format(**context) for key, value in template.items()}
                     for template in mappings_template]
@@ -156,7 +153,7 @@ class FlowExecutor(LocalFlowExecutor):
 
     def run_script(self, script):
         """Execute the script and save results."""
-        mappings = getattr(settings, 'FLOW_DOCKER_MAPPINGS', {})
+        mappings = SETTINGS.get('FLOW_DOCKER_MAPPINGS', {})
         for map_ in mappings:
             script = script.replace(map_['src'], map_['dest'])
         # create a Bash command to add all the tools to PATH
@@ -183,9 +180,4 @@ class FlowExecutor(LocalFlowExecutor):
 
     def terminate(self, data_id):
         """Terminate a running script."""
-        subprocess.call(shlex.split('{} rm -f {}'.format(self.command, data_id)))
-
-    def post_register_hook(self):
-        """Pull Docker images required by processes after the 'register' command is done."""
-        if not getattr(settings, 'FLOW_DOCKER_DONT_PULL', False):
-            call_command('list_docker_images', pull=True)
+        subprocess.call(shlex.split('{} rm -f {}_{}'.format(self.command, self.container_name_prefix, self.data_id)))

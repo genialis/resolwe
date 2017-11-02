@@ -69,11 +69,11 @@ class Data(BaseModel):
     )
 
     #: process started date and time (set by
-    #: :meth:`resolwe.flow.executors.BaseFlowExecutor.run` or its derivatives)
+    #: ``resolwe.flow.executors.run.BaseFlowExecutor.run`` or its derivatives)
     started = models.DateTimeField(blank=True, null=True, db_index=True)
 
     #: process finished date date and time (set by
-    #: :meth:`resolwe.flow.executors.BaseFlowExecutor.run` or its derivatives)
+    #: ``resolwe.flow.executors.run.BaseFlowExecutor.run`` or its derivatives)
     finished = models.DateTimeField(blank=True, null=True, db_index=True)
 
     #: checksum field calculated on inputs

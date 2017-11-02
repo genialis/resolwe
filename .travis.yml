@@ -12,6 +12,7 @@ services:
   - docker
   - postgresql
   - elasticsearch
+  - redis-server
 
 language: python
 
@@ -22,6 +23,7 @@ env:
     - RESOLWE_ES_PORT=9200
     # We need to disable SECCOMP as it is not supported on Travis.
     - RESOLWE_DOCKER_DISABLE_SECCOMP=1
+    - RESOLWE_REDIS_PORT=6379
 
 # NOTE: Explicit Python versions make Travis job description more informative
 matrix:

@@ -12,16 +12,16 @@ from mock import MagicMock, patch
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.db import transaction
 
 from guardian.shortcuts import assign_perm, remove_perm
 from rest_framework.test import APIRequestFactory, APITestCase, force_authenticate
 
 from resolwe.flow.expression_engines import EvaluationError
-from resolwe.flow.managers import manager
 from resolwe.flow.models import Data, DataDependency, DescriptorSchema, Entity, Process, Storage
 from resolwe.flow.models.data import hydrate_size, render_template
 from resolwe.flow.views import DataViewSet
-from resolwe.test import TestCase
+from resolwe.test import TestCase, TransactionTestCase
 
 try:
     import builtins  # py3
@@ -29,7 +29,7 @@ except ImportError:
     import __builtin__ as builtins  # py2
 
 
-class DataModelTest(TestCase):
+class DataModelNameTest(TransactionTestCase):
 
     def test_name(self):
         process = Process.objects.create(slug='test-first',
@@ -48,12 +48,14 @@ class DataModelTest(TestCase):
 
         data = Data.objects.create(contributor=self.contributor,
                                    process=process)
+        data.refresh_from_db()
 
         self.assertEqual(data.name, 'Process based data name')
         self.assertFalse(data.named_by_user)
 
         data.name = 'Name changed by user'
         data.save()
+        data.refresh_from_db()
 
         self.assertEqual(data.name, 'Name changed by user')
         self.assertTrue(data.named_by_user)
@@ -61,6 +63,7 @@ class DataModelTest(TestCase):
         data = Data.objects.create(name='Explicit data name',
                                    contributor=self.contributor,
                                    process=process)
+        data.refresh_from_db()
 
         self.assertEqual(data.name, 'Explicit data name')
         self.assertTrue(data.named_by_user)
@@ -76,48 +79,49 @@ class DataModelTest(TestCase):
                                              'required': False,
                                          }])
 
-        second = Data.objects.create(contributor=self.contributor,
-                                     process=process,
-                                     input={'src': data.id})
+        with transaction.atomic():
+            second = Data.objects.create(contributor=self.contributor,
+                                         process=process,
+                                         input={'src': data.id})
 
-        data.output = {'stat': '42'}
-        data.status = 'OK'
-        data.save()
+            data.output = {'stat': '42'}
+            data.status = 'OK'
+            data.save()
 
-        self.assertEqual(second.name, 'Process based data name, value: ')
-        self.assertFalse(second.named_by_user)
-
-        manager.communicate(verbosity=0)
+            self.assertEqual(second.name, 'Process based data name, value: ')
+            self.assertFalse(second.named_by_user)
 
         second = Data.objects.get(id=second.id)
 
         self.assertEqual(second.name, 'Process based data name, value: 42')
         self.assertFalse(second.named_by_user)
 
-        data.output = {}
-        data.status = 'RE'
-        data.save()
+        with transaction.atomic():
+            data.output = {}
+            data.status = 'RE'
+            data.save()
 
-        second = Data.objects.create(contributor=self.contributor,
-                                     process=process,
-                                     input={'src': data.id})
+            second = Data.objects.create(contributor=self.contributor,
+                                         process=process,
+                                         input={'src': data.id})
 
-        second.name = 'User\' data name'
-        second.save()
+            second.name = 'User\' data name'
+            second.save()
 
-        data.output = {'stat': '42'}
-        data.status = 'OK'
-        data.save()
+            data.output = {'stat': '42'}
+            data.status = 'OK'
+            data.save()
 
-        self.assertEqual(second.name, 'User\' data name')
-        self.assertTrue(second.named_by_user)
-
-        manager.communicate(verbosity=0)
+            self.assertEqual(second.name, 'User\' data name')
+            self.assertTrue(second.named_by_user)
 
         second = Data.objects.get(id=second.id)
 
         self.assertEqual(second.name, 'User\' data name')
         self.assertTrue(second.named_by_user)
+
+
+class DataModelTest(TestCase):
 
     def test_trim_name(self):
         process = Process.objects.create(contributor=self.contributor, data_name='test' * 50)
