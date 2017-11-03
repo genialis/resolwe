@@ -25,7 +25,7 @@ from .utils import (
     DirtyError, hydrate_input_references, hydrate_size, render_descriptor, render_template, validate_schema,
 )
 
-# Compat between Python 2.7/3.4 and Python 3.5
+# Compatibilty for Python < 3.5.
 if not hasattr(json, 'JSONDecodeError'):
     json.JSONDecodeError = ValueError
 

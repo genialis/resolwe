@@ -15,9 +15,8 @@ from django.core.exceptions import ValidationError
 
 from resolwe.flow.utils import dict_dot, iterate_fields, iterate_schema
 
-# TODO: Python 3.5 imports modules in a different (lazy) way, so when
-#       Python 2.7 and Python 3.4 support is dropped, data module can be
-#       imported as:
+# TODO: Python 3.5+ imports modules in a different (lazy) way, so when
+#       Python 3.4 support is dropped, data module can be imported as:
 #
 #           from . import data as data_model
 #

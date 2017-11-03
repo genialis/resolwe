@@ -5,8 +5,8 @@ Contributing
 Installing prerequisites
 ========================
 
-Make sure you have Python_ (2.7 or 3.4+) installed on your system. If you don't
-have it yet, follow `these instructions
+Make sure you have Python_ (3.4+) installed on your system. If you don't have
+it yet, follow `these instructions
 <https://docs.python.org/3/using/index.html>`__.
 
 Resolwe requires PostgreSQL_ (9.4+). Many Linux distributions already include
@@ -56,9 +56,8 @@ Prepare Resolwe for development::
 
 .. note::
 
-    We recommend using `virtualenv <https://virtualenv.pypa.io/>`_ (on
-    Python 2.7) or `pyvenv <http://docs.python.org/3/library/venv.html>`_ (on
-    Python 3.4+) to create an isolated Python environment for Resolwe.
+    We recommend using `pyvenv <http://docs.python.org/3/library/venv.html>`_
+    to create an isolated Python environment for Resolwe.
 
 .. _Resolwe's git repository: https://github.com/genialis/resolwe
 

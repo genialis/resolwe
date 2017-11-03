@@ -10,6 +10,10 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Changed
+-------
+- **BACKWARD INCOMPATIBLE:** Drop Python 2 support, require Python 3.4+
+
 
 ==================
 4.0.0 - 2017-10-25

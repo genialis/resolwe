@@ -75,6 +75,7 @@ setup(
         # have to pin it
         'django-filter~=1.0.0',
     ],
+    python_requires='>=3.4, <3.6',
     extras_require={
         'docs':  [
             'sphinx_rtd_theme',
@@ -99,10 +100,6 @@ setup(
             'tblib>=1.3.0',
             'isort',
         ],
-        ':python_version == "2.7"': [
-            # Backport of shutil.which function to Python 2
-            'shutilwhich',
-        ]
     },
 
     classifiers=[
@@ -122,8 +119,6 @@ setup(
         'Operating System :: OS Independent',
 
         'Programming Language :: Python',
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
