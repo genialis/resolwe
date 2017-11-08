@@ -100,11 +100,14 @@ class DataFilter(BaseResolweFilter):
     started = filters.AllLookupsFilter()
     process = filters.RelatedFilter(ProcessFilter, queryset=Process.objects.all())
     tags = TagsFilter()
+    parents = filters.ModelChoiceFilter(queryset=Data.objects.all())
+    children = filters.ModelChoiceFilter(queryset=Data.objects.all())
 
     class Meta(BaseResolweFilter.Meta):
         """Filter configuration."""
 
         model = Data
         fields = BaseResolweFilter.Meta.fields + [
-            'collection', 'entity', 'type', 'status', 'finished', 'started', 'process', 'tags'
+            'collection', 'entity', 'type', 'status', 'finished', 'started', 'process', 'tags',
+            'parents', 'children'
         ]

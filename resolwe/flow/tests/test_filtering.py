@@ -8,7 +8,7 @@ import six
 from django.contrib.auth import get_user_model
 
 from resolwe.flow.filters import CollectionFilter, DataFilter
-from resolwe.flow.models import Collection, Data, DescriptorSchema, Process
+from resolwe.flow.models import Collection, Data, DataDependency, DescriptorSchema, Process
 from resolwe.test import TestCase
 
 
@@ -143,6 +143,23 @@ class DataFilterTestCase(TestCase):
         self._apply_filter({'tags': 'foo'}, [self.data_2])
         self._apply_filter({'tags': 'bar'}, [self.data_2, self.data_3])
         self._apply_filter({'tags': 'bar,moo'}, [self.data_2])
+
+    def test_filter_parents_children(self):
+        self._apply_filter({'parents': self.data_1.pk}, [])
+        self._apply_filter({'parents': self.data_2.pk}, [])
+        self._apply_filter({'children': self.data_1.pk}, [])
+        self._apply_filter({'children': self.data_2.pk}, [])
+
+        DataDependency.objects.create(
+            parent=self.data_1,
+            child=self.data_2,
+            kind=DataDependency.KIND_IO,
+        )
+
+        self._apply_filter({'parents': self.data_1.pk}, Data.objects.filter(parents=self.data_1))
+        self._apply_filter({'parents': self.data_2.pk}, Data.objects.filter(parents=self.data_2))
+        self._apply_filter({'children': self.data_1.pk}, Data.objects.filter(children=self.data_1))
+        self._apply_filter({'children': self.data_2.pk}, Data.objects.filter(children=self.data_2))
 
 
 class CollectionFilterTestCase(TestCase):
