@@ -5,12 +5,14 @@ Resolwe Test Runner
 ===================
 
 """
+import contextlib
 import copy
 import logging
 import os
 import re
 import shutil
 import subprocess
+import sys
 # Parallel Django test execution is done with worker pools from the multiprocessing module;
 # since every worker process needs its own initialization code to start the manager infrastructure,
 # it also needs a teardown function, but the multiprocessing module fails to provide such
@@ -365,17 +367,21 @@ class ResolweRunner(DiscoverRunner):
         :param test_labels: Labels of tests to run
         """
         if self.only_changes_to:
-            print("Detecting changed files between {} and HEAD.".format(self.only_changes_to))
-            try:
-                changed_files = subprocess.check_output(['git', 'diff', '--name-only', self.only_changes_to, 'HEAD'])
-                changed_files = changed_files.decode('utf8').strip().split('\n')
-                changed_files = [file for file in changed_files if file.strip()]
-
-                top_level_path = subprocess.check_output(['git', 'rev-parse', '--show-toplevel'])
-                top_level_path = top_level_path.decode('utf8').strip()
-            except subprocess.CalledProcessError:
-                print("ERROR: Git command failed.")
+            # Check if there are changed files. We need to be able to switch between branches so we
+            # can correctly detect changes.
+            repo_status = self._git('status', '--porcelain', '--untracked-files=no')
+            if repo_status:
+                print("ERROR: Git repository is not clean. Running tests with --only-changes-to", file=sys.stderr)
+                print("       requires that the current Git repository is clean.", file=sys.stderr)
                 return False
+
+            print("Detecting changed files between {} and HEAD.".format(self.only_changes_to))
+            changed_files = self._git('diff', '--name-only', self.only_changes_to, 'HEAD')
+            changed_files = changed_files.decode('utf8').strip().split('\n')
+            changed_files = [file for file in changed_files if file.strip()]
+
+            top_level_path = self._git('rev-parse', '--show-toplevel')
+            top_level_path = top_level_path.decode('utf8').strip()
 
             # Process changed files to discover what they are.
             changed_files, tags, tests, full_suite = self.process_changed_files(changed_files, top_level_path)
@@ -393,7 +399,30 @@ class ResolweRunner(DiscoverRunner):
                 self.tags = tags
                 test_labels = tests
 
+                print("Running with following partial tags: {}".format(', '.join(tags)))
+                print("Running with following partial tests: {}".format(', '.join(tests)))
+
         return super().run_tests(test_labels, **kwargs)
+
+    def _git(self, *args):
+        """Helper to run Git command."""
+        try:
+            return subprocess.check_output(['git'] + list(args)).strip()
+        except subprocess.CalledProcessError:
+            raise CommandError("Git command failed.")
+
+    @contextlib.contextmanager
+    def git_branch(self, branch):
+        """Temporarily switch to a different Git branch."""
+        current_branch = self._git('rev-parse', '--abbrev-ref', 'HEAD')
+        if current_branch != branch:
+            self._git('checkout', branch)
+
+        try:
+            yield
+        finally:
+            if current_branch != branch:
+                self._git('checkout', current_branch)
 
     def process_changed_files(self, changed_files, top_level_path):
         """Process changed files based on specified patterns.
@@ -416,7 +445,8 @@ class ResolweRunner(DiscoverRunner):
             except (OSError, ValueError):
                 raise CommandError("Failed loading or parsing file types metadata.")
         else:
-            print("WARNING: Treating all files as unknown because --changes-file-types option not specified.")
+            print("WARNING: Treating all files as unknown because --changes-file-types option not specified.",
+                  file=sys.stderr)
 
         for filename in changed_files:
             # Match file type.
@@ -467,7 +497,7 @@ class ResolweRunner(DiscoverRunner):
                     schemas = yaml.load(fn)
 
                 if not schemas:
-                    print("WARNING: Could not read YAML file {}".format(schema_file))
+                    print("WARNING: Could not read YAML file {}".format(schema_file), file=sys.stderr)
                     continue
 
                 for schema in schemas:
@@ -515,16 +545,39 @@ class ResolweRunner(DiscoverRunner):
         for proc_path in processes_paths:
             process_schemas.extend(self.find_schemas(proc_path))
 
+        # Switch to source branch and get all the schemas from there as well, since some schemas
+        # might have been removed.
+        with self.git_branch(self.only_changes_to):
+            for proc_path in processes_paths:
+                process_schemas.extend(self.find_schemas(proc_path))
+
         dependencies = self.find_dependencies(process_schemas)
         processes = set()
 
-        for filename in files:
+        def load_process_slugs(filename):
+            """Add all process slugs from specified file."""
             with open(filename, 'r') as process_file:
                 data = yaml.load(process_file)
 
                 for process in data:
                     # Add all process slugs.
                     processes.add(process['slug'])
+
+        for filename in files:
+            try:
+                load_process_slugs(filename)
+            except FileNotFoundError:
+                # File was removed, so we will handle it below when we check the original branch.
+                pass
+
+        # Switch to source branch and check modified files there as well.
+        with self.git_branch(self.only_changes_to):
+            for filename in files:
+                try:
+                    load_process_slugs(filename)
+                except FileNotFoundError:
+                    # File was added, so it has already been handled.
+                    pass
 
         # Add all dependencies.
         dep_processes = set()

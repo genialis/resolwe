@@ -19,6 +19,11 @@ Changed
 - **BACKWARD INCOMPATIBLE:** Refactor executors into standalone programs
 - **BACKWARD INCOMPATIBLE:** Drop Python 2 support, require Python 3.4+
 
+Fixed
+-----
+- Correctly handle removed processes in the changes-only mode of the
+  Resolwe test runner
+
 
 ==================
 4.0.0 - 2017-10-25
