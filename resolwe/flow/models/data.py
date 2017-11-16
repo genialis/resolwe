@@ -31,6 +31,45 @@ if not hasattr(json, 'JSONDecodeError'):
     json.JSONDecodeError = ValueError
 
 
+class DataQuerySet(models.QuerySet):
+    """Query set for Data objects."""
+
+    # NOTE: This is a static method because it is used from migrations.
+    @staticmethod
+    def _delete_chunked(queryset, chunk_size=500):
+        """Chunked delete, which should be used if deleting many objects.
+
+        The reason why this method is needed is that deleting a lot of Data objects
+        requires Django to fetch all of them into memory (fast path is not used) and
+        this causes huge memory usage (and possibly OOM).
+
+        :param chunk_size: Optional chunk size
+        """
+        while True:
+            # Discover primary key to limit the current chunk. This is required because delete
+            # cannot be called on a sliced queryset due to ordering requirement.
+            with transaction.atomic():
+                # Get offset of last item (needed because it may be less than the chunk size).
+                offset = queryset.order_by('pk')[:chunk_size].count()
+                if not offset:
+                    break
+
+                # Fetch primary key of last item and use it to delete the chunk.
+                last_instance = queryset.order_by('pk')[offset - 1]
+                queryset.filter(pk__lte=last_instance.pk).delete()
+
+    def delete_chunked(self, chunk_size=500):
+        """Chunked delete, which should be used if deleting many objects.
+
+        The reason why this method is needed is that deleting a lot of Data objects
+        requires Django to fetch all of them into memory (fast path is not used) and
+        this causes huge memory usage (and possibly OOM).
+
+        :param chunk_size: Optional chunk size
+        """
+        return DataQuerySet._delete_chunked(self, chunk_size=chunk_size)
+
+
 class Data(BaseModel):
     """Postgres model for storing data."""
 
@@ -68,6 +107,9 @@ class Data(BaseModel):
         (STATUS_ERROR, 'Error'),
         (STATUS_DIRTY, 'Dirty')
     )
+
+    #: manager
+    objects = DataQuerySet.as_manager()
 
     #: process started date and time (set by
     #: ``resolwe.flow.executors.run.BaseFlowExecutor.run`` or its derivatives)

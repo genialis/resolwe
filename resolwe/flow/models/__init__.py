@@ -45,7 +45,7 @@ Postgres ORM model for storing descriptors.
 Process model
 =============
 
-Postgress ORM model for storing processes.
+Postgres ORM model for storing processes.
 
 .. autoclass:: resolwe.flow.models.Process
     :members:
@@ -64,6 +64,21 @@ Secret model
 Postgres ORM model for storing secrets.
 
 .. autoclass:: resolwe.flow.models.Secret
+
+ProcessMigrationHistory model
+=============================
+
+Postgres ORM model for storing proces migration history.
+
+.. autoclass:: resolwe.flow.models.ProcessMigrationHistory
+    :members:
+
+DataMigrationHistory model
+==========================
+
+Postgres ORM model for storing data migration history.
+
+.. autoclass:: resolwe.flow.models.DataMigrationHistory
     :members:
 
 """
@@ -72,6 +87,7 @@ from .collection import Collection
 from .data import Data, DataDependency
 from .descriptor import DescriptorSchema
 from .entity import Entity, Relation, RelationType
+from .migrations import DataMigrationHistory, ProcessMigrationHistory
 from .process import Process
 from .secret import Secret
 from .storage import Storage

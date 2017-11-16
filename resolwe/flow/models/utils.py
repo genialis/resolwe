@@ -13,7 +13,7 @@ from django.conf import settings
 from django.contrib.staticfiles import finders
 from django.core.exceptions import ValidationError
 
-from resolwe.flow.utils import dict_dot, iterate_fields, iterate_schema
+from resolwe.flow.utils import dict_dot, iterate_dict, iterate_fields, iterate_schema
 
 
 class DirtyError(ValidationError):
@@ -497,3 +497,94 @@ def json_path_components(path):
         path = path.split('.')
 
     return list(path)
+
+
+def validate_process_subtype(supertype_name, supertype, subtype_name, subtype):
+    """Perform process subtype validation.
+
+    :param supertype_name: Supertype name
+    :param supertype: Supertype schema
+    :param subtype_name: Subtype name
+    :param subtype: Subtype schema
+    :return: A list of validation error strings
+    """
+    errors = []
+    for item in supertype:
+        # Ensure that the item exists in subtype and has the same schema.
+        for subitem in subtype:
+            if item['name'] != subitem['name']:
+                continue
+
+            for key in set(item.keys()) | set(subitem.keys()):
+                if key in ('label', 'description'):
+                    # Label and description can differ.
+                    continue
+                elif key == 'required':
+                    # A non-required item can be made required in subtype, but not the
+                    # other way around.
+                    item_required = item.get('required', True)
+                    subitem_required = subitem.get('required', False)
+
+                    if item_required and not subitem_required:
+                        errors.append("Field '{}' is marked as required in '{}' and optional in '{}'.".format(
+                            item['name'],
+                            supertype_name,
+                            subtype_name,
+                        ))
+                elif item.get(key, None) != subitem.get(key, None):
+                    errors.append("Schema for field '{}' in type '{}' does not match supertype '{}'.".format(
+                        item['name'],
+                        subtype_name,
+                        supertype_name
+                    ))
+
+            break
+        else:
+            errors.append("Schema for type '{}' is missing supertype '{}' field '{}'.".format(
+                subtype_name,
+                supertype_name,
+                item['name']
+            ))
+
+    return errors
+
+
+def validate_process_types(queryset=None):
+    """Perform process type validation.
+
+    :param queryset: Optional process queryset to validate
+    :return: A list of validation error strings
+    """
+    if not queryset:
+        from .process import Process
+        queryset = Process.objects.all()
+
+    processes = {}
+    for process in queryset:
+        dict_dot(
+            processes,
+            process.type.replace(':', '.') + '__schema__',
+            process.output_schema
+        )
+
+    errors = []
+    for path, key, value in iterate_dict(processes, exclude=lambda key, value: key == '__schema__'):
+        if '__schema__' not in value:
+            continue
+
+        # Validate with any parent types.
+        for length in range(len(path), 0, -1):
+            parent_type = '.'.join(path[:length] + ['__schema__'])
+            try:
+                parent_schema = dict_dot(processes, parent_type)
+            except KeyError:
+                continue
+
+            errors += validate_process_subtype(
+                supertype_name=':'.join(path[:length]),
+                supertype=parent_schema,
+                subtype_name=':'.join(path + [key]),
+                subtype=value['__schema__']
+            )
+
+    return errors

@@ -29,6 +29,11 @@ Added
 - Add ``descriptor_completed`` field to the ``Entity`` filter
 - Validate manager semaphors after each test case, to ease debugging of tests
   which execute processes
+- Add database migration operations for process schema migrations
+- Add ``delete_chunked`` method to ``Data`` objects queryset which is needed due
+  to Django's extreme memory usage when deleting a large count of ``Data`` objects
+- Add ``validate_process_types`` utility function, which checks that all registered
+  processes conform to their supertypes
 
 Fixed
 -----

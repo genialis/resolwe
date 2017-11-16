@@ -1,6 +1,8 @@
 """Iterator utils."""
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+import collections
+
 
 def iterate_fields(fields, schema, path_prefix=None):
     """Iterate over all field values sub-fields.
@@ -59,3 +61,27 @@ def iterate_schema(fields, schema, path_prefix=''):
                 yield rvals
         else:
             yield (field_schema, fields, '{}{}'.format(path_prefix, name))
+
+
+def iterate_dict(container, exclude=None, path=None):
+    """Iterate over a nested dictionary.
+
+    The dictionary is iterated over in a depth first manner.
+
+    :param container: Dictionary to iterate over
+    :param exclude: Optional callable, which is given key and value as
+        arguments and may return True to stop iteration of that branch
+    :return: (path, key, value) tuple
+    """
+    if path is None:
+        path = []
+
+    for key, value in container.items():
+        if callable(exclude) and exclude(key, value):
+            continue
+
+        if isinstance(value, collections.Mapping):
+            for inner_path, inner_key, inner_value in iterate_dict(value, exclude=exclude, path=path + [key]):
+                yield inner_path, inner_key, inner_value
+
+        yield path, key, value

@@ -22,7 +22,7 @@ from django.apps import apps
 from django.conf import settings
 from django.db import models
 
-from .iterators import iterate_fields, iterate_schema  # pylint: disable=unused-import
+from .iterators import iterate_dict, iterate_fields, iterate_schema  # pylint: disable=unused-import
 
 
 def get_data_checksum(proc_input, proc_slug, proc_version):
