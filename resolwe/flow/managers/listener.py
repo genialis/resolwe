@@ -279,119 +279,123 @@ class ExecutorListener(Thread):
             }
         )
 
-        # handle Data wrap up first, so any spawned processes have a consistent view already
-        if ExecutorProtocol.FINISH_PROCESS_RC in obj:
-            process_rc = obj[ExecutorProtocol.FINISH_PROCESS_RC]
+        with transaction.atomic():
+            # Spawn any new jobs in the request.
+            spawned = False
+            if ExecutorProtocol.FINISH_SPAWN_PROCESSES in obj:
+                if self._drop_ctypes:
+                    ContentType.objects.clear_cache()
+                spawned = True
+                exported_files_mapper = obj[ExecutorProtocol.FINISH_EXPORTED_FILES]
+                logger.debug(
+                    __("Resolwe listener (handle_finish[{}]): Spawning new Data objects.", data_id),
+                    extra={
+                        'data_id': data_id
+                    }
+                )
 
-            try:
-                d = Data.objects.get(pk=data_id)
-            except Data.DoesNotExist:
-                logger.error(__("Resolwe listener (handle_finish[{}]): Data object does not exist.", data_id))
-                self._send_reply(obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK})
-                return
-
-            if process_rc == 0 and not d.status == Data.STATUS_ERROR:
-                changeset = {
-                    'status': Data.STATUS_DONE,
-                    'process_progress': 100,
-                    'finished': now()
-                }
-            else:
-                changeset = {
-                    'status': Data.STATUS_ERROR,
-                    'process_progress': 100,
-                    'process_rc': process_rc,
-                    'finished': now()
-                }
-            obj[ExecutorProtocol.UPDATE_CHANGESET] = changeset
-            self.handle_update(obj, internal_call=True)
-
-            if not getattr(settings, 'FLOW_MANAGER_KEEP_DATA', False):
                 try:
-                    # Clean up after process
-                    data_purge(data_ids=[data_id], delete=True, verbosity=self._verbosity)
+                    # This transaction is needed because we're running
+                    # asynchronously with respect to the main Django code
+                    # here; the manager can get nudged from elsewhere.
+                    with transaction.atomic():
+                        parent_data = Data.objects.get(pk=data_id)
+
+                        # Spawn processes.
+                        for d in obj[ExecutorProtocol.FINISH_SPAWN_PROCESSES]:
+                            d['contributor'] = parent_data.contributor
+                            d['process'] = Process.objects.filter(slug=d['process']).latest()
+
+                            for field_schema, fields in iterate_fields(d.get('input', {}), d['process'].input_schema):
+                                type_ = field_schema['type']
+                                name = field_schema['name']
+                                value = fields[name]
+
+                                if type_ == 'basic:file:':
+                                    fields[name] = self.hydrate_spawned_files(exported_files_mapper, value, data_id)
+                                elif type_ == 'list:basic:file:':
+                                    fields[name] = [self.hydrate_spawned_files(exported_files_mapper, fn, data_id)
+                                                    for fn in value]
+
+                            with transaction.atomic():
+                                d = Data.objects.create(**d)
+                                DataDependency.objects.create(
+                                    parent=parent_data,
+                                    child=d,
+                                    kind=DataDependency.KIND_SUBPROCESS,
+                                )
+
+                                # Copy permissions.
+                                copy_permissions(parent_data, d)
+
+                                # Entity is added to the collection only when it is
+                                # created - when it only contains 1 Data object.
+                                entities = Entity.objects.filter(data=d).annotate(num_data=Count('data')).filter(
+                                    num_data=1)
+
+                                # Copy collections.
+                                for collection in parent_data.collection_set.all():
+                                    collection.data.add(d)
+
+                                    # Add entities to which data belongs to the collection.
+                                    for entity in entities:
+                                        entity.collections.add(collection)
+
                 except Exception:  # pylint: disable=broad-except
                     logger.error(
-                        __("Purge error:\n\n{}", traceback.format_exc()),
+                        __(
+                            "Resolwe listener (handle_finish[{}]): Error while preparing spawned Data objects:\n\n{}",
+                            data_id,
+                            traceback.format_exc()
+                        ),
                         extra={
                             'data_id': data_id
                         }
                     )
 
-        self._send_reply(obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK})
+            # Data wrap up happens last, so that any triggered signals
+            # already see the spawned children. What the children themselves
+            # see is guaranteed by the transaction we're in.
+            if ExecutorProtocol.FINISH_PROCESS_RC in obj:
+                process_rc = obj[ExecutorProtocol.FINISH_PROCESS_RC]
 
-        # Spawn any new jobs in the request.
-        spawned = False
-        if ExecutorProtocol.FINISH_SPAWN_PROCESSES in obj:
-            if self._drop_ctypes:
-                ContentType.objects.clear_cache()
-            spawned = True
-            exported_files_mapper = obj[ExecutorProtocol.FINISH_EXPORTED_FILES]
-            logger.debug(
-                __("Resolwe listener (handle_finish[{}]): Spawning new Data objects.", data_id),
-                extra={
-                    'data_id': data_id
-                }
-            )
+                try:
+                    d = Data.objects.get(pk=data_id)
+                except Data.DoesNotExist:
+                    logger.error(__("Resolwe listener (handle_finish[{}]): Data object does not exist.", data_id))
+                    self._send_reply(obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK})
+                    return
 
-            try:
-                # This transaction is needed because we're running
-                # asynchronously with respect to the main Django code
-                # here; the manager can get nudged from elsewhere.
-                with transaction.atomic():
-                    parent_data = Data.objects.get(pk=data_id)
-
-                    # Spawn processes.
-                    for d in obj[ExecutorProtocol.FINISH_SPAWN_PROCESSES]:
-                        d['contributor'] = parent_data.contributor
-                        d['process'] = Process.objects.filter(slug=d['process']).latest()
-
-                        for field_schema, fields in iterate_fields(d.get('input', {}), d['process'].input_schema):
-                            type_ = field_schema['type']
-                            name = field_schema['name']
-                            value = fields[name]
-
-                            if type_ == 'basic:file:':
-                                fields[name] = self.hydrate_spawned_files(exported_files_mapper, value, data_id)
-                            elif type_ == 'list:basic:file:':
-                                fields[name] = [self.hydrate_spawned_files(exported_files_mapper, fn, data_id)
-                                                for fn in value]
-
-                        with transaction.atomic():
-                            d = Data.objects.create(**d)
-                            DataDependency.objects.create(
-                                parent=parent_data,
-                                child=d,
-                                kind=DataDependency.KIND_SUBPROCESS,
-                            )
-
-                            # Copy permissions.
-                            copy_permissions(parent_data, d)
-
-                            # Entity is added to the collection only when it is
-                            # created - when it only contains 1 Data object.
-                            entities = Entity.objects.filter(data=d).annotate(num_data=Count('data')).filter(
-                                num_data=1)
-
-                            # Copy collections.
-                            for collection in parent_data.collection_set.all():
-                                collection.data.add(d)
-
-                                # Add entities to which data belongs to the collection.
-                                for entity in entities:
-                                    entity.collections.add(collection)
-
-            except Exception:  # pylint: disable=broad-except
-                logger.error(
-                    __(
-                        "Resolwe listener (handle_finish[{}]): Error while preparing spawned Data objects:\n\n{}",
-                        data_id,
-                        traceback.format_exc()
-                    ),
-                    extra={
-                        'data_id': data_id
+                if process_rc == 0 and not d.status == Data.STATUS_ERROR:
+                    changeset = {
+                        'status': Data.STATUS_DONE,
+                        'process_progress': 100,
+                        'finished': now()
                     }
-                )
+                else:
+                    changeset = {
+                        'status': Data.STATUS_ERROR,
+                        'process_progress': 100,
+                        'process_rc': process_rc,
+                        'finished': now()
+                    }
+                obj[ExecutorProtocol.UPDATE_CHANGESET] = changeset
+                self.handle_update(obj, internal_call=True)
+
+                if not getattr(settings, 'FLOW_MANAGER_KEEP_DATA', False):
+                    try:
+                        # Clean up after process
+                        data_purge(data_ids=[data_id], delete=True, verbosity=self._verbosity)
+                    except Exception:  # pylint: disable=broad-except
+                        logger.error(
+                            __("Purge error:\n\n{}", traceback.format_exc()),
+                            extra={
+                                'data_id': data_id
+                            }
+                        )
+
+        # Notify the executor that we're done.
+        self._send_reply(obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK})
 
         # Now nudge the main manager to perform final cleanup. This is
         # needed even if there was no spawn baggage, since the manager
