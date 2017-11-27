@@ -6,9 +6,9 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+==================
+5.0.0 - 2017-11-28
+==================
 
 Changed
 -------
@@ -18,9 +18,11 @@ Changed
 - **BACKWARD INCOMPATIBLE:** Convert the manager to Django Channels
 - **BACKWARD INCOMPATIBLE:** Refactor executors into standalone programs
 - **BACKWARD INCOMPATIBLE:** Drop Python 2 support, require Python 3.4+
+- Move common test environment preparation to ``TestCaseHelpers`` mixin
 
 Fixed
 -----
+- Fix parents/children filter on Data objects
 - Correctly handle removed processes in the changes-only mode of the
   Resolwe test runner
 
@@ -47,7 +49,6 @@ Changed
 - Generalize Jinja filters to accept lists of ``Data`` objects
 - When new ``Data`` object is created, permissions are copied from
   collections and entity to which it belongs
-- Move common test environment preparation to ``TestCaseHelpers`` mixin
 
 Fixed
 -----
