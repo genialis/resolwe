@@ -10,6 +10,10 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Added
+-----
+- Database-side JSON projections for Storage models
+
 
 ==================
 5.0.0 - 2017-11-28

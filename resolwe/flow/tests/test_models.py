@@ -542,6 +542,34 @@ class StorageModelTestCase(TestCase):
         data.delete()
         self.assertEqual(Storage.objects.count(), 0)
 
+    def test_storage_manager(self):
+        data = Data.objects.create(
+            name='Test data',
+            contributor=self.contributor,
+            process=self.proc,
+        )
+
+        data.output = {'json_field': {'foo': {'moo': 'bar'}}}
+        data.status = Data.STATUS_DONE
+        data.save()
+
+        # Annotation with specific JSON field.
+        storage = Storage.objects.with_json_path(['foo', 'moo'])[0]
+        self.assertEqual(storage.json_foo_moo, 'bar')
+
+        storage = Storage.objects.with_json_path('foo.moo')[0]
+        self.assertEqual(storage.json_foo_moo, 'bar')
+
+        storage = Storage.objects.with_json_path(['foo', 'moo'], field='result')[0]
+        self.assertEqual(storage.result, 'bar')
+
+        # Extract specific JSON path.
+        value = Storage.objects.get_json_path(['foo', 'moo'])[0]
+        self.assertEqual(value, 'bar')
+
+        value = Storage.objects.get_json_path('foo.moo')[0]
+        self.assertEqual(value, 'bar')
+
 
 class UtilsTestCase(TestCase):
 

@@ -719,7 +719,7 @@ class ValidationUnitTest(TestCase):
         with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
             validate_schema(instance, schema)
 
-        with patch('resolwe.flow.models.utils.Storage') as storage_mock:
+        with patch('resolwe.flow.models.storage.Storage') as storage_mock:
             filter_mock = MagicMock()
             filter_mock.exists.return_value = True
             storage_mock.objects.filter.return_value = filter_mock
@@ -730,7 +730,7 @@ class ValidationUnitTest(TestCase):
             self.assertEqual(filter_mock.exists.call_count, 1)
 
         # non existing `Storage`
-        with patch('resolwe.flow.models.utils.Storage') as storage_mock:
+        with patch('resolwe.flow.models.storage.Storage') as storage_mock:
             filter_mock = MagicMock()
             filter_mock.exists.return_value = False
             storage_mock.objects.filter.return_value = filter_mock

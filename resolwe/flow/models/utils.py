@@ -15,17 +15,6 @@ from django.core.exceptions import ValidationError
 
 from resolwe.flow.utils import dict_dot, iterate_fields, iterate_schema
 
-# TODO: Python 3.5+ imports modules in a different (lazy) way, so when
-#       Python 3.4 support is dropped, data module can be imported as:
-#
-#           from . import data as data_model
-#
-#       Instead of importing `Data` class in functions, it can be used
-#       as:
-#
-#           data_model.Data
-from .storage import LazyStorageJSON, Storage
-
 
 class DirtyError(ValidationError):
     """Error raised when required fields missing."""
@@ -93,6 +82,8 @@ def validate_schema(instance, schema, test_required=True, path_prefix=None):
         defined in ``schema``
 
     """
+    from .storage import Storage  # Prevent circular import.
+
     def validate_refs(field):
         """Validate reference paths."""
         if 'refs' in field:
@@ -227,6 +218,8 @@ def _hydrate_values(output, output_schema, data):
 
     def hydrate_storage(storage_id):
         """Hydrate storage fields."""
+        from .storage import LazyStorageJSON  # Prevent circular import.
+
         return LazyStorageJSON(pk=storage_id)
 
     for field_schema, fields in iterate_fields(output, output_schema):
@@ -437,3 +430,16 @@ def render_template(process, template_string, context):
         return template_string
 
     return manager.get_expression_engine(expression_engine).evaluate_block(template_string, context)
+
+
+def json_path_components(path):
+    """Convert JSON path to individual path components.
+
+    :param path: JSON path, which can be either an iterable of path
+        components or a dot-separated string
+    :return: A list of path components
+    """
+    if isinstance(path, str):
+        path = path.split('.')
+
+    return list(path)
