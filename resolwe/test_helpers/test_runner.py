@@ -329,6 +329,15 @@ class ResolweRunner(DiscoverRunner):
             help="Do not mock purging functions (implies --keep-data)"
         )
 
+    def build_suite(self, *args, **kwargs):
+        """Build test suite."""
+        suite = super().build_suite(*args, **kwargs)
+        # Build suite first constructs the parallel suite and then may reduce self.parallel,
+        # while keeping suite.processes unchanged. We need to propagate the change here to
+        # avoid spawning more processes than there are databases.
+        suite.processes = self.parallel
+        return suite
+
     def run_suite(self, suite, **kwargs):
         """Run the test suite with manager workers in the background."""
         # Due to the way the app modules are imported, there's no way to
