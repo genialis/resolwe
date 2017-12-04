@@ -408,20 +408,22 @@ class ResolweRunner(DiscoverRunner):
                 print("Running with following partial tags: {}".format(', '.join(tags)))
                 print("Running with following partial tests: {}".format(', '.join(tests)))
 
+                failed_tests = 0
+
                 # First run with specific tags. Since run_tests may modify self.parallel, we need to store
                 # it here and restore it later if we also run with specific test labels.
                 parallel = self.parallel
                 if tags:
                     self.tags = tags
-                    super().run_tests(test_labels, **kwargs)
+                    failed_tests += super().run_tests(test_labels, **kwargs)
 
                 # Then run with specific test labels.
                 if tests:
                     self.parallel = parallel
                     self.tags = set()
-                    super().run_tests(tests, **kwargs)
+                    failed_tests += super().run_tests(tests, **kwargs)
 
-                return
+                return failed_tests
 
         return super().run_tests(test_labels, **kwargs)
 
