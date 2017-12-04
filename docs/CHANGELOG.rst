@@ -14,6 +14,15 @@ Added
 -----
 - Database-side JSON projections for Storage models
 
+Fixed
+-----
+- Do not report additional failure when testing a tagged process errors or fails
+- Fix test runner changes-only mode when used together with a Git repository in
+  detached HEAD state
+- Fix handling of tags and test labels together in test runner changes-only mode
+- Fix parallel test execution where more test processes than databases were
+  created during tests
+
 
 ==================
 5.0.0 - 2017-11-28
