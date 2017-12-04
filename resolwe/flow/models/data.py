@@ -408,6 +408,6 @@ class DataDependency(models.Model):
     #: child data object
     child = models.ForeignKey(Data, on_delete=models.CASCADE, related_name='parents_dependency')
     #: parent data object
-    parent = models.ForeignKey(Data, on_delete=models.CASCADE, related_name='children_dependency')
+    parent = models.ForeignKey(Data, null=True, on_delete=models.SET_NULL, related_name='children_dependency')
     #: kind of dependency
     kind = models.CharField(max_length=16, choices=KIND_CHOICES)
