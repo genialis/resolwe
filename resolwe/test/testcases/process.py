@@ -240,8 +240,20 @@ class ProcessTestCase(TransactionTestCase):
 
         super().tearDown()
 
+        # Check test outcome to prevent failing the test twice.
+        # Adapted from: https://stackoverflow.com/a/39606065
+        def list2reason(exc_list):
+            """Error reason conversion helper."""
+            if exc_list and exc_list[-1][0] is self:
+                return exc_list[-1][1]
+
+        result = self.defaultTestResult()
+        self._feedErrorsToResult(result, self._outcome.errors)
+        error = list2reason(result.errors)
+        failure = list2reason(result.failures)
+
         # Ensure all tagged processes were tested.
-        if getattr(settings, 'TEST_PROCESS_REQUIRE_TAGS', False):
+        if not error and not failure and getattr(settings, 'TEST_PROCESS_REQUIRE_TAGS', False):
             test = getattr(self, self._testMethodName)
             for slug in get_processes_from_tags(test):
                 if slug not in self._executed_processes:
