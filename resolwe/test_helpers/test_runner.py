@@ -386,11 +386,11 @@ class ResolweRunner(DiscoverRunner):
 
             print("Detecting changed files between {} and HEAD.".format(self.only_changes_to))
             changed_files = self._git('diff', '--name-only', self.only_changes_to, 'HEAD')
-            changed_files = changed_files.decode('utf8').strip().split('\n')
+            changed_files = changed_files.strip().split('\n')
             changed_files = [file for file in changed_files if file.strip()]
 
             top_level_path = self._git('rev-parse', '--show-toplevel')
-            top_level_path = top_level_path.decode('utf8').strip()
+            top_level_path = top_level_path.strip()
 
             # Process changed files to discover what they are.
             changed_files, tags, tests, full_suite = self.process_changed_files(changed_files, top_level_path)
@@ -416,7 +416,7 @@ class ResolweRunner(DiscoverRunner):
     def _git(self, *args):
         """Helper to run Git command."""
         try:
-            return subprocess.check_output(['git'] + list(args)).strip()
+            return subprocess.check_output(['git'] + list(args)).decode('utf8').strip()
         except subprocess.CalledProcessError:
             raise CommandError("Git command failed.")
 
@@ -424,6 +424,10 @@ class ResolweRunner(DiscoverRunner):
     def git_branch(self, branch):
         """Temporarily switch to a different Git branch."""
         current_branch = self._git('rev-parse', '--abbrev-ref', 'HEAD')
+        if current_branch == 'HEAD':
+            # Detached HEAD state, we need to get the actual commit.
+            current_branch = self._git('rev-parse', 'HEAD')
+
         if current_branch != branch:
             self._git('checkout', branch)
 
