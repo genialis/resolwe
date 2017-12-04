@@ -405,11 +405,23 @@ class ResolweRunner(DiscoverRunner):
                 print("Non-test code or unknown files have been modified, running full test suite.")
             else:
                 # Run specific tests/tags.
-                self.tags = tags
-                test_labels = tests
-
                 print("Running with following partial tags: {}".format(', '.join(tags)))
                 print("Running with following partial tests: {}".format(', '.join(tests)))
+
+                # First run with specific tags. Since run_tests may modify self.parallel, we need to store
+                # it here and restore it later if we also run with specific test labels.
+                parallel = self.parallel
+                if tags:
+                    self.tags = tags
+                    super().run_tests(test_labels, **kwargs)
+
+                # Then run with specific test labels.
+                if tests:
+                    self.parallel = parallel
+                    self.tags = set()
+                    super().run_tests(tests, **kwargs)
+
+                return
 
         return super().run_tests(test_labels, **kwargs)
 
