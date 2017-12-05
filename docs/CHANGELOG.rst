@@ -10,6 +10,10 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Fixed
+-----
+- Set correct executor in flow manager
+
 
 ==================
 5.1.0 - 2017-12-12

@@ -571,6 +571,10 @@ class BaseManager(BaseConsumer):
             state.MANAGER_CONTROL_CHANNEL,
             executor
         ))
+
+        # Ensure we have the correct executor loaded.
+        self.executor = self.load_executor(executor)  # pylint: disable=attribute-defined-outside-init
+
         if self._drop_ctypes:
             ContentType.objects.clear_cache()
         try:
