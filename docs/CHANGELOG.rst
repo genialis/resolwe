@@ -13,6 +13,8 @@ Unreleased
 Added
 -----
 - Database-side JSON projections for Storage models
+- Compute total size (including refs size) for file-type outputs
+- Add ``size`` field to ``Data`` model and migrate all existing objects
 
 Fixed
 -----
