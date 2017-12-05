@@ -13,6 +13,7 @@ Unreleased
 Fixed
 -----
 - Set correct executor in flow manager
+- Make executors more robust to unhandled failures
 
 
 ==================

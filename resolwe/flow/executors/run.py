@@ -154,6 +154,26 @@ class BaseFlowExecutor(object):
 
     def run(self, data_id, script, verbosity=1):
         """Execute the script and save results."""
+        try:
+            finish_fields = self._run(data_id, script, verbosity=verbosity)
+        except Exception as error:  # pylint: disable=broad-except
+            logger.exception("Unhandled exception in executor")
+
+            # Send error report.
+            self.update_data_status(process_error=[str(error)], status=DATA_META['STATUS_ERROR'])
+
+            finish_fields = {
+                ExecutorProtocol.FINISH_PROCESS_RC: 1,
+            }
+
+        if finish_fields is not None:
+            self._send_manager_command(ExecutorProtocol.FINISH, extra_fields=finish_fields)
+
+        # The response channel (Redis list) is deleted automatically once the list is drained, so
+        # there is no need to remove it manually.
+
+    def _run(self, data_id, script, verbosity=1):
+        """Execute the script and save results."""
         if verbosity >= 1:
             print('RUN: {} {}'.format(data_id, script))
 
@@ -287,8 +307,8 @@ class BaseFlowExecutor(object):
         if spawn_processes and process_rc == 0:
             finish_fields[ExecutorProtocol.FINISH_SPAWN_PROCESSES] = spawn_processes
             finish_fields[ExecutorProtocol.FINISH_EXPORTED_FILES] = self.exported_files_mapper
-        self._send_manager_command(ExecutorProtocol.FINISH, extra_fields=finish_fields)
-        # the feedback key deletes itself once the list is drained
+
+        return finish_fields
 
     def terminate(self, data_id):
         """Terminate a running script."""
