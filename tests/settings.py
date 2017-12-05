@@ -171,6 +171,9 @@ FLOW_DOCKER_MAPPINGS = [
     {'src': FLOW_EXECUTOR['UPLOAD_DIR'],
      'dest': '/upload',
      'mode': 'rw,z'},
+    {'src': os.path.join(FLOW_EXECUTOR['RUNTIME_DIR'], '{data_id}', 'secrets'),
+     'dest': '/secrets',
+     'mode': 'ro,Z'},
 ]
 
 REST_FRAMEWORK = {

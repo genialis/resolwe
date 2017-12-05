@@ -10,6 +10,11 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Added
+-----
+- Support for passing secrets to processes in a controlled way using a newly
+  defined ``basic:secret`` input type
+
 Fixed
 -----
 - Set correct executor in flow manager

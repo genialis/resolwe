@@ -21,6 +21,7 @@ from channels.test import Client
 
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError, transaction
 
 from resolwe.flow.engine import InvalidEngineError, load_engines
@@ -329,6 +330,7 @@ class BaseManager(BaseConsumer):
             file.
         """
         files = {}
+        secrets = {}
 
         settings_dict = {}
         settings_dict['DATA_DIR'] = data_dir
@@ -340,27 +342,46 @@ class BaseManager(BaseConsumer):
         django_settings.update(kwargs)
         files[ExecutorFiles.DJANGO_SETTINGS] = django_settings
 
-        # add scheduling classes
+        # Add scheduling classes.
         files[ExecutorFiles.PROCESS_META] = {
             k: getattr(Process, k) for k in dir(Process)
             if k.startswith('SCHEDULING_CLASS_') and isinstance(getattr(Process, k), str)
         }
 
-        # add Data status constants
+        # Add Data status constants.
         files[ExecutorFiles.DATA_META] = {
             k: getattr(Data, k) for k in dir(Data)
             if k.startswith('STATUS_') and isinstance(getattr(Data, k), str)
         }
 
-        # extend the settings with whatever the executor wants
-        self.executor.extend_settings(data_id, files)
+        # Extend the settings with whatever the executor wants.
+        self.executor.extend_settings(data_id, files, secrets)
 
-        # save the settings into the various files in the data dir
+        # Save the settings into the various files in the runtime dir.
         settings_dict[ExecutorFiles.FILE_LIST_KEY] = list(files.keys())
         for file_name in files:
             file_path = os.path.join(runtime_dir, file_name)
             with open(file_path, 'wt') as json_file:
                 json.dump(files[file_name], json_file, cls=SettingsJSONifier)
+
+        # Save the secrets in the runtime dir, with permissions to prevent listing the given
+        # directory.
+        secrets_dir = os.path.join(runtime_dir, ExecutorFiles.SECRETS_DIR)
+        os.makedirs(secrets_dir, mode=0o300)
+        for file_name, value in secrets.items():
+            file_path = os.path.join(secrets_dir, file_name)
+
+            # Set umask to 0 to ensure that we set the correct permissions.
+            old_umask = os.umask(0)
+            try:
+                # We need to use os.open in order to correctly enforce file creation. Otherwise,
+                # there is a race condition which can be used to create the file with different
+                # ownership/permissions.
+                file_descriptor = os.open(file_path, os.O_WRONLY | os.O_CREAT, mode=0o600)
+                with os.fdopen(file_descriptor, 'w') as raw_file:
+                    raw_file.write(value)
+            finally:
+                os.umask(old_umask)
 
     def _prepare_executor(self, data_id, executor):
         """Copy executor sources into the destination directory.
@@ -449,7 +470,16 @@ class BaseManager(BaseConsumer):
         elif cmd == WorkerProtocol.FINISH:
             data_id = message.content[WorkerProtocol.DATA_ID]
             if not getattr(settings, 'FLOW_MANAGER_KEEP_DATA', False):
-                shutil.rmtree(self._get_per_data_dir('RUNTIME_DIR', data_id))
+                try:
+                    def handle_error(func, path, exc_info):
+                        """Handle permission errors while removing data directories."""
+                        if isinstance(exc_info[1], PermissionError):
+                            os.chmod(path, 0o700)
+                            shutil.rmtree(path)
+
+                    shutil.rmtree(self._get_per_data_dir('RUNTIME_DIR', data_id), onerror=handle_error)
+                except OSError:
+                    logger.exception("Manager exception while removing data runtime directory.")
 
             if message.content[WorkerProtocol.FINISH_SPAWNED]:
                 new_sema = self.state.sync_semaphore.add(1)
@@ -649,6 +679,11 @@ class BaseManager(BaseConsumer):
                                 self.settings_actual.get('FLOW_EXECUTOR', {}).get('PYTHON', '/usr/bin/env python') +
                                 ' -m executors ' + executor_module
                             ]
+                        except PermissionDenied as error:
+                            data.status = Data.STATUS_ERROR
+                            data.process_error.append("Permission denied for process: {}".format(error))
+                            data.save()
+                            continue
                         except OSError as err:
                             logger.error(__(
                                 "OSError occurred while preparing data {} (will skip): {}",

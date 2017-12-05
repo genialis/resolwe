@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 class BaseFlowExecutorPreparer(object):
     """Represents the preparation functionality of the executor."""
 
-    def extend_settings(self, data_id, files):
+    def extend_settings(self, data_id, files, secrets):
         """Extend the settings the manager will serialize.
 
         :param data_id: The :class:`~resolwe.flow.models.Data` object id
@@ -26,17 +26,22 @@ class BaseFlowExecutorPreparer(object):
             filenames, values are the objects that will be serialized
             into those files. Standard filenames are listed in
             :class:`resolwe.flow.managers.protocol.ExecutorFiles`.
+        :param secrets: Secret files dictionary describing additional secret
+            file content that should be created and made available to
+            processes with special permissions. Keys are filenames, values
+            are the raw strings that should be written into those files.
         """
+        data = Data.objects.select_related('process').get(pk=data_id)
+
         files[ExecutorFiles.DJANGO_SETTINGS].update({
             'USE_TZ': settings.USE_TZ,
             'FLOW_EXECUTOR_TOOLS_PATHS': self.get_tools(),
         })
-        files[ExecutorFiles.DATA] = model_to_dict(Data.objects.get(
-            pk=data_id
-        ))
-        files[ExecutorFiles.PROCESS] = model_to_dict(Data.objects.get(
-            pk=data_id
-        ).process)
+        files[ExecutorFiles.DATA] = model_to_dict(data)
+        files[ExecutorFiles.PROCESS] = model_to_dict(data.process)
+
+        # Add secrets if the process has permission to read them.
+        secrets.update(data.resolve_secrets())
 
     def get_tools(self):
         """Get tools paths."""

@@ -58,6 +58,14 @@ Postgres ORM model for storing JSON.
 .. autoclass:: resolwe.flow.models.Storage
     :members:
 
+Secret model
+============
+
+Postgres ORM model for storing secrets.
+
+.. autoclass:: resolwe.flow.models.Secret
+    :members:
+
 """
 
 from .collection import Collection
@@ -65,4 +73,5 @@ from .data import Data, DataDependency
 from .descriptor import DescriptorSchema
 from .entity import Entity, Relation, RelationType
 from .process import Process
+from .secret import Secret
 from .storage import Storage

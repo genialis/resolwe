@@ -35,7 +35,7 @@ def _get_updated_docker_mappings(previous_settings=getattr(settings, 'FLOW_EXECU
     mappings_copy = copy.deepcopy(previous_mappings)
     for map_ in mappings_copy:
         for map_entry in ['src', 'dest']:
-            for setting in ['DATA_DIR', 'UPLOAD_DIR']:
+            for setting in ['DATA_DIR', 'UPLOAD_DIR', 'RUNTIME_DIR']:
                 if previous_settings[setting] in map_[map_entry]:
                     map_[map_entry] = map_[map_entry].replace(
                         previous_settings[setting], FLOW_EXECUTOR_SETTINGS[setting], 1)

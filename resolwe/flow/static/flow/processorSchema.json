@@ -143,6 +143,10 @@
                         "network": {
                             "description": "External network access",
                             "type": "boolean"
+                        },
+                        "secrets": {
+                            "description": "Access to secret store",
+                            "type": "boolean"
                         }
                     }
                 }

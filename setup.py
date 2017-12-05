@@ -58,6 +58,7 @@ setup(
         'django-guardian>=1.4.2',
         'django-mathfilters>=0.3.0',
         'django-versionfield2>=0.5.0',
+        'django-fernet-fields>=0.5',
         'elasticsearch-dsl~=2.2.0',
         'psycopg2>=2.5.0',
         'mock>=1.3.0',

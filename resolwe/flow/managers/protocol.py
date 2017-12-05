@@ -47,3 +47,5 @@ class ExecutorFiles(object):
     PROCESS_META = 'process_meta.json'
 
     PROCESS_SCRIPT = 'process_script.sh'
+
+    SECRETS_DIR = 'secrets'

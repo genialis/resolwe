@@ -9,7 +9,7 @@ import six
 
 from django.conf import settings
 from django.contrib.postgres.fields import ArrayField, JSONField
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.validators import RegexValidator
 from django.db import models, transaction
 
@@ -20,6 +20,7 @@ from resolwe.permissions.utils import assign_contributor_permissions, copy_permi
 from .base import BaseModel
 from .descriptor import DescriptorSchema
 from .entity import Entity
+from .secret import Secret
 from .storage import Storage
 from .utils import (
     DirtyError, hydrate_input_references, hydrate_size, render_descriptor, render_template, validate_schema,
@@ -194,6 +195,48 @@ class Data(BaseModel):
 
                 # `value` is copied by value, so `fields[name]` must be changed
                 fields[name] = storage.pk
+
+    def resolve_secrets(self):
+        """Retrieve handles for all basic:secret: fields on input.
+
+        The process must have the ``secrets`` resource requirement
+        specified in order to access any secrets. Otherwise this method
+        will raise a ``PermissionDenied`` exception.
+
+        :return: A dictionary of secrets where key is the secret handle
+            and value is the secret value.
+        """
+        secrets = {}
+        for field_schema, fields in iterate_fields(self.input, self.process.input_schema):  # pylint: disable=no-member
+            if not field_schema.get('type', '').startswith('basic:secret:'):
+                continue
+
+            name = field_schema['name']
+            value = fields[name]
+            try:
+                handle = value['handle']
+            except KeyError:
+                continue
+
+            try:
+                secrets[handle] = Secret.objects.get_secret(
+                    handle,
+                    contributor=self.contributor
+                )
+            except Secret.DoesNotExist:
+                raise PermissionDenied("Access to secret not allowed or secret does not exist")
+
+        # If the process does not not have the right requirements it is not
+        # allowed to access any secrets.
+        allowed = self.process.requirements.get('resources', {}).get('secrets', False)  # pylint: disable=no-member
+        if secrets and not allowed:
+            raise PermissionDenied(
+                "Process '{}' has secret inputs, but no permission to see secrets".format(
+                    self.process.slug  # pylint: disable=no-member
+                )
+            )
+
+        return secrets
 
     def save_dependencies(self, instance, schema):
         """Save data: and list:data: references as parents."""

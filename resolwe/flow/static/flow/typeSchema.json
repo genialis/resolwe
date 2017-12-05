@@ -14,6 +14,7 @@
             { "$ref": "#/types/decimal" },
             { "$ref": "#/types/date" },
             { "$ref": "#/types/datetime" },
+            { "$ref": "#/types/secret" },
             { "$ref": "#/types/file" },
             { "$ref": "#/types/dir" },
             { "$ref": "#/types/url" },
@@ -110,6 +111,28 @@
                 "value": {
                     "type": "string",
                     "pattern": "^(19|20)\\d\\d-(0[1-9]|1[012])-(0[1-9]|[12][0-9]|3[01]) (?:(?:([01]?\\d|2[0-3]):)?([0-5]?\\d):)?([0-5]?\\d)$"
+                }
+            }
+        },
+        "secret": {
+            "type": "object",
+            "required": ["type", "value"],
+            "additionalProperties": false,
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "pattern": "^basic:secret:$"
+                },
+                "value": {
+                    "type": "object",
+                    "required": ["handle"],
+                    "additionalProperties": false,
+                    "properties": {
+                        "handle": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                        }
+                    }
                 }
             }
         },
