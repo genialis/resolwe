@@ -421,7 +421,12 @@ def hydrate_size(data, force=False):
 
     if data.status in [Data.STATUS_DONE, Data.STATUS_ERROR] and getattr(data, 'size', None) is not None and not force:
         return
-    data.size = get_dir_size(os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.pk)))
+
+    data_dir_path = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.pk))
+    if os.path.exists(data_dir_path) and os.path.isdir(data_dir_path):
+        data.size = get_dir_size(data_dir_path)
+    else:
+        data.size = 0
 
 
 def render_descriptor(data):
