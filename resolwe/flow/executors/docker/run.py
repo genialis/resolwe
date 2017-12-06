@@ -7,7 +7,9 @@ import shlex
 import subprocess
 import tempfile
 
+from . import constants
 from ..local.run import FlowExecutor as LocalFlowExecutor
+from ..protocol import ExecutorFiles  # pylint: disable=import-error
 from ..run import PROCESS_META, SETTINGS
 from .seccomp import SECCOMP_POLICY
 
@@ -22,7 +24,7 @@ class FlowExecutor(LocalFlowExecutor):
         super(FlowExecutor, self).__init__(*args, **kwargs)
 
         self.container_name_prefix = None
-        self.mappings_tools = None
+        self.tools_volumes = None
         self.temporary_files = []
         self.command = SETTINGS.get('FLOW_DOCKER_COMMAND', 'docker')
 
@@ -94,11 +96,45 @@ class FlowExecutor(LocalFlowExecutor):
 
         command_args['security'] = ' '.join(security)
 
-        # render Docker mappings in FLOW_DOCKER_MAPPINGS setting
-        mappings_template = SETTINGS.get('FLOW_DOCKER_MAPPINGS', [])
-        context = {'data_id': self.data_id}
-        mappings = [{key.format(**context): value.format(**context) for key, value in template.items()}
-                    for template in mappings_template]
+        # Setup Docker volumes.
+        def new_volume(kind, base_dir_name, volume, path=None, read_only=True):
+            """Generate a new volume entry.
+
+            :param kind: Kind of volume, which is used for getting extra options from
+                settings (the ``FLOW_DOCKER_VOLUME_EXTRA_OPTIONS`` setting)
+            :param base_dir_name: Name of base directory setting for volume source path
+            :param volume: Destination volume mount point
+            :param path: Optional additional path atoms appended to source path
+            :param read_only: True to make the volume read-only
+            """
+            if path is None:
+                path = []
+
+            path = [str(atom) for atom in path]
+
+            options = set(SETTINGS.get('FLOW_DOCKER_VOLUME_EXTRA_OPTIONS', {}).get(kind, '').split(','))
+            options.discard('')
+            # Do not allow modification of read-only option.
+            options.discard('ro')
+            options.discard('rw')
+
+            if read_only:
+                options.add('ro')
+            else:
+                options.add('rw')
+
+            return {
+                'src': os.path.join(SETTINGS['FLOW_EXECUTOR'].get(base_dir_name, ''), *path),
+                'dest': volume,
+                'options': ','.join(options),
+            }
+
+        volumes = [
+            new_volume('data', 'DATA_DIR', constants.DATA_VOLUME, [self.data_id], read_only=False),
+            new_volume('data_all', 'DATA_DIR', constants.DATA_ALL_VOLUME),
+            new_volume('upload', 'UPLOAD_DIR', constants.UPLOAD_VOLUME, read_only=False),
+            new_volume('secrets', 'RUNTIME_DIR', constants.SECRETS_VOLUME, [self.data_id, ExecutorFiles.SECRETS_DIR]),
+        ]
 
         # Generate dummy passwd and create mappings for it. This is required because some tools
         # inside the container may try to lookup the given UID/GID and will crash if they don't
@@ -115,26 +151,33 @@ class FlowExecutor(LocalFlowExecutor):
         group_file.file.flush()
         self.temporary_files.append(group_file)
 
-        mappings.append({'src': passwd_file.name, 'dest': '/etc/passwd', 'mode': 'ro,Z'})
-        mappings.append({'src': group_file.name, 'dest': '/etc/group', 'mode': 'ro,Z'})
+        volumes += [
+            new_volume('users', None, '/etc/passwd', [passwd_file.name]),
+            new_volume('users', None, '/etc/group', [group_file.name]),
+        ]
 
-        # create mappings for tools
+        # Create volumes for tools.
         # NOTE: To prevent processes tampering with tools, all tools are mounted read-only
-        # NOTE: Since the tools are shared among all containers they must use the shared SELinux
-        # label (z option)
-        self.mappings_tools = [{'src': tool, 'dest': '/usr/local/bin/resolwe/{}'.format(i), 'mode': 'ro,z'}
-                               for i, tool in enumerate(self.get_tools())]
-        mappings += self.mappings_tools
-        # create Docker --volume parameters from mappings
-        command_args['volumes'] = ' '.join(['--volume="{src}":"{dest}":{mode}'.format(**map_)
-                                            for map_ in mappings])
+        self.tools_volumes = []
+        for index, tool in enumerate(self.get_tools()):
+            self.tools_volumes.append(new_volume(
+                'tools',
+                None,
+                os.path.join('/usr/local/bin/resolwe', str(index)),
+                [tool]
+            ))
 
-        # set working directory inside the container to the mapped directory of
-        # the current Data's directory
-        command_args['workdir'] = ''
-        for template in mappings_template:
-            if '{data_id}' in template['src']:
-                command_args['workdir'] = '--workdir={}'.format(template['dest'])
+        volumes += self.tools_volumes
+
+        # Add any extra volumes verbatim.
+        volumes += SETTINGS.get('FLOW_DOCKER_EXTRA_VOLUMES', [])
+
+        # Create Docker --volume parameters from volumes.
+        command_args['volumes'] = ' '.join(['--volume="{src}":"{dest}":{options}'.format(**volume)
+                                            for volume in volumes])
+
+        # Set working directory to the data volume.
+        command_args['workdir'] = '--workdir={}'.format(constants.DATA_VOLUME)
 
         # Change user inside the container.
         command_args['user'] = '--user={}:{}'.format(os.getuid(), os.getgid())
@@ -153,11 +196,11 @@ class FlowExecutor(LocalFlowExecutor):
 
     def run_script(self, script):
         """Execute the script and save results."""
-        mappings = SETTINGS.get('FLOW_DOCKER_MAPPINGS', {})
-        for map_ in mappings:
-            script = script.replace(map_['src'], map_['dest'])
+        # XXX: This is a huge hack and should be removed.
+        for volume in self.volumes:
+            script = script.replace(volume['src'], volume['dest'])
         # create a Bash command to add all the tools to PATH
-        tools_paths = ':'.join([map_["dest"] for map_ in self.mappings_tools])
+        tools_paths = ':'.join([map_["dest"] for map_ in self.tools_volumes])
         add_tools_path = 'export PATH=$PATH:{}'.format(tools_paths)
         # Spawn another child bash, to avoid running anything as PID 1, which has special
         # signal handling (e.g., cannot be SIGKILL-ed from inside).

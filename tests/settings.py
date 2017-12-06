@@ -161,20 +161,16 @@ FLOW_PROCESSES_FINDERS = (
     'resolwe.flow.finders.AppDirectoriesFinder',
 )
 
-FLOW_DOCKER_MAPPINGS = [
-    {'src': os.path.join(FLOW_EXECUTOR['DATA_DIR'], '{data_id}'),
-     'dest': '/data',
-     'mode': 'rw,Z'},
-    {'src': FLOW_EXECUTOR['DATA_DIR'],
-     'dest': '/data_all',
-     'mode': 'ro,z'},
-    {'src': FLOW_EXECUTOR['UPLOAD_DIR'],
-     'dest': '/upload',
-     'mode': 'rw,z'},
-    {'src': os.path.join(FLOW_EXECUTOR['RUNTIME_DIR'], '{data_id}', 'secrets'),
-     'dest': '/secrets',
-     'mode': 'ro,Z'},
-]
+FLOW_DOCKER_VOLUME_EXTRA_OPTIONS = {
+    'data': 'Z',
+    'data_all': 'z',
+    'upload': 'z',
+    'secrets': 'Z',
+    'users': 'Z',
+    'tools': 'z',
+}
+
+FLOW_DOCKER_EXTRA_VOLUMES = []
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (

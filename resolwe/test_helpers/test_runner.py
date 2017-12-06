@@ -6,7 +6,6 @@ Resolwe Test Runner
 
 """
 import contextlib
-import copy
 import logging
 import os
 import re
@@ -196,15 +195,10 @@ def _sequence_paths(paths):
 
 def _create_test_dirs():
     """Create all the testing directories."""
-    # Due to the unique way the docker mappings are updated, we need
-    # the pre-fudge settings copied and sheltered for the updater to work.
-    previous_settings = copy.deepcopy(resolwe_settings.FLOW_EXECUTOR_SETTINGS)
     items = ['DATA_DIR', 'UPLOAD_DIR', 'RUNTIME_DIR']
     paths = _sequence_paths([resolwe_settings.FLOW_EXECUTOR_SETTINGS[i] for i in items])
     for item, path in zip(items, paths):
         resolwe_settings.FLOW_EXECUTOR_SETTINGS[item] = path
-    resolwe_settings.FLOW_DOCKER_MAPPINGS =\
-        resolwe_settings._get_updated_docker_mappings(previous_settings)  # pylint: disable=protected-access
 
 
 def _prepare_settings():
@@ -223,7 +217,6 @@ def _prepare_settings():
         FLOW_MANAGER_DISABLE_CTYPE_CACHE=True,
         FLOW_EXECUTOR=resolwe_settings.FLOW_EXECUTOR_SETTINGS,
         FLOW_MANAGER=resolwe_settings.FLOW_MANAGER_SETTINGS,
-        FLOW_DOCKER_MAPPINGS=resolwe_settings.FLOW_DOCKER_MAPPINGS
     )
 
 
