@@ -117,11 +117,6 @@ FLOW_EXECUTOR = {
     'UPLOAD_DIR': os.path.join(PROJECT_ROOT, '.test_upload'),
     'RUNTIME_DIR': os.path.join(PROJECT_ROOT, '.test_runtime'),
     'REDIS_CONNECTION': REDIS_CONNECTION,
-    'TEST': {
-        'DATA_DIR': os.path.join(PROJECT_ROOT, '.test_data/test'),
-        'UPLOAD_DIR': os.path.join(PROJECT_ROOT, '.test_upload/test'),
-        'RUNTIME_DIR': os.path.join(PROJECT_ROOT, '.test_runtime/test'),
-    },
 }
 
 FLOW_MANAGER = {

@@ -174,8 +174,7 @@ def _sequence_paths(paths):
         created = []
 
         for base_path in paths:
-            head, tail = os.path.split(base_path)
-            path = os.path.join(head, '{}_{}'.format(tail, seq))
+            path = os.path.join(base_path, 'test_{}'.format(seq))
             try:
                 os.makedirs(path)
                 created.append(path)
