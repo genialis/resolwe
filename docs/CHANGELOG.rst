@@ -12,6 +12,7 @@ Unreleased
 
 Fixed
 -----
+- Fix ``Data`` object preparation race condition in ``communicate()``
 - Set correct executor in flow manager
 - Make executors more robust to unhandled failures
 - Calculate ``Data.size`` by summing ``total_size`` of all file-type outputs

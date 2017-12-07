@@ -21,6 +21,7 @@ from channels.test import Client
 
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import PermissionDenied
 from django.db import IntegrityError, transaction
 
 from resolwe.flow.engine import InvalidEngineError, load_engines
@@ -564,6 +565,9 @@ class BaseManager(BaseConsumer):
             discovered in this pass.
         """
         queue = []
+        # Announce this here so it's not defined in the loop first;
+        # if it is, the linter complains.
+        transaction_success = []
         logger.debug(__(
             "Manager '{}.{}' processing communicate command on '{}' for executor '{}'.",
             self.__class__.__module__,
@@ -579,6 +583,9 @@ class BaseManager(BaseConsumer):
             ContentType.objects.clear_cache()
         try:
             for data in Data.objects.filter(status=Data.STATUS_RESOLVING):
+                # Flag for transaction success. Can't be a primitive var
+                # due to closure semantics.
+                transaction_success = []
                 with transaction.atomic():
                     # Lock for update. Note that we want this transaction to be as short as
                     # possible in order to reduce contention and avoid deadlocks. This is
@@ -628,39 +635,52 @@ class BaseManager(BaseConsumer):
                         data.status = Data.STATUS_WAITING
                     data.save(render_name=True)
 
-                    if program is not None:
-                        try:
-                            priority = 'normal'
-                            if data.process.persistence == Process.PERSISTENCE_TEMP:
-                                # TODO: This should probably be removed.
-                                priority = 'high'
-                            if data.process.scheduling_class == Process.SCHEDULING_CLASS_INTERACTIVE:
-                                priority = 'high'
-
-                            program = self._include_environment_variables(program)
-
-                            data_dir = self._prepare_data_dir(data.id)
-                            executor_module, runtime_dir = self._prepare_executor(data.id, executor)
-                            self._prepare_context(data.id, data_dir, runtime_dir, verbosity=verbosity)
-                            self._prepare_script(runtime_dir, program)
-                            argv = [
-                                '/bin/bash',
-                                '-c',
-                                self.settings_actual.get('FLOW_EXECUTOR', {}).get('PYTHON', '/usr/bin/env python') +
-                                ' -m executors ' + executor_module
-                            ]
-                        except OSError as err:
-                            logger.error(__(
-                                "OSError occurred while preparing data {} (will skip): {}",
-                                data.id, err
-                            ))
-                            continue
-
-                        queue.append((data.id, priority, runtime_dir, argv))
+                    # Signal transaction success through the flag.
+                    transaction.on_commit(lambda: transaction_success.append(True))
 
                     # All data objects created by the execution engine are commited after this
                     # point and may be processed by other managers running in parallel. At the
-                    # same time, lock for the current data object is released.
+                    # same time, the lock for the current data object is released.
+
+                # End of the with clause
+
+                # If the transaction didn't roll back, we're good to go with adding the object
+                # to the processing queue. This shouldn't be in the transaction, since it
+                # wouldn't roll back in case the transaction failed.
+                if any(transaction_success) and program is not None:
+                    try:
+                        priority = 'normal'
+                        if data.process.persistence == Process.PERSISTENCE_TEMP:
+                            # TODO: This should probably be removed.
+                            priority = 'high'
+                        if data.process.scheduling_class == Process.SCHEDULING_CLASS_INTERACTIVE:
+                            priority = 'high'
+
+                        program = self._include_environment_variables(program)
+
+                        data_dir = self._prepare_data_dir(data.id)
+                        executor_module, runtime_dir = self._prepare_executor(data.id, executor)
+                        self._prepare_context(data.id, data_dir, runtime_dir, verbosity=verbosity)
+                        self._prepare_script(runtime_dir, program)
+                        argv = [
+                            '/bin/bash',
+                            '-c',
+                            self.settings_actual.get('FLOW_EXECUTOR', {}).get('PYTHON', '/usr/bin/env python') +
+                            ' -m executors ' + executor_module
+                        ]
+                    except PermissionDenied as error:
+                        data.status = Data.STATUS_ERROR
+                        data.process_error.append("Permission denied for process: {}".format(error))
+                        data.save()
+                        continue
+                    except OSError as err:
+                        logger.error(__(
+                            "OSError occurred while preparing data {} (will skip): {}",
+                            data.id, err
+                        ))
+                        continue
+
+                    queue.append((data.id, priority, runtime_dir, argv))
 
         except IntegrityError as exp:
             logger.error(__("IntegrityError in manager {}", exp))
