@@ -196,10 +196,7 @@ class FlowExecutor(LocalFlowExecutor):
 
     def run_script(self, script):
         """Execute the script and save results."""
-        # XXX: This is a huge hack and should be removed.
-        for volume in self.volumes:
-            script = script.replace(volume['src'], volume['dest'])
-        # create a Bash command to add all the tools to PATH
+        # Create a Bash command to add all the tools to PATH.
         tools_paths = ':'.join([map_["dest"] for map_ in self.tools_volumes])
         add_tools_path = 'export PATH=$PATH:{}'.format(tools_paths)
         # Spawn another child bash, to avoid running anything as PID 1, which has special

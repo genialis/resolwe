@@ -63,18 +63,17 @@ def data_by_slug(slug):
     return Data.objects.get(slug=slug).pk
 
 
-def get_url(file_path):
+def get_url(hydrated_path):
     """Return file's url based on base url set in settings."""
-    # Get only file path if whole file object is given
-    if isinstance(file_path, dict) and 'file' in file_path:
-        file_path = file_path['file']
+    # Get only file path if whole file object is given.
+    if isinstance(hydrated_path, dict) and 'file' in hydrated_path:
+        hydrated_path = hydrated_path['file']
 
-    data_dir = settings.FLOW_EXECUTOR['DATA_DIR']
-    file_path = file_path[len(data_dir):]  # remove data_dir prefix
-    file_path = file_path.lstrip('/')
+    if not hasattr(hydrated_path, 'file_name'):
+        raise TypeError("Argument to get_url must be a hydrated path")
+
     base_url = getattr(settings, 'RESOLWE_HOST_URL', 'localhost')
-
-    return "{}/data/{}".format(base_url, file_path)
+    return "{}/data/{}/{}".format(base_url, hydrated_path.data_id, hydrated_path.file_name)
 
 
 def descriptor(obj, path=''):

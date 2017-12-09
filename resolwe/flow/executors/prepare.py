@@ -65,3 +65,32 @@ class BaseFlowExecutorPreparer(object):
         this point. By default, it does nothing.
         """
         pass
+
+    def resolve_data_path(self, data=None, filename=None):
+        """Resolve data path for use with the executor.
+
+        :param data: Data object instance
+        :param filename: Filename to resolve
+        :return: Resolved filename, which can be used to access the
+            given data file in programs executed using this executor
+        """
+        if data is None:
+            return settings.FLOW_EXECUTOR['DATA_DIR']
+
+        if filename is None:
+            return os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.id))
+
+        return os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.id), filename)
+
+    def resolve_upload_path(self, filename=None):
+        """Resolve upload path for use with the executor.
+
+        :param filename: Filename to resolve
+        :return: Resolved filename, which can be used to access the
+            given uploaded file in programs executed using this
+            executor
+        """
+        if filename is None:
+            return settings.FLOW_EXECUTOR['UPLOAD_DIR']
+
+        return os.path.join(settings.FLOW_EXECUTOR['UPLOAD_DIR'], filename)

@@ -215,11 +215,21 @@ def _hydrate_values(output, output_schema, data):
     """
     def hydrate_path(file_name):
         """Hydrate file paths."""
-        id_ = "{}/".format(data.id)  # needs trailing slash
-        if id_ in file_name:
-            file_name = file_name[file_name.find(id_) + len(id_):]  # remove id from filename
+        from resolwe.flow.managers import manager
 
-        return os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], id_, file_name)
+        class HydratedPath(str):
+            """String wrapper, which also stores the original filename."""
+
+            __slots__ = ('data_id', 'file_name')
+
+            def __new__(cls, value=''):
+                """Initialize hydrated path."""
+                hydrated = str.__new__(cls, value)
+                hydrated.data_id = data.id
+                hydrated.file_name = file_name
+                return hydrated
+
+        return HydratedPath(manager.get_executor().resolve_data_path(data, file_name))
 
     def hydrate_storage(storage_id):
         """Hydrate storage fields."""
@@ -314,6 +324,8 @@ def hydrate_input_uploads(input_, input_schema, hydrate_values=True):
     Add the upload location for relative paths.
 
     """
+    from resolwe.flow.managers import manager
+
     files = []
     for field_schema, fields in iterate_fields(input_, input_schema):
         name = field_schema['name']
@@ -331,7 +343,7 @@ def hydrate_input_uploads(input_, input_schema, hydrate_values=True):
             if isinstance(value['file_temp'], six.string_types):
                 # If file_temp not url, nor absolute path: hydrate path
                 if not os.path.isabs(value['file_temp']) and not urlregex.search(value['file_temp']):
-                    value['file_temp'] = os.path.join(settings.FLOW_EXECUTOR['UPLOAD_DIR'], value['file_temp'])
+                    value['file_temp'] = manager.get_executor().resolve_upload_path(value['file_temp'])
             else:
                 # Something very strange happened
                 value['file_temp'] = 'Invalid value for file_temp in DB'
