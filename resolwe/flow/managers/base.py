@@ -16,7 +16,6 @@ import time
 from importlib import import_module
 
 from channels import Channel
-from channels.generic import BaseConsumer
 from channels.test import Client
 
 from django.conf import settings
@@ -87,7 +86,7 @@ def dependency_status(data):
     return Data.STATUS_DONE
 
 
-class BaseManager(BaseConsumer):
+class BaseManager(object):
     """Manager handles process job execution."""
 
     class _SynchronizationManager(object):
@@ -160,12 +159,18 @@ class BaseManager(BaseConsumer):
             self.state.settings_override = self.old_overrides
             return False
 
-    def discover_engines(self):
-        """Discover configured engines."""
-        executor = getattr(settings, 'FLOW_EXECUTOR', {}).get('NAME', 'resolwe.flow.executors.local')
+    def discover_engines(self, executor=None):
+        """Discover configured engines.
+
+        :param executor: Optional executor module override
+        """
+        if executor is None:
+            executor = getattr(settings, 'FLOW_EXECUTOR', {}).get('NAME', 'resolwe.flow.executors.local')
         self.executor = self.load_executor(executor)
+
         expression_engines = getattr(settings, 'FLOW_EXPRESSION_ENGINES', ['resolwe.flow.expression_engines.jinja'])
         self.expression_engines = self.load_expression_engines(expression_engines)
+
         execution_engines = getattr(settings, 'FLOW_EXECUTION_ENGINES', ['resolwe.flow.execution_engines.bash'])
         self.execution_engines = self.load_execution_engines(execution_engines)
 
@@ -211,23 +216,14 @@ class BaseManager(BaseConsumer):
         # independently, it must clear the cache on its own.
         self._drop_ctypes = getattr(settings, 'FLOW_MANAGER_DISABLE_CTYPE_CACHE', False)
 
-        if 'static' not in kwargs or not kwargs['static']:
-            super().__init__(*args, **kwargs)
-
-    def update_routing(self):
-        """Update naming information in the Channels' routing layer.
-
-        This should not be needed in normal operation. It's mostly here
-        to support the testing infrastructure, where the manner in which
-        Django settings are patched and the ordering (in terms of import
-        order) where they're needed clash and make things awkward.
-        """
-        # This is all a bit kludgy, but we want runtime settings
-        # patching after the module is already loaded, and Channels
-        # wants a class variable.
-        setattr(type(self), 'method_mapping', {
-            state.MANAGER_CONTROL_CHANNEL: 'handle_control_event',
-        })
+        # Ensure there is only one manager instance per process. This
+        # is required as other parts of the code access the global
+        # manager instance.
+        try:
+            from resolwe.flow import managers
+            assert not hasattr(managers, 'manager')
+        except ImportError:
+            pass
 
     def _marshal_settings(self):
         """Marshal Django settings into a serializable object.
@@ -602,8 +598,8 @@ class BaseManager(BaseConsumer):
             executor
         ))
 
-        # Ensure we have the correct executor loaded.
-        self.executor = self.load_executor(executor)  # pylint: disable=attribute-defined-outside-init
+        # Ensure we have the correct engines loaded.
+        self.discover_engines(executor=executor)
 
         if self._drop_ctypes:
             ContentType.objects.clear_cache()

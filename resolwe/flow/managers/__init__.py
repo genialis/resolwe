@@ -38,4 +38,4 @@ def load_manager(manager_name):
 
 
 FLOW_MANAGER = getattr(settings, 'FLOW_MANAGER', {}).get('NAME', 'resolwe.flow.managers.local')
-manager = load_manager(FLOW_MANAGER).Manager(static=True)  # pylint: disable=invalid-name
+manager = load_manager(FLOW_MANAGER).Manager()  # pylint: disable=invalid-name
