@@ -16,6 +16,7 @@ Changed
   ``FLOW_DOCKER_VOLUME_EXTRA_OPTIONS`` and ``FLOW_DOCKER_EXTRA_VOLUMES``
 - Parent relations are kept even after the parent is deleted and are deleted
   when the child is deleted
+- Dependency resolver in manager is sped up by use of parent relations
 
 Added
 -----

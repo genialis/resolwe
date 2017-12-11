@@ -25,8 +25,7 @@ from django.db import IntegrityError, transaction
 
 from resolwe.flow.engine import InvalidEngineError, load_engines
 from resolwe.flow.execution_engines import ExecutionError
-from resolwe.flow.models import Data, Process
-from resolwe.flow.utils import iterate_fields
+from resolwe.flow.models import Data, DataDependency, Process
 from resolwe.utils import BraceMessage as __
 
 from . import state
@@ -53,37 +52,31 @@ class SettingsJSONifier(json.JSONEncoder):
 def dependency_status(data):
     """Return abstracted satus of dependencies.
 
-    STATUS_ERROR .. one dependency has error status
+    STATUS_ERROR .. one dependency has error status or was deleted
     STATUS_DONE .. all dependencies have done status
     None .. other
 
     """
-    for field_schema, fields in iterate_fields(data.input, data.process.input_schema):
-        if (field_schema['type'].lower().startswith('data:') or
-                field_schema['type'].lower().startswith('list:data:')):
-            name = field_schema['name']
-            value = fields[name]
+    parents_statuses = set(
+        DataDependency.objects.filter(
+            child=data, kind=DataDependency.KIND_IO
+        ).distinct('parent__status').values_list('parent__status', flat=True)
+    )
 
-            # None values are valid and should be ignored.
-            if value is None:
-                continue
+    if len(parents_statuses) == 0:
+        return Data.STATUS_DONE
 
-            if field_schema['type'].lower().startswith('data:'):
-                value = [value]
+    if None in parents_statuses:
+        # Some parents have been deleted.
+        return Data.STATUS_ERROR
 
-            for uid in value:
-                try:
-                    _data = Data.objects.get(id=uid)
-                except Data.DoesNotExist:
-                    return Data.STATUS_ERROR
+    if Data.STATUS_ERROR in parents_statuses:
+        return Data.STATUS_ERROR
 
-                if _data.status == Data.STATUS_ERROR:
-                    return Data.STATUS_ERROR
+    if len(parents_statuses) == 1 and Data.STATUS_DONE in parents_statuses:
+        return Data.STATUS_DONE
 
-                if _data.status != Data.STATUS_DONE:
-                    return None
-
-    return Data.STATUS_DONE
+    return None
 
 
 class BaseManager(object):
