@@ -15,6 +15,9 @@ Fixed
 - Set correct executor in flow manager
 - Make executors more robust to unhandled failures
 - Calculate ``Data.size`` by summing ``total_size`` of all file-type outputs
+- Don't change slug explicitly defined by user - raise an error instead
+- Objects are locked while updated over API, so concurrent operations
+  don't override each other
 
 
 ==================

@@ -6,6 +6,7 @@ from django.db import IntegrityError, transaction
 from guardian.utils import get_anonymous_user
 from rest_framework import mixins, status
 from rest_framework.decorators import list_route
+from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
 
 from resolwe.flow.models import DescriptorSchema
@@ -102,7 +103,59 @@ class ResolweUpdateModelMixin(mixins.UpdateModelMixin):
                         'Invalid descriptor_schema slug "{}" - object does not exist.'.format(ds_query)]},
                     status=status.HTTP_400_BAD_REQUEST)
 
-        return super(ResolweUpdateModelMixin, self).update(request, *args, **kwargs)
+        # NOTE: Use the original method instead when support for locking is added:
+        #       https://github.com/encode/django-rest-framework/issues/4675
+        # return super(ResolweUpdateModelMixin, self).update(request, *args, **kwargs)
+        return self._update(request, *args, **kwargs)
+
+    # NOTE: This is a copy of rest_framework.mixins.UpdateModelMixin.update().
+    #       The self.get_object() was replaced with the
+    #       self.get_object_with_lock() to lock the object while updating.
+    #       Use the original method when suport for locking is added:
+    #       https://github.com/encode/django-rest-framework/issues/4675
+    def _update(self, request, *args, **kwargs):
+        """Update a resource."""
+        partial = kwargs.pop('partial', False)
+        # NOTE: The line below was changed.
+        instance = self.get_object_with_lock()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
+        if getattr(instance, '_prefetched_objects_cache', None):
+            # If 'prefetch_related' has been applied to a queryset, we need to
+            # forcibly invalidate the prefetch cache on the instance.
+            instance._prefetched_objects_cache = {}  # pylint: disable=protected-access
+
+        return Response(serializer.data)
+
+    # NOTE: This is a copy of rest_framework.generics.GenericAPIView.get_object().
+    #       The select_for_update() was added to the 'queryset'
+    #       to lock the object while updating.
+    #       Use the original method when suport for locking is added:
+    #       https://github.com/encode/django-rest-framework/issues/4675
+    def get_object_with_lock(self):
+        """Return the object the view is displaying."""
+        queryset = self.filter_queryset(self.get_queryset())
+
+        # Perform the lookup filtering.
+        lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
+
+        assert lookup_url_kwarg in self.kwargs, (
+            'Expected view %s to be called with a URL keyword argument '
+            'named "%s". Fix your URL conf, or set the `.lookup_field` '
+            'attribute on the view correctly.' %
+            (self.__class__.__name__, lookup_url_kwarg)
+        )
+
+        filter_kwargs = {self.lookup_field: self.kwargs[lookup_url_kwarg]}
+        # NOTE: The line below was changed.
+        obj = get_object_or_404(queryset.select_for_update(), **filter_kwargs)
+
+        # May raise a permission denied.
+        self.check_object_permissions(self.request, obj)
+
+        return obj
 
 
 class ResolweCheckSlugMixin(object):
