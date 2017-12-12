@@ -37,6 +37,17 @@ class FieldsTest(TestCase):
         obj = TestModel.objects.create(name='Test object 2')
         self.assertEqual(obj.slug, 'test-object-2-2')
 
+    def test_predefined_slug(self):
+        from .fields_test_app.models import TestModel
+
+        obj = TestModel.objects.create(name='Test object')
+
+        # It is ok to add a sequence to slug if it is not explicitly defined.
+        TestModel.objects.create(name='Test object')
+
+        with six.assertRaisesRegex(self, DatabaseError, 'is already taken'):
+            TestModel.objects.create(name='Test object', slug=obj.slug)
+
     def test_generate_only_on_create(self):
         from .fields_test_app.models import TestModel
 
@@ -58,8 +69,8 @@ class FieldsTest(TestCase):
         self.assertEqual(obj.slug, 'test-object')
 
         obj.version = '1.0.0'
-        obj.save()
-        self.assertEqual(obj.slug, 'test-object-2')
+        with six.assertRaisesRegex(self, DatabaseError, 'is already taken'):
+            obj.save()
 
     def test_long_sequence(self):
         from .fields_test_app.models import TestModel

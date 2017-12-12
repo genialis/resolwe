@@ -92,6 +92,9 @@ class ResolweSlugField(SlugField):
         """Ensure slug uniqunes before save."""
         slug = self.value_from_object(instance)
 
+        # We don't want to change slug defined by user.
+        predefined_slug = bool(slug)
+
         if not slug and self.populate_from:
             slug = self._get_populate_from_value(instance)
 
@@ -172,9 +175,14 @@ class ResolweSlugField(SlugField):
                 result = cursor.fetchone()[0]
 
             if result is not None:
+                if predefined_slug:
+                    raise DatabaseError(
+                        "Slug '{}' (version {}) is already taken.".format(slug, instance.version)
+                    )
+
                 if len(str(result)) > MAX_SLUG_SEQUENCE_DIGITS:
                     raise DatabaseError(
-                        'Auto-generated slug sequence too long - please choose a different slug.'
+                        "Auto-generated slug sequence too long - please choose a different slug."
                     )
 
                 slug = '{}-{}'.format(slug, result)
