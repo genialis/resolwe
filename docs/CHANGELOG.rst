@@ -6,22 +6,30 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+==================
+5.1.0 - 2017-12-12
+==================
 
 Added
 -----
-- Database-side JSON projections for Storage models
+- Database-side JSON projections for ``Storage`` models
 - Compute total size (including refs size) for file-type outputs
 - Add ``size`` field to ``Data`` model and migrate all existing objects
 
+Change
+------
+- Change Test Runner's test directory creation so it always creates a
+  subdirectory in ``FLOW_EXECUTOR``'s ``DATA_DIR``, ``UPLOAD_DIR`` and
+  ``RUNTIME_DIR`` directories
+
 Fixed
 -----
-- Do not report additional failure when testing a tagged process errors or fails
-- Fix test runner changes-only mode when used together with a Git repository in
-  detached HEAD state
-- Fix handling of tags and test labels together in test runner changes-only mode
+- Do not report additional failure when testing a tagged process errors or
+  fails
+- Fix Test Runner's ``changes-only`` mode when used together with a Git
+  repository in detached ``HEAD`` state
+- Fix handling of tags and test labels together in Test Runner's
+  ``changes-only`` mode
 - Fix parallel test execution where more test processes than databases were
   created during tests
 
