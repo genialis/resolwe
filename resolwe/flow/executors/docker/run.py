@@ -36,24 +36,16 @@ class FlowExecutor(LocalFlowExecutor):
             'container_image': self.requirements.get('image', SETTINGS['FLOW_EXECUTOR']['CONTAINER_IMAGE']),
         }
 
-        # Get limit defaults and overrides.
+        # Get limit defaults.
         limit_defaults = SETTINGS.get('FLOW_DOCKER_LIMIT_DEFAULTS', {})
-        limit_overrides = SETTINGS.get('FLOW_DOCKER_LIMIT_OVERRIDES', {})
 
         # Set resource limits.
         limits = []
-        if 'cores' in self.resources:
-            # Each core is equivalent to 1024 CPU shares. The default for Docker containers
-            # is 1024 shares (we don't need to explicitly set that).
-            limits.append('--cpu-shares={}'.format(int(self.resources['cores']) * 1024))
+        # Each core is equivalent to 1024 CPU shares. The default for Docker containers
+        # is 1024 shares (we don't need to explicitly set that).
+        limits.append('--cpu-shares={}'.format(int(self.process['resource_limits']['cores']) * 1024))
 
-        memory = limit_overrides.get('memory', {}).get(self.process['slug'], None)
-        if memory is None:
-            memory = int(self.resources.get(
-                'memory',
-                # If no memory resource is configured, check settings.
-                limit_defaults.get('memory', 4096)
-            ))
+        memory = self.process['resource_limits']['memory']
 
         # Set both memory and swap limits as we want to enforce the total amount of memory
         # used (otherwise swap would not count against the limit).

@@ -1,6 +1,7 @@
 """Reslowe process model."""
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+from django.conf import settings
 from django.contrib.postgres.fields import JSONField
 from django.core.validators import RegexValidator
 from django.db import models
@@ -156,3 +157,36 @@ class Process(BaseModel):
     """
     process scheduling class
     """
+
+    def get_resource_limits(self):
+        """Get the core count and memory usage limits for this process.
+
+        :return: A dictionary with the resource limits, containing the
+            following keys:
+
+            - ``memory``: Memory usage limit, in MB. Defaults to 4096 if
+              not otherwise specified in the resource requirements.
+            - ``cores``: Core count limit. Defaults to 1.
+
+        :rtype: dict
+        """
+        # Get limit defaults and overrides.
+        limit_defaults = getattr(settings, 'FLOW_DOCKER_LIMIT_DEFAULTS', {})
+        limit_overrides = getattr(settings, 'FLOW_DOCKER_LIMIT_OVERRIDES', {})
+
+        limits = {}
+
+        resources = self.requirements.get('resources', {})  # pylint: disable=no-member
+
+        limits['cores'] = int(resources.get('cores', 1))
+
+        memory = limit_overrides.get('memory', {}).get(self.slug, None)
+        if memory is None:
+            memory = int(resources.get(
+                'memory',
+                # If no memory resource is configured, check settings.
+                limit_defaults.get('memory', 4096)
+            ))
+        limits['memory'] = memory
+
+        return limits

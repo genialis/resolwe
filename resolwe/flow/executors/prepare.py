@@ -39,6 +39,7 @@ class BaseFlowExecutorPreparer(object):
         })
         files[ExecutorFiles.DATA] = model_to_dict(data)
         files[ExecutorFiles.PROCESS] = model_to_dict(data.process)
+        files[ExecutorFiles.PROCESS]['resource_limits'] = data.process.get_resource_limits()
 
         # Add secrets if the process has permission to read them.
         secrets.update(data.resolve_secrets())
