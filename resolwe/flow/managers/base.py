@@ -182,11 +182,8 @@ class BaseManager(object):
     def __init__(self, *args, **kwargs):
         """Initialize arguments.
 
-        :param static: Optional. If ``True``, do only partial
-            initialization. This is useful if e.g. a static global
-            singleton instance of the manager is needed. In such a case,
-            the Django Channels portion (of which it must be a subclass)
-            must not be initialized.
+        :param internal: Optional. If ``True``, this instance is being
+            created internally, so skip the singleton-ness check.
         """
         self.discover_engines()
         self.state = state.ManagerState(state.MANAGER_STATE_PREFIX)
@@ -214,7 +211,7 @@ class BaseManager(object):
         # manager instance.
         try:
             from resolwe.flow import managers
-            assert not hasattr(managers, 'manager')
+            assert kwargs.get('internal', False) or not hasattr(managers, 'manager')
         except ImportError:
             pass
 
