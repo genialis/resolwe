@@ -12,6 +12,7 @@ import sys
 
 from django.conf import settings
 
+from resolwe.flow.models import Process
 from resolwe.utils import BraceMessage as __
 
 from ..tasks import celery_run
@@ -30,14 +31,14 @@ except ImportError:
 class Manager(BaseManager):
     """Celery-based manager for job execution."""
 
-    def run(self, data_id, dest_dir, argv, priority='normal', run_sync=False, verbosity=1):
+    def run(self, data, dest_dir, argv, run_sync=False, verbosity=1):
         """Run process.
 
         For details, see
         :meth:`~resolwe.flow.managers.base.BaseManager.run`.
         """
         queue = 'ordinary'
-        if priority == 'high':
+        if data.process.scheduling_class == Process.SCHEDULING_CLASS_INTERACTIVE:
             queue = 'hipri'
 
         logger.debug(__(
@@ -48,4 +49,4 @@ class Manager(BaseManager):
             queue,
             getattr(settings, 'CELERY_ALWAYS_EAGER', None)
         ))
-        celery_run.apply_async((data_id, dest_dir, argv, verbosity), queue=queue)
+        celery_run.apply_async((data.id, dest_dir, argv, verbosity), queue=queue)

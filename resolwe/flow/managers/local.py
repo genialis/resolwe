@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 class Manager(BaseManager):
     """Local manager for job execution."""
 
-    def run(self, data_id, dest_dir, argv, priority='normal', run_sync=False, verbosity=1):
+    def run(self, data, dest_dir, argv, run_sync=False, verbosity=1):
         """Run process locally.
 
         For details, see

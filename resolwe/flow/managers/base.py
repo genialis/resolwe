@@ -243,15 +243,14 @@ class BaseManager(object):
         export_commands = ['export {}="{}"'.format(key, value.replace('"', '\"')) for key, value in env_vars.items()]
         return os.linesep.join(export_commands) + os.linesep + program
 
-    def run(self, data_id, dest_dir, argv, priority='normal', run_sync=False, verbosity=1):
+    def run(self, data, dest_dir, argv, run_sync=False, verbosity=1):
         """Run process.
 
-        :param data_id: The id of the :class:`~resolwe.flow.models.Data`
-            object that is to be run.
+        :param data: The :class:`~resolwe.flow.models.Data` object that
+            is to be run.
         :param dest_dir: The directory the
             :class:`~resolwe.flow.models.Data` object should be run from.
         :param argv: The argument vector used to spawn the executor.
-        :param priority: The execution priority for this job.
         :param run_sync: If ``True``, the method will not return until
             the manager is finished processing everything from this call
             onwards.
@@ -597,13 +596,6 @@ class BaseManager(object):
 
         # Prepare the executor's environment.
         try:
-            priority = 'normal'
-            if data.process.persistence == Process.PERSISTENCE_TEMP:
-                # TODO: This should probably be removed.
-                priority = 'high'
-            if data.process.scheduling_class == Process.SCHEDULING_CLASS_INTERACTIVE:
-                priority = 'high'
-
             program = self._include_environment_variables(program)
 
             data_dir = self._prepare_data_dir(data.id)
@@ -635,7 +627,7 @@ class BaseManager(object):
         # Set execution claim on the semaphore.
         new_sema = self.state.sync_semaphore.add(1)
         logger.debug(__("Manager changed sync_semaphore UP to {} on executor start.", new_sema))
-        self.run(data.id, runtime_dir, argv, priority=priority, verbosity=verbosity)
+        self.run(data, runtime_dir, argv, verbosity=verbosity)
 
     def _data_scan(self, run_sync=False, verbosity=1, executor='resolwe.flow.executors.local', **kwargs):
         """Scan for new Data objects and execute them.
