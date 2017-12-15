@@ -78,7 +78,7 @@ class BaseFlowExecutor(object):
         # This channel name will be used for all listener communication; Data object-specific.
         self.queue_response_channel = '{}.{}'.format(EXECUTOR_SETTINGS['REDIS_CHANNEL_PAIR'][1], DATA['id'])
 
-    def get_tools(self):
+    def get_tools_paths(self):
         """Get tools paths."""
         tools_paths = SETTINGS['FLOW_EXECUTOR_TOOLS_PATHS']
         return tools_paths

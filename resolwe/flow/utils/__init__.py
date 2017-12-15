@@ -16,7 +16,10 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import functools
 import hashlib
 import json
+import os
 
+from django.apps import apps
+from django.conf import settings
 from django.db import models
 
 from .iterators import iterate_fields, iterate_schema  # pylint: disable=unused-import
@@ -76,3 +79,27 @@ def dict_dot(d, k, val=None, default=None):
         except ValueError:
             set_item(d, k, val)
         return val
+
+
+def get_apps_tools():
+    """Get applications' tools and their paths.
+
+    Return a dict with application names as keys and paths to tools'
+    directories as values. Applications without tools are omitted.
+    """
+    tools_paths = {}
+
+    for app_config in apps.get_app_configs():
+        proc_path = os.path.join(app_config.path, 'tools')
+        if os.path.isdir(proc_path):
+            tools_paths[app_config.name] = proc_path
+
+    custom_tools_paths = getattr(settings, 'RESOLWE_CUSTOM_TOOLS_PATHS', [])
+    if not isinstance(custom_tools_paths, list):
+        raise KeyError("`RESOLWE_CUSTOM_TOOLS_PATHS` setting must be a list.")
+
+    for seq, custom_path in enumerate(custom_tools_paths):
+        custom_key = '_custom_{}'.format(seq)
+        tools_paths[custom_key] = custom_path
+
+    return tools_paths

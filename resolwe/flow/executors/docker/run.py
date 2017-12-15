@@ -151,7 +151,7 @@ class FlowExecutor(LocalFlowExecutor):
         # Create volumes for tools.
         # NOTE: To prevent processes tampering with tools, all tools are mounted read-only
         self.tools_volumes = []
-        for index, tool in enumerate(self.get_tools()):
+        for index, tool in enumerate(self.get_tools_paths()):
             self.tools_volumes.append(new_volume(
                 'tools',
                 None,

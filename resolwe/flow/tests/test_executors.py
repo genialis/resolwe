@@ -22,10 +22,10 @@ PROCESSES_DIR = os.path.join(os.path.dirname(__file__), 'processes')
 
 class GetToolsTestCase(TestCase):
 
-    @mock.patch('resolwe.flow.executors.prepare.apps')
-    @mock.patch('resolwe.flow.executors.prepare.os')
-    @mock.patch('resolwe.flow.executors.prepare.settings')
-    def test_get_tools(self, settings_mock, os_mock, apps_mock):
+    @mock.patch('resolwe.flow.utils.apps')
+    @mock.patch('resolwe.flow.utils.os')
+    @mock.patch('resolwe.flow.utils.settings')
+    def test_get_tools_paths(self, settings_mock, os_mock, apps_mock):
         apps_mock.get_app_configs.return_value = [
             mock.MagicMock(path='/resolwe/test_app1'),
             mock.MagicMock(path='/resolwe/test_app2'),
@@ -35,21 +35,21 @@ class GetToolsTestCase(TestCase):
         settings_mock.RESOLWE_CUSTOM_TOOLS_PATHS = ['/custom_tools']
 
         base_executor = BaseFlowExecutorPreparer()
-        tools_list = base_executor.get_tools()
+        tools_list = base_executor.get_tools_paths()
 
         self.assertEqual(len(tools_list), 2)
         self.assertIn('/resolwe/test_app2/tools', tools_list)
         self.assertIn('/custom_tools', tools_list)
 
-    @mock.patch('resolwe.flow.executors.prepare.apps')
-    @mock.patch('resolwe.flow.executors.prepare.settings')
+    @mock.patch('resolwe.flow.utils.apps')
+    @mock.patch('resolwe.flow.utils.settings')
     def test_not_list(self, settings_mock, apps_mock):
         apps_mock.get_app_configs.return_value = []
         settings_mock.RESOLWE_CUSTOM_TOOLS_PATHS = '/custom_tools'
 
         base_executor = BaseFlowExecutorPreparer()
         with six.assertRaisesRegex(self, KeyError, 'setting must be a list'):
-            base_executor.get_tools()
+            base_executor.get_tools_paths()
 
 
 class ManagerRunProcessTest(ProcessTestCase):

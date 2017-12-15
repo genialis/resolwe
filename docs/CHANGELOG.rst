@@ -34,6 +34,10 @@ Added
   defined ``basic:secret`` input type
 - ``is_testing`` test helper function, which returns ``True`` when invoked in
   tests and ``False`` otherwise
+- Add ``collecttools`` Django command for collecting tools' files in single
+  location defined in ``FLOW_TOOLS_ROOT`` Django setting which is used for
+  mapping tools in executor when ``DEBUG`` is set to ``False`` (but not in
+  tests)
 
 Fixed
 -----

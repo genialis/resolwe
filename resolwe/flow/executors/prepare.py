@@ -4,12 +4,13 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import logging
 import os
 
-from django.apps import apps
 from django.conf import settings
 from django.forms.models import model_to_dict
 
 from resolwe.flow.managers.protocol import ExecutorFiles
 from resolwe.flow.models import Data
+from resolwe.flow.utils import get_apps_tools
+from resolwe.test.utils import is_testing
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
@@ -35,7 +36,7 @@ class BaseFlowExecutorPreparer(object):
 
         files[ExecutorFiles.DJANGO_SETTINGS].update({
             'USE_TZ': settings.USE_TZ,
-            'FLOW_EXECUTOR_TOOLS_PATHS': self.get_tools(),
+            'FLOW_EXECUTOR_TOOLS_PATHS': self.get_tools_paths(),
         })
         files[ExecutorFiles.DATA] = model_to_dict(data)
         files[ExecutorFiles.PROCESS] = model_to_dict(data.process)
@@ -44,20 +45,16 @@ class BaseFlowExecutorPreparer(object):
         # Add secrets if the process has permission to read them.
         secrets.update(data.resolve_secrets())
 
-    def get_tools(self):
-        """Get tools paths."""
-        tools_paths = []
-        for app_config in apps.get_app_configs():
-            proc_path = os.path.join(app_config.path, 'tools')
-            if os.path.isdir(proc_path):
-                tools_paths.append(proc_path)
+    def get_tools_paths(self):
+        """Get tools' paths."""
+        if settings.DEBUG or is_testing():
+            return list(get_apps_tools().values())
 
-        custom_tools_paths = getattr(settings, 'RESOLWE_CUSTOM_TOOLS_PATHS', [])
-        if not isinstance(custom_tools_paths, list):
-            raise KeyError("`RESOLWE_CUSTOM_TOOLS_PATHS` setting must be a list.")
-        tools_paths.extend(custom_tools_paths)
+        else:
+            tools_root = settings.FLOW_TOOLS_ROOT
+            subdirs = next(os.walk(tools_root))[1]
 
-        return tools_paths
+            return [os.path.join(tools_root, sdir) for sdir in subdirs]
 
     def post_register_hook(self):
         """Run hook after the 'register' management command finishes.
