@@ -448,6 +448,7 @@ class HydrateFileSizeUnitTest(TestCase):
         hydrate_size(self.data)
         self.assertEqual(self.data.output['test_file']['size'], 42000)
         self.assertEqual(self.data.output['test_file']['total_size'], 50042)
+        self.assertEqual(self.data.size, 50042)
 
     def test_list(self, os_mock):
         os_mock.path.isfile.return_value = True
@@ -468,6 +469,7 @@ class HydrateFileSizeUnitTest(TestCase):
         self.assertEqual(self.data.output['file_list'][0]['total_size'], 34)
         self.assertEqual(self.data.output['file_list'][1]['size'], 42000)
         self.assertEqual(self.data.output['file_list'][1]['total_size'], 42042)
+        self.assertEqual(self.data.size, 34 + 42042)
 
     def test_change_size(self, os_mock):
         """Size is not changed after object is done."""
