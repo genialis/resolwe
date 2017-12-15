@@ -404,29 +404,27 @@ def hydrate_size(data, force=False):
         obj['size'] = get_dir_size(path)
         obj['total_size'] = obj['size'] + get_refs_size(obj, path)
 
+    data_size = 0
     for field_schema, fields in iterate_fields(data.output, data.process.output_schema):
         name = field_schema['name']
         value = fields[name]
         if 'type' in field_schema:
             if field_schema['type'].startswith('basic:file:'):
                 add_file_size(value)
+                data_size += value.get('total_size', 0)
             elif field_schema['type'].startswith('list:basic:file:'):
                 for obj in value:
                     add_file_size(obj)
+                    data_size += obj.get('total_size', 0)
             elif field_schema['type'].startswith('basic:dir:'):
                 add_dir_size(value)
+                data_size += value.get('total_size', 0)
             elif field_schema['type'].startswith('list:basic:dir:'):
                 for obj in value:
                     add_dir_size(obj)
+                    data_size += obj.get('total_size', 0)
 
-    if data.status in [Data.STATUS_DONE, Data.STATUS_ERROR] and getattr(data, 'size', None) is not None and not force:
-        return
-
-    data_dir_path = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.pk))
-    if os.path.exists(data_dir_path) and os.path.isdir(data_dir_path):
-        data.size = get_dir_size(data_dir_path)
-    else:
-        data.size = 0
+    data.size = data_size
 
 
 def render_descriptor(data):
