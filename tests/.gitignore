@@ -1,0 +1,4 @@
+# Ignore files created during tests.
+.test_data/test_*
+.test_runtime/test_*
+.test_upload/test_*
