@@ -14,6 +14,9 @@ Changed
 -------
 - **BACKWARD INCOMPATIBLE:** ``Process.PERSISTENCE_TEMP`` is not used for
   execution priority anymore
+- **BACKWARD INCOMPATIBLE:** There is only one available manager class, which
+  includes dispatch logic; custom manager support has been removed and their
+  role subsumed into the new connector system
 - **BACKWARD INCOMPATIBLE:** Removed ``FLOW_DOCKER_MAPPINGS`` in favor of new
   ``FLOW_DOCKER_VOLUME_EXTRA_OPTIONS`` and ``FLOW_DOCKER_EXTRA_VOLUMES``
 - Parent relations are kept even after the parent is deleted and are deleted
