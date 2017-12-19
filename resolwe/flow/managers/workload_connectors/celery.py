@@ -13,9 +13,9 @@ import sys
 from django.conf import settings
 
 from resolwe.flow.models import Process
+from resolwe.flow.tasks import celery_run
 from resolwe.utils import BraceMessage as __
 
-from ..tasks import celery_run
 from .base import BaseManager
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
