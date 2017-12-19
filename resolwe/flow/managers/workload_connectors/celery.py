@@ -31,7 +31,7 @@ except ImportError:
 class Manager(BaseManager):
     """Celery-based manager for job execution."""
 
-    def run(self, data, dest_dir, argv, run_sync=False, verbosity=1):
+    def run(self, data, dest_dir, argv, verbosity=1):
         """Run process.
 
         For details, see

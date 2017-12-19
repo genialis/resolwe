@@ -26,7 +26,7 @@ EXECUTOR_MEMORY_OVERHEAD = 200
 class Manager(BaseManager):
     """Slurm-based manager for job execution."""
 
-    def run(self, data, dest_dir, argv, run_sync=False, verbosity=1):
+    def run(self, data, dest_dir, argv, verbosity=1):
         """Run process with SLURM.
 
         For details, see

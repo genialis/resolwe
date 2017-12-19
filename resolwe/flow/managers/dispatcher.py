@@ -267,7 +267,7 @@ class Manager(object):
         export_commands = ['export {}="{}"'.format(key, value.replace('"', '\"')) for key, value in env_vars.items()]
         return os.linesep.join(export_commands) + os.linesep + program
 
-    def run(self, data, dest_dir, argv, run_sync=False, verbosity=1):
+    def run(self, data, dest_dir, argv, verbosity=1):
         """Select a concrete runner and run the process through it.
 
         :param data: The :class:`~resolwe.flow.models.Data` object that
@@ -275,9 +275,6 @@ class Manager(object):
         :param dest_dir: The directory the
             :class:`~resolwe.flow.models.Data` object should be run from.
         :param argv: The argument vector used to spawn the executor.
-        :param run_sync: If ``True``, the method will not return until
-            the manager is finished processing everything from this call
-            onwards.
         :param verbosity: Integer logging verbosity level.
         """
         process_scheduling = self.scheduling_class_map[data.process.scheduling_class]
@@ -287,7 +284,7 @@ class Manager(object):
             manager_class = getattr(settings, 'FLOW_MANAGER', {}).get('NAME', 'resolwe.flow.managers.local')
         manager_module = import_module(manager_class)
         manager = manager_module.Manager()
-        return manager.run(data, dest_dir, argv, run_sync, verbosity)
+        return manager.run(data, dest_dir, argv, verbosity)
 
     def _get_per_data_dir(self, dir_base, data_id):
         """Extend the given base directory with a per-data component.
@@ -578,7 +575,6 @@ class Manager(object):
             WorkerProtocol.COMMAND: WorkerProtocol.COMMUNICATE,
             WorkerProtocol.COMMUNICATE_SETTINGS: saved_settings,
             WorkerProtocol.COMMUNICATE_EXTRA: {
-                'run_sync': run_sync,
                 'verbosity': verbosity,
                 'executor': executor,
             },
@@ -659,13 +655,9 @@ class Manager(object):
         logger.debug(__("Manager changed sync_semaphore UP to {} on executor start.", new_sema))
         self.run(data, runtime_dir, argv, verbosity=verbosity)
 
-    def _data_scan(self, run_sync=False, verbosity=1, executor='resolwe.flow.executors.local', **kwargs):
+    def _data_scan(self, verbosity=1, executor='resolwe.flow.executors.local', **kwargs):
         """Scan for new Data objects and execute them.
 
-        :param run_sync: If ``True``, wait until all processes spawned
-            from this point on have finished processing. If no processes
-            are spawned, this results in a deadlock, since counts are
-            handled on process finish.
         :param verbosity: Integer logging verbosity level.
         :param executor: The fully qualified name of the executor to use
             for all :class:`~resolwe.flow.models.Data` objects
