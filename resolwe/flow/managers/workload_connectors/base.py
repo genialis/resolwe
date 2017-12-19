@@ -1,0 +1,31 @@
+""".. Ignore pydocstyle D400.
+
+===================================
+Abstract Workload Manager Connector
+===================================
+
+"""
+
+
+class BaseConnector(object):
+    """The abstract base class for workload manager connectors.
+
+    The main :class:`~resolwe.flow.managers.dispatcher.Manager` instance
+    in :data:`~resolwe.flow.managers.manager` uses connectors to handle
+    communication with concrete backend workload management systems,
+    such as Celery and SLURM. The connectors need not worry about how
+    jobs are discovered or how they're prepared for execution; this is
+    all done by the manager.
+    """
+
+    def submit(self, data, dest_dir, argv, verbosity=1):
+        """Submit the job to the workload management system.
+
+        :param data: The :class:`~resolwe.flow.models.Data` object that
+            is to be run.
+        :param dest_dir: The directory the
+            :class:`~resolwe.flow.models.Data` object should be run from.
+        :param argv: The argument vector used to spawn the executor.
+        :param verbosity: Integer logging verbosity level.
+        """
+        raise NotImplementedError("Subclasses of BaseConnector must implement a submit() method.")

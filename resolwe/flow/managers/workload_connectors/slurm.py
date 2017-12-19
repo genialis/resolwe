@@ -1,8 +1,8 @@
 """.. Ignore pydocstyle D400.
 
-=============
-Slurm Manager
-=============
+===============
+Slurm Connector
+===============
 
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
@@ -14,7 +14,7 @@ import subprocess
 
 from resolwe.utils import BraceMessage as __
 
-from .base import BaseManager
+from .base import BaseConnector
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
@@ -23,18 +23,18 @@ logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 EXECUTOR_MEMORY_OVERHEAD = 200
 
 
-class Manager(BaseManager):
-    """Slurm-based manager for job execution."""
+class Connector(BaseConnector):
+    """Slurm-based connector for job execution."""
 
-    def run(self, data, dest_dir, argv, verbosity=1):
+    def submit(self, data, dest_dir, argv, verbosity=1):
         """Run process with SLURM.
 
         For details, see
-        :meth:`~resolwe.flow.managers.base.BaseManager.run`.
+        :meth:`~resolwe.flow.managers.workload_connectors.base.BaseConnector.submit`.
         """
         limits = data.process.get_resource_limits()
         logger.debug(__(
-            "Manager '{}.{}' running {}.",
+            "Connector '{}.{}' running {}.",
             self.__class__.__module__,
             self.__class__.__name__,
             repr(argv)

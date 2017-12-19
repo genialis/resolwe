@@ -1,8 +1,8 @@
 """.. Ignore pydocstyle D400.
 
-=============
-Local Manager
-=============
+===============
+Local Connector
+===============
 
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
@@ -12,22 +12,22 @@ import subprocess
 
 from resolwe.utils import BraceMessage as __
 
-from .base import BaseManager
+from .base import BaseConnector
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
-class Manager(BaseManager):
-    """Local manager for job execution."""
+class Connector(BaseConnector):
+    """Local connector for job execution."""
 
-    def run(self, data, dest_dir, argv, verbosity=1):
+    def submit(self, data, dest_dir, argv, verbosity=1):
         """Run process locally.
 
         For details, see
-        :meth:`~resolwe.flow.managers.base.BaseManager.run`.
+        :meth:`~resolwe.flow.managers.workload_connectors.base.BaseConnector.submit`.
         """
         logger.debug(__(
-            "Manager '{}.{}' running {}.",
+            "Connector '{}.{}' running {}.",
             self.__class__.__module__,
             self.__class__.__name__,
             repr(argv)

@@ -1,8 +1,8 @@
 """.. Ignore pydocstyle D400.
 
-==============
-Celery Manager
-==============
+================
+Celery Connector
+================
 
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
@@ -16,7 +16,7 @@ from resolwe.flow.models import Process
 from resolwe.flow.tasks import celery_run
 from resolwe.utils import BraceMessage as __
 
-from .base import BaseManager
+from .base import BaseConnector
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
@@ -28,21 +28,21 @@ except ImportError:
     sys.exit(1)
 
 
-class Manager(BaseManager):
-    """Celery-based manager for job execution."""
+class Connector(BaseConnector):
+    """Celery-based connector for job execution."""
 
-    def run(self, data, dest_dir, argv, verbosity=1):
+    def submit(self, data, dest_dir, argv, verbosity=1):
         """Run process.
 
         For details, see
-        :meth:`~resolwe.flow.managers.base.BaseManager.run`.
+        :meth:`~resolwe.flow.managers.workload_connectors.base.BaseConnector.submit`.
         """
         queue = 'ordinary'
         if data.process.scheduling_class == Process.SCHEDULING_CLASS_INTERACTIVE:
             queue = 'hipri'
 
         logger.debug(__(
-            "Manager '{}.{}' running {} in celery queue {}, EAGER is {}.",
+            "Connector '{}.{}' running {} in celery queue {}, EAGER is {}.",
             self.__class__.__module__,
             self.__class__.__name__,
             repr(argv),
