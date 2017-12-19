@@ -33,6 +33,8 @@ from .protocol import ExecutorFiles, WorkerProtocol
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
+DEFAULT_CONNECTOR = 'resolwe.flow.managers.workload_connectors.local'
+
 
 class SettingsJSONifier(json.JSONEncoder):
     """Customized JSON encoder, coercing all unknown types into strings.
@@ -239,6 +241,15 @@ class Manager(object):
                 raise ImproperlyConfigured(
                     "Dispatcher manager mapping settings incomplete, missing {}.".format(class_difference)
                 )
+            connector_list = [mapping[klass] for klass in scheduling_classes]
+        else:
+            connector_list = [flow_manager.get('NAME', DEFAULT_CONNECTOR)]
+
+        # Pre-load all needed connectors.
+        self.connectors = {}
+        for module_name in connector_list:
+            connector_module = import_module(module_name)
+            self.connectors[module_name] = connector_module.Connector()
 
         super().__init__(*args, **kwargs)
 
@@ -268,7 +279,7 @@ class Manager(object):
         return os.linesep.join(export_commands) + os.linesep + program
 
     def run(self, data, dest_dir, argv, verbosity=1):
-        """Select a concrete runner and run the process through it.
+        """Select a concrete connector and run the process through it.
 
         :param data: The :class:`~resolwe.flow.models.Data` object that
             is to be run.
@@ -279,12 +290,10 @@ class Manager(object):
         """
         process_scheduling = self.scheduling_class_map[data.process.scheduling_class]
         if 'DISPATCHER_MAPPING' in getattr(settings, 'FLOW_MANAGER', {}):
-            manager_class = settings.FLOW_MANAGER['DISPATCHER_MAPPING'][process_scheduling]
+            class_name = settings.FLOW_MANAGER['DISPATCHER_MAPPING'][process_scheduling]
         else:
-            manager_class = getattr(settings, 'FLOW_MANAGER', {}).get('NAME', 'resolwe.flow.managers.local')
-        manager_module = import_module(manager_class)
-        manager = manager_module.Manager()
-        return manager.run(data, dest_dir, argv, verbosity)
+            class_name = getattr(settings, 'FLOW_MANAGER', {}).get('NAME', DEFAULT_CONNECTOR)
+        return self.connectors[class_name].submit(data, dest_dir, argv, verbosity)
 
     def _get_per_data_dir(self, dir_base, data_id):
         """Extend the given base directory with a per-data component.
