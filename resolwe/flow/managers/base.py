@@ -1,8 +1,8 @@
 """.. Ignore pydocstyle D400.
 
-================
-Abstract Manager
-================
+=======
+Manager
+=======
 
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
@@ -20,7 +20,7 @@ from channels.test import Client
 
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import ImproperlyConfigured, PermissionDenied
 from django.db import IntegrityError, transaction
 
 from resolwe.flow.engine import InvalidEngineError, load_engines
@@ -79,8 +79,19 @@ def dependency_status(data):
     return None
 
 
-class BaseManager(object):
-    """Manager handles process job execution."""
+class Manager(object):
+    """The manager handles process job dispatching.
+
+    Each :class:`~resolwe.flow.models.Data` object that's still waiting
+    to be resolved is dispatched to a concrete workload management
+    system (such as Celery or SLURM). The specific manager for that
+    system (descended from
+    :class:`~resolwe.flow.managers.workload_connectors.base.BaseConnector`)
+    then handles actual job setup and submission. The job itself is an
+    executor invocation; the executor then in turn sets up a safe and
+    well-defined environment within the workload manager's task in which
+    the process is finally run.
+    """
 
     class _SynchronizationManager(object):
         """Context manager which enables transaction-like semantics.
@@ -180,11 +191,7 @@ class BaseManager(object):
         self.drain()
 
     def __init__(self, *args, **kwargs):
-        """Initialize arguments.
-
-        :param internal: Optional. If ``True``, this instance is being
-            created internally, so skip the singleton-ness check.
-        """
+        """Initialize arguments."""
         self.discover_engines()
         self.state = state.ManagerState(state.MANAGER_STATE_PREFIX)
         # Django's override_settings should be avoided at all cost here
@@ -211,9 +218,29 @@ class BaseManager(object):
         # manager instance.
         try:
             from resolwe.flow import managers
-            assert kwargs.get('internal', False) or not hasattr(managers, 'manager')
+            assert not hasattr(managers, 'manager')
         except ImportError:
             pass
+
+        self.scheduling_class_map = dict(Process.SCHEDULING_CLASS_CHOICES)
+
+        # Check settings for consistency.
+        flow_manager = getattr(settings, 'FLOW_MANAGER', {})
+        if 'DISPATCHER_MAPPING' in flow_manager and 'NAME' in flow_manager:
+            raise ImproperlyConfigured("Key 'DISPATCHER_MAPPING' conflicts with key 'NAME' in FLOW_MANAGER settings.")
+
+        if 'DISPATCHER_MAPPING' in flow_manager:
+            mapping = flow_manager['DISPATCHER_MAPPING']
+
+            scheduling_classes = set(self.scheduling_class_map.values())
+            map_keys = set(mapping.keys())
+            class_difference = scheduling_classes - map_keys
+            if class_difference:
+                raise ImproperlyConfigured(
+                    "Dispatcher manager mapping settings incomplete, missing {}.".format(class_difference)
+                )
+
+        super().__init__(*args, **kwargs)
 
     def _marshal_settings(self):
         """Marshal Django settings into a serializable object.
@@ -241,7 +268,7 @@ class BaseManager(object):
         return os.linesep.join(export_commands) + os.linesep + program
 
     def run(self, data, dest_dir, argv, run_sync=False, verbosity=1):
-        """Run process.
+        """Select a concrete runner and run the process through it.
 
         :param data: The :class:`~resolwe.flow.models.Data` object that
             is to be run.
@@ -253,7 +280,14 @@ class BaseManager(object):
             onwards.
         :param verbosity: Integer logging verbosity level.
         """
-        raise NotImplementedError("Subclasses of BaseManager must implement a run() method.")
+        process_scheduling = self.scheduling_class_map[data.process.scheduling_class]
+        if 'DISPATCHER_MAPPING' in getattr(settings, 'FLOW_MANAGER', {}):
+            manager_class = settings.FLOW_MANAGER['DISPATCHER_MAPPING'][process_scheduling]
+        else:
+            manager_class = getattr(settings, 'FLOW_MANAGER', {}).get('NAME', 'resolwe.flow.managers.local')
+        manager_module = import_module(manager_class)
+        manager = manager_module.Manager()
+        return manager.run(data, dest_dir, argv, run_sync, verbosity)
 
     def _get_per_data_dir(self, dir_base, data_id):
         """Extend the given base directory with a per-data component.
@@ -594,7 +628,6 @@ class BaseManager(object):
         # Prepare the executor's environment.
         try:
             program = self._include_environment_variables(program)
-
             data_dir = self._prepare_data_dir(data.id)
             executor_module, runtime_dir = self._prepare_executor(data.id, executor)
             self._prepare_context(data.id, data_dir, runtime_dir, verbosity=verbosity)
