@@ -204,7 +204,7 @@ class BaseManager(object):
         # such avoidance possible, all settings lookups in the worker
         # should use a private dictionary instead of the global
         # configuration. This variable is maintained around
-        # `_communicate()` calls, effectively emulating Django's
+        # _data_scan() calls, effectively emulating Django's
         # settings but having no effect on anything outside the worker
         # code (in particular, the signal triggers).
         self.settings_actual = {}
@@ -457,11 +457,11 @@ class BaseManager(object):
 
         if cmd == WorkerProtocol.COMMUNICATE:
             try:
-                self._communicate(**message.content[WorkerProtocol.COMMUNICATE_EXTRA])
+                self._data_scan(**message.content[WorkerProtocol.COMMUNICATE_EXTRA])
             finally:
                 # Clear communicate() claim on the semaphore.
                 new_sema = self.state.sync_semaphore.add(-1)
-                logger.debug(__("Manager changed sync_semaphore DOWN to {} after _communicate().", new_sema))
+                logger.debug(__("Manager changed sync_semaphore DOWN to {} after _data_scan().", new_sema))
 
         elif cmd == WorkerProtocol.FINISH:
             data_id = message.content[WorkerProtocol.DATA_ID]
@@ -481,11 +481,11 @@ class BaseManager(object):
                 new_sema = self.state.sync_semaphore.add(1)
                 logger.debug(__("Manager changed sync_semaphore UP to {} in spawn handler.", new_sema))
                 try:
-                    self._communicate(**message.content[WorkerProtocol.FINISH_COMMUNICATE_EXTRA])
+                    self._data_scan(**message.content[WorkerProtocol.FINISH_COMMUNICATE_EXTRA])
                 finally:
                     # Clear communicate() claim on the semaphore.
                     new_sema = self.state.sync_semaphore.add(-1)
-                    logger.debug(__("Manager changed sync_semaphore DOWN to {} after _communicate().", new_sema))
+                    logger.debug(__("Manager changed sync_semaphore DOWN to {} after _data_scan().", new_sema))
 
             self.state.executor_count.add(-1)
             # Clear execution claim on the semaphore.
@@ -577,8 +577,75 @@ class BaseManager(object):
                 state.MANAGER_CONTROL_CHANNEL
             ))
 
-    def _communicate(self, run_sync=False, verbosity=1, executor='resolwe.flow.executors.local', **kwargs):
-        """Resolve task dependencies and run the task.
+    def _data_execute(self, data, program, executor, verbosity):
+        """Execute the Data object.
+
+        The activities carried out here include target directory
+        preparation, executor copying, setting serialization and actual
+        execution of the object.
+
+        :param data: The :class:`~resolwe.flow.models.Data` object to
+            execute.
+        :param program: The process text the manager got out of
+            execution engine evaluation.
+        :param executor: The executor to use for this object.
+        :param verbosity: The logging verbosity with which to execute
+            the object.
+        """
+        if not program:
+            return
+
+        logger.debug(__(
+            "Manager '{}.{}' preparing Data object {} for processing.",
+            self.__class__.__module__,
+            self.__class__.__name__,
+            data.id
+        ))
+
+        # Prepare the executor's environment.
+        try:
+            priority = 'normal'
+            if data.process.persistence == Process.PERSISTENCE_TEMP:
+                # TODO: This should probably be removed.
+                priority = 'high'
+            if data.process.scheduling_class == Process.SCHEDULING_CLASS_INTERACTIVE:
+                priority = 'high'
+
+            program = self._include_environment_variables(program)
+
+            data_dir = self._prepare_data_dir(data.id)
+            executor_module, runtime_dir = self._prepare_executor(data.id, executor)
+            self._prepare_context(data.id, data_dir, runtime_dir, verbosity=verbosity)
+            self._prepare_script(runtime_dir, program)
+            argv = [
+                '/bin/bash',
+                '-c',
+                self.settings_actual.get('FLOW_EXECUTOR', {}).get('PYTHON', '/usr/bin/env python') +
+                ' -m executors ' + executor_module
+            ]
+        except PermissionDenied as error:
+            data.status = Data.STATUS_ERROR
+            data.process_error.append("Permission denied for process: {}".format(error))
+            data.save()
+            return
+        except OSError as err:
+            logger.error(__(
+                "OSError occurred while preparing data {} (will skip): {}",
+                data.id, err
+            ))
+            return
+
+        # Hand off to the run() method for execution.
+        if verbosity >= 1:
+            print("Running", runtime_dir)
+        self.state.executor_count.add(1)
+        # Set execution claim on the semaphore.
+        new_sema = self.state.sync_semaphore.add(1)
+        logger.debug(__("Manager changed sync_semaphore UP to {} on executor start.", new_sema))
+        self.run(data.id, runtime_dir, argv, priority=priority, verbosity=verbosity)
+
+    def _data_scan(self, run_sync=False, verbosity=1, executor='resolwe.flow.executors.local', **kwargs):
+        """Scan for new Data objects and execute them.
 
         :param run_sync: If ``True``, wait until all processes spawned
             from this point on have finished processing. If no processes
@@ -589,10 +656,6 @@ class BaseManager(object):
             for all :class:`~resolwe.flow.models.Data` objects
             discovered in this pass.
         """
-        queue = []
-        # Announce this here so it's not defined in the loop first;
-        # if it is, the linter complains.
-        transaction_success = []
         logger.debug(__(
             "Manager '{}.{}' processing communicate command on '{}' for executor '{}'.",
             self.__class__.__module__,
@@ -608,9 +671,6 @@ class BaseManager(object):
             ContentType.objects.clear_cache()
         try:
             for data in Data.objects.filter(status=Data.STATUS_RESOLVING):
-                # Flag for transaction success. Can't be a primitive var
-                # due to closure semantics.
-                transaction_success = []
                 with transaction.atomic():
                     # Lock for update. Note that we want this transaction to be as short as
                     # possible in order to reduce contention and avoid deadlocks. This is
@@ -660,72 +720,20 @@ class BaseManager(object):
                         data.status = Data.STATUS_WAITING
                     data.save(render_name=True)
 
-                    # Signal transaction success through the flag.
-                    transaction.on_commit(lambda: transaction_success.append(True))
+                    # Actually run the object only if there was nothing with the transaction.
+                    transaction.on_commit(
+                        # Make sure the closure gets the right values here, since they're
+                        # changed in the loop.
+                        lambda d=data, p=program: self._data_execute(d, p, executor, verbosity)
+                    )
 
                     # All data objects created by the execution engine are commited after this
                     # point and may be processed by other managers running in parallel. At the
                     # same time, the lock for the current data object is released.
 
-                # End of the with clause
-
-                # If the transaction didn't roll back, we're good to go with adding the object
-                # to the processing queue. This shouldn't be in the transaction, since it
-                # wouldn't roll back in case the transaction failed.
-                if any(transaction_success) and program is not None:
-                    try:
-                        priority = 'normal'
-                        if data.process.persistence == Process.PERSISTENCE_TEMP:
-                            # TODO: This should probably be removed.
-                            priority = 'high'
-                        if data.process.scheduling_class == Process.SCHEDULING_CLASS_INTERACTIVE:
-                            priority = 'high'
-
-                        program = self._include_environment_variables(program)
-
-                        data_dir = self._prepare_data_dir(data.id)
-                        executor_module, runtime_dir = self._prepare_executor(data.id, executor)
-                        self._prepare_context(data.id, data_dir, runtime_dir, verbosity=verbosity)
-                        self._prepare_script(runtime_dir, program)
-                        argv = [
-                            '/bin/bash',
-                            '-c',
-                            self.settings_actual.get('FLOW_EXECUTOR', {}).get('PYTHON', '/usr/bin/env python') +
-                            ' -m executors ' + executor_module
-                        ]
-                    except PermissionDenied as error:
-                        data.status = Data.STATUS_ERROR
-                        data.process_error.append("Permission denied for process: {}".format(error))
-                        data.save()
-                        continue
-                    except OSError as err:
-                        logger.error(__(
-                            "OSError occurred while preparing data {} (will skip): {}",
-                            data.id, err
-                        ))
-                        continue
-
-                    queue.append((data.id, priority, runtime_dir, argv))
-
         except IntegrityError as exp:
             logger.error(__("IntegrityError in manager {}", exp))
             return
-
-        logger.debug(__(
-            "Manager '{}.{}' queued {} data objects to process.",
-            self.__class__.__module__,
-            self.__class__.__name__,
-            len(queue)
-        ))
-
-        for data_id, priority, runtime_dir, argv in queue:
-            if verbosity >= 1:
-                print("Running", runtime_dir)
-            self.state.executor_count.add(1)
-            # Set execution claim on the semaphore.
-            new_sema = self.state.sync_semaphore.add(1)
-            logger.debug(__("Manager changed sync_semaphore UP to {} on executor start.", new_sema))
-            self.run(data_id, runtime_dir, argv, priority=priority, verbosity=verbosity)
 
     def get_executor(self):
         """Return an executor instance."""
