@@ -278,13 +278,12 @@ class Manager(object):
         export_commands = ['export {}="{}"'.format(key, value.replace('"', '\"')) for key, value in env_vars.items()]
         return os.linesep.join(export_commands) + os.linesep + program
 
-    def run(self, data, dest_dir, argv, verbosity=1):
+    def run(self, data, runtime_dir, argv, verbosity=1):
         """Select a concrete connector and run the process through it.
 
         :param data: The :class:`~resolwe.flow.models.Data` object that
             is to be run.
-        :param dest_dir: The directory the
-            :class:`~resolwe.flow.models.Data` object should be run from.
+        :param runtime_dir: The directory the executor is run from.
         :param argv: The argument vector used to spawn the executor.
         :param verbosity: Integer logging verbosity level.
         """
@@ -293,7 +292,7 @@ class Manager(object):
             class_name = settings.FLOW_MANAGER['DISPATCHER_MAPPING'][process_scheduling]
         else:
             class_name = getattr(settings, 'FLOW_MANAGER', {}).get('NAME', DEFAULT_CONNECTOR)
-        return self.connectors[class_name].submit(data, dest_dir, argv, verbosity)
+        return self.connectors[class_name].submit(data, runtime_dir, argv, verbosity)
 
     def _get_per_data_dir(self, dir_base, data_id):
         """Extend the given base directory with a per-data component.

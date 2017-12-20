@@ -26,7 +26,7 @@ EXECUTOR_MEMORY_OVERHEAD = 200
 class Connector(BaseConnector):
     """Slurm-based connector for job execution."""
 
-    def submit(self, data, dest_dir, argv, verbosity=1):
+    def submit(self, data, runtime_dir, argv, verbosity=1):
         """Run process with SLURM.
 
         For details, see
@@ -40,8 +40,8 @@ class Connector(BaseConnector):
             repr(argv)
         ))
         try:
-            script_path = os.path.join(dest_dir, 'slurm.sh')
             # Make sure the resulting file is executable on creation.
+            script_path = os.path.join(runtime_dir, 'slurm.sh')
             file_descriptor = os.open(script_path, os.O_WRONLY | os.O_CREAT, mode=0o555)
             with os.fdopen(file_descriptor, 'wt') as script:
                 script.write('#!/bin/bash\n')
@@ -55,7 +55,7 @@ class Connector(BaseConnector):
             command = ['/usr/bin/env', 'sbatch', script_path]
             subprocess.Popen(
                 command,
-                cwd=dest_dir,
+                cwd=runtime_dir,
                 stdin=subprocess.DEVNULL
             ).wait()
         except OSError as err:

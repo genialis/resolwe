@@ -18,13 +18,12 @@ class BaseConnector(object):
     all done by the manager.
     """
 
-    def submit(self, data, dest_dir, argv, verbosity=1):
+    def submit(self, data, runtime_dir, argv, verbosity=1):
         """Submit the job to the workload management system.
 
         :param data: The :class:`~resolwe.flow.models.Data` object that
             is to be run.
-        :param dest_dir: The directory the
-            :class:`~resolwe.flow.models.Data` object should be run from.
+        :param runtime_dir: The directory the executor is run from.
         :param argv: The argument vector used to spawn the executor.
         :param verbosity: Integer logging verbosity level.
         """
