@@ -341,11 +341,11 @@ def hydrate_input_uploads(input_, input_schema, hydrate_values=True):
     for value in files:
         if 'file_temp' in value:
             if isinstance(value['file_temp'], six.string_types):
-                # If file_temp not url, nor absolute path: hydrate path
-                if not os.path.isabs(value['file_temp']) and not urlregex.search(value['file_temp']):
+                # If file_temp not url, hydrate path.
+                if not urlregex.search(value['file_temp']):
                     value['file_temp'] = manager.get_executor().resolve_upload_path(value['file_temp'])
             else:
-                # Something very strange happened
+                # Something very strange happened.
                 value['file_temp'] = 'Invalid value for file_temp in DB'
 
 
