@@ -37,7 +37,7 @@ class FlowExecutor(LocalFlowExecutor):
         }
 
         # Get limit defaults.
-        limit_defaults = SETTINGS.get('FLOW_DOCKER_LIMIT_DEFAULTS', {})
+        limit_defaults = SETTINGS.get('FLOW_PROCESS_RESOURCE_DEFAULTS', {})
 
         # Set resource limits.
         limits = []

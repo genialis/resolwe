@@ -12,6 +12,9 @@ Unreleased
 
 Changed
 -------
+- **BACKWARD INCOMPATIBLE:** ``FLOW_DOCKER_LIMIT_DEFAULTS`` has been renamed
+  to ``FLOW_PROCESS_RESOURCE_DEFAULTS`` and ``FLOW_DOCKER_LIMIT_OVERRIDES``
+  has been renamed to ``FLOW_PROCESS_RESOURCE_OVERRIDES``
 - **BACKWARD INCOMPATIBLE:** ``Process.PERSISTENCE_TEMP`` is not used for
   execution priority anymore
 - **BACKWARD INCOMPATIBLE:** There is only one available manager class, which

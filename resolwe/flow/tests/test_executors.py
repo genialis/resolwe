@@ -215,7 +215,7 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.run_process('test-network-resource-policy', assert_status=Data.STATUS_ERROR)
 
     @with_docker_executor
-    @override_settings(FLOW_DOCKER_LIMIT_DEFAULTS={'cpu_time_interactive': 1})
+    @override_settings(FLOW_PROCESS_RESOURCE_DEFAULTS={'cpu_time_interactive': 1})
     @tag_process('test-scheduling-class-interactive-ok', 'test-scheduling-class-interactive-fail',
                  'test-scheduling-class-batch')
     def test_scheduling_class(self):

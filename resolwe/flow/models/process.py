@@ -171,8 +171,8 @@ class Process(BaseModel):
         :rtype: dict
         """
         # Get limit defaults and overrides.
-        limit_defaults = getattr(settings, 'FLOW_DOCKER_LIMIT_DEFAULTS', {})
-        limit_overrides = getattr(settings, 'FLOW_DOCKER_LIMIT_OVERRIDES', {})
+        limit_defaults = getattr(settings, 'FLOW_PROCESS_RESOURCE_DEFAULTS', {})
+        limit_overrides = getattr(settings, 'FLOW_PROCESS_RESOURCE_OVERRIDES', {})
 
         limits = {}
 
