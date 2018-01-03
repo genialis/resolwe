@@ -131,3 +131,26 @@ class EntityViewSet(CollectionViewSet):
             collection.data.add(*request.data['ids'])
 
         return resp
+
+    # NOTE: This can be deleted when DRF will support select_for_update
+    #       on updates and ResolweUpdateModelMixin will use it.
+    #       https://github.com/encode/django-rest-framework/issues/4675
+    def update(self, request, *args, **kwargs):
+        """Update an entity.
+
+        Original queryset produces a temporary database table whose rows
+        cannot be selected for an update. As a workaround, we patch
+        get_queryset function to return only Entity objects without
+        additional data that is not needed for the update.
+        """
+        orig_get_queryset = self.get_queryset
+
+        def patched_get_queryset():
+            """Patched get_queryset method."""
+            entity_ids = orig_get_queryset().values_list('id', flat=True)
+            return Entity.objects.filter(id__in=entity_ids)
+
+        self.get_queryset = patched_get_queryset
+        resp = super(EntityViewSet, self).update(request, *args, **kwargs)
+        self.get_queryset = orig_get_queryset
+        return resp
