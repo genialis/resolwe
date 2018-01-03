@@ -20,15 +20,13 @@ import wrapt
 from django.conf import settings
 from django.test import override_settings, tag
 
-from resolwe.flow.managers import manager
-
 if six.PY2:
     # Monkey-patch shutil package with which function (available in Python 3.3+)
     import shutilwhich  # pylint: disable=import-error,unused-import
 
 __all__ = (
     'check_installed', 'check_docker', 'with_custom_executor', 'with_docker_executor',
-    'with_null_executor', 'with_resolwe_host',
+    'with_null_executor', 'with_resolwe_host', 'is_testing',
 )
 
 TAG_PROCESS = 'resolwe.process'
@@ -86,6 +84,8 @@ def with_custom_executor(wrapped=None, **custom_executor_settings):
     # pylint: disable=missing-docstring
     @wrapt.decorator
     def wrapper(wrapped_method, instance, args, kwargs):
+        from resolwe.flow.managers import manager  # To prevent circular imports.
+
         executor_settings = settings.FLOW_EXECUTOR.copy()
         executor_settings.update(custom_executor_settings)
 
@@ -150,6 +150,8 @@ def with_resolwe_host(wrapped_method, instance, args, kwargs):
         Django server in the background.
 
     """
+    from resolwe.flow.managers import manager  # To prevent circular imports.
+
     if not hasattr(instance, 'server_thread'):
         raise AttributeError(
             "with_resolwe_host decorator must be used with a "
@@ -194,3 +196,12 @@ def get_processes_from_tags(test):
         slugs.add(tag_name[len(TAG_PROCESS) + 1:])
 
     return slugs
+
+
+def is_testing():
+    """Return current testing status.
+
+    This assumes that the Resolwe test runner is being used.
+    """
+    from resolwe.test_helpers.test_runner import is_testing  # pylint: disable=redefined-outer-name
+    return is_testing()

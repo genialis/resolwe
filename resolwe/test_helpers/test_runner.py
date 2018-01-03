@@ -42,6 +42,25 @@ logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 SPAWN_PROCESS_REGEX = re.compile(r'run\s+\{.*?["\']process["\']\s*:\s*["\'](.+?)["\'].*?\}')
 
+TESTING_CONTEXT = {
+    'is_testing': False,
+}
+
+
+class TestingContext(object):
+    """Context manager which maintains current testing status."""
+
+    def __enter__(self):
+        """Enter testing context."""
+        TESTING_CONTEXT['is_testing'] = True
+
+    def __exit__(self, *args, **kwargs):
+        """Exit testing context."""
+        TESTING_CONTEXT['is_testing'] = False
+
+        # Propagate exceptions.
+        return False
+
 
 class CommandContext(object):
     """Async wrapper around Django management commands.
@@ -235,6 +254,10 @@ def _custom_worker_init(django_init_worker):
         # same channels and directories.
         resolwe_settings.FLOW_MANAGER_SETTINGS['REDIS_PREFIX'] += '-parallel-pid{}'.format(os.getpid())
 
+        testing = TestingContext()
+        testing.__enter__()
+        Finalize(testing, testing.__exit__, exitpriority=16)
+
         _create_test_dirs()
 
         overrides = _prepare_settings()
@@ -353,14 +376,15 @@ class ResolweRunner(DiscoverRunner):
         if self.parallel > 1:
             return super().run_suite(suite, **kwargs)
 
-        _create_test_dirs()
-        with _prepare_settings():
-            _manager_setup()
-            with AtScopeExit(manager.state.destroy_channels):
-                with CommandContext('runlistener', '--clear-queue'):
-                    with CommandContext('runworker', only_channels=[state.MANAGER_CONTROL_CHANNEL]):
-                        with override_settings(FLOW_MANAGER_SYNC_AUTO_CALLS=True):
-                            return super().run_suite(suite, **kwargs)
+        with TestingContext():
+            _create_test_dirs()
+            with _prepare_settings():
+                _manager_setup()
+                with AtScopeExit(manager.state.destroy_channels):
+                    with CommandContext('runlistener', '--clear-queue'):
+                        with CommandContext('runworker', only_channels=[state.MANAGER_CONTROL_CHANNEL]):
+                            with override_settings(FLOW_MANAGER_SYNC_AUTO_CALLS=True):
+                                return super().run_suite(suite, **kwargs)
 
     def run_tests(self, test_labels, **kwargs):
         """Run tests.
@@ -613,3 +637,8 @@ class ResolweRunner(DiscoverRunner):
             tags.add(generate_process_tag(process))
 
         return tags
+
+
+def is_testing():
+    """Return current testing status."""
+    return TESTING_CONTEXT['is_testing']

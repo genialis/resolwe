@@ -13,7 +13,7 @@ import mock
 import six
 
 from resolwe.flow.models import Storage
-from resolwe.test import ProcessTestCase, TestCase
+from resolwe.test import ProcessTestCase, TestCase, is_testing
 
 try:
     import builtins  # py3
@@ -185,3 +185,6 @@ class TestingFrameworkTestCase(TestCase):
         self.assertAlmostEqualGeneric({'foo': [1.00000001]}, {'foo': [1.0]})
         self.assertAlmostEqualGeneric({'foo': 1.00000001, 'bar': 'moo'}, {'foo': 1.0, 'bar': 'moo'})
         self.assertAlmostEqualGeneric(1.00000001, 1.0, msg="Test message")
+
+    def test_is_testing(self):
+        self.assertTrue(is_testing())

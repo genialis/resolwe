@@ -32,6 +32,8 @@ Added
 - Support for dispatching ``Data`` objects to different managers
 - Support for passing secrets to processes in a controlled way using a newly
   defined ``basic:secret`` input type
+- ``is_testing`` test helper function, which returns ``True`` when invoked in
+  tests and ``False`` otherwise
 
 Fixed
 -----
