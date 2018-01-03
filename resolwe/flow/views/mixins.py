@@ -106,7 +106,8 @@ class ResolweUpdateModelMixin(mixins.UpdateModelMixin):
         # NOTE: Use the original method instead when support for locking is added:
         #       https://github.com/encode/django-rest-framework/issues/4675
         # return super(ResolweUpdateModelMixin, self).update(request, *args, **kwargs)
-        return self._update(request, *args, **kwargs)
+        with transaction.atomic():
+            return self._update(request, *args, **kwargs)
 
     # NOTE: This is a copy of rest_framework.mixins.UpdateModelMixin.update().
     #       The self.get_object() was replaced with the
