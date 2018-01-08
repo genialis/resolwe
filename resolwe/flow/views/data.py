@@ -9,7 +9,6 @@ from rest_framework.decorators import list_route
 from rest_framework.response import Response
 
 from resolwe.flow.filters import DataFilter
-from resolwe.flow.managers import manager
 from resolwe.flow.models import Collection, Data, Entity, Process
 from resolwe.flow.serializers import DataSerializer
 from resolwe.flow.utils import dict_dot, get_data_checksum, iterate_schema
@@ -93,13 +92,7 @@ class DataViewSet(ResolweCreateModelMixin,
                 serializer = self.get_serializer(data)
                 return Response(serializer.data)
 
-        # create the objects
-        resp = super(DataViewSet, self).create(request, *args, **kwargs)
-
-        # run manager
-        manager.communicate()
-
-        return resp
+        return super(DataViewSet, self).create(request, *args, **kwargs)
 
     @list_route(methods=[u'post'])
     def get_or_create(self, request, *args, **kwargs):
