@@ -23,6 +23,7 @@ from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ImproperlyConfigured, PermissionDenied
 from django.db import IntegrityError, connection, transaction
+from django.db.models import Q
 
 from resolwe.flow.engine import InvalidEngineError, load_engines
 from resolwe.flow.execution_engines import ExecutionError
@@ -547,11 +548,14 @@ class Manager(object):
         with self.synchronized(force_enter=force_enter):
             self.communicate(verbosity=0)
 
-    def communicate(self, run_sync=False, verbosity=1, save_settings=True):
+    def communicate(self, data_id=None, run_sync=False, verbosity=1, save_settings=True):
         """Scan database for resolving Data objects and process them.
 
         This is submitted as a task to the manager's channel workers.
 
+        :param data_id: Optional id of Data object which (+ its
+            children) should be processes. If it is not given, all
+            resolving objects are processed.
         :param run_sync: If ``True``, wait until all processes spawned
             from this point on have finished processing. If no processes
             are spawned, this results in a deadlock, since counts are
@@ -588,6 +592,7 @@ class Manager(object):
                 WorkerProtocol.COMMAND: WorkerProtocol.COMMUNICATE,
                 WorkerProtocol.COMMUNICATE_SETTINGS: saved_settings,
                 WorkerProtocol.COMMUNICATE_EXTRA: {
+                    'data_id': data_id,
                     'verbosity': verbosity,
                     'executor': executor,
                 },
@@ -675,9 +680,12 @@ class Manager(object):
         logger.debug(__("Manager changed sync_semaphore UP to {} on executor start.", new_sema))
         self.run(data, runtime_dir, argv, verbosity=verbosity)
 
-    def _data_scan(self, verbosity=1, executor='resolwe.flow.executors.local', **kwargs):
+    def _data_scan(self, data_id=None, verbosity=1, executor='resolwe.flow.executors.local', **kwargs):
         """Scan for new Data objects and execute them.
 
+        :param data_id: Optional id of Data object which (+ its
+            children) should be scanned. If it is not given, all
+            resolving objects are processed.
         :param verbosity: Integer logging verbosity level.
         :param executor: The fully qualified name of the executor to use
             for all :class:`~resolwe.flow.models.Data` objects
@@ -759,7 +767,12 @@ class Manager(object):
             ContentType.objects.clear_cache()
 
         try:
-            for data in Data.objects.filter(status=Data.STATUS_RESOLVING):
+            queryset = Data.objects.filter(status=Data.STATUS_RESOLVING)
+            if data_id is not None:
+                # Scan only given data object and its children.
+                queryset = queryset.filter(Q(parents=data_id) | Q(id=data_id)).distinct()
+
+            for data in queryset:
                 try:
                     with transaction.atomic():
                         process_data_object(data)

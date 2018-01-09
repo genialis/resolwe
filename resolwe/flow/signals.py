@@ -14,11 +14,11 @@ from resolwe.flow.managers import manager
 from resolwe.flow.models import Data, Entity
 
 
-def commit_signal():
+def commit_signal(data_id):
     """Nudge manager at the end of every Data object save event."""
     if not getattr(settings, 'FLOW_MANAGER_DISABLE_AUTO_CALLS', False):
         immediate = getattr(settings, 'FLOW_MANAGER_SYNC_AUTO_CALLS', False)
-        manager.communicate(verbosity=0, save_settings=False, run_sync=immediate)
+        manager.communicate(data_id=data_id, verbosity=0, save_settings=False, run_sync=immediate)
 
 
 @receiver(post_save, sender=Data)
@@ -28,7 +28,7 @@ def manager_post_save_handler(sender, instance, created, **kwargs):
         # Run manager at the end of the potential transaction. Otherwise
         # tasks are send to workers before transaction ends and therefore
         # workers cannot access objects created inside transaction.
-        transaction.on_commit(commit_signal)
+        transaction.on_commit(lambda: commit_signal(instance.id))
 
 
 @receiver(pre_delete, sender=Data)

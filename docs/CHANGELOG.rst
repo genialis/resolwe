@@ -20,6 +20,8 @@ Changed
   a ``_test`` suffix to it; this replaces the static name used before
 - Remove runtime directory during general data purge instead of immediately after
   each process finishes
+- Manager's communicate process only the data object by which it was
+  triggered and its children.
 
 Added
 -----

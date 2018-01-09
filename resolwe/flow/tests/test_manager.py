@@ -8,8 +8,9 @@ from django.db import transaction
 from guardian.shortcuts import assign_perm
 
 from resolwe.flow.managers import manager
+from resolwe.flow.managers.utils import disable_auto_calls
 from resolwe.flow.models import Collection, Data, DataDependency, DescriptorSchema, Process
-from resolwe.test import ProcessTestCase
+from resolwe.test import ProcessTestCase, TransactionTestCase
 
 PROCESSES_DIR = os.path.join(os.path.dirname(__file__), 'processes')
 
@@ -133,3 +134,50 @@ class TestManager(ProcessTestCase):
 
         self.assertEqual(len(data.process_error), 1)
         self.assertEqual(data.process_error[0][-5:], 'zz...')
+
+
+class TransactionTestManager(TransactionTestCase):
+
+    @disable_auto_calls()
+    def test_communicate(self):
+        process = Process.objects.create(
+            name='Input process',
+            contributor=self.contributor,
+            type='data:test:',
+            input_schema=[
+                {
+                    'name': 'input_data',
+                    'type': 'data:test:',
+                    'required': False,
+                },
+            ]
+        )
+
+        data_1 = Data.objects.create(contributor=self.contributor, process=process)
+        data_2 = Data.objects.create(contributor=self.contributor, process=process, input={'input_data': data_1.id})
+        Data.objects.create(contributor=self.contributor, process=process)
+        Data.objects.create(contributor=self.contributor, process=process)
+
+        self.assertEqual(Data.objects.filter(status=Data.STATUS_RESOLVING).count(), 4)
+
+        # Process only one object.
+        manager.communicate(data_id=data_1.pk, run_sync=True)
+
+        data_1.refresh_from_db()
+        self.assertEqual(data_1.status, Data.STATUS_WAITING)
+        self.assertEqual(Data.objects.filter(status=Data.STATUS_RESOLVING).count(), 3)
+
+        data_1.status = Data.STATUS_DONE
+        data_1.save()
+
+        # Process object's children.
+        manager.communicate(data_id=data_1.pk, run_sync=True)
+
+        data_2.refresh_from_db()
+        self.assertEqual(data_2.status, Data.STATUS_WAITING)
+        self.assertEqual(Data.objects.filter(status=Data.STATUS_RESOLVING).count(), 2)
+
+        # Process all objects.
+        manager.communicate(run_sync=True)
+
+        self.assertEqual(Data.objects.filter(status=Data.STATUS_RESOLVING).count(), 0)
