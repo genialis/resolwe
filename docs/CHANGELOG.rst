@@ -49,6 +49,7 @@ Fixed
 - Objects are locked while updated over API, so concurrent operations
   don't override each other
 - Make manager more robust to unhandled failures during data object processing
+- Fix manager deadlock during tests
 
 
 ==================

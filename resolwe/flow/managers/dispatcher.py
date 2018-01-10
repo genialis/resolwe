@@ -492,33 +492,35 @@ class Manager(object):
                 logger.debug(__("Manager changed sync_semaphore DOWN to {} after _data_scan().", new_sema))
 
         elif cmd == WorkerProtocol.FINISH:
-            data_id = message.content[WorkerProtocol.DATA_ID]
-            if not getattr(settings, 'FLOW_MANAGER_KEEP_DATA', False):
-                try:
-                    def handle_error(func, path, exc_info):
-                        """Handle permission errors while removing data directories."""
-                        if isinstance(exc_info[1], PermissionError):
-                            os.chmod(path, 0o700)
-                            shutil.rmtree(path)
+            try:
+                data_id = message.content[WorkerProtocol.DATA_ID]
+                if not getattr(settings, 'FLOW_MANAGER_KEEP_DATA', False):
+                    try:
+                        def handle_error(func, path, exc_info):
+                            """Handle permission errors while removing data directories."""
+                            if isinstance(exc_info[1], PermissionError):
+                                os.chmod(path, 0o700)
+                                shutil.rmtree(path)
 
-                    shutil.rmtree(self._get_per_data_dir('RUNTIME_DIR', data_id), onerror=handle_error)
-                except OSError:
-                    logger.exception("Manager exception while removing data runtime directory.")
+                        shutil.rmtree(self._get_per_data_dir('RUNTIME_DIR', data_id), onerror=handle_error)
+                    except OSError:
+                        logger.exception("Manager exception while removing data runtime directory.")
 
-            if message.content[WorkerProtocol.FINISH_SPAWNED]:
-                new_sema = self.state.sync_semaphore.add(1)
-                logger.debug(__("Manager changed sync_semaphore UP to {} in spawn handler.", new_sema))
-                try:
-                    self._data_scan(**message.content[WorkerProtocol.FINISH_COMMUNICATE_EXTRA])
-                finally:
-                    # Clear communicate() claim on the semaphore.
-                    new_sema = self.state.sync_semaphore.add(-1)
-                    logger.debug(__("Manager changed sync_semaphore DOWN to {} after _data_scan().", new_sema))
+                if message.content[WorkerProtocol.FINISH_SPAWNED]:
+                    new_sema = self.state.sync_semaphore.add(1)
+                    logger.debug(__("Manager changed sync_semaphore UP to {} in spawn handler.", new_sema))
+                    try:
+                        self._data_scan(**message.content[WorkerProtocol.FINISH_COMMUNICATE_EXTRA])
+                    finally:
+                        # Clear communicate() claim on the semaphore.
+                        new_sema = self.state.sync_semaphore.add(-1)
+                        logger.debug(__("Manager changed sync_semaphore DOWN to {} after _data_scan().", new_sema))
+            finally:
+                self.state.executor_count.add(-1)
 
-            self.state.executor_count.add(-1)
-            # Clear execution claim on the semaphore.
-            new_sema = self.state.sync_semaphore.add(-1)
-            logger.debug(__("Manager changed sync_semaphore DOWN to {} after executor finish.", new_sema))
+                # Clear execution claim on the semaphore (claimed in _data_execute).
+                new_sema = self.state.sync_semaphore.add(-1)
+                logger.debug(__("Manager changed sync_semaphore DOWN to {} after executor finish.", new_sema))
 
         else:
             logger.error(__("Ignoring unknown manager control command '{}'.", cmd))
@@ -657,8 +659,10 @@ class Manager(object):
         # Hand off to the run() method for execution.
         if verbosity >= 1:
             print("Running", runtime_dir)
+
         self.state.executor_count.add(1)
-        # Set execution claim on the semaphore.
+
+        # Set execution claim on the semaphore (cleared in handle_control_event).
         new_sema = self.state.sync_semaphore.add(1)
         logger.debug(__("Manager changed sync_semaphore UP to {} on executor start.", new_sema))
         self.run(data, runtime_dir, argv, verbosity=verbosity)
