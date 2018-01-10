@@ -671,6 +671,63 @@ class Manager(object):
             for all :class:`~resolwe.flow.models.Data` objects
             discovered in this pass.
         """
+        def process_data_object(data):
+            """Process a single data object."""
+            # Lock for update. Note that we want this transaction to be as short as possible in
+            # order to reduce contention and avoid deadlocks. This is why we do not lock all
+            # resolving objects for update, but instead only lock one object at a time. This
+            # allows managers running in parallel to process different objects.
+            data = Data.objects.select_for_update().get(pk=data.pk)
+            if data.status != Data.STATUS_RESOLVING:
+                # The object might have already been processed while waiting for the lock to be
+                # obtained. In this case, skip the object.
+                return
+
+            dep_status = dependency_status(data)
+
+            if dep_status == Data.STATUS_ERROR:
+                data.status = Data.STATUS_ERROR
+                data.process_error.append("One or more inputs have status ERROR")
+                data.process_rc = 1
+                data.save()
+                return
+
+            elif dep_status != Data.STATUS_DONE:
+                return
+
+            if data.process.run:
+                try:
+                    execution_engine = data.process.run.get('language', None)
+                    # Evaluation by the execution engine may spawn additional data objects and
+                    # perform other queries on the database. Queries of all possible execution
+                    # engines need to be audited for possibilities of deadlocks in case any
+                    # additional locks are introduced. Currently, we only take an explicit lock on
+                    # the currently processing object.
+                    program = self.get_execution_engine(execution_engine).evaluate(data)
+                except (ExecutionError, InvalidEngineError) as error:
+                    data.status = Data.STATUS_ERROR
+                    data.process_error.append("Error in process script: {}".format(error))
+                    data.save()
+                    return
+            else:
+                # If there is no run section, then we should not try to run anything. But the
+                # program must not be set to None as then the process will be stuck in waiting
+                # state.
+                program = ''
+
+            if data.status != Data.STATUS_DONE:
+                # The data object may already be marked as done by the execution engine. In this
+                # case we must not revert the status to STATUS_WAITING.
+                data.status = Data.STATUS_WAITING
+            data.save(render_name=True)
+
+            # Actually run the object only if there was nothing with the transaction.
+            transaction.on_commit(
+                # Make sure the closure gets the right values here, since they're
+                # changed in the loop.
+                lambda d=data, p=program: self._data_execute(d, p, executor, verbosity)
+            )
+
         logger.debug(__(
             "Manager '{}.{}' processing communicate command on '{}' for executor '{}'.",
             self.__class__.__module__,
@@ -687,60 +744,20 @@ class Manager(object):
         try:
             for data in Data.objects.filter(status=Data.STATUS_RESOLVING):
                 with transaction.atomic():
-                    # Lock for update. Note that we want this transaction to be as short as
-                    # possible in order to reduce contention and avoid deadlocks. This is
-                    # why we do not lock all resolving objects for update, but instead only
-                    # lock one object at a time. This allows managers running in parallel
-                    # to process different objects.
-                    data = Data.objects.select_for_update().get(pk=data.pk)
-                    if data.status != Data.STATUS_RESOLVING:
-                        # The object might have already been processed while waiting for
-                        # the lock to be obtained. In this case, skip the object.
-                        continue
+                    try:
+                        process_data_object(data)
+                    except Exception as error:  # pylint: disable=broad-except
+                        logger.exception(__(
+                            "Unhandled exception in _data_scan while processing data object {}.",
+                            data.pk
+                        ))
 
-                    dep_status = dependency_status(data)
-
-                    if dep_status == Data.STATUS_ERROR:
+                        # Unhandled error while processing a data object. We must set its
+                        # status to STATUS_ERROR to prevent the object from being retried
+                        # on next _data_scan run.
                         data.status = Data.STATUS_ERROR
-                        data.process_error.append("One or more inputs have status ERROR")
-                        data.process_rc = 1
+                        data.process_error.append("Internal error: {}".format(error))
                         data.save()
-                        continue
-
-                    elif dep_status != Data.STATUS_DONE:
-                        continue
-
-                    if data.process.run:
-                        try:
-                            execution_engine = data.process.run.get('language', None)
-                            # Evaluation by the execution engine may spawn additional data objects
-                            # and perform other queries on the database. Queries of all possible
-                            # execution engines need to be audited for possibilities of deadlocks
-                            # in case any additional locks are introduced. Currently, we only take
-                            # an explicit lock on the currently processing object.
-                            program = self.get_execution_engine(execution_engine).evaluate(data)
-                        except (ExecutionError, InvalidEngineError) as error:
-                            data.status = Data.STATUS_ERROR
-                            data.process_error.append("Error in process script: {}".format(error))
-                            data.save()
-                            continue
-                    else:
-                        # If there is no run section, then we should not try to run anything. But the
-                        # program must not be set to None as then the process will be stuck in waiting state.
-                        program = ''
-
-                    if data.status != Data.STATUS_DONE:
-                        # The data object may already be marked as done by the execution engine. In this
-                        # case we must not revert the status to STATUS_WAITING.
-                        data.status = Data.STATUS_WAITING
-                    data.save(render_name=True)
-
-                    # Actually run the object only if there was nothing with the transaction.
-                    transaction.on_commit(
-                        # Make sure the closure gets the right values here, since they're
-                        # changed in the loop.
-                        lambda d=data, p=program: self._data_execute(d, p, executor, verbosity)
-                    )
 
                     # All data objects created by the execution engine are commited after this
                     # point and may be processed by other managers running in parallel. At the
