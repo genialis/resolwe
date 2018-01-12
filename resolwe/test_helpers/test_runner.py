@@ -233,7 +233,6 @@ def _prepare_settings():
 
     return override_settings(
         CELERY_ALWAYS_EAGER=True,
-        FLOW_MANAGER_DISABLE_CTYPE_CACHE=True,
         FLOW_EXECUTOR=resolwe_settings.FLOW_EXECUTOR_SETTINGS,
         FLOW_MANAGER=resolwe_settings.FLOW_MANAGER_SETTINGS,
     )

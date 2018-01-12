@@ -20,6 +20,7 @@ from resolwe.flow.models import Data, DataDependency, Entity, Process
 from resolwe.flow.utils import dict_dot, iterate_fields
 from resolwe.flow.utils.purge import data_purge
 from resolwe.permissions.utils import copy_permissions
+from resolwe.test.utils import is_testing
 from resolwe.utils import BraceMessage as __
 
 from . import state
@@ -55,13 +56,6 @@ class ExecutorListener(Thread):
         # The verbosity level to pass around to Resolwe utilities
         # such as data_purge.
         self._verbosity = kwargs.get('verbosity', 1)
-
-        # If True, drop ContentType cache on every Data spawn.
-        # NOTE: This is a work-around for Django issue #10827
-        # (https://code.djangoproject.com/ticket/10827), same as in
-        # TestCaseHelpers._pre_setup(). Because the listener is running
-        # independently, it must clear the cache on its own.
-        self._drop_ctypes = getattr(settings, 'FLOW_MANAGER_DISABLE_CTYPE_CACHE', False)
 
     def clear_queue(self):
         """Reset the executor queue channel to an empty state."""
@@ -283,8 +277,13 @@ class ExecutorListener(Thread):
             # Spawn any new jobs in the request.
             spawned = False
             if ExecutorProtocol.FINISH_SPAWN_PROCESSES in obj:
-                if self._drop_ctypes:
+                if is_testing():
+                    # NOTE: This is a work-around for Django issue #10827
+                    # (https://code.djangoproject.com/ticket/10827), same as in
+                    # TestCaseHelpers._pre_setup(). Because the listener is running
+                    # independently, it must clear the cache on its own.
                     ContentType.objects.clear_cache()
+
                 spawned = True
                 exported_files_mapper = obj[ExecutorProtocol.FINISH_EXPORTED_FILES]
                 logger.debug(

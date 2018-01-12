@@ -26,6 +26,7 @@ from django.db import IntegrityError, transaction
 from resolwe.flow.engine import InvalidEngineError, load_engines
 from resolwe.flow.execution_engines import ExecutionError
 from resolwe.flow.models import Data, DataDependency, Process
+from resolwe.test.utils import is_testing
 from resolwe.utils import BraceMessage as __
 
 from . import state
@@ -207,13 +208,6 @@ class Manager(object):
         # settings but having no effect on anything outside the worker
         # code (in particular, the signal triggers).
         self.settings_actual = {}
-
-        # If True, drop ContentType cache on every communicate command.
-        # NOTE: This is a work-around for Django issue #10827
-        # (https://code.djangoproject.com/ticket/10827), same as in
-        # TestCaseHelpers._pre_setup(). Because the worker is running
-        # independently, it must clear the cache on its own.
-        self._drop_ctypes = getattr(settings, 'FLOW_MANAGER_DISABLE_CTYPE_CACHE', False)
 
         # Ensure there is only one manager instance per process. This
         # is required as other parts of the code access the global
@@ -743,8 +737,13 @@ class Manager(object):
         # Ensure we have the correct engines loaded.
         self.discover_engines(executor=executor)
 
-        if self._drop_ctypes:
+        if is_testing():
+            # NOTE: This is a work-around for Django issue #10827
+            # (https://code.djangoproject.com/ticket/10827), same as in
+            # TestCaseHelpers._pre_setup(). Because the worker is running
+            # independently, it must clear the cache on its own.
             ContentType.objects.clear_cache()
+
         try:
             for data in Data.objects.filter(status=Data.STATUS_RESOLVING):
                 with transaction.atomic():

@@ -50,6 +50,7 @@ Fixed
   don't override each other
 - Make manager more robust to unhandled failures during data object processing
 - Fix manager deadlock during tests
+- Fix ctypes cache clear during tests
 
 
 ==================
