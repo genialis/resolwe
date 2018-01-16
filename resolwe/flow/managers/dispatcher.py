@@ -586,7 +586,7 @@ class Manager(object):
                 },
             }, immediately=True)
         except RedisChannelLayer.ChannelFull:
-            new_sema = self.state.sync_semaphore.add(1)
+            new_sema = self.state.sync_semaphore.add(-1)
 
             logger.exception("ChannelFull error occurred while sending communicate message.")
             logger.debug(__("Manager changed sync_semaphore DOWN to {} after ChannelFull error.", new_sema))
