@@ -7,6 +7,7 @@ from django.apps import apps
 from django.conf import settings
 from django.core.management import call_command
 from django.db import DatabaseError
+from django.db.utils import DataError
 from django.test import TestCase, override_settings
 
 CUSTOM_SETTINGS = {
@@ -47,6 +48,19 @@ class FieldsTest(TestCase):
 
         with six.assertRaisesRegex(self, DatabaseError, 'is already taken'):
             TestModel.objects.create(name='Test object', slug=obj.slug)
+
+    def test_predefined_long_slugs(self):
+        from .fields_test_app.models import TestModel
+
+        slug_max_length = TestModel._meta.get_field('slug').max_length  # pylint: disable=protected-access
+        max_slug = 'x' * slug_max_length
+
+        # Predefined slug shouldn't be trimmed
+        obj = TestModel.objects.create(name='Test object', slug=max_slug)
+        self.assertEqual(obj.slug, max_slug)
+
+        with six.assertRaisesRegex(self, DataError, 'value too long'):
+            TestModel.objects.create(name='Test object', slug=max_slug + 'y')
 
     def test_generate_only_on_create(self):
         from .fields_test_app.models import TestModel

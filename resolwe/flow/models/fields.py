@@ -110,8 +110,11 @@ class ResolweSlugField(SlugField):
                 slug = ''
 
         if slug:
-            # Make sure that potentially added sequence won't excede maximal length.
-            slug = slug[:(self.max_length - MAX_SLUG_SEQUENCE_DIGITS - 1)]
+            # Make sure that auto generated slug with added sequence
+            # won't excede maximal length.
+            # Validation of predefined slugs is handled by Django.
+            if not predefined_slug:
+                slug = slug[:(self.max_length - MAX_SLUG_SEQUENCE_DIGITS - 1)]
 
             constraints_placeholder, constraints_values = self._get_unique_constraints(instance)
 

@@ -53,6 +53,7 @@ Fixed
 - Fix manager deadlock during tests
 - Fix ctypes cache clear during tests
 - Don't raise ChannelFull error in communicate call
+- Don't trim predefined slugs in ``ResolweSlugField``
 
 
 ==================
