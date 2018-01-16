@@ -15,6 +15,7 @@ import shutil
 import time
 from importlib import import_module
 
+from asgi_redis import RedisChannelLayer
 from channels import Channel
 from channels.test import Client
 
@@ -575,14 +576,20 @@ class Manager(object):
             saved_settings = self._marshal_settings()
             self.state.settings_override = saved_settings
 
-        Channel(state.MANAGER_CONTROL_CHANNEL).send({
-            WorkerProtocol.COMMAND: WorkerProtocol.COMMUNICATE,
-            WorkerProtocol.COMMUNICATE_SETTINGS: saved_settings,
-            WorkerProtocol.COMMUNICATE_EXTRA: {
-                'verbosity': verbosity,
-                'executor': executor,
-            },
-        }, immediately=True)
+        try:
+            Channel(state.MANAGER_CONTROL_CHANNEL).send({
+                WorkerProtocol.COMMAND: WorkerProtocol.COMMUNICATE,
+                WorkerProtocol.COMMUNICATE_SETTINGS: saved_settings,
+                WorkerProtocol.COMMUNICATE_EXTRA: {
+                    'verbosity': verbosity,
+                    'executor': executor,
+                },
+            }, immediately=True)
+        except RedisChannelLayer.ChannelFull:
+            new_sema = self.state.sync_semaphore.add(1)
+
+            logger.exception("ChannelFull error occurred while sending communicate message.")
+            logger.debug(__("Manager changed sync_semaphore DOWN to {} after ChannelFull error.", new_sema))
 
         if run_sync:
             logger.debug(__(
