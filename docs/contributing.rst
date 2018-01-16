@@ -5,8 +5,8 @@ Contributing
 Installing prerequisites
 ========================
 
-Make sure you have Python_ (3.4+) installed on your system. If you don't have
-it yet, follow `these instructions
+Make sure you have Python_ (3.4 or 3.5) installed on your system. If you don't
+have it yet, follow `these instructions
 <https://docs.python.org/3/using/index.html>`__.
 
 Resolwe requires PostgreSQL_ (9.4+). Many Linux distributions already include
@@ -19,17 +19,16 @@ Otherwise, follow `these instructions
 .. _PostgreSQL: http://www.postgresql.org/
 
 The pip_ tool will install all Resolwe's dependencies from PyPI_.
-Installing the ``psycopg2`` dependency will require having a C compiler
-(e.g. GCC_) as well as Python and PostgreSQL development files installed on
-the system.
+Installing some (indirect) dependencies from PyPI_ will require having a C
+compiler (e.g. GCC_) as well as Python development files installed on the
+system.
 
 .. note::
 
-    The preferred way to install the C compiler and Python and PostgreSQL
-    development files is to use your distribution's packages, if they exist.
+    The preferred way to install the C compiler and Python development files is
+    to use your distribution's packages, if they exist.
     For example, on a Fedora/RHEL-based system, that would mean installing
-    ``gcc``, ``python-devel``/``python3-devel`` and ``postgresql-devel``
-    packages.
+    ``gcc`` and ``python3-devel`` packages.
 
 .. _pip: https://pip.pypa.io/
 .. _PyPi: https://pypi.python.org/

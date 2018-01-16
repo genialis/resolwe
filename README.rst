@@ -57,7 +57,7 @@ Install
 Prerequisites
 -------------
 
-Make sure you have Python_ (2.7 or 3.4+) installed on your system. If you don't
+Make sure you have Python_ (3.4 or 3.5) installed on your system. If you don't
 have it yet, follow `these instructions
 <https://docs.python.org/3/using/index.html>`__.
 
@@ -67,17 +67,17 @@ and you can simply install it via distribution's package manager.
 Otherwise, follow `these instructions
 <https://wiki.postgresql.org/wiki/Detailed_installation_guides>`__.
 
-Additionally, installing the ``psycopg2`` dependency from PyPI_ will require
-having a C compiler (e.g. GCC_) as well as Python and PostgreSQL development
-files installed on the system.
+Additionally, installing some (indirect) dependencies from PyPI_ will require
+having a C compiler (e.g. GCC_) as well as Python development files installed
+on the system.
 
 Note
 ^^^^
 
-The preferred way to install the C compiler and Python and PostgreSQL
-development files is to use your distribution's packages, if they exist. For
-example, on a Fedora/RHEL-based system, that would mean installing ``gcc``,
-``python-devel``/``python3-devel`` and ``postgresql-devel`` packages.
+The preferred way to install the C compiler and Python development files is to
+use your distribution's packages, if they exist. For example, on a
+Fedora/RHEL-based system, that would mean installing ``gcc`` and
+``python3-devel`` packages.
 
 .. _Python: https://www.python.org/
 .. _PostgreSQL: http://www.postgresql.org/
