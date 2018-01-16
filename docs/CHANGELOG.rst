@@ -6,9 +6,9 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+==================
+6.0.0 - 2017-01-17
+==================
 
 Changed
 -------
@@ -47,12 +47,12 @@ Fixed
 - Make executors more robust to unhandled failures
 - Calculate ``Data.size`` by summing ``total_size`` of all file-type outputs
 - Don't change slug explicitly defined by user - raise an error instead
-- Objects are locked while updated over API, so concurrent operations
-  don't override each other
+- Objects are locked while updated over API, so concurrent operations don't
+  override each other
 - Make manager more robust to unhandled failures during data object processing
 - Fix manager deadlock during tests
 - Fix ctypes cache clear during tests
-- Don't raise ChannelFull error in communicate call
+- Don't raise ``ChannelFull`` error in manager's communicate call
 - Don't trim predefined slugs in ``ResolweSlugField``
 
 
