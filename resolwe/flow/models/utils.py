@@ -49,7 +49,8 @@ def validation_schema(name):
 TYPE_SCHEMA = validation_schema('type')
 
 
-def validate_schema(instance, schema, test_required=True, path_prefix=None):
+def validate_schema(instance, schema, test_required=True, path_prefix=None,
+                    skip_missing_data=False):
     """Check if DictField values are consistent with our data types.
 
     Perform basic JSON schema validation and our custom validations:
@@ -77,6 +78,8 @@ def validate_schema(instance, schema, test_required=True, path_prefix=None):
         (default: ``False``)
     :param str path_prefix: path prefix used for checking if files and
         directories exist (default: ``None``)
+    :param bool skip_missing_data: Don't raise an error if referenced
+        ``Data`` object does not exist
     :rtype: None
     :raises ValidationError: if ``instance`` doesn't match schema
         defined in ``schema``
@@ -130,6 +133,9 @@ def validate_schema(instance, schema, test_required=True, path_prefix=None):
 
         data_qs = Data.objects.filter(pk=data_pk).values('process__type')
         if not data_qs.exists():
+            if skip_missing_data:
+                return
+
             raise ValidationError(
                 "Referenced `Data` object does not exist (id:{})".format(data_pk))
         data = data_qs.first()

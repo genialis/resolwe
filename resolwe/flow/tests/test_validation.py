@@ -586,6 +586,8 @@ class ValidationUnitTest(TestCase):
             self.assertEqual(value_mock.exists.call_count, 1)
             self.assertEqual(value_mock.first.call_count, 0)
 
+            validate_schema(instance, schema, skip_missing_data=True)
+
         # `Data` object of wrong type
         with patch('resolwe.flow.models.data.Data') as data_mock:
             value_mock = MagicMock(**{

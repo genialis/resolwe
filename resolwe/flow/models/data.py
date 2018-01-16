@@ -329,8 +329,11 @@ class Data(BaseModel):
             if 'update_fields' in kwargs:
                 kwargs['update_fields'].append('size')
 
-        if create:
-            validate_schema(self.input, self.process.input_schema)  # pylint: disable=no-member
+        # Input Data objects are validated only upon creation as they can be deleted later.
+        skip_missing_data = not create
+        validate_schema(
+            self.input, self.process.input_schema, skip_missing_data=skip_missing_data  # pylint: disable=no-member
+        )
 
         render_descriptor(self)
 

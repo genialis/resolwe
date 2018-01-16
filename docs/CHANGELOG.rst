@@ -25,6 +25,7 @@ Changed
 - Parent relations are kept even after the parent is deleted and are deleted
   when the child is deleted
 - Dependency resolver in manager is sped up by use of parent relations
+- Validation of ``Data`` inputs is performed on save instead of on create
 
 Added
 -----
@@ -79,7 +80,6 @@ Fixed
   ``changes-only`` mode
 - Fix parallel test execution where more test processes than databases were
   created during tests
-
 
 ==================
 5.0.0 - 2017-11-28
