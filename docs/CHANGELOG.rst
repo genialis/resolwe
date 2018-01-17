@@ -12,14 +12,16 @@ Unreleased
 
 Changed
 -------
-
 - **BACKWARD INCOMPATIBLE:** Remove Ubuntu 17.04 base Docker image due to end
   of lifetime
 
 Added
 -----
-
 - Add Ubuntu 17.10 base Docker image
+
+Fixed
+-----
+- Make manager more robust to ORM/database failures during data object processing
 
 
 ==================
