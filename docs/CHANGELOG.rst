@@ -7,7 +7,7 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
 ==================
-6.0.0 - 2017-01-17
+6.0.0 - 2018-01-17
 ==================
 
 Changed
