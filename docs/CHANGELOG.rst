@@ -10,6 +10,10 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Fixed
+-----
+- Make manager more robust to ORM/database failures during data object processing
+
 
 ==================
 6.0.0 - 2018-01-17

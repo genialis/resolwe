@@ -22,7 +22,7 @@ from channels.test import Client
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ImproperlyConfigured, PermissionDenied
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, connection, transaction
 
 from resolwe.flow.engine import InvalidEngineError, load_engines
 from resolwe.flow.execution_engines import ExecutionError
@@ -753,25 +753,49 @@ class Manager(object):
 
         try:
             for data in Data.objects.filter(status=Data.STATUS_RESOLVING):
-                with transaction.atomic():
-                    try:
+                try:
+                    with transaction.atomic():
                         process_data_object(data)
+
+                        # All data objects created by the execution engine are commited after this
+                        # point and may be processed by other managers running in parallel. At the
+                        # same time, the lock for the current data object is released.
+                except Exception as error:  # pylint: disable=broad-except
+                    logger.exception(__(
+                        "Unhandled exception in _data_scan while processing data object {}.",
+                        data.pk
+                    ))
+
+                    # Unhandled error while processing a data object. We must set its
+                    # status to STATUS_ERROR to prevent the object from being retried
+                    # on next _data_scan run. We must perform this operation without
+                    # using the Django ORM as using the ORM may be the reason the error
+                    # occurred in the first place.
+                    try:
+                        with connection.cursor() as cursor:
+                            cursor.execute(
+                                """
+                                    UPDATE {table}
+                                    SET
+                                        status = %(status)s,
+                                        process_error = process_error || (%(error)s)::varchar[]
+                                    WHERE id = %(id)s
+                                """.format(
+                                    table=Data._meta.db_table  # pylint: disable=protected-access
+                                ),
+                                {
+                                    'status': Data.STATUS_ERROR,
+                                    'error': ["Internal error: {}".format(error)],
+                                    'id': data.pk
+                                }
+                            )
                     except Exception as error:  # pylint: disable=broad-except
+                        # If object's state cannot be changed due to some database-related
+                        # issue, at least skip the object for this run.
                         logger.exception(__(
-                            "Unhandled exception in _data_scan while processing data object {}.",
+                            "Unhandled exception in _data_scan while trying to emit error for {}.",
                             data.pk
                         ))
-
-                        # Unhandled error while processing a data object. We must set its
-                        # status to STATUS_ERROR to prevent the object from being retried
-                        # on next _data_scan run.
-                        data.status = Data.STATUS_ERROR
-                        data.process_error.append("Internal error: {}".format(error))
-                        data.save()
-
-                    # All data objects created by the execution engine are commited after this
-                    # point and may be processed by other managers running in parallel. At the
-                    # same time, the lock for the current data object is released.
 
         except IntegrityError as exp:
             logger.error(__("IntegrityError in manager {}", exp))
