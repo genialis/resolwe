@@ -1,4 +1,4 @@
-FROM docker.io/ubuntu:17.04
+FROM docker.io/ubuntu:17.10
 
 LABEL MAINTAINER Resolwe authors https://github.com/genialis/resolwe
 

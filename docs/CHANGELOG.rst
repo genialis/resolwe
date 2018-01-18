@@ -10,6 +10,17 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Changed
+-------
+
+- **BACKWARD INCOMPATIBLE:** Remove Ubuntu 17.04 base Docker image due to end
+  of lifetime
+
+Added
+-----
+
+- Add Ubuntu 17.10 base Docker image
+
 
 ==================
 6.0.0 - 2018-01-17
