@@ -40,6 +40,23 @@
     program: |
       echo "{\"output\":{\"file\":\"i-dont-exist.zip\"}}"
 
+- slug: test-process-notifications
+  name: Test process notifications
+  requirements:
+    expression-engine: jinja
+  version: 0.0.1
+  type: "data:test:processnotifications"
+  run:
+    language: bash
+    program: |
+      re-info "abc"
+      # Report info with 3000 x-s.
+      re-info "$(yes x | head -n 3000 | tr -d '\n')"
+      # Report warning with 3000 y-s.
+      re-warning "$(yes y | head -n 3000 | tr -d '\n')"
+      # Report error with 3000 z-s.
+      re-error "$(yes z | head -n 3000 | tr -d '\n')"
+
 - slug: test-bloated
   name: Bloated Processor
   requirements:

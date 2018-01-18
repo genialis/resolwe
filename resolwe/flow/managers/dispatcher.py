@@ -771,6 +771,12 @@ class Manager(object):
                     # on next _data_scan run. We must perform this operation without
                     # using the Django ORM as using the ORM may be the reason the error
                     # occurred in the first place.
+                    error_msg = "Internal error: {}".format(error)
+                    process_error_field = Data._meta.get_field('process_error')  # pylint: disable=protected-access
+                    max_length = process_error_field.base_field.max_length
+                    if len(error_msg) > max_length:
+                        error_msg = error_msg[:max_length - 3] + '...'
+
                     try:
                         with connection.cursor() as cursor:
                             cursor.execute(
@@ -785,7 +791,7 @@ class Manager(object):
                                 ),
                                 {
                                     'status': Data.STATUS_ERROR,
-                                    'error': ["Internal error: {}".format(error)],
+                                    'error': [error_msg],
                                     'id': data.pk
                                 }
                             )

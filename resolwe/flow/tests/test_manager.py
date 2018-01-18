@@ -111,3 +111,25 @@ class TestManager(ProcessTestCase):
         self.assertEqual(data_child1.status, Data.STATUS_DONE)
         self.assertEqual(data_child2.status, Data.STATUS_DONE)
         self.assertEqual(data_child3.status, Data.STATUS_DONE)
+
+    def test_process_notifications(self):
+        process = Process.objects.filter(slug='test-process-notifications').latest()
+        data = Data.objects.create(
+            name='Test data',
+            contributor=self.contributor,
+            process=process,
+        )
+
+        manager.execution_barrier()
+
+        data.refresh_from_db()
+
+        self.assertEqual(len(data.process_info), 2)
+        self.assertEqual(data.process_info[0], 'abc')
+        self.assertEqual(data.process_info[1][-5:], 'xx...')
+
+        self.assertEqual(len(data.process_warning), 1)
+        self.assertEqual(data.process_warning[0][-5:], 'yy...')
+
+        self.assertEqual(len(data.process_error), 1)
+        self.assertEqual(data.process_error[0][-5:], 'zz...')
