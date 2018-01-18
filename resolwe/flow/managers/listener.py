@@ -202,8 +202,16 @@ class ExecutorListener(Thread):
             changeset['status'] = Data.STATUS_ERROR
 
         for key, val in changeset.items():
+            if key in ['process_error', 'process_warning', 'process_info']:
+                # Trim process_* fields to not exceed max length of the database field.
+                for i, entry in enumerate(val):
+                    max_length = Data._meta.get_field(key).base_field.max_length  # pylint: disable=protected-access
+                    if len(entry) > max_length:
+                        val[i] = entry[:max_length - 3] + '...'
+
             if key != 'output':
                 setattr(d, key, val)
+
         if 'output' in changeset:
             if not isinstance(d.output, dict):
                 d.output = {}
