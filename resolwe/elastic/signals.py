@@ -7,7 +7,7 @@ Elastic Signal Handlers
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-from django.db.models.signals import post_save, pre_delete
+from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
 from guardian.models import GroupObjectPermission, UserObjectPermission
@@ -36,13 +36,13 @@ def add_group_permission(sender, instance, **kwargs):
     _process_permission(instance)
 
 
-@receiver(pre_delete, sender=UserObjectPermission)
+@receiver(post_delete, sender=UserObjectPermission)
 def remove_user_permission(sender, instance, **kwargs):
     """Process indexes after removing user permission."""
     _process_permission(instance)
 
 
-@receiver(pre_delete, sender=GroupObjectPermission)
+@receiver(post_delete, sender=GroupObjectPermission)
 def remove_group_permission(sender, instance, **kwargs):
     """Process indexes after removing group permission."""
     _process_permission(instance)
