@@ -7,8 +7,8 @@ import six
 
 from django.contrib.auth import get_user_model
 
-from resolwe.flow.filters import CollectionFilter, DataFilter
-from resolwe.flow.models import Collection, Data, DataDependency, DescriptorSchema, Process
+from resolwe.flow.filters import CollectionFilter, DataFilter, EntityFilter
+from resolwe.flow.models import Collection, Data, DataDependency, DescriptorSchema, Entity, Process
 from resolwe.test import TestCase
 
 
@@ -261,3 +261,30 @@ class CollectionFilterTestCase(TestCase):
 
     def test_filter_descriptor_schema(self):
         self._apply_filter({'descriptor_schema': self.descriptor_schema_1.pk}, [self.collection_1, self.collection_2])
+
+
+class EntityFilterTestCase(TestCase):
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user_1 = get_user_model().objects.create(username="first_user")
+
+        cls.entity_1 = Entity.objects.create(
+            contributor=cls.user_1,
+            descriptor_completed=True,
+        )
+
+        cls.entity_2 = Entity.objects.create(
+            contributor=cls.user_1,
+            descriptor_completed=False,
+        )
+
+    def _apply_filter(self, filters, expected):
+        filtered = EntityFilter(filters, queryset=Entity.objects.all())
+        six.assertCountEqual(self, filtered.qs, expected)
+
+    def test_descriptor_completed(self):
+        self._apply_filter({'descriptor_completed': 'true'}, [self.entity_1])
+        self._apply_filter({'descriptor_completed': '1'}, [self.entity_1])
+        self._apply_filter({'descriptor_completed': 'false'}, [self.entity_2])
+        self._apply_filter({'descriptor_completed': '0'}, [self.entity_2])

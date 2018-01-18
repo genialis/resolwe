@@ -18,6 +18,7 @@ Changed
 Added
 -----
 - Add Ubuntu 17.10 base Docker image
+- Add ``descriptor_completed`` field to the ``Entity`` filter
 
 Fixed
 -----
