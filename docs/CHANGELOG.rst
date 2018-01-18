@@ -10,6 +10,10 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Added
+-----
+- Add ``descriptor_completed`` field to the ``Entity`` filter
+
 
 ==================
 6.0.1 - 2018-01-29

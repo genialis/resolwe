@@ -68,13 +68,14 @@ class EntityFilter(CollectionFilter):
     """Filter the Entity endpoint."""
 
     collections = filters.ModelChoiceFilter(queryset=Collection.objects.all())
+    descriptor_completed = filters.BooleanFilter()
     tags = TagsFilter()
 
     class Meta(BaseResolweFilter.Meta):
         """Filter configuration."""
 
         model = Entity
-        fields = BaseResolweFilter.Meta.fields + ['collections', 'tags']
+        fields = BaseResolweFilter.Meta.fields + ['collections', 'descriptor_completed', 'tags']
 
 
 class ProcessFilter(BaseResolweFilter):
