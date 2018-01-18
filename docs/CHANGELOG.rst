@@ -23,6 +23,7 @@ Added
 Fixed
 -----
 - Make manager more robust to ORM/database failures during data object processing
+- Rebuild the ElasticSearch index after permission is removed from an object
 
 
 ==================
