@@ -209,7 +209,9 @@ class ExecutorListener(Thread):
                     if len(entry) > max_length:
                         val[i] = entry[:max_length - 3] + '...'
 
-            if key != 'output':
+                getattr(d, key).extend(val)
+
+            elif key != 'output':
                 setattr(d, key, val)
 
         if 'output' in changeset:

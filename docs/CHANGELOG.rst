@@ -26,6 +26,8 @@ Fixed
 - Rebuild the ElasticSearch index after permission is removed from an object
 - Trim ``Data.process_error``, ``Data.process_warning`` and
   ``Data.process_info`` fields before saving them
+- Make sure values in ``Data.process_error``, ``Data.process_warning`` and
+  ``Data.process_info`` cannot be overwritten
 
 
 ==================

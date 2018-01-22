@@ -264,6 +264,8 @@ class BaseFlowExecutor(object):
                         if updates:
                             updates['modified'] = now().isoformat()
                             self.update_data_status(**updates)
+                            # Process meta fields are collected in listener, so we can clear them.
+                            process_error, process_warning, process_info = [], [], []
 
                         if process_rc > 0:
                             log_file.close()
