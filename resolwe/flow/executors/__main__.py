@@ -29,8 +29,8 @@ using the python from the ``venv`` virtualenv.
 import argparse
 from importlib import import_module
 
+from .global_settings import DATA, SETTINGS
 from .protocol import ExecutorFiles  # pylint: disable=import-error
-from .run import DATA, SETTINGS
 
 
 def run_executor():

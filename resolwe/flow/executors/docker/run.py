@@ -8,9 +8,9 @@ import subprocess
 import tempfile
 
 from . import constants
+from ..global_settings import PROCESS_META, SETTINGS
 from ..local.run import FlowExecutor as LocalFlowExecutor
 from ..protocol import ExecutorFiles  # pylint: disable=import-error
-from ..run import PROCESS_META, SETTINGS
 from .seccomp import SECCOMP_POLICY
 
 
