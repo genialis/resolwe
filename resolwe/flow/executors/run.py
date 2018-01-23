@@ -24,29 +24,15 @@ from collections import defaultdict
 import redis
 import six
 
-from .protocol import ExecutorFiles, ExecutorProtocol  # pylint: disable=import-error
-
-DESERIALIZED_FILES = {}  # pylint: disable=invalid-name
-with open(ExecutorFiles.EXECUTOR_SETTINGS, 'rt') as _settings_file:
-    DESERIALIZED_FILES[ExecutorFiles.EXECUTOR_SETTINGS] = json.load(_settings_file)
-    for _file_name in DESERIALIZED_FILES[ExecutorFiles.EXECUTOR_SETTINGS][ExecutorFiles.FILE_LIST_KEY]:
-        with open(_file_name, 'rt') as _json_file:
-            DESERIALIZED_FILES[_file_name] = json.load(_json_file)
-
-EXECUTOR_SETTINGS = DESERIALIZED_FILES[ExecutorFiles.EXECUTOR_SETTINGS]
-SETTINGS = DESERIALIZED_FILES[ExecutorFiles.DJANGO_SETTINGS]
-DATA = DESERIALIZED_FILES[ExecutorFiles.DATA]
-DATA_META = DESERIALIZED_FILES[ExecutorFiles.DATA_META]
-PROCESS = DESERIALIZED_FILES[ExecutorFiles.PROCESS]
-PROCESS_META = DESERIALIZED_FILES[ExecutorFiles.PROCESS_META]
-
-_REDIS_RETRIES = 60
-
+from .global_settings import DATA, DATA_META, EXECUTOR_SETTINGS, PROCESS, PROCESS_META, SETTINGS
+from .protocol import ExecutorProtocol  # pylint: disable=import-error
 
 now = datetime.datetime.now  # pylint: disable=invalid-name
 
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
+
+_REDIS_RETRIES = 60
 
 
 def iterjson(text):
