@@ -218,6 +218,7 @@ def _create_test_dirs():
     paths = _sequence_paths([resolwe_settings.FLOW_EXECUTOR_SETTINGS[i] for i in items])
     for item, path in zip(items, paths):
         resolwe_settings.FLOW_EXECUTOR_SETTINGS[item] = path
+    return paths
 
 
 def _prepare_settings():
@@ -257,31 +258,48 @@ def _custom_worker_init(django_init_worker):
         testing.__enter__()
         Finalize(testing, testing.__exit__, exitpriority=16)
 
-        _create_test_dirs()
+        dirs = _create_test_dirs()
 
-        overrides = _prepare_settings()
-        overrides.__enter__()
-        Finalize(overrides, lambda: overrides.__exit__(None, None, None), exitpriority=16)
+        try:
+            overrides = _prepare_settings()
+            overrides.__enter__()
+            Finalize(overrides, lambda: overrides.__exit__(None, None, None), exitpriority=16)
 
-        _manager_setup()
+            _manager_setup()
 
-        state_cleanup = AtScopeExit(manager.state.destroy_channels)
-        state_cleanup.__enter__()
-        Finalize(state_cleanup, state_cleanup.__exit__, exitpriority=16)
+            state_cleanup = AtScopeExit(manager.state.destroy_channels)
+            state_cleanup.__enter__()
+            Finalize(state_cleanup, state_cleanup.__exit__, exitpriority=16)
 
-        listener = CommandContext('runlistener', '--clear-queue')
-        listener.__enter__()
-        Finalize(listener, listener.__exit__, exitpriority=16)
+            listener = CommandContext('runlistener', '--clear-queue')
+            listener.__enter__()
+            Finalize(listener, listener.__exit__, exitpriority=16)
 
-        workers = CommandContext('runworker', only_channels=[state.MANAGER_CONTROL_CHANNEL])
-        workers.__enter__()
-        Finalize(workers, workers.__exit__, exitpriority=16)
+            workers = CommandContext('runworker', only_channels=[state.MANAGER_CONTROL_CHANNEL])
+            workers.__enter__()
+            Finalize(workers, workers.__exit__, exitpriority=16)
 
-        signal_override = override_settings(FLOW_MANAGER_SYNC_AUTO_CALLS=True)
-        signal_override.__enter__()
-        Finalize(signal_override, lambda: signal_override.__exit__(None, None, None), exitpriority=16)
+            signal_override = override_settings(FLOW_MANAGER_SYNC_AUTO_CALLS=True)
+            signal_override.__enter__()
+            Finalize(signal_override, lambda: signal_override.__exit__(None, None, None), exitpriority=16)
 
-        return result
+            return result
+        except:  # pylint: disable=bare-except
+            # There's nothing we can do at this point, init _must_ succeed or the pool will try
+            # restarting us on every pool action from the suite runner, leading to an
+            # infinite loop and, to the outside, an apparent hang.
+            #
+            # Code after us will almost certainly also fail, which should lead to orderly
+            # test failure and eventually suite shutdown once all tests are through.
+            #
+            # The best we can do here is make sure we don't leave stale directories behind,
+            # which as a side effect also makes it more likely that testing will fail early.
+            logger.exception("An exception occurred during early parallel worker initialization.")
+            for path in dirs:
+                try:
+                    os.rmdir(path)
+                except:  # pylint: disable=bare-except
+                    pass
     return _init_worker
 
 

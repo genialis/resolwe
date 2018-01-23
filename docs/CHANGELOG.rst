@@ -31,6 +31,7 @@ Fixed
 - Make sure values in ``Data.process_error``, ``Data.process_warning`` and
   ``Data.process_info`` cannot be overwritten
 - Handle missing ``Data`` objects in ``hydrate_input_references`` function
+- Make parallel test suite worker threads clean up after initialization failures
 
 
 ==================
