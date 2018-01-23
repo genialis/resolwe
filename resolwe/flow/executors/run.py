@@ -15,24 +15,20 @@ import json
 import logging
 import os
 import shutil
-import traceback
 import uuid
 from collections import defaultdict
 
 # NOTE: If the imports here are changed, the executors' requirements.txt
 # file must also be updated accordingly.
-import redis
 import six
 
-from .global_settings import DATA, DATA_META, EXECUTOR_SETTINGS, PROCESS, PROCESS_META, SETTINGS
+from .global_settings import DATA_META, EXECUTOR_SETTINGS, PROCESS, SETTINGS
+from .manager_commands import send_manager_command
 from .protocol import ExecutorProtocol  # pylint: disable=import-error
 
 now = datetime.datetime.now  # pylint: disable=invalid-name
 
-
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
-
-_REDIS_RETRIES = 60
 
 
 def iterjson(text):
@@ -59,10 +55,6 @@ class BaseFlowExecutor(object):
         self.process = None
         self.requirements = {}
         self.resources = {}
-        # The Redis connection instance used to communicate with the manager listener.
-        self.redis = redis.StrictRedis(**SETTINGS['FLOW_EXECUTOR'].get('REDIS_CONNECTION', {}))
-        # This channel name will be used for all listener communication; Data object-specific.
-        self.queue_response_channel = '{}.{}'.format(EXECUTOR_SETTINGS['REDIS_CHANNEL_PAIR'][1], DATA['id'])
 
     def get_tools_paths(self):
         """Get tools paths."""
@@ -85,56 +77,13 @@ class BaseFlowExecutor(object):
         """Get process' standard output."""
         return self.stdout  # pylint: disable=no-member
 
-    def _send_manager_command(self, cmd, expect_reply=True, extra_fields={}):
-        """Send a properly formatted command to the manager.
-
-        :param cmd: The command to send (:class:`str`).
-        :param expect_reply: If ``True``, wait for the manager to reply
-            with an acknowledgement packet.
-        :param extra_fields: A dictionary of extra information that's
-            merged into the packet body (i.e. not under an extra key).
-        """
-        packet = {
-            ExecutorProtocol.DATA_ID: DATA['id'],
-            ExecutorProtocol.COMMAND: cmd,
-        }
-        packet.update(extra_fields)
-
-        # TODO what happens here if the push fails? we don't have any realistic recourse,
-        # so just let it explode and stop processing
-        queue_channel = EXECUTOR_SETTINGS['REDIS_CHANNEL_PAIR'][0]
-        try:
-            self.redis.rpush(queue_channel, json.dumps(packet))
-        except Exception:  # pylint: disable=broad-except
-            logger.error("Error sending command to manager:\n\n%s", traceback.format_exc())
-            raise
-
-        if not expect_reply:
-            return
-
-        while True:
-            for _ in range(_REDIS_RETRIES):
-                response = self.redis.blpop(self.queue_response_channel, timeout=1)
-                if response:
-                    break
-            else:
-                # NOTE: If there's still no response after a few seconds, the system is broken
-                # enough that it makes sense to give up; we're isolated here, so if the manager
-                # doesn't respond, we can't really do much more than just crash
-                raise RuntimeError("No response from the manager after {} retries.".format(_REDIS_RETRIES))
-
-            _, item = response
-            packet = json.loads(item.decode('utf-8'))
-            assert packet[ExecutorProtocol.RESULT] == ExecutorProtocol.RESULT_OK
-            break
-
     def update_data_status(self, **kwargs):
         """Update (PATCH) Data object.
 
         :param kwargs: The dictionary of
             :class:`~resolwe.flow.models.Data` attributes to be changed.
         """
-        self._send_manager_command(ExecutorProtocol.UPDATE, extra_fields={
+        send_manager_command(ExecutorProtocol.UPDATE, extra_fields={
             ExecutorProtocol.UPDATE_CHANGESET: kwargs
         })
 
@@ -153,7 +102,7 @@ class BaseFlowExecutor(object):
             }
 
         if finish_fields is not None:
-            self._send_manager_command(ExecutorProtocol.FINISH, extra_fields=finish_fields)
+            send_manager_command(ExecutorProtocol.FINISH, extra_fields=finish_fields)
 
         # The response channel (Redis list) is deleted automatically once the list is drained, so
         # there is no need to remove it manually.
@@ -261,7 +210,7 @@ class BaseFlowExecutor(object):
                         if process_rc > 0:
                             log_file.close()
                             json_file.close()
-                            self._send_manager_command(ExecutorProtocol.FINISH, extra_fields={
+                            send_manager_command(ExecutorProtocol.FINISH, extra_fields={
                                 ExecutorProtocol.FINISH_PROCESS_RC: process_rc
                             })
                             return

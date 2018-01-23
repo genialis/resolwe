@@ -3,6 +3,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import logging
 
+from ..manager_commands import send_manager_command
 from ..protocol import ExecutorProtocol  # pylint: disable=import-error
 from ..run import BaseFlowExecutor
 
@@ -20,7 +21,7 @@ class FlowExecutor(BaseFlowExecutor):  # pylint: disable=abstract-method
 
     def run(self, data_id, script, verbosity=1):
         """Do nothing :)."""
-        self._send_manager_command(ExecutorProtocol.FINISH)
+        send_manager_command(ExecutorProtocol.FINISH)
 
     def terminate(self, data_id):
         """Do nothing :)."""
