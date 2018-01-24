@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 import traceback
 from signal import SIGINT, signal
 from threading import Event, Thread
@@ -418,6 +419,26 @@ class ExecutorListener(Thread):
                 'executor': getattr(settings, 'FLOW_EXECUTOR', {}).get('NAME', 'resolwe.flow.executors.local'),
             },
         })
+
+    def handle_log(self, obj):
+        """Handle an incoming log processing request.
+
+        :param obj: The Channels message object. Command object format:
+
+            .. code:: none
+
+                {
+                    'command': 'log',
+                    'message': [log message]
+                }
+        """
+        record_dict = json.loads(obj[ExecutorProtocol.LOG_MESSAGE])
+        record_dict['msg'] = '[EXECUTOR] {}'.format(record_dict['msg'])
+
+        executors_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'executors')
+        record_dict['pathname'] = os.path.join(executors_dir, record_dict['pathname'])
+
+        logger.handle(logging.makeLogRecord(record_dict))
 
     def run(self):
         """Run the main listener run loop.
