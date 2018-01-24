@@ -172,6 +172,11 @@ class BaseFlowExecutor(object):
         # The response channel (Redis list) is deleted automatically once the list is drained, so
         # there is no need to remove it manually.
 
+    def _create_file(self, filename):
+        """Ensure a new file is created and opened for writing."""
+        file_descriptor = os.open(filename, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
+        return os.fdopen(file_descriptor, 'w')
+
     def _run(self, data_id, script, verbosity=1):
         """Execute the script and save results."""
         if verbosity >= 1:
@@ -186,8 +191,8 @@ class BaseFlowExecutor(object):
         self.resources = requirements.get('resources', {})
 
         os.chdir(EXECUTOR_SETTINGS['DATA_DIR'])
-        log_file = open('stdout.txt', 'w+')
-        json_file = open('jsonout.txt', 'w+')
+        log_file = self._create_file('stdout.txt')
+        json_file = self._create_file('jsonout.txt')
 
         proc_pid = self.start()
 
