@@ -30,6 +30,7 @@ Fixed
   ``Data.process_info`` fields before saving them
 - Make sure values in ``Data.process_error``, ``Data.process_warning`` and
   ``Data.process_info`` cannot be overwritten
+- Handle missing ``Data`` objects in ``hydrate_input_references`` function
 
 
 ==================
