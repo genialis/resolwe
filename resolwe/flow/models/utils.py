@@ -288,7 +288,12 @@ def hydrate_input_references(input_, input_schema, hydrate_values=True):
                 if value is None:
                     continue
 
-                data = Data.objects.get(id=value)
+                try:
+                    data = Data.objects.get(id=value)
+                except Data.DoesNotExist:
+                    fields[name] = {}
+                    continue
+
                 output = copy.deepcopy(data.output)
                 # static = Data.static.to_python(data.static)
                 if hydrate_values:
@@ -308,7 +313,12 @@ def hydrate_input_references(input_, input_schema, hydrate_values=True):
                     if val is None:
                         continue
 
-                    data = Data.objects.get(id=val)
+                    try:
+                        data = Data.objects.get(id=val)
+                    except Data.DoesNotExist:
+                        outputs.append({})
+                        continue
+
                     output = copy.deepcopy(data.output)
                     # static = Data.static.to_python(data.static)
                     if hydrate_values:
