@@ -30,7 +30,10 @@ import argparse
 from importlib import import_module
 
 from .global_settings import DATA, SETTINGS
+from .logger import configure_logging
 from .protocol import ExecutorFiles  # pylint: disable=import-error
+
+configure_logging()
 
 
 def run_executor():

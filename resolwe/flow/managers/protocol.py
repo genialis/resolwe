@@ -33,6 +33,9 @@ class ExecutorProtocol(object):
     RESULT = 'result'
     RESULT_OK = 'OK'
 
+    LOG = 'log'
+    LOG_MESSAGE = 'message'
+
 
 class ExecutorFiles(object):
     """Various files used by the executor."""
