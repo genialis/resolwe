@@ -14,6 +14,8 @@ Changed
 -------
 - **BACKWARD INCOMPATIBLE:** Remove Ubuntu 17.04 base Docker image due to end
   of lifetime
+- **BACKWARD INCOMPATIBLE:** Remove support for Jinja in ``DescriptorSchema``'s
+  default values
 
 Added
 -----

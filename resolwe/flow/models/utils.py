@@ -457,23 +457,10 @@ def render_descriptor(data):
     if not data.descriptor_schema:
         return
 
-    inputs = copy.deepcopy(data.input)
-    if data.process.input_schema:
-        hydrate_input_references(inputs, data.process.input_schema, hydrate_values=False)
-    template_context = inputs
-
     # Set default values
     for field_schema, field, path in iterate_schema(data.descriptor, data.descriptor_schema.schema, 'descriptor'):
         if 'default' in field_schema and field_schema['name'] not in field:
-            tmpl = field_schema['default']
-            if field_schema['type'].startswith('list:'):
-                tmpl = [render_template(data.process, tmp, template_context)
-                        if isinstance(tmp, six.string_types) else tmp
-                        for tmp in tmpl]
-            elif isinstance(tmpl, six.string_types):
-                tmpl = render_template(data.process, tmpl, template_context)
-
-            dict_dot(data, path, tmpl)
+            dict_dot(data, path, field_schema['default'])
 
 
 def render_template(process, template_string, context):
