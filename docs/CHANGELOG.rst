@@ -36,6 +36,7 @@ Fixed
 - Make parallel test suite worker threads clean up after initialization failures
 - Add mechanism to override the manager's control channel prefix from the
   environment
+- Make executor fail early when executed twice on the same data directory
 
 
 ==================
