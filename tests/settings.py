@@ -119,11 +119,13 @@ FLOW_EXECUTOR = {
     'REDIS_CONNECTION': REDIS_CONNECTION,
 }
 
+# Check if any Manager settings are set via environment variables
+manager_prefix = os.environ.get('RESOLWE_MANAGER_REDIS_PREFIX', 'resolwe.flow.manager')
 FLOW_MANAGER = {
-    'REDIS_PREFIX': 'resolwe.flow.manager',
+    'REDIS_PREFIX': manager_prefix,
     'REDIS_CONNECTION': REDIS_CONNECTION,
     'TEST': {
-        'REDIS_PREFIX': 'resolwe.flow.manager-test',
+        'REDIS_PREFIX': manager_prefix + '-test',
     },
 }
 

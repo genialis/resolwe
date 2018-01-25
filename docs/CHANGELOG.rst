@@ -32,6 +32,8 @@ Fixed
   ``Data.process_info`` cannot be overwritten
 - Handle missing ``Data`` objects in ``hydrate_input_references`` function
 - Make parallel test suite worker threads clean up after initialization failures
+- Add mechanism to override the manager's control channel prefix from the
+  environment
 
 
 ==================
