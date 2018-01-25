@@ -83,7 +83,7 @@ DATABASES = {
         'HOST': pghost,
         'PORT': pgport,
         'TEST': {
-            'NAME': 'resolwe_test' + toxenv
+            'NAME': pgname + '_test'
         }
     }
 }

@@ -16,6 +16,8 @@ Changed
   of lifetime
 - **BACKWARD INCOMPATIBLE:** Remove support for Jinja in ``DescriptorSchema``'s
   default values
+- Add mechanism to change test database name from the environment, appending
+  a ``_test`` suffix to it; this replaces the static name used before
 
 Added
 -----
