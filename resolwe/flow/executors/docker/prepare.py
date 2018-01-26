@@ -19,10 +19,10 @@ from ..prepare import BaseFlowExecutorPreparer
 class FlowExecutorPreparer(BaseFlowExecutorPreparer):
     """Specialized manager assist for the docker executor."""
 
-    def post_register_hook(self):
+    def post_register_hook(self, verbosity=1):
         """Pull Docker images needed by processes after registering."""
         if not getattr(settings, 'FLOW_DOCKER_DONT_PULL', False):
-            call_command('list_docker_images', pull=True)
+            call_command('list_docker_images', pull=True, verbosity=verbosity)
 
     def resolve_data_path(self, data=None, filename=None):
         """Resolve data path for use with the executor.

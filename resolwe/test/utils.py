@@ -96,7 +96,7 @@ def with_custom_executor(wrapped=None, **custom_executor_settings):
                     manager.discover_engines()
 
                     # Re-run the post_register_hook
-                    manager.get_executor().post_register_hook()
+                    manager.get_executor().post_register_hook(verbosity=0)
 
                     # Run the actual unit test method.
                     return wrapped_method(*args, **kwargs)

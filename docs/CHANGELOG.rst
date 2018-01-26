@@ -23,6 +23,10 @@ Added
 - Validate manager semaphors after each test case, to ease debugging of tests
   which execute processes
 
+Fixed
+-----
+- Make management commands respect the set verbosity level
+
 
 ==================
 6.0.1 - 2018-01-29
