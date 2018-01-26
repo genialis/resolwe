@@ -7,6 +7,7 @@ List Docker images
 """
 
 import functools
+import logging
 import operator
 import shlex
 import subprocess
@@ -17,6 +18,8 @@ from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
 from resolwe.flow.models import Process
+
+logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
 class Command(BaseCommand):
@@ -37,6 +40,8 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         """Handle command list_docker_images."""
+        verbosity = int(options.get('verbosity'))
+
         # Check that the specified output format is valid
         if options['format'] != 'plain' and options['format'] != 'yaml':
             raise CommandError("Unknown output format: %s" % options['format'])
@@ -74,7 +79,11 @@ class Command(BaseCommand):
 
             # Pull each image
             for img in unique_docker_images:
-                ret = subprocess.call(shlex.split('{} pull {}'.format(docker, img)))
+                ret = subprocess.call(
+                    shlex.split('{} pull {}'.format(docker, img)),
+                    stdout=None if verbosity > 0 else subprocess.DEVNULL,
+                    stderr=None if verbosity > 0 else subprocess.DEVNULL,
+                )
 
                 if ret != 0:
                     errmsg = "Failed to pull Docker image '{}'!".format(img)
@@ -84,9 +93,14 @@ class Command(BaseCommand):
                         raise CommandError(errmsg)
                     else:
                         # Print error, but keep going
-                        self.stderr.write(errmsg)
+                        logger.error(errmsg)
+                        if verbosity > 0:
+                            self.stderr.write(errmsg)
                 else:
-                    self.stdout.write("Docker image '{}' pulled successfully!".format(img))
+                    msg = "Docker image '{}' pulled successfully!".format(img)
+                    logger.info(msg)
+                    if verbosity > 0:
+                        self.stdout.write(msg)
         else:
             # Convert the set of unique Docker images into a list of dicts for easier output
             imgs = [

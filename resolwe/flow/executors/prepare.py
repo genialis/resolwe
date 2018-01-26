@@ -56,7 +56,7 @@ class BaseFlowExecutorPreparer(object):
 
             return [os.path.join(tools_root, sdir) for sdir in subdirs]
 
-    def post_register_hook(self):
+    def post_register_hook(self, verbosity=1):
         """Run hook after the 'register' management command finishes.
 
         Subclasses may implement this hook to e.g. pull Docker images at

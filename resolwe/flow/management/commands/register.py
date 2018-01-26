@@ -321,5 +321,6 @@ class Command(BaseCommand):
 
         self.register_descriptors(descriptor_schemas, user_admin, force, verbosity=verbosity)
 
-        self.stdout.write("Running executor post-registration hook...")
-        manager.get_executor().post_register_hook()
+        if verbosity > 0:
+            self.stdout.write("Running executor post-registration hook...")
+        manager.get_executor().post_register_hook(verbosity=verbosity)
