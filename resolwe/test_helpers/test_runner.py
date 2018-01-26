@@ -350,6 +350,33 @@ class ResolweRunner(DiscoverRunner):
         # while keeping suite.processes unchanged. We need to propagate the change here to
         # avoid spawning more processes than there are databases.
         suite.processes = self.parallel
+
+        # Augment all test cases with manager state validation logic.
+        def validate_manager_state(case, teardown):
+            """Decorate test case with manager state validation."""
+            def wrapper(*args, **kwargs):
+                """Validate manager state on teardown."""
+                if int(manager.state.executor_count) != 0 or int(manager.state.sync_semaphore) != 0:
+                    case.fail(
+                        'Test has outstanding manager processes. Ensure that all processes have '
+                        'completed or that you have reset the state manually in case you have '
+                        'bypassed the regular manager flow in any way.\n'
+                        '\n'
+                        'Executor count: {executor_count} (should be 0)\n'
+                        'Sync semaphore: {sync_semaphore} (should be 0)\n'
+                        ''.format(
+                            executor_count=int(manager.state.executor_count),
+                            sync_semaphore=int(manager.state.sync_semaphore),
+                        )
+                    )
+
+                teardown(*args, **kwargs)
+
+            return wrapper
+
+        for case in suite:
+            case.tearDown = validate_manager_state(case, case.tearDown)
+
         return suite
 
     def run_suite(self, suite, **kwargs):

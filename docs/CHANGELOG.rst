@@ -18,6 +18,8 @@ Changed
 Added
 -----
 - Add ``descriptor_completed`` field to the ``Entity`` filter
+- Validate manager semaphors after each test case, to ease debugging of tests
+  which execute processes
 
 
 ==================
