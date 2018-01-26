@@ -194,3 +194,49 @@ ELASTICSEARCH_PORT = int(os.environ.get('RESOLWE_ES_PORT', '59200'))
 TEST_RUNNER = 'resolwe.test_helpers.test_runner.ResolweRunner'
 TEST_PROCESS_REQUIRE_TAGS = True
 TEST_PROCESS_PROFILE = False
+
+
+# Logging.
+
+# Set RESOLWE_LOG_FILE environment variable to a file path to enable
+# logging debugging messages to to a file.
+debug_file_path = os.environ.get('RESOLWE_LOG_FILE', os.devnull)  # pylint: disable=invalid-name
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'standard': {
+            'format': '%(asctime)s - %(levelname)s - %(name)s[%(process)s]: %(message)s',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'level': 'WARNING',
+            'formatter': 'standard',
+        },
+        'file': {
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': debug_file_path,
+            'formatter': 'standard',
+            'maxBytes': 1024 * 1024 * 10,  # 10 MB
+        },
+    },
+    'loggers': {
+        '': {
+            'handlers': ['file'],
+            'level': 'DEBUG',
+        },
+        'elasticsearch': {
+            'handlers': ['file'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        'urllib3': {
+            'handlers': ['file'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+    }
+}
