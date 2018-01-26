@@ -103,6 +103,7 @@ def data_purge(data_ids=None, delete=False, verbosity=0):
 
     """
     data_path = settings.FLOW_EXECUTOR['DATA_DIR']
+    runtime_path = settings.FLOW_EXECUTOR['RUNTIME_DIR']
     unreferenced_files = set()
 
     data_qs = Data.objects.filter(status__in=[Data.STATUS_DONE, Data.STATUS_ERROR])
@@ -122,19 +123,20 @@ def data_purge(data_ids=None, delete=False, verbosity=0):
 
     # Remove any folders, which do not belong to any data objects.
     if data_ids is None:
-        for directory in os.listdir(data_path):
-            directory_path = os.path.join(data_path, directory)
-            if not os.path.isdir(directory_path):
-                continue
+        for base_path in (data_path, runtime_path):
+            for directory in os.listdir(base_path):
+                directory_path = os.path.join(base_path, directory)
+                if not os.path.isdir(directory_path):
+                    continue
 
-            try:
-                data_id = int(directory)
-            except ValueError:
-                continue
+                try:
+                    data_id = int(directory)
+                except ValueError:
+                    continue
 
-            # Check if a data object with the given identifier exists.
-            if not Data.objects.filter(pk=data_id).exists():
-                unreferenced_files.add(directory_path)
+                # Check if a data object with the given identifier exists.
+                if not Data.objects.filter(pk=data_id).exists():
+                    unreferenced_files.add(directory_path)
 
     if verbosity >= 1:
         # Print unreferenced files

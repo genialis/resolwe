@@ -18,6 +18,8 @@ Changed
   default values
 - Add mechanism to change test database name from the environment, appending
   a ``_test`` suffix to it; this replaces the static name used before
+- Remove runtime directory during general data purge instead of immediately after
+  each process finishes
 
 Added
 -----
