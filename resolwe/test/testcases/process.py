@@ -24,6 +24,7 @@ from django.conf import settings
 from django.core import management
 from django.db import transaction
 from django.utils.crypto import get_random_string
+from django.utils.six import StringIO
 from django.utils.text import slugify
 
 from resolwe.flow.models import Collection, Data, DescriptorSchema, Process, Storage
@@ -167,6 +168,8 @@ class ProcessTestCase(TransactionTestCase):
         if not SCHEMAS_FIXTURE_CACHE:
             SCHEMAS_FIXTURE_CACHE = {}
 
+        stdout, stderr = StringIO(), StringIO()
+
         if cache_key in SCHEMAS_FIXTURE_CACHE:
             for schemas in schemas_types:
                 # NOTE: Schemas' current primary keys may not be unique on the next runs of
@@ -180,7 +183,7 @@ class ProcessTestCase(TransactionTestCase):
                 self._update_schema_relations(schemas_cache)
                 schemas['model'].objects.bulk_create(schemas_cache)
         else:
-            management.call_command('register', force=True, testing=True, verbosity='0', **kwargs)
+            management.call_command('register', force=True, stdout=stdout, stderr=stderr, **kwargs)
 
             if cache_key not in SCHEMAS_FIXTURE_CACHE:
                 SCHEMAS_FIXTURE_CACHE[cache_key] = {}
@@ -188,6 +191,8 @@ class ProcessTestCase(TransactionTestCase):
             # NOTE: list() forces DB query execution
             for schemas in schemas_types:
                 SCHEMAS_FIXTURE_CACHE[cache_key][schemas['name']] = list(schemas['model'].objects.all())
+
+        return stdout, stderr
 
     def _create_collection(self):
         """Create a test collection for admin user.
