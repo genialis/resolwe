@@ -2,6 +2,7 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import os
+import subprocess
 import unittest
 
 import mock
@@ -14,6 +15,7 @@ from django.test import override_settings
 from guardian.shortcuts import assign_perm
 
 from resolwe.flow.executors.prepare import BaseFlowExecutorPreparer
+from resolwe.flow.managers import manager
 from resolwe.flow.models import Data, DataDependency, Process
 from resolwe.test import ProcessTestCase, TestCase, tag_process, with_docker_executor, with_null_executor
 
@@ -222,3 +224,37 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.run_process('test-scheduling-class-interactive-ok')
         self.run_process('test-scheduling-class-interactive-fail', assert_status=Data.STATUS_ERROR)
         self.run_process('test-scheduling-class-batch')
+
+    @with_docker_executor
+    @tag_process('test-docker')
+    def test_executor_fs_lock(self):
+        # First, run the process normaly.
+        data = self.run_process('test-docker')
+
+        # Then, run the executor again manually.
+        # TODO: Replace with subprocess.run when we drop Python 3.4.
+        process = subprocess.Popen(
+            ['python', '-m', 'executors', '.docker'],
+            cwd=os.path.join(settings.FLOW_EXECUTOR['RUNTIME_DIR'], str(data.pk)),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        try:
+            _, stderr = process.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            raise
+
+        self.assertIn(b'Unhandled exception in executor', stderr)
+        self.assertIn(b'FileExistsError: [Errno 17]', stderr)
+        self.assertEqual(process.returncode, 0)
+
+        # Check the status of the data object.
+        data.refresh_from_db()
+        self.assertEqual(data.status, Data.STATUS_ERROR)
+        self.assertEqual(data.process_error, ["[Errno 17] File exists: 'stdout.txt'"])
+
+        # Manually fix semaphores as our manual running of the executor has decremented them.
+        manager.state.executor_count.add(1)
+        manager.state.sync_semaphore.add(1)
