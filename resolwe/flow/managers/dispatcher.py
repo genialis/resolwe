@@ -497,7 +497,14 @@ class Manager(object):
                                 os.chmod(path, 0o700)
                                 shutil.rmtree(path)
 
-                        shutil.rmtree(self._get_per_data_dir('RUNTIME_DIR', data_id), onerror=handle_error)
+                        # Remove secrets directory, but leave the rest of the runtime directory
+                        # intact. Runtime directory will be removed during data purge, when the
+                        # data object is removed.
+                        secrets_dir = os.path.join(
+                            self._get_per_data_dir('RUNTIME_DIR', data_id),
+                            ExecutorFiles.SECRETS_DIR
+                        )
+                        shutil.rmtree(secrets_dir, onerror=handle_error)
                     except OSError:
                         logger.exception("Manager exception while removing data runtime directory.")
 

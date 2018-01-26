@@ -10,6 +10,11 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Changed
+-------
+- Remove runtime directory during general data purge instead of immediately
+  after each process finishes
+
 Added
 -----
 - Add ``descriptor_completed`` field to the ``Entity`` filter
