@@ -7,6 +7,7 @@ Data Purge
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+import logging
 import os
 import shutil
 
@@ -14,6 +15,9 @@ from django.conf import settings
 
 from resolwe.flow.models import Data
 from resolwe.flow.utils import iterate_fields
+from resolwe.utils import BraceMessage as __
+
+logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
 def get_purge_files(root, output, output_schema, descriptor, descriptor_schema):
@@ -141,11 +145,11 @@ def data_purge(data_ids=None, delete=False, verbosity=0):
     if verbosity >= 1:
         # Print unreferenced files
         if unreferenced_files:
-            print("Unreferenced files ({}):".format(len(unreferenced_files)))
+            logger.info(__("Unreferenced files ({}):", len(unreferenced_files)))
             for name in unreferenced_files:
-                print("  {}".format(name))
+                logger.info(__("  {}", name))
         else:
-            print("No unreferenced files")
+            logger.info("No unreferenced files")
 
     # Go through unreferenced files and delete them.
     if delete:

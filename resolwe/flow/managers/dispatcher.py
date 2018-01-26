@@ -678,7 +678,7 @@ class Manager(object):
 
         # Hand off to the run() method for execution.
         if verbosity >= 1:
-            print("Running", runtime_dir)
+            logger.info(__("Running {}", runtime_dir))
 
         self.state.executor_count.add(1)
 
