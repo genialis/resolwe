@@ -6,13 +6,14 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+==================
+6.0.1 - 2018-01-29
+==================
 
 Fixed
 -----
-- Make manager more robust to ORM/database failures during data object processing
+- Make manager more robust to ORM/database failures during data object
+  processing
 - Rebuild the ElasticSearch index after permission is removed from an object
 - Trim ``Data.process_error``, ``Data.process_warning`` and
   ``Data.process_info`` fields before saving them
