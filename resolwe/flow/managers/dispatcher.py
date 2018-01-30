@@ -129,11 +129,15 @@ class Manager(object):
 
         def __exit__(self, exc_type, exc_val, exc_tb):
             """Wait for executors to finish, then return."""
+            logger.info(__("Waiting for sync semaphore to drop to 0, now it is {}", self.state.sync_semaphore))
+
             while int(self.state.sync_semaphore) > 0:
                 # Random, but Django Channels don't provide blocking behaviour.
                 time.sleep(0.5)
 
             assert self.state.sync_execution.cas(1, 0) == 1
+            logging.debug("Sync semaphore dropped to 0.")
+
             return False
 
     class _SettingsManager(object):
@@ -177,12 +181,21 @@ class Manager(object):
         if executor is None:
             executor = getattr(settings, 'FLOW_EXECUTOR', {}).get('NAME', 'resolwe.flow.executors.local')
         self.executor = self.load_executor(executor)
+        logger.info(
+            __("Loaded '{}' executor.", str(self.executor.__class__.__module__).replace('.prepare', ''))
+        )
 
         expression_engines = getattr(settings, 'FLOW_EXPRESSION_ENGINES', ['resolwe.flow.expression_engines.jinja'])
         self.expression_engines = self.load_expression_engines(expression_engines)
+        logger.info(__(
+            "Found {} expression engines: {}", len(self.expression_engines), ', '.join(self.expression_engines.keys())
+        ))
 
         execution_engines = getattr(settings, 'FLOW_EXECUTION_ENGINES', ['resolwe.flow.execution_engines.bash'])
         self.execution_engines = self.load_execution_engines(execution_engines)
+        logger.info(__(
+            "Found {} execution engines: {}", len(self.execution_engines), ', '.join(self.execution_engines.keys())
+        ))
 
     def drain(self):
         """Drain the control channel without acting on anything."""
@@ -248,6 +261,10 @@ class Manager(object):
             connector_module = import_module(module_name)
             self.connectors[module_name] = connector_module.Connector()
 
+        logger.info(__(
+            "Found {} workload connectors: {}", len(self.connectors), ', '.join(self.connectors.keys())
+        ))
+
         super().__init__(*args, **kwargs)
 
     def _marshal_settings(self):
@@ -288,6 +305,7 @@ class Manager(object):
             class_name = settings.FLOW_MANAGER['DISPATCHER_MAPPING'][process_scheduling]
         else:
             class_name = getattr(settings, 'FLOW_MANAGER', {}).get('NAME', DEFAULT_CONNECTOR)
+
         return self.connectors[class_name].submit(data, runtime_dir, argv, verbosity)
 
     def _get_per_data_dir(self, dir_base, data_id):
@@ -324,6 +342,8 @@ class Manager(object):
         :return: The prepared data directory path.
         :rtype: str
         """
+        logger.debug(__("Preparing data directory for Data with id {}.", data_id))
+
         output_path = self._get_per_data_dir('DATA_DIR', data_id)
         dir_mode = self.settings_actual.get('FLOW_EXECUTOR', {}).get('DATA_DIR_MODE', 0o755)
         os.mkdir(output_path, mode=dir_mode)
@@ -416,6 +436,8 @@ class Manager(object):
             be deployed.
         :rtype: (str, str)
         """
+        logger.debug(__("Preparing executor for Data with id {}", data_id))
+
         # Both of these imports are here only to get the packages' paths.
         import resolwe.flow.executors as executor_package
         import resolwe.flow.managers.protocol as protocol_module
@@ -462,11 +484,7 @@ class Manager(object):
         """
         cmd = message.content[WorkerProtocol.COMMAND]
         logger.debug(__(
-            "Manager worker '{}.{}' got channel command '{}' on channel '{}'.",
-            self.__class__.__module__,
-            self.__class__.__name__,
-            cmd,
-            message.channel.name
+            "Manager worker got channel command '{}' on channel '{}'.", cmd, message.channel.name
         ))
 
         # Prepare settings for use; Django overlaid by state overlaid by
@@ -582,11 +600,9 @@ class Manager(object):
 
         executor = getattr(settings, 'FLOW_EXECUTOR', {}).get('NAME', 'resolwe.flow.executors.local')
         logger.debug(__(
-            "Manager '{}.{}' sending communicate command on '{}' with executor set to '{}'.",
-            self.__class__.__module__,
-            self.__class__.__name__,
+            "Manager sending communicate command on '{}' triggered by Data with id {}.",
             state.MANAGER_CONTROL_CHANNEL,
-            executor
+            data_id,
         ))
 
         saved_settings = self.state.settings_override
@@ -612,17 +628,13 @@ class Manager(object):
 
         if run_sync:
             logger.debug(__(
-                "Manager '{}.{}' on channel '{}' entering synchronization block.",
-                self.__class__.__module__,
-                self.__class__.__name__,
+                "Manager on channel '{}' entering synchronization block.",
                 state.MANAGER_CONTROL_CHANNEL
             ))
             with self.synchronized():
                 pass
             logger.debug(__(
-                "Manager '{}.{}' on channel '{}' exiting synchronization block.",
-                self.__class__.__module__,
-                self.__class__.__name__,
+                "Manager on channel '{}' exiting synchronization block.",
                 state.MANAGER_CONTROL_CHANNEL
             ))
 
@@ -644,12 +656,7 @@ class Manager(object):
         if not program:
             return
 
-        logger.debug(__(
-            "Manager '{}.{}' preparing Data object {} for processing.",
-            self.__class__.__module__,
-            self.__class__.__name__,
-            data.id
-        ))
+        logger.debug(__("Manager preparing Data with id {} for processing.", data.id))
 
         # Prepare the executor's environment.
         try:
@@ -755,13 +762,7 @@ class Manager(object):
                 lambda d=data, p=program: self._data_execute(d, p, executor, verbosity)
             )
 
-        logger.debug(__(
-            "Manager '{}.{}' processing communicate command on '{}' for executor '{}'.",
-            self.__class__.__module__,
-            self.__class__.__name__,
-            state.MANAGER_CONTROL_CHANNEL,
-            executor
-        ))
+        logger.debug(__("Manager processing communicate command triggered by Data with id {}.", data_id))
 
         if is_testing():
             # NOTE: This is a work-around for Django issue #10827
