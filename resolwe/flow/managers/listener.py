@@ -171,7 +171,7 @@ class ExecutorListener(Thread):
         changeset = obj[ExecutorProtocol.UPDATE_CHANGESET]
         if not internal_call:
             logger.debug(
-                __("Resolwe listener: handle_update[{}].", data_id),
+                __("Handling update for Data with id {} (handle_update).", data_id),
                 extra={
                     'data_id': data_id,
                     'packet': obj
@@ -180,16 +180,17 @@ class ExecutorListener(Thread):
         try:
             d = Data.objects.get(pk=data_id)
         except Data.DoesNotExist:
-            logger.error(__("Resolwe listener (handle_update[{}]): Data object does not exist.", data_id))
+            logger.error(
+                "Data object does not exist (handle_update).",
+                extra={
+                    'data_id': data_id,
+                }
+            )
             return
 
         if changeset.get('status', None) == Data.STATUS_ERROR:
             logger.error(
-                __(
-                    "Resolwe listener (handle_update[{}]): Error occured while running a '{}' process.",
-                    data_id,
-                    d.process.name
-                ),
+                __("Error occured while running process '{}' (handle_update).", d.process.slug),
                 extra={
                     'data_id': data_id,
                     'api_url': '{}{}'.format(
@@ -226,8 +227,8 @@ class ExecutorListener(Thread):
         except ValidationError as exc:
             logger.error(
                 __(
-                    "Resolwe listener (handle_update[{}]): Validation error on Data object save:\n\n{}",
-                    data_id,
+                    "Validation error when saving Data object of process '{}' (handle_update):\n\n{}",
+                    d.process.slug,
                     traceback.format_exc()
                 ),
                 extra={
@@ -247,8 +248,8 @@ class ExecutorListener(Thread):
         except Exception:  # pylint: disable=broad-except
             logger.error(
                 __(
-                    "Resolwe listener (handle_update[{}]): Error on Data object save:\n\n{}",
-                    data_id,
+                    "Error when saving Data object of process '{}' (handle_update):\n\n{}",
+                    d.process.slug,
                     traceback.format_exc()
                 ),
                 extra={
@@ -277,7 +278,7 @@ class ExecutorListener(Thread):
         """
         data_id = obj[ExecutorProtocol.DATA_ID]
         logger.debug(
-            __("Resolwe listener: handle_finish[{}].", data_id),
+            __("Finishing Data with id {} (handle_finish).", data_id),
             extra={
                 'data_id': data_id,
                 'packet': obj
@@ -298,7 +299,7 @@ class ExecutorListener(Thread):
                 spawned = True
                 exported_files_mapper = obj[ExecutorProtocol.FINISH_EXPORTED_FILES]
                 logger.debug(
-                    __("Resolwe listener (handle_finish[{}]): Spawning new Data objects.", data_id),
+                    __("Spawning new Data objects for Data with id {} (handle_finish).", data_id),
                     extra={
                         'data_id': data_id
                     }
@@ -354,8 +355,8 @@ class ExecutorListener(Thread):
                 except Exception:  # pylint: disable=broad-except
                     logger.error(
                         __(
-                            "Resolwe listener (handle_finish[{}]): Error while preparing spawned Data objects:\n\n{}",
-                            data_id,
+                            "Error while preparing spawned Data objects of process '{}' (handle_finish):\n\n{}",
+                            parent_data.process.slug,
                             traceback.format_exc()
                         ),
                         extra={
@@ -372,7 +373,12 @@ class ExecutorListener(Thread):
                 try:
                     d = Data.objects.get(pk=data_id)
                 except Data.DoesNotExist:
-                    logger.error(__("Resolwe listener (handle_finish[{}]): Data object does not exist.", data_id))
+                    logger.error(
+                        "Data object does not exist (handle_finish).",
+                        extra={
+                            'data_id': data_id,
+                        }
+                    )
                     self._send_reply(obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK})
                     return
 
@@ -481,7 +487,7 @@ class ExecutorListener(Thread):
                 obj = json.loads(item.decode('utf-8'))
             except json.JSONDecodeError:
                 logger.error(
-                    __("Resolwe listener: Undecodable command packet:\n\n{}"),
+                    __("Undecodable command packet:\n\n{}"),
                     traceback.format_exc()
                 )
                 continue
@@ -496,11 +502,11 @@ class ExecutorListener(Thread):
                     handler(obj)
                 except Exception:  # pylint: disable=broad-except
                     logger.error(__(
-                        "Resolwe listener: Executor command handling error:\n\n{}",
+                        "Executor command handling error:\n\n{}",
                         traceback.format_exc()
                     ))
             else:
                 logger.error(
-                    __("Resolwe listener: Unknown executor command '{}'.", command),
+                    __("Unknown executor command '{}'.", command),
                     extra={'decoded_packet': obj}
                 )
