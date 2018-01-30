@@ -23,6 +23,7 @@ Changed
 - Manager's communicate process only the data object by which it was
   triggered and its children.
 - Use process' slug instead of data id when logging errors in listener
+- Improve log messages in dispatcher
 
 Added
 -----
