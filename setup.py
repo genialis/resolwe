@@ -76,9 +76,9 @@ setup(
         # django-filter and doesn't work with the latest version, so we
         # have to pin it
         'django-filter~=1.0.0',
-        'redis',
-        'asgi-redis',
-        'channels',
+        'redis~=2.10.6',
+        'asgi-redis~=1.4.3',
+        'channels~=1.1.6',
     ],
     python_requires='>=3.4, <3.6',
     extras_require={
