@@ -43,6 +43,7 @@ Fixed
 - Add mechanism to override the manager's control channel prefix from the
   environment
 - Make management commands respect the set verbosity level
+- Fix deletion of a ``Data`` objects which belongs to more than one ``Entity``
 
 
 ==================

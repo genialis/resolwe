@@ -265,7 +265,22 @@ class EntityModelTest(TestCase):
         # `Sample`is created automatically when `Data` object is created
         self.data = Data.objects.create(name='Test data', contributor=self.contributor, process=self.process)
 
-    def test_delete_last_data(self):
+    def test_delete_data(self):
+        # Create another Data object and add it to the same Entity.
+        data_2 = Data.objects.create(name='Test data', contributor=self.contributor, process=self.process)
+        data_2.entity_set.all().delete()
+        self.data.entity_set.first().data.add(data_2)
+
+        data_2.delete()
+        self.assertEqual(Entity.objects.count(), 1)
+
+        self.data.delete()
+        self.assertEqual(Entity.objects.count(), 0)
+
+    def test_two_entities(self):
+        entity_2 = Entity.objects.create(contributor=self.contributor)
+        entity_2.data.add(self.data)
+
         self.data.delete()
         self.assertEqual(Entity.objects.count(), 0)
 

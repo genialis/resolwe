@@ -7,6 +7,7 @@ Signal Handlers
 """
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Count
 from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
 
@@ -34,10 +35,5 @@ def manager_post_save_handler(sender, instance, created, **kwargs):
 @receiver(pre_delete, sender=Data)
 def delete_entity(sender, instance, **kwargs):
     """Delete Entity when last Data object is deleted."""
-    try:
-        entity = Entity.objects.get(data=instance.pk)
-    except Entity.DoesNotExist:  # pylint: disable=no-member
-        return
-
-    if entity.data.count() == 1:  # last Data object will be just deleted
-        entity.delete()
+    # 1 means that the last Data object is going to be deleted.
+    Entity.objects.annotate(num_data=Count('data')).filter(data=instance, num_data=1).delete()
