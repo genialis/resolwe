@@ -11,6 +11,7 @@ import inspect
 import json
 import logging
 import os
+import shlex
 import shutil
 import time
 from importlib import import_module
@@ -270,8 +271,7 @@ class Manager(object):
         set_env = self.settings_actual.get('FLOW_EXECUTOR', {}).get('SET_ENV', {})
         env_vars.update(set_env)
 
-        # TODO: Use shlex.quote when py2 support dropped
-        export_commands = ['export {}="{}"'.format(key, value.replace('"', '\"')) for key, value in env_vars.items()]
+        export_commands = ['export {}={}'.format(key, shlex.quote(value)) for key, value in env_vars.items()]
         return os.linesep.join(export_commands) + os.linesep + program
 
     def run(self, data, runtime_dir, argv, verbosity=1):
