@@ -157,8 +157,8 @@ class ExecutorListener(Thread):
 
                 {
                     'command': 'update',
-                    'id': [id of the :class:`~resolwe.flow.models.Data`
-                        object this command changes],
+                    'data_id': [id of the :class:`~resolwe.flow.models.Data`
+                               object this command changes],
                     'changeset': {
                         [keys to be changed]
                     }
@@ -268,8 +268,8 @@ class ExecutorListener(Thread):
 
                 {
                     'command': 'finish',
-                    'id': [id of the :class:`~resolwe.flow.models.Data` object
-                          this command changes],
+                    'data_id': [id of the :class:`~resolwe.flow.models.Data` object
+                               this command changes],
                     'process_rc': [exit status of the processing]
                     'spawn_processes': [optional; list of spawn dictionaries],
                     'exported_files_mapper': [if spawn_processes present]
@@ -415,6 +415,33 @@ class ExecutorListener(Thread):
             WorkerProtocol.COMMAND: WorkerProtocol.FINISH,
             WorkerProtocol.DATA_ID: data_id,
             WorkerProtocol.FINISH_SPAWNED: spawned,
+            WorkerProtocol.FINISH_COMMUNICATE_EXTRA: {
+                'executor': getattr(settings, 'FLOW_EXECUTOR', {}).get('NAME', 'resolwe.flow.executors.local'),
+            },
+        })
+
+    def handle_abort(self, obj):
+        """Handle an incoming ``Data`` abort processing request.
+
+        .. IMPORTANT::
+
+            This only makes manager's state consistent and doesn't
+            affect Data object in any way. Any changes to the Data
+            must be applied over ``handle_update`` method.
+
+        :param obj: The Channels message object. Command object format:
+
+            .. code:: none
+
+                {
+                    'command': 'abort',
+                    'data_id': [id of the :class:`~resolwe.flow.models.Data` object
+                               this command was triggered by],
+                }
+        """
+        Channel(state.MANAGER_CONTROL_CHANNEL).send({
+            WorkerProtocol.COMMAND: WorkerProtocol.ABORT,
+            WorkerProtocol.DATA_ID: obj[ExecutorProtocol.DATA_ID],
             WorkerProtocol.FINISH_COMMUNICATE_EXTRA: {
                 'executor': getattr(settings, 'FLOW_EXECUTOR', {}).get('NAME', 'resolwe.flow.executors.local'),
             },

@@ -126,8 +126,15 @@ class BaseFlowExecutor(object):
         self.resources = requirements.get('resources', {})
 
         os.chdir(EXECUTOR_SETTINGS['DATA_DIR'])
-        log_file = self._create_file('stdout.txt')
-        json_file = self._create_file('jsonout.txt')
+        try:
+            log_file = self._create_file('stdout.txt')
+            json_file = self._create_file('jsonout.txt')
+        except FileExistsError:
+            logger.error("Stdout or jsonout out file already exists.")
+            # Looks like executor was already ran for this Data object,
+            # so don't raise the error to prevent setting status to error.
+            send_manager_command(ExecutorProtocol.ABORT, expect_reply=False)
+            return
 
         proc_pid = self.start()
 

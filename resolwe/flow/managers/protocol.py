@@ -15,6 +15,8 @@ class WorkerProtocol(object):
     FINISH_SPAWNED = 'spawned'
     FINISH_COMMUNICATE_EXTRA = 'communicate_kwargs'
 
+    ABORT = 'abort_data'
+
 
 class ExecutorProtocol(object):
     """Constants used by the executor<->listener protocol."""
@@ -29,6 +31,8 @@ class ExecutorProtocol(object):
     FINISH_PROCESS_RC = 'process_rc'
     FINISH_SPAWN_PROCESSES = 'spawn_processes'
     FINISH_EXPORTED_FILES = 'exported_files_mapper'
+
+    ABORT = 'abort'
 
     RESULT = 'result'
     RESULT_OK = 'OK'
