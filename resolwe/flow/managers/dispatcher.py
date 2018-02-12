@@ -525,6 +525,13 @@ class Manager(object):
                 new_sema = self.state.sync_semaphore.add(-1)
                 logger.debug(__("Manager changed sync_semaphore DOWN to {} after executor finish.", new_sema))
 
+        elif cmd == WorkerProtocol.ABORT:
+            self.state.executor_count.add(-1)
+
+            # Clear execution claim on the semaphore (claimed in _data_execute).
+            new_sema = self.state.sync_semaphore.add(-1)
+            logger.debug(__("Manager changed sync_semaphore DOWN to {} after executor aborted.", new_sema))
+
         else:
             logger.error(__("Ignoring unknown manager control command '{}'.", cmd))
 

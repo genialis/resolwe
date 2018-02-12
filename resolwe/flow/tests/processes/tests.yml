@@ -329,6 +329,7 @@
   output:
     - name: number
       label: Number
+      required: false
       type: basic:integer
   run:
     program: |

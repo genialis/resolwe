@@ -226,10 +226,15 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.run_process('test-scheduling-class-batch')
 
     @with_docker_executor
-    @tag_process('test-docker')
+    @tag_process('test-save-number')
     def test_executor_fs_lock(self):
         # First, run the process normaly.
-        data = self.run_process('test-docker')
+        data = self.run_process('test-save-number', {'number': 42})
+
+        # Make sure that process was successfully ran first time.
+        self.assertEqual(data.output['number'], 42)
+        data.output = {}
+        data.save()
 
         # Then, run the executor again manually.
         # TODO: Replace with subprocess.run when we drop Python 3.4.
@@ -241,19 +246,19 @@ class ManagerRunProcessTest(ProcessTestCase):
         )
 
         try:
-            _, stderr = process.communicate(timeout=5)
+            process.communicate(timeout=5)
         except subprocess.TimeoutExpired:
             process.kill()
             raise
 
-        self.assertIn(b'Unhandled exception in executor', stderr)
-        self.assertIn(b'FileExistsError: [Errno 17]', stderr)
         self.assertEqual(process.returncode, 0)
 
         # Check the status of the data object.
         data.refresh_from_db()
-        self.assertEqual(data.status, Data.STATUS_ERROR)
-        self.assertEqual(data.process_error, ["[Errno 17] File exists: 'stdout.txt'"])
+        # Check that output is empty and thus process didn't ran.
+        self.assertEqual(data.output, {})
+        self.assertEqual(data.status, Data.STATUS_DONE)
+        self.assertEqual(data.process_error, [])
 
         # Manually fix semaphores as our manual running of the executor has decremented them.
         manager.state.executor_count.add(1)
