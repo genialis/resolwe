@@ -763,15 +763,15 @@ class Manager(object):
             executor
         ))
 
-        # Ensure we have the correct engines loaded.
-        self.discover_engines(executor=executor)
-
         if is_testing():
             # NOTE: This is a work-around for Django issue #10827
             # (https://code.djangoproject.com/ticket/10827), same as in
             # TestCaseHelpers._pre_setup(). Because the worker is running
             # independently, it must clear the cache on its own.
             ContentType.objects.clear_cache()
+
+            # Ensure settings overrides apply
+            self.discover_engines(executor=executor)
 
         try:
             queryset = Data.objects.filter(status=Data.STATUS_RESOLVING)
