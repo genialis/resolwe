@@ -8,11 +8,13 @@ Register Processes
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import os
+import re
 
 import jsonschema
 import yaml
 from versionfield.utils import convert_version_string_to_int
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.db.models import Max
@@ -24,7 +26,7 @@ from resolwe.flow.managers import manager
 from resolwe.flow.models import DescriptorSchema, Process
 from resolwe.flow.models.base import VERSION_NUMBER_BITS
 from resolwe.flow.models.utils import validation_schema
-from resolwe.flow.utils import iterate_schema
+from resolwe.flow.utils import dict_dot, iterate_schema
 from resolwe.permissions.utils import assign_contributor_permissions, copy_permissions
 
 PROCESSOR_SCHEMA = validation_schema('processor')
@@ -170,6 +172,21 @@ class Command(BaseCommand):
                         slug, p['run']['language']
                     ))
                     continue
+
+            # Validate if container image is allowed based on the configured pattern.
+            # NOTE: This validation happens here and is not deferred to executors because the idea
+            #       is that this will be moved to a "container" requirement independent of the
+            #       executor.
+            if hasattr(settings, 'FLOW_CONTAINER_VALIDATE_IMAGE'):
+                try:
+                    container_image = dict_dot(p, 'requirements.executor.docker.image')
+                    if not re.match(settings.FLOW_CONTAINER_VALIDATE_IMAGE, container_image):
+                        self.stderr.write("Skip processor {}: container image does not match '{}'".format(
+                            slug, settings.FLOW_CONTAINER_VALIDATE_IMAGE,
+                        ))
+                        continue
+                except KeyError:
+                    pass
 
             version = p['version']
             int_version = convert_version_string_to_int(version, VERSION_NUMBER_BITS)

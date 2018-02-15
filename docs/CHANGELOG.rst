@@ -31,6 +31,8 @@ Added
   to Django's extreme memory usage when deleting a large count of ``Data`` objects
 - Add ``validate_process_types`` utility function, which checks that all registered
   processes conform to their supertypes
+- Add ``FLOW_CONTAINER_VALIDATE_IMAGE`` setting which can be used to validate
+  container image names
 
 Fixed
 -----
