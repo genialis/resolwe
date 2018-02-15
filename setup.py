@@ -65,7 +65,7 @@ setup(
         'PyYAML>=3.11',
         'jsonschema>=2.4.0',
         'six>=1.10.0',
-        'Sphinx>=1.5.1',
+        'Sphinx>=1.5.1, <1.7.0',
         'Jinja2>=2.9.6',
         'wrapt>=1.10.8',
         'shellescape>=3.4.1',
