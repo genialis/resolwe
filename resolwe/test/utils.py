@@ -107,15 +107,10 @@ def with_custom_executor(wrapped=None, **custom_executor_settings):
     return wrapper(wrapped)  # pylint: disable=no-value-for-parameter
 
 
-def with_docker_executor(wrapped=None, image='resolwe/base:fedora-26'):
-    """Decorate unit test to run processes with the Docker executor.
-
-    :param str image: custom Docker image to use when running the Docker
-        executor
-
-    """
+def with_docker_executor(wrapped=None):
+    """Decorate unit test to run processes with the Docker executor."""
     if wrapped is None:
-        return functools.partial(with_docker_executor, image=image)
+        return functools.partial(with_docker_executor)
 
     # pylint: disable=missing-docstring
     @wrapt.decorator
@@ -123,7 +118,6 @@ def with_docker_executor(wrapped=None, image='resolwe/base:fedora-26'):
         return unittest.skipUnless(*check_docker())(
             with_custom_executor(
                 NAME='resolwe.flow.executors.docker',
-                CONTAINER_IMAGE=image,
             )(wrapped_method)
         )(*args, **kwargs)
 

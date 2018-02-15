@@ -33,7 +33,7 @@ class FlowExecutor(LocalFlowExecutor):
         # arguments passed to the Docker command
         command_args = {
             'command': self.command,
-            'container_image': self.requirements.get('image', SETTINGS['FLOW_EXECUTOR']['CONTAINER_IMAGE']),
+            'container_image': self.requirements.get('image', constants.DEFAULT_CONTAINER_IMAGE),
         }
 
         # Get limit defaults.

@@ -16,6 +16,10 @@ Changed
   of lifetime
 - **BACKWARD INCOMPATIBLE:** Remove support for Jinja in ``DescriptorSchema``'s
   default values
+- **BACKWARD INCOMPATIBLE:** Remove ``CONTAINER_IMAGE`` configuration option
+  from the Docker executor; if no container image is specified for a process
+  using the Docker executor, the same pre-defined default image is used
+  (currently this is ``resolwe/base:ubuntu-16.04``)
 - Add mechanism to change test database name from the environment, appending
   a ``_test`` suffix to it; this replaces the static name used before
 

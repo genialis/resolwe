@@ -17,6 +17,7 @@ import yaml
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
+from resolwe.flow.executors.docker.constants import DEFAULT_CONTAINER_IMAGE
 from resolwe.flow.models import Process
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
@@ -62,12 +63,8 @@ class Command(BaseCommand):
             if 'image' in p.requirements.get('executor', {}).get('docker', {})
         )
 
-        # Add the default image if it exists
-        if 'CONTAINER_IMAGE' in settings.FLOW_EXECUTOR:
-            # This Docker image is used if a process doesn't specify its own
-            default_docker_image = settings.FLOW_EXECUTOR['CONTAINER_IMAGE']
-
-            unique_docker_images.add(default_docker_image)
+        # Add the default image.
+        unique_docker_images.add(DEFAULT_CONTAINER_IMAGE)
 
         # Sort the set of unique Docker images for nicer output
         unique_docker_images = sorted(unique_docker_images)
