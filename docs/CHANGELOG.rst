@@ -27,7 +27,7 @@ Changed
 
 Added
 -----
-- Add Ubuntu 17.10 base Docker image
+- Add Ubuntu 17.10 and Ubuntu 18.04 base Docker images
 - Add ``descriptor_completed`` field to the ``Entity`` filter
 - Validate manager semaphors after each test case, to ease debugging of tests
   which execute processes
