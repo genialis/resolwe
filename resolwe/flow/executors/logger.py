@@ -26,8 +26,7 @@ class JSONFormatter(logging.Formatter):
         # Exception and Traceback cannot be serialized.
         data['exc_info'] = None
 
-        # Ensure logging message is instantiated to a string (it could a BraceMessage instance
-        # which is not JSON serializable).
+        # Ensure logging message is instantiated to a string.
         data['msg'] = str(data['msg'])
 
         return json.dumps(data)

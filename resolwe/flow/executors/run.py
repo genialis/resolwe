@@ -22,8 +22,6 @@ from collections import defaultdict
 # file must also be updated accordingly.
 import six
 
-from resolwe.utils import BraceMessage as __
-
 from .global_settings import DATA_META, EXECUTOR_SETTINGS, PROCESS, SETTINGS
 from .manager_commands import send_manager_command
 from .protocol import ExecutorProtocol  # pylint: disable=import-error
@@ -117,7 +115,7 @@ class BaseFlowExecutor(object):
     def _run(self, data_id, script, verbosity=1):
         """Execute the script and save results."""
         if verbosity >= 1:
-            logger.info(__('RUN: {} {}', data_id, script))
+            logger.info('RUN: {} {}'.format(data_id, script))  # pylint: disable=logging-format-interpolation
 
         self.data_id = data_id
 
