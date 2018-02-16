@@ -1,20 +1,31 @@
-"""Utility functions."""
+""".. Ignore pydocstyle D400.
+
+=================
+Resolwe Utilities
+=================
+
+"""
 
 
 class BraceMessage(object):
     """Log messages with the new {}-string formatting syntax.
 
-    NOTE: When using this helper class, one pays no signigicant
-    performance penalty since the actual formatting only happens when
-    (and if) the logged message is actually outputted to a log by a
-    handler.
+    .. note::
+        When using this helper class, one pays no significant
+        performance penalty since the actual formatting only happens
+        when (and if) the logged message is actually outputted to a log
+        by a handler.
 
-    Example usage:
-    from genesis.utils.formatters import BraceMessage as __
-    logger.error(__("Message with {0} {name}", 2, name="placeholders"))
+    Example of usage:
+
+        .. code-block:: python
+
+            from resolwe.utils import BraceMessage as __
+
+            logger.error(__("Message with {0} {name}", 2, name="placeholders"))
 
     Source:
-    https://docs.python.org/3/howto/logging-cookbook.html#use-of-alternative-formatting-styles
+    https://docs.python.org/3/howto/logging-cookbook.html#use-of-alternative-formatting-styles.
 
     """
 
