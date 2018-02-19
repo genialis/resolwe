@@ -42,9 +42,9 @@ class Connector(BaseConnector):
             queue = 'hipri'
 
         logger.debug(__(
-            "Connector '{}.{}' running {} in celery queue {}, EAGER is {}.",
+            "Connector '{}' running for Data with id {} ({}) in celery queue {}, EAGER is {}.",
             self.__class__.__module__,
-            self.__class__.__name__,
+            data.id,
             repr(argv),
             queue,
             getattr(settings, 'CELERY_ALWAYS_EAGER', None)

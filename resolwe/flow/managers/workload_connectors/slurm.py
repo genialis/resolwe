@@ -34,9 +34,9 @@ class Connector(BaseConnector):
         """
         limits = data.process.get_resource_limits()
         logger.debug(__(
-            "Connector '{}.{}' running {}.",
+            "Connector '{}' running for Data with id {} ({}).",
             self.__class__.__module__,
-            self.__class__.__name__,
+            data.id,
             repr(argv)
         ))
         try:

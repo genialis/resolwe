@@ -27,9 +27,9 @@ class Connector(BaseConnector):
         :meth:`~resolwe.flow.managers.workload_connectors.base.BaseConnector.submit`.
         """
         logger.debug(__(
-            "Connector '{}.{}' running {}.",
+            "Connector '{}' running for Data with id {} ({}).",
             self.__class__.__module__,
-            self.__class__.__name__,
+            data.id,
             repr(argv)
         ))
         subprocess.Popen(

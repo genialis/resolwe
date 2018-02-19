@@ -1,4 +1,5 @@
 """Utility functions for communicating with the manager."""
+# pylint: disable=logging-format-interpolation
 import json
 import logging
 import traceback
@@ -43,7 +44,7 @@ def send_manager_command(cmd, expect_reply=True, extra_fields={}):
     try:
         redis_conn.rpush(queue_channel, json.dumps(packet))
     except Exception:  # pylint: disable=broad-except
-        logger.error("Error sending command to manager:\n\n%s", traceback.format_exc())
+        logger.error("Error sending command to manager:\n\n{}".format(traceback.format_exc()))
         raise
 
     if not expect_reply:

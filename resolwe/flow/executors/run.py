@@ -8,6 +8,7 @@ Flow Executors
     :members:
 
 """
+# pylint: disable=logging-format-interpolation
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import json
@@ -94,6 +95,7 @@ class BaseFlowExecutor(object):
 
     def run(self, data_id, script, verbosity=1):
         """Execute the script and save results."""
+        logger.debug("Executor for Data with id {} has started.".format(data_id))
         try:
             finish_fields = self._run(data_id, script, verbosity=verbosity)
         except SystemExit:
@@ -121,9 +123,6 @@ class BaseFlowExecutor(object):
 
     def _run(self, data_id, script, verbosity=1):
         """Execute the script and save results."""
-        if verbosity >= 1:
-            logger.info('RUN: {} {}'.format(data_id, script))  # pylint: disable=logging-format-interpolation
-
         self.data_id = data_id
 
         # Fetch data instance to get any executor requirements.
@@ -132,6 +131,7 @@ class BaseFlowExecutor(object):
         self.requirements = requirements.get('executor', {}).get(self.name, {})  # pylint: disable=no-member
         self.resources = requirements.get('resources', {})
 
+        logger.debug("Preparing output files for Data with id {}".format(data_id))
         os.chdir(EXECUTOR_SETTINGS['DATA_DIR'])
         try:
             log_file = self._create_file('stdout.txt')
@@ -151,6 +151,8 @@ class BaseFlowExecutor(object):
         )
 
         # Run process and handle intermediate results
+        logger.info("Running program for Data with id {}".format(data_id))
+        logger.debug("The program for Data with id {} is: \n{}".format(data_id, script))
         self.run_script(script)
         spawn_processes = []
         output = {}
@@ -238,7 +240,7 @@ class BaseFlowExecutor(object):
                     log_file.flush()
 
         except MemoryError as ex:
-            logger.error("Out of memory: %s", ex)
+            logger.error("Out of memory:\n\n{}".format(ex))
 
         except IOError as ex:
             # TODO: if ex.errno == 28: no more free space

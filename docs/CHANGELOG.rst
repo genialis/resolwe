@@ -20,6 +20,7 @@ Added
 - Add ``sort`` argument to ``assertFile`` and ``assertFiles`` methods in
   ``ProcessTestCase`` to sort file lines before asserting the content
 - Add ``process_slug`` field to ``DataSerializer``
+- Improve log messages in executor and workload connectors
 
 Fixed
 -----
