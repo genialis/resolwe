@@ -72,7 +72,7 @@
     expression-engine: jinja
     executor:
       docker:
-        image: resolwe/upload-tab-file
+        image: resolwe/upload-tab-file:1.0.0
   data_name: '{{ src.file|default("?") }}'
   version: 0.0.3
   type: data:file:tab
