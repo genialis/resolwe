@@ -44,6 +44,9 @@ Fixed
   environment
 - Make management commands respect the set verbosity level
 - Fix deletion of a ``Data`` objects which belongs to more than one ``Entity``
+- Hydrate paths in ``refs`` of ``basic:file:``, ``list:basic:file:``,
+  ``basic:dir:`` and ``list:basic:dir:`` fields before processing ``Data``
+  object
 
 
 ==================

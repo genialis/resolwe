@@ -249,17 +249,21 @@ def _hydrate_values(output, output_schema, data):
         if 'type' in field_schema:
             if field_schema['type'].startswith('basic:file:'):
                 value['file'] = hydrate_path(value['file'])
+                value['refs'] = [hydrate_path(ref) for ref in value.get('refs', [])]
 
             elif field_schema['type'].startswith('list:basic:file:'):
                 for obj in value:
                     obj['file'] = hydrate_path(obj['file'])
+                    obj['refs'] = [hydrate_path(ref) for ref in obj.get('refs', [])]
 
             if field_schema['type'].startswith('basic:dir:'):
                 value['dir'] = hydrate_path(value['dir'])
+                value['refs'] = [hydrate_path(ref) for ref in value.get('refs', [])]
 
             elif field_schema['type'].startswith('list:basic:dir:'):
                 for obj in value:
                     obj['dir'] = hydrate_path(obj['dir'])
+                    obj['refs'] = [hydrate_path(ref) for ref in obj.get('refs', [])]
 
             elif field_schema['type'].startswith('basic:json:'):
                 fields[name] = hydrate_storage(value)
@@ -282,9 +286,6 @@ def hydrate_input_references(input_, input_schema, hydrate_values=True):
         value = fields[name]
         if 'type' in field_schema:
             if field_schema['type'].startswith('data:'):
-                # if re.match('^[0-9a-fA-F]{24}$', str(value)) is None:
-                #     print "ERROR: data:<...> value in field \"{}\", type \"{}\" not ObjectId but {}.".format(
-                #         name, field_schema['type'], value)
                 if value is None:
                     continue
 
@@ -295,10 +296,8 @@ def hydrate_input_references(input_, input_schema, hydrate_values=True):
                     continue
 
                 output = copy.deepcopy(data.output)
-                # static = Data.static.to_python(data.static)
                 if hydrate_values:
                     _hydrate_values(output, data.process.output_schema, data)
-                    # _hydrate_values(static, data.static_schema, data)
                 output["__id"] = data.id
                 output["__type"] = data.process.type
                 output["__descriptor"] = data.descriptor
@@ -307,9 +306,6 @@ def hydrate_input_references(input_, input_schema, hydrate_values=True):
             elif field_schema['type'].startswith('list:data:'):
                 outputs = []
                 for val in value:
-                    # if re.match('^[0-9a-fA-F]{24}$', str(val)) is None:
-                    #     print "ERROR: data:<...> value in {}, type \"{}\" not ObjectId but {}.".format(
-                    #         name, field_schema['type'], val)
                     if val is None:
                         continue
 
@@ -320,10 +316,8 @@ def hydrate_input_references(input_, input_schema, hydrate_values=True):
                         continue
 
                     output = copy.deepcopy(data.output)
-                    # static = Data.static.to_python(data.static)
                     if hydrate_values:
                         _hydrate_values(output, data.process.output_schema, data)
-                        # _hydrate_values(static, data.static_schema, data)
 
                     output["__id"] = data.id
                     output["__type"] = data.process.type

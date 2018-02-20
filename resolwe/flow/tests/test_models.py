@@ -20,6 +20,7 @@ from rest_framework.test import APIRequestFactory, APITestCase, force_authentica
 from resolwe.flow.expression_engines import EvaluationError
 from resolwe.flow.models import Data, DataDependency, DescriptorSchema, Entity, Process, Storage
 from resolwe.flow.models.data import hydrate_size, render_template
+from resolwe.flow.models.utils import hydrate_input_references
 from resolwe.flow.views import DataViewSet
 from resolwe.test import TestCase, TransactionTestCase
 
@@ -627,3 +628,105 @@ class UtilsTestCase(TestCase):
         process_mock = MagicMock(requirements={'expression-engine': 'jinja'})
         with self.assertRaises(EvaluationError):
             render_template(process_mock, '{{ 1 | missing_increase }}', {})
+
+    def test_hydrate_input_references(self):
+        process = Process.objects.create(
+            contributor=self.contributor,
+            type='data:test:',
+            output_schema=[
+                {
+                    'name': 'file',
+                    'type': 'basic:file:',
+                }, {
+                    'name': 'file_list',
+                    'type': 'list:basic:file:',
+                }, {
+                    'name': 'dir',
+                    'type': 'basic:dir:',
+                }, {
+                    'name': 'dir_list',
+                    'type': 'list:basic:dir:',
+                },
+            ],
+        )
+        descriptor_schema = DescriptorSchema.objects.create(
+            contributor=self.contributor,
+            schema=[
+                {
+                    'name': 'annotation',
+                    'type': 'basic:string:',
+                },
+            ],
+        )
+        data = Data.objects.create(
+            contributor=self.contributor,
+            status=Data.STATUS_ERROR,
+            process=process,
+            # Workaround for skipping the validation.
+            output={
+                'file': {'file': 'some-file', 'refs': ['ref1']},
+                'file_list': [{'file': 'some-file', 'refs': ['ref2']}, {'file': 'another-file'}],
+                'dir': {'dir': 'some-dir', 'refs': ['ref3']},
+                'dir_list': [{'dir': 'some-dir', 'refs': ['ref4']}, {'dir': 'another-dir'}],
+            },
+            descriptor_schema=descriptor_schema,
+            descriptor={
+                'annotation': 'my-annotation',
+            },
+            size=0,
+        )
+
+        input_schema = [
+            {
+                'name': 'data',
+                'type': 'data:test:',
+            },
+        ]
+        input_ = {'data': data.pk}
+        hydrate_input_references(input_, input_schema)
+
+        path_prefix = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.id))
+
+        self.assertEqual(input_['data']['__descriptor'], {'annotation': 'my-annotation'})
+        self.assertEqual(input_['data']['__type'], 'data:test:')
+        self.assertEqual(input_['data']['__id'], data.id)
+
+        self.assertEqual(input_['data']['file']['file'].data_id, data.id)
+        self.assertEqual(input_['data']['file']['file'].file_name, 'some-file')
+        self.assertEqual(str(input_['data']['file']['file']), os.path.join(path_prefix, 'some-file'))
+
+        self.assertEqual(input_['data']['file']['refs'][0].data_id, data.id)
+        self.assertEqual(input_['data']['file']['refs'][0].file_name, 'ref1')
+        self.assertEqual(str(input_['data']['file']['refs'][0]), os.path.join(path_prefix, 'ref1'))
+
+        self.assertEqual(input_['data']['file_list'][0]['file'].data_id, data.id)
+        self.assertEqual(input_['data']['file_list'][0]['file'].file_name, 'some-file')
+        self.assertEqual(str(input_['data']['file_list'][0]['file']), os.path.join(path_prefix, 'some-file'))
+
+        self.assertEqual(input_['data']['file_list'][0]['refs'][0].data_id, data.id)
+        self.assertEqual(input_['data']['file_list'][0]['refs'][0].file_name, 'ref2')
+        self.assertEqual(str(input_['data']['file_list'][0]['refs'][0]), os.path.join(path_prefix, 'ref2'))
+
+        self.assertEqual(input_['data']['file_list'][1]['file'].data_id, data.id)
+        self.assertEqual(input_['data']['file_list'][1]['file'].file_name, 'another-file')
+        self.assertEqual(str(input_['data']['file_list'][1]['file']), os.path.join(path_prefix, 'another-file'))
+
+        self.assertEqual(input_['data']['dir']['dir'].data_id, data.id)
+        self.assertEqual(input_['data']['dir']['dir'].file_name, 'some-dir')
+        self.assertEqual(str(input_['data']['dir']['dir']), os.path.join(path_prefix, 'some-dir'))
+
+        self.assertEqual(input_['data']['dir']['refs'][0].data_id, data.id)
+        self.assertEqual(input_['data']['dir']['refs'][0].file_name, 'ref3')
+        self.assertEqual(str(input_['data']['dir']['refs'][0]), os.path.join(path_prefix, 'ref3'))
+
+        self.assertEqual(input_['data']['dir_list'][0]['dir'].data_id, data.id)
+        self.assertEqual(input_['data']['dir_list'][0]['dir'].file_name, 'some-dir')
+        self.assertEqual(str(input_['data']['dir_list'][0]['dir']), os.path.join(path_prefix, 'some-dir'))
+
+        self.assertEqual(input_['data']['dir_list'][0]['refs'][0].data_id, data.id)
+        self.assertEqual(input_['data']['dir_list'][0]['refs'][0].file_name, 'ref4')
+        self.assertEqual(str(input_['data']['dir_list'][0]['refs'][0]), os.path.join(path_prefix, 'ref4'))
+
+        self.assertEqual(input_['data']['dir_list'][1]['dir'].data_id, data.id)
+        self.assertEqual(input_['data']['dir_list'][1]['dir'].file_name, 'another-dir')
+        self.assertEqual(str(input_['data']['dir_list'][1]['dir']), os.path.join(path_prefix, 'another-dir'))
