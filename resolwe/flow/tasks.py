@@ -13,7 +13,7 @@ from celery import shared_task  # pylint: disable=import-error
 
 
 @shared_task
-def celery_run(data_id, runtime_dir, argv, verbosity):
+def celery_run(data_id, runtime_dir, argv):
     """Run process executor.
 
     :param data_id: The id of the :class:`~resolwe.flow.models.Data`

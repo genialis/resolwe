@@ -19,7 +19,7 @@ def commit_signal(data_id):
     """Nudge manager at the end of every Data object save event."""
     if not getattr(settings, 'FLOW_MANAGER_DISABLE_AUTO_CALLS', False):
         immediate = getattr(settings, 'FLOW_MANAGER_SYNC_AUTO_CALLS', False)
-        manager.communicate(data_id=data_id, verbosity=1, save_settings=False, run_sync=immediate)
+        manager.communicate(data_id=data_id, save_settings=False, run_sync=immediate)
 
 
 @receiver(post_save, sender=Data)

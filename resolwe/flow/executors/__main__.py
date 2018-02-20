@@ -29,7 +29,7 @@ using the python from the ``venv`` virtualenv.
 import argparse
 from importlib import import_module
 
-from .global_settings import DATA, SETTINGS
+from .global_settings import DATA
 from .logger import configure_logging
 from .protocol import ExecutorFiles  # pylint: disable=import-error
 
@@ -48,7 +48,7 @@ def run_executor():
     module = import_module(module_name, __package__)
     executor = getattr(module, class_name)()
     with open(ExecutorFiles.PROCESS_SCRIPT, 'rt') as script_file:
-        executor.run(DATA['id'], script_file.read(), SETTINGS['verbosity'])
+        executor.run(DATA['id'], script_file.read())
 
 
 run_executor()

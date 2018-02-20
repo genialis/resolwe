@@ -19,6 +19,6 @@ class FlowExecutor(BaseFlowExecutor):  # pylint: disable=abstract-method
 
     name = 'null'
 
-    def run(self, data_id, script, verbosity=1):
+    def run(self, data_id, script):
         """Do nothing :)."""
         send_manager_command(ExecutorProtocol.FINISH)

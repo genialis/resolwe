@@ -63,6 +63,7 @@ def configure_logging():
             },
             'console': {
                 'class': 'logging.StreamHandler',
+                'level': logging.WARNING
             },
 
         },

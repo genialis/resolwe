@@ -14,6 +14,7 @@ Changed
 -------
 - **BACKWARD INCOMPATIBLE:** Use Elasticsearch version 5.x
 - Terminate the executor if listener response with error message
+- ``verbosity`` setting is no longer propagated to the executor
 
 Added
 -----

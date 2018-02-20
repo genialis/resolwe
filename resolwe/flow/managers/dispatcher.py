@@ -291,14 +291,13 @@ class Manager(object):
         export_commands = ['export {}={}'.format(key, shlex.quote(value)) for key, value in env_vars.items()]
         return os.linesep.join(export_commands) + os.linesep + program
 
-    def run(self, data, runtime_dir, argv, verbosity=1):
+    def run(self, data, runtime_dir, argv):
         """Select a concrete connector and run the process through it.
 
         :param data: The :class:`~resolwe.flow.models.Data` object that
             is to be run.
         :param runtime_dir: The directory the executor is run from.
         :param argv: The argument vector used to spawn the executor.
-        :param verbosity: Integer logging verbosity level.
         """
         process_scheduling = self.scheduling_class_map[data.process.scheduling_class]
         if 'DISPATCHER_MAPPING' in getattr(settings, 'FLOW_MANAGER', {}):
@@ -306,7 +305,7 @@ class Manager(object):
         else:
             class_name = getattr(settings, 'FLOW_MANAGER', {}).get('NAME', DEFAULT_CONNECTOR)
 
-        return self.connectors[class_name].submit(data, runtime_dir, argv, verbosity)
+        return self.connectors[class_name].submit(data, runtime_dir, argv)
 
     def _get_per_data_dir(self, dir_base, data_id):
         """Extend the given base directory with a per-data component.
@@ -571,9 +570,9 @@ class Manager(object):
             your own risk.
         """
         with self.synchronized(force_enter=force_enter):
-            self.communicate(verbosity=0)
+            self.communicate()
 
-    def communicate(self, data_id=None, run_sync=False, verbosity=1, save_settings=True):
+    def communicate(self, data_id=None, run_sync=False, save_settings=True):
         """Scan database for resolving Data objects and process them.
 
         This is submitted as a task to the manager's channel workers.
@@ -585,7 +584,6 @@ class Manager(object):
             from this point on have finished processing. If no processes
             are spawned, this results in a deadlock, since counts are
             handled on process finish.
-        :param verbosity: Integer logging verbosity level.
         :param save_settings: If ``True``, save the current Django
             settings context to the global state. This should never be
             ``True`` for "automatic" calls, such as from Django signals,
@@ -616,7 +614,6 @@ class Manager(object):
                 WorkerProtocol.COMMUNICATE_SETTINGS: saved_settings,
                 WorkerProtocol.COMMUNICATE_EXTRA: {
                     'data_id': data_id,
-                    'verbosity': verbosity,
                     'executor': executor,
                 },
             }, immediately=True)
@@ -638,7 +635,7 @@ class Manager(object):
                 state.MANAGER_CONTROL_CHANNEL
             ))
 
-    def _data_execute(self, data, program, executor, verbosity):
+    def _data_execute(self, data, program, executor):
         """Execute the Data object.
 
         The activities carried out here include target directory
@@ -650,8 +647,6 @@ class Manager(object):
         :param program: The process text the manager got out of
             execution engine evaluation.
         :param executor: The executor to use for this object.
-        :param verbosity: The logging verbosity with which to execute
-            the object.
         """
         if not program:
             return
@@ -663,7 +658,7 @@ class Manager(object):
             program = self._include_environment_variables(program)
             data_dir = self._prepare_data_dir(data.id)
             executor_module, runtime_dir = self._prepare_executor(data.id, executor)
-            self._prepare_context(data.id, data_dir, runtime_dir, verbosity=verbosity)
+            self._prepare_context(data.id, data_dir, runtime_dir)
             self._prepare_script(runtime_dir, program)
             argv = [
                 '/bin/bash',
@@ -684,23 +679,21 @@ class Manager(object):
             return
 
         # Hand off to the run() method for execution.
-        if verbosity >= 1:
-            logger.info(__("Running {}", runtime_dir))
+        logger.info(__("Running {}", runtime_dir))
 
         self.state.executor_count.add(1)
 
         # Set execution claim on the semaphore (cleared in handle_control_event).
         new_sema = self.state.sync_semaphore.add(1)
         logger.debug(__("Manager changed sync_semaphore UP to {} on executor start.", new_sema))
-        self.run(data, runtime_dir, argv, verbosity=verbosity)
+        self.run(data, runtime_dir, argv)
 
-    def _data_scan(self, data_id=None, verbosity=1, executor='resolwe.flow.executors.local', **kwargs):
+    def _data_scan(self, data_id=None, executor='resolwe.flow.executors.local', **kwargs):
         """Scan for new Data objects and execute them.
 
         :param data_id: Optional id of Data object which (+ its
             children) should be scanned. If it is not given, all
             resolving objects are processed.
-        :param verbosity: Integer logging verbosity level.
         :param executor: The fully qualified name of the executor to use
             for all :class:`~resolwe.flow.models.Data` objects
             discovered in this pass.
@@ -759,7 +752,7 @@ class Manager(object):
             transaction.on_commit(
                 # Make sure the closure gets the right values here, since they're
                 # changed in the loop.
-                lambda d=data, p=program: self._data_execute(d, p, executor, verbosity)
+                lambda d=data, p=program: self._data_execute(d, p, executor)
             )
 
         logger.debug(__("Manager processing communicate command triggered by Data with id {}.", data_id))

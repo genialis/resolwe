@@ -93,11 +93,11 @@ class BaseFlowExecutor(object):
             ExecutorProtocol.UPDATE_CHANGESET: kwargs
         })
 
-    def run(self, data_id, script, verbosity=1):
+    def run(self, data_id, script):
         """Execute the script and save results."""
         logger.debug("Executor for Data with id {} has started.".format(data_id))
         try:
-            finish_fields = self._run(data_id, script, verbosity=verbosity)
+            finish_fields = self._run(data_id, script)
         except SystemExit:
             raise
         except Exception as error:  # pylint: disable=broad-except
@@ -121,7 +121,7 @@ class BaseFlowExecutor(object):
         file_descriptor = os.open(filename, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
         return os.fdopen(file_descriptor, 'w')
 
-    def _run(self, data_id, script, verbosity=1):
+    def _run(self, data_id, script):
         """Execute the script and save results."""
         self.data_id = data_id
 

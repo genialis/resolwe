@@ -46,7 +46,7 @@ re-save-file test_file path/to/file.txt
             descriptor={'descriptions': {'text': 'This is test Data object.'}}
         )
 
-        manager.communicate(verbosity=0, run_sync=True)
+        manager.communicate(run_sync=True)
 
         process = Process.objects.create(
             name='Test template tags',
@@ -122,7 +122,7 @@ save-safe {{ spacy | safe }}
             },
         )
 
-        manager.communicate(verbosity=0, run_sync=True)
+        manager.communicate(run_sync=True)
 
         data.refresh_from_db()
 

@@ -31,7 +31,7 @@ except ImportError:
 class Connector(BaseConnector):
     """Celery-based connector for job execution."""
 
-    def submit(self, data, runtime_dir, argv, verbosity=1):
+    def submit(self, data, runtime_dir, argv):
         """Run process.
 
         For details, see
@@ -49,4 +49,4 @@ class Connector(BaseConnector):
             queue,
             getattr(settings, 'CELERY_ALWAYS_EAGER', None)
         ))
-        celery_run.apply_async((data.id, runtime_dir, argv, verbosity), queue=queue)
+        celery_run.apply_async((data.id, runtime_dir, argv), queue=queue)

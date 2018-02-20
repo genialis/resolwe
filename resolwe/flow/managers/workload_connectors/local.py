@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 class Connector(BaseConnector):
     """Local connector for job execution."""
 
-    def submit(self, data, runtime_dir, argv, verbosity=1):
+    def submit(self, data, runtime_dir, argv):
         """Run process locally.
 
         For details, see

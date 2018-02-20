@@ -26,7 +26,7 @@ EXECUTOR_MEMORY_OVERHEAD = 200
 class Connector(BaseConnector):
     """Slurm-based connector for job execution."""
 
-    def submit(self, data, runtime_dir, argv, verbosity=1):
+    def submit(self, data, runtime_dir, argv):
         """Run process with SLURM.
 
         For details, see
