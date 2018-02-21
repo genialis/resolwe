@@ -6,16 +6,17 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+==================
+6.1.0 - 2018-02-21
+==================
 
 Changed
 -------
 - Remove runtime directory during general data purge instead of immediately
   after each process finishes
-- Manager's communicate process only the data object by which it was triggered
-  and its children.
+- Only process the Data object (and its children) for which the dispatcher's
+  ``communicate()`` was triggered
+- Propagate logging messages from executors to the listener
 - Use process' slug instead of data id when logging errors in listener
 - Improve log messages in dispatcher
 
@@ -27,6 +28,8 @@ Added
 
 Fixed
 -----
+- Don't set Data object's status to error if executor is run multiple times to
+  mitigate the Celery issue of tasks being run multiple times
 - Make management commands respect the set verbosity level
 
 
