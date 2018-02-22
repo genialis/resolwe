@@ -18,19 +18,10 @@ Changed
   default values
 - Add mechanism to change test database name from the environment, appending
   a ``_test`` suffix to it; this replaces the static name used before
-- Remove runtime directory during general data purge instead of immediately after
-  each process finishes
-- Manager's communicate process only the data object by which it was
-  triggered and its children.
-- Use process' slug instead of data id when logging errors in listener
-- Improve log messages in dispatcher
 
 Added
 -----
 - Add Ubuntu 17.10 and Ubuntu 18.04 base Docker images
-- Add ``descriptor_completed`` field to the ``Entity`` filter
-- Validate manager semaphors after each test case, to ease debugging of tests
-  which execute processes
 - Add database migration operations for process schema migrations
 - Add ``delete_chunked`` method to ``Data`` objects queryset which is needed due
   to Django's extreme memory usage when deleting a large count of ``Data`` objects
@@ -42,11 +33,37 @@ Fixed
 - Make parallel test suite worker threads clean up after initialization failures
 - Add mechanism to override the manager's control channel prefix from the
   environment
-- Make management commands respect the set verbosity level
 - Fix deletion of a ``Data`` objects which belongs to more than one ``Entity``
 - Hydrate paths in ``refs`` of ``basic:file:``, ``list:basic:file:``,
   ``basic:dir:`` and ``list:basic:dir:`` fields before processing ``Data``
   object
+
+
+==================
+6.1.0 - 2018-02-21
+==================
+
+Changed
+-------
+- Remove runtime directory during general data purge instead of immediately
+  after each process finishes
+- Only process the Data object (and its children) for which the dispatcher's
+  ``communicate()`` was triggered
+- Propagate logging messages from executors to the listener
+- Use process' slug instead of data id when logging errors in listener
+- Improve log messages in dispatcher
+
+Added
+-----
+- Add ``descriptor_completed`` field to the ``Entity`` filter
+- Validate manager semaphors after each test case, to ease debugging of tests
+  which execute processes
+
+Fixed
+-----
+- Don't set Data object's status to error if executor is run multiple times to
+  mitigate the Celery issue of tasks being run multiple times
+- Make management commands respect the set verbosity level
 
 
 ==================
