@@ -33,6 +33,7 @@ Added
   processes conform to their supertypes
 - Add ``FLOW_CONTAINER_VALIDATE_IMAGE`` setting which can be used to validate
   container image names
+- Only pull Docker images at most once per process in ``list_docker_images``
 
 Fixed
 -----

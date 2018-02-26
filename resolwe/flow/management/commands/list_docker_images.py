@@ -11,6 +11,7 @@ import logging
 import operator
 import shlex
 import subprocess
+import threading
 
 import yaml
 
@@ -21,6 +22,11 @@ from resolwe.flow.executors.docker.constants import DEFAULT_CONTAINER_IMAGE
 from resolwe.flow.models import Process
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
+
+# Global list of images already pulled when running in the same process. This
+# is used to avoid pulling images more than once when executed from tests.
+PULLED_IMAGES = set()
+PULLED_IMAGES_LOCK = threading.Lock()
 
 
 class Command(BaseCommand):
@@ -66,11 +72,12 @@ class Command(BaseCommand):
         # Add the default image.
         unique_docker_images.add(DEFAULT_CONTAINER_IMAGE)
 
-        # Sort the set of unique Docker images for nicer output
-        unique_docker_images = sorted(unique_docker_images)
-
         # Pull images if requested or just output the list in specified format
         if options['pull']:
+            # Remove set of already pulled images.
+            with PULLED_IMAGES_LOCK:
+                unique_docker_images.difference_update(PULLED_IMAGES)
+
             # Get the desired 'docker' command from settings or use the default
             docker = getattr(settings, 'FLOW_DOCKER_COMMAND', 'docker')
 
@@ -81,6 +88,10 @@ class Command(BaseCommand):
                     stdout=None if verbosity > 0 else subprocess.DEVNULL,
                     stderr=None if verbosity > 0 else subprocess.DEVNULL,
                 )
+
+                # Update set of pulled images.
+                with PULLED_IMAGES_LOCK:
+                    PULLED_IMAGES.add(img)
 
                 if ret != 0:
                     errmsg = "Failed to pull Docker image '{}'!".format(img)
@@ -99,6 +110,9 @@ class Command(BaseCommand):
                     if verbosity > 0:
                         self.stdout.write(msg)
         else:
+            # Sort the set of unique Docker images for nicer output.
+            unique_docker_images = sorted(unique_docker_images)
+
             # Convert the set of unique Docker images into a list of dicts for easier output
             imgs = [
                 dict(name=s[0], tag=s[1] if len(s) == 2 else 'latest')
