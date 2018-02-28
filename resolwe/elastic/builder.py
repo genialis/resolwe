@@ -10,6 +10,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import inspect
 import os
 import re
+import uuid
 from importlib import import_module
 
 from django.apps import apps
@@ -25,6 +26,9 @@ __all__ = (
     'index_builder',
     'ManyToManyDependency',
 )
+
+# UUID used in tests to make sure that no index is re-used.
+TESTING_UUID = str(uuid.uuid4())
 
 
 class ElasticSignal(object):
@@ -217,7 +221,7 @@ class IndexBuilder(object):
                         # Make sure that parallel tests have different indices
                         if getattr(settings, 'ELASTICSEARCH_TESTING', False):
                             index = attr.document_class._doc_type.index  # pylint: disable=protected-access
-                            testing_postfix = '_test_{}'.format(os.getpid())
+                            testing_postfix = '_test_{}_{}'.format(TESTING_UUID, os.getpid())
 
                             if not index.endswith(testing_postfix):
                                 # Replace current postfix with the new one.
