@@ -482,7 +482,7 @@ class ExecutorListener(Thread):
                 }
         """
         record_dict = json.loads(obj[ExecutorProtocol.LOG_MESSAGE])
-        record_dict['msg'] = '[EXECUTOR] {}'.format(record_dict['msg'])
+        record_dict['msg'] = record_dict['msg']
 
         executors_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'executors')
         record_dict['pathname'] = os.path.join(executors_dir, record_dict['pathname'])
