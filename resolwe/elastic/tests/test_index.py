@@ -387,10 +387,14 @@ class IndexTest(ElasticSearchTestCase):
         es_objects = TestModelWithDependencyDocument.search().query('match', name='three').execute()
         self.assertEqual(len(es_objects), 0)
 
+        dep3.delete()
+        es_objects = TestModelWithDependencyDocument.search().query('match', name='four').execute()
+        self.assertEqual(len(es_objects), 0)
+
         # Ensure that previous updates did not cause the filtered version to be updated.
         es_objects = TestModelWithFilterDependencyDocument.search().execute()
         self.assertEqual(len(es_objects), 1)
-        # If the filtered version would be updated, this would instead equal 'Deps: one, two, four'.
+        # If the filtered version would be updated, this would instead equal 'Deps: one, two'.
         self.assertEqual(es_objects[0].name, 'Deps: ')
 
         dep4 = TestDependency.objects.create(name='hello')
@@ -402,4 +406,13 @@ class IndexTest(ElasticSearchTestCase):
         self.assertEqual(len(es_objects), 1)
         # It is correct that even non-dependencies are contained in the name as dependencies are
         # only used to determine when to trigger updates.
-        self.assertEqual(es_objects[0].name, 'Deps: one, two, four, hello, hello')
+        self.assertEqual(es_objects[0].name, 'Deps: one, two, hello, hello')
+
+        model.dependencies.remove(dep4)
+        dep5.testmodelwithdependency_set.remove(model)
+
+        es_objects = TestModelWithFilterDependencyDocument.search().execute()
+        self.assertEqual(len(es_objects), 1)
+        # It is correct that even non-dependencies are contained in the name as dependencies are
+        # only used to determine when to trigger updates.
+        self.assertEqual(es_objects[0].name, 'Deps: one, two')

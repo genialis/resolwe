@@ -10,6 +10,10 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Fixed
+-----
+- Fix Elasticsearch index rebuilding after a dependant object is deleted
+
 
 ==================
 7.0.0 - 2018-03-12

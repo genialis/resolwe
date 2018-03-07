@@ -17,7 +17,7 @@ from django.apps import apps
 from django.conf import settings
 from django.db import models
 from django.db.models.fields.related_descriptors import ManyToManyDescriptor
-from django.db.models.signals import m2m_changed, post_save, pre_delete
+from django.db.models.signals import m2m_changed, post_delete, post_save, pre_delete
 
 from .indices import BaseIndex
 from .utils import prepare_connection
@@ -29,6 +29,57 @@ __all__ = (
 
 # UUID used in tests to make sure that no index is re-used.
 TESTING_UUID = str(uuid.uuid4())
+
+
+class BuildArgumentsCache:
+    """Cache for storing arguments for index builder.
+
+    If set value contains a queryset, it is evaluated and later
+    recreated to prevent influence from database changes.
+
+    """
+
+    def __init__(self):
+        """Initialize cache."""
+        self.model = None
+        self.pks = None
+        self.obj = None
+
+    def _clean_cache(self):
+        """Clean cache."""
+        self.model = None
+        self.pks = None
+        self.obj = None
+
+    @property
+    def is_clean(self):
+        """Check if cache is clean."""
+        return self.model is None and self.pks is None and self.obj is None
+
+    def set(self, build_kwargs):
+        """Set cached value."""
+        if build_kwargs is None:
+            return
+
+        if 'queryset' in build_kwargs:
+            self.model = build_kwargs['queryset'].model
+            self.pks = list(build_kwargs['queryset'].values_list('pk', flat=True))
+
+        elif 'obj' in build_kwargs:
+            self.obj = build_kwargs['obj']
+
+    def take(self):
+        """Get cached value and clean cache."""
+        build_kwargs = {}
+        if self.model is not None and self.pks is not None:
+            build_kwargs['queryset'] = self.model.objects.filter(pk__in=self.pks)
+
+        elif self.obj is not None:
+            build_kwargs['obj'] = self.obj
+
+        self._clean_cache()
+
+        return build_kwargs
 
 
 class ElasticSignal(object):
@@ -82,15 +133,45 @@ class Dependency(object):
         self.index = None
 
     def connect(self, index):
-        """Connect signals needed for dependency updates."""
+        """Connect signals needed for dependency updates.
+
+        Pre- and post-delete signals have to be handled separately, as:
+
+          * in the pre-delete signal we have the information which
+            objects to rebuild, but affected relations are still
+            presented, so rebuild would reflect in the wrong (outdated)
+            indices
+          * in the post-delete signal indices can be rebuild corectly,
+            but there is no information which objects to rebuild, as
+            affected relations were already deleted
+
+        To bypass this, list of objects should be stored in the
+        pre-delete signal indexing should be triggered in the
+        post-delete signal.
+        """
         self.index = index
 
         signal = ElasticSignal(self, 'process', pass_kwargs=True)
         signal.connect(post_save, sender=self.model)
         signal.connect(pre_delete, sender=self.model)
-        return signal
+
+        pre_delete_signal = ElasticSignal(self, 'process_predelete', pass_kwargs=True)
+        pre_delete_signal.connect(pre_delete, sender=self.model)
+
+        post_delete_signal = ElasticSignal(self, 'process_delete', pass_kwargs=True)
+        post_delete_signal.connect(post_delete, sender=self.model)
+
+        return [signal, pre_delete_signal, post_delete_signal]
 
     def process(self, obj, **kwargs):
+        """Process signals from dependencies."""
+        raise NotImplementedError
+
+    def process_predelete(self, obj, **kwargs):
+        """Process signals from dependencies."""
+        raise NotImplementedError
+
+    def process_delete(self, obj, **kwargs):
         """Process signals from dependencies."""
         raise NotImplementedError
 
@@ -102,12 +183,20 @@ class ManyToManyDependency(Dependency):
         """Construct m2m dependency."""
         super(ManyToManyDependency, self).__init__(field.rel.model)
         self.field = field
+        # Cache for pre/post-delete signals
+        self.delete_cache = BuildArgumentsCache()
+        # Cache for pre/post-remove action in m2m_changed signal
+        self.remove_cache = BuildArgumentsCache()
 
     def connect(self, index):
         """Connect signals needed for dependency updates."""
-        signal = super(ManyToManyDependency, self).connect(index)
-        signal.connect(m2m_changed, sender=self.field.through)
-        return signal
+        signals = super(ManyToManyDependency, self).connect(index)
+
+        m2m_signal = ElasticSignal(self, 'process_m2m', pass_kwargs=True)
+        m2m_signal.connect(m2m_changed, sender=self.field.through)
+        signals.append(m2m_signal)
+
+        return signals
 
     def filter(self, obj, update_fields=None):
         """Determine if dependent object should be processed.
@@ -117,11 +206,8 @@ class ManyToManyDependency(Dependency):
         """
         pass
 
-    def process(self, obj, pk_set=None, action=None, update_fields=None, **kwargs):
-        """Process signals from dependencies."""
-        if action not in (None, 'post_add', 'post_remove', 'post_clear'):
-            return
-
+    def _get_build_kwargs(self, obj, pk_set=None, action=None, update_fields=None, **kwargs):
+        """Prepare arguments for rebuilding indices."""
         if isinstance(obj, self.index.object_type):
             if action != 'post_clear':
                 # Check filter before rebuilding index.
@@ -134,15 +220,61 @@ class ManyToManyDependency(Dependency):
                 if not filtered:
                     return
 
-            self.index.build(obj)
+            return {'obj': obj}
+
         elif isinstance(obj, self.field.rel.model):
             # Check filter before rebuilding index.
             if self.filter(obj, update_fields=update_fields) is False:
                 return
 
-            for instance in getattr(obj, self.field.rel.get_accessor_name()).all():
-                self.index.build(instance, push=False)
-            self.index.push()
+            queryset = getattr(obj, self.field.rel.get_accessor_name()).all()
+            return {'queryset': queryset}
+
+    def process_predelete(self, obj, pk_set=None, action=None, update_fields=None, **kwargs):
+        """Render the queryset of influenced objects and cache it."""
+        # Make sure that post-delete signal was triggered and cache was deleted.
+        assert self.delete_cache.is_clean is True
+
+        build_kwargs = self._get_build_kwargs(obj, pk_set, action, update_fields, **kwargs)
+        self.delete_cache.set(build_kwargs)
+
+    def process_delete(self, obj, pk_set=None, action=None, update_fields=None, **kwargs):
+        """Recreate queryset from the index and rebuild the index."""
+        build_kwargs = self.delete_cache.take()
+
+        if build_kwargs:
+            self.index.build(**build_kwargs)
+
+    def process_m2m(self, obj, pk_set=None, action=None, update_fields=None, **kwargs):
+        """Process signals from dependencies.
+
+        Remove signal is processed in two parts. For details see:
+        :func:`~Dependency.connect`
+        """
+        if action not in (None, 'post_add', 'pre_remove', 'post_remove', 'post_clear'):
+            return
+
+        if action == 'post_remove':
+            build_kwargs = self.remove_cache.take()
+        else:
+            build_kwargs = self._get_build_kwargs(obj, pk_set, action, update_fields, **kwargs)
+
+        if action == 'pre_remove':
+            # Make sure that post-remove signal was triggered and cache was deleted.
+            assert self.remove_cache.is_clean is True
+
+            self.remove_cache.set(build_kwargs)
+            return
+
+        if build_kwargs:
+            self.index.build(**build_kwargs)
+
+    def process(self, obj, pk_set=None, action=None, update_fields=None, **kwargs):
+        """Process signals from dependencies."""
+        build_kwargs = self._get_build_kwargs(obj, pk_set, action, update_fields, **kwargs)
+
+        if build_kwargs:
+            self.index.build(**build_kwargs)
 
 
 class IndexBuilder(object):
@@ -189,7 +321,7 @@ class IndexBuilder(object):
                 raise TypeError("Unsupported dependency type: {}".format(repr(dependency)))
 
             signal = dependency.connect(index)
-            self.signals.append(signal)
+            self.signals.extend(signal)
 
     def unregister_signals(self):
         """Delete signals for building indexes."""
