@@ -180,6 +180,10 @@ class Process(BaseModel):
 
         limits['cores'] = int(resources.get('cores', 1))
 
+        max_cores = getattr(settings, 'FLOW_PROCESS_MAX_CORES', None)
+        if max_cores:
+            limits['cores'] = min(limits['cores'], max_cores)
+
         memory = limit_overrides.get('memory', {}).get(self.slug, None)
         if memory is None:
             memory = int(resources.get(

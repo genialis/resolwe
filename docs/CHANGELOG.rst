@@ -34,6 +34,8 @@ Added
 - Add ``FLOW_CONTAINER_VALIDATE_IMAGE`` setting which can be used to validate
   container image names
 - Only pull Docker images at most once per process in ``list_docker_images``
+- Add ``FLOW_PROCESS_MAX_CORES`` Django setting to limit the number of CPU cores
+  used by a process
 
 Fixed
 -----
