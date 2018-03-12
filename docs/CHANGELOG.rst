@@ -6,9 +6,9 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+==================
+7.0.0 - 2018-03-12
+==================
 
 Changed
 -------
@@ -20,26 +20,28 @@ Changed
   from the Docker executor; if no container image is specified for a process
   using the Docker executor, the same pre-defined default image is used
   (currently this is ``resolwe/base:ubuntu-16.04``)
-- Add mechanism to change test database name from the environment, appending
-  a ``_test`` suffix to it; this replaces the static name used before
+- Add mechanism to change test database name from the environment, appending a
+  ``_test`` suffix to it; this replaces the static name used before
 
 Added
 -----
 - Add Ubuntu 17.10 and Ubuntu 18.04 base Docker images
 - Add database migration operations for process schema migrations
-- Add ``delete_chunked`` method to ``Data`` objects queryset which is needed due
-  to Django's extreme memory usage when deleting a large count of ``Data`` objects
-- Add ``validate_process_types`` utility function, which checks that all registered
-  processes conform to their supertypes
+- Add ``delete_chunked`` method to ``Data`` objects queryset which is needed
+  due to Django's extreme memory usage when deleting a large count of ``Data``
+  objects
+- Add ``validate_process_types`` utility function, which checks that all
+  registered processes conform to their supertypes
 - Add ``FLOW_CONTAINER_VALIDATE_IMAGE`` setting which can be used to validate
   container image names
 - Only pull Docker images at most once per process in ``list_docker_images``
-- Add ``FLOW_PROCESS_MAX_CORES`` Django setting to limit the number of CPU cores
-  used by a process
+- Add ``FLOW_PROCESS_MAX_CORES`` Django setting to limit the number of CPU
+  cores used by a process
 
 Fixed
 -----
-- Make parallel test suite worker threads clean up after initialization failures
+- Make parallel test suite worker threads clean up after initialization
+  failures
 - Add mechanism to override the manager's control channel prefix from the
   environment
 - Fix deletion of a ``Data`` objects which belongs to more than one ``Entity``
