@@ -40,4 +40,12 @@ class Migration(migrations.Migration):
                 ('dependencies', models.ManyToManyField(to='test_app.TestDependency')),
             ],
         ),
+        migrations.CreateModel(
+            name='TestSelfDependency',
+            fields=[
+                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('name', models.CharField(max_length=30)),
+                ('dependencies', models.ManyToManyField(to='test_app.TestSelfDependency', symmetrical=False, related_name='parents')),
+            ],
+        ),
     ]

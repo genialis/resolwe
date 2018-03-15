@@ -29,6 +29,7 @@ Fixed
 -----
 - Fix Elasticsearch index rebuilding after a dependant object is deleted
 - Send response to executor even if data object was already deleted
+- Correctly handle reverse m2m relations when processing ES index dependencies
 
 
 ==================

@@ -181,7 +181,25 @@ class ManyToManyDependency(Dependency):
 
     def __init__(self, field):
         """Construct m2m dependency."""
-        super(ManyToManyDependency, self).__init__(field.rel.model)
+        # Determine which model is the target model as either side of the relation
+        # may be passed as `field`.
+        if field.reverse:
+            model = field.rel.related_model
+            self.accessor = field.rel.field.attname
+        else:
+            model = field.rel.model
+            if field.rel.symmetrical:
+                # Symmetrical m2m relation on self has no reverse accessor.
+                raise NotImplementedError(
+                    'Dependencies on symmetrical M2M relations are not supported due '
+                    'to strange handling of the m2m_changed signal which only makes '
+                    'half of the relation visible during signal execution. For now you '
+                    'need to use symmetrical=False on the M2M field definition.'
+                )
+            else:
+                self.accessor = field.rel.get_accessor_name()
+
+        super(ManyToManyDependency, self).__init__(model)
         self.field = field
         # Cache for pre/post-delete signals
         self.delete_cache = BuildArgumentsCache()
@@ -206,29 +224,35 @@ class ManyToManyDependency(Dependency):
         """
         pass
 
-    def _get_build_kwargs(self, obj, pk_set=None, action=None, update_fields=None, **kwargs):
+    def _filter(self, objects, **kwargs):
+        for obj in objects:
+            if self.filter(obj, **kwargs) is False:
+                return False
+
+        return True
+
+    def _get_build_kwargs(self, obj, pk_set=None, action=None, update_fields=None, reverse=None, **kwargs):
         """Prepare arguments for rebuilding indices."""
-        if isinstance(obj, self.index.object_type):
+        # Invert the meaning of reverse for fields which are already reverse descriptors.
+        if reverse is not None and self.field.reverse:
+            reverse = not reverse
+        elif reverse is None:
+            reverse = True
+
+        if reverse:
+            # Check filter before rebuilding index.
+            if not self._filter([obj], update_fields=update_fields):
+                return
+
+            queryset = getattr(obj, self.accessor).all()
+            return {'queryset': queryset}
+        else:
             if action != 'post_clear':
                 # Check filter before rebuilding index.
-                filtered = [
-                    dep
-                    for dep in self.field.rel.model.objects.filter(pk__in=pk_set)
-                    if self.filter(dep) is not False
-                ]
-
-                if not filtered:
+                if not self._filter(self.model.objects.filter(pk__in=pk_set)):
                     return
 
             return {'obj': obj}
-
-        elif isinstance(obj, self.field.rel.model):
-            # Check filter before rebuilding index.
-            if self.filter(obj, update_fields=update_fields) is False:
-                return
-
-            queryset = getattr(obj, self.field.rel.get_accessor_name()).all()
-            return {'queryset': queryset}
 
     def process_predelete(self, obj, pk_set=None, action=None, update_fields=None, **kwargs):
         """Render the queryset of influenced objects and cache it."""

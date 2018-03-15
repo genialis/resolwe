@@ -411,3 +411,64 @@ class IndexTest(ElasticSearchTestCase):
         # It is correct that even non-dependencies are contained in the name as dependencies are
         # only used to determine when to trigger updates.
         self.assertEqual(es_objects[0].name, 'Deps: one, two')
+
+    def test_dependencies_reverse(self):
+        from .test_app.models import TestModelWithDependency, TestDependency
+        from .test_app.elastic_indexes import TestModelWithReverseDependencyDocument
+
+        model1 = TestModelWithDependency.objects.create(name='One')
+        model2 = TestModelWithDependency.objects.create(name='Two')
+        model3 = TestModelWithDependency.objects.create(name='Three')
+        dep = TestDependency.objects.create(name='deps')
+        model1.dependencies.add(dep)
+        model2.dependencies.add(dep)
+        dep.testmodelwithdependency_set.add(model3)
+
+        es_objects = TestModelWithReverseDependencyDocument.search().query('match', name='deps').execute()
+        self.assertEqual(len(es_objects), 1)
+
+        es_objects = TestModelWithReverseDependencyDocument.search().query('match', name='one').execute()
+        self.assertEqual(len(es_objects), 1)
+
+        es_objects = TestModelWithReverseDependencyDocument.search().query('match', name='two').execute()
+        self.assertEqual(len(es_objects), 1)
+
+        es_objects = TestModelWithReverseDependencyDocument.search().query('match', name='three').execute()
+        self.assertEqual(len(es_objects), 1)
+
+        es_objects = TestModelWithReverseDependencyDocument.search().query('match', name='four').execute()
+        self.assertEqual(len(es_objects), 0)
+
+        model3.name = 'Four'
+        model3.save()
+
+        es_objects = TestModelWithReverseDependencyDocument.search().query('match', name='four').execute()
+        self.assertEqual(len(es_objects), 1)
+
+        model3.delete()
+
+        es_objects = TestModelWithReverseDependencyDocument.search().query('match', name='four').execute()
+        self.assertEqual(len(es_objects), 0)
+
+    def test_dependencies_self(self):
+        from .test_app.models import TestSelfDependency
+        from .test_app.elastic_indexes import TestModelWithSelfDependencyDocument
+
+        dep1 = TestSelfDependency.objects.create(name='One')
+        dep2 = TestSelfDependency.objects.create(name='Two')
+        dep3 = TestSelfDependency.objects.create(name='Three')
+        parent = TestSelfDependency.objects.create(name='Parent')
+        parent.dependencies.add(dep1)
+        parent.dependencies.add(dep2)
+        dep3.parents.add(parent)
+
+        es_objects = TestModelWithSelfDependencyDocument.search().query('match', name='parent').execute()
+        self.assertEqual(len(es_objects), 1)
+        self.assertEqual(es_objects[0].name, 'Parent: One, Two, Three')
+
+        dep2.name = 'Too'
+        dep2.save()
+
+        es_objects = TestModelWithSelfDependencyDocument.search().query('match', name='parent').execute()
+        self.assertEqual(len(es_objects), 1)
+        self.assertEqual(es_objects[0].name, 'Parent: One, Too, Three')

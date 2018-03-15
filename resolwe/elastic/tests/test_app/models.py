@@ -29,3 +29,10 @@ class TestModelWithDependency(models.Model):
 class TestDependency(models.Model):
 
     name = models.CharField(max_length=30)
+
+
+class TestSelfDependency(models.Model):
+
+    name = models.CharField(max_length=30)
+
+    dependencies = models.ManyToManyField('self', symmetrical=False, related_name='parents')

@@ -7,7 +7,7 @@ from resolwe.elastic.builder import ManyToManyDependency
 from resolwe.elastic.fields import Name, ProcessType
 from resolwe.elastic.indices import BaseDocument, BaseIndex
 
-from .models import TestModel, TestModelWithDependency
+from .models import TestDependency, TestModel, TestModelWithDependency, TestSelfDependency
 
 
 class TestSearchDocument(BaseDocument):
@@ -105,4 +105,46 @@ class TestModelWithFilterDependencySearchIndex(BaseIndex):
 
     def get_name_value(self, obj):
         names = [dep.name for dep in obj.dependencies.all()]
+        return '{}: {}'.format(obj.name, ', '.join(names))
+
+
+class TestModelWithReverseDependencyDocument(BaseDocument):
+    # pylint: disable=no-member
+    name = dsl.String()
+
+    class Meta:
+        index = 'test_model_with_reverse_dependency_search'
+
+
+class TestModelWithReverseDependencySearchIndex(BaseIndex):
+    queryset = TestDependency.objects.all()
+    object_type = TestDependency
+    document_class = TestModelWithReverseDependencyDocument
+
+    def get_dependencies(self):
+        return [TestDependency.testmodelwithdependency_set]  # pylint: disable=no-member
+
+    def get_name_value(self, obj):
+        names = [dep.name for dep in obj.testmodelwithdependency_set.all()]
+        return '{}: {}'.format(obj.name, ', '.join(names))
+
+
+class TestModelWithSelfDependencyDocument(BaseDocument):
+    # pylint: disable=no-member
+    name = dsl.String()
+
+    class Meta:
+        index = 'test_model_with_self_dependency_search'
+
+
+class TestModelWithSelfDependencySearchIndex(BaseIndex):
+    queryset = TestSelfDependency.objects.all()
+    object_type = TestSelfDependency
+    document_class = TestModelWithSelfDependencyDocument
+
+    def get_dependencies(self):
+        return [TestSelfDependency.dependencies]
+
+    def get_name_value(self, obj):
+        names = [dep.name for dep in obj.dependencies.all().order_by('pk')]
         return '{}: {}'.format(obj.name, ', '.join(names))
