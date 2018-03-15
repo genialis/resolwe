@@ -35,7 +35,7 @@ class RawKeywordSubfieldMixin(object):
         super(RawKeywordSubfieldMixin, self).__init__(*args, **kwargs)
 
 
-class Name(RawKeywordSubfieldMixin, dsl.String):
+class Name(RawKeywordSubfieldMixin, dsl.Text):
     """Field for names supporting term matches.
 
     Includes a 'raw' subfield for sorting.
@@ -47,7 +47,7 @@ class Name(RawKeywordSubfieldMixin, dsl.String):
         super(Name, self).__init__(*args, **kwargs)
 
 
-class ProcessType(RawKeywordSubfieldMixin, dsl.String):
+class ProcessType(RawKeywordSubfieldMixin, dsl.Text):
     """Field for process type supporting hierarchical type matches.
 
     Includes a 'raw' subfield for sorting.

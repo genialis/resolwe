@@ -396,3 +396,16 @@ def get_objects_for_user(user, perms, klass=None, use_groups=True, any_perm=Fals
         query |= Q(**{perms_filter: values})
 
     return queryset.filter(query)
+
+
+def get_users_with_permission(obj, permission):
+    """Return users with specific permission on object.
+
+    :param obj: Object to return users for
+    :param permission: Permission codename
+    """
+    user_model = get_user_model()
+    return user_model.objects.filter(
+        userobjectpermission__object_pk=obj.pk,
+        userobjectpermission__permission__codename=permission,
+    ).distinct()

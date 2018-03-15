@@ -1,5 +1,5 @@
 """Data viewset."""
-from __future__ import absolute_import, division, print_function, unicode_literals
+from elasticsearch_dsl.query import Q
 
 from django.db import transaction
 from django.db.models import Count
@@ -8,7 +8,8 @@ from rest_framework import exceptions, mixins, status, viewsets
 from rest_framework.decorators import list_route
 from rest_framework.response import Response
 
-from resolwe.flow.filters import DataFilter
+from resolwe.elastic.composer import composer
+from resolwe.elastic.viewsets import ElasticSearchCombinedViewSet
 from resolwe.flow.models import Collection, Data, Entity, Process
 from resolwe.flow.serializers import DataSerializer
 from resolwe.flow.utils import dict_dot, get_data_checksum, iterate_schema
@@ -17,14 +18,15 @@ from resolwe.permissions.mixins import ResolwePermissionsMixin
 from resolwe.permissions.shortcuts import get_objects_for_user
 from resolwe.permissions.utils import assign_contributor_permissions, copy_permissions
 
+from ..elastic_indexes import DataDocument
 from .mixins import ResolweCheckSlugMixin, ResolweCreateModelMixin, ResolweUpdateModelMixin
 
 
-class DataViewSet(ResolweCreateModelMixin,
+class DataViewSet(ElasticSearchCombinedViewSet,
+                  ResolweCreateModelMixin,
                   mixins.RetrieveModelMixin,
                   ResolweUpdateModelMixin,
                   mixins.DestroyModelMixin,
-                  mixins.ListModelMixin,
                   ResolwePermissionsMixin,
                   ResolweCheckSlugMixin,
                   viewsets.GenericViewSet):
@@ -33,9 +35,71 @@ class DataViewSet(ResolweCreateModelMixin,
     queryset = Data.objects.all().prefetch_related('process', 'descriptor_schema', 'contributor')
     serializer_class = DataSerializer
     permission_classes = (get_permissions_class(),)
-    filter_class = DataFilter
-    ordering_fields = ('id', 'created', 'modified', 'started', 'finished', 'name')
-    ordering = ('id',)
+    document_class = DataDocument
+
+    filtering_fields = ('slug', 'version', 'name', 'created', 'modified', 'contributor', 'owners',
+                        'status', 'process', 'type', 'process_name', 'tags', 'collection',
+                        'parents', 'children', 'entity', 'started', 'finished', 'text')
+    ordering_fields = ('id', 'created', 'modified', 'started', 'finished', 'name', 'contributor',
+                       'process_name', 'type')
+    ordering_map = {
+        'name': 'name.raw',
+        'type': 'type.raw',
+        'process_name': 'process_name.raw',
+        'contributor': 'contributor_sort',
+    }
+    ordering = '-created'
+
+    def __init__(self, *args, **kwargs):
+        """Construct Data viewset."""
+        # Add registered viewset extensions. We take care not to modify the original
+        # class-derived attributes.
+        self.ordering_map = self.ordering_map.copy()
+
+        for extension in composer.get_extensions(self):
+            filtering_fields = getattr(extension, 'filtering_fields', [])
+            ordering_fields = getattr(extension, 'ordering_fields', [])
+            ordering_map = getattr(extension, 'ordering_map', {})
+
+            self.filtering_fields = self.filtering_fields + tuple(filtering_fields)
+            self.ordering_fields = self.ordering_fields + tuple(ordering_fields)
+            self.ordering_map.update(ordering_map)
+
+        super().__init__(*args, **kwargs)
+
+    def custom_filter_tags(self, value, search):
+        """Support tags query."""
+        if not isinstance(value, list):
+            value = value.split(',')
+
+        filters = [Q('match', **{'tags': item}) for item in value]
+        search = search.query('bool', must=filters)
+
+        return search
+
+    def custom_filter_text(self, value, search):
+        """Support general query using the 'text' attribute."""
+        if isinstance(value, list):
+            value = ' '.join(value)
+
+        should = [
+            Q('match', slug={'query': value, 'operator': 'and', 'boost': 10.0}),
+            Q('match', name={'query': value, 'operator': 'and', 'boost': 10.0}),
+            Q('match', contributor={'query': value, 'operator': 'and', 'boost': 5.0}),
+            Q('match', owners={'query': value, 'operator': 'and', 'boost': 5.0}),
+            Q('match', process_name={'query': value, 'operator': 'and', 'boost': 5.0}),
+            Q('match', status={'query': value, 'operator': 'and', 'boost': 2.0}),
+            Q('match', type={'query': value, 'operator': 'and', 'boost': 2.0}),
+        ]
+
+        # Add registered text extensions.
+        for extension in composer.get_extensions(self):
+            if hasattr(extension, 'text_filter'):
+                should += extension.text_filter(value)
+
+        search = search.query('bool', should=should)
+
+        return search
 
     def create(self, request, *args, **kwargs):
         """Create a resource."""

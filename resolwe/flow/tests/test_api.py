@@ -1,6 +1,8 @@
 # pylint: disable=missing-docstring
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+import datetime
+
 import mock
 
 from django.contrib.auth.models import AnonymousUser
@@ -15,7 +17,7 @@ from guardian.shortcuts import assign_perm, remove_perm
 from rest_framework import exceptions, status
 from rest_framework.test import APIRequestFactory, force_authenticate
 
-from resolwe.flow.models import Collection, Data, DescriptorSchema, Entity, Process
+from resolwe.flow.models import Collection, Data, DataDependency, DescriptorSchema, Entity, Process
 from resolwe.flow.views import CollectionViewSet, DataViewSet, EntityViewSet, ProcessViewSet
 from resolwe.test import ResolweAPITestCase, TestCase
 
@@ -187,6 +189,180 @@ class TestDataViewSetCase(TestCase):
         self.assertEqual(Entity.objects.count(), 1)
         self.assertEqual(Entity.objects.first().collections.count(), 1)
         self.assertEqual(Entity.objects.first().collections.first().pk, self.collection.pk)
+
+
+class TestDataViewSetFilters(TestCase):
+    def setUp(self):
+        super().setUp()
+
+        self.data_viewset = DataViewSet.as_view(actions={
+            'get': 'list',
+        })
+
+        self.collection = Collection.objects.create(contributor=self.contributor)
+
+        self.proc1 = Process.objects.create(
+            type='data:test:process1',
+            slug='test-process-1',
+            version='1.0.0',
+            contributor=self.contributor,
+            flow_collection='test-schema',
+            input_schema=[{'name': 'input_data', 'type': 'data:test:', 'required': False}],
+        )
+
+        self.proc2 = Process.objects.create(
+            type='data:test:process2',
+            slug='test-process-2',
+            version='1.0.0',
+            contributor=self.contributor,
+            flow_collection='test-schema',
+            input_schema=[{'name': 'input_data', 'type': 'data:test:', 'required': False}],
+        )
+
+        self.descriptor_schema = DescriptorSchema.objects.create(
+            slug='test-schema',
+            version='1.0.0',
+            contributor=self.contributor,
+        )
+
+        self.data = []
+        for index in range(10):
+            data = Data.objects.create(
+                name='Data {}'.format(index),
+                contributor=self.contributor,
+                process=self.proc1 if index < 5 else self.proc2,
+                status=Data.STATUS_DONE if index > 0 else Data.STATUS_RESOLVING,
+                started=datetime.datetime(2016, 7, 31, index, 0),
+                finished=datetime.datetime(2016, 7, 31, index, 30),
+                tags=['foo', 'index{}'.format(index)],
+            )
+
+            data.created = datetime.datetime(2016, 7, 30, index, 59)
+            data.save()
+
+            if index == 0:
+                self.collection.data.add(data)
+
+            self.data.append(data)
+
+    def _check_filter(self, query_args, expected):
+        request = factory.get('/', query_args, format='json')
+        force_authenticate(request, self.admin)
+        response = self.data_viewset(request)
+        expected = [item.pk for item in expected]
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), len(expected))
+        for item in response.data:
+            self.assertIn(item['id'], expected)
+
+    def test_filter_slug(self):
+        self._check_filter({'slug': 'data-1'}, [self.data[1]])
+        self._check_filter({'slug': 'data-5'}, [self.data[5]])
+
+    def test_filter_name(self):
+        self._check_filter({'name': 'Data 1'}, [self.data[1]])
+        self._check_filter({'name': 'data 1'}, [self.data[1]])
+        self._check_filter({'name': 'Data 2'}, [self.data[2]])
+        self._check_filter({'name': 'Data'}, self.data)
+        self._check_filter({'name': 'data'}, self.data)
+        self._check_filter({'name': 'dat'}, [])
+        self._check_filter({'name': 'ata'}, [])
+        self._check_filter({'name': '1'}, [self.data[1]])
+
+    def test_filter_contributor(self):
+        self._check_filter({'contributor': 'contributor'}, self.data)
+        self._check_filter({'contributor': 'contrib'}, [])
+        self._check_filter({'contributor': 'Joe'}, self.data)
+        self._check_filter({'contributor': 'joe'}, self.data)
+        self._check_filter({'contributor': 'Miller'}, self.data)
+        self._check_filter({'contributor': 'miller'}, self.data)
+
+    def test_filter_created(self):
+        self._check_filter({'created': self.data[0].created.isoformat()}, [self.data[0]])
+        self._check_filter({'created__gt': '2016'}, self.data)
+        self._check_filter({'created__gt': '2016-07-30T05:59:00'}, self.data[6:])
+        self._check_filter({'created__gte': '2016-07-30T05:59:00'}, self.data[5:])
+        self._check_filter({'created__lt': '2016'}, [])
+        self._check_filter({'created__lt': '2016-07-30T05:59:00'}, self.data[:5])
+        self._check_filter({'created__lte': '2016-07-30T05:59:00'}, self.data[:6])
+
+    def test_filter_modified(self):
+        now = self.data[0].modified
+        five_offset = self.data[5].modified
+        self._check_filter({'modified': now.isoformat()}, [self.data[0]])
+        self._check_filter({'modified__gt': str(now.year)}, self.data)
+        self._check_filter({'modified__gt': five_offset.isoformat()}, self.data[6:])
+        self._check_filter({'modified__gte': five_offset.isoformat()}, self.data[5:])
+        self._check_filter({'modified__lt': str(now.year)}, [])
+        self._check_filter({'modified__lt': five_offset.isoformat()}, self.data[:5])
+        self._check_filter({'modified__lte': five_offset.isoformat()}, self.data[:6])
+
+    def test_filter_started(self):
+        self._check_filter({'started': self.data[0].started.isoformat()}, [self.data[0]])
+        self._check_filter({'started__gt': '2016'}, self.data)
+        self._check_filter({'started__gt': '2016-07-31T05:00:00'}, self.data[6:])
+        self._check_filter({'started__gte': '2016-07-31T05:00:00'}, self.data[5:])
+        self._check_filter({'started__lt': '2016'}, [])
+        self._check_filter({'started__lt': '2016-07-31T05:00:00'}, self.data[:5])
+        self._check_filter({'started__lte': '2016-07-31T05:00:00'}, self.data[:6])
+
+    def test_filter_finished(self):
+        self._check_filter({'finished': self.data[0].finished.isoformat()}, [self.data[0]])
+        self._check_filter({'finished__gt': '2016'}, self.data)
+        self._check_filter({'finished__gt': '2016-07-31T05:30:00'}, self.data[6:])
+        self._check_filter({'finished__gte': '2016-07-31T05:30:00'}, self.data[5:])
+        self._check_filter({'finished__lt': '2016'}, [])
+        self._check_filter({'finished__lt': '2016-07-31T05:30:00'}, self.data[:5])
+        self._check_filter({'finished__lte': '2016-07-31T05:30:00'}, self.data[:6])
+
+    def test_filter_collection(self):
+        self._check_filter({'collection': str(self.collection.pk)}, [self.data[0]])
+
+    def test_filter_type(self):
+        self._check_filter({'type': 'data'}, self.data)
+        self._check_filter({'type': 'data:test'}, self.data)
+        self._check_filter({'type': 'data:test:process1'}, self.data[:5])
+        self._check_filter({'type': 'data:test:process2'}, self.data[5:])
+
+    def test_filter_status(self):
+        self._check_filter({'status': 'OK'}, self.data[1:])
+        self._check_filter({'status': 'RE'}, [self.data[0]])
+
+    def test_filter_process(self):
+        self._check_filter({'process': str(self.proc1.pk)}, self.data[:5])
+        self._check_filter({'process': str(self.proc2.pk)}, self.data[5:])
+
+    def test_filter_tags(self):
+        self._check_filter({'tags': 'foo'}, self.data)
+        self._check_filter({'tags': 'foo,index1'}, [self.data[1]])
+        self._check_filter({'tags': 'foo,index5'}, [self.data[5]])
+        self._check_filter({'tags': 'foo,index10'}, [])
+        self._check_filter({'tags': 'bar'}, [])
+
+    def test_filter_parents_children(self):
+        self._check_filter({'parents': self.data[0].pk}, [])
+        self._check_filter({'parents': self.data[1].pk}, [])
+        self._check_filter({'children': self.data[0].pk}, [])
+        self._check_filter({'children': self.data[1].pk}, [])
+
+        dependency = DataDependency.objects.create(
+            parent=self.data[0],
+            child=self.data[1],
+            kind=DataDependency.KIND_IO,
+        )
+
+        self._check_filter({'parents': self.data[0].pk}, Data.objects.filter(parents=self.data[0]))
+        self._check_filter({'parents': self.data[1].pk}, Data.objects.filter(parents=self.data[1]))
+        self._check_filter({'children': self.data[0].pk}, Data.objects.filter(children=self.data[0]))
+        self._check_filter({'children': self.data[1].pk}, Data.objects.filter(children=self.data[1]))
+
+        dependency.delete()
+
+        self._check_filter({'parents': self.data[0].pk}, [])
+        self._check_filter({'parents': self.data[1].pk}, [])
+        self._check_filter({'children': self.data[0].pk}, [])
+        self._check_filter({'children': self.data[1].pk}, [])
 
 
 class TestCollectionViewSetCase(TestCase):

@@ -140,7 +140,8 @@ class TransactionTestCase(TestCaseHelpers, DjangoTransactionTestCase):
 
         user_model = get_user_model()
         self.admin = user_model.objects.create_superuser(username='admin', email='admin@test.com', password='admin')
-        self.contributor = user_model.objects.create_user(username='contributor', email='contributor@test.com')
+        self.contributor = user_model.objects.create_user(username='contributor', email='contributor@test.com',
+                                                          first_name='Joe', last_name='Miller')
         self.user = user_model.objects.create_user(username='normal_user', email='user@test.com')
 
         self.group = Group.objects.create(name='Users')
