@@ -10,6 +10,11 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Added
+-----
+- Add ``sort`` argument to ``assertFile`` and ``assertFiles`` methods in
+  ``ProcessTestCase`` to sort file lines before asserting the content
+
 Fixed
 -----
 - Fix Elasticsearch index rebuilding after a dependant object is deleted

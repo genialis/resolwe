@@ -527,7 +527,7 @@ class ProcessTestCase(TransactionTestCase):
                          msg="Field 'output.{}' mismatch: {} != {}".format(path, field_value, value) +
                          self._debug_info(obj))
 
-    def _assert_file(self, obj, fn_tested, fn_correct, compression=None, file_filter=lambda _: False):
+    def _assert_file(self, obj, fn_tested, fn_correct, compression=None, file_filter=lambda _: False, sort=False):
         """Compare files."""
         open_kwargs = {}
         if compression is None:
@@ -542,10 +542,17 @@ class ProcessTestCase(TransactionTestCase):
         else:
             raise ValueError("Unsupported compression format.")
 
+        def get_sha256(filename, **kwargs):
+            """Get sha256 for a given file."""
+            with open_fn(filename, **kwargs) as handle:
+                contents = [line for line in filterfalse(file_filter, handle)]
+                if sort:
+                    contents = sorted(contents)
+                contents = b"".join(contents)
+            return hashlib.sha256(contents).hexdigest()
+
         output = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(obj.pk), fn_tested)
-        with open_fn(output, **open_kwargs) as output_file:
-            output_contents = b"".join([line for line in filterfalse(file_filter, output_file)])
-        output_hash = hashlib.sha256(output_contents).hexdigest()
+        output_hash = get_sha256(output, **open_kwargs)
 
         correct_path = os.path.join(self.files_path, fn_correct)
 
@@ -553,12 +560,9 @@ class ProcessTestCase(TransactionTestCase):
             shutil.copyfile(output, correct_path)
             self.fail(msg="Output file {} missing so it was created.".format(fn_correct))
 
-        with open_fn(correct_path, **open_kwargs) as correct_file:
-            correct_contents = b"".join([line for line in filterfalse(file_filter, correct_file)])
-        correct_hash = hashlib.sha256(correct_contents).hexdigest()
-        self.assertEqual(correct_hash, output_hash,
-                         msg="File contents hash mismatch: {} != {}".format(
-                             correct_hash, output_hash) + self._debug_info(obj))
+        correct_hash = get_sha256(correct_path, **open_kwargs)
+        self.assertEqual(correct_hash, output_hash, msg="File contents hash mismatch: {} != {}".format(
+            correct_hash, output_hash) + self._debug_info(obj))
 
     def assertFile(self, obj, field_path, fn, **kwargs):  # pylint: disable=invalid-name
         """Compare a process's output file to the given correct file.
@@ -586,6 +590,9 @@ class ProcessTestCase(TransactionTestCase):
             returns ``True``, the line is excluded from comparison of
             the two files.
         :type filter: ~types.FunctionType
+
+        :param bool sort: if set to ``True``, basic sort will be performed
+            on file contents before computing hash value.
 
         """
         field = dict_dot(obj.output, field_path)
@@ -617,6 +624,9 @@ class ProcessTestCase(TransactionTestCase):
             returns ``True``, the line is excluded from comparison of
             the two files.
         :type filter: ~types.FunctionType
+
+        :param bool sort: if set to ``True``, basic sort will be performed
+            on file contents before computing hash value.
 
         """
         field = dict_dot(obj.output, field_path)

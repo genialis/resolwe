@@ -1,72 +1,80 @@
-# -*- coding: utf-8 -*-
 # pylint: disable=missing-docstring
-from __future__ import absolute_import, division, print_function, unicode_literals
-
+import builtins
 import gzip
 import io
 import json
 import os.path
 import tempfile
-import unittest
-
-import mock
-import six
+import unittest.mock as mock
 
 from resolwe.flow.models import Storage
 from resolwe.test import ProcessTestCase, TestCase, is_testing
 
-try:
-    import builtins  # py3
-except ImportError:
-    import __builtin__ as builtins  # py2
-
 
 class TestingFrameworkTestCase(TestCase):
 
-    @mock.patch("os.path.isfile")
-    @mock.patch("resolwe.test.testcases.process.dict_dot")
-    def test_assert_file_date_nofilter(self, dict_dot_mock, isfile_mock):
-        isfile_mock.return_value = True
-        output1_file = io.BytesIO(b"some line\ndate: 2016-02-10\n")
-        output2_file = io.BytesIO(b"some line\ndate: 2015-10-31\n")
-        open_mock = mock.MagicMock(side_effect=[output1_file, output2_file])
-        with mock.patch.object(builtins, 'open', open_mock):
-            dummy_case = ProcessTestCase.__new__(ProcessTestCase)
-            dummy_case.files_path = ''
-            dummy_case._debug_info = lambda _: ''  # pylint: disable=protected-access
-            setattr(dummy_case, 'assertEqual', self.assertEqual)
-            obj_mock = mock.MagicMock()
-            self.assertRaises(AssertionError, ProcessTestCase._assert_file,  # pylint: disable=protected-access
-                              dummy_case, obj_mock, "", "")
+    def setUp(self):
+        self.dummy_case = ProcessTestCase.__new__(ProcessTestCase)
+        self.dummy_case.files_path = ''
+        self.dummy_case._debug_info = lambda _: ''  # pylint: disable=protected-access
+        setattr(self.dummy_case, 'assertEqual', self.assertEqual)
 
     @mock.patch("os.path.isfile")
-    @mock.patch("resolwe.test.testcases.process.dict_dot")
-    def test_assert_file_date_filter(self, dict_dot_mock, isfile_mock):
+    def test_assert_file_date_nofilter(self, isfile_mock):
         isfile_mock.return_value = True
         output1_file = io.BytesIO(b"some line\ndate: 2016-02-10\n")
         output2_file = io.BytesIO(b"some line\ndate: 2015-10-31\n")
         open_mock = mock.MagicMock(side_effect=[output1_file, output2_file])
         with mock.patch.object(builtins, 'open', open_mock):
-            dummy_case = ProcessTestCase.__new__(ProcessTestCase)
-            dummy_case.files_path = ""
-            dummy_case._debug_info = lambda _: ""  # pylint: disable=protected-access
-            setattr(dummy_case, 'assertEqual', self.assertEqual)
+            obj_mock = mock.MagicMock()
+            self.assertRaises(
+                AssertionError,
+                ProcessTestCase._assert_file,  # pylint: disable=protected-access
+                self.dummy_case, obj_mock, "", "",
+            )
+
+    @mock.patch("os.path.isfile")
+    def test_assert_file_date_filter(self, isfile_mock):
+        isfile_mock.return_value = True
+        output1_file = io.BytesIO(b"some line\ndate: 2016-02-10\n")
+        output2_file = io.BytesIO(b"some line\ndate: 2015-10-31\n")
+        open_mock = mock.MagicMock(side_effect=[output1_file, output2_file])
+        with mock.patch.object(builtins, 'open', open_mock):
             obj_mock = mock.MagicMock()
 
             def date_in_line(line):
                 return line.startswith(b"date")
 
-            ProcessTestCase._assert_file(dummy_case, obj_mock, "", "",  # pylint: disable=protected-access
-                                         file_filter=date_in_line)
+            ProcessTestCase._assert_file(  # pylint: disable=protected-access
+                self.dummy_case, obj_mock, "", "", file_filter=date_in_line)
 
-    @unittest.skipIf(six.PY2, "Needs Python 3 version of the gzip module")
+    @mock.patch("os.path.isfile")
+    def test_assert_file_sort_false(self, isfile_mock):
+        isfile_mock.return_value = True
+        output1_file = io.BytesIO(b"A\nB\nC\n")
+        output2_file = io.BytesIO(b"A\nC\nB\n")
+        open_mock = mock.MagicMock(side_effect=[output1_file, output2_file])
+        with mock.patch.object(builtins, 'open', open_mock):
+            obj_mock = mock.MagicMock()
+            self.assertRaises(
+                AssertionError,
+                ProcessTestCase._assert_file,  # pylint: disable=protected-access
+                self.dummy_case, obj_mock, "", "",
+            )
+
+    @mock.patch("os.path.isfile")
+    def test_assert_file_sort_true(self, isfile_mock):
+        isfile_mock.return_value = True
+        output1_file = io.BytesIO(b"A\nB\nC\n")
+        output2_file = io.BytesIO(b"A\nC\nB\n")
+        open_mock = mock.MagicMock(side_effect=[output1_file, output2_file])
+        with mock.patch.object(builtins, 'open', open_mock):
+            obj_mock = mock.MagicMock()
+            ProcessTestCase._assert_file(  # pylint: disable=protected-access
+                self.dummy_case, obj_mock, "", "", sort=True)
+
     def test_assert_json_storage_object(self):
         example_json = {'foo': [1.0, 2.5, 3.14], 'bar': ['ba', 'cd']}
-
-        dummy_case = ProcessTestCase.__new__(ProcessTestCase)
-        dummy_case.files_path = ''
-        dummy_case._debug_info = lambda _: ''  # pylint: disable=protected-access
-        setattr(dummy_case, 'assertEqual', self.assertEqual)
 
         obj_mock = mock.MagicMock()
 
@@ -85,17 +93,11 @@ class TestingFrameworkTestCase(TestCase):
         isfile_mock = mock.MagicMock(return_value=True)
         with mock.patch.object(os.path, 'join', join_mock):
             with mock.patch.object(os.path, 'isfile', isfile_mock):
-                ProcessTestCase.assertJSON(dummy_case, obj_mock, storage_mock, '', 'foo.gz')
+                ProcessTestCase.assertJSON(self.dummy_case, obj_mock, storage_mock, '', 'foo.gz')
 
-    @unittest.skipIf(six.PY2, "Needs Python 3 version of the gzip module")
     @mock.patch('resolwe.flow.models.Storage.objects.get')
     def test_assert_json_storage_id(self, get_mock):
         example_json = {'foo': [1.0, 2.5, 3.14], 'bar': ['ba', 'cd']}
-
-        dummy_case = ProcessTestCase.__new__(ProcessTestCase)
-        dummy_case.files_path = ''
-        dummy_case._debug_info = lambda _: ''  # pylint: disable=protected-access
-        setattr(dummy_case, 'assertEqual', self.assertEqual)
 
         obj_mock = mock.MagicMock()
 
@@ -116,16 +118,10 @@ class TestingFrameworkTestCase(TestCase):
         isfile_mock = mock.MagicMock(return_value=True)
         with mock.patch.object(os.path, 'join', join_mock):
             with mock.patch.object(os.path, 'isfile', isfile_mock):
-                ProcessTestCase.assertJSON(dummy_case, obj_mock, storage_id, '', 'foo.gz')
+                ProcessTestCase.assertJSON(self.dummy_case, obj_mock, storage_id, '', 'foo.gz')
 
-    @unittest.skipIf(six.PY2, "Needs Python 3 version of the gzip module")
     def test_assert_json_file_missing(self):
         example_json = {'foo': [1.0, 2.5, 3.14], 'bar': ['ba', 'cd']}
-
-        dummy_case = ProcessTestCase.__new__(ProcessTestCase)
-        dummy_case.files_path = ''
-        dummy_case._debug_info = lambda _: ''  # pylint: disable=protected-access
-        setattr(dummy_case, 'assertEqual', self.assertEqual)
 
         obj_mock = mock.MagicMock()
 
@@ -149,9 +145,14 @@ class TestingFrameworkTestCase(TestCase):
         isfile_mock = mock.MagicMock(return_value=False)
         with mock.patch.object(os.path, 'join', join_mock):
             with mock.patch.object(os.path, 'isfile', isfile_mock):
-                with six.assertRaisesRegex(self, AssertionError,
-                                           'Output file .* missing so it was created.'):
-                    ProcessTestCase.assertJSON(dummy_case, obj_mock, storage_mock, '', 'foo.gz')
+
+                # https://github.com/PyCQA/pylint/issues/1653
+                self.assertRaisesRegex(  # pylint: disable=deprecated-method
+                    AssertionError,
+                    'Output file .* missing so it was created.',
+                    ProcessTestCase.assertJSON,
+                    self.dummy_case, obj_mock, storage_mock, '', 'foo.gz',
+                )
 
         # set seek position of the binary stream object back to 0
         gzipped_json_file.seek(0)
@@ -173,10 +174,12 @@ class TestingFrameworkTestCase(TestCase):
             stdout_file.seek(0)
             with mock.patch.object(os.path, 'join', side_effect=[stdout_file.name]):
                 with mock.patch.object(os.path, 'isfile', return_value=True):
-                    six.assertRegex(
-                        self,
+
+                    # https://github.com/PyCQA/pylint/issues/1653
+                    self.assertRegex(  # pylint: disable=deprecated-method
                         ProcessTestCase._debug_info(dummy_case, obj_mock),   # pylint: disable=protected-access
-                        non_ascii_text)
+                        non_ascii_text,
+                    )
 
     def test_assert_almost_equal_generic(self):  # pylint: disable=invalid-name
         self.assertAlmostEqualGeneric(1.00000001, 1.0)
