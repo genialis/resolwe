@@ -2,7 +2,6 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import io
-import time
 
 import six
 
@@ -171,8 +170,6 @@ class IndexTest(ElasticSearchTestCase):
 
         # Purge only a specific index
         call_command('elastic_purge', index=['TestAnalyzerSearchIndex'], interactive=False, verbosity=0)
-        # Sleep is required as otherwise ES may reject queries during index re-create.
-        time.sleep(1)
 
         es_objects = TestAnalyzerSearchDocument.search().execute()
         self.assertEqual(len(es_objects), 0)
@@ -186,8 +183,6 @@ class IndexTest(ElasticSearchTestCase):
         self.assertEqual(len(es_objects), 1)
 
         call_command('elastic_purge', exclude=['TestAnalyzerSearchIndex'], interactive=False, verbosity=0)
-        # Sleep is required as otherwise ES may reject queries during index re-create.
-        time.sleep(1)
 
         es_objects = TestAnalyzerSearchDocument.search().execute()
         self.assertEqual(len(es_objects), 1)
