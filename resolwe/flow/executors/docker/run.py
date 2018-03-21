@@ -28,6 +28,10 @@ class FlowExecutor(LocalFlowExecutor):
         self.temporary_files = []
         self.command = SETTINGS.get('FLOW_DOCKER_COMMAND', 'docker')
 
+    def _generate_container_name(self):
+        """Generate unique container name."""
+        return '{}_{}'.format(self.container_name_prefix, self.data_id)
+
     def start(self):
         """Start process execution."""
         # arguments passed to the Docker command
@@ -60,7 +64,7 @@ class FlowExecutor(LocalFlowExecutor):
 
         # set container name
         self.container_name_prefix = SETTINGS.get('FLOW_EXECUTOR', {}).get('CONTAINER_NAME_PREFIX', 'resolwe')
-        command_args['container_name'] = '--name={}_{}'.format(self.container_name_prefix, self.data_id)
+        command_args['container_name'] = '--name={}'.format(self._generate_container_name())
 
         if 'network' in self.resources:
             # Configure Docker network mode for the container (if specified).
@@ -210,6 +214,8 @@ class FlowExecutor(LocalFlowExecutor):
 
         return self.proc.returncode
 
-    def terminate(self, data_id):
+    def terminate(self):
         """Terminate a running script."""
-        subprocess.call(shlex.split('{} rm -f {}_{}'.format(self.command, self.container_name_prefix, self.data_id)))
+        subprocess.call(shlex.split('{} rm -f {}'.format(self.command, self._generate_container_name())))
+
+        super().terminate()

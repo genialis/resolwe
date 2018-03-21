@@ -180,12 +180,24 @@ class ExecutorListener(Thread):
         try:
             d = Data.objects.get(pk=data_id)
         except Data.DoesNotExist:
-            logger.error(
+            logger.warning(
                 "Data object does not exist (handle_update).",
                 extra={
                     'data_id': data_id,
                 }
             )
+
+            if not internal_call:
+                self._send_reply(obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_ERROR})
+
+            Channel(state.MANAGER_CONTROL_CHANNEL).send({
+                WorkerProtocol.COMMAND: WorkerProtocol.ABORT,
+                WorkerProtocol.DATA_ID: obj[ExecutorProtocol.DATA_ID],
+                WorkerProtocol.FINISH_COMMUNICATE_EXTRA: {
+                    'executor': getattr(settings, 'FLOW_EXECUTOR', {}).get('NAME', 'resolwe.flow.executors.local'),
+                },
+            })
+
             return
 
         if changeset.get('status', None) == Data.STATUS_ERROR:
@@ -373,13 +385,13 @@ class ExecutorListener(Thread):
                 try:
                     d = Data.objects.get(pk=data_id)
                 except Data.DoesNotExist:
-                    logger.error(
+                    logger.warning(
                         "Data object does not exist (handle_finish).",
                         extra={
                             'data_id': data_id,
                         }
                     )
-                    self._send_reply(obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK})
+                    self._send_reply(obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_ERROR})
                     return
 
                 if process_rc == 0 and not d.status == Data.STATUS_ERROR:

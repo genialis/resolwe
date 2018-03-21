@@ -21,7 +21,6 @@ class FlowExecutor(BaseFlowExecutor):
         """Initialize attributes."""
         super(FlowExecutor, self).__init__(*args, **kwargs)
 
-        self.processes = {}
         self.kill_delay = 5
         self.proc = None
         self.stdout = None
@@ -33,7 +32,6 @@ class FlowExecutor(BaseFlowExecutor):
                                      stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                      stderr=subprocess.STDOUT, universal_newlines=True)
 
-        self.processes[self.data_id] = self.proc
         self.stdout = self.proc.stdout
 
         return self.proc.pid
@@ -49,11 +47,12 @@ class FlowExecutor(BaseFlowExecutor):
 
         return self.proc.returncode
 
-    def terminate(self, data_id):
+    def terminate(self):
         """Terminate a running script."""
-        proc = self.processes[data_id]
-        proc.terminate()
+        self.proc.terminate()
 
         time.sleep(self.kill_delay)
-        if proc.poll() is None:
-            proc.kill()
+        if self.proc.poll() is None:
+            self.proc.kill()
+
+        super().terminate()

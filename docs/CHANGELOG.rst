@@ -10,6 +10,10 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Changed
+-------
+- Terminate the executor if listener response with error message
+
 Added
 -----
 - Add ``sort`` argument to ``assertFile`` and ``assertFiles`` methods in
@@ -18,6 +22,7 @@ Added
 Fixed
 -----
 - Fix Elasticsearch index rebuilding after a dependant object is deleted
+- Send response to executor even if data object was already deleted
 
 
 ==================

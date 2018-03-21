@@ -36,6 +36,7 @@ class ExecutorProtocol(object):
 
     RESULT = 'result'
     RESULT_OK = 'OK'
+    RESULT_ERROR = 'ER'
 
     LOG = 'log'
     LOG_MESSAGE = 'message'

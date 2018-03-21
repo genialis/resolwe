@@ -49,18 +49,21 @@ def send_manager_command(cmd, expect_reply=True, extra_fields={}):
     if not expect_reply:
         return
 
-    while True:
-        for _ in range(_REDIS_RETRIES):
-            response = redis_conn.blpop(QUEUE_RESPONSE_CHANNEL, timeout=1)
-            if response:
-                break
-        else:
-            # NOTE: If there's still no response after a few seconds, the system is broken
-            # enough that it makes sense to give up; we're isolated here, so if the manager
-            # doesn't respond, we can't really do much more than just crash
-            raise RuntimeError("No response from the manager after {} retries.".format(_REDIS_RETRIES))
+    for _ in range(_REDIS_RETRIES):
+        response = redis_conn.blpop(QUEUE_RESPONSE_CHANNEL, timeout=1)
+        if response:
+            break
+    else:
+        # NOTE: If there's still no response after a few seconds, the system is broken
+        # enough that it makes sense to give up; we're isolated here, so if the manager
+        # doesn't respond, we can't really do much more than just crash
+        raise RuntimeError("No response from the manager after {} retries.".format(_REDIS_RETRIES))
 
-        _, item = response
-        packet = json.loads(item.decode('utf-8'))
-        assert packet[ExecutorProtocol.RESULT] == ExecutorProtocol.RESULT_OK
-        break
+    _, item = response
+    result = json.loads(item.decode('utf-8'))[ExecutorProtocol.RESULT]
+    assert result in [ExecutorProtocol.RESULT_OK, ExecutorProtocol.RESULT_ERROR]
+
+    if result == ExecutorProtocol.RESULT_OK:
+        return True
+
+    return False

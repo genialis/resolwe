@@ -15,6 +15,7 @@ import json
 import logging
 import os
 import shutil
+import sys
 import uuid
 from collections import defaultdict
 
@@ -56,6 +57,13 @@ class BaseFlowExecutor(object):
         self.requirements = {}
         self.resources = {}
 
+    def _send_manager_command(self, *args, **kwargs):
+        """Send an update to manager and terminate the process if it fails."""
+        resp = send_manager_command(*args, **kwargs)
+
+        if resp is False:
+            self.terminate()
+
     def get_tools_paths(self):
         """Get tools paths."""
         tools_paths = SETTINGS['FLOW_EXECUTOR_TOOLS_PATHS']
@@ -83,7 +91,7 @@ class BaseFlowExecutor(object):
         :param kwargs: The dictionary of
             :class:`~resolwe.flow.models.Data` attributes to be changed.
         """
-        send_manager_command(ExecutorProtocol.UPDATE, extra_fields={
+        self._send_manager_command(ExecutorProtocol.UPDATE, extra_fields={
             ExecutorProtocol.UPDATE_CHANGESET: kwargs
         })
 
@@ -91,6 +99,8 @@ class BaseFlowExecutor(object):
         """Execute the script and save results."""
         try:
             finish_fields = self._run(data_id, script, verbosity=verbosity)
+        except SystemExit:
+            raise
         except Exception as error:  # pylint: disable=broad-except
             logger.exception("Unhandled exception in executor")
 
@@ -102,7 +112,7 @@ class BaseFlowExecutor(object):
             }
 
         if finish_fields is not None:
-            send_manager_command(ExecutorProtocol.FINISH, extra_fields=finish_fields)
+            self._send_manager_command(ExecutorProtocol.FINISH, extra_fields=finish_fields)
 
         # The response channel (Redis list) is deleted automatically once the list is drained, so
         # there is no need to remove it manually.
@@ -133,7 +143,7 @@ class BaseFlowExecutor(object):
             logger.error("Stdout or jsonout out file already exists.")
             # Looks like executor was already ran for this Data object,
             # so don't raise the error to prevent setting status to error.
-            send_manager_command(ExecutorProtocol.ABORT, expect_reply=False)
+            self._send_manager_command(ExecutorProtocol.ABORT, expect_reply=False)
             return
 
         proc_pid = self.start()
@@ -217,7 +227,7 @@ class BaseFlowExecutor(object):
                         if process_rc > 0:
                             log_file.close()
                             json_file.close()
-                            send_manager_command(ExecutorProtocol.FINISH, extra_fields={
+                            self._send_manager_command(ExecutorProtocol.FINISH, extra_fields={
                                 ExecutorProtocol.FINISH_PROCESS_RC: process_rc
                             })
                             return
@@ -259,6 +269,6 @@ class BaseFlowExecutor(object):
 
         return finish_fields
 
-    def terminate(self, data_id):
+    def terminate(self):
         """Terminate a running script."""
-        raise NotImplementedError("Subclasses of BaseFlowExecutor must implement a terminate() method.")
+        sys.exit(1)
