@@ -136,6 +136,7 @@ class DataSerializer(ResolweBaseSerializer):
     input = ProjectableJSONField(required=False)
     output = ProjectableJSONField(required=False)
     descriptor = ProjectableJSONField(required=False)
+    process_slug = serializers.CharField(source='process.slug', read_only=True)
     process_name = serializers.CharField(source='process.name', read_only=True)
     process_type = serializers.CharField(source='process.type', read_only=True)
     process_input_schema = ProjectableJSONField(source='process.input_schema', read_only=True)
@@ -153,7 +154,7 @@ class DataSerializer(ResolweBaseSerializer):
                             'status', 'process_progress', 'process_rc', 'process_info',
                             'process_warning', 'process_error', 'process_type',
                             'process_input_schema', 'process_output_schema',
-                            'process_name', 'descriptor_dirty')
+                            'process_slug', 'process_name', 'descriptor_dirty')
         fields = ('slug', 'name', 'contributor', 'input', 'output', 'descriptor_schema',
                   'descriptor', 'tags') + update_protected_fields + read_only_fields
 
