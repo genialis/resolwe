@@ -20,6 +20,7 @@ from rest_framework.exceptions import APIException
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 
+from .lookup import QueryBuilder
 from .pagination import LimitOffsetPostPagination
 
 __all__ = (
@@ -63,6 +64,12 @@ class ElasticSearchMixin(object):
             value = default
         return value
 
+    def get_query_params(self):
+        """Get combined query parameters (GET and POST)."""
+        params = self.request.query_params.copy()
+        params.update(self.request.data)
+        return params
+
     def order_search(self, search):
         """Order given search by the ordering parameter given in request.
 
@@ -88,20 +95,8 @@ class ElasticSearchMixin(object):
         :param search: ElasticSearch query object
 
         """
-        for field in self.filtering_fields:
-            value = self.get_query_param(field, None)
-            if value:
-                custom_filter = getattr(self, 'custom_filter_{}'.format(field), None)
-                if custom_filter is not None:
-                    search = custom_filter(value, search)
-                elif isinstance(value, list):
-                    # Default is 'should' between matches. If you need anything else,
-                    # a custom filter for this field should be implemented.
-                    filters = [Q('match', **{field: item}) for item in value]
-                    search = search.query('bool', should=filters)
-                else:
-                    search = search.query('match', **{field: value})
-
+        builder = QueryBuilder(self.filtering_fields, self)
+        search, _ = builder.build(search, self.get_query_params())
         return search
 
     def filter_permissions(self, search):

@@ -1,5 +1,5 @@
 # pylint: disable=missing-docstring
-from __future__ import absolute_import, division, print_function, unicode_literals
+import datetime
 
 import mock
 
@@ -14,7 +14,7 @@ from guardian.shortcuts import assign_perm
 from rest_framework.test import APIRequestFactory, APITestCase, force_authenticate
 
 from resolwe.elastic.builder import index_builder
-from resolwe.test import ElasticSearchTestCase
+from resolwe.test import ElasticSearchTestCase, TestCase
 
 factory = APIRequestFactory()  # pylint: disable=invalid-name
 
@@ -42,15 +42,19 @@ class IndexViewsetTest(APITestCase, ElasticSearchTestCase):
 
         # Prepare users and groups
         user_model = get_user_model()
+        self.admin = user_model.objects.create_superuser(username='admin', email='admin@test.com', password='admin')
         self.user_1 = user_model.objects.create(username='user_one')
         self.user_2 = user_model.objects.create(username='user_two')
         group = Group.objects.create(name='group')
         group.user_set.add(self.user_2)
 
         # Prepare test data
-        test_obj_1 = TestModel.objects.create(name='Object name 1', number=43)
-        test_obj_2 = TestModel.objects.create(name='Object name 2', number=44)
-        test_obj_3 = TestModel.objects.create(name='Object name 3', number=45)
+        test_obj_1 = TestModel.objects.create(name='Object name 1', number=43,
+                                              date=datetime.datetime(2018, 1, 1, 0, 0))
+        test_obj_2 = TestModel.objects.create(name='Object name 2', number=44,
+                                              date=datetime.datetime(2017, 1, 1, 0, 0))
+        test_obj_3 = TestModel.objects.create(name='Object name 3', number=45,
+                                              date=datetime.datetime(2016, 1, 1, 0, 0))
 
         # Assing permissions
         assign_perm('view_testmodel', self.user_1, test_obj_1)
@@ -203,3 +207,118 @@ class IndexViewsetTest(APITestCase, ElasticSearchTestCase):
         self.assertEqual(len(response.data), 2)
         self.assertEqual(response.data[0]['name'], 'Object name 3')
         self.assertEqual(response.data[1]['name'], 'Object name 1')
+
+    def _make_request(self, **kwargs):
+        request = factory.post('', kwargs, format='json')
+        force_authenticate(request, self.admin)
+        return self.test_viewset(request)
+
+    def test_lookup_expressions_number_lt(self):
+        response = self._make_request(num__lt='43')
+        self.assertEqual(len(response.data), 0)
+
+        response = self._make_request(num__lt='44')
+        self.assertEqual(len(response.data), 1)
+
+        response = self._make_request(num__lt='45')
+        self.assertEqual(len(response.data), 2)
+
+        response = self._make_request(num__lt='100')
+        self.assertEqual(len(response.data), 3)
+
+    def test_lookup_expressions_number_lte(self):
+        response = self._make_request(num__lte='43')
+        self.assertEqual(len(response.data), 1)
+
+        response = self._make_request(num__lte='44')
+        self.assertEqual(len(response.data), 2)
+
+        response = self._make_request(num__lte='45')
+        self.assertEqual(len(response.data), 3)
+
+        response = self._make_request(num__lte='100')
+        self.assertEqual(len(response.data), 3)
+
+    def test_lookup_expressions_number_gt(self):
+        response = self._make_request(num__gt='0')
+        self.assertEqual(len(response.data), 3)
+
+        response = self._make_request(num__gt='43')
+        self.assertEqual(len(response.data), 2)
+
+        response = self._make_request(num__gt='44')
+        self.assertEqual(len(response.data), 1)
+
+        response = self._make_request(num__gt='45')
+        self.assertEqual(len(response.data), 0)
+
+        response = self._make_request(num__gt='100')
+        self.assertEqual(len(response.data), 0)
+
+    def test_lookup_expressions_number_gte(self):
+        response = self._make_request(num__gte='0')
+        self.assertEqual(len(response.data), 3)
+
+        response = self._make_request(num__gte='43')
+        self.assertEqual(len(response.data), 3)
+
+        response = self._make_request(num__gte='44')
+        self.assertEqual(len(response.data), 2)
+
+        response = self._make_request(num__gte='45')
+        self.assertEqual(len(response.data), 1)
+
+        response = self._make_request(num__gte='100')
+        self.assertEqual(len(response.data), 0)
+
+    def test_lookup_expressions_date_lt(self):
+        response = self._make_request(date__lt='2018-03-22T12:23:14.430378')
+        self.assertEqual(len(response.data), 3)
+
+        response = self._make_request(date__lt='2017-03-22T12:23:14.430378')
+        self.assertEqual(len(response.data), 2)
+
+        response = self._make_request(date__lt='2016-03-22T12:23:14.430378')
+        self.assertEqual(len(response.data), 1)
+
+        response = self._make_request(date__lt='2018-01-01T00:00:00.000000')
+        self.assertEqual(len(response.data), 2)
+
+    def test_lookup_expressions_date_lte(self):
+        response = self._make_request(date__lte='2018-03-22T12:23:14.430378')
+        self.assertEqual(len(response.data), 3)
+
+        response = self._make_request(date__lte='2017-03-22T12:23:14.430378')
+        self.assertEqual(len(response.data), 2)
+
+        response = self._make_request(date__lte='2016-03-22T12:23:14.430378')
+        self.assertEqual(len(response.data), 1)
+
+        response = self._make_request(date__lte='2018-01-01T00:00:00.000000')
+        self.assertEqual(len(response.data), 3)
+
+    def test_lookup_expressions_date_gt(self):
+        response = self._make_request(date__gt='2018-03-22T12:23:14.430378')
+        self.assertEqual(len(response.data), 0)
+
+        response = self._make_request(date__gt='2017-03-22T12:23:14.430378')
+        self.assertEqual(len(response.data), 1)
+
+        response = self._make_request(date__gt='2016-03-22T12:23:14.430378')
+        self.assertEqual(len(response.data), 2)
+
+        response = self._make_request(date__gt='2018-01-01T00:00:00.000000')
+        self.assertEqual(len(response.data), 0)
+
+    def test_lookup_expressions_date_gte(self):
+        response = self._make_request(date__gte='2018-03-22T12:23:14.430378')
+        self.assertEqual(len(response.data), 0)
+
+        response = self._make_request(date__gte='2017-03-22T12:23:14.430378')
+        self.assertEqual(len(response.data), 1)
+
+        response = self._make_request(date__gte='2016-03-22T12:23:14.430378')
+        self.assertEqual(len(response.data), 2)
+
+        response = self._make_request(date__gte='2018-01-01T00:00:00.000000')
+        self.assertEqual(len(response.data), 1)

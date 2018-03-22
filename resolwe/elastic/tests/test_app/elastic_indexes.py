@@ -15,6 +15,7 @@ class TestSearchDocument(BaseDocument):
     id = dsl.Integer()  # pylint: disable=invalid-name
     name = dsl.Text(fielddata=True)
     num = dsl.Integer()
+    date = dsl.Date()
     json = dsl.Object()
 
     field_name = Name()

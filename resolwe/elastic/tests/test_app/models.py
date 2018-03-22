@@ -18,6 +18,8 @@ class TestModel(models.Model):
 
     number = models.IntegerField()
 
+    date = models.DateTimeField(null=True)
+
 
 class TestModelWithDependency(models.Model):
 
