@@ -10,7 +10,6 @@ Flow Executors
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-import datetime
 import json
 import logging
 import os
@@ -26,8 +25,6 @@ import six
 from .global_settings import DATA_META, EXECUTOR_SETTINGS, PROCESS, SETTINGS
 from .manager_commands import send_manager_command
 from .protocol import ExecutorProtocol  # pylint: disable=import-error
-
-now = datetime.datetime.now  # pylint: disable=invalid-name
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
@@ -150,7 +147,6 @@ class BaseFlowExecutor(object):
 
         self.update_data_status(
             status=DATA_META['STATUS_PROCESSING'],
-            started=now().isoformat(),
             process_pid=proc_pid
         )
 
@@ -219,7 +215,6 @@ class BaseFlowExecutor(object):
                                     updates['output'] = output
 
                         if updates:
-                            updates['modified'] = now().isoformat()
                             self.update_data_status(**updates)
                             # Process meta fields are collected in listener, so we can clear them.
                             process_error, process_warning, process_info = [], [], []

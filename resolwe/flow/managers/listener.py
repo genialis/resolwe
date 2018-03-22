@@ -215,6 +215,10 @@ class ExecutorListener(Thread):
         if d.status == Data.STATUS_ERROR:
             changeset['status'] = Data.STATUS_ERROR
 
+        if not d.started:
+            changeset['started'] = now()
+        changeset['modified'] = now()
+
         for key, val in changeset.items():
             if key in ['process_error', 'process_warning', 'process_info']:
                 # Trim process_* fields to not exceed max length of the database field.
