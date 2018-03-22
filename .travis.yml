@@ -43,8 +43,8 @@ matrix:
 
 before_install:
   # Manually install Elastic Search.
-  - curl -O https://download.elastic.co/elasticsearch/release/org/elasticsearch/distribution/deb/elasticsearch/2.4.3/elasticsearch-2.4.3.deb
-  - sudo dpkg -i --force-confnew elasticsearch-2.4.3.deb
+  - curl -O https://download.elastic.co/elasticsearch/release/org/elasticsearch/distribution/deb/elasticsearch/5.6.8/elasticsearch-5.6.8.deb
+  - sudo dpkg -i --force-confnew elasticsearch-5.6.8.deb
   - sudo service elasticsearch restart
   # Show docker information.
   - sudo docker info

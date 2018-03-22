@@ -48,10 +48,10 @@ class BaseDocument(dsl.DocType):
     """
 
     #: list of user ids with view permission on the object
-    users_with_permissions = dsl.String(multi=True)
+    users_with_permissions = dsl.Keyword(multi=True)
 
     #: list of group ids with view permission on the object
-    groups_with_permissions = dsl.String(multi=True)
+    groups_with_permissions = dsl.Keyword(multi=True)
 
     #: identifies if object has public view permission assigned
     public_permission = dsl.Boolean()

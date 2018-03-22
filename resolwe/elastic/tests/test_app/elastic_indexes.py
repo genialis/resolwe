@@ -13,7 +13,7 @@ from .models import TestModel, TestModelWithDependency
 class TestSearchDocument(BaseDocument):
     # pylint: disable=no-member
     id = dsl.Integer()  # pylint: disable=invalid-name
-    name = dsl.String()
+    name = dsl.Text(fielddata=True)
     num = dsl.Integer()
     json = dsl.Object()
 
@@ -42,12 +42,13 @@ class TestSearchIndex(BaseIndex):
 
 class TestAnalyzerSearchDocument(BaseDocument):
     # pylint: disable=no-member
-    name = dsl.String(analyzer=dsl.analyzer(
+    name = dsl.Text(analyzer=dsl.analyzer(
         'test_analyzer',
         tokenizer='keyword',
         filter=[
             'lowercase',
         ],
+        fielddata=True,
     ))
 
     class Meta:
@@ -62,7 +63,7 @@ class TestAnalyzerSearchIndex(BaseIndex):
 
 class TestModelWithDependencyDocument(BaseDocument):
     # pylint: disable=no-member
-    name = dsl.String()
+    name = dsl.Text(fielddata=True)
 
     class Meta:
         index = 'test_model_with_dependency_search'
@@ -83,7 +84,7 @@ class TestModelWithDependencySearchIndex(BaseIndex):
 
 class TestModelWithFilterDependencyDocument(BaseDocument):
     # pylint: disable=no-member
-    name = dsl.String()
+    name = dsl.Text(fielddata=True)
 
     class Meta:
         index = 'test_model_with_filter_dependency_search'
