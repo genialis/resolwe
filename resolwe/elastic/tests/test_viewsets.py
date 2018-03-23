@@ -1,4 +1,4 @@
-# pylint: disable=missing-docstring
+# pylint: disable=missing-docstring,invalid-name
 import datetime
 
 import mock
@@ -14,7 +14,7 @@ from guardian.shortcuts import assign_perm
 from rest_framework.test import APIRequestFactory, APITestCase, force_authenticate
 
 from resolwe.elastic.builder import index_builder
-from resolwe.test import ElasticSearchTestCase, TestCase
+from resolwe.test import TestCase
 
 factory = APIRequestFactory()  # pylint: disable=invalid-name
 
@@ -25,7 +25,7 @@ CUSTOM_SETTINGS = {
 
 
 @override_settings(**CUSTOM_SETTINGS)
-class IndexViewsetTest(APITestCase, ElasticSearchTestCase):
+class IndexViewsetTest(APITestCase, TestCase):
 
     def setUp(self):
         from .test_app.models import TestModel
@@ -42,7 +42,6 @@ class IndexViewsetTest(APITestCase, ElasticSearchTestCase):
 
         # Prepare users and groups
         user_model = get_user_model()
-        self.admin = user_model.objects.create_superuser(username='admin', email='admin@test.com', password='admin')
         self.user_1 = user_model.objects.create(username='user_one')
         self.user_2 = user_model.objects.create(username='user_two')
         group = Group.objects.create(name='group')

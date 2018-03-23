@@ -16,6 +16,8 @@ from django.db import models
 from django.db.models.fields.related_descriptors import ManyToManyDescriptor
 from django.db.models.signals import m2m_changed, post_delete, post_save, pre_delete
 
+from resolwe.test.utils import is_testing
+
 from .composer import composer
 from .indices import BaseIndex
 from .utils import prepare_connection
@@ -409,6 +411,8 @@ class IndexBuilder(object):
 
     def discover_indexes(self):
         """Save list of index builders into ``_index_builders``."""
+        self.indexes = []
+
         for app_config in apps.get_app_configs():
             indexes_path = '{}.elastic_indexes'.format(app_config.name)
             try:
@@ -417,8 +421,8 @@ class IndexBuilder(object):
                 for attr_name in dir(indexes_module):
                     attr = getattr(indexes_module, attr_name)
                     if inspect.isclass(attr) and issubclass(attr, BaseIndex) and attr is not BaseIndex:
-                        # Make sure that parallel tests have different indices
-                        if getattr(settings, 'ELASTICSEARCH_TESTING', False):
+                        # Make sure that parallel tests have different indices.
+                        if is_testing():
                             index = attr.document_class._doc_type.index  # pylint: disable=protected-access
                             testing_postfix = '_test_{}_{}'.format(TESTING_UUID, os.getpid())
 

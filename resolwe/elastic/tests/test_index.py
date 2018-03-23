@@ -1,6 +1,4 @@
 # pylint: disable=missing-docstring
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import io
 
 import six
@@ -28,23 +26,10 @@ CUSTOM_SETTINGS = {
 class IndexTest(ElasticSearchTestCase):
 
     def setUp(self):
-        from .test_app.elastic_indexes import TestSearchIndex, TestAnalyzerSearchIndex
-
-        super(IndexTest, self).setUp()
-
         apps.clear_cache()
         call_command('migrate', verbosity=0, interactive=False, load_initial_data=False)
 
-        index_builder.indexes = [
-            TestSearchIndex(),
-            TestAnalyzerSearchIndex(),
-        ]
-
-        index_builder.register_signals()
-
-    def tearDown(self):
-        index_builder.destroy()
-        super(IndexTest, self).tearDown()
+        super().setUp()
 
     def test_mapping_multiple_times(self):
         index_builder.create_mappings()

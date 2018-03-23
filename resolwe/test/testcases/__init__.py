@@ -17,8 +17,6 @@ Resolwe Test Cases
 
 .. automodule:: resolwe.test.testcases.api
 
-.. automodule:: resolwe.test.testcases.elastic
-
 """
 
 from __future__ import absolute_import, division, print_function, unicode_literals
@@ -61,7 +59,16 @@ class TestCaseHelpers(DjangoSimpleTestCase):
 
     def setUp(self):
         """Prepare environment for test."""
+        from resolwe.elastic.builder import index_builder
+
         super().setUp()
+
+        # Reset Elastic search indices.
+        index_builder.destroy()
+        index_builder.discover_indexes()
+        index_builder.create_mappings()
+        index_builder.unregister_signals()
+        index_builder.register_signals()
 
         # Directories need to be recreated here in case a previous
         # TestCase deleted them. Moving this logic into the test runner
@@ -151,3 +158,8 @@ class TestCase(TransactionTestCase, DjangoTestCase):
     """
 
     pass
+
+
+# Deprecated legacy aliases.
+TransactionElasticSearchTestCase = TransactionTestCase
+ElasticSearchTestCase = TestCase
