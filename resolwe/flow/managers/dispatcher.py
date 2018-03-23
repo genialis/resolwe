@@ -736,6 +736,11 @@ class Manager(object):
                     data.process_error.append("Error in process script: {}".format(error))
                     data.save()
                     return
+
+                # Set allocated resources:
+                resource_limits = data.process.get_resource_limits()
+                data.process_memory = resource_limits['memory']
+                data.process_cores = resource_limits['cores']
             else:
                 # If there is no run section, then we should not try to run anything. But the
                 # program must not be set to None as then the process will be stuck in waiting

@@ -22,6 +22,8 @@ Added
   ``ProcessTestCase`` to sort file lines before asserting the content
 - Add ``process_slug`` field to ``DataSerializer``
 - Improve log messages in executor and workload connectors
+- Add ``process_memory`` and ``process_cores`` fields to ``Data`` model and
+  ``DataSerializer``
 
 Fixed
 -----

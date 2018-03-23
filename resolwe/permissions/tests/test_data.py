@@ -212,7 +212,8 @@ class DataTestCase(ResolweAPITestCase):
                                     'process_warning', 'process_error', 'input', 'output', 'process_type',
                                     'descriptor_schema', 'descriptor', 'id', 'process_slug', 'process_name',
                                     'process_input_schema', 'process_output_schema',
-                                    'current_user_permissions', 'descriptor_dirty', 'tags'])
+                                    'current_user_permissions', 'descriptor_dirty', 'tags', 'process_memory',
+                                    'process_cores'])
 
         # user w/ public permissions
         resp = self._get_detail(1, self.user2)
@@ -222,7 +223,8 @@ class DataTestCase(ResolweAPITestCase):
                                     'process_warning', 'process_error', 'input', 'output', 'process_type',
                                     'descriptor_schema', 'descriptor', 'id', 'process_slug', 'process_name',
                                     'process_input_schema', 'process_output_schema',
-                                    'current_user_permissions', 'descriptor_dirty', 'tags'])
+                                    'current_user_permissions', 'descriptor_dirty', 'tags', 'process_memory',
+                                    'process_cores'])
 
     def test_get_detail_no_perms(self):
         # public user w/o permissions

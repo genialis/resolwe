@@ -195,6 +195,12 @@ class Data(BaseModel):
     #: tags for categorizing objects
     tags = ArrayField(models.CharField(max_length=255), default=list)
 
+    #: actual allocated memory
+    process_memory = models.PositiveIntegerField(default=0)
+
+    #: actual allocated cores
+    process_cores = models.PositiveSmallIntegerField(default=0)
+
     def __init__(self, *args, **kwargs):
         """Initialize attributes."""
         super(Data, self).__init__(*args, **kwargs)
