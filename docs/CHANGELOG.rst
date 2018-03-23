@@ -27,6 +27,7 @@ Added
 - Add ``process_memory`` and ``process_cores`` fields to ``Data`` model and
   ``DataSerializer``
 - Support lookup expressions (``lt``, ``lte``, ``gt``, ``gte``) in ES viewsets
+- Support for easier dynamic composition of type extensions
 
 Fixed
 -----

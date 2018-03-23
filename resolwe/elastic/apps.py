@@ -11,6 +11,10 @@ class ElasticConfig(AppConfig):
 
     def ready(self):
         """Perform application initialization."""
+        # Initialize the type extension composer.
+        from . composer import composer
+        composer.discover_extensions()
+
         is_testing = sys.argv[1:2] == ['test']
         is_migrating = sys.argv[1:2] == ['migrate']
         if is_testing or is_migrating:
