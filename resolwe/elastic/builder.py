@@ -5,7 +5,6 @@ Elastic Index Builder
 =====================
 
 """
-import contextlib
 import inspect
 import os
 import re
@@ -13,11 +12,11 @@ import uuid
 from importlib import import_module
 
 from django.apps import apps
-from django.conf import settings
 from django.db import models
 from django.db.models.fields.related_descriptors import ManyToManyDescriptor
 from django.db.models.signals import m2m_changed, post_delete, post_save, pre_delete
 
+from .composer import composer
 from .indices import BaseIndex
 from .utils import prepare_connection
 
@@ -223,7 +222,7 @@ class ManyToManyDependency(Dependency):
         signals.append(m2m_signal)
 
         # If the relation has a custom through model, we need to subscribe to it.
-        if not self.field.rel.through._meta.auto_created:
+        if not self.field.rel.through._meta.auto_created:  # pylint: disable=protected-access
             signal = ElasticSignal(self, 'process_m2m_through_save', pass_kwargs=True)
             signal.connect(post_save, sender=self.field.rel.through)
             signals.append(signal)
@@ -247,6 +246,7 @@ class ManyToManyDependency(Dependency):
         pass
 
     def _filter(self, objects, **kwargs):
+        """Determine if dependent object should be processed."""
         for obj in objects:
             if self.filter(obj, **kwargs) is False:
                 return False
@@ -310,7 +310,7 @@ class ManyToManyDependency(Dependency):
             self.index.build(**build_kwargs)
 
     def _process_m2m_through(self, obj, action):
-        """Helper for custom M2M through model handling."""
+        """Process custom M2M through model actions."""
         source = getattr(obj, self.field.rel.field.m2m_field_name())
         target = getattr(obj, self.field.rel.field.m2m_reverse_field_name())
 
@@ -431,7 +431,15 @@ class IndexBuilder(object):
 
                             attr.document_class._doc_type.index = index  # pylint: disable=protected-access
 
-                        self.indexes.append(attr())
+                        index = attr()
+
+                        # Apply any extensions defined for the given index. Currently index extensions are
+                        # limited to extending "mappings".
+                        for extension in composer.get_extensions(attr):
+                            mapping = getattr(extension, 'mapping', {})
+                            index.mapping.update(mapping)
+
+                        self.indexes.append(index)
             except ImportError as ex:
                 if not re.match('No module named .*elastic_indexes.*', str(ex)):
                     raise

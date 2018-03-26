@@ -16,6 +16,7 @@ Main two classes
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+import copy
 import logging
 import threading
 
@@ -32,6 +33,7 @@ from guardian.models import GroupObjectPermission, UserObjectPermission
 
 from resolwe.flow.utils import dict_dot
 
+from .composer import composer
 from .utils import prepare_connection
 
 __all__ = ('BaseDocument', 'BaseIndex')
@@ -116,6 +118,15 @@ class BaseIndex(object):
 
         if self.queryset is None:
             raise RuntimeError('`queryset` must be defined in {}'.format(class_name))
+
+        # Apply any extensions defined for the given document class. Document class extensions
+        # come in the form of field definitions.
+        self.document_class = copy.deepcopy(self.document_class)
+        for extension in composer.get_extensions(self.document_class):
+            for name in dir(extension):
+                field = getattr(extension, name)
+                if isinstance(field, dsl.Field):
+                    self.document_class._doc_type.mapping.field(name, field)  # pylint: disable=protected-access
 
         #: list of built documents waiting to be pushed
         self.push_queue = []
