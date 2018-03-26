@@ -28,5 +28,6 @@ Contents
    api
    composer
    ref
+   flow
    CHANGELOG
    contributing
