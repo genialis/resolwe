@@ -25,7 +25,7 @@ import six
 
 from .global_settings import DATA_META, EXECUTOR_SETTINGS, PROCESS, SETTINGS
 from .manager_commands import send_manager_command
-from .protocol import ExecutorProtocol  # pylint: disable=import-error
+from .protocol import ExecutorProtocol
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 

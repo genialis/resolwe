@@ -4,4 +4,9 @@
 Flow Executors
 ==============
 
+.. automodule:: resolwe.flow.executors.__main__
+.. automodule:: resolwe.flow.executors.docker
+.. automodule:: resolwe.flow.executors.local
+.. automodule:: resolwe.flow.executors.null
+
 """

@@ -3,11 +3,12 @@ import json
 import logging
 import os
 import socket
+import sys
 from logging.config import dictConfig
 
 from .global_settings import DATA
 from .manager_commands import send_manager_command
-from .protocol import ExecutorProtocol  # pylint: disable=import-error
+from .protocol import ExecutorProtocol
 
 
 class JSONFormatter(logging.Formatter):
@@ -48,6 +49,10 @@ class RedisHandler(logging.Handler):
 
 def configure_logging():
     """Configure logging to send log records to the master."""
+    if 'sphinx' in sys.modules:
+        module_base = 'resolwe.flow.executors'
+    else:
+        module_base = 'executors'
     logging_config = dict(  # pylint: disable=invalid-name
         version=1,
         formatters={
@@ -57,7 +62,7 @@ def configure_logging():
         },
         handlers={
             'redis': {
-                'class': 'executors.logger.RedisHandler',
+                'class': module_base + '.logger.RedisHandler',
                 'formatter': 'json_formatter',
                 'level': logging.DEBUG
             },
@@ -73,7 +78,7 @@ def configure_logging():
         },
         loggers={
             # Don't use redis logger to prevent circular dependency.
-            'executors.manager_comm': {
+            module_base + '.manager_comm': {
                 'level': 'INFO',
                 'handlers': ['console'],
                 'propagate': False,

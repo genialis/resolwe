@@ -9,17 +9,18 @@ import traceback
 import redis
 
 from .global_settings import DATA, EXECUTOR_SETTINGS, SETTINGS
-from .protocol import ExecutorProtocol  # pylint: disable=import-error
+from .protocol import ExecutorProtocol
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 _REDIS_RETRIES = 60
 # This channel name will be used for all listener communication; Data object-specific.
-QUEUE_RESPONSE_CHANNEL = '{}.{}'.format(EXECUTOR_SETTINGS['REDIS_CHANNEL_PAIR'][1], DATA['id'])
+_response_channel = EXECUTOR_SETTINGS.get('REDIS_CHANNEL_PAIR', ('', ''))[1]  # pylint: disable=invalid-name
+QUEUE_RESPONSE_CHANNEL = '{}.{}'.format(_response_channel, DATA.get('id', 0))
 
 # The Redis connection instance used to communicate with the manager listener.
 redis_conn = redis.StrictRedis(  # pylint: disable=invalid-name
-    **SETTINGS['FLOW_EXECUTOR'].get('REDIS_CONNECTION', {})
+    **SETTINGS.get('FLOW_EXECUTOR', {}).get('REDIS_CONNECTION', {})
 )
 
 

@@ -4,7 +4,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import logging
 
 from ..manager_commands import send_manager_command
-from ..protocol import ExecutorProtocol  # pylint: disable=import-error
+from ..protocol import ExecutorProtocol
 from ..run import BaseFlowExecutor
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name

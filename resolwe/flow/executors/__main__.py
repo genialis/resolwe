@@ -31,7 +31,7 @@ from importlib import import_module
 
 from .global_settings import DATA
 from .logger import configure_logging
-from .protocol import ExecutorFiles  # pylint: disable=import-error
+from .protocol import ExecutorFiles
 
 configure_logging()
 
@@ -51,4 +51,5 @@ def run_executor():
         executor.run(DATA['id'], script_file.read())
 
 
-run_executor()
+if __name__ == '__main__':
+    run_executor()
