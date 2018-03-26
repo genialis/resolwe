@@ -96,7 +96,16 @@ class ElasticSearchMixin(object):
 
         """
         builder = QueryBuilder(self.filtering_fields, self)
-        search, _ = builder.build(search, self.get_query_params())
+        search, unmatched = builder.build(search, self.get_query_params())
+
+        # Ensure that no unsupported arguments were used.
+        unmatched.pop('ordering', None)
+        unmatched.pop('offset', None)
+        unmatched.pop('limit', None)
+        unmatched.pop('format', None)
+        if unmatched:
+            raise KeyError('Unsupported filter arguments: {}'.format(', '.join(unmatched.keys())))
+
         return search
 
     def filter_permissions(self, search):
@@ -208,10 +217,10 @@ class ElasticSearchCombinedViewSet(ElasticSearchBaseViewSet):
         class MyCombinedViewSet(ElasticSearchCombinedViewSet, MyViewSet):
             # ...
 
-    Whenever any of the filters declared in ``filtering_fields`` are
-    used, the search part is used. Otherwise, only the database part is
-    used. In both cases, search results are only used to get the primary
-    keys to filter the database query.
+    Whenever the ``is_search_request`` method returns ``True`` (by default
+    it always does), the search part is used. Otherwise, only the database
+    part is used. In both cases, search results are only used to get the
+    primary keys to filter the database query.
 
     In order for this to work, your index must store the primary key
     in a field (by default it should be called ``id``). You can change
@@ -222,10 +231,7 @@ class ElasticSearchCombinedViewSet(ElasticSearchBaseViewSet):
 
     def is_search_request(self):
         """Check if current request is a search request."""
-        return any([
-            self.get_query_param(field, None) is not None
-            for field in self.filtering_fields
-        ])
+        return True
 
     def list_with_post(self, request):
         """Endpoint handler."""

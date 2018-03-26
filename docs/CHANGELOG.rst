@@ -13,6 +13,8 @@ Unreleased
 Changed
 -------
 - **BACKWARD INCOMPATIBLE:** Use Elasticsearch version 5.x
+- **BACKWARD INCOMPATIBLE:** Raise an error if an invalid query argument is
+  used in Elasticsearch viewsets
 - Terminate the executor if listener response with error message
 - ``verbosity`` setting is no longer propagated to the executor
 
