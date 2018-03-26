@@ -5,8 +5,7 @@ Elastic Index Builder
 =====================
 
 """
-from __future__ import absolute_import, division, print_function, unicode_literals
-
+import contextlib
 import inspect
 import os
 import re
@@ -41,43 +40,52 @@ class BuildArgumentsCache:
 
     def __init__(self):
         """Initialize cache."""
-        self.model = None
-        self.pks = None
-        self.obj = None
+        self._cache = {}
 
-    def _clean_cache(self):
+    def _get_cache_key(self, obj):
+        """Derive cache key for given object."""
+        if obj is not None:
+            return obj.pk
+
+        return obj
+
+    def _clean_cache(self, obj):
         """Clean cache."""
-        self.model = None
-        self.pks = None
-        self.obj = None
+        del self._cache[self._get_cache_key(obj)]
 
-    @property
-    def is_clean(self):
-        """Check if cache is clean."""
-        return self.model is None and self.pks is None and self.obj is None
-
-    def set(self, build_kwargs):
+    def set(self, obj, build_kwargs):
         """Set cached value."""
-        if build_kwargs is None:
-            return
+        assert self._get_cache_key(obj) not in self._cache
 
+        if build_kwargs is None:
+            build_kwargs = {}
+
+        cached = {}
         if 'queryset' in build_kwargs:
-            self.model = build_kwargs['queryset'].model
-            self.pks = list(build_kwargs['queryset'].values_list('pk', flat=True))
+            cached = {
+                'model': build_kwargs['queryset'].model,
+                'pks': list(build_kwargs['queryset'].values_list('pk', flat=True)),
+            }
 
         elif 'obj' in build_kwargs:
-            self.obj = build_kwargs['obj']
+            cached = {
+                'obj': build_kwargs['obj'],
+            }
 
-    def take(self):
+        self._cache[self._get_cache_key(obj)] = cached
+
+    def take(self, obj):
         """Get cached value and clean cache."""
+        cached = self._cache[self._get_cache_key(obj)]
         build_kwargs = {}
-        if self.model is not None and self.pks is not None:
-            build_kwargs['queryset'] = self.model.objects.filter(pk__in=self.pks)
 
-        elif self.obj is not None:
-            build_kwargs['obj'] = self.obj
+        if 'model' in cached and 'pks' in cached:
+            build_kwargs['queryset'] = cached['model'].objects.filter(pk__in=cached['pks'])
 
-        self._clean_cache()
+        elif 'obj' in cached:
+            build_kwargs['obj'] = cached['obj']
+
+        self._clean_cache(obj)
 
         return build_kwargs
 
@@ -201,9 +209,9 @@ class ManyToManyDependency(Dependency):
 
         super(ManyToManyDependency, self).__init__(model)
         self.field = field
-        # Cache for pre/post-delete signals
+        # Cache for pre/post-delete signals.
         self.delete_cache = BuildArgumentsCache()
-        # Cache for pre/post-remove action in m2m_changed signal
+        # Cache for pre/post-remove action in m2m_changed signal.
         self.remove_cache = BuildArgumentsCache()
 
     def connect(self, index):
@@ -213,6 +221,20 @@ class ManyToManyDependency(Dependency):
         m2m_signal = ElasticSignal(self, 'process_m2m', pass_kwargs=True)
         m2m_signal.connect(m2m_changed, sender=self.field.through)
         signals.append(m2m_signal)
+
+        # If the relation has a custom through model, we need to subscribe to it.
+        if not self.field.rel.through._meta.auto_created:
+            signal = ElasticSignal(self, 'process_m2m_through_save', pass_kwargs=True)
+            signal.connect(post_save, sender=self.field.rel.through)
+            signals.append(signal)
+
+            signal = ElasticSignal(self, 'process_m2m_through_pre_delete', pass_kwargs=True)
+            signal.connect(pre_delete, sender=self.field.rel.through)
+            signals.append(signal)
+
+            signal = ElasticSignal(self, 'process_m2m_through_post_delete', pass_kwargs=True)
+            signal.connect(post_delete, sender=self.field.rel.through)
+            signals.append(signal)
 
         return signals
 
@@ -256,20 +278,17 @@ class ManyToManyDependency(Dependency):
 
     def process_predelete(self, obj, pk_set=None, action=None, update_fields=None, **kwargs):
         """Render the queryset of influenced objects and cache it."""
-        # Make sure that post-delete signal was triggered and cache was deleted.
-        assert self.delete_cache.is_clean is True
-
         build_kwargs = self._get_build_kwargs(obj, pk_set, action, update_fields, **kwargs)
-        self.delete_cache.set(build_kwargs)
+        self.delete_cache.set(obj, build_kwargs)
 
     def process_delete(self, obj, pk_set=None, action=None, update_fields=None, **kwargs):
         """Recreate queryset from the index and rebuild the index."""
-        build_kwargs = self.delete_cache.take()
+        build_kwargs = self.delete_cache.take(obj)
 
         if build_kwargs:
             self.index.build(**build_kwargs)
 
-    def process_m2m(self, obj, pk_set=None, action=None, update_fields=None, **kwargs):
+    def process_m2m(self, obj, pk_set=None, action=None, update_fields=None, cache_key=None, **kwargs):
         """Process signals from dependencies.
 
         Remove signal is processed in two parts. For details see:
@@ -279,19 +298,43 @@ class ManyToManyDependency(Dependency):
             return
 
         if action == 'post_remove':
-            build_kwargs = self.remove_cache.take()
+            build_kwargs = self.remove_cache.take(cache_key)
         else:
             build_kwargs = self._get_build_kwargs(obj, pk_set, action, update_fields, **kwargs)
 
         if action == 'pre_remove':
-            # Make sure that post-remove signal was triggered and cache was deleted.
-            assert self.remove_cache.is_clean is True
-
-            self.remove_cache.set(build_kwargs)
+            self.remove_cache.set(cache_key, build_kwargs)
             return
 
         if build_kwargs:
             self.index.build(**build_kwargs)
+
+    def _process_m2m_through(self, obj, action):
+        """Helper for custom M2M through model handling."""
+        source = getattr(obj, self.field.rel.field.m2m_field_name())
+        target = getattr(obj, self.field.rel.field.m2m_reverse_field_name())
+
+        pk_set = set()
+        if target:
+            pk_set.add(target.pk)
+
+        self.process_m2m(source, pk_set, action=action, reverse=False, cache_key=obj)
+
+    def process_m2m_through_save(self, obj, created=False, **kwargs):
+        """Process M2M post save for custom through model."""
+        # We are only interested in signals that establish relations.
+        if not created:
+            return
+
+        self._process_m2m_through(obj, 'post_add')
+
+    def process_m2m_through_pre_delete(self, obj, **kwargs):
+        """Process M2M pre delete for custom through model."""
+        self._process_m2m_through(obj, 'pre_remove')
+
+    def process_m2m_through_post_delete(self, obj, **kwargs):
+        """Process M2M post delete for custom through model."""
+        self._process_m2m_through(obj, 'post_remove')
 
     def process(self, obj, pk_set=None, action=None, update_fields=None, **kwargs):
         """Process signals from dependencies."""
