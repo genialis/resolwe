@@ -4,7 +4,7 @@ Overview
 
 Resolwe consists of two major components: a RESTful API and the Flow Engine.
 The RESTful API is based on the `Django REST Framework`_ and offers complete
-control over the dataflow, the data involved and the permissions on those data.
+control over the workflow, the data involved and the permissions on those data.
 The Resolwe Flow engine, on the other hand, handles pipeline execution. It
 resolves dependencies between `processes` (jobs or tasks), and executes them on
 worker nodes. Results are saved to a PostgreSQL database and a clustered file
@@ -17,7 +17,7 @@ system.
 The Flow Engine has several layers of execution that can be configured either on
 the server or by the individual processes.
 
-.. figure:: images/resolwe_03_dataflow.png
+.. figure:: images/resolwe_03_workflow.png
 
 Processes can be executed on a server cluster. In this case the Executor,
 Runtime and Expression Engine layers span multiple worker nodes.
