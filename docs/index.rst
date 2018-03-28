@@ -26,6 +26,7 @@ Contents
    intro
    proc
    api
+   composer
    ref
    CHANGELOG
    contributing

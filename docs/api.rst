@@ -7,6 +7,26 @@ functionality is exposed.
 
 TODO
 
+Elasticsearch endpoints
+=======================
+
+Advanced lookups
+----------------
+
+All fields that can be filtered upon (as defined for each viewset) support
+specific lookup operators that can be used for some more advanced lookups.
+
+Currently the supported lookup operators are:
+
+* ``lt`` creates an ES range query with ``lt`` bound. Supported for number
+  and date fields.
+* ``lte`` creates an ES range query with ``lte`` bound. Supported for number
+  and date fields.
+* ``gt`` creates an ES range query with ``gt`` bound. Supported for number
+  and date fields.
+* ``gte`` creates an ES range query with ``gte`` bound. Supported for number
+  and date fields.
+
 Limiting fields in responses
 ============================
 
