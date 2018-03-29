@@ -89,6 +89,16 @@ class ElasticSearchMixin(object):
 
         return search.sort('{}{}'.format(direction, ordering_field))
 
+    def get_always_allowed_arguments(self):
+        """Return query arguments which are always allowed."""
+        return [
+            'ordering',
+            'offset',
+            'limit',
+            'format',
+            'fields',
+        ]
+
     def filter_search(self, search):
         """Filter given search by the filter parameter given in request.
 
@@ -99,10 +109,9 @@ class ElasticSearchMixin(object):
         search, unmatched = builder.build(search, self.get_query_params())
 
         # Ensure that no unsupported arguments were used.
-        unmatched.pop('ordering', None)
-        unmatched.pop('offset', None)
-        unmatched.pop('limit', None)
-        unmatched.pop('format', None)
+        for argument in self.get_always_allowed_arguments():
+            unmatched.pop(argument, None)
+
         if unmatched:
             raise KeyError('Unsupported filter arguments: {}'.format(', '.join(unmatched.keys())))
 
