@@ -18,7 +18,6 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.db.models import Max
-from django.utils.text import slugify
 
 from resolwe.flow.engine import InvalidEngineError
 from resolwe.flow.finders import get_finders
@@ -108,22 +107,7 @@ class Command(BaseCommand):
             if 'category' in p and not p['category'].endswith(':'):
                 p['category'] += ':'
 
-            # get `data_name` from `static`
-            if 'static' in p:
-                for schema, _, _ in iterate_schema({}, p['static']):
-                    if schema['name'] == 'name' and 'default' in schema:
-                        p['data_name'] = schema['default']
-
-            # support backward compatibility
-            # TODO: update .yml files and remove
-            if 'slug' not in p:
-                p['slug'] = slugify(p.pop('name').replace(':', '-'))
-                p['name'] = p.pop('label')
-
-                p.pop('var', None)
-                p.pop('static', None)
-
-            for field in ['input', 'output', 'var', 'static']:
+            for field in ['input', 'output']:
                 for schema, _, _ in iterate_schema({}, p[field] if field in p else {}):
                     if not schema['type'][-1].endswith(':'):
                         schema['type'] += ':'
@@ -235,24 +219,12 @@ class Command(BaseCommand):
         log_descriptors = []
 
         for descriptor_schema in descriptor_schemas:
-            for field in ['var', 'schema']:
-                for schema, _, _ in iterate_schema({}, descriptor_schema.get(field, {})):
-                    if not schema['type'][-1].endswith(':'):
-                        schema['type'] += ':'
-
-            # support backward compatibility
-            # TODO: update .yml files and remove
-            if 'slug' not in descriptor_schema:
-                descriptor_schema['slug'] = slugify(descriptor_schema.pop('name').replace(':', '-'))
-                descriptor_schema['name'] = descriptor_schema.pop('label')
+            for schema, _, _ in iterate_schema({}, descriptor_schema.get('schema', {})):
+                if not schema['type'][-1].endswith(':'):
+                    schema['type'] += ':'
 
             if 'schema' not in descriptor_schema:
                 descriptor_schema['schema'] = []
-
-            if 'static' in descriptor_schema:
-                descriptor_schema['schema'].extend(descriptor_schema.pop('static'))
-            if 'var' in descriptor_schema:
-                descriptor_schema['schema'].extend(descriptor_schema.pop('var'))
 
             if not self.valid(descriptor_schema, DESCRIPTOR_SCHEMA):
                 continue

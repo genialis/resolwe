@@ -56,14 +56,6 @@
             "description": "List of processor result fields",
             "$ref": "#/field"
         },
-        "static": {
-            "description": "List of meta-data fields",
-            "$ref": "#/field"
-        },
-        "var": {
-            "description": "List of meta-data fields",
-            "$ref": "#/field"
-        },
         "run": {
             "description": "Algorithm that transforms inputs into outputs",
             "type": "object",
