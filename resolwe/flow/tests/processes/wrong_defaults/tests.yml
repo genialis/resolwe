@@ -1,0 +1,30 @@
+---
+
+- slug: test-wrong-type
+  name: Test Process
+  version: 1.0.0
+  type: "data:test:"
+  output:
+    - name: result
+      label: Result
+      type: basic:integer
+      default: "42"
+  run:
+    language: bash
+    program: |
+      re-save result 12
+
+- slug: test-out-of-range
+  name: Test Process
+  version: 1.0.0
+  type: "data:test:"
+  output:
+    - name: result
+      label: Result
+      type: basic:integer
+      range: [0, 10]
+      default: 42
+  run:
+    language: bash
+    program: |
+      re-save result 5

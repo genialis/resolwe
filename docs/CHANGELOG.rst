@@ -10,6 +10,10 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Added
+-----
+- Add on-register validation of default values in process and schemas
+
 
 ==================
 8.0.0 - 2018-04-11

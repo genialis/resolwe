@@ -16,6 +16,7 @@ from versionfield.utils import convert_version_string_to_int
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 from django.core.management.base import BaseCommand
 from django.db.models import Max
 
@@ -24,7 +25,7 @@ from resolwe.flow.finders import get_finders
 from resolwe.flow.managers import manager
 from resolwe.flow.models import DescriptorSchema, Process
 from resolwe.flow.models.base import VERSION_NUMBER_BITS
-from resolwe.flow.models.utils import validation_schema
+from resolwe.flow.models.utils import validate_schema, validation_schema
 from resolwe.flow.utils import dict_dot, iterate_schema
 from resolwe.permissions.utils import assign_contributor_permissions, copy_permissions
 
@@ -48,7 +49,6 @@ class Command(BaseCommand):
         """Validate schema."""
         try:
             jsonschema.validate(instance, schema)
-            return True
         except jsonschema.exceptions.ValidationError as ex:
             self.stderr.write("    VALIDATION ERROR: {}".format(instance['name'] if 'name' in instance else ''))
             self.stderr.write("        path:       {}".format(ex.path))
@@ -56,6 +56,19 @@ class Command(BaseCommand):
             self.stderr.write("        validator:  {}".format(ex.validator))
             self.stderr.write("        val. value: {}".format(ex.validator_value))
             return False
+
+        try:
+            # Check that default values fit field schema.
+            for field in ['input', 'output', 'schema']:
+                for schema, _, path in iterate_schema({}, instance.get(field, {})):
+                    if 'default' in schema:
+                        validate_schema({schema['name']: schema['default']}, [schema])
+        except ValidationError:
+            self.stderr.write("    VALIDATION ERROR: {}".format(instance['name']))
+            self.stderr.write("        Default value of field '{}' is not valid.". format(path))
+            return False
+
+        return True
 
     def find_schemas(self, schema_path, filters=None, schema_type='process', verbosity=1):
         """Find schemas in packages that match filters."""

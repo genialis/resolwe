@@ -47,6 +47,17 @@ class ProcessRegisterTest(TestCase):
         self.assertTrue('Updated test-bloated' in out.getvalue())
         self.assertTrue('Skip processor test-min: newer version installed' in err.getvalue())
 
+    def test_validation_of_defaults(self):
+        process_path = os.path.join(PROCESSES_DIR, 'wrong_defaults')
+
+        out, err = StringIO(), StringIO()
+        call_command('register', path=[process_path], schemas=['test-wrong-type'], stdout=out, stderr=err)
+        self.assertIn('VALIDATION ERROR:', err.getvalue())
+
+        out, err = StringIO(), StringIO()
+        call_command('register', path=[process_path], schemas=['test-out-of-range'], stdout=out, stderr=err)
+        self.assertIn('VALIDATION ERROR:', err.getvalue())
+
     def test_process_register_filter(self):
         out, err = StringIO(), StringIO()
         # Fields types are also tested here, as process won't register
