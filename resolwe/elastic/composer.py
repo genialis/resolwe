@@ -45,6 +45,8 @@ class Composer(object):
         elif not isinstance(klass_or_instance, str):
             klass = klass_or_instance.__class__
             klass = '{}.{}'.format(klass.__module__, klass.__name__)
+        else:
+            klass = klass_or_instance
 
         return klass
 
