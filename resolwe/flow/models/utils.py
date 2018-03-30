@@ -23,7 +23,7 @@ class DirtyError(ValidationError):
 def validation_schema(name):
     """Return json schema for json validation."""
     schemas = {
-        'processor': 'processorSchema.json',
+        'processor': 'processSchema.json',
         'descriptor': 'descriptorSchema.json',
         'field': 'fieldSchema.json',
         'type': 'typeSchema.json',
