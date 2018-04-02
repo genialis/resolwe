@@ -18,6 +18,7 @@ Changed
 - **BACKWARD INCOMPATIBLE:** Switch ``Data`` API viewset to use Elasticsearch
 - Terminate the executor if listener response with error message
 - ``verbosity`` setting is no longer propagated to the executor
+- Only create Elasticsearch mappings on first push
 
 Added
 -----
@@ -29,6 +30,7 @@ Added
   ``DataSerializer``
 - Support lookup expressions (``lt``, ``lte``, ``gt``, ``gte``) in ES viewsets
 - Support for easier dynamic composition of type extensions
+- Add ``elastic_mapping`` management command
 
 Fixed
 -----

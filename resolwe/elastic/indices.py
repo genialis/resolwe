@@ -132,6 +132,7 @@ class BaseIndex(object):
         self.push_queue = []
 
         self._index_name = self.document_class()._get_index()  # pylint: disable=not-callable,protected-access
+        self._mapping_created = False
 
         #: id of thread id where connection was established
         self.connection_thread_id = None
@@ -246,6 +247,7 @@ class BaseIndex(object):
         """Create the mappings in elasticsearch."""
         try:
             self.document_class.init()
+            self._mapping_created = True
         except IllegalOperation as error:
             if error.args[0].startswith('You cannot update analysis configuration'):
                 # Ignore mapping update errors, which are thrown even when the analysis
@@ -334,6 +336,11 @@ class BaseIndex(object):
         if not self.push_queue:
             logger.info("No documents to push, skipping push.")
             return
+
+        # Check if we need to update mappings as this needs to be done before we push
+        # anything to the Elasticsearch server.
+        if not self._mapping_created:
+            self.create_mapping()
 
         logger.info("Pushing builded documents to Elasticsearch server...")
         logger.debug("Found %s documents to push.", len(self.push_queue))

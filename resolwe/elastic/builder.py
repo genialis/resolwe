@@ -368,7 +368,6 @@ class IndexBuilder(object):
         prepare_connection()
 
         self.discover_indexes()
-        self.create_mappings()
         self.register_signals()
 
     def _connect_signal(self, index):

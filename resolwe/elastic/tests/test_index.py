@@ -191,6 +191,9 @@ class IndexTest(ElasticSearchTestCase):
         call_command('elastic_purge', exclude=['InvalidIndex'], interactive=False, verbosity=0, stderr=output)
         self.assertIn("Unknown index: InvalidIndex", output.getvalue())
 
+        # Create mappings.
+        call_command('elastic_mapping', interactive=False, verbosity=0)
+
     def test_permissions(self):
         from .test_app.models import TestModel
         from .test_app.elastic_indexes import TestSearchDocument
