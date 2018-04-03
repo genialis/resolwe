@@ -76,6 +76,20 @@ class GreaterThanOrEqual(Lookup):
     value_type = maybe_number
 
 
+class In(Lookup):
+    """In lookup."""
+
+    operator = 'in'
+
+    def apply(self, search, field, value):
+        """Apply lookup expression to search query."""
+        if not isinstance(value, list):
+            value = value.split(',')
+
+        filters = [Q('match', **{field: item}) for item in value]
+        return search.query('bool', should=filters)
+
+
 class QueryBuilder(object):
     """Query builder."""
 
@@ -94,6 +108,7 @@ class QueryBuilder(object):
         self.register_lookup(LessThanOrEqual)
         self.register_lookup(GreaterThan)
         self.register_lookup(GreaterThanOrEqual)
+        self.register_lookup(In)
 
     def register_lookup(self, lookup):
         """Register lookup."""

@@ -259,6 +259,8 @@ class TestDataViewSetFilters(TestCase):
     def test_filter_slug(self):
         self._check_filter({'slug': 'data-1'}, [self.data[1]])
         self._check_filter({'slug': 'data-5'}, [self.data[5]])
+        self._check_filter({'slug__in': 'data-1'}, [self.data[1]])
+        self._check_filter({'slug__in': 'data-1,data-5'}, [self.data[1], self.data[5]])
 
     def test_filter_name(self):
         self._check_filter({'name': 'Data 1'}, [self.data[1]])
@@ -328,6 +330,7 @@ class TestDataViewSetFilters(TestCase):
     def test_filter_status(self):
         self._check_filter({'status': 'OK'}, self.data[1:])
         self._check_filter({'status': 'RE'}, [self.data[0]])
+        self._check_filter({'status__in': 'OK,RE'}, self.data)
 
     def test_filter_process(self):
         self._check_filter({'process': str(self.proc1.pk)}, self.data[:5])

@@ -26,6 +26,8 @@ Currently the supported lookup operators are:
   and date fields.
 * ``gte`` creates an ES range query with ``gte`` bound. Supported for number
   and date fields.
+* ``in`` creates an ES boolean query with all values passed as a should
+  match. For GET requests, multiple values should be comma-separated.
 
 Limiting fields in responses
 ============================

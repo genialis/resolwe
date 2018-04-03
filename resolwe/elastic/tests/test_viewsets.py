@@ -321,3 +321,17 @@ class IndexViewsetTest(APITestCase, TestCase):
 
         response = self._make_request(date__gte='2018-01-01T00:00:00.000000')
         self.assertEqual(len(response.data), 1)
+
+    def test_lookup_expressions_in(self):
+        response = self._make_request(num__in='43')
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['name'], 'Object name 1')
+
+        response = self._make_request(num__in='45')
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['name'], 'Object name 3')
+
+        response = self._make_request(num__in='43,45')
+        self.assertEqual(len(response.data), 2)
+        self.assertEqual(response.data[0]['name'], 'Object name 1')
+        self.assertEqual(response.data[1]['name'], 'Object name 3')
