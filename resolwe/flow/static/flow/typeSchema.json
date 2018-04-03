@@ -21,6 +21,7 @@
             { "$ref": "#/types/json" },
             { "$ref": "#/types/list_string" },
             { "$ref": "#/types/list_integer" },
+            { "$ref": "#/types/list_decimal" },
             { "$ref": "#/types/list_file" },
             { "$ref": "#/types/list_dir" },
             { "$ref": "#/types/list_url" }
@@ -283,6 +284,24 @@
                     "type": "array",
                     "items": {
                         "type": "integer"
+                    },
+                    "uniqueItems": false
+                }
+            }
+        },
+        "list_decimal": {
+            "type": "object",
+            "required": ["type", "value"],
+            "additionalProperties": false,
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "pattern": "^list:basic:decimal:$"
+                },
+                "value": {
+                    "type": "array",
+                    "items": {
+                        "type": "number"
                     },
                     "uniqueItems": false
                 }

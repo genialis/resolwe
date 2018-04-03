@@ -17,6 +17,10 @@ Added
   ``basic:integer:``, ``basic:decimal``, ``list:basic:integer:`` and
   ``list:basic:decimal``
 
+Fixed
+-----
+- Add missing ``list:basic:decimal`` type to JSON schema
+
 
 ==================
 8.0.0 - 2018-04-11
