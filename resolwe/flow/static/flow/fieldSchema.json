@@ -11,8 +11,10 @@
             { "$ref": "#{{PARENT}}/definitions/basic:group" },
             { "$ref": "#{{PARENT}}/definitions/_single_no_choices" },
             { "$ref": "#{{PARENT}}/definitions/_single" },
+            { "$ref": "#{{PARENT}}/definitions/_single_numeric" },
+            { "$ref": "#{{PARENT}}/definitions/_list_no_choices" },
             { "$ref": "#{{PARENT}}/definitions/_list" },
-            { "$ref": "#{{PARENT}}/definitions/_list_no_choices" }
+            { "$ref": "#{{PARENT}}/definitions/_list_numeric" }
         ]
     },
 
@@ -112,7 +114,7 @@
                 },
                 "type": {
                     "type": "string",
-                    "pattern": "^basic:(decimal|integer|string):$"
+                    "pattern": "^basic:string:$"
                 },
                 "description": {
                     "type": "string"
@@ -127,13 +129,89 @@
                     "type": ["string", "boolean"]
                 },
                 "default": {
-                    "type": ["string", "boolean", "integer", "number", "array"]
+                    "type": "string"
                 },
                 "placeholder": {
                     "type": "string"
                 },
                 "validate_regex": {
                     "type": "string"
+                },
+                "allow_custom_choice": {
+                    "type": "boolean"
+                },
+                "custom_choice_conditions": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "choices": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "object",
+                        "required": ["label", "value"],
+                        "additionalProperties": false,
+                        "properties": {
+                            "label": {
+                                "type": ["string", "integer", "number"]
+                            },
+                            "value": {
+                                "type": ["string", "integer", "number"]
+                            }
+                        }
+                    }
+                }
+            }
+        },
+
+        "_single_numeric": {
+            "type": "object",
+            "required": ["name", "label", "type"],
+            "additionalProperties": false,
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string",
+                    "pattern": "^basic:(decimal|integer):$"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "disabled": {
+                    "type": ["string", "boolean"]
+                },
+                "hidden": {
+                    "type": ["string", "boolean"]
+                },
+                "default": {
+                    "type": ["integer", "number"]
+                },
+                "placeholder": {
+                    "type": "string"
+                },
+                "validate_regex": {
+                    "type": "string"
+                },
+                "range": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "items": {
+                        "type": ["integer", "number"]
+                    }
                 },
                 "allow_custom_choice": {
                     "type": "boolean"
@@ -203,7 +281,10 @@
                     "type": ["string", "boolean"]
                 },
                 "default": {
-                    "type": ["array"]
+                    "type": ["array"],
+                    "items": {
+                        "type": ["string", "boolean", "object"]
+                    }
                 },
                 "placeholder": {
                     "type": "string"
@@ -227,7 +308,7 @@
                 },
                 "type": {
                     "type": "string",
-                    "pattern": "^list:basic:(decimal|integer|string):$"
+                    "pattern": "^list:basic:string:$"
                 },
                 "description": {
                     "type": "string"
@@ -242,7 +323,10 @@
                     "type": ["string", "boolean"]
                 },
                 "default": {
-                    "type": ["array"]
+                    "type": ["array"],
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "placeholder": {
                     "type": "string"
@@ -279,6 +363,85 @@
                     }
                 }
             }
+        },
+
+        "_list_numeric": {
+            "type": "object",
+            "required": ["name", "label", "type"],
+            "additionalProperties": false,
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string",
+                    "pattern": "^list:basic:(decimal|integer):$"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "disabled": {
+                    "type": ["string", "boolean"]
+                },
+                "hidden": {
+                    "type": ["string", "boolean"]
+                },
+                "default": {
+                    "type": ["array"],
+                    "items": {
+                        "type": ["integer", "number"]
+                    }
+                },
+                "placeholder": {
+                    "type": "string"
+                },
+                "validate_regex": {
+                    "type": "string"
+                },
+                "range": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "items": {
+                        "type": ["integer", "number"]
+                    }
+                },
+                "allow_custom_choice": {
+                    "type": "boolean"
+                },
+                "custom_choice_conditions": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "choices": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "object",
+                        "required": ["label", "value"],
+                        "additionalProperties": false,
+                        "properties": {
+                            "label": {
+                                "type": ["string", "integer", "number"]
+                            },
+                            "value": {
+                                "type": ["string", "integer", "number", "array"]
+                            }
+                        }
+                    }
+                }
+            }
         }
+
     }
 }

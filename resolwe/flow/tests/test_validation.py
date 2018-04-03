@@ -1,4 +1,4 @@
-# pylint: disable=missing-docstring
+# pylint: disable=missing-docstring,too-many-lines
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import six
@@ -308,6 +308,69 @@ class ValidationUnitTest(TestCase):
 
         instance = {'value': 8}
         validate_schema(instance, schema)
+
+    def test_range(self):
+        schema = [
+            {
+                'name': 'value',
+                'type': 'basic:integer:',
+                'range': [0, 5],
+            },
+        ]
+
+        instance = {'value': 5}
+        validate_schema(instance, schema)
+        instance = {'value': 0}
+        validate_schema(instance, schema)
+        instance = {'value': 3}
+        validate_schema(instance, schema)
+
+        instance = {'value': 7}
+        error_msg = "Value of field 'value' is out of range. It should be between 0 and 5."
+        with six.assertRaisesRegex(self, ValidationError, error_msg):
+            validate_schema(instance, schema)
+
+        schema = [
+            {
+                'name': 'value',
+                'type': 'basic:decimal:',
+                'range': [0, 5],
+            },
+        ]
+
+        instance = {'value': 7}
+        error_msg = "Value of field 'value' is out of range. It should be between 0 and 5."
+        with six.assertRaisesRegex(self, ValidationError, error_msg):
+            validate_schema(instance, schema)
+
+        schema = [
+            {
+                'name': 'value',
+                'type': 'list:basic:integer:',
+                'range': [0, 5],
+            },
+        ]
+
+        instance = {'value': [0, 3, 5]}
+        validate_schema(instance, schema)
+
+        instance = {'value': [0, 3, 7]}
+        error_msg = "Value of field 'value' is out of range. It should be between 0 and 5."
+        with six.assertRaisesRegex(self, ValidationError, error_msg):
+            validate_schema(instance, schema)
+
+        schema = [
+            {
+                'name': 'value',
+                'type': 'list:basic:decimal:',
+                'range': [0, 5],
+            },
+        ]
+
+        instance = {'value': [0, 3, 7]}
+        error_msg = "Value of field 'value' is out of range. It should be between 0 and 5."
+        with six.assertRaisesRegex(self, ValidationError, error_msg):
+            validate_schema(instance, schema)
 
     def test_missing_in_schema(self):
         schema = [

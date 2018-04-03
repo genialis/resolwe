@@ -13,6 +13,9 @@ Unreleased
 Added
 -----
 - Add on-register validation of default values in process and schemas
+- Add ``range`` parameter and related validation to fields of type
+  ``basic:integer:``, ``basic:decimal``, ``list:basic:integer:`` and
+  ``list:basic:decimal``
 
 
 ==================

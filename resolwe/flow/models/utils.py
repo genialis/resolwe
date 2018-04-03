@@ -144,6 +144,18 @@ def validate_schema(instance, schema, test_required=True, path_prefix=None,
                 "Data object of type `{}` is required, but type `{}` is given. "
                 "(id:{})".format(type_, data['process__type'], data_pk))
 
+    def validate_range(value, interval, name):
+        """Check that given value is inside the specified range."""
+        if not interval:
+            return
+
+        if value < interval[0] or value > interval[1]:
+            raise ValidationError(
+                "Value of field '{}' is out of range. It should be between {} and {}.".format(
+                    name, interval[0], interval[1]
+                )
+            )
+
     is_dirty = False
     dirty_fields = []
     for _schema, _fields, _ in iterate_schema(instance, schema):
@@ -199,6 +211,13 @@ def validate_schema(instance, schema, test_required=True, path_prefix=None,
             elif type_.startswith('list:data:'):
                 for data_id in field:
                     validate_data(data_id, type_[5:])  # remove `list:` from type
+
+            elif type_ == 'basic:integer:' or type_ == 'basic:decimal:':
+                validate_range(field, _schema.get('range'), name)
+
+            elif type_ == 'list:basic:integer:' or type_ == 'list:basic:decimal:':
+                for obj in field:
+                    validate_range(obj, _schema.get('range'), name)
 
     try:
         # Check that schema definitions exist for all fields

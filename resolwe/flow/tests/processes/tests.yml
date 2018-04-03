@@ -89,6 +89,10 @@
       label: Integer
       type: basic:integer
       default: -123
+    - name: integer2
+      label: Integer 2
+      type: basic:integer
+      range: [0, 5]
     - name: string
       label: String
       type: basic:string
