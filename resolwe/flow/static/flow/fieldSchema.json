@@ -62,8 +62,18 @@
                     "type": "string"
                 },
                 "type": {
-                    "type": "string",
-                    "pattern": "^(basic:(boolean|text|date|datetime|url:(download|view|link)|secret|file|file:html|dir|json):$|data:$|data:[a-z0-9:]+:$)"
+                    "anyOf": [
+                        {"type": "string", "pattern": "^basic:boolean:$"},
+                        {"type": "string", "pattern": "^basic:text:$"},
+                        {"type": "string", "pattern": "^basic:date:$"},
+                        {"type": "string", "pattern": "^basic:datetime:$"},
+                        {"type": "string", "pattern": "^basic:url:(download|view|link):$"},
+                        {"type": "string", "pattern": "^basic:secret:$"},
+                        {"type": "string", "pattern": "^basic:file:(html:)?$"},
+                        {"type": "string", "pattern": "^basic:dir:$"},
+                        {"type": "string", "pattern": "^basic:json:$"},
+                        {"type": "string", "pattern": "^data:([a-z0-9]+:)*$"}
+                    ]
                 },
                 "description": {
                     "type": "string"
@@ -169,8 +179,16 @@
                     "type": "string"
                 },
                 "type": {
-                    "type": "string",
-                    "pattern": "^list:(basic:(boolean|text|date|datetime|url:(download|view|link)|file|file:html|dir):$|data:$|data:[a-z0-9:]+:$)"
+                    "anyOf": [
+                        {"type": "string", "pattern": "^list:basic:boolean:$"},
+                        {"type": "string", "pattern": "^list:basic:text:$"},
+                        {"type": "string", "pattern": "^list:basic:date:$"},
+                        {"type": "string", "pattern": "^list:basic:datetime:$"},
+                        {"type": "string", "pattern": "^list:basic:url:(download|view|link):$"},
+                        {"type": "string", "pattern": "^list:basic:file:(html:)?$"},
+                        {"type": "string", "pattern": "^list:basic:dir:$"},
+                        {"type": "string", "pattern": "^list:data:([a-z0-9]+:)*$"}
+                    ]
                 },
                 "description": {
                     "type": "string"
