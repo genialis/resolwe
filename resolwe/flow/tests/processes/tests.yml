@@ -97,7 +97,7 @@
       label: String
       type: basic:string
       default: "Foo b-a-r.gz 1.23"
-    - name: string-list
+    - name: string_list
       label: String List
       type: list:basic:string
     - name: text

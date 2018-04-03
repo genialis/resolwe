@@ -16,6 +16,8 @@ Added
 - Add ``range`` parameter and related validation to fields of type
   ``basic:integer:``, ``basic:decimal``, ``list:basic:integer:`` and
   ``list:basic:decimal``
+- Validate that field names in processes and schemas starts with a letter
+  and only contains alpha-numeric characters
 
 Fixed
 -----
