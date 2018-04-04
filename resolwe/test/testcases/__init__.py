@@ -63,8 +63,7 @@ class TestCaseHelpers(DjangoSimpleTestCase):
 
         super().setUp()
 
-        # Reset Elastic search indices.
-        index_builder.destroy()
+        # Prepare Elastic search indices.
         index_builder.discover_indexes()
         index_builder.create_mappings()
         index_builder.unregister_signals()
@@ -88,6 +87,15 @@ class TestCaseHelpers(DjangoSimpleTestCase):
         self._keep_data = settings.FLOW_MANAGER_KEEP_DATA
 
         self.addCleanup(self._clean_up)
+
+    def tearDown(self):
+        """Cleanup environment."""
+        from resolwe.elastic.builder import index_builder
+
+        super().tearDown()
+
+        # Reset Elastic search indices.
+        index_builder.destroy()
 
     def keep_data(self, mock_purge=True):
         """Do not delete output files after tests."""
