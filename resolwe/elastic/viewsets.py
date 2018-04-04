@@ -12,10 +12,9 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 from elasticsearch_dsl.query import Q
 
-from django.conf import settings
-from django.contrib.auth import get_user_model
 from django.db.models import Case, IntegerField, Value, When
 
+from guardian.utils import get_anonymous_user
 from rest_framework.exceptions import APIException
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
@@ -127,8 +126,7 @@ class ElasticSearchMixin(object):
         if user.is_superuser:
             return search
         if user.is_anonymous:
-            user_model = get_user_model()
-            user = user_model.objects.get(**{user_model.USERNAME_FIELD: settings.ANONYMOUS_USER_NAME})
+            user = get_anonymous_user()
 
         filters = [Q('match', users_with_permissions=user.pk)]
         filters.extend([
