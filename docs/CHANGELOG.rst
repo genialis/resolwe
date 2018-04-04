@@ -18,6 +18,7 @@ Added
   ``list:basic:decimal``
 - Validate that field names in processes and schemas starts with a letter
   and only contains alpha-numeric characters
+- Support Python 3.6
 
 Fixed
 -----

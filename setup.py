@@ -80,7 +80,7 @@ setup(
         'asgi-redis~=1.4.3',
         'channels~=1.1.6',
     ],
-    python_requires='>=3.4, <3.6',
+    python_requires='>=3.4, <3.7',
     extras_require={
         'docs':  [
             'sphinx_rtd_theme',
@@ -127,6 +127,7 @@ setup(
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
     ],
 
     keywords='resolwe dataflow django',

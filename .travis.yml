@@ -32,14 +32,16 @@ matrix:
       python: "3.4"
     - env: TOX_ENV=py35
       python: "3.5"
+    - env: TOX_ENV=py36
+      python: "3.6"
     - env: TOX_ENV=docs
-      python: "3.5"
+      python: "3.6"
     - env: TOX_ENV=linters
-      python: "3.5"
+      python: "3.6"
     - env: TOX_ENV=packaging
-      python: "3.5"
+      python: "3.6"
     - env: TOX_ENV=migrations
-      python: "3.5"
+      python: "3.6"
 
 before_install:
   # Manually install Elastic Search.
