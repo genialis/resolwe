@@ -197,7 +197,7 @@ class BaseIndex(object):
                 # use get_X_value function
                 get_value_function = getattr(self, 'get_{}_value'.format(field), None)
                 if get_value_function:
-                    setattr(document, field, get_value_function(obj))
+                    setattr(document, field, get_value_function(obj))  # pylint: disable=not-callable
                     continue
 
                 # use `mapping` dict

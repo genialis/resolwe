@@ -69,7 +69,7 @@ def dependency_status(data):
         ).distinct('parent__status').values_list('parent__status', flat=True)
     )
 
-    if len(parents_statuses) == 0:
+    if not parents_statuses:
         return Data.STATUS_DONE
 
     if None in parents_statuses:

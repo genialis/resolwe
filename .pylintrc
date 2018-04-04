@@ -46,7 +46,8 @@ load-plugins=
 # C1001 Old-style class defined.
 # C0412 Imports from package * are not grouped - checked by isort
 # W0102 Dangerous default value %s as argument
-disable=R,I0011,I0012,W0613,W0511,W0232,W0142,C1001,C0412,W0102
+# W0221 Parameters differ from overridden '*' method
+disable=R,I0011,I0012,W0613,W0511,W0232,W0142,C1001,C0412,W0102,W0221
 
 
 [REPORTS]

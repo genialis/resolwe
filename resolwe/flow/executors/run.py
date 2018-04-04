@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 def iterjson(text):
     """Decode JSON stream."""
     decoder = json.JSONDecoder()
-    while len(text) > 0:
+    while text:
         obj, ndx = decoder.raw_decode(text)
 
         if not isinstance(obj, dict):

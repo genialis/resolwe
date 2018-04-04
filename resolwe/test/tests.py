@@ -136,7 +136,7 @@ class TestingFrameworkTestCase(TestCase):
 
         # NOTE: coverage tool needs original 'os.path.join'
         def join_side_effect(path, *paths):
-            if len(join_modified_values) > 0:
+            if join_modified_values:
                 return join_modified_values.pop(0)
             else:
                 return orig_join(path, *paths)

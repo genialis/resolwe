@@ -217,12 +217,12 @@ class Command(BaseCommand):
                 log_processors.append("Inserted {}".format(slug))
 
         if verbosity > 0:
-            if len(log_processors) > 0:
+            if log_processors:
                 self.stdout.write("Processor Updates:")
                 for log in log_processors:
                     self.stdout.write("  {}".format(log))
 
-            if len(log_templates) > 0:
+            if log_templates:
                 self.stdout.write("Default Template Updates:")
                 for log in log_templates:
                     self.stdout.write("  {}".format(log))
@@ -274,7 +274,7 @@ class Command(BaseCommand):
                     copy_permissions(previous_descriptor, descriptor)
                 log_descriptors.append("Inserted {}".format(slug))
 
-        if len(log_descriptors) > 0 and verbosity > 0:
+        if log_descriptors and verbosity > 0:
             self.stdout.write("Descriptor schemas Updates:")
             for log in log_descriptors:
                 self.stdout.write("  {}".format(log))
@@ -304,7 +304,7 @@ class Command(BaseCommand):
         processes_paths = paths[:]
         descriptors_paths = paths[:]
 
-        if len(paths) == 0:
+        if not paths:
             for finder in get_finders():
                 processes_paths.extend(finder.find_processes())
                 descriptors_paths.extend(finder.find_descriptors())

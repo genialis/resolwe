@@ -344,7 +344,7 @@ class Data(BaseModel):
 
             entity.data.add(self)
 
-    def save(self, render_name=False, *args, **kwargs):
+    def save(self, render_name=False, *args, **kwargs):  # pylint: disable=keyword-arg-before-vararg
         """Save the data model."""
         # Generate the descriptor if one is not already set.
         if self.name != self._original_name:

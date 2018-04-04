@@ -149,10 +149,6 @@ class ManagerState(object):
     class ObjectDatum(RedisAtomicBase):
         """Redis atomic class for JSONifiable Python data."""
 
-        def __init__(self, *args, **kwargs):
-            """Initialize atomic object instance."""
-            super().__init__(*args, **kwargs)
-
         def set(self, val):
             """Set to a new value.
 

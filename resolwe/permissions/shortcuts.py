@@ -318,7 +318,7 @@ def get_objects_for_user(user, perms, klass=None, use_groups=True, any_perm=Fals
         # OR
         # 2. any_perm is True, then the global permission beats the object
         # based permission anyway, therefore return full queryset
-        if len(global_perms) > 0 and (len(codenames) == 0 or any_perm):
+        if global_perms and (not codenames or any_perm):
             return queryset
         # if we have global perms and still some object based perms differing
         # from global perms and any_perm is set to false, then we have to flag
@@ -330,7 +330,7 @@ def get_objects_for_user(user, perms, klass=None, use_groups=True, any_perm=Fals
         # get_objects_for_user(user, [change_xx, delete_xx], use_groups=True,
         # any_perm=False, accept_global_perms=True) must retrieve object A and
         # B.
-        elif len(global_perms) > 0 and (len(codenames) > 0):
+        elif global_perms and codenames:
             has_global_perms = True
 
     # Now we should extract list of pk values for which we would filter
@@ -340,7 +340,7 @@ def get_objects_for_user(user, perms, klass=None, use_groups=True, any_perm=Fals
                                .filter(Q(user=user) | Q(user=get_anonymous_user()))
                                .filter(permission__content_type=ctype))
 
-    if len(codenames):
+    if codenames:
         user_obj_perms_queryset = user_obj_perms_queryset.filter(
             permission__codename__in=codenames)
     direct_fields = ['content_object__pk', 'permission__codename']
@@ -356,7 +356,7 @@ def get_objects_for_user(user, perms, klass=None, use_groups=True, any_perm=Fals
             'permission__content_type': ctype,
             'group__{}'.format(get_user_model().groups.field.related_query_name()): user,  # pylint: disable=no-member
         }
-        if len(codenames):
+        if codenames:
             group_filters.update({
                 'permission__codename__in': codenames,
             })
@@ -365,7 +365,7 @@ def get_objects_for_user(user, perms, klass=None, use_groups=True, any_perm=Fals
             group_fields = generic_fields
         else:
             group_fields = direct_fields
-        if not any_perm and len(codenames) and not has_global_perms:
+        if not any_perm and codenames and not has_global_perms:
             user_obj_perms = user_obj_perms_queryset.values_list(*user_fields)
             groups_obj_perms = groups_obj_perms_queryset.values_list(*group_fields)
             data = list(user_obj_perms) + list(groups_obj_perms)
