@@ -15,12 +15,9 @@ class ElasticConfig(AppConfig):
         from . composer import composer
         composer.discover_extensions()
 
-        is_testing = sys.argv[1:2] == ['test']
         is_migrating = sys.argv[1:2] == ['migrate']
-        if is_testing or is_migrating:
+        if is_migrating:
             # Do not register signals and ES indices when:
-            # * testing - `index_builder` shouldn't be imported to early
-            #   in tests
             # * migrating - model instances used during migrations do
             #   not contain the full functionality of models and things
             #   like content types don't work correctly and signals are
