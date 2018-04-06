@@ -202,7 +202,7 @@ class TestDataViewSetFilters(TestCase):
         self.collection = Collection.objects.create(contributor=self.contributor)
 
         self.proc1 = Process.objects.create(
-            type='data:test:process1',
+            type='data:test:process1:',
             slug='test-process-1',
             version='1.0.0',
             contributor=self.contributor,
@@ -211,7 +211,7 @@ class TestDataViewSetFilters(TestCase):
         )
 
         self.proc2 = Process.objects.create(
-            type='data:test:process2',
+            type='data:test:process2:',
             slug='test-process-2',
             version='1.0.0',
             contributor=self.contributor,
@@ -331,6 +331,13 @@ class TestDataViewSetFilters(TestCase):
         self._check_filter({'type': 'data:test'}, self.data)
         self._check_filter({'type': 'data:test:process1'}, self.data[:5])
         self._check_filter({'type': 'data:test:process2'}, self.data[5:])
+        self._check_filter({'type': 'data:'}, [])
+        self._check_filter({'type': 'data:test:'}, [])
+        self._check_filter({'type': 'data:test:process1:'}, self.data[:5])
+        self._check_filter({'type': 'data:test:process2:'}, self.data[5:])
+        self._check_filter({'type__exact': 'data:test'}, [])
+        self._check_filter({'type__exact': 'data:test:process1:'}, self.data[:5])
+        self._check_filter({'type__exact': 'data:test:process2:'}, self.data[5:])
 
     def test_filter_status(self):
         self._check_filter({'status': 'OK'}, self.data[1:])

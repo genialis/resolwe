@@ -90,6 +90,17 @@ class In(Lookup):
         return search.query('bool', should=filters)
 
 
+class Exact(Lookup):
+    """Exact lookup."""
+
+    operator = 'exact'
+
+    def apply(self, search, field, value):
+        """Apply lookup expression to search query."""
+        # We assume that the field in question has a "raw" counterpart.
+        return search.query('match', **{'{}.raw'.format(field): value})
+
+
 class QueryBuilder(object):
     """Query builder."""
 
@@ -109,6 +120,7 @@ class QueryBuilder(object):
         self.register_lookup(GreaterThan)
         self.register_lookup(GreaterThanOrEqual)
         self.register_lookup(In)
+        self.register_lookup(Exact)
 
     def register_lookup(self, lookup):
         """Register lookup."""

@@ -335,3 +335,21 @@ class IndexViewsetTest(APITestCase, TestCase):
         self.assertEqual(len(response.data), 2)
         self.assertEqual(response.data[0]['name'], 'Object name 1')
         self.assertEqual(response.data[1]['name'], 'Object name 3')
+
+    def test_lookup_expressions_exact(self):
+        from .test_app.models import TestModel
+
+        TestModel.objects.create(name='Object name 4', number=45,
+                                 date=datetime.datetime(2016, 1, 1, 0, 0),
+                                 field_process_type='foo:bar:moo:')
+
+        response = self._make_request(field_process_type='foo:bar')
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['name'], 'Object name 4')
+
+        response = self._make_request(field_process_type__exact='foo:bar')
+        self.assertEqual(len(response.data), 0)
+
+        response = self._make_request(field_process_type__exact='foo:bar:moo:')
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['name'], 'Object name 4')

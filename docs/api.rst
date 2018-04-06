@@ -28,6 +28,9 @@ Currently the supported lookup operators are:
   and date fields.
 * ``in`` creates an ES boolean query with all values passed as a should
   match. For GET requests, multiple values should be comma-separated.
+* ``exact`` creates an ES query on the ``raw`` subfield of the given field,
+  requiring the value to match exactly with the raw value that was supplied
+  during indexing.
 
 Limiting fields in responses
 ============================
