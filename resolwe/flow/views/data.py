@@ -37,7 +37,7 @@ class DataViewSet(ElasticSearchCombinedViewSet,
     permission_classes = (get_permissions_class(),)
     document_class = DataDocument
 
-    filtering_fields = ('slug', 'version', 'name', 'created', 'modified', 'contributor', 'owners',
+    filtering_fields = ('id', 'slug', 'version', 'name', 'created', 'modified', 'contributor', 'owners',
                         'status', 'process', 'type', 'process_name', 'tags', 'collection',
                         'parents', 'children', 'entity', 'started', 'finished', 'text')
     ordering_fields = ('id', 'created', 'modified', 'started', 'finished', 'name', 'contributor',

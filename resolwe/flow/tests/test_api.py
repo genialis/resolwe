@@ -256,6 +256,11 @@ class TestDataViewSetFilters(TestCase):
         for item in response.data:
             self.assertIn(item['id'], expected)
 
+    def test_filter_id(self):
+        self._check_filter({'id': str(self.data[0].pk)}, [self.data[0]])
+        self._check_filter({'id': str(self.data[2].pk)}, [self.data[2]])
+        self._check_filter({'id__in': '{},{}'.format(self.data[0].pk, self.data[2].pk)}, [self.data[0], self.data[2]])
+
     def test_filter_slug(self):
         self._check_filter({'slug': 'data-1'}, [self.data[1]])
         self._check_filter({'slug': 'data-5'}, [self.data[5]])
