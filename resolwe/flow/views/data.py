@@ -67,6 +67,12 @@ class DataViewSet(ElasticSearchCombinedViewSet,
 
         super().__init__(*args, **kwargs)
 
+    def get_always_allowed_arguments(self):
+        """Return query arguments which are always allowed."""
+        return super().get_always_allowed_arguments() + [
+            'hydrate_data',
+        ]
+
     def custom_filter_tags(self, value, search):
         """Support tags query."""
         if not isinstance(value, list):
