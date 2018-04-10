@@ -1,7 +1,7 @@
 """Elastic Search indexes for Data model."""
 import elasticsearch_dsl as dsl
 
-from resolwe.elastic.fields import ProcessType
+from resolwe.elastic.fields import Name, ProcessType
 from resolwe.elastic.indices import BaseIndex
 
 from ..models import Data
@@ -16,7 +16,7 @@ class DataDocument(BaseDocument):
     status = dsl.Keyword()
     process = dsl.Integer()
     type = ProcessType()  # pylint: disable=invalid-name
-    process_name = dsl.Text()
+    process_name = Name()
     tags = dsl.Keyword(multi=True)
 
     collection = dsl.Integer(multi=True)

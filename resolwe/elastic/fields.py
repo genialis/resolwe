@@ -23,6 +23,27 @@ name_analyzer = dsl.analyzer(
     flags='CASE_INSENSITIVE|COMMENTS',
     lowercase=True,
 )
+
+# During indexing, we lowercase terms and tokenize using edge_ngram.
+ngrams_analyzer = dsl.analyzer(
+    'ngrams_index',
+    tokenizer='standard',
+    filter=[
+        'lowercase',
+        dsl.token_filter(
+            'ngrams_filter',
+            type='edgeNGram',
+            min_gram=1,
+            max_gram=15,
+        ),
+    ],
+)
+# During search, we only lowercase terms.
+ngrams_search_analyzer = dsl.analyzer(
+    'ngrams_search',
+    tokenizer='standard',
+    filter=['lowercase'],
+)
 # pylint: enable=invalid-name
 
 
@@ -35,10 +56,24 @@ class RawKeywordSubfieldMixin(object):
         super(RawKeywordSubfieldMixin, self).__init__(*args, **kwargs)
 
 
-class Name(RawKeywordSubfieldMixin, dsl.Text):
+class NgramsSubfieldMixin(object):
+    """String field with a 'ngrams' subfield (e.g. for autocomplete)."""
+
+    def __init__(self, *args, **kwargs):
+        """Construct field."""
+        kwargs.setdefault('fields', {})['ngrams'] = {
+            'type': 'text',
+            'analyzer': ngrams_analyzer,
+            'search_analyzer': ngrams_search_analyzer,
+        }
+        super(NgramsSubfieldMixin, self).__init__(*args, **kwargs)
+
+
+class Name(RawKeywordSubfieldMixin, NgramsSubfieldMixin, dsl.Text):
     """Field for names supporting term matches.
 
-    Includes a 'raw' subfield for sorting.
+    Includes a 'raw' and 'ngrams' subfields for sorting and
+    autocomplete.
     """
 
     def __init__(self, *args, **kwargs):
@@ -58,3 +93,15 @@ class ProcessType(RawKeywordSubfieldMixin, dsl.Text):
         kwargs.setdefault('analyzer', process_type_analyzer)
         kwargs.setdefault('search_analyzer', process_type_search_analyzer)
         super(ProcessType, self).__init__(*args, **kwargs)
+
+
+class User(NgramsSubfieldMixin, dsl.Text):
+    """Field for users supporting partial matches."""
+
+    pass
+
+
+class Slug(NgramsSubfieldMixin, dsl.Keyword):
+    """Field for slugs supporting partial matches."""
+
+    pass

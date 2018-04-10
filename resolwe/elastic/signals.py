@@ -18,7 +18,8 @@ from .builder import index_builder
 def _process_permission(perm):
     """Rebuild indexes affected by the given permission."""
     # XXX: Optimize: rebuild only permissions, not whole document
-    if not perm.permission.codename.startswith('view'):
+    codename = perm.permission.codename
+    if not codename.startswith('view') and not codename.startswith('owner'):
         return
 
     index_builder.build(perm.content_object)

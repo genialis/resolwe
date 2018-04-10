@@ -203,6 +203,7 @@ class TestDataViewSetFilters(TestCase):
 
         self.proc1 = Process.objects.create(
             type='data:test:process1:',
+            name='First process',
             slug='test-process-1',
             version='1.0.0',
             contributor=self.contributor,
@@ -212,6 +213,7 @@ class TestDataViewSetFilters(TestCase):
 
         self.proc2 = Process.objects.create(
             type='data:test:process2:',
+            name='Second process',
             slug='test-process-2',
             version='1.0.0',
             contributor=self.contributor,
@@ -229,6 +231,7 @@ class TestDataViewSetFilters(TestCase):
         for index in range(10):
             data = Data.objects.create(
                 name='Data {}'.format(index),
+                slug='dataslug-{}'.format(index),
                 contributor=self.contributor,
                 process=self.proc1 if index < 5 else self.proc2,
                 status=Data.STATUS_DONE if index > 0 else Data.STATUS_RESOLVING,
@@ -239,6 +242,8 @@ class TestDataViewSetFilters(TestCase):
 
             data.created = datetime.datetime(2016, 7, 30, index, 59)
             data.save()
+
+            assign_perm('owner_data', self.admin, data)
 
             if index == 0:
                 self.collection.data.add(data)
@@ -262,10 +267,10 @@ class TestDataViewSetFilters(TestCase):
         self._check_filter({'id__in': '{},{}'.format(self.data[0].pk, self.data[2].pk)}, [self.data[0], self.data[2]])
 
     def test_filter_slug(self):
-        self._check_filter({'slug': 'data-1'}, [self.data[1]])
-        self._check_filter({'slug': 'data-5'}, [self.data[5]])
-        self._check_filter({'slug__in': 'data-1'}, [self.data[1]])
-        self._check_filter({'slug__in': 'data-1,data-5'}, [self.data[1], self.data[5]])
+        self._check_filter({'slug': 'dataslug-1'}, [self.data[1]])
+        self._check_filter({'slug': 'dataslug-5'}, [self.data[5]])
+        self._check_filter({'slug__in': 'dataslug-1'}, [self.data[1]])
+        self._check_filter({'slug__in': 'dataslug-1,dataslug-5'}, [self.data[1], self.data[5]])
 
     def test_filter_name(self):
         self._check_filter({'name': 'Data 1'}, [self.data[1]])
@@ -273,17 +278,26 @@ class TestDataViewSetFilters(TestCase):
         self._check_filter({'name': 'Data 2'}, [self.data[2]])
         self._check_filter({'name': 'Data'}, self.data)
         self._check_filter({'name': 'data'}, self.data)
-        self._check_filter({'name': 'dat'}, [])
+        self._check_filter({'name': 'dat'}, self.data)
         self._check_filter({'name': 'ata'}, [])
         self._check_filter({'name': '1'}, [self.data[1]])
 
     def test_filter_contributor(self):
         self._check_filter({'contributor': 'contributor'}, self.data)
-        self._check_filter({'contributor': 'contrib'}, [])
+        self._check_filter({'contributor': 'contrib'}, self.data)
+        self._check_filter({'contributor': 'ibutor'}, [])
         self._check_filter({'contributor': 'Joe'}, self.data)
         self._check_filter({'contributor': 'joe'}, self.data)
         self._check_filter({'contributor': 'Miller'}, self.data)
         self._check_filter({'contributor': 'miller'}, self.data)
+        self._check_filter({'contributor': 'mill'}, self.data)
+
+    def test_filter_owners(self):
+        self._check_filter({'owners': 'James'}, self.data)
+        self._check_filter({'owners': 'james'}, self.data)
+        self._check_filter({'owners': 'Smith'}, self.data)
+        self._check_filter({'owners': 'smith'}, self.data)
+        self._check_filter({'owners': 'smit'}, self.data)
 
     def test_filter_created(self):
         self._check_filter({'created': self.data[0].created.isoformat()}, [self.data[0]])
@@ -348,6 +362,13 @@ class TestDataViewSetFilters(TestCase):
         self._check_filter({'process': str(self.proc1.pk)}, self.data[:5])
         self._check_filter({'process': str(self.proc2.pk)}, self.data[5:])
 
+    def test_filter_process_name(self):
+        self._check_filter({'process_name': 'first'}, self.data[:5])
+        self._check_filter({'process_name': 'fir'}, self.data[:5])
+        self._check_filter({'process_name': 'rst'}, [])
+        self._check_filter({'process_name': 'second'}, self.data[5:])
+        self._check_filter({'process_name': 'sec'}, self.data[5:])
+
     def test_filter_tags(self):
         self._check_filter({'tags': 'foo'}, self.data)
         self._check_filter({'tags': 'foo,index1'}, [self.data[1]])
@@ -378,6 +399,37 @@ class TestDataViewSetFilters(TestCase):
         self._check_filter({'parents': self.data[1].pk}, [])
         self._check_filter({'children': self.data[0].pk}, [])
         self._check_filter({'children': self.data[1].pk}, [])
+
+    def test_filter_text(self):
+        # By slug.
+        self._check_filter({'text': 'dataslug-1'}, [self.data[1]])
+        self._check_filter({'text': 'datasl'}, self.data)
+
+        # By name.
+        self._check_filter({'text': 'Data 1'}, [self.data[1]])
+        self._check_filter({'text': 'data 2'}, [self.data[2]])
+        self._check_filter({'text': 'Data'}, self.data)
+        self._check_filter({'text': 'data'}, self.data)
+        self._check_filter({'text': 'dat'}, self.data)
+        self._check_filter({'text': 'ata'}, [])
+
+        # By contributor.
+        self._check_filter({'text': 'joe'}, self.data)
+        self._check_filter({'text': 'oe'}, [])
+        self._check_filter({'text': 'Miller'}, self.data)
+        self._check_filter({'text': 'mill'}, self.data)
+
+        # By owner.
+        self._check_filter({'text': 'james'}, self.data)
+        self._check_filter({'text': 'mes'}, [])
+        self._check_filter({'text': 'Smith'}, self.data)
+        self._check_filter({'text': 'smi'}, self.data)
+
+        # By process name.
+        self._check_filter({'text': 'first'}, self.data[:5])
+        self._check_filter({'text': 'fir'}, self.data[:5])
+        self._check_filter({'text': 'rst'}, [])
+        self._check_filter({'text': 'process'}, self.data)
 
 
 class TestCollectionViewSetCase(TestCase):

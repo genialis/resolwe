@@ -40,6 +40,12 @@ class DataViewSet(ElasticSearchCombinedViewSet,
     filtering_fields = ('id', 'slug', 'version', 'name', 'created', 'modified', 'contributor', 'owners',
                         'status', 'process', 'type', 'process_name', 'tags', 'collection',
                         'parents', 'children', 'entity', 'started', 'finished', 'text')
+    filtering_map = {
+        'name': 'name.ngrams',
+        'contributor': 'contributor.ngrams',
+        'owners': 'owners.ngrams',
+        'process_name': 'process_name.ngrams',
+    }
     ordering_fields = ('id', 'created', 'modified', 'started', 'finished', 'name', 'contributor',
                        'process_name', 'type')
     ordering_map = {
@@ -92,10 +98,15 @@ class DataViewSet(ElasticSearchCombinedViewSet,
 
         should = [
             Q('match', slug={'query': value, 'operator': 'and', 'boost': 10.0}),
+            Q('match', **{'slug.ngrams': {'query': value, 'operator': 'and', 'boost': 5.0}}),
             Q('match', name={'query': value, 'operator': 'and', 'boost': 10.0}),
+            Q('match', **{'name.ngrams': {'query': value, 'operator': 'and', 'boost': 5.0}}),
             Q('match', contributor={'query': value, 'operator': 'and', 'boost': 5.0}),
+            Q('match', **{'contributor.ngrams': {'query': value, 'operator': 'and', 'boost': 2.0}}),
             Q('match', owners={'query': value, 'operator': 'and', 'boost': 5.0}),
+            Q('match', **{'owners.ngrams': {'query': value, 'operator': 'and', 'boost': 2.0}}),
             Q('match', process_name={'query': value, 'operator': 'and', 'boost': 5.0}),
+            Q('match', **{'process_name.ngrams': {'query': value, 'operator': 'and', 'boost': 2.0}}),
             Q('match', status={'query': value, 'operator': 'and', 'boost': 2.0}),
             Q('match', type={'query': value, 'operator': 'and', 'boost': 2.0}),
         ]

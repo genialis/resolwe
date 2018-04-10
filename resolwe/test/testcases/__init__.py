@@ -147,7 +147,8 @@ class TransactionTestCase(TestCaseHelpers, DjangoTransactionTestCase):
         super().setUp()
 
         user_model = get_user_model()
-        self.admin = user_model.objects.create_superuser(username='admin', email='admin@test.com', password='admin')
+        self.admin = user_model.objects.create_superuser(username='admin', email='admin@test.com', password='admin',
+                                                         first_name='James', last_name='Smith')
         self.contributor = user_model.objects.create_user(username='contributor', email='contributor@test.com',
                                                           first_name='Joe', last_name='Miller')
         self.user = user_model.objects.create_user(username='normal_user', email='user@test.com')
