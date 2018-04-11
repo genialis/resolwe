@@ -6,9 +6,9 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+==================
+8.0.0 - 2018-04-11
+==================
 
 Changed
 -------
@@ -28,8 +28,8 @@ Added
 - Improve log messages in executor and workload connectors
 - Add ``process_memory`` and ``process_cores`` fields to ``Data`` model and
   ``DataSerializer``
-- Support lookup expressions (``lt``, ``lte``, ``gt``, ``gte``, ``in``, ``exact``)
-  in ES viewsets
+- Support lookup expressions (``lt``, ``lte``, ``gt``, ``gte``, ``in``,
+  ``exact``) in ES viewsets
 - Support for easier dynamic composition of type extensions
 - Add ``elastic_mapping`` management command
 
