@@ -212,6 +212,10 @@ class IndexViewsetTest(APITestCase, TestCase):
         force_authenticate(request, self.admin)
         return self.test_viewset(request)
 
+    def test_filtering_map(self):
+        response = self._make_request(name_alias='1')
+        self.assertEqual(len(response.data), 1)
+
     def test_lookup_expressions_number_lt(self):
         response = self._make_request(num__lt='43')
         self.assertEqual(len(response.data), 0)

@@ -58,10 +58,12 @@ class DataViewSet(ElasticSearchCombinedViewSet,
 
         for extension in composer.get_extensions(self):
             filtering_fields = getattr(extension, 'filtering_fields', [])
+            filtering_map = getattr(extension, 'filtering_map', {})
             ordering_fields = getattr(extension, 'ordering_fields', [])
             ordering_map = getattr(extension, 'ordering_map', {})
 
             self.filtering_fields = self.filtering_fields + tuple(filtering_fields)
+            self.filtering_map.update(filtering_map)
             self.ordering_fields = self.ordering_fields + tuple(ordering_fields)
             self.ordering_map.update(ordering_map)
 

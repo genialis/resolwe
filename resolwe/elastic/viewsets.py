@@ -50,6 +50,7 @@ class ElasticSearchMixin(object):
     """
 
     filtering_fields = []
+    filtering_map = {}
     ordering_fields = []
     ordering_map = {}
     ordering = None
@@ -104,7 +105,11 @@ class ElasticSearchMixin(object):
         :param search: ElasticSearch query object
 
         """
-        builder = QueryBuilder(self.filtering_fields, self)
+        builder = QueryBuilder(
+            self.filtering_fields,
+            self.filtering_map,
+            self
+        )
         search, unmatched = builder.build(search, self.get_query_params())
 
         # Ensure that no unsupported arguments were used.

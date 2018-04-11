@@ -104,13 +104,15 @@ class Exact(Lookup):
 class QueryBuilder(object):
     """Query builder."""
 
-    def __init__(self, fields, custom_filter_object):
+    def __init__(self, fields, fields_map, custom_filter_object):
         """Construct query builder.
 
         :param fields: List of supported fields
+        :param fields_map: Field alias mapping
         :param custom_filter_object: Object for calling custom overrides
         """
         self.fields = fields
+        self.fields_map = fields_map
         self.custom_filter_object = custom_filter_object
         self._lookups = {}
 
@@ -156,6 +158,9 @@ class QueryBuilder(object):
             if field not in self.fields:
                 unmatched_items[expression] = value
                 continue
+
+            # Map field alias to final field.
+            field = self.fields_map.get(field, field)
 
             # Parse lookup expression. Currently only no token or a single token is allowed.
             if tail:

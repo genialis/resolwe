@@ -21,7 +21,8 @@ class TestViewSet(ElasticSearchBaseViewSet):
 
     serializer_class = TestSerializer
 
-    filtering_fields = ('name', 'num', 'date', 'field_process_type')
+    filtering_fields = ('name', 'num', 'date', 'field_process_type', 'name_alias')
+    filtering_map = {'name_alias': 'name'}
     ordering_fields = ('name',)
     ordering = '-name'
 
