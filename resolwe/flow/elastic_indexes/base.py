@@ -16,11 +16,13 @@ class BaseDocument(indices.BaseDocument):
     name = Name()
     created = dsl.Date()
     modified = dsl.Date()
-    contributor = User()
+    contributor_id = dsl.Integer()
+    contributor_name = User()
     # We use a separate field for contributor sorting because we use an entirely
     # different value for it (the display name).
     contributor_sort = dsl.Keyword()
-    owners = User(multi=True)
+    owner_ids = dsl.Integer(multi=True)
+    owner_names = User(multi=True)
 
 
 class BaseIndexMixin(object):
@@ -39,15 +41,25 @@ class BaseIndexMixin(object):
         """Generate user filtering tokens."""
         return ' '.join([user.username, user.first_name, user.last_name])
 
-    def get_contributor_value(self, obj):
-        """Extract contributor metadata."""
+    def get_contributor_id_value(self, obj):
+        """Extract contributor identifier."""
+        return obj.contributor.pk
+
+    def get_contributor_name_value(self, obj):
+        """Extract contributor name."""
         return self._get_user(obj.contributor)
 
-    def get_owners_value(self, obj):
-        """Extract owners metadata."""
+    def get_owner_ids_value(self, obj):
+        """Extract owners' ids."""
+        return [
+            user.pk
+            for user in get_users_with_permission(obj, get_full_perm('owner', obj))
+        ]
+
+    def get_owner_names_value(self, obj):
+        """Extract owners' names."""
         return [
             self._get_user(user)
-            # pylint: disable=protected-access
             for user in get_users_with_permission(obj, get_full_perm('owner', obj))
         ]
 

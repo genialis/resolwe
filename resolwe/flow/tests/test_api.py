@@ -283,21 +283,14 @@ class TestDataViewSetFilters(TestCase):
         self._check_filter({'name': '1'}, [self.data[1]])
 
     def test_filter_contributor(self):
-        self._check_filter({'contributor': 'contributor'}, self.data)
-        self._check_filter({'contributor': 'contrib'}, self.data)
-        self._check_filter({'contributor': 'ibutor'}, [])
-        self._check_filter({'contributor': 'Joe'}, self.data)
-        self._check_filter({'contributor': 'joe'}, self.data)
-        self._check_filter({'contributor': 'Miller'}, self.data)
-        self._check_filter({'contributor': 'miller'}, self.data)
-        self._check_filter({'contributor': 'mill'}, self.data)
+        self._check_filter({'contributor': str(self.contributor.pk)}, self.data)
+        self._check_filter({'contributor': '0'}, [])
+        self._check_filter({'contributor__in': '0,{}'.format(self.contributor.pk)}, self.data)
 
     def test_filter_owners(self):
-        self._check_filter({'owners': 'James'}, self.data)
-        self._check_filter({'owners': 'james'}, self.data)
-        self._check_filter({'owners': 'Smith'}, self.data)
-        self._check_filter({'owners': 'smith'}, self.data)
-        self._check_filter({'owners': 'smit'}, self.data)
+        self._check_filter({'owners': str(self.admin.pk)}, self.data)
+        self._check_filter({'owners': '0'}, [])
+        self._check_filter({'owners__in': '0,{}'.format(self.admin.pk)}, self.data)
 
     def test_filter_created(self):
         self._check_filter({'created': self.data[0].created.isoformat()}, [self.data[0]])
