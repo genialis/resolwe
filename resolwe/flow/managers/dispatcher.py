@@ -439,13 +439,11 @@ class Manager(object):
 
         # Both of these imports are here only to get the packages' paths.
         import resolwe.flow.executors as executor_package
-        import resolwe.flow.managers.protocol as protocol_module
 
         exec_dir = os.path.dirname(inspect.getsourcefile(executor_package))
         dest_dir = self._get_per_data_dir('RUNTIME_DIR', data_id)
         dest_package_dir = os.path.join(dest_dir, 'executors')
         shutil.copytree(exec_dir, dest_package_dir)
-        shutil.copy(protocol_module.__file__, dest_package_dir)
         dir_mode = self.settings_actual.get('FLOW_EXECUTOR', {}).get('RUNTIME_DIR_MODE', 0o755)
         os.chmod(dest_dir, dir_mode)
 
