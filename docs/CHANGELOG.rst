@@ -12,11 +12,13 @@ Unreleased
 
 Added
 -----
-- Add on-register validation of default values in process and schemas
+- **BACKWARD INCOMPATIBLE:** Add on-register validation of default values in
+  process and schemas
+- **BACKWARD INCOMPATIBLE:** Validate that field names in processes and
+  schemas starts with a letter
 - Add ``range`` parameter and related validation to fields of type
   ``basic:integer:``, ``basic:decimal``, ``list:basic:integer:`` and
   ``list:basic:decimal``
-- Validate that field names in processes and schemas starts with a letter
   and only contains alpha-numeric characters
 - Support Python 3.6
 
