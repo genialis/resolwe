@@ -23,6 +23,7 @@ Added
 Fixed
 -----
 - Add missing ``list:basic:decimal`` type to JSON schema
+- Don't crash on empty ``in`` lookup
 
 
 ==================

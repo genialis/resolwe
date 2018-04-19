@@ -84,7 +84,7 @@ class In(Lookup):
     def apply(self, search, field, value):
         """Apply lookup expression to search query."""
         if not isinstance(value, list):
-            value = value.split(',')
+            value = [x for x in value.strip().split(',') if x]
 
         filters = [Q('match', **{field: item}) for item in value]
         return search.query('bool', should=filters)

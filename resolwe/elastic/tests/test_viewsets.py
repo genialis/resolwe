@@ -327,6 +327,9 @@ class IndexViewsetTest(APITestCase, TestCase):
         self.assertEqual(len(response.data), 1)
 
     def test_lookup_expressions_in(self):
+        response = self._make_request(num__in='')
+        self.assertEqual(len(response.data), 3)
+
         response = self._make_request(num__in='43')
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]['name'], 'Object name 1')
