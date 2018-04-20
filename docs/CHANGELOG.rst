@@ -10,6 +10,10 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Changed
+-------
+- Make sorting by contributor case insensitive in Elasticsearch endpoints
+
 Added
 -----
 - **BACKWARD INCOMPATIBLE:** Add on-register validation of default values in
