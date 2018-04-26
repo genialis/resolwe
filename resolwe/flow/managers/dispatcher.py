@@ -16,9 +16,7 @@ import shutil
 import time
 from importlib import import_module
 
-from asgi_redis import RedisChannelLayer
-from channels import Channel
-from channels.test import Client
+from channels.exceptions import ChannelFull
 
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
@@ -33,6 +31,7 @@ from resolwe.test.utils import is_testing
 from resolwe.utils import BraceMessage as __
 
 from . import state
+from .consumer import send_manager_event
 from .protocol import ExecutorFiles, WorkerProtocol
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
@@ -199,9 +198,9 @@ class Manager(object):
 
     def drain(self):
         """Drain the control channel without acting on anything."""
-        client = Client()
-        while client.get_next_message(state.MANAGER_CONTROL_CHANNEL) is not None:
-            pass
+        # client = Client()
+        # while client.get_next_message(state.MANAGER_CONTROL_CHANNEL) is not None:
+        pass
 
     def reset(self):
         """Reset the shared state and drain Django Channels."""
@@ -479,16 +478,14 @@ class Manager(object):
 
         Channels layer callback, do not call directly.
         """
-        cmd = message.content[WorkerProtocol.COMMAND]
-        logger.debug(__(
-            "Manager worker got channel command '{}' on channel '{}'.", cmd, message.channel.name
-        ))
+        cmd = message[WorkerProtocol.COMMAND]
+        logger.debug(__("Manager worker got channel command '{}'.", cmd))
 
         # Prepare settings for use; Django overlaid by state overlaid by
         # anything immediate in the current packet.
         immediates = {}
         if cmd == WorkerProtocol.COMMUNICATE:
-            immediates = message.content.get(WorkerProtocol.COMMUNICATE_SETTINGS, {}) or {}
+            immediates = message.get(WorkerProtocol.COMMUNICATE_SETTINGS, {}) or {}
         override = self.state.settings_override or {}
         override.update(immediates)
         self.settings_actual = self._marshal_settings()
@@ -496,7 +493,7 @@ class Manager(object):
 
         if cmd == WorkerProtocol.COMMUNICATE:
             try:
-                self._data_scan(**message.content[WorkerProtocol.COMMUNICATE_EXTRA])
+                self._data_scan(**message[WorkerProtocol.COMMUNICATE_EXTRA])
             finally:
                 # Clear communicate() claim on the semaphore.
                 new_sema = self.state.sync_semaphore.add(-1)
@@ -504,7 +501,7 @@ class Manager(object):
 
         elif cmd == WorkerProtocol.FINISH:
             try:
-                data_id = message.content[WorkerProtocol.DATA_ID]
+                data_id = message[WorkerProtocol.DATA_ID]
                 if not getattr(settings, 'FLOW_MANAGER_KEEP_DATA', False):
                     try:
                         def handle_error(func, path, exc_info):
@@ -524,11 +521,11 @@ class Manager(object):
                     except OSError:
                         logger.exception("Manager exception while removing data runtime directory.")
 
-                if message.content[WorkerProtocol.FINISH_SPAWNED]:
+                if message[WorkerProtocol.FINISH_SPAWNED]:
                     new_sema = self.state.sync_semaphore.add(1)
                     logger.debug(__("Manager changed sync_semaphore UP to {} in spawn handler.", new_sema))
                     try:
-                        self._data_scan(**message.content[WorkerProtocol.FINISH_COMMUNICATE_EXTRA])
+                        self._data_scan(**message[WorkerProtocol.FINISH_COMMUNICATE_EXTRA])
                     finally:
                         # Clear communicate() claim on the semaphore.
                         new_sema = self.state.sync_semaphore.add(-1)
@@ -607,15 +604,15 @@ class Manager(object):
             self.state.settings_override = saved_settings
 
         try:
-            Channel(state.MANAGER_CONTROL_CHANNEL).send({
+            send_manager_event({
                 WorkerProtocol.COMMAND: WorkerProtocol.COMMUNICATE,
                 WorkerProtocol.COMMUNICATE_SETTINGS: saved_settings,
                 WorkerProtocol.COMMUNICATE_EXTRA: {
                     'data_id': data_id,
                     'executor': executor,
                 },
-            }, immediately=True)
-        except RedisChannelLayer.ChannelFull:
+            })
+        except ChannelFull:
             new_sema = self.state.sync_semaphore.add(-1)
 
             logger.exception("ChannelFull error occurred while sending communicate message.")

@@ -77,8 +77,8 @@ setup(
         # have to pin it
         'django-filter~=1.0.0',
         'redis~=2.10.6',
-        'asgi-redis~=1.4.3',
-        'channels~=1.1.6',
+        'channels~=2.1',
+        'channels_redis~=2.1',
     ],
     python_requires='>=3.6, <3.7',
     extras_require={

@@ -8,7 +8,6 @@ from signal import SIGINT, signal
 from threading import Event, Thread
 
 import redis
-from channels import Channel
 
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
@@ -25,6 +24,7 @@ from resolwe.test.utils import is_testing
 from resolwe.utils import BraceMessage as __
 
 from . import state
+from .consumer import send_manager_event
 from .protocol import ExecutorProtocol, WorkerProtocol
 
 if settings.USE_TZ:
@@ -190,7 +190,7 @@ class ExecutorListener(Thread):
             if not internal_call:
                 self._send_reply(obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_ERROR})
 
-            Channel(state.MANAGER_CONTROL_CHANNEL).send({
+            send_manager_event({
                 WorkerProtocol.COMMAND: WorkerProtocol.ABORT,
                 WorkerProtocol.DATA_ID: obj[ExecutorProtocol.DATA_ID],
                 WorkerProtocol.FINISH_COMMUNICATE_EXTRA: {
@@ -433,7 +433,7 @@ class ExecutorListener(Thread):
         # needed even if there was no spawn baggage, since the manager
         # may need to know when executors have finished, to keep count
         # of them and manage synchronization.
-        Channel(state.MANAGER_CONTROL_CHANNEL).send({
+        send_manager_event({
             WorkerProtocol.COMMAND: WorkerProtocol.FINISH,
             WorkerProtocol.DATA_ID: data_id,
             WorkerProtocol.FINISH_SPAWNED: spawned,
@@ -461,7 +461,7 @@ class ExecutorListener(Thread):
                                this command was triggered by],
                 }
         """
-        Channel(state.MANAGER_CONTROL_CHANNEL).send({
+        send_manager_event({
             WorkerProtocol.COMMAND: WorkerProtocol.ABORT,
             WorkerProtocol.DATA_ID: obj[ExecutorProtocol.DATA_ID],
             WorkerProtocol.FINISH_COMMUNICATE_EXTRA: {

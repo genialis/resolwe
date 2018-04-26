@@ -275,7 +275,7 @@ def _custom_worker_init(django_init_worker):
             listener.__enter__()
             Finalize(listener, listener.__exit__, exitpriority=16)
 
-            workers = CommandContext('runworker', only_channels=[state.MANAGER_CONTROL_CHANNEL])
+            workers = CommandContext('runworker', state.MANAGER_CONTROL_CHANNEL)
             workers.__enter__()
             Finalize(workers, workers.__exit__, exitpriority=16)
 
@@ -426,7 +426,7 @@ class ResolweRunner(DiscoverRunner):
                 _manager_setup()
                 with AtScopeExit(manager.state.destroy_channels):
                     with CommandContext('runlistener', '--clear-queue'):
-                        with CommandContext('runworker', only_channels=[state.MANAGER_CONTROL_CHANNEL]):
+                        with CommandContext('runworker', state.MANAGER_CONTROL_CHANNEL):
                             with override_settings(FLOW_MANAGER_SYNC_AUTO_CALLS=True):
                                 return super().run_suite(suite, **kwargs)
 
