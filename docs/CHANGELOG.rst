@@ -32,6 +32,7 @@ Fixed
 - Don't crash on empty ``in`` lookup
 - Fix {{ requirements.resources.* }} variables in processes to take in to
   the account overrides specified in Django settings
+- Create Elasticsearch mapping even if there is no document to push
 
 
 ==================

@@ -333,14 +333,17 @@ class BaseIndex(object):
         """Push built documents to ElasticSearch."""
         self._refresh_connection()
 
+        # Check if we need to update mappings as this needs to be done
+        # before we push anything to the Elasticsearch server.
+        # This must be done even if the queue is empty, as otherwise ES
+        # will fail when retrieving data.
+        if not self._mapping_created:
+            logger.info("Pushing mapping for Elasticsearch index '%s'.", self.__class__.__name__)
+            self.create_mapping()
+
         if not self.push_queue:
             logger.info("No documents to push, skipping push.")
             return
-
-        # Check if we need to update mappings as this needs to be done before we push
-        # anything to the Elasticsearch server.
-        if not self._mapping_created:
-            self.create_mapping()
 
         logger.info("Pushing builded documents to Elasticsearch server...")
         logger.debug("Found %s documents to push.", len(self.push_queue))
