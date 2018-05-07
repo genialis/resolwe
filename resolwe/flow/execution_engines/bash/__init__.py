@@ -40,6 +40,9 @@ class ExecutionEngine(BaseExecutionEngine):
 
             # Include special 'requirements' variable in the context.
             inputs['requirements'] = data.process.requirements
+            # Inject default values and change resources according to
+            # the current Django configuration.
+            inputs['requirements']['resources'] = data.process.get_resource_limits()
 
             script_template = data.process.run.get('program', '')
 

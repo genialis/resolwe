@@ -30,6 +30,8 @@ Fixed
 -----
 - Add missing ``list:basic:decimal`` type to JSON schema
 - Don't crash on empty ``in`` lookup
+- Fix {{ requirements.resources.* }} variables in processes to take in to
+  the account overrides specified in Django settings
 
 
 ==================
