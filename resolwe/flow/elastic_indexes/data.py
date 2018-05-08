@@ -15,6 +15,8 @@ class DataDocument(BaseDocument):
     finished = dsl.Date()
     status = dsl.Keyword()
     process = dsl.Integer()
+    process_type = ProcessType()
+    # Keep backward compatibility.
     type = ProcessType()  # pylint: disable=invalid-name
     process_name = Name()
     tags = dsl.Keyword(multi=True)
@@ -43,6 +45,7 @@ class DataIndex(BaseIndexMixin, BaseIndex):
     mapping = {
         'process': 'process.id',
         'process_name': 'process.name',
+        'process_type': 'process.type',
         'type': 'process.type',
     }
 

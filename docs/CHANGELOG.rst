@@ -25,6 +25,8 @@ Added
   ``list:basic:decimal``
   and only contains alpha-numeric characters
 - Support Python 3.6
+- Support filtering and sorting by ``process_type`` parameter on Data API
+  endpoint
 
 Fixed
 -----
