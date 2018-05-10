@@ -21,7 +21,6 @@ import logging
 import threading
 
 import elasticsearch_dsl as dsl
-from elasticsearch.exceptions import NotFoundError
 from elasticsearch.helpers import bulk
 from elasticsearch_dsl.connections import connections
 from elasticsearch_dsl.exceptions import IllegalOperation
@@ -390,11 +389,10 @@ class BaseIndex(object):
     def remove_object(self, obj):
         """Remove current object from the ElasticSearch."""
         obj_id = self.generate_id(obj)
-        try:
-            index = self.document_class.get(obj_id)
-            index.delete(refresh=True)
-        except NotFoundError:
-            pass  # object doesn't exist in index
+        es_obj = self.document_class.get(obj_id, ignore=[404])
+        # Object may not exist in this index.
+        if es_obj:
+            es_obj.delete(refresh=True)
 
     def search(self):
         """Return search query of document object."""
