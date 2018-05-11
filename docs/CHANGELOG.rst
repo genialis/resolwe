@@ -13,6 +13,7 @@ Unreleased
 Changed
 -------
 - Make sorting by contributor case insensitive in Elasticsearch endpoints
+- Delete ES documents in post delete signal instead of pre delete one
 
 Added
 -----

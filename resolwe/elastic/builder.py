@@ -376,9 +376,9 @@ class IndexBuilder(object):
         post_save_signal.connect(post_save, sender=index.object_type)
         self.signals.append(post_save_signal)
 
-        pre_delete_signal = ElasticSignal(index, 'remove_object')
-        pre_delete_signal.connect(pre_delete, sender=index.object_type)
-        self.signals.append(pre_delete_signal)
+        post_delete_signal = ElasticSignal(index, 'remove_object')
+        post_delete_signal.connect(post_delete, sender=index.object_type)
+        self.signals.append(post_delete_signal)
 
         # Connect signals for all dependencies.
         for dependency in index.get_dependencies():
