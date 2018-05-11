@@ -84,7 +84,11 @@ class BuildArgumentsCache:
             build_kwargs['queryset'] = cached['model'].objects.filter(pk__in=cached['pks'])
 
         elif 'obj' in cached:
-            build_kwargs['obj'] = cached['obj']
+            if cached['obj'].__class__.objects.filter(pk=cached['obj'].pk).exists():
+                build_kwargs['obj'] = cached['obj']
+            else:
+                # Object was deleted in the meantime.
+                build_kwargs['queryset'] = cached['obj'].__class__.objects.none()
 
         self._clean_cache(obj)
 
