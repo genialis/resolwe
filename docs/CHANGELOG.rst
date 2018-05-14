@@ -6,9 +6,9 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+==================
+9.0.0 - 2018-05-15
+==================
 
 Changed
 -------
@@ -20,12 +20,11 @@ Added
 - **BACKWARD INCOMPATIBLE:** Add on-register validation of default values in
   process and schemas
 - **BACKWARD INCOMPATIBLE:** Validate that field names in processes and
-  schemas starts with a letter
+  schemas start with a letter and only contain alpha-numeric characters
+- Support Python 3.6
 - Add ``range`` parameter and related validation to fields of type
   ``basic:integer:``, ``basic:decimal``, ``list:basic:integer:`` and
   ``list:basic:decimal``
-  and only contains alpha-numeric characters
-- Support Python 3.6
 - Support filtering and sorting by ``process_type`` parameter on Data API
   endpoint
 
