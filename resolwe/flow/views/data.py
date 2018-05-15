@@ -38,7 +38,7 @@ class DataViewSet(ElasticSearchCombinedViewSet,
     document_class = DataDocument
 
     filtering_fields = ('id', 'slug', 'version', 'name', 'created', 'modified', 'contributor', 'owners',
-                        'status', 'process', 'type', 'process_name', 'tags', 'collection',
+                        'status', 'process', 'process_type', 'type', 'process_name', 'tags', 'collection',
                         'parents', 'children', 'entity', 'started', 'finished', 'text')
     filtering_map = {
         'name': 'name.ngrams',
@@ -47,9 +47,10 @@ class DataViewSet(ElasticSearchCombinedViewSet,
         'process_name': 'process_name.ngrams',
     }
     ordering_fields = ('id', 'created', 'modified', 'started', 'finished', 'name', 'contributor',
-                       'process_name', 'type')
+                       'process_name', 'process_type', 'type')
     ordering_map = {
         'name': 'name.raw',
+        'process_type': 'process_type.raw',
         'type': 'type.raw',
         'process_name': 'process_name.raw',
         'contributor': 'contributor_sort',
