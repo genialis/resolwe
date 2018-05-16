@@ -17,7 +17,7 @@ import sys
 # it also needs a teardown function, but the multiprocessing module fails to provide such
 # functionality publicly. Internally, the Finalize class imported below is used.
 from multiprocessing.util import Finalize  # undocumented
-from signal import SIGINT, SIGKILL
+from signal import SIGKILL, SIGTERM
 
 import mock
 import yaml
@@ -114,7 +114,7 @@ class CommandContext(object):
 
     def __exit__(self, *args, **kwargs):
         """On exiting a context, kill the command and wait for it."""
-        os.kill(self._pid, SIGINT)
+        os.kill(self._pid, SIGTERM)
         os.waitpid(self._pid, 0)
         # Propagate exceptions.
         return False
