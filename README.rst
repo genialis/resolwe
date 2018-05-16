@@ -57,8 +57,8 @@ Install
 Prerequisites
 -------------
 
-Make sure you have Python_ (3.4 or 3.5) installed on your system. If you don't
-have it yet, follow `these instructions
+Make sure you have Python_ 3.6 installed on your system. If you don't have it
+yet, follow `these instructions
 <https://docs.python.org/3/using/index.html>`__.
 
 Resolwe requires PostgreSQL_ (9.4+). Many Linux distributions already include

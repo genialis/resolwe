@@ -80,7 +80,7 @@ setup(
         'asgi-redis~=1.4.3',
         'channels~=1.1.6',
     ],
-    python_requires='>=3.4, <3.7',
+    python_requires='>=3.6, <3.7',
     extras_require={
         'docs':  [
             'sphinx_rtd_theme',
@@ -107,14 +107,14 @@ setup(
     },
 
     classifiers=[
-        'Development Status :: 4 - Beta',
+        'Development Status :: 5 - Production/Stable',
 
         'Environment :: Web Environment',
         'Framework :: Django',
         'Intended Audience :: Developers',
         'Topic :: Internet :: WWW/HTTP',
         'Topic :: Internet :: WWW/HTTP :: Dynamic Content',
-        'Topic :: Internet :: WWW/HTTP :: WSGI',
+        'Topic :: Internet :: WWW/HTTP :: HTTP Servers',
         'Topic :: Software Development :: Libraries :: Application Frameworks',
         'Topic :: Software Development :: Libraries :: Python Modules',
 
@@ -124,8 +124,6 @@ setup(
 
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.4',
-        'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
     ],
 

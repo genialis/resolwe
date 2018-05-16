@@ -28,10 +28,6 @@ env:
 # NOTE: Explicit Python versions make Travis job description more informative
 matrix:
   include:
-    - env: TOX_ENV=py34
-      python: "3.4"
-    - env: TOX_ENV=py35
-      python: "3.5"
     - env: TOX_ENV=py36
       python: "3.6"
     - env: TOX_ENV=docs
