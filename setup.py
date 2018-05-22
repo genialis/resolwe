@@ -79,6 +79,7 @@ setup(
         'redis~=2.10.6',
         'channels~=2.1',
         'channels_redis~=2.1',
+        'async-timeout~=2.0',
     ],
     python_requires='>=3.6, <3.7',
     extras_require={

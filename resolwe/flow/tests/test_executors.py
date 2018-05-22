@@ -15,7 +15,6 @@ from django.test import override_settings
 from guardian.shortcuts import assign_perm
 
 from resolwe.flow.executors.prepare import BaseFlowExecutorPreparer
-from resolwe.flow.managers import manager
 from resolwe.flow.models import Data, DataDependency, Process
 from resolwe.test import ProcessTestCase, TestCase, tag_process, with_docker_executor, with_null_executor
 
@@ -236,20 +235,13 @@ class ManagerRunProcessTest(ProcessTestCase):
         data.output = {}
         data.save()
 
-        # Then, run the executor again manually.
-        # TODO: Replace with subprocess.run when we drop Python 3.4.
-        process = subprocess.Popen(
+        process = subprocess.run(
             ['python', '-m', 'executors', '.docker'],
             cwd=os.path.join(settings.FLOW_EXECUTOR['RUNTIME_DIR'], str(data.pk)),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            timeout=5,
         )
-
-        try:
-            process.communicate(timeout=5)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            raise
 
         self.assertEqual(process.returncode, 0)
 
@@ -259,7 +251,3 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.assertEqual(data.output, {})
         self.assertEqual(data.status, Data.STATUS_DONE)
         self.assertEqual(data.process_error, [])
-
-        # Manually fix semaphores as our manual running of the executor has decremented them.
-        manager.state.executor_count.add(1)
-        manager.state.sync_semaphore.add(1)

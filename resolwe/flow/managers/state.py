@@ -179,16 +179,10 @@ class ManagerState(object):
         """
         self.redis = redis.StrictRedis(**getattr(settings, 'FLOW_EXECUTOR', {}).get('REDIS_CONNECTION', {}))
         self.key_prefix = key_prefix
-        self._executor_count = self.IntegerDatum(self.redis, key_prefix, 'executor_count')
-        self._sync_semaphore = self.IntegerDatum(self.redis, key_prefix, 'sync_semaphore')
-        self._sync_execution = self.IntegerDatum(self.redis, key_prefix, 'sync_execution')
         self._settings_override = self.ObjectDatum(self.redis, key_prefix, 'settings_override')
 
     def reset(self):
         """Reset all properties to their initial values."""
-        self.executor_count.set(0)
-        self.sync_semaphore.set(0)
-        self.sync_execution.set(0)
         self.settings_override = None
 
     def destroy_channels(self):
@@ -197,43 +191,6 @@ class ManagerState(object):
             item = getattr(self, item_name)
             if isinstance(item, self.RedisAtomicBase):
                 self.redis.delete(item.item_name)
-
-    @property
-    def executor_count(self):
-        """Get the current executor count."""
-        return self._executor_count
-
-    @property
-    def sync_semaphore(self):
-        """Get the current value of the synchronization semaphore.
-
-        The semaphore counts the number of claims on the current
-        synchronization frame, including executor runs (the entire
-        run is a claim) and communicate() events (where a claim is the
-        stretch of time from when the request was generated to when it
-        was serviced to the end). Both are important so that we know,
-        once the semaphore drops to zero, we're thoroughly done with
-        the current synchronized run and can exit the frame.
-
-        Not handling communicate() events would lead to a race condition
-        where the request is started through Django signals and finished
-        before the main Data-creating code has had a chance to enter a
-        sync frame - in the frame, there will be no events anymore,
-        leading to a deadlock. Conversely, if a synchronous
-        communicate() first increments this semaphore, then it is
-        guaranteed that once it drops to zero in the sync frame, we are
-        done (even if it drops to zero before entering the frame).
-        """
-        return self._sync_semaphore
-
-    @property
-    def sync_execution(self):
-        """Get the synchronized execution flag.
-
-        When this flag is set, the manager will count in-flight
-        executors and provide a way to wait for all of them to finish.
-        """
-        return self._sync_execution
 
     @property
     def settings_override(self):

@@ -14,6 +14,7 @@ from django.contrib.auth import get_user_model
 from django.test import override_settings
 from django.utils.crypto import get_random_string
 
+from resolwe.flow.managers.utils import disable_auto_calls
 from resolwe.flow.models import Data, DescriptorSchema, Process
 from resolwe.flow.utils import purge
 from resolwe.test import ProcessTestCase
@@ -347,8 +348,8 @@ class PurgeUnitTest(PurgeTestFieldsMixin, ProcessTestCase):
         super(PurgeUnitTest, self).tearDown()
 
     # This patch is required so that the manager is not invoked while saving Data.
-    @patch('resolwe.flow.signals.manager')
-    def test_remove(self, manager_mock):
+    @disable_auto_calls()
+    def test_remove(self):
         user = get_user_model().objects.create(username="test_user")
         processor = Process.objects.create(
             name='Test process',

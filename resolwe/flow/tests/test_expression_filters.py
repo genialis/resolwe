@@ -1,6 +1,8 @@
 # pylint: disable=missing-docstring
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+from asgiref.sync import async_to_sync
+
 from resolwe.flow.expression_engines import EvaluationError
 from resolwe.flow.managers import manager
 from resolwe.flow.models import Data, DescriptorSchema, Process, Storage
@@ -46,7 +48,7 @@ re-save-file test_file path/to/file.txt
             descriptor={'descriptions': {'text': 'This is test Data object.'}}
         )
 
-        manager.communicate(run_sync=True)
+        async_to_sync(manager.communicate)(run_sync=True)
 
         process = Process.objects.create(
             name='Test template tags',
@@ -122,7 +124,7 @@ save-safe {{ spacy | safe }}
             },
         )
 
-        manager.communicate(run_sync=True)
+        async_to_sync(manager.communicate)(run_sync=True)
 
         data.refresh_from_db()
 

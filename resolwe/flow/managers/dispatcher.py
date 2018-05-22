@@ -7,15 +7,17 @@ Manager
 """
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+import asyncio
 import inspect
 import json
 import logging
 import os
 import shlex
 import shutil
-import time
 from importlib import import_module
 
+from asgiref.sync import async_to_sync
+from channels.db import database_sync_to_async
 from channels.exceptions import ChannelFull
 
 from django.conf import settings
@@ -30,8 +32,7 @@ from resolwe.flow.models import Data, DataDependency, Process
 from resolwe.test.utils import is_testing
 from resolwe.utils import BraceMessage as __
 
-from . import state
-from .consumer import send_manager_event
+from . import consumer, state
 from .protocol import ExecutorFiles, WorkerProtocol
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
@@ -106,38 +107,82 @@ class Manager(object):
         running when the context was entered.
         """
 
-        def __init__(self, state_key_prefix, force_enter):
-            """Initialize all flags and state.
+        def __init__(self):
+            """Initialize state."""
+            self.value = 0
+            self.active = False
+            self.condition = asyncio.Condition()
 
-            :param state_key_prefix: The Redis key prefix used by
-                :class:`~resolwe.flow.managers.state.ManagerState`.
-            :param force_enter: If ``True``, do not abort even if a
-                synchronization transaction is already active.
-            """
-            self.state = state.ManagerState(state_key_prefix)
-            self.force_enter = force_enter
-
-        def __enter__(self):
+        async def __aenter__(self):
             """Begin synchronized execution context."""
-            if self.force_enter:
-                self.state.sync_execution.set(1)
-            else:
-                if not self.state.sync_execution.cas(0, 1):
-                    raise RuntimeError("Only one user at a time may enter a synchronization transaction.")
+            self.active = True
             return self
 
-        def __exit__(self, exc_type, exc_val, exc_tb):
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
             """Wait for executors to finish, then return."""
-            logger.info(__("Waiting for sync semaphore to drop to 0, now it is {}", self.state.sync_semaphore))
+            logger.info(__("Waiting for executor count to drop to 0, now it is {}", self.value))
 
-            while int(self.state.sync_semaphore) > 0:
-                # Random, but Django Channels don't provide blocking behaviour.
-                time.sleep(0.5)
-
-            assert self.state.sync_execution.cas(1, 0) == 1
+            await self.condition.acquire()
+            try:
+                await self.condition.wait()
+            finally:
+                self.condition.release()
             logging.debug("Sync semaphore dropped to 0.")
 
+            self.active = False
             return False
+
+        async def reset(self):
+            """Reset the semaphore to 0."""
+            assert not self.active
+            await self.condition.acquire()
+            self.value = 0
+            self.condition.release()
+
+        async def inc(self):
+            """Increase executor count by 1."""
+            await self.condition.acquire()
+            self.value += 1
+            self.condition.release()
+
+        async def dec(self):
+            """Decrease executor count by 1.
+
+            Return ``True`` if the count dropped to 0 as a result.
+            """
+            ret = False
+            await self.condition.acquire()
+            try:
+                self.value -= 1
+                ret = self.value == 0
+                if self.active and self.value == 0:
+                    self.condition.notify_all()
+            finally:
+                self.condition.release()
+            return ret
+
+    class _SynchronizationManagerDummy(object):
+        """Dummy synchronization manager implementation.
+
+        This is a dummy placeholder variant of
+        :class:`~resolwe.flow.managers.dispatcher.Manager._SynchronizationManager`,
+        doing nothing. It's needed so that code async initialization can
+        be done late enough, after code that already syntactically needs
+        the synchronization manager, but doesn't need it to work yet.
+        """
+
+        def __init__(self):
+            self.active = False
+            self.value = 0
+
+        async def inc(self):  # pylint: disable=missing-docstring
+            pass
+
+        async def dec(self):  # pylint: disable=missing-docstring
+            pass
+
+        async def reset(self):  # pylint: disable=missing-docstring
+            pass
 
     class _SettingsManager(object):
         """Context manager for settings overrides.
@@ -196,22 +241,31 @@ class Manager(object):
             "Found {} execution engines: {}", len(self.execution_engines), ', '.join(self.execution_engines.keys())
         ))
 
-    def drain(self):
-        """Drain the control channel without acting on anything."""
-        # client = Client()
-        # while client.get_next_message(state.MANAGER_CONTROL_CHANNEL) is not None:
-        pass
-
     def reset(self):
         """Reset the shared state and drain Django Channels."""
         self.state = state.ManagerState(state.MANAGER_STATE_PREFIX)
         self.state.reset()
-        self.drain()
+        async_to_sync(consumer.run_consumer)(timeout=1)
+        async_to_sync(consumer.flush_channel)()
+        async_to_sync(self.sync_counter.reset)()
 
     def __init__(self, *args, **kwargs):
         """Initialize arguments."""
         self.discover_engines()
         self.state = state.ManagerState(state.MANAGER_STATE_PREFIX)
+
+        # The number of executors currently running; used for test synchronization.
+        # We need to start out with a dummy object, so that the async
+        # infrastructure isn't started too early. In particular, this handles
+        # counter functions that are called before any actual synchronization
+        # is wanted: in a test, what's called first is the Django signal.
+        # This will call communicate(), which will (has to) first try upping
+        # the counter value; the future that that produces can be scheduled
+        # to the wrong event loop (the application one is started further
+        # down communicate() in the synchronization block), which then
+        # leads to exceedingly obscure crashes further down the line.
+        self.sync_counter = self._SynchronizationManagerDummy()
+
         # Django's override_settings should be avoided at all cost here
         # to keep the manager as independent as possible, and in
         # particular to avoid overriding with dangerous variables, such
@@ -304,6 +358,7 @@ class Manager(object):
         else:
             class_name = getattr(settings, 'FLOW_MANAGER', {}).get('NAME', DEFAULT_CONNECTOR)
 
+        async_to_sync(self.sync_counter.inc)()
         return self.connectors[class_name].submit(data, runtime_dir, argv)
 
     def _get_per_data_dir(self, dir_base, data_id):
@@ -473,7 +528,7 @@ class Manager(object):
         """
         return self._SettingsManager(self.state.key_prefix, **kwargs)
 
-    def handle_control_event(self, message):
+    async def handle_control_event(self, message):
         """Handle an event from the Channels layer.
 
         Channels layer callback, do not call directly.
@@ -492,12 +547,7 @@ class Manager(object):
         self.settings_actual.update(override)
 
         if cmd == WorkerProtocol.COMMUNICATE:
-            try:
-                self._data_scan(**message[WorkerProtocol.COMMUNICATE_EXTRA])
-            finally:
-                # Clear communicate() claim on the semaphore.
-                new_sema = self.state.sync_semaphore.add(-1)
-                logger.debug(__("Manager changed sync_semaphore DOWN to {} after _data_scan().", new_sema))
+            await database_sync_to_async(self._data_scan)(**message[WorkerProtocol.COMMUNICATE_EXTRA])
 
         elif cmd == WorkerProtocol.FINISH:
             try:
@@ -522,52 +572,39 @@ class Manager(object):
                         logger.exception("Manager exception while removing data runtime directory.")
 
                 if message[WorkerProtocol.FINISH_SPAWNED]:
-                    new_sema = self.state.sync_semaphore.add(1)
-                    logger.debug(__("Manager changed sync_semaphore UP to {} in spawn handler.", new_sema))
-                    try:
-                        self._data_scan(**message[WorkerProtocol.FINISH_COMMUNICATE_EXTRA])
-                    finally:
-                        # Clear communicate() claim on the semaphore.
-                        new_sema = self.state.sync_semaphore.add(-1)
-                        logger.debug(__("Manager changed sync_semaphore DOWN to {} after _data_scan().", new_sema))
+                    await database_sync_to_async(self._data_scan)(**message[WorkerProtocol.FINISH_COMMUNICATE_EXTRA])
             finally:
-                self.state.executor_count.add(-1)
-
-                # Clear execution claim on the semaphore (claimed in _data_execute).
-                new_sema = self.state.sync_semaphore.add(-1)
-                logger.debug(__("Manager changed sync_semaphore DOWN to {} after executor finish.", new_sema))
+                zeroed = await self.sync_counter.dec()
+                if zeroed:
+                    await consumer.exit_consumer()
 
         elif cmd == WorkerProtocol.ABORT:
-            self.state.executor_count.add(-1)
-
-            # Clear execution claim on the semaphore (claimed in _data_execute).
-            new_sema = self.state.sync_semaphore.add(-1)
-            logger.debug(__("Manager changed sync_semaphore DOWN to {} after executor aborted.", new_sema))
+            zeroed = await self.sync_counter.dec()
+            if zeroed:
+                await consumer.exit_consumer()
 
         else:
             logger.error(__("Ignoring unknown manager control command '{}'.", cmd))
 
-    def synchronized(self, force_enter=False):
-        """Enter a synchronization block for the calling context.
-
-        :param force_enter: If ``True``, enter the block even if another
-            one is already active. Use this at your own risk.
-        """
-        return self._SynchronizationManager(self.state.key_prefix, force_enter)
-
-    def execution_barrier(self, force_enter=False):
+    async def execution_barrier(self):
         """Wait for executors to finish.
 
         At least one must finish after this point to avoid a deadlock.
-
-        :param force_enter: If ``True``, create the barrier even if
-            another synchronization block is already active. Use this at
-            your own risk.
         """
-        with self.synchronized(force_enter=force_enter):
-            self.communicate()
+        async def _barrier():
+            """Enter the sync block and exit the app afterwards."""
+            async with self.sync_counter:
+                pass
+            await consumer.exit_consumer()
 
-    def communicate(self, data_id=None, run_sync=False, save_settings=True):
+        self.sync_counter = self._SynchronizationManager()
+        await asyncio.wait([
+            _barrier(),
+            consumer.run_consumer(),
+        ])
+        self.sync_counter = self._SynchronizationManagerDummy()
+
+    async def communicate(self, data_id=None, run_sync=False, save_settings=True):
         """Scan database for resolving Data objects and process them.
 
         This is submitted as a task to the manager's channel workers.
@@ -587,10 +624,6 @@ class Manager(object):
             default value. The saved settings are in effect until the
             next such call.
         """
-        # Set communicate() claim on the semaphore.
-        new_sema = self.state.sync_semaphore.add(1)
-        logger.debug(__("Manager changed sync_semaphore UP to {} in communicate().", new_sema))
-
         executor = getattr(settings, 'FLOW_EXECUTOR', {}).get('NAME', 'resolwe.flow.executors.local')
         logger.debug(__(
             "Manager sending communicate command on '{}' triggered by Data with id {}.",
@@ -604,7 +637,7 @@ class Manager(object):
             self.state.settings_override = saved_settings
 
         try:
-            send_manager_event({
+            await consumer.send_event({
                 WorkerProtocol.COMMAND: WorkerProtocol.COMMUNICATE,
                 WorkerProtocol.COMMUNICATE_SETTINGS: saved_settings,
                 WorkerProtocol.COMMUNICATE_EXTRA: {
@@ -613,18 +646,14 @@ class Manager(object):
                 },
             })
         except ChannelFull:
-            new_sema = self.state.sync_semaphore.add(-1)
-
             logger.exception("ChannelFull error occurred while sending communicate message.")
-            logger.debug(__("Manager changed sync_semaphore DOWN to {} after ChannelFull error.", new_sema))
 
-        if run_sync:
+        if run_sync and not self.sync_counter.active:
             logger.debug(__(
                 "Manager on channel '{}' entering synchronization block.",
                 state.MANAGER_CONTROL_CHANNEL
             ))
-            with self.synchronized():
-                pass
+            await self.execution_barrier()
             logger.debug(__(
                 "Manager on channel '{}' exiting synchronization block.",
                 state.MANAGER_CONTROL_CHANNEL
@@ -675,12 +704,6 @@ class Manager(object):
 
         # Hand off to the run() method for execution.
         logger.info(__("Running {}", runtime_dir))
-
-        self.state.executor_count.add(1)
-
-        # Set execution claim on the semaphore (cleared in handle_control_event).
-        new_sema = self.state.sync_semaphore.add(1)
-        logger.debug(__("Manager changed sync_semaphore UP to {} on executor start.", new_sema))
         self.run(data, runtime_dir, argv)
 
     def _data_scan(self, data_id=None, executor='resolwe.flow.executors.local', **kwargs):
@@ -767,6 +790,7 @@ class Manager(object):
             # Ensure settings overrides apply
             self.discover_engines(executor=executor)
 
+        async_to_sync(self.sync_counter.inc)()
         try:
             queryset = Data.objects.filter(status=Data.STATUS_RESOLVING)
             if data_id is not None:
@@ -827,6 +851,8 @@ class Manager(object):
         except IntegrityError as exp:
             logger.error(__("IntegrityError in manager {}", exp))
             return
+        finally:
+            async_to_sync(self.sync_counter.dec)()
 
     def get_executor(self):
         """Return an executor instance."""

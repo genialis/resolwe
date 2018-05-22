@@ -3,6 +3,8 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import os
 
+from asgiref.sync import async_to_sync
+
 from django.db import transaction
 
 from guardian.shortcuts import assign_perm
@@ -33,8 +35,6 @@ class TestManager(ProcessTestCase):
             process=process,
         )
 
-        manager.execution_barrier()
-
         data.refresh_from_db()
         self.assertEqual(data.status, Data.STATUS_DONE)
 
@@ -59,8 +59,6 @@ class TestManager(ProcessTestCase):
             self.collection.data.add(data)
             assign_perm('view_data', self.user, data)
 
-        manager.execution_barrier()
-
         # Created and spawned objects should be done.
         self.assertEqual(Data.objects.filter(status=Data.STATUS_DONE).count(), 2)
 
@@ -79,8 +77,6 @@ class TestManager(ProcessTestCase):
                                     input={'param1': 'world'})
         data2 = Data.objects.create(name='Test data 2', contributor=self.contributor, process=workflow,
                                     input={'param1': 'foobar'})
-
-        manager.execution_barrier()
 
         # Created and spawned objects should be done.
         self.assertEqual(Data.objects.filter(status=Data.STATUS_DONE).count(), 6)
@@ -102,8 +98,6 @@ class TestManager(ProcessTestCase):
         data_child3 = Data.objects.create(name='Test child', contributor=self.contributor,
                                           process=process_child, input={'parent': None})
 
-        manager.execution_barrier()
-
         data_parent.refresh_from_db()
         data_child1.refresh_from_db()
         data_child2.refresh_from_db()
@@ -120,8 +114,6 @@ class TestManager(ProcessTestCase):
             contributor=self.contributor,
             process=process,
         )
-
-        manager.execution_barrier()
 
         data.refresh_from_db()
 
@@ -161,7 +153,7 @@ class TransactionTestManager(TransactionTestCase):
         self.assertEqual(Data.objects.filter(status=Data.STATUS_RESOLVING).count(), 4)
 
         # Process only one object.
-        manager.communicate(data_id=data_1.pk, run_sync=True)
+        async_to_sync(manager.communicate)(data_id=data_1.pk, run_sync=True)
 
         data_1.refresh_from_db()
         self.assertEqual(data_1.status, Data.STATUS_WAITING)
@@ -171,13 +163,13 @@ class TransactionTestManager(TransactionTestCase):
         data_1.save()
 
         # Process object's children.
-        manager.communicate(data_id=data_1.pk, run_sync=True)
+        async_to_sync(manager.communicate)(data_id=data_1.pk, run_sync=True)
 
         data_2.refresh_from_db()
         self.assertEqual(data_2.status, Data.STATUS_WAITING)
         self.assertEqual(Data.objects.filter(status=Data.STATUS_RESOLVING).count(), 2)
 
         # Process all objects.
-        manager.communicate(run_sync=True)
+        async_to_sync(manager.communicate)(run_sync=True)
 
         self.assertEqual(Data.objects.filter(status=Data.STATUS_RESOLVING).count(), 0)

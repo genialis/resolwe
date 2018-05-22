@@ -45,8 +45,6 @@ re-save setenvtest $SET_ENV_TEST
                 input={},
             )
 
-            manager.execution_barrier()
-
             # update output
             data = Data.objects.get(pk=data.pk)
 

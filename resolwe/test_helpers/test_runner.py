@@ -5,6 +5,7 @@ Resolwe Test Runner
 ===================
 
 """
+import asyncio
 import contextlib
 import logging
 import os
@@ -21,12 +22,13 @@ from signal import SIGKILL, SIGTERM
 
 import mock
 import yaml
+from channels.db import database_sync_to_async
 
 from django import db
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import override_settings
-from django.test.runner import DiscoverRunner, ParallelTestSuite
+from django.test.runner import DiscoverRunner, ParallelTestSuite, RemoteTestRunner
 from django.utils.crypto import get_random_string
 
 # Make sure we already have the patched FLOW_* available here; otherwise
@@ -275,10 +277,6 @@ def _custom_worker_init(django_init_worker):
             listener.__enter__()
             Finalize(listener, listener.__exit__, exitpriority=16)
 
-            workers = CommandContext('runworker', state.MANAGER_CONTROL_CHANNEL)
-            workers.__enter__()
-            Finalize(workers, workers.__exit__, exitpriority=16)
-
             signal_override = override_settings(FLOW_MANAGER_SYNC_AUTO_CALLS=True)
             signal_override.__enter__()
             Finalize(signal_override, lambda: signal_override.__exit__(None, None, None), exitpriority=16)
@@ -303,10 +301,40 @@ def _custom_worker_init(django_init_worker):
     return _init_worker
 
 
+def _run_in_event_loop(meth, *args, **kwargs):
+    """Wrap a sync method in a runloop call.
+
+    This is needed as the top level call into Resolwe Manager-using
+    tests. An event loop is started so that it can be used within the
+    call tree. The method given is run through a serializing wrapper, so
+    that Django database accesses are correct.
+
+    :param meth: The callable to run with an underlying event loop. All
+        other arguments given to this function are forwarded to it.
+    """
+    async def _runner():
+        """Run the callable synchronously."""
+        return await database_sync_to_async(meth)(*args, **kwargs)
+    loop = asyncio.get_event_loop()
+    task = asyncio.ensure_future(_runner(), loop=loop)
+    loop.run_until_complete(task)
+    loop.close()
+    return task.result()
+
+
+class CustomRemoteRunner(RemoteTestRunner):
+    """Standard Django remote runner with a custom run method."""
+
+    def run(self, *args, **kwargs):
+        """Run the superclass method with an underlying event loop."""
+        return _run_in_event_loop(super().run, *args, **kwargs)
+
+
 class CustomParallelTestSuite(ParallelTestSuite):
     """Standard parallel suite with a custom worker initializer."""
 
     init_worker = _custom_worker_init(ParallelTestSuite.init_worker)
+    runner_class = CustomRemoteRunner
 
 
 class ResolweRunner(DiscoverRunner):
@@ -374,17 +402,15 @@ class ResolweRunner(DiscoverRunner):
             """Decorate test case with manager state validation."""
             def wrapper(*args, **kwargs):
                 """Validate manager state on teardown."""
-                if int(manager.state.executor_count) != 0 or int(manager.state.sync_semaphore) != 0:
+                if manager.sync_counter.value != 0:
                     case.fail(
                         'Test has outstanding manager processes. Ensure that all processes have '
                         'completed or that you have reset the state manually in case you have '
                         'bypassed the regular manager flow in any way.\n'
                         '\n'
-                        'Executor count: {executor_count} (should be 0)\n'
-                        'Sync semaphore: {sync_semaphore} (should be 0)\n'
+                        'Synchronization count: {value} (should be 0)\n'
                         ''.format(
-                            executor_count=int(manager.state.executor_count),
-                            sync_semaphore=int(manager.state.sync_semaphore),
+                            value=manager.sync_counter.value,
                         )
                     )
 
@@ -426,9 +452,8 @@ class ResolweRunner(DiscoverRunner):
                 _manager_setup()
                 with AtScopeExit(manager.state.destroy_channels):
                     with CommandContext('runlistener', '--clear-queue'):
-                        with CommandContext('runworker', state.MANAGER_CONTROL_CHANNEL):
-                            with override_settings(FLOW_MANAGER_SYNC_AUTO_CALLS=True):
-                                return super().run_suite(suite, **kwargs)
+                        with override_settings(FLOW_MANAGER_SYNC_AUTO_CALLS=True):
+                            return _run_in_event_loop(super().run_suite, suite, **kwargs)
 
     def run_tests(self, test_labels, **kwargs):
         """Run tests.
