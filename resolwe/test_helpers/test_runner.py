@@ -13,11 +13,6 @@ import re
 import shutil
 import subprocess
 import sys
-# Parallel Django test execution is done with worker pools from the multiprocessing module;
-# since every worker process needs its own initialization code to start the manager infrastructure,
-# it also needs a teardown function, but the multiprocessing module fails to provide such
-# functionality publicly. Internally, the Finalize class imported below is used.
-from multiprocessing.util import Finalize  # undocumented
 from signal import SIGKILL, SIGTERM
 
 import mock
@@ -256,48 +251,7 @@ def _custom_worker_init(django_init_worker):
         # same channels and directories.
         resolwe_settings.FLOW_MANAGER_SETTINGS['REDIS_PREFIX'] += '-parallel-pid{}'.format(os.getpid())
 
-        testing = TestingContext()
-        testing.__enter__()
-        Finalize(testing, testing.__exit__, exitpriority=16)
-
-        dirs = _create_test_dirs()
-
-        try:
-            overrides = _prepare_settings()
-            overrides.__enter__()
-            Finalize(overrides, lambda: overrides.__exit__(None, None, None), exitpriority=16)
-
-            _manager_setup()
-
-            state_cleanup = AtScopeExit(manager.state.destroy_channels)
-            state_cleanup.__enter__()
-            Finalize(state_cleanup, state_cleanup.__exit__, exitpriority=16)
-
-            listener = CommandContext('runlistener', '--clear-queue')
-            listener.__enter__()
-            Finalize(listener, listener.__exit__, exitpriority=16)
-
-            signal_override = override_settings(FLOW_MANAGER_SYNC_AUTO_CALLS=True)
-            signal_override.__enter__()
-            Finalize(signal_override, lambda: signal_override.__exit__(None, None, None), exitpriority=16)
-
-            return result
-        except:  # pylint: disable=bare-except
-            # There's nothing we can do at this point, init _must_ succeed or the pool will try
-            # restarting us on every pool action from the suite runner, leading to an
-            # infinite loop and, to the outside, an apparent hang.
-            #
-            # Code after us will almost certainly also fail, which should lead to orderly
-            # test failure and eventually suite shutdown once all tests are through.
-            #
-            # The best we can do here is make sure we don't leave stale directories behind,
-            # which as a side effect also makes it more likely that testing will fail early.
-            logger.exception("An exception occurred during early parallel worker initialization.")
-            for path in dirs:
-                try:
-                    os.rmdir(path)
-                except:  # pylint: disable=bare-except
-                    pass
+        return result
     return _init_worker
 
 
@@ -315,11 +269,38 @@ def _run_in_event_loop(meth, *args, **kwargs):
     async def _runner():
         """Run the callable synchronously."""
         return await database_sync_to_async(meth)(*args, **kwargs)
-    loop = asyncio.get_event_loop()
+    asyncio.get_event_loop().close()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     task = asyncio.ensure_future(_runner(), loop=loop)
     loop.run_until_complete(task)
     loop.close()
     return task.result()
+
+
+def _run_on_infrastructure(meth, *args, **kwargs):
+    """Start the Manager infrastructure and call the given callable.
+
+    :param meth: The callable to run on the infrastructure. All other
+        arguments are forwarded to it.
+    """
+    with TestingContext():
+        _create_test_dirs()
+        with _prepare_settings():
+            _manager_setup()
+            with AtScopeExit(manager.state.destroy_channels):
+                with CommandContext('runlistener', '--clear-queue'):
+                    with override_settings(FLOW_MANAGER_SYNC_AUTO_CALLS=True):
+                        return meth(*args, **kwargs)
+
+
+def _run_manager(meth, *args, **kwargs):
+    """Start the Manager properly and nest the given callable in it.
+
+    :param meth: The callable to start the environment for; all other
+        arguments are forwarded to it.
+    """
+    return _run_in_event_loop(_run_on_infrastructure, meth, *args, **kwargs)
 
 
 class CustomRemoteRunner(RemoteTestRunner):
@@ -327,7 +308,7 @@ class CustomRemoteRunner(RemoteTestRunner):
 
     def run(self, *args, **kwargs):
         """Run the superclass method with an underlying event loop."""
-        return _run_in_event_loop(super().run, *args, **kwargs)
+        return _run_manager(super().run, *args, **kwargs)
 
 
 class CustomParallelTestSuite(ParallelTestSuite):
@@ -446,14 +427,7 @@ class ResolweRunner(DiscoverRunner):
         if self.parallel > 1:
             return super().run_suite(suite, **kwargs)
 
-        with TestingContext():
-            _create_test_dirs()
-            with _prepare_settings():
-                _manager_setup()
-                with AtScopeExit(manager.state.destroy_channels):
-                    with CommandContext('runlistener', '--clear-queue'):
-                        with override_settings(FLOW_MANAGER_SYNC_AUTO_CALLS=True):
-                            return _run_in_event_loop(super().run_suite, suite, **kwargs)
+        return _run_manager(super().run_suite, suite, **kwargs)
 
     def run_tests(self, test_labels, **kwargs):
         """Run tests.
