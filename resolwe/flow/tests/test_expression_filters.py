@@ -68,6 +68,7 @@ re-save-file test_file path/to/file.txt
                 {'name': 'type', 'type': 'basic:string:'},
                 {'name': 'list_type', 'type': 'list:basic:string:'},
                 {'name': 'basename', 'type': 'basic:string:'},
+                {'name': 'dirname', 'type': 'basic:string:'},
                 {'name': 'subtype', 'type': 'basic:string:'},
                 {'name': 'list_subtype', 'type': 'list:basic:string:'},
                 {'name': 'yesno', 'type': 'basic:string:'},
@@ -92,6 +93,7 @@ re-save list_id {{ input_data_list | id }}
 re-save type {{ input_data | type }}
 re-save list_type {{ input_data_list | type }}
 re-save basename {{ '/foo/bar/moo' | basename }}
+re-save dirname {{ '/foo/bar/moo' | dirname }}
 re-save subtype {{ 'data:test:inputobject:' | subtype('data:') }}
 re-save list_subtype {{ ['data:test:inputobject:'] | subtype('data:') }}
 re-save yesno {{ true | yesno('yes', 'no') }}
@@ -133,6 +135,7 @@ save-safe {{ spacy | safe }}
         self.assertEqual(data.output['list_id'], [input_data.id])
         self.assertEqual(data.output['type'], input_process.type)
         self.assertEqual(data.output['basename'], 'moo')
+        self.assertEqual(data.output['dirname'], '/foo/bar')
         self.assertEqual(data.output['subtype'], 'True')
         self.assertEqual(data.output['yesno'], 'yes')
         self.assertEqual(data.output['datalookup'], input_data.pk)

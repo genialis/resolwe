@@ -36,6 +36,7 @@ Added
   ``list:basic:decimal``
 - Support filtering and sorting by ``process_type`` parameter on Data API
   endpoint
+- Add ``dirname`` Jinja filter
 
 Fixed
 -----

@@ -48,6 +48,11 @@ def basename(path):
     return os.path.basename(path)
 
 
+def dirname(path):
+    """Return the base name of pathname path."""
+    return os.path.dirname(path)
+
+
 def subtype(basetype, supertype):
     """Check if ``basetype`` is a subtype of supertype."""
     return apply_filter_list(lambda item: item.startswith(supertype), basetype)
@@ -113,6 +118,7 @@ filters = {  # pylint: disable=invalid-name
     'id': id_,
     'type': type_,
     'basename': basename,
+    'dirname': dirname,
     'subtype': subtype,
     'yesno': yesno,
     'data_by_slug': data_by_slug,
