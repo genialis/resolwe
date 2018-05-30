@@ -74,6 +74,8 @@ re-save-file test_file path/to/file.txt
                 {'name': 'yesno', 'type': 'basic:string:'},
                 {'name': 'datalookup', 'type': 'basic:integer:'},
                 {'name': 'file_url', 'type': 'basic:string:'},
+                {'name': 'relative_path', 'type': 'basic:string:'},
+                {'name': 'relative_path2', 'type': 'basic:string:'},
                 {'name': 'unsafe', 'type': 'basic:string:'},
                 {'name': 'safe', 'type': 'basic:string:'},
                 {'name': 'description_text', 'type': 'basic:string:'},
@@ -99,6 +101,8 @@ re-save list_subtype {{ ['data:test:inputobject:'] | subtype('data:') }}
 re-save yesno {{ true | yesno('yes', 'no') }}
 re-save datalookup {{ 'input-data-object' | data_by_slug }}
 re-save file_url {{ input_data.test_file | get_url }}
+re-save relative_path {{ input_data.test_file | relative_path }}
+re-save relative_path2 {{ input_data.test_file.file | relative_path }}
 re-save unsafe {{ spacy }}
 re-save description_text {{ input_data | descriptor('descriptions.text') }}
 re-save description_full {{ input_data | descriptor }}
@@ -140,6 +144,8 @@ save-safe {{ spacy | safe }}
         self.assertEqual(data.output['yesno'], 'yes')
         self.assertEqual(data.output['datalookup'], input_data.pk)
         self.assertEqual(data.output['file_url'], 'localhost/data/{}/path/to/file.txt'.format(input_data.pk))
+        self.assertEqual(data.output['relative_path'], 'path/to/file.txt')
+        self.assertEqual(data.output['relative_path2'], 'path/to/file.txt')
         self.assertEqual(data.output['unsafe'], 'this has \'some\' spaces')
         self.assertEqual(data.output['safe'], 'this')
         self.assertEqual(data.output['description_text'], 'This is test Data object.')

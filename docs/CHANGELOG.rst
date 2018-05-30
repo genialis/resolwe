@@ -37,6 +37,7 @@ Added
 - Support filtering and sorting by ``process_type`` parameter on Data API
   endpoint
 - Add ``dirname`` Jinja filter
+- Add ``relative_path`` Jinja filter
 
 Fixed
 -----

@@ -68,17 +68,33 @@ def data_by_slug(slug):
     return Data.objects.get(slug=slug).pk
 
 
-def get_url(hydrated_path):
-    """Return file's url based on base url set in settings."""
+def _get_hydrated_path(field):
+    """Return HydratedPath object for file-type field."""
     # Get only file path if whole file object is given.
-    if isinstance(hydrated_path, dict) and 'file' in hydrated_path:
-        hydrated_path = hydrated_path['file']
+    if isinstance(field, str) and hasattr(field, 'file_name'):
+        # field is already actually a HydratedPath object
+        return field
+
+    if isinstance(field, dict) and 'file' in field:
+        hydrated_path = field['file']
 
     if not hasattr(hydrated_path, 'file_name'):
-        raise TypeError("Argument to get_url must be a hydrated path")
+        raise TypeError("Filter argument must be a valid file-type field.")
 
+    return hydrated_path
+
+
+def get_url(field):
+    """Return file's url based on base url set in settings."""
+    hydrated_path = _get_hydrated_path(field)
     base_url = getattr(settings, 'RESOLWE_HOST_URL', 'localhost')
     return "{}/data/{}/{}".format(base_url, hydrated_path.data_id, hydrated_path.file_name)
+
+
+def relative_path(field):
+    """Return file's relative path."""
+    hydrated_path = _get_hydrated_path(field)
+    return hydrated_path.file_name
 
 
 def descriptor(obj, path=''):
@@ -123,6 +139,7 @@ filters = {  # pylint: disable=invalid-name
     'yesno': yesno,
     'data_by_slug': data_by_slug,
     'get_url': get_url,
+    'relative_path': relative_path,
     'descriptor': descriptor,
     'all': all_,
     'any': any_,
