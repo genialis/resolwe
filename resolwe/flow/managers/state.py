@@ -27,6 +27,7 @@ ManagerChannelPair = namedtuple('ManagerChannelPair', ['queue', 'queue_response'
 MANAGER_CONTROL_CHANNEL = 'DUMMY.control'
 MANAGER_EXECUTOR_CHANNELS = ManagerChannelPair('DUMMY.queue', 'DUMMY.queue_response')
 MANAGER_STATE_PREFIX = 'DUMMY.state_prefix'
+MANAGER_LISTENER_STATS = 'DUMMY.listener_stats'
 
 
 def update_constants():
@@ -39,7 +40,7 @@ def update_constants():
     as this one are then needed to fix dummy values.
     """
     global MANAGER_CONTROL_CHANNEL, MANAGER_EXECUTOR_CHANNELS  # pylint: disable=global-statement
-    global MANAGER_STATE_PREFIX  # pylint: disable=global-statement
+    global MANAGER_LISTENER_STATS, MANAGER_STATE_PREFIX  # pylint: disable=global-statement
     redis_prefix = getattr(settings, 'FLOW_MANAGER', {}).get('REDIS_PREFIX', '')
 
     MANAGER_CONTROL_CHANNEL = '{}.control'.format(redis_prefix)
@@ -48,6 +49,7 @@ def update_constants():
         '{}.result_queue_response'.format(redis_prefix),
     )
     MANAGER_STATE_PREFIX = '{}.state'.format(redis_prefix)
+    MANAGER_LISTENER_STATS = '{}.listener_stats'.format(redis_prefix)
 
 
 update_constants()

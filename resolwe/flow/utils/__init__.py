@@ -10,6 +10,9 @@ Flow Utilities
 .. automodule:: resolwe.flow.utils.exceptions
    :members:
 
+.. automodule:: resolwe.flow.utils.stats
+   :members:
+
 """
 import functools
 import hashlib

@@ -39,6 +39,10 @@ Added
   with ``elastic_purge`` management command
 - Add ``dirname`` and ``relative_path`` Jinja filters
 
+Added
+-----
+- Add load tracking to the listener with log messages on overload
+
 
 ==================
 9.0.0 - 2018-05-15

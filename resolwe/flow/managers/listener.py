@@ -14,7 +14,9 @@ Standalone Redis client used as a contact point for executors.
 import asyncio
 import json
 import logging
+import math
 import os
+import time
 import traceback
 
 import aioredis
@@ -29,7 +31,7 @@ from django.db.models import Count
 from django.urls import reverse
 
 from resolwe.flow.models import Data, DataDependency, Entity, Process
-from resolwe.flow.utils import dict_dot, iterate_fields
+from resolwe.flow.utils import dict_dot, iterate_fields, stats
 from resolwe.flow.utils.purge import data_purge
 from resolwe.permissions.utils import copy_permissions
 from resolwe.test.utils import is_testing
@@ -69,6 +71,16 @@ class ExecutorListener:
         # The verbosity level to pass around to Resolwe utilities
         # such as data_purge.
         self._verbosity = kwargs.get('verbosity', 1)
+
+        # Statistics about how much time each event needed for handling.
+        self.service_time = stats.NumberSeriesShape()
+
+        # Statistics about the number of events handled per time interval.
+        self.load_avg = stats.SimpleLoadAvg([60, 5 * 60, 15 * 60])
+
+        # Timestamp of last critical load error and level, for throttling.
+        self.last_load_log = -math.inf
+        self.last_load_level = 0
 
     async def _make_connection(self):
         """Construct a connection to Redis."""
@@ -524,6 +536,56 @@ class ExecutorListener:
 
         logger.handle(logging.makeLogRecord(record_dict))
 
+    def _make_stats(self):
+        """Create a stats snapshot."""
+        return {
+            'load_avg': self.load_avg.to_dict(),
+            'service_time': self.service_time.to_dict(),
+        }
+
+    async def push_stats(self):
+        """Push current stats to Redis."""
+        snapshot = self._make_stats()
+        try:
+            serialized = json.dumps(snapshot)
+            await self._call_redis(aioredis.Redis.set, state.MANAGER_LISTENER_STATS, serialized)
+        except TypeError:
+            logger.error(__(
+                "Listener can't serialize statistics:\n\n{}",
+                traceback.format_exc()
+            ))
+        except aioredis.RedisError:
+            logger.error(__(
+                "Listener can't store updated statistics:\n\n{}",
+                traceback.format_exc()
+            ))
+
+    def check_critical_load(self):
+        """Check for critical load and log an error if necessary."""
+        if self.load_avg.intervals['1m'].value > 1:
+            if self.last_load_level == 1 and time.time() - self.last_load_log < 30:
+                return
+            self.last_load_log = time.time()
+            self.last_load_level = 1
+            logger.error(__(
+                "Listener load limit exceeded, the system can't handle this!\n{}",
+                str(self._make_stats())
+            ))
+
+        elif self.load_avg.intervals['1m'].value > 0.8:
+            if self.last_load_level == 0.8 and time.time() - self.last_load_log < 30:
+                return
+            self.last_load_log = time.time()
+            self.last_load_level = 0.8
+            logger.warning(__(
+                "Listener load approaching critical!\n{}",
+                str(self._make_stats())
+            ))
+
+        else:
+            self.last_load_log = -math.inf
+            self.last_load_level = 0
+
     async def run(self):
         """Run the main listener run loop.
 
@@ -534,9 +596,14 @@ class ExecutorListener:
             state.MANAGER_EXECUTOR_CHANNELS.queue
         ))
         while not self._should_stop:
+            await self.push_stats()
             ret = await self._call_redis(aioredis.Redis.blpop, state.MANAGER_EXECUTOR_CHANNELS.queue, timeout=1)
             if ret is None:
+                self.load_avg.add(0)
                 continue
+            remaining = await self._call_redis(aioredis.Redis.llen, state.MANAGER_EXECUTOR_CHANNELS.queue)
+            self.load_avg.add(remaining + 1)
+            self.check_critical_load()
             _, item = ret
             try:
                 obj = json.loads(item.decode('utf-8'))
@@ -550,6 +617,8 @@ class ExecutorListener:
             command = obj.get(ExecutorProtocol.COMMAND, None)
             if command is None:
                 continue
+
+            service_start = time.perf_counter()
 
             handler = getattr(self, 'handle_' + command, None)
             if handler:
@@ -565,6 +634,12 @@ class ExecutorListener:
                     __("Unknown executor command '{}'.", command),
                     extra={'decoded_packet': obj}
                 )
+
+            # We do want to measure wall-clock time elapsed, because
+            # system load will impact event handling performance. On
+            # a lagging system, good internal performance is meaningless.
+            service_end = time.perf_counter()
+            self.service_time.update(service_end - service_start)
         logger.info(__(
             "Stopping Resolwe listener on channel '{}'.",
             state.MANAGER_EXECUTOR_CHANNELS.queue
