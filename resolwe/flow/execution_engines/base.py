@@ -16,3 +16,22 @@ class BaseExecutionEngine(BaseEngine):
     def get_output_schema(self, process):
         """Return any additional output schema for the process."""
         return []
+
+    def discover_process(self, path):
+        """Perform process discovery in given path.
+
+        This method will be called during process registration and
+        should return a list of dictionaries with discovered process
+        schemas.
+        """
+        return []
+
+    def prepare_runtime(self, runtime_dir, data):
+        """Prepare runtime directory.
+
+        This method should return a dictionary of volume maps, where
+        keys are files or directories relative the the runtime directory
+        and values are paths under which these should be made available
+        to the executing program. All volumes will be read-only.
+        """
+        pass

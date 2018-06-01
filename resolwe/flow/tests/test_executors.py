@@ -13,7 +13,7 @@ from guardian.shortcuts import assign_perm
 
 from resolwe.flow.executors.prepare import BaseFlowExecutorPreparer
 from resolwe.flow.managers import manager
-from resolwe.flow.models import Collection, Data, DataDependency, DescriptorSchema, Process
+from resolwe.flow.models import Collection, Data, DataDependency, DescriptorSchema, Process, Storage
 from resolwe.test import ProcessTestCase, TestCase, tag_process, with_docker_executor, with_null_executor
 
 # Workaround for false positive warnings in pylint.
@@ -278,3 +278,32 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.assertEqual(data.output, {})
         self.assertEqual(data.status, Data.STATUS_DONE)
         self.assertEqual(data.process_error, [])
+
+    @with_docker_executor
+    @tag_process('test-python-process')
+    def test_python_process(self):
+        with self.preparation_stage():
+            input_data = self.run_process('test-save-number', {'number': 19})
+
+            storage = Storage.objects.create(
+                name="storage",
+                contributor=self.user,
+                data_id=input_data.pk,
+                json={'value': 42}
+            )
+
+        data = self.run_process('test-python-process', {
+            'my_field': "bar",
+            'my_list': ["one", "two", "three"],
+            'bar': input_data.pk,
+            'url': {'url': "https://www.genialis.com"},
+            'input_data': input_data.pk,
+            'integer': 42,
+            'my_float': 0.42,
+            'my_json': storage.pk,
+            'my_group': {
+                'bar': 'my string',
+                'foo': 21,
+            }
+        })
+        self.assertEqual(data.output['my_output'], 'OK')

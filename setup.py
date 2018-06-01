@@ -52,6 +52,7 @@ setuptools.setup(
         'Jinja2>=2.9.6',
         'wrapt>=1.10.8',
         'shellescape>=3.4.1',
+        'asteval~=0.9.12',
         # XXX: djangorestframework-filters has too open requirement for
         # django-filter and doesn't work with the latest version, so we
         # have to pin it
@@ -60,6 +61,7 @@ setuptools.setup(
         'channels~=2.1',
         'channels_redis_persist~=2.2',
         'async-timeout~=2.0',
+        'plumbum~=1.6.6',
     ],
     extras_require={
         'docs': ['sphinx_rtd_theme'],

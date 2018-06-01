@@ -1,6 +1,8 @@
 """An execution engine that supports workflow specifications."""
 import collections
 
+import yaml
+
 from django.db import transaction
 
 from resolwe.flow.execution_engines.base import BaseExecutionEngine
@@ -14,6 +16,36 @@ class ExecutionEngine(BaseExecutionEngine):
     """An execution engine that supports workflow specifications."""
 
     name = 'workflow'
+
+    def discover_process(self, path):
+        """Perform process discovery in given path.
+
+        This method will be called during process registration and
+        should return a list of dictionaries with discovered process
+        schemas.
+        """
+        if not path.lower().endswith(('.yml', '.yaml')):
+            return []
+
+        with open(path) as fn:
+            schemas = yaml.load(fn)
+        if not schemas:
+            # TODO: Logger.
+            # self.stderr.write("Could not read YAML file {}".format(schema_file))
+            return []
+
+        process_schemas = []
+        for schema in schemas:
+            if 'run' not in schema:
+                continue
+
+            # NOTE: This currently assumes that 'bash' is the default.
+            if schema['run'].get('language', 'bash') != 'workflow':
+                continue
+
+            process_schemas.append(schema)
+
+        return process_schemas
 
     def get_output_schema(self, process):
         """Return any additional output schema for the process."""

@@ -21,6 +21,7 @@ Added
 
 Added
 -----
+- Python execution engine
 - Use batching for ES index builds
 
 Fixed

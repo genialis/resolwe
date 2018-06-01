@@ -157,6 +157,7 @@ FLOW_EXPRESSION_ENGINES = [
 ]
 FLOW_EXECUTION_ENGINES = [
     'resolwe.flow.execution_engines.bash',
+    'resolwe.flow.execution_engines.python',
     'resolwe.flow.execution_engines.workflow',
 ]
 

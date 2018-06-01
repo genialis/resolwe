@@ -173,6 +173,17 @@ class FlowExecutor(LocalFlowExecutor):
 
         volumes += self.tools_volumes
 
+        # Create volumes for runtime (all read-only).
+        runtime_volume_maps = SETTINGS.get('RUNTIME_VOLUME_MAPS', None)
+        if runtime_volume_maps:
+            for src, dst in runtime_volume_maps.items():
+                volumes.append(new_volume(
+                    'runtime',
+                    'RUNTIME_DIR',
+                    dst,
+                    [self.data_id, src],
+                ))
+
         # Add any extra volumes verbatim.
         volumes += SETTINGS.get('FLOW_DOCKER_EXTRA_VOLUMES', [])
 

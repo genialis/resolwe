@@ -2,6 +2,7 @@
 import copy
 
 import shellescape
+import yaml
 
 from django.conf import settings
 
@@ -21,6 +22,36 @@ class ExecutionEngine(BaseExecutionEngine):
     """An execution engine that outputs bash programs."""
 
     name = 'bash'
+
+    def discover_process(self, path):
+        """Perform process discovery in given path.
+
+        This method will be called during process registration and
+        should return a list of dictionaries with discovered process
+        schemas.
+        """
+        if not path.lower().endswith(('.yml', '.yaml')):
+            return []
+
+        with open(path) as fn:
+            schemas = yaml.load(fn)
+        if not schemas:
+            # TODO: Logger.
+            # self.stderr.write("Could not read YAML file {}".format(schema_file))
+            return []
+
+        process_schemas = []
+        for schema in schemas:
+            if 'run' not in schema:
+                continue
+
+            # NOTE: This currently assumes that 'bash' is the default.
+            if schema['run'].get('language', 'bash') != 'bash':
+                continue
+
+            process_schemas.append(schema)
+
+        return process_schemas
 
     def evaluate(self, data):
         """Evaluate the code needed to compute a given Data object."""

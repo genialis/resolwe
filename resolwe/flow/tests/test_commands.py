@@ -28,10 +28,6 @@ class ProcessRegisterTest(TestCase):
         call_command('register', stdout=out, stderr=err)
         self.assertTrue('Inserted test-min' in out.getvalue())
         self.assertTrue('Skip processor test-min: newer version installed' in err.getvalue())
-        self.assertTrue(
-            'Skip processor test-broken-invalid-execution-engine: '
-            'execution engine \'invalid\' not supported' in err.getvalue()
-        )
 
         # Check that contributor gets all permissions.
         process = Process.objects.first()

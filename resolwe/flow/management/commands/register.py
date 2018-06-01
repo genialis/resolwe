@@ -30,6 +30,9 @@ from resolwe.permissions.utils import assign_contributor_permissions, copy_permi
 PROCESSOR_SCHEMA = validation_schema('processor')
 DESCRIPTOR_SCHEMA = validation_schema('descriptor')
 
+SCHEMA_TYPE_DESCRIPTOR = 'descriptor'
+SCHEMA_TYPE_PROCESS = 'process'
+
 
 class Command(BaseCommand):
     """Register processes."""
@@ -66,8 +69,28 @@ class Command(BaseCommand):
 
         return True
 
-    def find_schemas(self, schema_path, schema_type='process', verbosity=1):
-        """Find process and descriptor schemas in given path."""
+    def find_descriptor_schemas(self, schema_file):
+        """Find descriptor schemas in given path."""
+        if not schema_file.lower().endswith(('.yml', '.yaml')):
+            return []
+
+        with open(schema_file) as fn:
+            schemas = yaml.load(fn)
+        if not schemas:
+            self.stderr.write("Could not read YAML file {}".format(schema_file))
+            return []
+
+        descriptor_schemas = []
+        for schema in schemas:
+            if 'schema' not in schema:
+                continue
+
+            descriptor_schemas.append(schema)
+
+        return descriptor_schemas
+
+    def find_schemas(self, schema_path, schema_type=SCHEMA_TYPE_PROCESS, verbosity=1):
+        """Find schemas in packages that match filters."""
         schema_matches = []
 
         if not os.path.isdir(schema_path):
@@ -75,28 +98,22 @@ class Command(BaseCommand):
                 self.stdout.write("Invalid path {}".format(schema_path))
             return
 
-        if schema_type not in ['process', 'descriptor']:
+        if schema_type not in [SCHEMA_TYPE_PROCESS, SCHEMA_TYPE_DESCRIPTOR]:
             raise ValueError('Invalid schema type')
 
         for root, _, files in os.walk(schema_path):
             for schema_file in [os.path.join(root, fn) for fn in files]:
-
-                if not schema_file.lower().endswith(('.yml', '.yaml')):
-                    continue
-
-                with open(schema_file) as fn:
-                    schemas = yaml.load(fn)
-                if not schemas:
-                    self.stderr.write("Could not read YAML file {}".format(schema_file))
-                    continue
+                schemas = None
+                if schema_type == SCHEMA_TYPE_DESCRIPTOR:
+                    # Discover descriptors.
+                    schemas = self.find_descriptor_schemas(schema_file)
+                elif schema_type == SCHEMA_TYPE_PROCESS:
+                    # Perform process discovery for all supported execution engines.
+                    schemas = []
+                    for execution_engine in manager.execution_engines.values():
+                        schemas.extend(execution_engine.discover_process(schema_file))
 
                 for schema in schemas:
-                    if schema_type == 'process' and 'run' not in schema:
-                        continue
-
-                    if schema_type == 'descriptor' and 'schema' not in schema:
-                        continue
-
                     schema_matches.append(schema)
 
         return schema_matches
@@ -318,11 +335,11 @@ class Command(BaseCommand):
 
         for proc_path in process_paths:
             process_schemas.extend(
-                self.find_schemas(proc_path, schema_type='process', verbosity=verbosity))
+                self.find_schemas(proc_path, schema_type=SCHEMA_TYPE_PROCESS, verbosity=verbosity))
 
         for desc_path in descriptor_paths:
             descriptor_schemas.extend(
-                self.find_schemas(desc_path, schema_type='descriptor', verbosity=verbosity))
+                self.find_schemas(desc_path, schema_type=SCHEMA_TYPE_DESCRIPTOR, verbosity=verbosity))
 
         user_admin = users.first()
         self.register_processes(process_schemas, user_admin, force, verbosity=verbosity)

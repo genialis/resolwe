@@ -701,8 +701,14 @@ class Manager:
             program = self._include_environment_variables(program)
             data_dir = self._prepare_data_dir(data.id)
             executor_module, runtime_dir = self._prepare_executor(data.id, executor)
-            self._prepare_context(data.id, data_dir, runtime_dir)
+
+            # Execute execution engine specific runtime preparation.
+            execution_engine = data.process.run.get('language', None)
+            volume_maps = self.get_execution_engine(execution_engine).prepare_runtime(runtime_dir, data)
+
+            self._prepare_context(data.id, data_dir, runtime_dir, RUNTIME_VOLUME_MAPS=volume_maps)
             self._prepare_script(runtime_dir, program)
+
             argv = [
                 '/bin/bash',
                 '-c',
