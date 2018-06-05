@@ -10,8 +10,6 @@ Resolwe Test Framework
    :members:
 
 """
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 from resolwe.test.testcases import (
     ElasticSearchTestCase, TestCase, TestCaseHelpers, TransactionElasticSearchTestCase, TransactionTestCase,
 )

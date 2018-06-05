@@ -44,7 +44,7 @@ Extensions can be registered using a simple API:
 
 .. code:: python
 
-    class MyExtension(object):
+    class MyExtension:
         pass
 
     composer.add_extension('fully.qualified.type.Path', MyExtension)
@@ -61,7 +61,7 @@ defining an extension as follows:
 
 .. code:: python
 
-    class ExtendedDataIndex(object):
+    class ExtendedDataIndex:
         """Data ES index extensions."""
         mapping = {
             'source': 'output.source',
@@ -80,7 +80,7 @@ defining an extension as follows:
 
 .. code:: python
 
-    class ExtendedDataDocument(object):
+    class ExtendedDataDocument:
         """Data ES document extensions."""
         source = dsl.String(index='not_analyzed')
         species = dsl.String(index='not_analyzed')
@@ -97,7 +97,7 @@ extension as follows:
 
 .. code:: python
 
-    class ExtendedDataViewSet(object):
+    class ExtendedDataViewSet:
         """Data viewset extensions."""
         filtering_fields = ('source', 'species', 'build', 'feature_type')
 

@@ -5,8 +5,6 @@ Resolwe Test Helpers and Decorators
 ===================================
 
 """
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import functools
 import os
 import shlex
@@ -14,15 +12,10 @@ import shutil
 import subprocess
 import unittest
 
-import six
 import wrapt
 
 from django.conf import settings
 from django.test import override_settings, tag
-
-if six.PY2:
-    # Monkey-patch shutil package with which function (available in Python 3.3+)
-    import shutilwhich  # pylint: disable=import-error,unused-import
 
 __all__ = (
     'check_installed', 'check_docker', 'with_custom_executor', 'with_docker_executor',

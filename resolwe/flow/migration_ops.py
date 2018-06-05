@@ -11,7 +11,7 @@ from resolwe.flow.utils import dict_dot
 FIELD_SCHEMA = validation_schema('field')
 
 
-class DataDefaultOperation(object):
+class DataDefaultOperation:
     """Abstract data default generator."""
 
     def prepare(self, data, from_state):

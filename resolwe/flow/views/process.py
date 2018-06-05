@@ -1,6 +1,4 @@
 """Process viewset."""
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 from rest_framework import exceptions, mixins, viewsets
 
 from resolwe.flow.filters import ProcessFilter
@@ -32,4 +30,4 @@ class ProcessViewSet(ResolweCreateModelMixin,
         if not request.user.is_superuser:
             raise exceptions.NotFound
 
-        return super(ProcessViewSet, self).create(request, *args, **kwargs)
+        return super().create(request, *args, **kwargs)

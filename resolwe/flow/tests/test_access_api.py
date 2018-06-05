@@ -1,6 +1,4 @@
 # pylint: disable=missing-docstring
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import sys
 import unittest
 
@@ -71,7 +69,7 @@ echo "{\"collection-list\": $(curl --silent --show-error $RESOLWE_HOST_URL/colle
 
     def setUp(self):
         """Custom initilization of :class:`~ProcessTestCase`."""
-        super(AccessAPIFromExecutorProcessTestCase, self).setUp()
+        super().setUp()
 
         self.process = self.create_process()
 

@@ -1,9 +1,5 @@
 # pylint: disable=missing-docstring
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import datetime
-
-import six
 
 from django.contrib.auth import get_user_model
 
@@ -89,7 +85,7 @@ class DataFilterTestCase(TestCase):
 
     def _apply_filter(self, filters, expected):
         filtered = DataFilter(filters, queryset=Data.objects.all())
-        six.assertCountEqual(self, filtered.qs, expected)
+        self.assertCountEqual(filtered.qs, expected)
 
     def test_filter_id(self):
         self._apply_filter({'id': self.data_1.pk}, [self.data_1])
@@ -227,7 +223,7 @@ class CollectionFilterTestCase(TestCase):
 
     def _apply_filter(self, filters, expected):
         filtered = CollectionFilter(filters, queryset=Collection.objects.all())
-        six.assertCountEqual(self, filtered.qs, expected)
+        self.assertCountEqual(filtered.qs, expected)
 
     def test_filter_id(self):
         self._apply_filter({'id': self.collection_1.pk}, [self.collection_1])
@@ -281,7 +277,7 @@ class EntityFilterTestCase(TestCase):
 
     def _apply_filter(self, filters, expected):
         filtered = EntityFilter(filters, queryset=Entity.objects.all())
-        six.assertCountEqual(self, filtered.qs, expected)
+        self.assertCountEqual(filtered.qs, expected)
 
     def test_descriptor_completed(self):
         self._apply_filter({'descriptor_completed': 'true'}, [self.entity_1])

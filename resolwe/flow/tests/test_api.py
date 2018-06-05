@@ -1,6 +1,4 @@
 # pylint: disable=missing-docstring
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import datetime
 
 import mock
@@ -32,7 +30,7 @@ MESSAGES = {
 
 class TestDataViewSetCase(TestCase):
     def setUp(self):
-        super(TestDataViewSetCase, self).setUp()
+        super().setUp()
 
         self.data_viewset = DataViewSet.as_view(actions={
             'get': 'list',
@@ -427,7 +425,7 @@ class TestDataViewSetFilters(TestCase):
 
 class TestCollectionViewSetCase(TestCase):
     def setUp(self):
-        super(TestCollectionViewSetCase, self).setUp()
+        super().setUp()
 
         self.checkslug_viewset = CollectionViewSet.as_view(actions={
             'get': 'slug_exists',
@@ -542,7 +540,7 @@ class TestCollectionViewSetCase(TestCase):
 
         # user w/o permissions cannot add data
         resp = self.add_data_viewset(request, pk=c.pk)
-        self.assertEqual(resp.data[u'detail'], MESSAGES['NO_PERMS'])
+        self.assertEqual(resp.data['detail'], MESSAGES['NO_PERMS'])
         self.assertEqual(c.data.count(), 0)
 
         assign_perm('add_collection', self.contributor, c)
@@ -558,7 +556,7 @@ class TestCollectionViewSetCase(TestCase):
 
         # user w/o permissions cannot remove data
         resp = self.remove_data_viewset(request, pk=c.pk)
-        self.assertEqual(resp.data[u'detail'], MESSAGES['NO_PERMS'])
+        self.assertEqual(resp.data['detail'], MESSAGES['NO_PERMS'])
         self.assertEqual(c.data.count(), 1)
 
         assign_perm('add_collection', self.contributor, c)
@@ -633,7 +631,7 @@ class ProcessTestCase(ResolweAPITestCase):
         self.resource_name = 'process'
         self.viewset = ProcessViewSet
 
-        super(ProcessTestCase, self).setUp()
+        super().setUp()
 
     def test_create_new(self):
         post_data = {
@@ -653,7 +651,7 @@ class ProcessTestCase(ResolweAPITestCase):
 
 class EntityViewSetTest(TestCase):
     def setUp(self):
-        super(EntityViewSetTest, self).setUp()
+        super().setUp()
 
         self.collection = Collection.objects.create(name="Test Collection", contributor=self.contributor)
         self.collection2 = Collection.objects.create(name="Test Collection 2", contributor=self.contributor)

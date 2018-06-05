@@ -7,7 +7,7 @@ Resolwe Utilities
 """
 
 
-class BraceMessage(object):
+class BraceMessage:
     """Log messages with the new {}-string formatting syntax.
 
     .. note::

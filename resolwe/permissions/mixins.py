@@ -1,6 +1,4 @@
 """Permissions functions used in Resolwe Viewsets."""
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 from distutils.util import strtobool  # pylint: disable=import-error,no-name-in-module
 
 from django.contrib.contenttypes.models import ContentType
@@ -27,7 +25,7 @@ class CurrentUserPermissionsSerializer(serializers.Serializer):  # pylint: disab
     )
 
 
-class ResolwePermissionsMixin(object):
+class ResolwePermissionsMixin:
     """Mixin to support managing `Resolwe` objects' permissions."""
 
     def get_serializer_class(self):
@@ -36,21 +34,21 @@ class ResolwePermissionsMixin(object):
         Include permissions information with objects.
 
         """
-        base_class = super(ResolwePermissionsMixin, self).get_serializer_class()
+        base_class = super().get_serializer_class()
 
         class SerializerWithPermissions(base_class):
             """Augment serializer class."""
 
             def get_fields(serializer_self):  # pylint: disable=no-self-argument
                 """Return serializer's fields."""
-                fields = super(SerializerWithPermissions, serializer_self).get_fields()
+                fields = super().get_fields()
                 fields['current_user_permissions'] = CurrentUserPermissionsSerializer(read_only=True)
                 return fields
 
             def to_representation(serializer_self, instance):  # pylint: disable=no-self-argument
                 """Object serializer."""
                 # TODO: These permissions queries may be expensive. Should we limit or optimize this?
-                data = super(SerializerWithPermissions, serializer_self).to_representation(instance)
+                data = super().to_representation(instance)
                 data['current_user_permissions'] = get_object_perms(instance, self.request.user)
                 return data
 

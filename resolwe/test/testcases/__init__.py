@@ -19,13 +19,10 @@ Resolwe Test Cases
 
 """
 
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import copy
 import os
 import shutil
-
-import six
+import unittest
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -121,7 +118,7 @@ class TestCaseHelpers(DjangoSimpleTestCase):
         self.assertEqual(type(actual), type(expected), msg=msg)
 
         if isinstance(actual, dict):
-            six.assertCountEqual(self, actual.keys(), expected.keys(), msg=msg)
+            self.assertCountEqual(actual.keys(), expected.keys(), msg=msg)
             for key in actual.keys():
                 self.assertAlmostEqualGeneric(actual[key], expected[key], msg=msg)
         elif isinstance(actual, (list, tuple)):

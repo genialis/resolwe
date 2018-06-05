@@ -7,8 +7,6 @@ Resolwe Exceptions Utils
 Utils functions for working with exceptions.
 
 """
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 from django.core.exceptions import ValidationError
 
 from rest_framework.response import Response

@@ -42,7 +42,7 @@ TESTING_CONTEXT = {
 }
 
 
-class TestingContext(object):
+class TestingContext:
     """Context manager which maintains current testing status."""
 
     def __enter__(self):
@@ -57,7 +57,7 @@ class TestingContext(object):
         return False
 
 
-class AtScopeExit(object):
+class AtScopeExit:
     """Utility class for calling a function once a context exits."""
 
     def __init__(self, call, *args, **kwargs):

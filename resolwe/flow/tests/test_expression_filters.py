@@ -1,6 +1,4 @@
 # pylint: disable=missing-docstring
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 from asgiref.sync import async_to_sync
 
 from resolwe.flow.expression_engines import EvaluationError

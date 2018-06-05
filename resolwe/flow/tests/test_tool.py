@@ -1,6 +1,4 @@
 # pylint: disable=missing-docstring
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 from resolwe.flow.models import Process
 from resolwe.test import TestCase
 
@@ -8,7 +6,7 @@ from resolwe.test import TestCase
 class ManagerTest(TestCase):
 
     def setUp(self):
-        super(ManagerTest, self).setUp()
+        super().setUp()
 
         self.data = {'name': 'Test Process',
                      'contributor': self.contributor,

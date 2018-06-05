@@ -1,6 +1,4 @@
 """Resolwe storage model."""
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 from django.contrib.postgres.fields import JSONField
 from django.db import models
 
@@ -49,7 +47,7 @@ class Storage(BaseModel):
     objects = StorageManager()
 
 
-class LazyStorageJSON(object):
+class LazyStorageJSON:
     """Lazy load `json` attribute of `Storage` object."""
 
     def __init__(self, **kwargs):

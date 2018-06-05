@@ -1,8 +1,4 @@
 """Custom database fields."""
-from __future__ import absolute_import, division, print_function, unicode_literals
-
-from six import string_types
-
 from django.db import DatabaseError, connection
 from django.db.models import constants
 from django.db.models.fields import SlugField
@@ -20,18 +16,18 @@ class ResolweSlugField(SlugField):
 
         # unique_with value can be string or tuple
         self.unique_with = kwargs.pop('unique_with', ())
-        if isinstance(self.unique_with, string_types):
+        if isinstance(self.unique_with, str):
             self.unique_with = (self.unique_with,)
 
         if self.unique_with:
             # we will do "manual" granular check below
             kwargs['unique'] = False
 
-        super(ResolweSlugField, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def deconstruct(self):
         """Deconstruct method."""
-        name, path, args, kwargs = super(ResolweSlugField, self).deconstruct()
+        name, path, args, kwargs = super().deconstruct()
 
         if self.populate_from is not None:
             kwargs['populate_from'] = self.populate_from

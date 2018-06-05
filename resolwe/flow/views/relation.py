@@ -1,7 +1,5 @@
 """Relation viewset."""
-from __future__ import absolute_import, division, print_function, unicode_literals
-
-import six
+from itertools import zip_longest
 
 from django.db import IntegrityError, transaction
 
@@ -74,7 +72,7 @@ class RelationViewSet(mixins.CreateModelMixin,
             queryset = queryset.filter(collection__pk=collection[0])
 
         if entities:
-            for entity, position in six.moves.zip_longest(entities, positions or []):
+            for entity, position in zip_longest(entities, positions or []):
                 filter_params = {'entities__pk': entity}
                 if position:
                     filter_params['positioninrelation__position'] = position
@@ -107,10 +105,10 @@ class RelationViewSet(mixins.CreateModelMixin,
         request.data['contributor'] = user.pk
 
         try:
-            return super(RelationViewSet, self).create(request, *args, **kwargs)
+            return super().create(request, *args, **kwargs)
 
         except IntegrityError as ex:
-            return Response({u'error': str(ex)}, status=status.HTTP_409_CONFLICT)
+            return Response({'error': str(ex)}, status=status.HTTP_409_CONFLICT)
 
     def perform_create(self, serializer):
         """Create a relation."""
@@ -119,7 +117,7 @@ class RelationViewSet(mixins.CreateModelMixin,
 
             assign_contributor_permissions(instance)
 
-    @detail_route(methods=[u'post'])
+    @detail_route(methods=['post'])
     def add_entity(self, request, pk=None):
         """Add ``Entity`` to ``Relation``."""
         relation = self.get_object()
@@ -130,7 +128,7 @@ class RelationViewSet(mixins.CreateModelMixin,
 
         return Response()
 
-    @detail_route(methods=[u'post'])
+    @detail_route(methods=['post'])
     def remove_entity(self, request, pk=None):
         """Remove data from collection."""
         if 'ids' not in request.data:

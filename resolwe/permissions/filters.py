@@ -5,8 +5,6 @@ Permissions Filter
 ==================
 
 """
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 from rest_framework.filters import BaseFilterBackend
 
 from resolwe.permissions.shortcuts import get_objects_for_user

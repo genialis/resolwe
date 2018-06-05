@@ -1,12 +1,9 @@
 # pylint: disable=missing-docstring
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import io
 import json
 import os
 import shutil
 
-import six
 from mock import MagicMock, patch
 
 from django.conf import settings
@@ -257,7 +254,7 @@ class DataModelTest(TestCase):
 class EntityModelTest(TestCase):
 
     def setUp(self):
-        super(EntityModelTest, self).setUp()
+        super().setUp()
 
         DescriptorSchema.objects.create(name='Sample', slug='sample', contributor=self.contributor)
         self.process = Process.objects.create(name='Test process',
@@ -298,7 +295,7 @@ class EntityModelTest(TestCase):
 class GetOrCreateTestCase(APITestCase):
 
     def setUp(self):
-        super(GetOrCreateTestCase, self).setUp()
+        super().setUp()
 
         user_model = get_user_model()
         self.user = user_model.objects.create(username='test_user', password='test_pwd')
@@ -341,7 +338,7 @@ class GetOrCreateTestCase(APITestCase):
             data_dir = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.id))
             shutil.rmtree(data_dir, ignore_errors=True)
 
-        super(GetOrCreateTestCase, self).tearDown()
+        super().tearDown()
 
     def test_get_same(self):
         request = self.factory.post(
@@ -440,7 +437,7 @@ class GetOrCreateTestCase(APITestCase):
 class HydrateFileSizeUnitTest(TestCase):
 
     def setUp(self):
-        super(HydrateFileSizeUnitTest, self).setUp()
+        super().setUp()
 
         self.process = Process(
             output_schema=[
@@ -520,7 +517,7 @@ class HydrateFileSizeUnitTest(TestCase):
 class StorageModelTestCase(TestCase):
 
     def setUp(self):
-        super(StorageModelTestCase, self).setUp()
+        super().setUp()
 
         self.proc = Process.objects.create(
             name='Test process',
@@ -557,8 +554,7 @@ class StorageModelTestCase(TestCase):
         data.output = {'json_field': 'json.txt'}
         data.status = Data.STATUS_DONE
 
-        # NOTE: io.StringIO expects a Python 3 (unicode) string
-        json_file = io.StringIO(six.u(json.dumps({'foo': 'bar'})))
+        json_file = io.StringIO(json.dumps({'foo': 'bar'}))
 
         isfile_mock = MagicMock(return_value=True)
         open_mock = MagicMock(return_value=json_file)

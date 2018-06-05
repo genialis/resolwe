@@ -1,6 +1,4 @@
 # pylint: disable=missing-docstring
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 from rest_framework import status
 
 from resolwe.flow.models import Collection
@@ -8,8 +6,8 @@ from resolwe.flow.views import CollectionViewSet
 from resolwe.test import ResolweAPITestCase
 
 MESSAGES = {
-    u'NOT_FOUND': u'Not found.',
-    u'NO_PERMISSION': u'You do not have permission to perform this action.',
+    'NOT_FOUND': 'Not found.',
+    'NO_PERMISSION': 'You do not have permission to perform this action.',
 }
 
 
@@ -27,7 +25,7 @@ class CollectionTestCase(ResolweAPITestCase):
             'slug': 'test_collection',
         }
 
-        super(CollectionTestCase, self).setUp()
+        super().setUp()
 
     def test_get_list(self):
         resp = self._get_list(self.user1)
@@ -69,12 +67,12 @@ class CollectionTestCase(ResolweAPITestCase):
         # public user w/ perm
         resp = self._get_detail(1)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(resp.data[u'id'], 1)
+        self.assertEqual(resp.data['id'], 1)
 
         # public user w/o perm
         resp = self._get_detail(2)
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertEqual(resp.data[u'detail'], MESSAGES['NOT_FOUND'])
+        self.assertEqual(resp.data['detail'], MESSAGES['NOT_FOUND'])
 
         # user w/ permissions
         resp = self._get_detail(1, self.user1)
@@ -86,7 +84,7 @@ class CollectionTestCase(ResolweAPITestCase):
         # user w/o permissions
         resp = self._get_detail(2, self.user2)
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertEqual(resp.data[u'detail'], MESSAGES['NOT_FOUND'])
+        self.assertEqual(resp.data['detail'], MESSAGES['NOT_FOUND'])
 
         # user w/ public permissions
         resp = self._get_detail(1, self.user2)

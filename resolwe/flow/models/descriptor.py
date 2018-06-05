@@ -1,6 +1,4 @@
 """Resolwe descriptor schema model."""
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 from django.contrib.postgres.fields import JSONField
 from django.db import models
 

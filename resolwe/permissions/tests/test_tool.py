@@ -1,6 +1,4 @@
 # pylint: disable=missing-docstring
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 from rest_framework import status
 
 from resolwe.flow.models import Process
@@ -25,7 +23,7 @@ class ProcessTestCase(ResolweAPITestCase):
         self.resource_name = 'process'
         self.viewset = ProcessViewSet
 
-        super(ProcessTestCase, self).setUp()
+        super().setUp()
 
     def test_get_list(self):
         resp = self._get_list(self.user1)

@@ -1,7 +1,7 @@
 """Protocol constants used by the manager and executors."""
 
 
-class WorkerProtocol(object):
+class WorkerProtocol:
     """Constants used by the manager workers."""
 
     COMMAND = 'command'
@@ -18,7 +18,7 @@ class WorkerProtocol(object):
     ABORT = 'abort_data'
 
 
-class ExecutorProtocol(object):
+class ExecutorProtocol:
     """Constants used by the executor<->listener protocol."""
 
     COMMAND = 'command'
@@ -42,7 +42,7 @@ class ExecutorProtocol(object):
     LOG_MESSAGE = 'message'
 
 
-class ExecutorFiles(object):
+class ExecutorFiles:
     """Various files used by the executor."""
 
     FILE_LIST_KEY = 'serialized_files'

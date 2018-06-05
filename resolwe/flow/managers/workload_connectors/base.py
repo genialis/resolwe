@@ -7,7 +7,7 @@ Abstract Workload Manager Connector
 """
 
 
-class BaseConnector(object):
+class BaseConnector:
     """The abstract base class for workload manager connectors.
 
     The main :class:`~resolwe.flow.managers.dispatcher.Manager` instance

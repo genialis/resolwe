@@ -23,8 +23,6 @@ For building the index for the first time or manually updating it, run::
 .. automodule:: resolwe.elastic.management.commands
 
 """
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 from elasticsearch_dsl.connections import connections
 
 default_app_config = 'resolwe.elastic.apps.ElasticConfig'  # pylint: disable=invalid-name

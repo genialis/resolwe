@@ -1,6 +1,4 @@
 """Local workflow executor."""
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import logging
 
 from ..manager_commands import send_manager_command

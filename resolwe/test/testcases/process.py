@@ -5,8 +5,6 @@
 
 """
 
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import contextlib
 import gzip
 import hashlib
@@ -17,14 +15,12 @@ import shutil
 import time
 import uuid
 import zipfile
-
-from six.moves import filterfalse
+from itertools import filterfalse
 
 from django.conf import settings
 from django.core import management
 from django.db import transaction
 from django.utils.crypto import get_random_string
-from django.utils.six import StringIO
 from django.utils.text import slugify
 
 from resolwe.flow.models import Collection, Data, DescriptorSchema, Process, Storage
@@ -36,7 +32,7 @@ from ..utils import get_processes_from_tags, has_process_tag
 SCHEMAS_FIXTURE_CACHE = None
 
 
-class TestProfiler(object):
+class TestProfiler:
     """Simple test profiler."""
 
     def __init__(self, test):
@@ -168,7 +164,7 @@ class ProcessTestCase(TransactionTestCase):
         if not SCHEMAS_FIXTURE_CACHE:
             SCHEMAS_FIXTURE_CACHE = {}
 
-        stdout, stderr = StringIO(), StringIO()
+        stdout, stderr = io.StringIO(), io.StringIO()
 
         if cache_key in SCHEMAS_FIXTURE_CACHE:
             for schemas in schemas_types:

@@ -1,6 +1,4 @@
 # pylint: disable=missing-docstring
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 from guardian.shortcuts import assign_perm
 from rest_framework.test import APIRequestFactory
 
@@ -11,7 +9,7 @@ from resolwe.test import TestCase
 
 class CollectionSerializerTest(TestCase):
     def setUp(self):
-        super(CollectionSerializerTest, self).setUp()
+        super().setUp()
 
         process = Process.objects.create(
             name='Test process',
@@ -60,7 +58,7 @@ class CollectionSerializerTest(TestCase):
 
 class EntitySerializerTest(TestCase):
     def setUp(self):
-        super(EntitySerializerTest, self).setUp()
+        super().setUp()
 
         process = Process.objects.create(
             name='Test process',

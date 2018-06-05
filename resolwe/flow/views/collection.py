@@ -1,6 +1,4 @@
 """Collection viewset."""
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 from distutils.util import strtobool  # pylint: disable=import-error,no-name-in-module
 
 from django.db.models.query import Prefetch
@@ -58,7 +56,7 @@ class CollectionViewSet(ResolweCreateModelMixin,
         if not request.user.is_authenticated:
             raise exceptions.NotFound
 
-        return super(CollectionViewSet, self).create(request, *args, **kwargs)
+        return super().create(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
         """Destroy a model instance.
@@ -79,9 +77,9 @@ class CollectionViewSet(ResolweCreateModelMixin,
                 if user.has_perm('edit_data', data):
                     data.delete()
 
-        return super(CollectionViewSet, self).destroy(request, *args, **kwargs)  # pylint: disable=no-member
+        return super().destroy(request, *args, **kwargs)  # pylint: disable=no-member
 
-    @detail_route(methods=[u'post'])
+    @detail_route(methods=['post'])
     def add_data(self, request, pk=None):
         """Add data to collection."""
         collection = self.get_object()
@@ -104,7 +102,7 @@ class CollectionViewSet(ResolweCreateModelMixin,
 
         return Response()
 
-    @detail_route(methods=[u'post'])
+    @detail_route(methods=['post'])
     def remove_data(self, request, pk=None):
         """Remove data from collection."""
         collection = self.get_object()

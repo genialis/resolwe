@@ -5,8 +5,6 @@ Celery Tasks
 ============
 
 """
-from __future__ import absolute_import
-
 import subprocess
 
 from celery import shared_task  # pylint: disable=import-error

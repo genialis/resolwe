@@ -1,6 +1,4 @@
 """Resolwe entity model."""
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 from django.contrib.postgres.fields import ArrayField, JSONField
 from django.db import models
 

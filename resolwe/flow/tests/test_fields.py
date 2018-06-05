@@ -1,14 +1,15 @@
 # pylint: disable=missing-docstring
-from __future__ import absolute_import, division, print_function, unicode_literals
-
-import six
-
 from django.apps import apps
 from django.conf import settings
 from django.core.management import call_command
 from django.db import DatabaseError
 from django.db.utils import DataError
 from django.test import TestCase, override_settings
+
+# Workaround for false positive warnings in pylint.
+# TODO: Can be removed with Django 2.0 or when pylint issue is fixed:
+#       https://github.com/PyCQA/pylint/issues/1653
+# pylint: disable=deprecated-method
 
 CUSTOM_SETTINGS = {
     'INSTALLED_APPS': settings.INSTALLED_APPS + ('resolwe.flow.tests.fields_test_app',),
@@ -19,7 +20,7 @@ CUSTOM_SETTINGS = {
 class FieldsTest(TestCase):
 
     def setUp(self):
-        super(FieldsTest, self).setUp()
+        super().setUp()
 
         apps.clear_cache()
         call_command('migrate', verbosity=0, interactive=False, load_initial_data=False)
@@ -46,7 +47,7 @@ class FieldsTest(TestCase):
         # It is ok to add a sequence to slug if it is not explicitly defined.
         TestModel.objects.create(name='Test object')
 
-        with six.assertRaisesRegex(self, DatabaseError, 'is already taken'):
+        with self.assertRaisesRegex(DatabaseError, 'is already taken'):
             TestModel.objects.create(name='Test object', slug=obj.slug)
 
     def test_predefined_long_slugs(self):
@@ -59,7 +60,7 @@ class FieldsTest(TestCase):
         obj = TestModel.objects.create(name='Test object', slug=max_slug)
         self.assertEqual(obj.slug, max_slug)
 
-        with six.assertRaisesRegex(self, DataError, 'value too long'):
+        with self.assertRaisesRegex(DataError, 'value too long'):
             TestModel.objects.create(name='Test object', slug=max_slug + 'y')
 
     def test_generate_only_on_create(self):
@@ -83,7 +84,7 @@ class FieldsTest(TestCase):
         self.assertEqual(obj.slug, 'test-object')
 
         obj.version = '1.0.0'
-        with six.assertRaisesRegex(self, DatabaseError, 'is already taken'):
+        with self.assertRaisesRegex(DatabaseError, 'is already taken'):
             obj.save()
 
     def test_long_sequence(self):
@@ -92,7 +93,7 @@ class FieldsTest(TestCase):
         TestModel.objects.create(name='Test object', slug='test-object')
         TestModel.objects.create(name='Test object', slug='test-object-999999999')
 
-        with six.assertRaisesRegex(self, DatabaseError, 'slug sequence too long'):
+        with self.assertRaisesRegex(DatabaseError, 'slug sequence too long'):
             TestModel.objects.create(name='Test object')
 
     def test_empty_name(self):

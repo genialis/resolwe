@@ -1,8 +1,4 @@
 # pylint: disable=missing-docstring,invalid-name
-from __future__ import absolute_import, division, print_function, unicode_literals
-
-import six
-
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser, Group
 from django.contrib.contenttypes.models import ContentType
@@ -25,7 +21,7 @@ factory = APIRequestFactory()  # pylint: disable=invalid-name
 class UserGroupTestCase(TestCase):
 
     def setUp(self):
-        super(UserGroupTestCase, self).setUp()
+        super().setUp()
 
         self.group1 = Group.objects.create(name="Test group 1")
         self.group2 = Group.objects.create(name="Test group 2")
@@ -51,7 +47,7 @@ class UserGroupTestCase(TestCase):
         user_perms, group_perms = get_user_group_perms(self.contributor, self.collection)
 
         self.assertEqual(len(group_perms), 0)
-        six.assertCountEqual(self, user_perms, ["view_collection", "edit_collection"])
+        self.assertCountEqual(user_perms, ["view_collection", "edit_collection"])
 
     def test_user_in_group(self):
         self.group1.user_set.add(self.contributor)
@@ -60,16 +56,16 @@ class UserGroupTestCase(TestCase):
 
         user_perms, group_perms = get_user_group_perms(self.contributor, self.collection)
         self.assertEqual(len(group_perms), 1)
-        six.assertCountEqual(self, group_perms[0][2], ["view_collection", "edit_collection"])
+        self.assertCountEqual(group_perms[0][2], ["view_collection", "edit_collection"])
         self.assertEqual(len(user_perms), 0)
 
         assign_perm("view_collection", self.contributor, self.collection)
 
         user_perms, group_perms = get_user_group_perms(self.contributor, self.collection)
         self.assertEqual(len(group_perms), 1)
-        six.assertCountEqual(self, group_perms[0][2], ["view_collection", "edit_collection"])
+        self.assertCountEqual(group_perms[0][2], ["view_collection", "edit_collection"])
         self.assertEqual(len(user_perms), 1)
-        six.assertCountEqual(self, user_perms, ["view_collection"])
+        self.assertCountEqual(user_perms, ["view_collection"])
 
     def test_user_in_multiple_groups(self):
         self.group1.user_set.add(self.contributor)
@@ -81,9 +77,9 @@ class UserGroupTestCase(TestCase):
         user_perms, group_perms = get_user_group_perms(self.contributor, self.collection)
         self.assertEqual(len(group_perms), 2)
         self.assertEqual(group_perms[0][0], self.group1.pk)
-        six.assertCountEqual(self, group_perms[0][2], ["view_collection", "edit_collection"])
+        self.assertCountEqual(group_perms[0][2], ["view_collection", "edit_collection"])
         self.assertEqual(group_perms[1][0], self.group2.pk)
-        six.assertCountEqual(self, group_perms[1][2], ["view_collection"])
+        self.assertCountEqual(group_perms[1][2], ["view_collection"])
         self.assertEqual(len(user_perms), 0)
 
     def test_group(self):
@@ -91,14 +87,14 @@ class UserGroupTestCase(TestCase):
         assign_perm("edit_collection", self.group1, self.collection)
         user_perms, group_perms = get_user_group_perms(self.group1, self.collection)
         self.assertEqual(len(group_perms), 1)
-        six.assertCountEqual(self, group_perms[0][2], ["view_collection", "edit_collection"])
+        self.assertCountEqual(group_perms[0][2], ["view_collection", "edit_collection"])
         self.assertEqual(len(user_perms), 0)
 
 
 class ObjectPermsTestCase(TestCase):
 
     def setUp(self):
-        super(ObjectPermsTestCase, self).setUp()
+        super().setUp()
 
         self.admin.delete()
         self.user1 = get_user_model().objects.create(username="test_user1")
@@ -131,7 +127,7 @@ class ObjectPermsTestCase(TestCase):
             {'permissions': ['view'], 'type': 'user', 'id': self.user2.pk, 'name': 'test_user2'},
         ]
         perms = get_object_perms(self.collection)
-        six.assertCountEqual(self, self._sort_perms(expected_perms), self._sort_perms(perms))
+        self.assertCountEqual(self._sort_perms(expected_perms), self._sort_perms(perms))
 
         assign_perm("view_collection", self.group1, self.collection)
         assign_perm("edit_collection", self.group1, self.collection)
@@ -141,14 +137,14 @@ class ObjectPermsTestCase(TestCase):
             {'permissions': ['view'], 'type': 'group', 'id': self.group2.pk, 'name': 'Test group 2'},
         ])
         perms = get_object_perms(self.collection)
-        six.assertCountEqual(self, self._sort_perms(expected_perms), self._sort_perms(perms))
+        self.assertCountEqual(self._sort_perms(expected_perms), self._sort_perms(perms))
 
         assign_perm("view_collection", self.anonymous, self.collection)
         expected_perms.append(
             {'permissions': ['view'], 'type': 'public'},
         )
         perms = get_object_perms(self.collection)
-        six.assertCountEqual(self, self._sort_perms(expected_perms), self._sort_perms(perms))
+        self.assertCountEqual(self._sort_perms(expected_perms), self._sort_perms(perms))
 
     def test_user_permissions(self):
         self.group1.user_set.add(self.user1)
@@ -165,27 +161,27 @@ class ObjectPermsTestCase(TestCase):
         ]
         perms = get_object_perms(self.collection, self.user1)
 
-        six.assertCountEqual(self, self._sort_perms(expected_perms), self._sort_perms(perms))
+        self.assertCountEqual(self._sort_perms(expected_perms), self._sort_perms(perms))
 
         self.group2.user_set.add(self.user1)
         expected_perms.append(
             {'permissions': ['view'], 'type': 'group', 'id': self.group2.pk, 'name': 'Test group 2'},
         )
         perms = get_object_perms(self.collection, self.user1)
-        six.assertCountEqual(self, self._sort_perms(expected_perms), self._sort_perms(perms))
+        self.assertCountEqual(self._sort_perms(expected_perms), self._sort_perms(perms))
 
         assign_perm("view_collection", self.anonymous, self.collection)
         expected_perms.append(
             {'permissions': ['view'], 'type': 'public'},
         )
         perms = get_object_perms(self.collection, self.user1)
-        six.assertCountEqual(self, self._sort_perms(expected_perms), self._sort_perms(perms))
+        self.assertCountEqual(self._sort_perms(expected_perms), self._sort_perms(perms))
 
 
 class StoragePermsTestCase(TestCase):
 
     def setUp(self):
-        super(StoragePermsTestCase, self).setUp()
+        super().setUp()
 
         proc = Process.objects.create(name='Test process', contributor=self.contributor)
         self.data = Data.objects.create(name='Test data', contributor=self.contributor, process=proc)
@@ -232,8 +228,8 @@ class StoragePermsTestCase(TestCase):
 
         assign_perm("view_data", self.user, self.data)
         resp = self.storage_list_viewset(request)
-        six.assertCountEqual(self, [storage['id'] for storage in resp.data],
-                             [self.storage1.pk, self.storage2.pk])
+        self.assertCountEqual([storage['id'] for storage in resp.data],
+                              [self.storage1.pk, self.storage2.pk])
 
         remove_perm("view_data", self.user, self.data)
         resp = self.storage_list_viewset(request)
@@ -265,7 +261,7 @@ class StoragePermsTestCase(TestCase):
 class GetObjectsForUser(TestCase):
 
     def setUp(self):
-        super(GetObjectsForUser, self).setUp()
+        super().setUp()
 
         self.group = Group.objects.create(name='group')
         self.ctype = ContentType.objects.create(

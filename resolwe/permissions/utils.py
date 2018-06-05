@@ -7,8 +7,6 @@ Permissions utils
 .. autofunction:: copy_permissions
 
 """
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import copy
 
 from django.contrib.auth import get_user_model
@@ -174,7 +172,7 @@ def update_permission(obj, data):
             `~django.contrib.auth.models.Group`
 
         """
-        if perms == u'ALL':
+        if perms == 'ALL':
             perms = full_permissions
         for perm in perms:
             perm_codename = get_full_perm(perm, obj)

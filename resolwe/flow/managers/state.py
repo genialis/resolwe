@@ -42,7 +42,7 @@ def update_constants():
 update_constants()
 
 
-class ManagerState(object):
+class ManagerState:
     """State interface implementation.
 
     This holds variables required to be shared between all manager
@@ -54,7 +54,7 @@ class ManagerState(object):
     ``executor_count += 1``, a load-modify-store operation sequence).
     """
 
-    class LuaFunction(object):
+    class LuaFunction:
         """Wrapper class for Lua function strings."""
 
         def __init__(self, owner, script, short=False):
@@ -84,7 +84,7 @@ class ManagerState(object):
             """Call the underlying Lua function transparently."""
             return self.function(keys=[self.owner.item_name], args=args)
 
-    class RedisAtomicBase(object):
+    class RedisAtomicBase:
         """Base class for atomic data handling."""
 
         def __init__(self, conn, key_prefix, item_name, *args, **kwargs):

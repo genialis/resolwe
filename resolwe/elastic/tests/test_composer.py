@@ -3,7 +3,7 @@ from resolwe.elastic.composer import composer
 from resolwe.test import TestCase
 
 
-class MyExtendableType(object):
+class MyExtendableType:
     pass
 
 

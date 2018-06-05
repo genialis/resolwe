@@ -5,8 +5,6 @@ Flow Serializers
 ================
 
 """
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 from django.contrib import auth
 from django.contrib.auth.models import AnonymousUser
 from django.db import transaction
@@ -46,7 +44,7 @@ class ContributorSerializer(SelectiveFieldMixin, serializers.ModelSerializer):
         if self.Meta.model is None:
             self.Meta.model = auth.get_user_model()
 
-        super(ContributorSerializer, self).__init__(instance, data, **kwargs)
+        super().__init__(instance, data, **kwargs)
 
     def to_internal_value(self, data):
         """Format the internal value."""
@@ -94,7 +92,7 @@ class ResolweBaseSerializer(SelectiveFieldMixin, serializers.ModelSerializer):
             if set(data.keys()).issubset(set(self.Meta.read_only_fields)):  # pylint: disable=no-member
                 raise NoContentError()
 
-        super(ResolweBaseSerializer, self).__init__(instance, data, **kwargs)
+        super().__init__(instance, data, **kwargs)
 
     @property
     def request(self):
@@ -162,7 +160,7 @@ class DataSerializer(ResolweBaseSerializer):
 
     def get_fields(self):
         """Dynamically adapt fields based on the current request."""
-        fields = super(DataSerializer, self).get_fields()
+        fields = super().get_fields()
 
         if self.request.method == "GET":
             fields['descriptor_schema'] = DescriptorSchemaSerializer(required=False)
@@ -212,7 +210,7 @@ class CollectionSerializer(ResolweBaseSerializer):
 
     def get_fields(self):
         """Dynamically adapt fields based on the current request."""
-        fields = super(CollectionSerializer, self).get_fields()
+        fields = super().get_fields()
 
         if self.request.method == "GET":
             fields['data'] = serializers.SerializerMethodField()
@@ -289,7 +287,7 @@ class RelationSerializer(ResolweBaseSerializer):
 
     def get_fields(self):
         """Dynamically adapt fields based on the current request."""
-        fields = super(RelationSerializer, self).get_fields()
+        fields = super().get_fields()
 
         if self.request.method == "GET":
             fields['type'] = serializers.CharField(source='type.name')

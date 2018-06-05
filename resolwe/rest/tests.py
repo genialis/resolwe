@@ -1,9 +1,5 @@
 # pylint: disable=missing-docstring
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import itertools
-
-import six
 
 from rest_framework.test import APIRequestFactory, force_authenticate
 
@@ -16,7 +12,7 @@ factory = APIRequestFactory()  # pylint: disable=invalid-name
 
 class ProjectionTest(TestCase):
     def setUp(self):
-        super(ProjectionTest, self).setUp()
+        super().setUp()
 
         self.entity = Entity.objects.create(name="Test entity", contributor=self.contributor)
         process = Process.objects.create(
@@ -59,28 +55,28 @@ class ProjectionTest(TestCase):
         for field_count in range(1, 3):
             for fields in itertools.combinations(all_fields, field_count):
                 data = self.get_projection(fields)[0]
-                six.assertCountEqual(self, data.keys(), set(fields + ('current_user_permissions',)))
+                self.assertCountEqual(data.keys(), set(fields + ('current_user_permissions',)))
 
         # Test nested projection.
         data = self.get_projection(['data__name'])[0]
-        six.assertCountEqual(self, data.keys(), ['data', 'current_user_permissions'])
+        self.assertCountEqual(data.keys(), ['data', 'current_user_permissions'])
         self.assertEqual(len(data['data']), 2)
         for item in data['data']:
-            six.assertCountEqual(self, item.keys(), ['name'])
+            self.assertCountEqual(item.keys(), ['name'])
 
         # Test top-level JSON projection.
         data = self.get_projection(['data__output'])[0]
-        six.assertCountEqual(self, data.keys(), ['data', 'current_user_permissions'])
+        self.assertCountEqual(data.keys(), ['data', 'current_user_permissions'])
         self.assertEqual(len(data['data']), 2)
         for item in data['data']:
-            six.assertCountEqual(self, item.keys(), ['output'])
+            self.assertCountEqual(item.keys(), ['output'])
             self.assertEqual(item['output'], self.data_output)
 
         # Test nested projection into JSON.
         data = self.get_projection(['data__name', 'data__output__foo__bar'])[0]
         self.assertEqual(len(data['data']), 2)
         for item in data['data']:
-            six.assertCountEqual(self, item.keys(), ['name', 'output'])
-            six.assertCountEqual(self, item['output'].keys(), ['foo'])
-            six.assertCountEqual(self, item['output']['foo'].keys(), ['bar'])
+            self.assertCountEqual(item.keys(), ['name', 'output'])
+            self.assertCountEqual(item['output'].keys(), ['foo'])
+            self.assertCountEqual(item['output']['foo'].keys(), ['bar'])
             self.assertEqual(item['output']['foo']['bar'], 42)

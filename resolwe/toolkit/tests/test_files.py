@@ -7,7 +7,7 @@ from resolwe.test import ProcessTestCase, tag_process, with_docker_executor
 class FilesProcessTestCase(ProcessTestCase):
 
     def setUp(self):
-        super(FilesProcessTestCase, self).setUp()
+        super().setUp()
         self.files_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'files'))
 
     @with_docker_executor

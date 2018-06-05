@@ -32,7 +32,6 @@ import re
 from itertools import groupby
 from operator import itemgetter
 
-import six
 import yaml
 from docutils import nodes
 from docutils.parsers.rst import Directive
@@ -133,7 +132,7 @@ class AutoProcessDirective(Directive):
         name += nodes.Text(field_name)
 
         paragraph = nodes.paragraph()
-        if isinstance(field_body, six.string_types):
+        if isinstance(field_body, str):
             # This is the case when field_body is just a string:
             paragraph += nodes.Text(field_body)
         else:
@@ -229,7 +228,7 @@ class AutoProcessDirective(Directive):
             param = addnodes.desc_parameter('', '', noemph=True)
             param += nodes.emphasis(field_type, field_type, classes=['process-type'])
             # separate by non-breaking space in the output
-            param += nodes.strong(text=u'\xa0\xa0' + field_name)
+            param += nodes.strong(text='\xa0\xa0' + field_name)
 
             paramlist += param
 

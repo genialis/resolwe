@@ -1,6 +1,4 @@
 """Descriptor schema viewset."""
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 from rest_framework import mixins, viewsets
 
 from resolwe.flow.filters import DescriptorSchemaFilter

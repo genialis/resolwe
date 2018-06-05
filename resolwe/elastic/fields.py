@@ -1,6 +1,4 @@
 """Elastic search fields for Resolwe."""
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import elasticsearch_dsl as dsl
 
 # pylint: disable=invalid-name
@@ -47,16 +45,16 @@ ngrams_search_analyzer = dsl.analyzer(
 # pylint: enable=invalid-name
 
 
-class RawKeywordSubfieldMixin(object):
+class RawKeywordSubfieldMixin:
     """String field with a 'raw' subfield (e.g. for sorting)."""
 
     def __init__(self, *args, **kwargs):
         """Construct field."""
         kwargs.setdefault('fields', {})['raw'] = {'type': 'keyword'}
-        super(RawKeywordSubfieldMixin, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
 
-class NgramsSubfieldMixin(object):
+class NgramsSubfieldMixin:
     """String field with a 'ngrams' subfield (e.g. for autocomplete)."""
 
     def __init__(self, *args, **kwargs):
@@ -66,7 +64,7 @@ class NgramsSubfieldMixin(object):
             'analyzer': ngrams_analyzer,
             'search_analyzer': ngrams_search_analyzer,
         }
-        super(NgramsSubfieldMixin, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
 
 class Name(RawKeywordSubfieldMixin, NgramsSubfieldMixin, dsl.Text):
@@ -79,7 +77,7 @@ class Name(RawKeywordSubfieldMixin, NgramsSubfieldMixin, dsl.Text):
     def __init__(self, *args, **kwargs):
         """Construct field."""
         kwargs.setdefault('analyzer', name_analyzer)
-        super(Name, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
 
 class ProcessType(RawKeywordSubfieldMixin, dsl.Text):
@@ -92,7 +90,7 @@ class ProcessType(RawKeywordSubfieldMixin, dsl.Text):
         """Construct field."""
         kwargs.setdefault('analyzer', process_type_analyzer)
         kwargs.setdefault('search_analyzer', process_type_search_analyzer)
-        super(ProcessType, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
 
 class User(NgramsSubfieldMixin, dsl.Text):

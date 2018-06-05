@@ -1,13 +1,10 @@
 """Resolwe models utils."""
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import copy
 import json
 import os
 import re
 
 import jsonschema
-import six
 
 from django.conf import settings
 from django.contrib.staticfiles import finders
@@ -369,7 +366,7 @@ def hydrate_input_uploads(input_, input_schema, hydrate_values=True):
     urlregex = re.compile(r'^(https?|ftp)://[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]')
     for value in files:
         if 'file_temp' in value:
-            if isinstance(value['file_temp'], six.string_types):
+            if isinstance(value['file_temp'], str):
                 # If file_temp not url, hydrate path.
                 if not urlregex.search(value['file_temp']):
                     value['file_temp'] = manager.get_executor().resolve_upload_path(value['file_temp'])

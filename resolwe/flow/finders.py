@@ -5,8 +5,6 @@ File finders
 ============
 
 """
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import os
 
 from django.apps import apps
@@ -15,7 +13,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.utils.module_loading import import_string
 
 
-class BaseProcessesFinder(object):
+class BaseProcessesFinder:
     """Abstract processes loader for custom staticfiles finders."""
 
     def find_processes(self):

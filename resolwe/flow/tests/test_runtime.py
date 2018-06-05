@@ -1,6 +1,4 @@
 # pylint: disable=missing-docstring
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import mock
 
 from resolwe.flow.execution_engines.bash import ExecutionEngine, ExecutionError

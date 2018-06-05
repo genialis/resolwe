@@ -1,6 +1,4 @@
 # pylint: disable=missing-docstring
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import os
 
 from django.apps import apps
@@ -22,7 +20,7 @@ class TestRelationsAPI(ResolweAPITestCase):
         self.viewset = RelationViewSet
         self.resource_name = 'relation'
 
-        super(TestRelationsAPI, self).setUp()
+        super().setUp()
 
         # Load fixtures with relation types
         flow_config = apps.get_app_config('flow')

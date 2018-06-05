@@ -1,6 +1,4 @@
 """Docker workflow executor."""
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import json
 import os
 import shlex
@@ -21,7 +19,7 @@ class FlowExecutor(LocalFlowExecutor):
 
     def __init__(self, *args, **kwargs):
         """Initialize attributes."""
-        super(FlowExecutor, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.container_name_prefix = None
         self.tools_volumes = None

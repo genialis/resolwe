@@ -95,7 +95,7 @@ class BuildArgumentsCache:
         return build_kwargs
 
 
-class ElasticSignal(object):
+class ElasticSignal:
     """Class for creating signals to update/create indexes.
 
     To register the signal, add the following code::
@@ -137,7 +137,7 @@ class ElasticSignal(object):
             method(obj=instance)
 
 
-class Dependency(object):
+class Dependency:
     """Abstract base class for index model dependencies."""
 
     def __init__(self, model):
@@ -212,7 +212,7 @@ class ManyToManyDependency(Dependency):
             else:
                 self.accessor = field.rel.get_accessor_name()
 
-        super(ManyToManyDependency, self).__init__(model)
+        super().__init__(model)
         self.field = field
         # Cache for pre/post-delete signals.
         self.delete_cache = BuildArgumentsCache()
@@ -221,7 +221,7 @@ class ManyToManyDependency(Dependency):
 
     def connect(self, index):
         """Connect signals needed for dependency updates."""
-        signals = super(ManyToManyDependency, self).connect(index)
+        signals = super().connect(index)
 
         m2m_signal = ElasticSignal(self, 'process_m2m', pass_kwargs=True)
         m2m_signal.connect(m2m_changed, sender=self.field.through)
@@ -350,7 +350,7 @@ class ManyToManyDependency(Dependency):
             self.index.build(**build_kwargs)
 
 
-class IndexBuilder(object):
+class IndexBuilder:
     """Find indexes and register corresponding signals.
 
     Indexes are auto collected from ``elastic_indexes.py`` files from

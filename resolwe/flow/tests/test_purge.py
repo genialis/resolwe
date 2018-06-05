@@ -1,6 +1,4 @@
 # pylint: disable=missing-docstring
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import os
 import shutil
 import tempfile
@@ -20,7 +18,7 @@ from resolwe.flow.utils import purge
 from resolwe.test import ProcessTestCase
 
 
-class PurgeTestFieldsMixin(object):
+class PurgeTestFieldsMixin:
     """
     This class contains tests, which validate each field individually. It is used
     to perform basic unit tests (on simulated data, without running any processors)
@@ -334,7 +332,7 @@ class PurgeUnitTest(PurgeTestFieldsMixin, ProcessTestCase):
             self.test_files.add(filename)
 
     def setUp(self):
-        super(PurgeUnitTest, self).setUp()
+        super().setUp()
 
         self.test_files = set()
 
@@ -345,7 +343,7 @@ class PurgeUnitTest(PurgeTestFieldsMixin, ProcessTestCase):
             elif os.path.isdir(filename):
                 shutil.rmtree(filename)
 
-        super(PurgeUnitTest, self).tearDown()
+        super().tearDown()
 
     # This patch is required so that the manager is not invoked while saving Data.
     @disable_auto_calls()

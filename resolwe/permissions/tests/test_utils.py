@@ -1,6 +1,4 @@
 # pylint: disable=missing-docstring
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 from guardian.models import GroupObjectPermission, UserObjectPermission
 from guardian.shortcuts import assign_perm
 
@@ -11,7 +9,7 @@ from resolwe.test import TestCase
 
 class UtilsTestCase(TestCase):
     def setUp(self):
-        super(UtilsTestCase, self).setUp()
+        super().setUp()
 
         self.src_process = Process.objects.create(name='Source process', contributor=self.contributor)
         self.dst_process = Process.objects.create(name='Destination process', contributor=self.contributor)

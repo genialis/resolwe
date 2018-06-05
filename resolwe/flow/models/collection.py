@@ -1,6 +1,4 @@
 """Resolwe collection model."""
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 from django.contrib.postgres.fields import JSONField
 from django.db import models
 
@@ -43,7 +41,7 @@ class BaseCollection(BaseModel):
         elif self.descriptor and self.descriptor != {}:
             raise ValueError("`descriptor_schema` must be defined if `descriptor` is given")
 
-        super(BaseCollection, self).save()
+        super().save()
 
 
 class Collection(BaseCollection):

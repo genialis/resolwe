@@ -5,8 +5,6 @@ Manager
 =======
 
 """
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import asyncio
 import inspect
 import json
@@ -85,7 +83,7 @@ def dependency_status(data):
     return None
 
 
-class Manager(object):
+class Manager:
     """The manager handles process job dispatching.
 
     Each :class:`~resolwe.flow.models.Data` object that's still waiting
@@ -99,7 +97,7 @@ class Manager(object):
     the process is finally run.
     """
 
-    class _SynchronizationManager(object):
+    class _SynchronizationManager:
         """Context manager which enables transaction-like semantics.
 
         Once it is entered, exiting will not be possible until all
@@ -167,7 +165,7 @@ class Manager(object):
                 self.condition.release()
             return ret
 
-    class _SynchronizationManagerDummy(object):
+    class _SynchronizationManagerDummy:
         """Dummy synchronization manager implementation.
 
         This is a dummy placeholder variant of
@@ -190,7 +188,7 @@ class Manager(object):
         async def reset(self):  # pylint: disable=missing-docstring
             pass
 
-    class _SettingsManager(object):
+    class _SettingsManager:
         """Context manager for settings overrides.
 
         Because Django's :meth:`~django.test.override_settings` is a

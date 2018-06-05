@@ -1,11 +1,7 @@
 """Reslowe process model."""
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import copy
 import json
 import os
-
-import six
 
 from django.conf import settings
 from django.contrib.postgres.fields import ArrayField, JSONField
@@ -203,7 +199,7 @@ class Data(BaseModel):
 
     def __init__(self, *args, **kwargs):
         """Initialize attributes."""
-        super(Data, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self._original_name = self.name
 
     def save_storage(self, instance, schema):
@@ -220,7 +216,7 @@ class Data(BaseModel):
                     # already in Storage
                     continue
 
-                if isinstance(value, six.string_types):
+                if isinstance(value, str):
                     file_path = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(self.pk), value)
                     if os.path.isfile(file_path):
                         try:
@@ -404,7 +400,7 @@ class Data(BaseModel):
                                 test_required=False)
 
         with transaction.atomic():
-            super(Data, self).save(*args, **kwargs)
+            super().save(*args, **kwargs)
 
             # We can only save dependencies after the data object has been saved. This
             # is why a transaction block is needed and the save method must be called first.

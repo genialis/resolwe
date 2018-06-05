@@ -1,6 +1,4 @@
 # pylint: disable=missing-docstring
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import os
 
 from asgiref.sync import async_to_sync
@@ -20,7 +18,7 @@ PROCESSES_DIR = os.path.join(os.path.dirname(__file__), 'processes')
 class TestManager(ProcessTestCase):
 
     def setUp(self):
-        super(TestManager, self).setUp()
+        super().setUp()
 
         self.collection = Collection.objects.create(contributor=self.contributor)
 

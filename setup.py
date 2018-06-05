@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
 """Open source dataflow package for Django framework.
 
 See:
@@ -64,7 +62,6 @@ setup(
         'mock>=1.3.0',
         'PyYAML>=3.11',
         'jsonschema>=2.4.0',
-        'six>=1.10.0',
         'Sphinx>=1.5.1, <1.7.0',
         'Jinja2>=2.9.6',
         'wrapt>=1.10.8',

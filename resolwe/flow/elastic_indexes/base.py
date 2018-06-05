@@ -25,7 +25,7 @@ class BaseDocument(indices.BaseDocument):
     owner_names = User(multi=True)
 
 
-class BaseIndexMixin(object):
+class BaseIndexMixin:
     """Base index for objects used in ``BaseDocument``."""
 
     def get_contributor_sort_value(self, obj):

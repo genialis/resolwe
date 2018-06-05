@@ -1,6 +1,4 @@
 # pylint: disable=missing-docstring
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import os
 import shutil
 import unittest
@@ -24,9 +22,9 @@ else:
 DATE_FORMAT = r'%Y-%m-%dT%H:%M:%S.%f'
 
 MESSAGES = {
-    u'NOT_FOUND': u'Not found.',
-    # u'NO_PERMISSION': u'You do not have permission to perform this action.',
-    u'ONE_ID_REQUIRED': 'Exactly one id required on create.',
+    'NOT_FOUND': 'Not found.',
+    # 'NO_PERMISSION': 'You do not have permission to perform this action.',
+    'ONE_ID_REQUIRED': 'Exactly one id required on create.',
 }
 
 
@@ -46,7 +44,7 @@ class DataTestCase(ResolweAPITestCase):
             'process': 'test_process',
         }
 
-        super(DataTestCase, self).setUp()
+        super().setUp()
 
         # Reindex data objects as they are loaded in fixtures.
         # TODO: Remove this when we get rid of fixtures.
@@ -58,7 +56,7 @@ class DataTestCase(ResolweAPITestCase):
             data_dir = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.id))
             shutil.rmtree(data_dir, ignore_errors=True)
 
-        super(DataTestCase, self).tearDown()
+        super().tearDown()
 
     def test_get_list(self):
         resp = self._get_list(self.user1)
@@ -99,13 +97,13 @@ class DataTestCase(ResolweAPITestCase):
         self.data['collections'] = ['42']
         resp = self._post(self.data, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(resp.data[u'collections'][0], u'Invalid pk "42" - object does not exist.')
+        self.assertEqual(resp.data['collections'][0], 'Invalid pk "42" - object does not exist.')
 
         self.data['collections'] = ['1']
         self.data['process'] = '42'
         resp = self._post(self.data, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(resp.data[u'process'][0], u'Invalid process slug "42" - object does not exist.')
+        self.assertEqual(resp.data['process'][0], 'Invalid process slug "42" - object does not exist.')
 
         self.assertEqual(Data.objects.count(), data_n)
 
@@ -207,7 +205,7 @@ class DataTestCase(ResolweAPITestCase):
         # public user w/ perms
         resp = self._get_detail(1)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(resp.data[u'id'], 1)
+        self.assertEqual(resp.data['id'], 1)
 
         # user w/ permissions
         resp = self._get_detail(1, self.user1)
@@ -235,12 +233,12 @@ class DataTestCase(ResolweAPITestCase):
         # public user w/o permissions
         resp = self._get_detail(2)
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertEqual(resp.data[u'detail'], MESSAGES['NOT_FOUND'])
+        self.assertEqual(resp.data['detail'], MESSAGES['NOT_FOUND'])
 
         # user w/o permissions
         resp = self._get_detail(2, self.user2)
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertEqual(resp.data[u'detail'], MESSAGES['NOT_FOUND'])
+        self.assertEqual(resp.data['detail'], MESSAGES['NOT_FOUND'])
 
     def test_patch(self):
         data = {'name': 'New data'}

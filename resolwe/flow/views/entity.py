@@ -1,6 +1,4 @@
 """Entity viewset."""
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 from distutils.util import strtobool  # pylint: disable=import-error,no-name-in-module
 
 from django.db.models import Max
@@ -79,7 +77,7 @@ class EntityViewSet(CollectionViewSet):
             request, *args, **kwargs
         )
 
-    @detail_route(methods=[u'post'])
+    @detail_route(methods=['post'])
     def add_to_collection(self, request, pk=None):
         """Add Entity to a collection."""
         entity = self.get_object()
@@ -99,7 +97,7 @@ class EntityViewSet(CollectionViewSet):
 
         return Response()
 
-    @detail_route(methods=[u'post'])
+    @detail_route(methods=['post'])
     def remove_from_collection(self, request, pk=None):
         """Remove Entity from a collection."""
         entity = self.get_object()
@@ -119,11 +117,11 @@ class EntityViewSet(CollectionViewSet):
 
         return Response()
 
-    @detail_route(methods=[u'post'])
+    @detail_route(methods=['post'])
     def add_data(self, request, pk=None):
         """Add data to Entity and it's collection."""
         # add data to entity
-        resp = super(EntityViewSet, self).add_data(request, pk)
+        resp = super().add_data(request, pk)
 
         # add data to collections in which entity is
         entity = self.get_object()
@@ -151,6 +149,6 @@ class EntityViewSet(CollectionViewSet):
             return Entity.objects.filter(id__in=entity_ids)
 
         self.get_queryset = patched_get_queryset
-        resp = super(EntityViewSet, self).update(request, *args, **kwargs)
+        resp = super().update(request, *args, **kwargs)
         self.get_queryset = orig_get_queryset
         return resp

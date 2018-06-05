@@ -1,13 +1,11 @@
 # pylint: disable=missing-docstring
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 from resolwe.flow.models import Data, DescriptorSchema, Process
 from resolwe.test import TestCase
 
 
 class DescriptorTestCase(TestCase):
     def setUp(self):
-        super(DescriptorTestCase, self).setUp()
+        super().setUp()
 
         self.process = Process.objects.create(name="Dummy process", contributor=self.contributor)
 

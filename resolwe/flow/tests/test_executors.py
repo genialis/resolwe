@@ -1,12 +1,9 @@
 # pylint: disable=missing-docstring
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import os
 import subprocess
 import unittest
 
 import mock
-import six
 
 from django.conf import settings
 from django.db import transaction
@@ -18,6 +15,11 @@ from resolwe.flow.executors.prepare import BaseFlowExecutorPreparer
 from resolwe.flow.managers import manager
 from resolwe.flow.models import Data, DataDependency, Process
 from resolwe.test import ProcessTestCase, TestCase, tag_process, with_docker_executor, with_null_executor
+
+# Workaround for false positive warnings in pylint.
+# TODO: Can be removed with Django 2.0 or when pylint issue is fixed:
+#       https://github.com/PyCQA/pylint/issues/1653
+# pylint: disable=deprecated-method
 
 PROCESSES_DIR = os.path.join(os.path.dirname(__file__), 'processes')
 
@@ -50,13 +52,13 @@ class GetToolsTestCase(TestCase):
         settings_mock.RESOLWE_CUSTOM_TOOLS_PATHS = '/custom_tools'
 
         base_executor = BaseFlowExecutorPreparer()
-        with six.assertRaisesRegex(self, KeyError, 'setting must be a list'):
+        with self.assertRaisesRegex(KeyError, 'setting must be a list'):
             base_executor.get_tools_paths()
 
 
 class ManagerRunProcessTest(ProcessTestCase):
     def setUp(self):
-        super(ManagerRunProcessTest, self).setUp()
+        super().setUp()
 
         self._register_schemas(path=[PROCESSES_DIR])
 
@@ -93,7 +95,7 @@ class ManagerRunProcessTest(ProcessTestCase):
     @unittest.skipIf(True, "since PR308: the exception happens in other processes, currently impossible to propagate")
     @tag_process('test-spawn-missing-file')
     def test_spawn_missing_export(self):
-        with six.assertRaisesRegex(self, KeyError, 'Use `re-export`'):
+        with self.assertRaisesRegex(KeyError, 'Use `re-export`'):
             self.run_process('test-spawn-missing-file')
 
     @tag_process('test-broken', 'test-broken-invalid-execution-engine', 'test-broken-invalid-expression-engine',
@@ -155,7 +157,7 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.assertEqual(step1_data.parents.count(), 1)
         self.assertEqual(step1_data.parents.first(), workflow_data)
         self.assertEqual(step2_data.parents.count(), 2)
-        six.assertCountEqual(self, step2_data.parents.all(), [workflow_data, step1_data])
+        self.assertCountEqual(step2_data.parents.all(), [workflow_data, step1_data])
 
         # Check correct dependency type is created.
         self.assertEqual({d.kind for d in step1_data.parents_dependency.all()}, {DataDependency.KIND_SUBPROCESS})

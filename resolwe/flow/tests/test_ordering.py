@@ -1,6 +1,4 @@
 # pylint: disable=missing-docstring
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
 from django.core.urlresolvers import reverse
@@ -14,7 +12,7 @@ from resolwe.flow.models import Process
 class ProcessOrderingTest(APITestCase):
 
     def setUp(self):
-        super(ProcessOrderingTest, self).setUp()
+        super().setUp()
 
         user_model = get_user_model()
         user = user_model.objects.create(username='user')

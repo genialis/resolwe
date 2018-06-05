@@ -32,7 +32,7 @@ class IndexViewsetTest(APITestCase, TestCase):
         from .test_app.elastic_indexes import TestSearchIndex
         from .test_app.viewsets import TestViewSet
 
-        super(IndexViewsetTest, self).setUp()
+        super().setUp()
 
         apps.clear_cache()
         call_command('migrate', verbosity=0, interactive=False, load_initial_data=False)
@@ -67,7 +67,7 @@ class IndexViewsetTest(APITestCase, TestCase):
 
     def tearDown(self):
         index_builder.destroy()
-        super(IndexViewsetTest, self).tearDown()
+        super().tearDown()
 
     def test_permissions(self):
         # First user

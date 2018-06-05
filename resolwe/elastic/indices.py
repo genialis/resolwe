@@ -14,8 +14,6 @@ Main two classes
     :members:
 
 """
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import copy
 import logging
 import threading
@@ -58,7 +56,7 @@ class BaseDocument(dsl.DocType):
     public_permission = dsl.Boolean()
 
 
-class BaseIndex(object):
+class BaseIndex:
     """Base index class.
 
     Builds ElasticSearch index for specific type of objects. Index is

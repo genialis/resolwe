@@ -9,8 +9,6 @@ Flow Executors
 
 """
 # pylint: disable=logging-format-interpolation
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import json
 import logging
 import os
@@ -19,13 +17,12 @@ import sys
 import uuid
 from collections import defaultdict
 
-# NOTE: If the imports here are changed, the executors' requirements.txt
-# file must also be updated accordingly.
-import six
-
 from .global_settings import DATA_META, EXECUTOR_SETTINGS, PROCESS, SETTINGS
 from .manager_commands import send_manager_command
 from .protocol import ExecutorProtocol
+
+# NOTE: If the imports here are changed, the executors' requirements.txt
+# file must also be updated accordingly.
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
@@ -43,7 +40,7 @@ def iterjson(text):
         yield obj
 
 
-class BaseFlowExecutor(object):
+class BaseFlowExecutor:
     """Represents a workflow executor."""
 
     exported_files_mapper = defaultdict(dict)
@@ -189,7 +186,7 @@ class BaseFlowExecutor(object):
                         # If JSON, save to MongoDB
                         updates = {}
                         for obj in iterjson(line):
-                            for key, val in six.iteritems(obj):
+                            for key, val in obj.items():
                                 if key.startswith('proc.'):
                                     if key == 'proc.error':
                                         process_error.append(val)

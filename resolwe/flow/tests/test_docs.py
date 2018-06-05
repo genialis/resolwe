@@ -21,7 +21,7 @@ from resolwe.test import TestCase
 class TestAutoporocess(TestCase):
 
     def setUp(self):
-        super(TestAutoporocess, self).setUp()
+        super().setUp()
 
         self.rst_source_files_dir = os.path.dirname(__file__) + "/files/"
         self.build_output_dir = os.path.dirname(__file__) + "/build"
@@ -30,7 +30,7 @@ class TestAutoporocess(TestCase):
     def tearDown(self):
         # Remove the build folder and its contents
         shutil.rmtree(self.build_output_dir)
-        super(TestAutoporocess, self).tearDown()
+        super().tearDown()
 
     def test_build_ok(self):
         args = [

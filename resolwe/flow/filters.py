@@ -5,8 +5,6 @@ Flow Filters
 ============
 
 """
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import rest_framework_filters as filters
 from django_filters.filters import BaseCSVFilter
 
@@ -61,7 +59,7 @@ class TagsFilter(BaseCSVFilter, filters.CharFilter):
     def __init__(self, *args, **kwargs):
         """Construct tags filter."""
         kwargs.setdefault('lookup_expr', 'contains')
-        super(TagsFilter, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
 
 class EntityFilter(CollectionFilter):

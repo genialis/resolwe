@@ -1,13 +1,10 @@
 """Jinja2-based expression engine."""
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 from contextlib import contextmanager
 from importlib import import_module
 
 import jinja2
 from jinja2 import compiler
 from jinja2.utils import soft_unicode
-from six import string_types
 
 from django.core.exceptions import ImproperlyConfigured
 
@@ -46,7 +43,7 @@ class SafeCodeGenerator(compiler.CodeGenerator):
 
     def write_commons(self):
         """Override common preamble to inject our own escape wrappers."""
-        super(SafeCodeGenerator, self).write_commons()
+        super().write_commons()
 
         self.writeline('escape = environment.escape')
         self.writeline('Markup = environment.markup_class')
@@ -65,7 +62,7 @@ class Environment(jinja2.Environment):
         """Construct custom environment."""
         self._engine = engine
 
-        super(Environment, self).__init__(
+        super().__init__(
             undefined=NestedUndefined,
             autoescape=lambda _: self._engine._escape is not None  # pylint: disable=protected-access
         )
@@ -88,7 +85,7 @@ class ExpressionEngine(BaseExpressionEngine):
 
     def __init__(self, *args, **kwargs):
         """Construct the expression engine."""
-        super(ExpressionEngine, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # Initialize the Jinja2 environment.
         # TODO: Should we use a sandboxed environment?

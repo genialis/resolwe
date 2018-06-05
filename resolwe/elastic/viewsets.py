@@ -8,8 +8,6 @@ Elastic Viewsets
     :members:
 
 """
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 from elasticsearch_dsl.query import Q
 
 from django.db.models import Case, IntegerField, Value, When
@@ -39,7 +37,7 @@ class TooManyResults(APIException):
     default_code = 'bad_request'
 
 
-class ElasticSearchMixin(object):
+class ElasticSearchMixin:
     """Mixin to use Django REST Framework with ElasticSearch based querysets.
 
     This mixin adds following methods:
@@ -143,7 +141,7 @@ class ElasticSearchMixin(object):
         return search.query('bool', should=filters)
 
 
-class PaginationMixin(object):
+class PaginationMixin:
     """Mixin for making paginated response in case pagination parameters are provided."""
 
     def paginate_response(self, queryset, serializers_kwargs={}):

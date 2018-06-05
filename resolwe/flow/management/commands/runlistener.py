@@ -26,7 +26,7 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         """Add command arguments."""
-        super(Command, self).add_arguments(parser)
+        super().add_arguments(parser)
         parser.add_argument('--clear-queue', action='store_true',
                             help="Consume and ignore any outstanding messages in the result queue on startup.")
 

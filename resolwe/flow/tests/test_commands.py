@@ -1,14 +1,12 @@
 # pylint: disable=missing-docstring
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import os
+from io import StringIO
 
 import yaml
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase as DjangoTestCase
-from django.utils.six import StringIO
 
 from guardian.models import UserObjectPermission
 from guardian.shortcuts import assign_perm, get_perms
@@ -107,7 +105,7 @@ class ProcessRegisterTestNoAdmin(DjangoTestCase):
 class ListDockerImagesTest(ProcessTestCase):
 
     def setUp(self):
-        super(ListDockerImagesTest, self).setUp()
+        super().setUp()
 
         # Make sure the test processes are in the database
         self._register_schemas(path=[PROCESSES_DIR])

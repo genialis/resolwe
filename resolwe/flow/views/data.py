@@ -176,9 +176,9 @@ class DataViewSet(ElasticSearchCombinedViewSet,
                 serializer = self.get_serializer(data)
                 return Response(serializer.data)
 
-        return super(DataViewSet, self).create(request, *args, **kwargs)
+        return super().create(request, *args, **kwargs)
 
-    @list_route(methods=[u'post'])
+    @list_route(methods=['post'])
     def get_or_create(self, request, *args, **kwargs):
         """Get ``Data`` object if similar already exists, otherwise create it."""
         kwargs['get_or_create'] = True

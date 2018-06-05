@@ -5,10 +5,6 @@
 
 """
 
-from __future__ import absolute_import, division, print_function, unicode_literals
-
-import six
-
 from django.contrib.auth import get_user_model
 from django.core.urlresolvers import reverse
 
@@ -62,7 +58,7 @@ class ResolweAPITestCase(TestCaseHelpers, APITestCase):
 
     def setUp(self):
         """Prepare data."""
-        super(ResolweAPITestCase, self).setUp()
+        super().setUp()
 
         # TODO: Remove this when removing fixtures
         if get_user_model().objects.filter(pk=2).exists():
@@ -127,7 +123,7 @@ class ResolweAPITestCase(TestCaseHelpers, APITestCase):
         if not params:
             return ''
 
-        return '?' + '&'.join('{}={}'.format(key, value) for key, value in six.iteritems(params))
+        return '?' + '&'.join('{}={}'.format(key, value) for key, value in params.items())
 
     def _get_list(self, user=None, query_params={}):
         """Make ``GET`` request to ``self.list_view`` view.

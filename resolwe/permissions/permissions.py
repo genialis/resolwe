@@ -1,6 +1,4 @@
 """Custom permissions for Flow API."""
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 from django.contrib.auth.models import AnonymousUser
 from django.http import Http404
 

@@ -10,8 +10,6 @@ the app.
 .. autofunction:: resolwe.elastic.utils.const
 
 """
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 from elasticsearch_dsl.connections import connections
 
 from django.conf import settings

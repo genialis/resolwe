@@ -1,10 +1,7 @@
 """An execution engine that outputs bash programs."""
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import copy
 
 import shellescape
-import six
 
 from django.conf import settings
 
@@ -14,7 +11,7 @@ from resolwe.flow.expression_engines import EvaluationError
 from resolwe.flow.models.utils import hydrate_input_references, hydrate_input_uploads
 
 
-class SafeString(six.text_type):
+class SafeString(str):
     """String wrapper for marking strings safe."""
 
     pass

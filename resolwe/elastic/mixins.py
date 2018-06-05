@@ -4,17 +4,15 @@
 Elastic Indices
 ===============
 """
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 from resolwe.elastic.builder import index_builder
 
 
-class ElasticIndexFilterMixin(object):
+class ElasticIndexFilterMixin:
     """Mixin for management commands with index filtering."""
 
     def add_arguments(self, parser):
         """Command arguments."""
-        super(ElasticIndexFilterMixin, self).add_arguments(parser)
+        super().add_arguments(parser)
 
         parser.add_argument('-i', '--index', action='append', default=[],
                             help="Only process specific indices (default: not set)")

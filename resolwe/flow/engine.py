@@ -1,6 +1,4 @@
 """Abstract Workflow Engine."""
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import os
 import pkgutil
 from importlib import import_module
@@ -15,7 +13,7 @@ class InvalidEngineError(Exception):
     pass
 
 
-class BaseEngine(object):
+class BaseEngine:
     """Base class for all engines in Resolwe workflow."""
 
     name = None

@@ -1,6 +1,4 @@
 # pylint: disable=missing-docstring
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 from copy import deepcopy
 
 from django.contrib.auth import get_user_model
@@ -39,7 +37,7 @@ class CollectionPermissionsTest(ResolweAPITestCase):
         self.resource_name = 'collection'
         self.viewset = CollectionViewSet
 
-        super(CollectionPermissionsTest, self).setUp()
+        super().setUp()
 
     def _create_data(self):
         process = Process.objects.create(
@@ -314,7 +312,7 @@ class DescriptorSchemaPermissionsTest(ResolweAPITestCase):
         self.resource_name = 'collection'
         self.viewset = DescriptorSchemaViewSet
 
-        super(DescriptorSchemaPermissionsTest, self).setUp()
+        super().setUp()
 
         self.descriptor_schema = DescriptorSchema.objects.create(contributor=self.contributor)
         assign_contributor_permissions(self.descriptor_schema)

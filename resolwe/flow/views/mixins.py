@@ -1,6 +1,4 @@
 """Mixins used in Resolwe Viewsets."""
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 from django.db import IntegrityError, transaction
 
 from guardian.utils import get_anonymous_user
@@ -65,10 +63,10 @@ class ResolweCreateModelMixin(mixins.CreateModelMixin):
             request.data['contributor'] = request.user.pk
 
         try:
-            return super(ResolweCreateModelMixin, self).create(request, *args, **kwargs)
+            return super().create(request, *args, **kwargs)
 
         except IntegrityError as ex:
-            return Response({u'error': str(ex)}, status=status.HTTP_409_CONFLICT)
+            return Response({'error': str(ex)}, status=status.HTTP_409_CONFLICT)
 
     def perform_create(self, serializer):
         """Create a resource."""
@@ -105,7 +103,7 @@ class ResolweUpdateModelMixin(mixins.UpdateModelMixin):
 
         # NOTE: Use the original method instead when support for locking is added:
         #       https://github.com/encode/django-rest-framework/issues/4675
-        # return super(ResolweUpdateModelMixin, self).update(request, *args, **kwargs)
+        # return super().update(request, *args, **kwargs)
         with transaction.atomic():
             return self._update(request, *args, **kwargs)
 
@@ -159,10 +157,10 @@ class ResolweUpdateModelMixin(mixins.UpdateModelMixin):
         return obj
 
 
-class ResolweCheckSlugMixin(object):
+class ResolweCheckSlugMixin:
     """Slug validation."""
 
-    @list_route(methods=[u'get'])
+    @list_route(methods=['get'])
     def slug_exists(self, request):
         """Check if given url slug exists.
 

@@ -1,9 +1,5 @@
 """An execution engine that supports workflow specifications."""
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import collections
-
-from six import string_types
 
 from django.db import transaction
 
@@ -32,7 +28,7 @@ class ExecutionEngine(BaseExecutionEngine):
 
         processed = {}
         for name, value in values.items():
-            if isinstance(value, string_types):
+            if isinstance(value, str):
                 value = value.strip()
                 try:
                     expression = expression_engine.get_inline_expression(value)

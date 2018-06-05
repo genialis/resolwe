@@ -17,7 +17,7 @@ def maybe_number(value):
             return value
 
 
-class Lookup(object):
+class Lookup:
     """Lookup expression."""
 
     operator = None
@@ -101,7 +101,7 @@ class Exact(Lookup):
         return search.query('match', **{'{}.raw'.format(field): value})
 
 
-class QueryBuilder(object):
+class QueryBuilder:
     """Query builder."""
 
     def __init__(self, fields, fields_map, custom_filter_object):

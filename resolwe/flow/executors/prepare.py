@@ -1,6 +1,4 @@
 """Base class for the manager-internal executor preparation bits."""
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import logging
 import os
 
@@ -15,7 +13,7 @@ from resolwe.test.utils import is_testing
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
-class BaseFlowExecutorPreparer(object):
+class BaseFlowExecutorPreparer:
     """Represents the preparation functionality of the executor."""
 
     def extend_settings(self, data_id, files, secrets):

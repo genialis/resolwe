@@ -8,12 +8,8 @@ Permissions shortcuts
 .. autofunction:: get_object_perms
 
 """
-from __future__ import unicode_literals
-
 from collections import defaultdict
 from itertools import chain, groupby
-
-import six
 
 from django.conf import settings
 from django.contrib.auth.models import AnonymousUser, Group, Permission
@@ -207,7 +203,7 @@ def get_object_perms(obj, user=None):
             'attach_perms': True,
             'with_group_users': False
         }
-        for user, perms in six.iteritems(get_users_with_perms(obj, **user_options)):
+        for user, perms in get_users_with_perms(obj, **user_options).items():
             if user.username == settings.ANONYMOUS_USER_NAME:
                 # public user is treated separately
                 continue
@@ -221,7 +217,7 @@ def get_object_perms(obj, user=None):
         group_options = {
             'attach_perms': True,
         }
-        for group, perms in six.iteritems(get_groups_with_perms(obj, **group_options)):
+        for group, perms in get_groups_with_perms(obj, **group_options).items():
             perms_list.append({
                 'type': 'group',
                 'id': group.pk,
@@ -243,7 +239,7 @@ def get_object_perms(obj, user=None):
 def get_objects_for_user(user, perms, klass=None, use_groups=True, any_perm=False,
                          with_superuser=True, accept_global_perms=True, perms_filter='pk__in'):
     """Return queryset with required permissions."""
-    if isinstance(perms, six.string_types):
+    if isinstance(perms, str):
         perms = [perms]
 
     ctype = None

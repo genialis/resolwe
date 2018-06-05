@@ -7,8 +7,6 @@ Permissions loader
 .. autofunction:: load_permissions
 
 """
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import os
 import pkgutil
 from importlib import import_module
@@ -41,7 +39,7 @@ def get_permissions_class(permissions_name=None):
 
             try:
                 builtin_permissions = [
-                    name for _, name, _ in pkgutil.iter_modules([permissions_dir]) if name not in [u'tests']]
+                    name for _, name, _ in pkgutil.iter_modules([permissions_dir]) if name not in ['tests']]
             except EnvironmentError:
                 builtin_permissions = []
             if permissions_name not in ['resolwe.auth.{}'.format(p) for p in builtin_permissions]:

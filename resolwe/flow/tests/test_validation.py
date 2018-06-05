@@ -1,7 +1,4 @@
 # pylint: disable=missing-docstring,too-many-lines
-from __future__ import absolute_import, division, print_function, unicode_literals
-
-import six
 from mock import MagicMock, patch
 
 from django.contrib.auth import get_user_model
@@ -11,11 +8,16 @@ from resolwe.flow.models import Collection, Data, DescriptorSchema, Entity, Proc
 from resolwe.flow.models.utils import validate_schema
 from resolwe.test import TestCase
 
+# Workaround for false positive warnings in pylint.
+# TODO: Can be removed with Django 2.0 or when pylint issue is fixed:
+#       https://github.com/PyCQA/pylint/issues/1653
+# pylint: disable=deprecated-method
+
 
 class ValidationTest(TestCase):
 
     def setUp(self):
-        super(ValidationTest, self).setUp()
+        super().setUp()
 
         self.user = get_user_model().objects.create(username='test_user')
 
@@ -38,16 +40,16 @@ class ValidationTest(TestCase):
             'process': proc,
         }
 
-        with six.assertRaisesRegex(self, ValidationError, '"value" not given'):
+        with self.assertRaisesRegex(ValidationError, '"value" not given'):
             Data.objects.create(input={}, **data)
 
-        with six.assertRaisesRegex(self, ValidationError, 'Required fields .* not given'):
+        with self.assertRaisesRegex(ValidationError, 'Required fields .* not given'):
             Data.objects.create(input={}, **data)
 
         d = Data.objects.create(input={'value': 42}, **data)
 
         d.status = Data.STATUS_DONE
-        with six.assertRaisesRegex(self, ValidationError, '"result" not given'):
+        with self.assertRaisesRegex(ValidationError, '"result" not given'):
             d.save()
 
         d.output = {'result': 'forty-two'}
@@ -81,7 +83,7 @@ class ValidationTest(TestCase):
         self.assertEqual(data.descriptor_dirty, True)
 
         data.descriptor = {'description': 42}
-        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+        with self.assertRaisesRegex(ValidationError, 'is not valid'):
             data.save()
 
     def test_validate_collection_descriptor(self):  # pylint: disable=invalid-name
@@ -109,7 +111,7 @@ class ValidationTest(TestCase):
         self.assertEqual(collection.descriptor_dirty, True)
 
         collection.descriptor = {'description': 42}
-        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+        with self.assertRaisesRegex(ValidationError, 'is not valid'):
             collection.save()
 
     def test_validate_entity_descriptor(self):
@@ -137,7 +139,7 @@ class ValidationTest(TestCase):
         self.assertEqual(entity.descriptor_dirty, True)
 
         entity.descriptor = {'description': 42}
-        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+        with self.assertRaisesRegex(ValidationError, 'is not valid'):
             entity.save()
 
     def test_referenced_storage(self):
@@ -160,7 +162,7 @@ class ValidationTest(TestCase):
 
         # `Data` object with referenced non-existing `Storage`
         d.output = {'big_result': 245}
-        with six.assertRaisesRegex(self, ValidationError, '`Storage` object does not exist'):
+        with self.assertRaisesRegex(ValidationError, '`Storage` object does not exist'):
             d.save()
 
         storage = Storage.objects.create(
@@ -210,12 +212,12 @@ class ValidationTest(TestCase):
         proc2.input_schema = [
             {'name': 'data_object', 'type': 'data:wrong:type:'}
         ]
-        with six.assertRaisesRegex(self, ValidationError, 'Data object of type .* is required'):
+        with self.assertRaisesRegex(ValidationError, 'Data object of type .* is required'):
             Data.objects.create(**data)
 
         # non-existing `Data` object
         data['input'] = {'data_object': 631}
-        with six.assertRaisesRegex(self, ValidationError, '`Data` object does not exist'):
+        with self.assertRaisesRegex(ValidationError, '`Data` object does not exist'):
             Data.objects.create(**data)
 
     def test_delete_input(self):
@@ -258,11 +260,11 @@ class ValidationUnitTest(TestCase):
         ]
 
         instance = {'description': 'test'}
-        with six.assertRaisesRegex(self, ValidationError, '"value" not given.'):
+        with self.assertRaisesRegex(ValidationError, '"value" not given.'):
             validate_schema(instance, schema)
 
         instance = {'value': 42}
-        with six.assertRaisesRegex(self, ValidationError, '"description" not given.'):
+        with self.assertRaisesRegex(ValidationError, '"description" not given.'):
             validate_schema(instance, schema)
 
         instance = {'value': 42, 'description': 'universal answer'}
@@ -291,7 +293,7 @@ class ValidationUnitTest(TestCase):
 
         instance = {'value': 8}
         error_msg = "Value of field 'value' must match one of predefined choices. Current value: 8"
-        with six.assertRaisesRegex(self, ValidationError, error_msg):
+        with self.assertRaisesRegex(ValidationError, error_msg):
             validate_schema(instance, schema)
 
         schema = [
@@ -327,7 +329,7 @@ class ValidationUnitTest(TestCase):
 
         instance = {'value': 7}
         error_msg = "Value of field 'value' is out of range. It should be between 0 and 5."
-        with six.assertRaisesRegex(self, ValidationError, error_msg):
+        with self.assertRaisesRegex(ValidationError, error_msg):
             validate_schema(instance, schema)
 
         schema = [
@@ -340,7 +342,7 @@ class ValidationUnitTest(TestCase):
 
         instance = {'value': 7}
         error_msg = "Value of field 'value' is out of range. It should be between 0 and 5."
-        with six.assertRaisesRegex(self, ValidationError, error_msg):
+        with self.assertRaisesRegex(ValidationError, error_msg):
             validate_schema(instance, schema)
 
         schema = [
@@ -356,7 +358,7 @@ class ValidationUnitTest(TestCase):
 
         instance = {'value': [0, 3, 7]}
         error_msg = "Value of field 'value' is out of range. It should be between 0 and 5."
-        with six.assertRaisesRegex(self, ValidationError, error_msg):
+        with self.assertRaisesRegex(ValidationError, error_msg):
             validate_schema(instance, schema)
 
         schema = [
@@ -369,7 +371,7 @@ class ValidationUnitTest(TestCase):
 
         instance = {'value': [0, 3, 7]}
         error_msg = "Value of field 'value' is out of range. It should be between 0 and 5."
-        with six.assertRaisesRegex(self, ValidationError, error_msg):
+        with self.assertRaisesRegex(ValidationError, error_msg):
             validate_schema(instance, schema)
 
     def test_missing_in_schema(self):
@@ -378,7 +380,7 @@ class ValidationUnitTest(TestCase):
         ]
 
         instance = {'res': 42}
-        with six.assertRaisesRegex(self, ValidationError, r'\(res\) missing in schema'):
+        with self.assertRaisesRegex(ValidationError, r'\(res\) missing in schema'):
             validate_schema(instance, schema)
 
     def test_file_prefix(self):
@@ -394,7 +396,7 @@ class ValidationUnitTest(TestCase):
         # missing file
         with patch('resolwe.flow.models.utils.os') as os_mock:
             os_mock.path.exists = MagicMock(return_value=False)
-            with six.assertRaisesRegex(self, ValidationError, 'Referenced path .* does not exist.'):
+            with self.assertRaisesRegex(ValidationError, 'Referenced path .* does not exist.'):
                 validate_schema(instance, schema, path_prefix='/home/genialis/')
             self.assertEqual(os_mock.path.exists.call_count, 1)
 
@@ -402,7 +404,7 @@ class ValidationUnitTest(TestCase):
         with patch('resolwe.flow.models.utils.os') as os_mock:
             os_mock.path.exists = MagicMock(return_value=True)
             os_mock.path.isfile = MagicMock(return_value=False)
-            with six.assertRaisesRegex(self, ValidationError, 'Referenced path .* is not a file.'):
+            with self.assertRaisesRegex(ValidationError, 'Referenced path .* is not a file.'):
                 validate_schema(instance, schema, path_prefix='/home/genialis/')
             self.assertEqual(os_mock.path.isfile.call_count, 1)
 
@@ -423,7 +425,7 @@ class ValidationUnitTest(TestCase):
             os_mock.path.isfile = MagicMock(side_effect=[True, True, False])
             os_mock.path.isdir = MagicMock(return_value=False)
             message = 'Path referenced in `refs` .* is neither a file or directory.'
-            with six.assertRaisesRegex(self, ValidationError, message):
+            with self.assertRaisesRegex(ValidationError, message):
                 validate_schema(instance, schema, path_prefix='/home/genialis/')
             self.assertEqual(os_mock.path.isfile.call_count, 3)
             self.assertEqual(os_mock.path.isdir.call_count, 1)
@@ -448,7 +450,7 @@ class ValidationUnitTest(TestCase):
         # missing path
         with patch('resolwe.flow.models.utils.os') as os_mock:
             os_mock.path.exists = MagicMock(return_value=False)
-            with six.assertRaisesRegex(self, ValidationError, 'Referenced path .* does not exist.'):
+            with self.assertRaisesRegex(ValidationError, 'Referenced path .* does not exist.'):
                 validate_schema(instance, schema, path_prefix='/home/genialis/')
             self.assertEqual(os_mock.path.exists.call_count, 1)
 
@@ -456,7 +458,7 @@ class ValidationUnitTest(TestCase):
         with patch('resolwe.flow.models.utils.os') as os_mock:
             os_mock.path.exists = MagicMock(return_value=True)
             os_mock.path.isdir = MagicMock(return_value=False)
-            with six.assertRaisesRegex(self, ValidationError, 'Referenced path .* is not a directory'):
+            with self.assertRaisesRegex(ValidationError, 'Referenced path .* is not a directory'):
                 validate_schema(instance, schema, path_prefix='/home/genialis/')
             self.assertEqual(os_mock.path.isdir.call_count, 1)
 
@@ -474,7 +476,7 @@ class ValidationUnitTest(TestCase):
             os_mock.path.isdir = MagicMock(side_effect=[True, False])
             os_mock.path.isfile = MagicMock(side_effect=[True, False])
             message = 'Path referenced in `refs` .* is neither a file or directory'
-            with six.assertRaisesRegex(self, ValidationError, message):
+            with self.assertRaisesRegex(ValidationError, message):
                 validate_schema(instance, schema, path_prefix='/home/genialis/')
             self.assertEqual(os_mock.path.isdir.call_count, 2)
             self.assertEqual(os_mock.path.isfile.call_count, 2)
@@ -489,7 +491,7 @@ class ValidationUnitTest(TestCase):
         validate_schema(instance, schema)
 
         instance = {'string': 42, 'text': 42}
-        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+        with self.assertRaisesRegex(ValidationError, 'is not valid'):
             validate_schema(instance, schema)
 
     def test_boolean_field(self):
@@ -502,15 +504,15 @@ class ValidationUnitTest(TestCase):
         validate_schema(instance, schema)
 
         instance = {'true': 'true', 'false': 'false'}
-        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+        with self.assertRaisesRegex(ValidationError, 'is not valid'):
             validate_schema(instance, schema)
 
         instance = {'true': 1, 'false': 0}
-        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+        with self.assertRaisesRegex(ValidationError, 'is not valid'):
             validate_schema(instance, schema)
 
         instance = {'true': 'foo', 'false': 'bar'}
-        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+        with self.assertRaisesRegex(ValidationError, 'is not valid'):
             validate_schema(instance, schema)
 
     def test_integer_field(self):
@@ -522,11 +524,11 @@ class ValidationUnitTest(TestCase):
         validate_schema(instance, schema)
 
         instance = {'value': 42.0}
-        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+        with self.assertRaisesRegex(ValidationError, 'is not valid'):
             validate_schema(instance, schema)
 
         instance = {'value': 'forty-two'}
-        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+        with self.assertRaisesRegex(ValidationError, 'is not valid'):
             validate_schema(instance, schema)
 
     def test_decimal_field(self):
@@ -541,7 +543,7 @@ class ValidationUnitTest(TestCase):
         validate_schema(instance, schema)
 
         instance = {'value': 'forty-two'}
-        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+        with self.assertRaisesRegex(ValidationError, 'is not valid'):
             validate_schema(instance, schema)
 
     def test_date_field(self):
@@ -553,23 +555,23 @@ class ValidationUnitTest(TestCase):
         validate_schema(instance, schema)
 
         instance = {'date': '2000/01/01'}
-        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+        with self.assertRaisesRegex(ValidationError, 'is not valid'):
             validate_schema(instance, schema)
 
         instance = {'date': '31 04 2000'}
-        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+        with self.assertRaisesRegex(ValidationError, 'is not valid'):
             validate_schema(instance, schema)
 
         instance = {'date': '21.06.2000'}
-        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+        with self.assertRaisesRegex(ValidationError, 'is not valid'):
             validate_schema(instance, schema)
 
         instance = {'date': '2000-1-1'}
-        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+        with self.assertRaisesRegex(ValidationError, 'is not valid'):
             validate_schema(instance, schema)
 
         instance = {'date': '2000 apr 8'}
-        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+        with self.assertRaisesRegex(ValidationError, 'is not valid'):
             validate_schema(instance, schema)
 
     def test_datetime_field(self):
@@ -585,18 +587,18 @@ class ValidationUnitTest(TestCase):
             validate_schema(instance, schema)
 
         instance = {'date': '2000/06/21 2:03'}
-        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+        with self.assertRaisesRegex(ValidationError, 'is not valid'):
             validate_schema(instance, schema)
 
         instance = {'date': '2000-06-21 2:3'}  # XXX: Is this ok?
         validate_schema(instance, schema)
 
         instance = {'date': '2000-06-21'}
-        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+        with self.assertRaisesRegex(ValidationError, 'is not valid'):
             validate_schema(instance, schema)
 
         instance = {'date': '2000-06-21 12pm'}
-        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+        with self.assertRaisesRegex(ValidationError, 'is not valid'):
             validate_schema(instance, schema)
 
     def test_data_field(self):
@@ -643,7 +645,7 @@ class ValidationUnitTest(TestCase):
             filter_mock = MagicMock(**{'values.return_value': value_mock})
             data_mock.objects.filter.return_value = filter_mock
 
-            with six.assertRaisesRegex(self, ValidationError, '`Data` object does not exist'):
+            with self.assertRaisesRegex(ValidationError, '`Data` object does not exist'):
                 validate_schema(instance, schema)
 
             self.assertEqual(value_mock.exists.call_count, 1)
@@ -660,7 +662,7 @@ class ValidationUnitTest(TestCase):
             filter_mock = MagicMock(**{'values.return_value': value_mock})
             data_mock.objects.filter.return_value = filter_mock
 
-            with six.assertRaisesRegex(self, ValidationError, 'Data object of type .* is required'):
+            with self.assertRaisesRegex(ValidationError, 'Data object of type .* is required'):
                 validate_schema(instance, schema)
 
             self.assertEqual(value_mock.exists.call_count, 1)
@@ -671,7 +673,7 @@ class ValidationUnitTest(TestCase):
             'data_list': "1"
         }
 
-        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+        with self.assertRaisesRegex(ValidationError, 'is not valid'):
             validate_schema(instance, schema)
 
     def test_file_field(self):
@@ -710,21 +712,21 @@ class ValidationUnitTest(TestCase):
             'is_remote': 'ftp',
             'file': 'result_file.txt',
         }}
-        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+        with self.assertRaisesRegex(ValidationError, 'is not valid'):
             validate_schema(instance, schema)
 
         # missing `file`
         instance = {'result': {
             'file_temp': '12345',
         }}
-        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+        with self.assertRaisesRegex(ValidationError, 'is not valid'):
             validate_schema(instance, schema)
 
         # wrong file extension
         instance = {'result': {
             'file': 'result_file.tar.gz',
         }}
-        with six.assertRaisesRegex(self, ValidationError, 'File name .* does not match regex'):
+        with self.assertRaisesRegex(ValidationError, 'File name .* does not match regex'):
             validate_schema(instance, schema)
 
     def test_html_file_field(self):
@@ -759,7 +761,7 @@ class ValidationUnitTest(TestCase):
         instance = {'result': {
             'refs': ['01.txt', '02.txt'],
         }}
-        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+        with self.assertRaisesRegex(ValidationError, 'is not valid'):
             validate_schema(instance, schema)
 
     def test_url_field(self):
@@ -788,7 +790,7 @@ class ValidationUnitTest(TestCase):
             {'name': 'webpage', 'type': 'basic:url:'},
         ]
         instance = {'webpage': {'url': 'http://www.genialis.com'}}
-        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+        with self.assertRaisesRegex(ValidationError, 'is not valid'):
             validate_schema(instance, schema)
 
     def test_json_field(self):
@@ -798,7 +800,7 @@ class ValidationUnitTest(TestCase):
 
         # json not saved in `Storage`
         instance = {'big_dict': {'foo': 'bar'}}
-        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+        with self.assertRaisesRegex(ValidationError, 'is not valid'):
             validate_schema(instance, schema)
 
         with patch('resolwe.flow.models.storage.Storage') as storage_mock:
@@ -818,7 +820,7 @@ class ValidationUnitTest(TestCase):
             storage_mock.objects.filter.return_value = filter_mock
 
             instance = {'big_dict': 5}
-            with six.assertRaisesRegex(self, ValidationError, '`Storage` object does not exist'):
+            with self.assertRaisesRegex(ValidationError, '`Storage` object does not exist'):
                 validate_schema(instance, schema)
 
             self.assertEqual(filter_mock.exists.call_count, 1)
@@ -835,11 +837,11 @@ class ValidationUnitTest(TestCase):
         validate_schema(instance, schema)
 
         instance = {'list': ''}
-        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+        with self.assertRaisesRegex(ValidationError, 'is not valid'):
             validate_schema(instance, schema)
 
         instance = {'list': 'foo bar'}
-        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+        with self.assertRaisesRegex(ValidationError, 'is not valid'):
             validate_schema(instance, schema)
 
     def test_list_integer_field(self):
@@ -851,15 +853,15 @@ class ValidationUnitTest(TestCase):
         validate_schema(instance, schema)
 
         instance = {'value': 42}
-        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+        with self.assertRaisesRegex(ValidationError, 'is not valid'):
             validate_schema(instance, schema)
 
         instance = {'value': [42, 43.0]}
-        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+        with self.assertRaisesRegex(ValidationError, 'is not valid'):
             validate_schema(instance, schema)
 
         instance = {'value': [42, "43"]}
-        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+        with self.assertRaisesRegex(ValidationError, 'is not valid'):
             validate_schema(instance, schema)
 
     def test_list_data_field(self):
@@ -910,7 +912,7 @@ class ValidationUnitTest(TestCase):
             filter_mock = MagicMock(**{'values.return_value': value_mock})
             data_mock.objects.filter.return_value = filter_mock
 
-            with six.assertRaisesRegex(self, ValidationError, '`Data` object does not exist'):
+            with self.assertRaisesRegex(ValidationError, '`Data` object does not exist'):
                 validate_schema(instance, schema)
 
             self.assertEqual(value_mock.exists.call_count, 2)
@@ -929,7 +931,7 @@ class ValidationUnitTest(TestCase):
             filter_mock = MagicMock(**{'values.return_value': value_mock})
             data_mock.objects.filter.return_value = filter_mock
 
-            with six.assertRaisesRegex(self, ValidationError, 'Data object of type .* is required'):
+            with self.assertRaisesRegex(ValidationError, 'Data object of type .* is required'):
                 validate_schema(instance, schema)
 
             self.assertEqual(value_mock.exists.call_count, 3)
@@ -950,7 +952,7 @@ class ValidationUnitTest(TestCase):
             {'file': 'result01.txt'},
             {'file': 'result02.tar.gz'},
         ]}
-        with six.assertRaisesRegex(self, ValidationError, 'File name .* does not match regex'):
+        with self.assertRaisesRegex(ValidationError, 'File name .* does not match regex'):
             validate_schema(instance, schema)
 
     def test_list_dir_field(self):
@@ -968,7 +970,7 @@ class ValidationUnitTest(TestCase):
         instance = {'result': [
             {'size': 32156, 'refs': ['result01.txt', 'result02.txt']},
         ]}
-        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+        with self.assertRaisesRegex(ValidationError, 'is not valid'):
             validate_schema(instance, schema)
 
     def test_list_url_field(self):
@@ -983,7 +985,7 @@ class ValidationUnitTest(TestCase):
         validate_schema(instance, schema)
 
         instance = {'webpage': {'url': 'http://www.dictyexpress.org'}}
-        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+        with self.assertRaisesRegex(ValidationError, 'is not valid'):
             validate_schema(instance, schema)
 
     def test_groups(self):
@@ -1005,7 +1007,7 @@ class ValidationUnitTest(TestCase):
             'result_file': {'file': 'results.tar.gz'},
             'description': 'This are results',
         }}
-        with six.assertRaisesRegex(self, ValidationError, 'File name .* does not match regex'):
+        with self.assertRaisesRegex(ValidationError, 'File name .* does not match regex'):
             validate_schema(instance, schema)
 
         # wrong description type
@@ -1013,12 +1015,12 @@ class ValidationUnitTest(TestCase):
             'result_file': {'file': 'results.txt'},
             'description': 6,
         }}
-        with six.assertRaisesRegex(self, ValidationError, 'is not valid'):
+        with self.assertRaisesRegex(ValidationError, 'is not valid'):
             validate_schema(instance, schema)
 
         # missing description
         instance = {'test_group': {
             'result_file': {'file': 'results.txt'},
         }}
-        with six.assertRaisesRegex(self, ValidationError, '"description" not given'):
+        with self.assertRaisesRegex(ValidationError, '"description" not given'):
             validate_schema(instance, schema)

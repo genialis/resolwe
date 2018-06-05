@@ -5,7 +5,7 @@ from importlib import import_module
 from django.apps import apps
 
 
-class Composer(object):
+class Composer:
     """Support for easier dynamic composition of type extensions."""
 
     def __init__(self):

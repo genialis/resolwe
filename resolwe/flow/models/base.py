@@ -1,6 +1,4 @@
 """Base model for all Resolwe models."""
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 from versionfield import VersionField
 
 from django.conf import settings
@@ -53,7 +51,7 @@ class BaseModel(models.Model):
             try:
                 # Attempt to save the model. It may fail due to slug conflict.
                 with transaction.atomic():
-                    super(BaseModel, self).save(*args, **kwargs)
+                    super().save(*args, **kwargs)
                     break
             except IntegrityError as error:
                 # Retry in case of slug conflicts.

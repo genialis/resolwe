@@ -1,8 +1,6 @@
 # pylint: disable=missing-docstring
 import io
 
-import six
-
 from django.apps import apps
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -173,10 +171,7 @@ class IndexTest(ElasticSearchTestCase):
         self.assertEqual(len(es_objects), 1)
 
         # Recreate an invalid index
-        if six.PY2:
-            output = io.BytesIO()
-        else:
-            output = io.StringIO()
+        output = io.StringIO()
 
         call_command('elastic_index', index=['InvalidIndex'], interactive=False, verbosity=0, stderr=output)
         self.assertIn("Unknown index: InvalidIndex", output.getvalue())

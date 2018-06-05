@@ -1,6 +1,4 @@
 """Local workflow executor."""
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import logging
 import os
 import shlex
@@ -19,7 +17,7 @@ class FlowExecutor(BaseFlowExecutor):
 
     def __init__(self, *args, **kwargs):
         """Initialize attributes."""
-        super(FlowExecutor, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.kill_delay = 5
         self.proc = None
