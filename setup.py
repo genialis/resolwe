@@ -93,7 +93,7 @@ setup(
             # pycodestyle 2.3.0 raises false-positive for variables
             # starting with 'def'
             # https://github.com/PyCQA/pycodestyle/issues/617
-            'pycodestyle~=2.2.0',
+            'pycodestyle~=2.4.0',
             'pydocstyle>=2.0.0',
             'pylint~=1.9.1',
             'readme_renderer',

@@ -696,8 +696,8 @@ class Manager:
             argv = [
                 '/bin/bash',
                 '-c',
-                self.settings_actual.get('FLOW_EXECUTOR', {}).get('PYTHON', '/usr/bin/env python') +
-                ' -m executors ' + executor_module
+                self.settings_actual.get('FLOW_EXECUTOR', {}).get('PYTHON', '/usr/bin/env python')
+                + ' -m executors ' + executor_module
             ]
         except PermissionDenied as error:
             data.status = Data.STATUS_ERROR

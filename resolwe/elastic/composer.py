@@ -29,7 +29,7 @@ class Composer:
                     pass
 
             self._discovery_done = True
-        except:  # pylint: disable=broad-except
+        except:  # noqa pylint: disable=broad-except
             # Rollback state to prevent corrupted state on exceptions during import.
             self._extensions = previous_state
             raise

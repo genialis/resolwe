@@ -471,9 +471,10 @@ class ProcessTestCase(TransactionTestCase):
             :attr:`~resolwe.flow.models.Data.status` attribute
 
         """
-        self.assertEqual(obj.status, status,
-                         msg="Data status is '{}', not '{}'".format(obj.status, status) +
-                         self._debug_info(obj))
+        self.assertEqual(
+            obj.status, status,
+            msg="Data status is '{}', not '{}'".format(obj.status, status) + self._debug_info(obj)
+        )
 
     def assertFields(self, obj, path, value):  # pylint: disable=invalid-name
         """Compare object's field to the given value.
@@ -507,21 +508,22 @@ class ProcessTestCase(TransactionTestCase):
                 del field_value['size']
 
         # Ignore size in file and dir fields
-        if (field_schema['type'].startswith('basic:file:') or
-                field_schema['type'].startswith('basic:dir:')):
+        if (field_schema['type'].startswith('basic:file:')
+                or field_schema['type'].startswith('basic:dir:')):
             remove_file_size(field_value)
             remove_file_size(value)
 
-        elif (field_schema['type'].startswith('list:basic:file:') or
-              field_schema['type'].startswith('list:basic:dir:')):
+        elif (field_schema['type'].startswith('list:basic:file:')
+              or field_schema['type'].startswith('list:basic:dir:')):
             for val in field_value:
                 remove_file_size(val)
             for val in value:
                 remove_file_size(val)
 
-        self.assertEqual(field_value, value,
-                         msg="Field 'output.{}' mismatch: {} != {}".format(path, field_value, value) +
-                         self._debug_info(obj))
+        self.assertEqual(
+            field_value, value,
+            msg="Field 'output.{}' mismatch: {} != {}".format(path, field_value, value) + self._debug_info(obj)
+        )
 
     def _assert_file(self, obj, fn_tested, fn_correct, compression=None, file_filter=lambda _: False, sort=False):
         """Compare files."""

@@ -77,8 +77,8 @@ echo "{\"collection-list\": $(curl --silent --show-error $RESOLWE_HOST_URL/colle
         """Check if information obtained for collection via API is correct."""
         if 'collection-list' not in data.output:
             self.fail(
-                "The test process didn't obtain collection list from the live Resolwe host." +
-                self._debug_info(data)
+                "The test process didn't obtain collection list from the live Resolwe host."
+                + self._debug_info(data)
             )
         collection_list = Storage.objects.get(data=data).json
         self.assertEqual(len(collection_list), 1)
