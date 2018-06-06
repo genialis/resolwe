@@ -94,7 +94,7 @@ setup(
             # starting with 'def'
             # https://github.com/PyCQA/pycodestyle/issues/617
             'pycodestyle~=2.4.0',
-            'pydocstyle>=2.0.0',
+            'pydocstyle~=2.1.1',
             'pylint~=1.9.1',
             'readme_renderer',
             'resolwe-runtime-utils>=1.1.0',
