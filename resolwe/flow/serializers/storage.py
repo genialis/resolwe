@@ -14,6 +14,17 @@ class StorageSerializer(ResolweBaseSerializer):
         """StorageSerializer Meta options."""
 
         model = Storage
-        update_protected_fields = ('contributor', )
-        read_only_fields = ('id', 'created', 'modified')
-        fields = ('slug', 'name', 'data', 'json') + update_protected_fields + read_only_fields
+        read_only_fields = (
+            'created',
+            'id',
+            'modified',
+        )
+        update_protected_fields = (
+            'contributor',
+        )
+        fields = read_only_fields + update_protected_fields + (
+            'data',
+            'json',
+            'name',
+            'slug',
+        )

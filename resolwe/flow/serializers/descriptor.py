@@ -11,9 +11,21 @@ class DescriptorSchemaSerializer(ResolweBaseSerializer):
     schema = ProjectableJSONField(required=False)
 
     class Meta:
-        """TemplateSerializer Meta options."""
+        """DescriptorSchemaSerializer Meta options."""
 
         model = DescriptorSchema
-        update_protected_fields = ('contributor', )
-        read_only_fields = ('id', 'created', 'modified')
-        fields = ('slug', 'name', 'version', 'schema') + update_protected_fields + read_only_fields
+        read_only_fields = (
+            'created',
+            'id',
+            'modified',
+        )
+        update_protected_fields = (
+            'contributor',
+            'version',
+        )
+        fields = read_only_fields + update_protected_fields + (
+            'description',
+            'name',
+            'schema',
+            'slug',
+        )

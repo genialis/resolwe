@@ -14,10 +14,15 @@ class ContributorSerializer(SelectiveFieldMixin, serializers.ModelSerializer):
     class Meta:
         """Serializer configuration."""
 
-        # The model needs to be determined when instantiating the serializer class as
-        # the applications may not yet be ready at this point.
+        # The model needs to be determined when instantiating the serializer
+        # class as the applications may not yet be ready at this point.
         model = None
-        fields = ('id', 'username', 'first_name', 'last_name')
+        fields = (
+            'first_name',
+            'id',
+            'last_name',
+            'username',
+        )
 
     def __init__(self, instance=None, data=empty, **kwargs):
         """Initialize attributes."""

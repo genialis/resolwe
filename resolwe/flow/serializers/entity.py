@@ -12,10 +12,14 @@ class EntitySerializer(CollectionSerializer):
     collections = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
 
     class Meta(CollectionSerializer.Meta):
-        """Serializer configuration."""
+        """EntitySerializer Meta options."""
 
         model = Entity
-        fields = CollectionSerializer.Meta.fields + ('collections', 'descriptor_completed', 'tags')
+        fields = CollectionSerializer.Meta.fields + (
+            'collections',
+            'descriptor_completed',
+            'tags',
+        )
 
     def get_data(self, entity):
         """Return serialized list of data objects on entity that user has `view` permission on."""

@@ -33,9 +33,20 @@ class RelationSerializer(ResolweBaseSerializer):
         """RelationSerializer Meta options."""
 
         model = Relation
-        update_protected_fields = ('contributor', 'entities', 'type')
-        read_only_fields = ('id', 'created', 'modified')
-        fields = ('collection', 'entities', 'label') + update_protected_fields + read_only_fields
+        read_only_fields = (
+            'created',
+            'id',
+            'modified',
+        )
+        update_protected_fields = (
+            'contributor',
+            'entities',
+            'type',
+        )
+        fields = read_only_fields + update_protected_fields + (
+            'collection',
+            'label',
+        )
 
     def get_fields(self):
         """Dynamically adapt fields based on the current request."""

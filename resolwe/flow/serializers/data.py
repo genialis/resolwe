@@ -20,23 +20,45 @@ class DataSerializer(ResolweBaseSerializer):
     process_input_schema = ProjectableJSONField(source='process.input_schema', read_only=True)
     process_output_schema = ProjectableJSONField(source='process.output_schema', read_only=True)
 
-    name = serializers.CharField(read_only=False, required=False)
-    slug = serializers.CharField(read_only=False, required=False)
-
     class Meta:
         """DataSerializer Meta options."""
 
         model = Data
-        update_protected_fields = ('contributor', 'process',)
         read_only_fields = (
-            'id', 'created', 'modified', 'started', 'finished', 'checksum', 'status', 'process_progress', 'process_rc',
-            'process_info', 'process_warning', 'process_error', 'process_type', 'process_input_schema',
-            'process_output_schema', 'process_slug', 'process_name', 'descriptor_dirty',
+            'checksum',
+            'created',
+            'descriptor_dirty',
+            'finished',
+            'id',
+            'modified',
+            'process_cores',
+            'process_error',
+            'process_info',
+            'process_input_schema',
+            'process_memory',
+            'process_name',
+            'process_output_schema',
+            'process_progress',
+            'process_rc',
+            'process_slug',
+            'process_type',
+            'process_warning',
+            'output',
+            'started',
+            'status',
         )
-        fields = (
-            'slug', 'name', 'contributor', 'input', 'output', 'descriptor_schema', 'descriptor', 'tags',
-            'process_memory', 'process_cores',
-        ) + update_protected_fields + read_only_fields
+        update_protected_fields = (
+            'contributor',
+            'input',
+            'process',
+        )
+        fields = read_only_fields + update_protected_fields + (
+            'descriptor',
+            'descriptor_schema',
+            'name',
+            'slug',
+            'tags',
+        )
 
     def get_fields(self):
         """Dynamically adapt fields based on the current request."""

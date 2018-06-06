@@ -11,8 +11,26 @@ class ProcessSerializer(ResolweBaseSerializer):
         """ProcessSerializer Meta options."""
 
         model = Process
-        update_protected_fields = ('contributor', )
-        read_only_fields = ('id', 'created', 'modified')
-        fields = ('slug', 'name', 'data_name', 'version', 'type', 'flow_collection', 'category',
-                  'persistence', 'description', 'input_schema', 'output_schema', 'requirements',
-                  'run', 'scheduling_class') + update_protected_fields + read_only_fields
+        read_only_fields = (
+            'created',
+            'id',
+            'modified',
+        )
+        update_protected_fields = (
+            'category',
+            'contributor',
+            'data_name',
+            'description',
+            'flow_collection',
+            'input_schema',
+            'name',
+            'output_schema',
+            'persistence',
+            'requirements',
+            'run',
+            'scheduling_class',
+            'slug',
+            'type',
+            'version',
+        )
+        fields = read_only_fields + update_protected_fields

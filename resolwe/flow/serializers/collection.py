@@ -15,7 +15,6 @@ from .descriptor import DescriptorSchemaSerializer
 class CollectionSerializer(ResolweBaseSerializer):
     """Serializer for Collection objects."""
 
-    slug = serializers.CharField(read_only=False, required=False)
     settings = ProjectableJSONField(required=False)
     descriptor = ProjectableJSONField(required=False)
 
@@ -23,10 +22,24 @@ class CollectionSerializer(ResolweBaseSerializer):
         """CollectionSerializer Meta options."""
 
         model = Collection
-        update_protected_fields = ('contributor',)
-        read_only_fields = ('id', 'created', 'modified', 'descriptor_dirty')
-        fields = ('slug', 'name', 'description', 'settings', 'descriptor_schema', 'descriptor',
-                  'data') + update_protected_fields + read_only_fields
+        read_only_fields = (
+            'created',
+            'descriptor_dirty',
+            'id',
+            'modified',
+        )
+        update_protected_fields = (
+            'contributor',
+        )
+        fields = read_only_fields + update_protected_fields + (
+            'data',
+            'description',
+            'descriptor',
+            'descriptor_schema',
+            'name',
+            'settings',
+            'slug',
+        )
 
     def _serialize_data(self, data):
         """Return serialized data or list of ids, depending on `hydrate_data` query param."""
