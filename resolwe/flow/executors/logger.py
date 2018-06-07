@@ -1,4 +1,5 @@
 """Logging configuration for executors."""
+import asyncio
 import json
 import logging
 import os
@@ -36,18 +37,28 @@ class JSONFormatter(logging.Formatter):
 class RedisHandler(logging.Handler):
     """Publish messages to Redis channel."""
 
+    def __init__(self, emit_list, **kwargs):
+        """Construct a handler instance.
+
+        :param emit_list: The list to add emit futures into, so they can
+            be waited on in the executor main function.
+        """
+        self.emit_list = emit_list
+        super().__init__(**kwargs)
+
     def emit(self, record):
         """Send log message to the listener."""
-        send_manager_command(
+        future = asyncio.ensure_future(send_manager_command(
             ExecutorProtocol.LOG,
             extra_fields={
                 ExecutorProtocol.LOG_MESSAGE: self.format(record),
             },
             expect_reply=False
-        )
+        ))
+        self.emit_list.append(future)
 
 
-def configure_logging():
+def configure_logging(emit_list):
     """Configure logging to send log records to the master."""
     if 'sphinx' in sys.modules:
         module_base = 'resolwe.flow.executors'
@@ -64,7 +75,8 @@ def configure_logging():
             'redis': {
                 'class': module_base + '.logger.RedisHandler',
                 'formatter': 'json_formatter',
-                'level': logging.DEBUG
+                'level': logging.DEBUG,
+                'emit_list': emit_list
             },
             'console': {
                 'class': 'logging.StreamHandler',

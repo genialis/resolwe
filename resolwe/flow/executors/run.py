@@ -9,6 +9,7 @@ Base Class
 
 """
 # pylint: disable=logging-format-interpolation
+import asyncio
 import json
 import logging
 import os
@@ -53,9 +54,9 @@ class BaseFlowExecutor:
         self.requirements = {}
         self.resources = {}
 
-        signal.signal(signal.SIGTERM, self._exit_gracefully)
+        asyncio.get_event_loop().add_signal_handler(signal.SIGTERM, self._exit_gracefully)
 
-    def _exit_gracefully(self, signum, frame):
+    def _exit_gracefully(self):
         """Handle SIGTERM signal."""
         self.update_data_status(
             process_error=["Executor was killed by the scheduling system."],
@@ -64,27 +65,27 @@ class BaseFlowExecutor:
 
         self.terminate()
 
-    def _send_manager_command(self, *args, **kwargs):
+    async def _send_manager_command(self, *args, **kwargs):
         """Send an update to manager and terminate the process if it fails."""
-        resp = send_manager_command(*args, **kwargs)
+        resp = await send_manager_command(*args, **kwargs)
 
         if resp is False:
-            self.terminate()
+            await self.terminate()
 
     def get_tools_paths(self):
         """Get tools paths."""
         tools_paths = SETTINGS['FLOW_EXECUTOR_TOOLS_PATHS']
         return tools_paths
 
-    def start(self):
+    async def start(self):
         """Start process execution."""
         pass
 
-    def run_script(self, script):
+    async def run_script(self, script):
         """Run process script."""
         raise NotImplementedError("Subclasses of BaseFlowExecutor must implement a run_script() method.")
 
-    def end(self):
+    async def end(self):
         """End process execution."""
         pass
 
@@ -92,35 +93,35 @@ class BaseFlowExecutor:
         """Get process' standard output."""
         return self.stdout  # pylint: disable=no-member
 
-    def update_data_status(self, **kwargs):
+    async def update_data_status(self, **kwargs):
         """Update (PATCH) Data object.
 
         :param kwargs: The dictionary of
             :class:`~resolwe.flow.models.Data` attributes to be changed.
         """
-        self._send_manager_command(ExecutorProtocol.UPDATE, extra_fields={
+        await self._send_manager_command(ExecutorProtocol.UPDATE, extra_fields={
             ExecutorProtocol.UPDATE_CHANGESET: kwargs
         })
 
-    def run(self, data_id, script):
+    async def run(self, data_id, script):
         """Execute the script and save results."""
         logger.debug("Executor for Data with id {} has started.".format(data_id))
         try:
-            finish_fields = self._run(data_id, script)
+            finish_fields = await self._run(data_id, script)
         except SystemExit:
             raise
         except Exception as error:  # pylint: disable=broad-except
             logger.exception("Unhandled exception in executor")
 
             # Send error report.
-            self.update_data_status(process_error=[str(error)], status=DATA_META['STATUS_ERROR'])
+            await self.update_data_status(process_error=[str(error)], status=DATA_META['STATUS_ERROR'])
 
             finish_fields = {
                 ExecutorProtocol.FINISH_PROCESS_RC: 1,
             }
 
         if finish_fields is not None:
-            self._send_manager_command(ExecutorProtocol.FINISH, extra_fields=finish_fields)
+            await self._send_manager_command(ExecutorProtocol.FINISH, extra_fields=finish_fields)
 
         # The response channel (Redis list) is deleted automatically once the list is drained, so
         # there is no need to remove it manually.
@@ -130,7 +131,7 @@ class BaseFlowExecutor:
         file_descriptor = os.open(filename, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
         return os.fdopen(file_descriptor, 'w')
 
-    def _run(self, data_id, script):
+    async def _run(self, data_id, script):
         """Execute the script and save results."""
         self.data_id = data_id
 
@@ -149,12 +150,12 @@ class BaseFlowExecutor:
             logger.error("Stdout or jsonout out file already exists.")
             # Looks like executor was already ran for this Data object,
             # so don't raise the error to prevent setting status to error.
-            self._send_manager_command(ExecutorProtocol.ABORT, expect_reply=False)
+            await self._send_manager_command(ExecutorProtocol.ABORT, expect_reply=False)
             return
 
-        proc_pid = self.start()
+        proc_pid = await self.start()
 
-        self.update_data_status(
+        await self.update_data_status(
             status=DATA_META['STATUS_PROCESSING'],
             process_pid=proc_pid
         )
@@ -162,7 +163,7 @@ class BaseFlowExecutor:
         # Run process and handle intermediate results
         logger.info("Running program for Data with id {}".format(data_id))
         logger.debug("The program for Data with id {} is: \n{}".format(data_id, script))
-        self.run_script(script)
+        await self.run_script(script)
         spawn_processes = []
         output = {}
         process_error, process_warning, process_info = [], [], []
@@ -172,11 +173,12 @@ class BaseFlowExecutor:
         try:
             stdout = self.get_stdout()
             while True:
-                line = stdout.readline()
+                line = await stdout.readline()
                 logger.debug("Process's output: {}".format(line.strip()))
 
                 if not line:
                     break
+                line = line.decode('utf-8')
 
                 try:
                     if line.strip().startswith('run'):
@@ -228,14 +230,14 @@ class BaseFlowExecutor:
                                     updates['output'] = output
 
                         if updates:
-                            self.update_data_status(**updates)
+                            await self.update_data_status(**updates)
                             # Process meta fields are collected in listener, so we can clear them.
                             process_error, process_warning, process_info = [], [], []
 
                         if process_rc > 0:
                             log_file.close()
                             json_file.close()
-                            self._send_manager_command(ExecutorProtocol.FINISH, extra_fields={
+                            await self._send_manager_command(ExecutorProtocol.FINISH, extra_fields={
                                 ExecutorProtocol.FINISH_PROCESS_RC: process_rc
                             })
                             return
@@ -258,11 +260,10 @@ class BaseFlowExecutor:
             raise ex
         finally:
             # Store results
-            stdout.close()
             log_file.close()
             json_file.close()
 
-        return_code = self.end()
+        return_code = await self.end()
 
         if process_rc < return_code:
             process_rc = return_code
@@ -277,6 +278,6 @@ class BaseFlowExecutor:
 
         return finish_fields
 
-    def terminate(self):
+    async def terminate(self):
         """Terminate a running script."""
         sys.exit(1)

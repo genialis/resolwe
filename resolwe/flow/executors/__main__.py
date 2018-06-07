@@ -27,6 +27,7 @@ using the python from the ``venv`` virtualenv.
 """
 
 import argparse
+import asyncio
 from importlib import import_module
 
 from . import manager_commands
@@ -35,7 +36,7 @@ from .logger import configure_logging
 from .protocol import ExecutorFiles
 
 
-def run_executor():
+async def run_executor():
     """Start the actual execution; instantiate the executor and run."""
     parser = argparse.ArgumentParser(description="Run the specified executor.")
     parser.add_argument('module', help="The module from which to instantiate the concrete executor.")
@@ -47,11 +48,29 @@ def run_executor():
     module = import_module(module_name, __package__)
     executor = getattr(module, class_name)()
     with open(ExecutorFiles.PROCESS_SCRIPT, 'rt') as script_file:
-        executor.run(DATA['id'], script_file.read())
+        await executor.run(DATA['id'], script_file.read())
 
 
 if __name__ == '__main__':
-    configure_logging()
-    run_executor()
-    # Make sure the connection is cleaned up.
-    manager_commands.redis_conn = None
+    logging_future_list = []  # pylint: disable=invalid-name
+    configure_logging(logging_future_list)
+
+    async def _sequential():
+        """Run some things sequentially but asynchronously."""
+        await manager_commands.init()
+        await run_executor()
+    loop = asyncio.get_event_loop()  # pylint: disable=invalid-name
+    loop.run_until_complete(_sequential())
+
+    # Wait for any pending logging emits now there's
+    # nothing else running anymore
+    loop.run_until_complete(asyncio.gather(*logging_future_list))
+
+    # Now that logging is done too, close the connection cleanly.
+    loop.run_until_complete(manager_commands.deinit())
+
+    # Any stragglers?
+    pending = asyncio.Task.all_tasks()  # pylint: disable=invalid-name
+    loop.run_until_complete(asyncio.gather(*pending))
+
+    loop.close()

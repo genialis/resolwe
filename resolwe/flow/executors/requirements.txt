@@ -1,2 +1,2 @@
 # Python requirements for running Resolwe's standalone executor
-redis
+aioredis

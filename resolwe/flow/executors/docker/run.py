@@ -9,9 +9,9 @@ import json
 import logging
 import os
 import shlex
-import subprocess
 import tempfile
 import time
+from asyncio import subprocess
 
 from . import constants
 from ..global_settings import PROCESS_META, SETTINGS
@@ -40,7 +40,7 @@ class FlowExecutor(LocalFlowExecutor):
         """Generate unique container name."""
         return '{}_{}'.format(self.container_name_prefix, self.data_id)
 
-    def start(self):
+    async def start(self):
         """Start process execution."""
         # arguments passed to the Docker command
         command_args = {
@@ -197,20 +197,21 @@ class FlowExecutor(LocalFlowExecutor):
         logger.info("Starting docker container with command: {}".format(docker_command))
         start_time = time.time()
 
-        self.proc = subprocess.Popen(
-            shlex.split(docker_command),
+        # Workaround for pylint issue #1469
+        # (https://github.com/PyCQA/pylint/issues/1469).
+        self.proc = await subprocess.create_subprocess_exec(  # pylint: disable=no-member
+            *shlex.split(docker_command),
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            universal_newlines=True,
-            bufsize=1,
+            stderr=subprocess.STDOUT
         )
 
         # Wait for Docker container to start to avoid blocking the code that uses it.
-        self.proc.stdin.write('echo PING' + os.linesep)
+        self.proc.stdin.write(('echo PING' + os.linesep).encode('utf-8'))
+        await self.proc.stdin.drain()
         while True:
-            line = self.proc.stdout.readline()
-            if line.rstrip() == 'PING':
+            line = await self.proc.stdout.readline()
+            if line.rstrip() == b'PING':
                 break
 
         end_time = time.time()
@@ -218,7 +219,7 @@ class FlowExecutor(LocalFlowExecutor):
 
         self.stdout = self.proc.stdout
 
-    def run_script(self, script):
+    async def run_script(self, script):
         """Execute the script and save results."""
         # Create a Bash command to add all the tools to PATH.
         tools_paths = ':'.join([map_["dest"] for map_ in self.tools_volumes])
@@ -226,14 +227,18 @@ class FlowExecutor(LocalFlowExecutor):
         # Spawn another child bash, to avoid running anything as PID 1, which has special
         # signal handling (e.g., cannot be SIGKILL-ed from inside).
         # A login Bash shell is needed to source /etc/profile.
-        self.proc.stdin.write('/bin/bash --login; exit $?' + os.linesep)
-        self.proc.stdin.write(os.linesep.join(['set -x', 'set +B', add_tools_path, script]) + os.linesep)
+        bash_line = '/bin/bash --login; exit $?' + os.linesep
+        script = os.linesep.join(['set -x', 'set +B', add_tools_path, script]) + os.linesep
+        self.proc.stdin.write(bash_line.encode('utf-8'))
+        await self.proc.stdin.drain()
+        self.proc.stdin.write(script.encode('utf-8'))
+        await self.proc.stdin.drain()
         self.proc.stdin.close()
 
-    def end(self):
+    async def end(self):
         """End process execution."""
         try:
-            self.proc.wait()
+            await self.proc.wait()
         finally:
             # Cleanup temporary files.
             for temporary_file in self.temporary_files:
@@ -242,8 +247,14 @@ class FlowExecutor(LocalFlowExecutor):
 
         return self.proc.returncode
 
-    def terminate(self):
+    async def terminate(self):
         """Terminate a running script."""
-        subprocess.call(shlex.split('{} rm -f {}'.format(self.command, self._generate_container_name())))
+        # Workaround for pylint issue #1469
+        # (https://github.com/PyCQA/pylint/issues/1469).
+        cmd = await subprocess.create_subprocess_exec(  # pylint: disable=no-member
+            *shlex.split('{} rm -f {}'.format(self.command, self._generate_container_name()))
+        )
+        await cmd.wait()
+        await self.proc.wait()
 
-        super().terminate()
+        await super().terminate()

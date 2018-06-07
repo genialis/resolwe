@@ -10,6 +10,10 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Changed
+-------
+- Make the main executor non-blocking by using Python asyncio
+
 
 ===================
 10.1.0 - 2018-07-16

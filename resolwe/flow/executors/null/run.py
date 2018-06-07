@@ -21,6 +21,6 @@ class FlowExecutor(BaseFlowExecutor):  # pylint: disable=abstract-method
 
     name = 'null'
 
-    def run(self, data_id, script):
+    async def run(self, data_id, script):
         """Do nothing :)."""
-        send_manager_command(ExecutorProtocol.FINISH)
+        await send_manager_command(ExecutorProtocol.FINISH)

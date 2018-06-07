@@ -3,11 +3,11 @@
 .. autoclass:: resolwe.flow.executors.local.run.FlowExecutor
 
 """
+import asyncio
 import logging
 import os
 import shlex
-import subprocess
-import time
+from asyncio import subprocess
 
 from ..run import BaseFlowExecutor
 
@@ -28,33 +28,40 @@ class FlowExecutor(BaseFlowExecutor):
         self.stdout = None
         self.command = '/bin/bash'
 
-    def start(self):
+    async def start(self):
         """Start process execution."""
-        self.proc = subprocess.Popen(shlex.split(self.command),
-                                     stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                     stderr=subprocess.STDOUT, universal_newlines=True)
+        # Workaround for pylint issue #1469
+        # (https://github.com/PyCQA/pylint/issues/1469).
+        self.proc = await subprocess.create_subprocess_exec(  # pylint: disable=no-member
+            *shlex.split(self.command),
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT
+        )
 
         self.stdout = self.proc.stdout
 
         return self.proc.pid
 
-    def run_script(self, script):
+    async def run_script(self, script):
         """Execute the script and save results."""
-        self.proc.stdin.write(os.linesep.join(['set -x', 'set +B', script, 'exit']) + os.linesep)
+        script = os.linesep.join(['set -x', 'set +B', script, 'exit']) + os.linesep
+        self.proc.stdin.write(script.encode('utf-8'))
+        await self.proc.stdin.drain()
         self.proc.stdin.close()
 
-    def end(self):
+    async def end(self):
         """End process execution."""
-        self.proc.wait()
+        await self.proc.wait()
 
         return self.proc.returncode
 
-    def terminate(self):
+    async def terminate(self):
         """Terminate a running script."""
         self.proc.terminate()
 
-        time.sleep(self.kill_delay)
-        if self.proc.poll() is None:
+        await asyncio.wait_for(self.proc.wait(), self.kill_delay)
+        if self.proc.returncode is None:
             self.proc.kill()
+        await self.proc.wait()
 
-        super().terminate()
+        await super().terminate()

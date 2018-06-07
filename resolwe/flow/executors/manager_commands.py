@@ -6,7 +6,7 @@ import traceback
 
 # NOTE: If the imports here are changed, the executors' requirements.txt
 # file must also be updated accordingly.
-import redis
+import aioredis
 
 from .global_settings import DATA, EXECUTOR_SETTINGS, SETTINGS
 from .protocol import ExecutorProtocol
@@ -19,12 +19,29 @@ _response_channel = EXECUTOR_SETTINGS.get('REDIS_CHANNEL_PAIR', ('', ''))[1]  # 
 QUEUE_RESPONSE_CHANNEL = '{}.{}'.format(_response_channel, DATA.get('id', 0))
 
 # The Redis connection instance used to communicate with the manager listener.
-redis_conn = redis.StrictRedis(  # pylint: disable=invalid-name
-    **SETTINGS.get('FLOW_EXECUTOR', {}).get('REDIS_CONNECTION', {})
-)
+redis_conn = None  # pylint: disable=invalid-name
 
 
-def send_manager_command(cmd, expect_reply=True, extra_fields={}):
+async def init():
+    """Create a connection to the Redis server."""
+    global redis_conn  # pylint: disable=global-statement,invalid-name
+    conn = await aioredis.create_connection(  # pylint: disable=invalid-name
+        'redis://{}:{}'.format(
+            SETTINGS.get('FLOW_EXECUTOR', {}).get('REDIS_CONNECTION', {}).get('host', 'localhost'),
+            SETTINGS.get('FLOW_EXECUTOR', {}).get('REDIS_CONNECTION', {}).get('port', 56379)
+        ),
+        db=int(SETTINGS.get('FLOW_EXECUTOR', {}).get('REDIS_CONNECTION', {}).get('db', 1))
+    )
+    redis_conn = aioredis.Redis(conn)
+
+
+async def deinit():
+    """Close the Redis connection cleanly."""
+    redis_conn.close()
+    await redis_conn.wait_closed()
+
+
+async def send_manager_command(cmd, expect_reply=True, extra_fields={}):
     """Send a properly formatted command to the manager.
 
     :param cmd: The command to send (:class:`str`).
@@ -45,7 +62,7 @@ def send_manager_command(cmd, expect_reply=True, extra_fields={}):
     # so just let it explode and stop processing
     queue_channel = EXECUTOR_SETTINGS['REDIS_CHANNEL_PAIR'][0]
     try:
-        redis_conn.rpush(queue_channel, json.dumps(packet))
+        await redis_conn.rpush(queue_channel, json.dumps(packet))
     except Exception:  # pylint: disable=broad-except
         logger.error("Error sending command to manager:\n\n{}".format(traceback.format_exc()))
         raise
@@ -54,7 +71,7 @@ def send_manager_command(cmd, expect_reply=True, extra_fields={}):
         return
 
     for _ in range(_REDIS_RETRIES):
-        response = redis_conn.blpop(QUEUE_RESPONSE_CHANNEL, timeout=1)
+        response = await redis_conn.blpop(QUEUE_RESPONSE_CHANNEL, timeout=1)
         if response:
             break
     else:
