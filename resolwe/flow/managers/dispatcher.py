@@ -112,6 +112,7 @@ class Manager(object):
             self.value = 0
             self.active = False
             self.condition = asyncio.Condition()
+            self.tag_sequence = []
 
         async def __aenter__(self):
             """Begin synchronized execution context."""
@@ -127,7 +128,10 @@ class Manager(object):
                 await self.condition.wait()
             finally:
                 self.condition.release()
-            logging.debug("Sync semaphore dropped to 0.")
+            logging.debug(__(
+                "Sync semaphore dropped to 0, tag sequence was {}.",
+                self.tag_sequence
+            ))
 
             self.active = False
             return False
@@ -139,13 +143,14 @@ class Manager(object):
             self.value = 0
             self.condition.release()
 
-        async def inc(self):
+        async def inc(self, tag):
             """Increase executor count by 1."""
             await self.condition.acquire()
             self.value += 1
+            self.tag_sequence.append(tag + '-up')
             self.condition.release()
 
-        async def dec(self):
+        async def dec(self, tag):
             """Decrease executor count by 1.
 
             Return ``True`` if the count dropped to 0 as a result.
@@ -154,6 +159,7 @@ class Manager(object):
             await self.condition.acquire()
             try:
                 self.value -= 1
+                self.tag_sequence.append(tag + '-down')
                 ret = self.value == 0
                 if self.active and self.value == 0:
                     self.condition.notify_all()
@@ -175,10 +181,10 @@ class Manager(object):
             self.active = False
             self.value = 0
 
-        async def inc(self):  # pylint: disable=missing-docstring
+        async def inc(self, tag):  # pylint: disable=missing-docstring
             pass
 
-        async def dec(self):  # pylint: disable=missing-docstring
+        async def dec(self, tag):  # pylint: disable=missing-docstring
             pass
 
         async def reset(self):  # pylint: disable=missing-docstring
@@ -241,10 +247,16 @@ class Manager(object):
             "Found {} execution engines: {}", len(self.execution_engines), ', '.join(self.execution_engines.keys())
         ))
 
-    def reset(self):
-        """Reset the shared state and drain Django Channels."""
-        self.state = state.ManagerState(state.MANAGER_STATE_PREFIX)
-        self.state.reset()
+    def reset(self, keep_state=False):
+        """Reset the shared state and drain Django Channels.
+
+        :param keep_state: If ``True``, do not reset the shared manager
+            state (useful in tests, where the settings overrides need to
+            be kept). Defaults to ``False``.
+        """
+        if not keep_state:
+            self.state = state.ManagerState(state.MANAGER_STATE_PREFIX)
+            self.state.reset()
         async_to_sync(consumer.run_consumer)(timeout=1)
         async_to_sync(consumer.flush_channel)()
         async_to_sync(self.sync_counter.reset)()
@@ -358,7 +370,7 @@ class Manager(object):
         else:
             class_name = getattr(settings, 'FLOW_MANAGER', {}).get('NAME', DEFAULT_CONNECTOR)
 
-        async_to_sync(self.sync_counter.inc)()
+        async_to_sync(self.sync_counter.inc)('executor')
         return self.connectors[class_name].submit(data, runtime_dir, argv)
 
     def _get_per_data_dir(self, dir_base, data_id):
@@ -574,12 +586,12 @@ class Manager(object):
                 if message[WorkerProtocol.FINISH_SPAWNED]:
                     await database_sync_to_async(self._data_scan)(**message[WorkerProtocol.FINISH_COMMUNICATE_EXTRA])
             finally:
-                zeroed = await self.sync_counter.dec()
+                zeroed = await self.sync_counter.dec('executor')
                 if zeroed:
                     await consumer.exit_consumer()
 
         elif cmd == WorkerProtocol.ABORT:
-            zeroed = await self.sync_counter.dec()
+            zeroed = await self.sync_counter.dec('executor')
             if zeroed:
                 await consumer.exit_consumer()
 
@@ -790,7 +802,7 @@ class Manager(object):
             # Ensure settings overrides apply
             self.discover_engines(executor=executor)
 
-        async_to_sync(self.sync_counter.inc)()
+        async_to_sync(self.sync_counter.inc)('scan-guard')
         try:
             queryset = Data.objects.filter(status=Data.STATUS_RESOLVING)
             if data_id is not None:
@@ -852,7 +864,7 @@ class Manager(object):
             logger.error(__("IntegrityError in manager {}", exp))
             return
         finally:
-            async_to_sync(self.sync_counter.dec)()
+            async_to_sync(self.sync_counter.dec)('scan-guard')
 
     def get_executor(self):
         """Return an executor instance."""

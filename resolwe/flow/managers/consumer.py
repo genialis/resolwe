@@ -49,7 +49,7 @@ async def run_consumer(timeout=None):
             if message.get('type', {}) == '_resolwe_manager_quit':
                 break
             message.update(scope)
-            await manager.sync_counter.inc()
+            await manager.sync_counter.inc('message-handling')
             await app.send_input(message)
 
     if timeout is None:
@@ -87,4 +87,4 @@ class ManagerConsumer(AsyncConsumer):
         try:
             await self.manager.handle_control_event(message['content'])
         finally:
-            await self.manager.sync_counter.dec()
+            await self.manager.sync_counter.dec('message-handling')
