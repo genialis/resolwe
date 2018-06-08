@@ -151,6 +151,9 @@ def _manager_setup():
     This mostly means state cleanup, such as resetting database
     connections and clearing the shared state.
     """
+    if TESTING_CONTEXT.get('manager_reset', False):
+        return
+    TESTING_CONTEXT['manager_reset'] = True
     for alias in db.connections:
         conn = db.connections[alias]
         conn.close()
@@ -211,10 +214,13 @@ def _sequence_paths(paths):
 
 def _create_test_dirs():
     """Create all the testing directories."""
+    if 'test_paths' in TESTING_CONTEXT:
+        return TESTING_CONTEXT['test_paths']
     items = ['DATA_DIR', 'UPLOAD_DIR', 'RUNTIME_DIR']
     paths = _sequence_paths([resolwe_settings.FLOW_EXECUTOR_SETTINGS[i] for i in items])
     for item, path in zip(items, paths):
         resolwe_settings.FLOW_EXECUTOR_SETTINGS[item] = path
+    TESTING_CONTEXT['test_paths'] = paths
     return paths
 
 
@@ -308,6 +314,10 @@ class CustomRemoteRunner(RemoteTestRunner):
 
     def run(self, *args, **kwargs):
         """Run the superclass method with an underlying event loop."""
+        # NOTE: An instance of this class is constructed for _each_ batch
+        # of tests, not just once per pool worker, so some care needs to
+        # be taken to avoid incremental corruption, such as in
+        # _create_test_dirs().
         return _run_manager(super().run, *args, **kwargs)
 
 
