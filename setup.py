@@ -69,6 +69,9 @@ setup(
         'Jinja2>=2.9.6',
         'wrapt>=1.10.8',
         'shellescape>=3.4.1',
+        # XXX: Temporarily pin idna since the latest version of the requests
+        # package (2.18.4) explicitly requires idna>=2.5,<2.7
+        'idna==2.6',
         # XXX: djangorestframework-filters has too open requirement for
         # django-filter and doesn't work with the latest version, so we
         # have to pin it
