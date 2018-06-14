@@ -94,6 +94,7 @@ class ExecutorListener:
         await self._runner_coro
         self._redis.close()
         await self._redis.wait_closed()
+        # Make sure the connection is cleaned up.
         self._redis = None
 
     def terminate(self):

@@ -78,7 +78,7 @@ setup(
         'django-filter~=1.0.0',
         'redis~=2.10.6',
         'channels~=2.1',
-        'channels_redis~=2.1',
+        'channels_redis_persist~=2.2',
         'async-timeout~=2.0',
     ],
     python_requires='>=3.6, <3.7',
