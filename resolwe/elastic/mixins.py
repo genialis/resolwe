@@ -36,7 +36,7 @@ class ElasticIndexFilterMixin(object):
         """Process index."""
         pass
 
-    def filter_indices(self, options, verbosity):
+    def filter_indices(self, options, verbosity, *args, **kwargs):
         """Filter indices and execute an action for each index."""
         index_name_map = {
             index.__class__.__name__: index
@@ -67,4 +67,4 @@ class ElasticIndexFilterMixin(object):
 
             if verbosity > 0:
                 self.stdout.write("Processing index '{}'...".format(index_name))
-            self.handle_index(index)
+            self.handle_index(index, *args, **kwargs)

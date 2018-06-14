@@ -18,17 +18,30 @@ class Command(ElasticIndexFilterMixin, BaseCommand):
 
     help = "Purge ElasticSearch indexes."
 
-    def handle_index(self, index):
+    def add_arguments(self, parser):
+        """Add an argument to specify output format."""
+        super().add_arguments(parser)
+
+        parser.add_argument(
+            '--skip-mapping',
+            dest='skip_mapping',
+            action='store_true',
+            help="Don't push fresh mappings to Elasticserch after deleting indices"
+        )
+
+    def handle_index(self, index, skip_mapping):
         """Process index."""
         index.destroy()
-        index.create_mapping()
+        if not skip_mapping:
+            index.create_mapping()
 
     def handle(self, *args, **options):
         """Command handle."""
         verbosity = int(options['verbosity'])
+        skip_mapping = options['skip_mapping']
 
         if self.has_filter(options):
-            self.filter_indices(options, verbosity)
+            self.filter_indices(options, verbosity, skip_mapping=skip_mapping)
         else:
             # Process all indices.
-            index_builder.delete()
+            index_builder.delete(skip_mapping=skip_mapping)

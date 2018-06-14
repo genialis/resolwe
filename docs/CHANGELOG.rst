@@ -14,6 +14,11 @@ Changed
 -------
 - **BACKWARD INCOMPATIBLE:** Drop support for Python 3.4 and 3.5
 
+Added
+-----
+- Add the options to skip creating of fresh mapping after dropping ES indices
+  with ``elastic_purge`` management command
+
 
 ==================
 9.0.0 - 2018-05-15

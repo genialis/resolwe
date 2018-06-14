@@ -470,11 +470,12 @@ class IndexBuilder(object):
                 continue
             ind.push()
 
-    def delete(self):
+    def delete(self, skip_mapping=False):
         """Delete all entries from ElasticSearch."""
         for index in self.indexes:
             index.destroy()
-            index.create_mapping()
+            if not skip_mapping:
+                index.create_mapping()
 
     def remove_object(self, obj):
         """Delete given object from all indexes."""
