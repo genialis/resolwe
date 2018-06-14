@@ -29,6 +29,7 @@ using the python from the ``venv`` virtualenv.
 import argparse
 from importlib import import_module
 
+from . import manager_commands
 from .global_settings import DATA
 from .logger import configure_logging
 from .protocol import ExecutorFiles
@@ -53,3 +54,5 @@ def run_executor():
 
 if __name__ == '__main__':
     run_executor()
+    # Make sure the connection is cleaned up.
+    manager_commands.redis_conn = None
