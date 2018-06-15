@@ -10,6 +10,9 @@ Command to run on local machine::
 
 """
 
+import asyncio
+from signal import SIGINT, SIGTERM, signal
+
 from django.conf import settings
 from django.core.management.base import BaseCommand
 
@@ -30,8 +33,20 @@ class Command(BaseCommand):
     def handle(self, *args, **kwargs):
         """Run the executor listener. This method never returns."""
         listener = ExecutorListener(redis_params=getattr(settings, 'FLOW_MANAGER', {}).get('REDIS_CONNECTION', {}))
-        if kwargs['clear_queue']:
-            listener.clear_queue()
-        listener.start()
-        # listener.terminate() left out on purpose, this method never returns
-        listener.join()
+
+        def _killer(signum, frame):
+            """Kill the listener on receipt of a signal."""
+            listener.terminate()
+        signal(SIGINT, _killer)
+        signal(SIGTERM, _killer)
+
+        async def _runner():
+            """Run the listener instance."""
+            if kwargs['clear_queue']:
+                await listener.clear_queue()
+            async with listener:
+                pass
+
+        loop = asyncio.new_event_loop()
+        loop.run_until_complete(_runner())
+        loop.close()

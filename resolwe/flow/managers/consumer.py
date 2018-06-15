@@ -21,14 +21,6 @@ async def send_event(message):
     await get_channel_layer().send(state.MANAGER_CONTROL_CHANNEL, packet)
 
 
-async def flush_channel():
-    """Flush all pending messages on the control channel."""
-    layer = get_channel_layer()
-    flush = getattr(layer, 'flush', None)
-    if flush:
-        await flush()
-
-
 async def run_consumer(timeout=None):
     """Run the consumer until it finishes processing."""
     channel = state.MANAGER_CONTROL_CHANNEL
@@ -62,6 +54,9 @@ async def run_consumer(timeout=None):
         pass
 
     await app.wait()
+    flush = getattr(channel_layer, 'flush', None)
+    if flush:
+        await flush()
 
 
 async def exit_consumer():

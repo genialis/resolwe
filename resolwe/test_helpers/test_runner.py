@@ -13,14 +13,12 @@ import re
 import shutil
 import subprocess
 import sys
-from signal import SIGKILL, SIGTERM
 
 import mock
 import yaml
 from channels.db import database_sync_to_async
 
-from django import db
-from django.core.management import call_command
+from django.conf import settings
 from django.core.management.base import CommandError
 from django.test import override_settings
 from django.test.runner import DiscoverRunner, ParallelTestSuite, RemoteTestRunner
@@ -32,8 +30,8 @@ from django.utils.crypto import get_random_string
 import resolwe.test.testcases.setting_overrides as resolwe_settings
 from resolwe.flow.finders import get_finders
 from resolwe.flow.managers import manager, state
+from resolwe.flow.managers.listener import ExecutorListener
 from resolwe.test.utils import generate_process_tag
-from resolwe.utils import BraceMessage as __
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
@@ -57,68 +55,6 @@ class TestingContext(object):
 
         # Propagate exceptions.
         return False
-
-
-class CommandContext(object):
-    """Async wrapper around Django management commands.
-
-    This needs to be done with standalone processes instead of threads,
-    because both ``runworker`` and ``runlistener`` install signal
-    handlers which, in Python, can only be done on the main thread.
-    """
-
-    def __init__(self, command, *args, **kwargs):
-        """Initialize instance variables.
-
-        :param command: The Django command to be run.
-        :param args: Positional arguments passed to the command.
-        :param kwargs: Keyword arguments passed to the command.
-        """
-        self._django_command = command
-        self._args = args
-        self._kwargs = kwargs
-        self._pid = None
-        super().__init__()
-
-    def __enter__(self):
-        """Set up a context manager for the specified Django command.
-
-        The command is executed in a separate process which inherits the
-        Python context from the current one.
-        """
-        # In case of parallel execution, this code will be run from a multiprocessing.Pool worker.
-        # Because those are all daemonic, we can't use the normal multiprocessing.Process chrome;
-        # the remaining alternative is plain posix forking, since spawning a process by image name
-        # would be even more messy due to the difficulty in divining the way this process was started.
-        pid = os.fork()
-        if pid == 0:
-            try:
-                self.run()
-            except Exception:  # pylint: disable=broad-except
-                logger.error(
-                    __("Resolwe test runner: command '{}' crashed.", self._django_command),
-                    exc_info=True
-                )
-            finally:
-                # If sys.exit(0) is used here, Django's testing framework will stupidly catch it
-                # as if it was an error, so just commit suicide as quickly as possible. Returning
-                # from the function would lead to chaos and madness because Django isn't aware that
-                # we've forked; cleanup handlers would get called twice (from here and from the parent).
-                os.kill(os.getpid(), SIGKILL)
-        else:
-            self._pid = pid
-            return self
-
-    def __exit__(self, *args, **kwargs):
-        """On exiting a context, kill the command and wait for it."""
-        os.kill(self._pid, SIGTERM)
-        os.waitpid(self._pid, 0)
-        # Propagate exceptions.
-        return False
-
-    def run(self):
-        """Run the Django command specified in the constructor."""
-        call_command(self._django_command, *self._args, **self._kwargs)
 
 
 class AtScopeExit(object):
@@ -154,16 +90,6 @@ def _manager_setup():
     if TESTING_CONTEXT.get('manager_reset', False):
         return
     TESTING_CONTEXT['manager_reset'] = True
-    for alias in db.connections:
-        conn = db.connections[alias]
-        conn.close()
-        # Make very sure the connection is actually closed here, or the
-        # same descriptor might be used in the processes we fork off in
-        # the runner. In particular, the django_db_geventpool pools have
-        # a closeall() method which isn't a no-op and actually shuts
-        # down the pool.
-        if hasattr(conn, 'closeall'):
-            conn.closeall()
     state.update_constants()
     manager.reset()
 
@@ -261,31 +187,30 @@ def _custom_worker_init(django_init_worker):
     return _init_worker
 
 
-def _run_in_event_loop(meth, *args, **kwargs):
-    """Wrap a sync method in a runloop call.
+def _run_in_event_loop(coro, *args, **kwargs):
+    """Run a coroutine in a runloop call.
 
     This is needed as the top level call into Resolwe Manager-using
     tests. An event loop is started so that it can be used within the
-    call tree. The method given is run through a serializing wrapper, so
-    that Django database accesses are correct.
+    call tree.
 
-    :param meth: The callable to run with an underlying event loop. All
+    :param coro: The coroutine to run with an underlying event loop. All
         other arguments given to this function are forwarded to it.
     """
-    async def _runner():
-        """Run the callable synchronously."""
-        return await database_sync_to_async(meth)(*args, **kwargs)
     asyncio.get_event_loop().close()
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    task = asyncio.ensure_future(_runner(), loop=loop)
+    task = asyncio.ensure_future(coro(*args, **kwargs), loop=loop)
     loop.run_until_complete(task)
     loop.close()
     return task.result()
 
 
-def _run_on_infrastructure(meth, *args, **kwargs):
+async def _run_on_infrastructure(meth, *args, **kwargs):
     """Start the Manager infrastructure and call the given callable.
+
+    The method given is run through a serializing wrapper, so that
+    Django database accesses are correct.
 
     :param meth: The callable to run on the infrastructure. All other
         arguments are forwarded to it.
@@ -293,11 +218,16 @@ def _run_on_infrastructure(meth, *args, **kwargs):
     with TestingContext():
         _create_test_dirs()
         with _prepare_settings():
-            _manager_setup()
+            await database_sync_to_async(_manager_setup)()
             with AtScopeExit(manager.state.destroy_channels):
-                with CommandContext('runlistener', '--clear-queue'):
+                redis_params = getattr(settings, 'FLOW_MANAGER', {}).get('REDIS_CONNECTION', {})
+                listener = ExecutorListener(redis_params=redis_params)
+                await listener.clear_queue()
+                async with listener:
                     with override_settings(FLOW_MANAGER_SYNC_AUTO_CALLS=True):
-                        return meth(*args, **kwargs)
+                        result = await database_sync_to_async(meth)(*args, **kwargs)
+                    listener.terminate()
+                    return result
 
 
 def _run_manager(meth, *args, **kwargs):
