@@ -258,7 +258,6 @@ class Manager(object):
             self.state = state.ManagerState(state.MANAGER_STATE_PREFIX)
             self.state.reset()
         async_to_sync(consumer.run_consumer)(timeout=1)
-        async_to_sync(consumer.flush_channel)()
         async_to_sync(self.sync_counter.reset)()
 
     def __init__(self, *args, **kwargs):

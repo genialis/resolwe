@@ -1,14 +1,14 @@
 """Standalone Redis client used as a contact point for executors."""
 
+import asyncio
 import json
 import logging
 import os
 import traceback
-from signal import SIGINT, signal
-from threading import Event, Thread
 
-import redis
+import aioredis
 from asgiref.sync import async_to_sync
+from channels.db import database_sync_to_async
 
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
@@ -36,7 +36,7 @@ else:
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
-class ExecutorListener(Thread):
+class ExecutorListener:
     """The contact point implementation for executors."""
 
     def __init__(self, *args, **kwargs):
@@ -48,46 +48,53 @@ class ExecutorListener(Thread):
         super().__init__()
 
         # The Redis connection object.
-        self._redis = redis.StrictRedis(**kwargs.get('redis_params', {}))
+        self._redis = None
+        self._redis_params = kwargs.get('redis_params', {})
 
-        # An condition variable used to asynchronously signal when the
-        # listener should terminate.
-        self._terminated = Event()
+        # Running coordination.
+        self._should_stop = False
+        self._runner_coro = None
 
         # The verbosity level to pass around to Resolwe utilities
         # such as data_purge.
         self._verbosity = kwargs.get('verbosity', 1)
 
-    def clear_queue(self):
+    async def _make_connection(self):
+        """Construct a connection to Redis."""
+        return await aioredis.create_redis(
+            'redis://{}:{}'.format(
+                self._redis_params.get('host', 'localhost'),
+                self._redis_params.get('port', 6379)
+            ),
+            db=int(self._redis_params.get('db', 1))
+        )
+
+    async def clear_queue(self):
         """Reset the executor queue channel to an empty state."""
-        self._redis.delete(state.MANAGER_EXECUTOR_CHANNELS.queue)
+        conn = await self._make_connection()
+        try:
+            await conn.delete(state.MANAGER_EXECUTOR_CHANNELS.queue)
+        finally:
+            conn.close()
 
-    def start(self, *args, **kwargs):
-        """Start the listener thread."""
-        signal(SIGINT, self._sigint)
-        logger.info(__(
-            "Starting Resolwe listener on channel '{}'.",
-            state.MANAGER_EXECUTOR_CHANNELS.queue
-        ))
-        super().start(*args, **kwargs)
-
-    def __enter__(self):
+    async def __aenter__(self):
         """On entering a context, start the listener thread."""
-        self.start()
+        self._should_stop = False
+        self._redis = await self._make_connection()
+        self._runner_coro = asyncio.ensure_future(self.run())
         return self
 
-    def __exit__(self, typ, value, trace):
+    async def __aexit__(self, typ, value, trace):
         """On exiting a context, kill the listener and wait for it.
 
         .. note::
 
             Exceptions are all propagated.
         """
-        self.terminate()
-        self.join()
-
-        # re-raise all exceptions
-        return False
+        await self._runner_coro
+        self._redis.close()
+        await self._redis.wait_closed()
+        self._redis = None
 
     def terminate(self):
         """Stop the standalone manager."""
@@ -95,11 +102,7 @@ class ExecutorListener(Thread):
             "Terminating Resolwe listener on channel '{}'.",
             state.MANAGER_EXECUTOR_CHANNELS.queue
         ))
-        self._terminated.set()
-
-    def _sigint(self, signum, frame):
-        """Terminate the listener on various signals."""
-        self.terminate()
+        self._should_stop = True
 
     def _queue_response_channel(self, obj):
         """Generate the feedback channel name from the object's id.
@@ -108,7 +111,12 @@ class ExecutorListener(Thread):
         """
         return '{}.{}'.format(state.MANAGER_EXECUTOR_CHANNELS.queue_response, obj[ExecutorProtocol.DATA_ID])
 
-    def _send_reply(self, obj, reply):
+    # The handle_* methods are all Django synchronized, meaning they're run
+    # in separate threads. Having this method be sync and calling async_to_sync
+    # on rpush itself would mean reading self._redis from the sync thread,
+    # which isn't very tidy. If it's async, it'll be called from the main
+    # thread by the async_to_sync calls in handle_*.
+    async def _send_reply(self, obj, reply):
         """Send a reply with added standard fields back to executor.
 
         :param obj: The original Channels message object to which we're
@@ -119,7 +127,7 @@ class ExecutorListener(Thread):
         reply.update({
             ExecutorProtocol.DATA_ID: obj[ExecutorProtocol.DATA_ID],
         })
-        self._redis.rpush(self._queue_response_channel(obj), json.dumps(reply))
+        await self._redis.rpush(self._queue_response_channel(obj), json.dumps(reply))
 
     def hydrate_spawned_files(self, exported_files_mapper, filename, data_id):
         """Pop the given file's map from the exported files mapping.
@@ -188,7 +196,7 @@ class ExecutorListener(Thread):
             )
 
             if not internal_call:
-                self._send_reply(obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_ERROR})
+                async_to_sync(self._send_reply)(obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_ERROR})
 
             async_to_sync(consumer.send_event)({
                 WorkerProtocol.COMMAND: WorkerProtocol.ABORT,
@@ -274,7 +282,7 @@ class ExecutorListener(Thread):
             )
 
         if not internal_call:
-            self._send_reply(obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK})
+            async_to_sync(self._send_reply)(obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK})
 
     def handle_finish(self, obj):
         """Handle an incoming ``Data`` finished processing request.
@@ -395,7 +403,7 @@ class ExecutorListener(Thread):
                             'data_id': data_id,
                         }
                     )
-                    self._send_reply(obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_ERROR})
+                    async_to_sync(self._send_reply)(obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_ERROR})
                     return
 
                 if process_rc == 0 and not d.status == Data.STATUS_ERROR:
@@ -427,7 +435,7 @@ class ExecutorListener(Thread):
                         )
 
         # Notify the executor that we're done.
-        self._send_reply(obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK})
+        async_to_sync(self._send_reply)(obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK})
 
         # Now nudge the main manager to perform final cleanup. This is
         # needed even if there was no spawn baggage, since the manager
@@ -489,13 +497,17 @@ class ExecutorListener(Thread):
 
         logger.handle(logging.makeLogRecord(record_dict))
 
-    def run(self):
+    async def run(self):
         """Run the main listener run loop.
 
         Doesn't return until :meth:`terminate` is called.
         """
-        while not self._terminated.is_set():
-            ret = self._redis.blpop(state.MANAGER_EXECUTOR_CHANNELS.queue, timeout=1)
+        logger.info(__(
+            "Starting Resolwe listener on channel '{}'.",
+            state.MANAGER_EXECUTOR_CHANNELS.queue
+        ))
+        while not self._should_stop:
+            ret = await self._redis.blpop(state.MANAGER_EXECUTOR_CHANNELS.queue, timeout=1)
             if ret is None:
                 continue
             _, item = ret
@@ -515,7 +527,7 @@ class ExecutorListener(Thread):
             handler = getattr(self, 'handle_' + command, None)
             if handler:
                 try:
-                    handler(obj)
+                    await database_sync_to_async(handler)(obj)
                 except Exception:  # pylint: disable=broad-except
                     logger.error(__(
                         "Executor command handling error:\n\n{}",
@@ -526,3 +538,7 @@ class ExecutorListener(Thread):
                     __("Unknown executor command '{}'.", command),
                     extra={'decoded_packet': obj}
                 )
+        logger.info(__(
+            "Stopping Resolwe listener on channel '{}'.",
+            state.MANAGER_EXECUTOR_CHANNELS.queue
+        ))

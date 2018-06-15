@@ -10,6 +10,10 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Changed
+-------
+- Convert the listener to use asyncio
+
 
 ===================
 10.0.0 - 2018-06-19
