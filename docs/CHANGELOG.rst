@@ -6,18 +6,20 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+===================
+10.0.0 - 2018-06-19
+===================
 
 Changed
 -------
 - **BACKWARD INCOMPATIBLE:** Drop support for Python 3.4 and 3.5
+- **BACKWARD INCOMPATIBLE:** Start using Channels 2.x
 
 Added
 -----
 - Add the options to skip creating of fresh mapping after dropping ES indices
   with ``elastic_purge`` management command
+- Add ``dirname`` and ``relative_path`` Jinja filters
 
 
 ==================
