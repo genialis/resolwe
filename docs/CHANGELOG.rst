@@ -13,6 +13,8 @@ Unreleased
 Changed
 -------
 - Convert the listener to use asyncio
+- Attempt to reconnect to Redis in the listener in case of connection
+  errors
 - Switched to ``channels_redis_persist`` temporarily to mitigate connection
   storms
 
