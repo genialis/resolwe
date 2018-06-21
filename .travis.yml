@@ -1,56 +1,110 @@
 sudo: required
 
-# NOTE: It is necessary to explicitly set the distribution to "trusty" due to
-# the complex 'matrix: include:' logic below
-# More information: https://github.com/travis-ci/travis-ci/issues/5448
-dist: trusty
+language: python
 
-addons:
-  postgresql: "9.4"
+# Global Travis CI step definitions that will be used by all jobs unless
+# explicitly overriden in the jobs.include matrix.
+python:
+  - "3.6"
 
 services:
   - docker
-  - postgresql
-  - elasticsearch
   - redis-server
 
-language: python
-
-env:
-  global:
-    - RESOLWE_POSTGRESQL_USER=postgres
-    - RESOLWE_POSTGRESQL_PORT=5432
-    - RESOLWE_ES_PORT=9200
-    # We need to disable SECCOMP as it is not supported on Travis.
-    - RESOLWE_DOCKER_DISABLE_SECCOMP=1
-    - RESOLWE_REDIS_PORT=6379
-
-# NOTE: Explicit Python versions make Travis job description more informative
-matrix:
-  include:
-    - env: TOX_ENV=py36
-      python: "3.6"
-    - env: TOX_ENV=docs
-      python: "3.6"
-    - env: TOX_ENV=linters
-      python: "3.6"
-    - env: TOX_ENV=packaging
-      python: "3.6"
-    - env: TOX_ENV=migrations
-      python: "3.6"
+addons:
+  # NOTE: We need to use the postgresql addon since the default PostgreSQL
+  # service provided on Trusty machines is PostgreSQL 9.2.
+  postgresql: "9.4"
 
 before_install:
-  # Manually install Elastic Search.
-  - curl -sSL -O https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-5.6.8.deb
-  - sudo dpkg -i --force-confnew elasticsearch-5.6.8.deb
+  # NOTE: We need to manually install ElasticSearch since we want to control
+  # the exact version we use instead of relying on the version shipped by
+  # Travis CI's python image.
+  - curl -sSL -O https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-5.6.10.deb
+  - sudo dpkg -i --force-confnew elasticsearch-5.6.10.deb
   - sudo service elasticsearch restart
-  # Show docker information.
-  - sudo docker info
 
 install: pip install tox
 
 script: tox -e $TOX_ENV
 
 after_success:
- - pip install codecov
- - codecov -e TOX_ENV
+  - pip install codecov
+  - codecov -e TOX_ENV
+
+# Build stages.
+jobs:
+  include:
+    - stage: test
+      env:
+        - TOX_ENV=py36
+        # Set environment variables with information how to use the required
+        # services.
+        - RESOLWE_POSTGRESQL_USER=postgres
+        - RESOLWE_POSTGRESQL_PORT=5432
+        - RESOLWE_ES_PORT=9200
+        - RESOLWE_REDIS_PORT=6379
+        # NOTE: We need to disable SECCOMP as it is not supported on Travis CI.
+        - RESOLWE_DOCKER_DISABLE_SECCOMP=1
+
+    # NOTE: We undo almost all global Travis CI step definitions to ensure the
+    # following Tox environments are run without access to any service.
+    - stage: test
+      env: TOX_ENV=docs
+      services: []
+      addons: {}
+      before_install: skip
+      after_success: skip
+    - stage: test
+      env: TOX_ENV=linters
+      services: []
+      addons: {}
+      before_install: skip
+      after_success: skip
+    - stage: test
+      env: TOX_ENV=packaging
+      services: []
+      addons: {}
+      before_install: skip
+      after_success: skip
+
+    # NOTE: We undo many global Travis CI step definitions to ensure the
+    # following Tox environment only has access to the PostgreSQL service.
+    - stage: test
+      env:
+        - TOX_ENV=migrations
+        # Set environment variables with information how to use the PostgreSQL
+        # service.
+        - RESOLWE_POSTGRESQL_USER=postgres
+        - RESOLWE_POSTGRESQL_PORT=5432
+      services: []
+      before_install: skip
+      after_success: skip
+
+    # NOTE: We undo all the global Travis CI step definitions to ensure
+    # building of source and wheel distributions is performed in a clean
+    # environment.
+    - stage: release
+      services: []
+      addons: {}
+      before_install: skip
+      install: skip
+      script: skip
+      # NOTE: Due to the way Travis CI currently works, setting
+      # 'after_success: skip' would also result in skipping the deploy step.
+      # A work-around is to execute a dummy echo command.
+      # More info at: https://github.com/travis-ci/travis-ci/issues/8337.
+      after_success: echo "Skipping..."
+      deploy:
+        provider: pypi
+        user: genialis-bot
+        password:
+          secure: "Z3shLiQqooqYevBBKzlJba0jPtB1bIfogsoTBHzTVV72w3SZtWzZrPYE0CYsMHRf8218DC0jNEK/0WEKWISmhJK3LAL04MjcmJVHGwR+4jaq5YS+I/U5NsdwmPkWzy4Vto856jjSKGMyeCDmQ/P8cMBvWppaMBKRhnR50F7UPueWnvfPCC9KKWZ3oAH+P+8tWHZxg9ehDG1uLvgmvcPe+RDmrClyZPw+A+QeUJ1zHtyDMfHRucsoorjqoG8KaCC8wE08oeuwDaQkSsq2r5et0Mp6edQsKZo86ZaTskDl4UcrxyOB7K8yK7UMwj1rD3uHGlgM6B1zTSOADFkLwJizK3GgIjBowVmPRr9zNQ7mMNXVPXIIMxEmkAksl8Ix5zWkOYmS0QzOdMAs6QgeK7zA+uqkTKDstfs8hd9M3xGtEdXwOsF2jzLvqj/UeqWSBdoDWQug16LxVz/lFZzj52QAf659eldQ4dLQHqtMa31ENlkoCZXNpPmq/m+8CErZPPBZVIbyBNw0vJwTSlH11E4WdDEGd4Z4dOWfBv5/XEvJuUHNUF2RDyii2iBEzybBmvt272xTYOv8XpfYB4nKJt+ci65pSp4lCgIQXF2wgAkLd39imMk9eymgys/llrR13W/Uqmd5iOR2J21Gh1uvkzOR+Oor6N7a9278Ii7OHJ7uzKI="
+        distributions: sdist bdist_wheel
+        on:
+          # Enable deploying tags. By default, Travis CI only deploys from the
+          # master branch.
+          tags: true
+      # Only build releases for tags starting with a Semantic Versioning 2.0
+      # compatible version.
+      if: tag =~ ^\d+\.\d+\.\d+
