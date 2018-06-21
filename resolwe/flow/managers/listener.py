@@ -69,6 +69,21 @@ class ExecutorListener:
             db=int(self._redis_params.get('db', 1))
         )
 
+    async def _call_redis(self, meth, *args, **kwargs):
+        """Perform a Redis call and handle connection dropping."""
+        while True:
+            try:
+                if not self._redis:
+                    self._redis = await self._make_connection()
+                return await meth(self._redis, *args, **kwargs)
+            except aioredis.RedisError:
+                logger.exception("Redis connection error")
+                if self._redis:
+                    self._redis.close()
+                    await self._redis.wait_closed()
+                    self._redis = None
+                await asyncio.sleep(3)
+
     async def clear_queue(self):
         """Reset the executor queue channel to an empty state."""
         conn = await self._make_connection()
@@ -128,7 +143,7 @@ class ExecutorListener:
         reply.update({
             ExecutorProtocol.DATA_ID: obj[ExecutorProtocol.DATA_ID],
         })
-        await self._redis.rpush(self._queue_response_channel(obj), json.dumps(reply))
+        await self._call_redis(aioredis.Redis.rpush, self._queue_response_channel(obj), json.dumps(reply))
 
     def hydrate_spawned_files(self, exported_files_mapper, filename, data_id):
         """Pop the given file's map from the exported files mapping.
@@ -508,7 +523,7 @@ class ExecutorListener:
             state.MANAGER_EXECUTOR_CHANNELS.queue
         ))
         while not self._should_stop:
-            ret = await self._redis.blpop(state.MANAGER_EXECUTOR_CHANNELS.queue, timeout=1)
+            ret = await self._call_redis(aioredis.Redis.blpop, state.MANAGER_EXECUTOR_CHANNELS.queue, timeout=1)
             if ret is None:
                 continue
             _, item = ret
