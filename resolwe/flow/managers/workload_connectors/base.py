@@ -1,8 +1,8 @@
 """.. Ignore pydocstyle D400.
 
-===================================
-Abstract Workload Manager Connector
-===================================
+==========
+Base Class
+==========
 
 """
 

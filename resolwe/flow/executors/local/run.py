@@ -1,4 +1,8 @@
-"""Local workflow executor."""
+""".. Ignore pydocstyle D400.
+
+.. autoclass:: resolwe.flow.executors.local.run.FlowExecutor
+
+"""
 import logging
 import os
 import shlex

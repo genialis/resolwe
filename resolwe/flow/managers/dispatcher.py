@@ -1,8 +1,8 @@
 """.. Ignore pydocstyle D400.
 
-=======
-Manager
-=======
+==========
+Dispatcher
+==========
 
 """
 import asyncio
@@ -56,9 +56,9 @@ class SettingsJSONifier(json.JSONEncoder):
 def dependency_status(data):
     """Return abstracted satus of dependencies.
 
-    STATUS_ERROR .. one dependency has error status or was deleted
-    STATUS_DONE .. all dependencies have done status
-    None .. other
+    - ``STATUS_ERROR`` .. one dependency has error status or was deleted
+    - ``STATUS_DONE`` .. all dependencies have done status
+    - ``None`` .. other
 
     """
     parents_statuses = set(
@@ -191,7 +191,7 @@ class Manager:
     class _SettingsManager:
         """Context manager for settings overrides.
 
-        Because Django's :meth:`~django.test.override_settings` is a
+        Because Django's :func:`~django.test.override_settings` is a
         context manager, it would make the code awkward if the manager's
         support for this wasn't also in the form of a context manager.
         """
@@ -533,7 +533,7 @@ class Manager:
         """Override global settings within the calling context.
 
         :param kwargs: The settings overrides. Same use as for
-            :meth:`~django.test.override_settings`.
+            :func:`django.test.override_settings`.
         """
         return self._SettingsManager(self.state.key_prefix, **kwargs)
 

@@ -1,4 +1,8 @@
-"""Local workflow executor."""
+""".. Ignore pydocstyle D400.
+
+.. autoclass:: resolwe.flow.executors.null.run.FlowExecutor
+
+"""
 import logging
 
 from ..manager_commands import send_manager_command

@@ -1,4 +1,12 @@
-"""Manager Channels consumer."""
+""".. Ignore pydocstyle D400.
+
+========
+Consumer
+========
+
+Manager Channels consumer.
+
+"""
 import asyncio
 
 import async_timeout

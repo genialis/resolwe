@@ -1,10 +1,12 @@
-"""Docker workflow executor, preparation portion.
+""".. Ignore pydocstyle D400.
 
-To customize the settings the manager serializes for the executor
-at runtime, properly subclass
-:class:`~resolwe.flow.executors.prepare.BaseFlowExecutorPreparer` into
-``FlowExecutorPreparer`` and override its :meth:`extend_settings`
-method.
+===========
+Preparation
+===========
+
+.. autoclass:: resolwe.flow.executors.docker.prepare.FlowExecutorPreparer
+    :members:
+
 """
 
 import os

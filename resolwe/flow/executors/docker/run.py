@@ -1,4 +1,9 @@
-"""Docker workflow executor."""
+""".. Ignore pydocstyle D400.
+
+.. autoclass:: resolwe.flow.executors.docker.run.FlowExecutor
+    :members:
+
+"""
 import json
 import os
 import shlex

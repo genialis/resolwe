@@ -1,8 +1,8 @@
 """.. Ignore pydocstyle D400.
 
-==============
-Flow Executors
-==============
+==========
+Base Class
+==========
 
 .. autoclass:: resolwe.flow.executors.run.BaseFlowExecutor
     :members:

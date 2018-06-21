@@ -1,4 +1,15 @@
-"""Base class for the manager-internal executor preparation bits."""
+""".. Ignore pydocstyle D400.
+
+======================
+Flow Executor Preparer
+======================
+
+Framework for the manager-resident executor preparation facilities.
+
+.. autoclass:: resolwe.flow.executors.prepare.BaseFlowExecutorPreparer
+    :members:
+
+"""
 import logging
 import os
 
@@ -24,7 +35,7 @@ class BaseFlowExecutorPreparer:
         :param files: The settings dictionary to be serialized. Keys are
             filenames, values are the objects that will be serialized
             into those files. Standard filenames are listed in
-            :class:`resolwe.flow.managers.protocol.ExecutorFiles`.
+            ``resolwe.flow.managers.protocol.ExecutorFiles``.
         :param secrets: Secret files dictionary describing additional secret
             file content that should be created and made available to
             processes with special permissions. Keys are filenames, values

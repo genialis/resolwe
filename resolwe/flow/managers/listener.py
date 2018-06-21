@@ -1,4 +1,15 @@
-"""Standalone Redis client used as a contact point for executors."""
+""".. Ignore pydocstyle D400.
+
+========
+Listener
+========
+
+Standalone Redis client used as a contact point for executors.
+
+.. autoclass:: resolwe.flow.managers.listener.ExecutorListener
+    :members:
+
+"""
 
 import asyncio
 import json
@@ -177,7 +188,7 @@ class ExecutorListener:
 
         :param obj: The Channels message object. Command object format:
 
-            .. code:: none
+            .. code-block:: none
 
                 {
                     'command': 'update',
@@ -305,7 +316,7 @@ class ExecutorListener:
 
         :param obj: The Channels message object. Command object format:
 
-            .. code:: none
+            .. code-block:: none
 
                 {
                     'command': 'finish',
@@ -477,7 +488,7 @@ class ExecutorListener:
 
         :param obj: The Channels message object. Command object format:
 
-            .. code:: none
+            .. code-block:: none
 
                 {
                     'command': 'abort',
@@ -498,7 +509,7 @@ class ExecutorListener:
 
         :param obj: The Channels message object. Command object format:
 
-            .. code:: none
+            .. code-block:: none
 
                 {
                     'command': 'log',

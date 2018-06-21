@@ -34,8 +34,6 @@ from .global_settings import DATA
 from .logger import configure_logging
 from .protocol import ExecutorFiles
 
-configure_logging()
-
 
 def run_executor():
     """Start the actual execution; instantiate the executor and run."""
@@ -53,6 +51,7 @@ def run_executor():
 
 
 if __name__ == '__main__':
+    configure_logging()
     run_executor()
     # Make sure the connection is cleaned up.
     manager_commands.redis_conn = None

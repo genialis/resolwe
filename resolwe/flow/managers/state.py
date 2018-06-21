@@ -1,4 +1,15 @@
-"""Synchronized singleton state container for the manager."""
+""".. Ignore pydocstyle D400.
+
+=====
+State
+=====
+
+Synchronized singleton state container for the manager.
+
+.. autofunction:: resolwe.flow.managers.state.update_constants
+.. autoclass:: resolwe.flow.managers.state.ManagerState
+
+"""
 
 # This module should not import anything local, or there will be circular
 # dependencies, since the constants are needed in various sub-modules inside

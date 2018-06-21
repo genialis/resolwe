@@ -1,9 +1,10 @@
-"""Null workflow executor, preparation portion.
+"""Null workflow executor.
 
 To customize the settings the manager serializes for the executor
 at runtime, properly subclass
 :class:`~resolwe.flow.executors.prepare.BaseFlowExecutorPreparer` into
-``FlowExecutorPreparer`` and override its :meth:`extend_settings`
+``FlowExecutorPreparer`` and override its
+:meth:`~resolwe.flow.executors.prepare.BaseFlowExecutorPreparer.extend_settings`
 method.
 """
 

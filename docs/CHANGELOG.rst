@@ -18,6 +18,11 @@ Changed
 - Switched to ``channels_redis_persist`` temporarily to mitigate connection
   storms
 
+Fixed
+-----
+- Include the manager in the documentation, make sure all references work
+  and tidy the content up a bit
+
 
 ===================
 10.0.0 - 2018-06-19

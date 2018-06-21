@@ -18,12 +18,15 @@ from .base import BaseConnector
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
-
-try:
-    import celery  # pylint: disable=unused-import
-except ImportError:
-    logger.error("Please install Celery using 'pip install celery'", file=sys.stderr)
-    sys.exit(1)
+# Sphinx directly imports the modules it's documenting, so we need to
+# guard from importing celery on installations which are configured to
+# not use celery and thus don't have it available.
+if 'sphinx' not in sys.modules:
+    try:
+        import celery  # pylint: disable=unused-import
+    except ImportError:
+        logger.error("Please install Celery using 'pip install celery'", file=sys.stderr)
+        sys.exit(1)
 
 
 class Connector(BaseConnector):
