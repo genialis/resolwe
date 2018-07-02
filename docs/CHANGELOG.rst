@@ -10,6 +10,11 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Added
+-----
+- Add load tracking to the listener with log messages on overload
+- Add job partition selection in the SLURM workload connector
+
 Changed
 -------
 - Convert the listener to use asyncio
@@ -39,10 +44,6 @@ Added
 - Add the options to skip creating of fresh mapping after dropping ES indices
   with ``elastic_purge`` management command
 - Add ``dirname`` and ``relative_path`` Jinja filters
-
-Added
------
-- Add load tracking to the listener with log messages on overload
 
 
 ==================

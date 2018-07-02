@@ -10,6 +10,8 @@ import os
 import shlex
 import subprocess
 
+from django.conf import settings
+
 from resolwe.utils import BraceMessage as __
 
 from .base import BaseConnector
@@ -37,6 +39,12 @@ class Connector(BaseConnector):
             data.id,
             repr(argv)
         ))
+
+        # Compute target partition.
+        partition = getattr(settings, 'FLOW_SLURM_DEFAULT_PARTITION', None)
+        if data.process.slug in getattr(settings, 'FLOW_SLURM_PARTITION_OVERRIDES', {}):
+            partition = settings.FLOW_SLURM_PARTITION_OVERRIDES[data.process.slug]
+
         try:
             # Make sure the resulting file is executable on creation.
             script_path = os.path.join(runtime_dir, 'slurm.sh')
@@ -45,6 +53,8 @@ class Connector(BaseConnector):
                 script.write('#!/bin/bash\n')
                 script.write('#SBATCH --mem={}M\n'.format(limits['memory'] + EXECUTOR_MEMORY_OVERHEAD))
                 script.write('#SBATCH --cpus-per-task={}\n'.format(limits['cores']))
+                if partition:
+                    script.write('#SBATCH --partition={}\n'.format(partition))
 
                 # Render the argument vector into a command line.
                 line = ' '.join(map(shlex.quote, argv))
