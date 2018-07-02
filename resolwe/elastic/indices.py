@@ -284,7 +284,7 @@ class BaseIndex:
                 )
                 return
 
-        logger.info("Building '%s' Elasticsearch index...", self.__class__.__name__)
+        logger.debug("Building '%s' Elasticsearch index...", self.__class__.__name__)
 
         if obj is not None:
             build_list = [obj]
@@ -335,15 +335,14 @@ class BaseIndex:
         # This must be done even if the queue is empty, as otherwise ES
         # will fail when retrieving data.
         if not self._mapping_created:
-            logger.info("Pushing mapping for Elasticsearch index '%s'.", self.__class__.__name__)
+            logger.debug("Pushing mapping for Elasticsearch index '%s'.", self.__class__.__name__)
             self.create_mapping()
 
         if not self.push_queue:
-            logger.info("No documents to push, skipping push.")
+            logger.debug("No documents to push, skipping push.")
             return
 
-        logger.info("Pushing builded documents to Elasticsearch server...")
-        logger.debug("Found %s documents to push.", len(self.push_queue))
+        logger.debug("Found %s documents to push to Elasticsearch.", len(self.push_queue))
 
         bulk(connections.get_connection(), (doc.to_dict(True) for doc in self.push_queue), refresh=True)
         self.push_queue = []

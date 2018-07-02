@@ -17,6 +17,7 @@ Changed
   errors
 - Switched to ``channels_redis_persist`` temporarily to mitigate connection
   storms
+- Lower the level of all ``INFO`` logs in elastic app to ``DEBUG``
 
 Fixed
 -----
