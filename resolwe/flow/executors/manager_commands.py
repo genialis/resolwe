@@ -39,6 +39,8 @@ def send_manager_command(cmd, expect_reply=True, extra_fields={}):
     }
     packet.update(extra_fields)
 
+    logger.debug("Sending command to listener: {}".format(json.dumps(packet)))
+
     # TODO what happens here if the push fails? we don't have any realistic recourse,
     # so just let it explode and stop processing
     queue_channel = EXECUTOR_SETTINGS['REDIS_CHANNEL_PAIR'][0]

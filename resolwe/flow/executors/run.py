@@ -161,6 +161,8 @@ class BaseFlowExecutor:
             stdout = self.get_stdout()
             while True:
                 line = stdout.readline()
+                logger.debug("Process's output: {}".format(line.strip()))
+
                 if not line:
                     break
 

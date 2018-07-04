@@ -4,17 +4,22 @@
     :members:
 
 """
+# pylint: disable=logging-format-interpolation
 import json
+import logging
 import os
 import shlex
 import subprocess
 import tempfile
+import time
 
 from . import constants
 from ..global_settings import PROCESS_META, SETTINGS
 from ..local.run import FlowExecutor as LocalFlowExecutor
 from ..protocol import ExecutorFiles
 from .seccomp import SECCOMP_POLICY
+
+logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
 class FlowExecutor(LocalFlowExecutor):
@@ -184,12 +189,32 @@ class FlowExecutor(LocalFlowExecutor):
         # A non-login Bash shell should be used here (a subshell will be spawned later).
         command_args['shell'] = '/bin/bash'
 
+        docker_command = (
+            '{command} run --rm --interactive {container_name} {network} {volumes} {limits} '
+            '{security} {workdir} {user} {container_image} {shell}'.format(**command_args)
+        )
+
+        logger.info("Starting docker container with command: {}".format(docker_command))
+        start_time = time.time()
+
         self.proc = subprocess.Popen(
-            shlex.split(
-                '{command} run --rm --interactive {container_name} {network} {volumes} {limits} '
-                '{security} {workdir} {user} {container_image} {shell}'.format(**command_args)),
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            universal_newlines=True)
+            shlex.split(docker_command),
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            universal_newlines=True,
+            bufsize=1,
+        )
+
+        # Wait for Docker container to start to avoid blocking the code that uses it.
+        self.proc.stdin.write('echo PING' + os.linesep)
+        while True:
+            line = self.proc.stdout.readline()
+            if line.rstrip() == 'PING':
+                break
+
+        end_time = time.time()
+        logger.info("It took {:.2f}s for Docker container to start".format(end_time - start_time))
 
         self.stdout = self.proc.stdout
 

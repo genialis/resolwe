@@ -606,7 +606,9 @@ class ExecutorListener:
             self.check_critical_load()
             _, item = ret
             try:
-                obj = json.loads(item.decode('utf-8'))
+                item = item.decode('utf-8')
+                logger.debug(__("Got command from executor: {}", item))
+                obj = json.loads(item)
             except json.JSONDecodeError:
                 logger.error(
                     __("Undecodable command packet:\n\n{}"),
