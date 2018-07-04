@@ -31,6 +31,11 @@ def name(data):
     return apply_filter_list(lambda datum: _get_data_attr(datum, 'name'), data)
 
 
+def slug(data):
+    """Return `slug` of `Data`."""
+    return apply_filter_list(lambda datum: _get_data_attr(datum, 'slug'), data)
+
+
 def id_(obj):
     """Return ``id`` key of dict."""
     return apply_filter_list(lambda item: item['__id'], obj)
@@ -61,9 +66,9 @@ def yesno(value, true_value, false_value):
     return true_value if value else false_value
 
 
-def data_by_slug(slug):
+def data_by_slug(data_slug):
     """Return the primary key of a data object identified by the given slug."""
-    return Data.objects.get(slug=slug).pk
+    return Data.objects.get(slug=data_slug).pk
 
 
 def _get_hydrated_path(field):
@@ -129,6 +134,7 @@ def any_(obj):
 # A dictionary of filters that will be registered.
 filters = {  # pylint: disable=invalid-name
     'name': name,
+    'slug': slug,
     'id': id_,
     'type': type_,
     'basename': basename,

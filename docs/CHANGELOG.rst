@@ -14,6 +14,7 @@ Added
 -----
 - Add load tracking to the listener with log messages on overload
 - Add job partition selection in the SLURM workload connector
+- Add ``slug`` Jinja filter
 
 Changed
 -------

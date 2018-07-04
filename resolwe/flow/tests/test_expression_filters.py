@@ -61,6 +61,8 @@ re-save-file test_file path/to/file.txt
             output_schema=[
                 {'name': 'name', 'type': 'basic:string:'},
                 {'name': 'list_name', 'type': 'list:basic:string:'},
+                {'name': 'slug', 'type': 'basic:string:'},
+                {'name': 'list_slug', 'type': 'list:basic:string:'},
                 {'name': 'id', 'type': 'basic:integer:'},
                 {'name': 'list_id', 'type': 'list:basic:string:'},
                 {'name': 'type', 'type': 'basic:string:'},
@@ -88,6 +90,8 @@ re-save-file test_file path/to/file.txt
                 'program': """
 re-save name {{ input_data | name }}
 re-save list_name {{ input_data_list | name }}
+re-save slug {{ input_data | slug }}
+re-save list_slug {{ input_data_list | slug }}
 re-save id {{ input_data | id }}
 re-save list_id {{ input_data_list | id }}
 re-save type {{ input_data | type }}
@@ -133,6 +137,7 @@ save-safe {{ spacy | safe }}
         data.refresh_from_db()
 
         self.assertEqual(data.output['name'], input_data.name)
+        self.assertEqual(data.output['slug'], input_data.slug)
         self.assertEqual(data.output['id'], input_data.pk)
         self.assertEqual(data.output['list_id'], [input_data.id])
         self.assertEqual(data.output['type'], input_process.type)
@@ -157,6 +162,7 @@ save-safe {{ spacy | safe }}
 
         # Return values of jinja filters are casted to strings when inserted to bash
         self.assertEqual(data.output['list_name'], str([input_data.name]))
+        self.assertEqual(data.output['list_slug'], str([input_data.slug]))
         self.assertEqual(data.output['list_type'], str([input_process.type]))
         self.assertEqual(data.output['list_subtype'], '[True]')
 
