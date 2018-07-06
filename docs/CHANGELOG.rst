@@ -20,17 +20,28 @@ Added
 
 Changed
 -------
-- Convert the listener to use asyncio
-- Attempt to reconnect to Redis in the listener in case of connection
-  errors
-- Switched to ``channels_redis_persist`` temporarily to mitigate connection
-  storms
 - Lower the level of all ``INFO`` logs in elastic app to ``DEBUG``
 
 Fixed
 -----
 - Include the manager in the documentation, make sure all references work
   and tidy the content up a bit
+
+
+===================
+10.0.1 - 2018-07-07
+===================
+
+Changed
+-------
+- Convert the listener to use asyncio
+- Switched to ``channels_redis_persist`` temporarily to mitigate connection
+  storms
+
+Fixed
+-----
+- Attempt to reconnect to Redis in the listener in case of connection
+  errors
 
 
 ===================
