@@ -6,17 +6,20 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+===================
+10.0.1 - 2018-07-07
+===================
 
 Changed
 -------
 - Convert the listener to use asyncio
-- Attempt to reconnect to Redis in the listener in case of connection
-  errors
 - Switched to ``channels_redis_persist`` temporarily to mitigate connection
   storms
+
+Fixed
+-----
+- Attempt to reconnect to Redis in the listener in case of connection
+  errors
 
 
 ===================
