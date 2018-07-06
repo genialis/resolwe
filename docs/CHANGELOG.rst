@@ -23,6 +23,7 @@ Changed
 - Switched to ``channels_redis_persist`` temporarily to mitigate connection
   storms
 - Lower the level of all ``INFO`` logs in elastic app to ``DEBUG``
+- Reintegrate the main part of the executor back into the manager
 
 Fixed
 -----
