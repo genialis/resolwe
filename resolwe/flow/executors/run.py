@@ -13,6 +13,7 @@ import json
 import logging
 import os
 import shutil
+import signal
 import sys
 import uuid
 from collections import defaultdict
@@ -51,6 +52,17 @@ class BaseFlowExecutor:
         self.process = None
         self.requirements = {}
         self.resources = {}
+
+        signal.signal(signal.SIGTERM, self._exit_gracefully)
+
+    def _exit_gracefully(self, signum, frame):
+        """Handle SIGTERM signal."""
+        self.update_data_status(
+            process_error=["Executor was killed by the scheduling system."],
+            status=DATA_META['STATUS_ERROR'],
+        )
+
+        self.terminate()
 
     def _send_manager_command(self, *args, **kwargs):
         """Send an update to manager and terminate the process if it fails."""

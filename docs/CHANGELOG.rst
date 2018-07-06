@@ -15,6 +15,8 @@ Added
 - Add load tracking to the listener with log messages on overload
 - Add job partition selection in the SLURM workload connector
 - Add ``slug`` Jinja filter
+- Set ``Data`` status to ``ERROR`` if executor is killed by the scheduling
+  system
 
 Changed
 -------
