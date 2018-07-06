@@ -44,6 +44,7 @@ class DataSerializer(ResolweBaseSerializer):
             'process_type',
             'process_warning',
             'output',
+            'size',
             'started',
             'status',
         )

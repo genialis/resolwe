@@ -16,6 +16,10 @@ Changed
 - Debug logs are not send from executors to the listener anymore to limit the
   amount of traffic on Redis
 
+Added
+-----
+- Add size to Data serializer
+
 
 ===================
 10.1.0 - 2018-07-16
