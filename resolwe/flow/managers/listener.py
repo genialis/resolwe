@@ -567,20 +567,20 @@ class ExecutorListener:
                 return
             self.last_load_log = time.time()
             self.last_load_level = 1
-            logger.error(__(
-                "Listener load limit exceeded, the system can't handle this!\n{}",
-                str(self._make_stats())
-            ))
+            logger.error(
+                "Listener load limit exceeded, the system can't handle this!",
+                extra=self._make_stats()
+            )
 
         elif self.load_avg.intervals['1m'].value > 0.8:
             if self.last_load_level == 0.8 and time.time() - self.last_load_log < 30:
                 return
             self.last_load_log = time.time()
             self.last_load_level = 0.8
-            logger.warning(__(
-                "Listener load approaching critical!\n{}",
-                str(self._make_stats())
-            ))
+            logger.warning(
+                "Listener load approaching critical!",
+                extra=self._make_stats()
+            )
 
         else:
             self.last_load_log = -math.inf
