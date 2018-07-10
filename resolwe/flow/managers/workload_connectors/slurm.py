@@ -41,7 +41,7 @@ class Connector(BaseConnector):
         ))
 
         # Compute target partition.
-        partition = getattr(settings, 'FLOW_SLURM_DEFAULT_PARTITION', None)
+        partition = getattr(settings, 'FLOW_SLURM_PARTITION_DEFAULT', None)
         if data.process.slug in getattr(settings, 'FLOW_SLURM_PARTITION_OVERRIDES', {}):
             partition = settings.FLOW_SLURM_PARTITION_OVERRIDES[data.process.slug]
 
