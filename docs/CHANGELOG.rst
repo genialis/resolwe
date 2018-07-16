@@ -6,9 +6,13 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+===================
+10.1.0 - 2018-07-16
+===================
+
+Changed
+-------
+- Lower the level of all ``INFO`` logs in elastic app to ``DEBUG``
 
 Added
 -----
@@ -17,10 +21,6 @@ Added
 - Add ``slug`` Jinja filter
 - Set ``Data`` status to ``ERROR`` if executor is killed by the scheduling
   system
-
-Changed
--------
-- Lower the level of all ``INFO`` logs in elastic app to ``DEBUG``
 
 Fixed
 -----
