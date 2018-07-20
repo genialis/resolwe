@@ -75,7 +75,7 @@ def configure_logging(emit_list):
             'redis': {
                 'class': module_base + '.logger.RedisHandler',
                 'formatter': 'json_formatter',
-                'level': logging.DEBUG,
+                'level': logging.INFO,
                 'emit_list': emit_list
             },
             'console': {

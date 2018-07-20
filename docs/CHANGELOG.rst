@@ -13,6 +13,8 @@ Unreleased
 Changed
 -------
 - Make the main executor non-blocking by using Python asyncio
+- Debug logs are not send from executors to the listener anymore to limit the
+  amount of traffic on Redis
 
 
 ===================
