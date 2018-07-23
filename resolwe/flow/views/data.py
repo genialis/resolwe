@@ -158,23 +158,9 @@ class DataViewSet(ElasticSearchCombinedViewSet,
         # perform "get_or_create" if requested - return existing object
         # if found
         if kwargs.pop('get_or_create', False):
-            process_input = request.data.get('input', {})
-
-            # use default values if they are not given
-            for field_schema, fields, path in iterate_schema(process_input, process.input_schema):
-                if 'default' in field_schema and field_schema['name'] not in fields:
-                    dict_dot(process_input, path, field_schema['default'])
-
-            checksum = get_data_checksum(process_input, process.slug, process.version)
-            data_qs = Data.objects.filter(
-                checksum=checksum,
-                process__persistence__in=[Process.PERSISTENCE_CACHED, Process.PERSISTENCE_TEMP],
-            )
-            data_qs = get_objects_for_user(request.user, 'view_data', data_qs)
-            if data_qs.exists():
-                data = data_qs.order_by('created').last()
-                serializer = self.get_serializer(data)
-                return Response(serializer.data)
+            response = self.perform_get_or_create(request, *args, **kwargs)
+            if response:
+                return response
 
         return super().create(request, *args, **kwargs)
 
@@ -183,6 +169,27 @@ class DataViewSet(ElasticSearchCombinedViewSet,
         """Get ``Data`` object if similar already exists, otherwise create it."""
         kwargs['get_or_create'] = True
         return self.create(request, *args, **kwargs)
+
+    def perform_get_or_create(self, request, *args, **kwargs):
+        """Perform "get_or_create" - return existing object if found."""
+        process = Process.object.get(request.data['process'])
+        process_input = request.data.get('input', {})
+
+        # use default values if they are not given
+        for field_schema, fields, path in iterate_schema(process_input, process.input_schema):
+            if 'default' in field_schema and field_schema['name'] not in fields:
+                dict_dot(process_input, path, field_schema['default'])
+
+        checksum = get_data_checksum(process_input, process.slug, process.version)
+        data_qs = Data.objects.filter(
+            checksum=checksum,
+            process__persistence__in=[Process.PERSISTENCE_CACHED, Process.PERSISTENCE_TEMP],
+        )
+        data_qs = get_objects_for_user(request.user, 'view_data', data_qs)
+        if data_qs.exists():
+            data = data_qs.order_by('created').last()
+            serializer = self.get_serializer(data)
+            return Response(serializer.data)
 
     def perform_create(self, serializer):
         """Create a resource."""
