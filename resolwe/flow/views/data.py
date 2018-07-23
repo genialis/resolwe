@@ -11,8 +11,9 @@ from rest_framework.response import Response
 from resolwe.elastic.composer import composer
 from resolwe.elastic.viewsets import ElasticSearchCombinedViewSet
 from resolwe.flow.models import Collection, Data, Entity, Process
+from resolwe.flow.models.utils import fill_with_defaults
 from resolwe.flow.serializers import DataSerializer
-from resolwe.flow.utils import dict_dot, get_data_checksum, iterate_schema
+from resolwe.flow.utils import get_data_checksum
 from resolwe.permissions.loader import get_permissions_class
 from resolwe.permissions.mixins import ResolwePermissionsMixin
 from resolwe.permissions.shortcuts import get_objects_for_user
@@ -175,10 +176,7 @@ class DataViewSet(ElasticSearchCombinedViewSet,
         process = Process.object.get(request.data['process'])
         process_input = request.data.get('input', {})
 
-        # use default values if they are not given
-        for field_schema, fields, path in iterate_schema(process_input, process.input_schema):
-            if 'default' in field_schema and field_schema['name'] not in fields:
-                dict_dot(process_input, path, field_schema['default'])
+        fill_with_defaults(process_input, process.input_schema)
 
         checksum = get_data_checksum(process_input, process.slug, process.version)
         data_qs = Data.objects.filter(

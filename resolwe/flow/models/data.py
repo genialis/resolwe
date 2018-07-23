@@ -10,7 +10,8 @@ from django.core.validators import RegexValidator
 from django.db import models, transaction
 
 from resolwe.flow.expression_engines.exceptions import EvaluationError
-from resolwe.flow.utils import dict_dot, get_data_checksum, iterate_fields, iterate_schema
+from resolwe.flow.models.utils import fill_with_defaults
+from resolwe.flow.utils import get_data_checksum, iterate_fields
 from resolwe.permissions.utils import assign_contributor_permissions, copy_permissions
 
 from .base import BaseModel
@@ -348,11 +349,7 @@ class Data(BaseModel):
 
         create = self.pk is None
         if create:
-            # Default values for INPUT
-            input_schema = self.process.input_schema  # pylint: disable=no-member
-            for field_schema, fields, path in iterate_schema(self.input, input_schema):
-                if 'default' in field_schema and field_schema['name'] not in fields:
-                    dict_dot(self.input, path, field_schema['default'])
+            fill_with_defaults(self.input, self.process.input_schema)  # pylint: disable=no-member
 
             if not self.name:
                 self._render_name()
