@@ -1,11 +1,11 @@
 """Resolwe data serializer."""
 from rest_framework import serializers
 
-from resolwe.flow.models import Data, DescriptorSchema
+from resolwe.flow.models import Data, DescriptorSchema, Process
 from resolwe.rest.fields import ProjectableJSONField
 
 from .base import ResolweBaseSerializer
-from .descriptor import DescriptorSchemaSerializer
+from .fields import ResolweSlugRelatedField
 
 
 class DataSerializer(ResolweBaseSerializer):
@@ -19,6 +19,8 @@ class DataSerializer(ResolweBaseSerializer):
     process_type = serializers.CharField(source='process.type', read_only=True)
     process_input_schema = ProjectableJSONField(source='process.input_schema', read_only=True)
     process_output_schema = ProjectableJSONField(source='process.output_schema', read_only=True)
+    process = ResolweSlugRelatedField(queryset=Process.objects.all())
+    descriptor_schema = ResolweSlugRelatedField(required=False, queryset=DescriptorSchema.objects.all())
 
     class Meta:
         """DataSerializer Meta options."""
@@ -60,16 +62,3 @@ class DataSerializer(ResolweBaseSerializer):
             'slug',
             'tags',
         )
-
-    def get_fields(self):
-        """Dynamically adapt fields based on the current request."""
-        fields = super(DataSerializer, self).get_fields()
-
-        if self.request.method == "GET":
-            fields['descriptor_schema'] = DescriptorSchemaSerializer(required=False)
-        else:
-            fields['descriptor_schema'] = serializers.PrimaryKeyRelatedField(
-                queryset=DescriptorSchema.objects.all(), required=False
-            )
-
-        return fields

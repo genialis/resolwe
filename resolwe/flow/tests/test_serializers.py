@@ -2,8 +2,8 @@
 from guardian.shortcuts import assign_perm
 from rest_framework.test import APIRequestFactory
 
-from resolwe.flow.models import Collection, Data, Entity, Process
-from resolwe.flow.serializers import CollectionSerializer, EntitySerializer
+from resolwe.flow.models import Collection, Data, DescriptorSchema, Entity, Process
+from resolwe.flow.serializers import CollectionSerializer, DataSerializer, EntitySerializer
 from resolwe.test import TestCase
 
 
@@ -103,3 +103,66 @@ class EntitySerializerTest(TestCase):
 
         serializer = EntitySerializer(self.entity, context={'request': request})
         self.assertEqual(serializer.data['data'], [self.data_1.pk])
+
+
+class ResolweSlugRelatedFieldTest(TestCase):
+    def setUp(self):
+        super().setUp()
+
+        self.process = Process.objects.create(
+            slug='test-process',
+            contributor=self.contributor,
+        )
+        assign_perm('view_process', self.user, self.process)
+
+        self.descriptor_schema1 = DescriptorSchema.objects.create(
+            slug='test-schema',
+            contributor=self.contributor,
+            version='1.0.0',
+        )
+        assign_perm('view_descriptorschema', self.user, self.descriptor_schema1)
+
+        self.descriptor_schema2 = DescriptorSchema.objects.create(
+            slug='test-schema',
+            contributor=self.contributor,
+            version='2.0.0',
+        )
+        assign_perm('view_descriptorschema', self.user, self.descriptor_schema2)
+
+        self.descriptor_schema3 = DescriptorSchema.objects.create(
+            slug='test-schema',
+            contributor=self.contributor,
+            version='3.0.0',
+        )
+
+        self.factory = APIRequestFactory()
+
+    def test_to_internal_value(self):
+        request = self.factory.get('/')
+        request.user = self.user
+        request.query_params = {}
+        data = {
+            'contributor': self.user.pk,
+            'process': 'test-process',
+            'descriptor_schema': 'test-schema',
+        }
+
+        serializer = DataSerializer(data=data, context={'request': request})
+        # is_valid() needs to be called before accessing ``validated_data``
+        serializer.is_valid()
+        # Check that descriptor schmena with highest version & view permission is used:
+        self.assertEqual(serializer.validated_data['descriptor_schema'], self.descriptor_schema2)
+
+    def test_to_representation(self):
+        request = self.factory.get('/')
+        request.user = self.user
+        request.query_params = {}
+
+        data = Data.objects.create(
+            contributor=self.user,
+            process=self.process,
+            descriptor_schema=self.descriptor_schema1,
+        )
+
+        serializer = DataSerializer(data, context={'request': request})
+        self.assertEqual(serializer.data['descriptor_schema'], self.descriptor_schema1.pk)

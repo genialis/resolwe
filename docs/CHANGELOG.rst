@@ -19,6 +19,8 @@ Changed
 Added
 -----
 - Add size to Data serializer
+- Implement ``ResolweSlugRelatedField``. As a result, ``DescriptorSchema``
+  objects can only be referenced by ``slug`` (instead of ``id``)
 
 
 ===================

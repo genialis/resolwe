@@ -145,19 +145,8 @@ class DataViewSet(ElasticSearchCombinedViewSet,
                         "Collection not found (id: {}).".format(collection_id)
                     )
 
-        # translate processe's slug to id
-        process_slug = request.data.get('process', None)
-        process_query = Process.objects.filter(slug=process_slug)
-        process_query = get_objects_for_user(request.user, 'view_process', process_query)
-        try:
-            process = process_query.latest()
-        except Process.DoesNotExist:
-            return Response({'process': ['Invalid process slug "{}" - object does not exist.'.format(process_slug)]},
-                            status=status.HTTP_400_BAD_REQUEST)
-        request.data['process'] = process.pk
+        self.define_contributor(request)
 
-        # perform "get_or_create" if requested - return existing object
-        # if found
         if kwargs.pop('get_or_create', False):
             response = self.perform_get_or_create(request, *args, **kwargs)
             if response:
@@ -173,7 +162,9 @@ class DataViewSet(ElasticSearchCombinedViewSet,
 
     def perform_get_or_create(self, request, *args, **kwargs):
         """Perform "get_or_create" - return existing object if found."""
-        process = Process.object.get(request.data['process'])
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        process = serializer.validated_data.get('process')
         process_input = request.data.get('input', {})
 
         fill_with_defaults(process_input, process.input_schema)

@@ -9,7 +9,7 @@ from resolwe.rest.fields import ProjectableJSONField
 
 from .base import ResolweBaseSerializer
 from .data import DataSerializer
-from .descriptor import DescriptorSchemaSerializer
+from .fields import ResolweSlugRelatedField
 
 
 class CollectionSerializer(ResolweBaseSerializer):
@@ -17,6 +17,7 @@ class CollectionSerializer(ResolweBaseSerializer):
 
     settings = ProjectableJSONField(required=False)
     descriptor = ProjectableJSONField(required=False)
+    descriptor_schema = ResolweSlugRelatedField(required=False, queryset=DescriptorSchema.objects.all())
 
     class Meta:
         """CollectionSerializer Meta options."""
@@ -69,12 +70,5 @@ class CollectionSerializer(ResolweBaseSerializer):
             fields['data'] = serializers.SerializerMethodField()
         else:
             fields['data'] = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
-
-        if self.request.method == "GET":
-            fields['descriptor_schema'] = DescriptorSchemaSerializer(required=False)
-        else:
-            fields['descriptor_schema'] = serializers.PrimaryKeyRelatedField(
-                queryset=DescriptorSchema.objects.all(), required=False
-            )
 
         return fields
