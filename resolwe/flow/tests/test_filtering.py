@@ -3,7 +3,7 @@ import datetime
 
 from django.contrib.auth import get_user_model
 
-from resolwe.flow.filters import CollectionFilter, DataFilter, EntityFilter
+from resolwe.flow.filters import CollectionFilter, DataFilter, EntityFilter, ProcessFilter
 from resolwe.flow.models import Collection, Data, DataDependency, DescriptorSchema, Entity, Process
 from resolwe.test import TestCase
 
@@ -284,3 +284,41 @@ class EntityFilterTestCase(TestCase):
         self._apply_filter({'descriptor_completed': '1'}, [self.entity_1])
         self._apply_filter({'descriptor_completed': 'false'}, [self.entity_2])
         self._apply_filter({'descriptor_completed': '0'}, [self.entity_2])
+
+
+class ProcessFilterTestCase(TestCase):
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.user = get_user_model().objects.create(username="first_user")
+
+        cls.proc_1 = Process.objects.create(
+            contributor=cls.user,
+            type='data:alignment:bam:',
+            category='analyses:alignment:',
+            scheduling_class='BA',
+        )
+
+        cls.proc_2 = Process.objects.create(
+            contributor=cls.user,
+            type='data:expression:',
+            category='analyses:',
+            scheduling_class='IN',
+        )
+
+    def _apply_filter(self, filters, expected):
+        filtered = ProcessFilter(filters, queryset=Process.objects.all())
+        self.assertCountEqual(filtered.qs, expected)
+
+    def test_category(self):
+        self._apply_filter({'category': 'analyses:'}, [self.proc_1, self.proc_2])
+        self._apply_filter({'category': 'analyses:alignment'}, [self.proc_1])
+
+    def test_type(self):
+        self._apply_filter({'type': 'data:'}, [self.proc_1, self.proc_2])
+        self._apply_filter({'type': 'data:alignment:bam'}, [self.proc_1])
+        self._apply_filter({'type': 'data:expression'}, [self.proc_2])
+
+    def test_scheduling_class(self):
+        self._apply_filter({'scheduling_class': 'BA'}, [self.proc_1])
+        self._apply_filter({'scheduling_class': 'IN'}, [self.proc_2])

@@ -69,7 +69,7 @@ class EntityFilter(CollectionFilter):
     descriptor_completed = filters.BooleanFilter()
     tags = TagsFilter()
 
-    class Meta(BaseResolweFilter.Meta):
+    class Meta(CollectionFilter.Meta):
         """Filter configuration."""
 
         model = Entity
@@ -80,12 +80,14 @@ class ProcessFilter(BaseResolweFilter):
     """Filter the Process endpoint."""
 
     category = filters.CharFilter(name='category', lookup_expr='startswith')
+    type = filters.CharFilter(name='type', lookup_expr='startswith')
+    scheduling_class = filters.AllLookupsFilter()
 
     class Meta(BaseResolweFilter.Meta):
         """Filter configuration."""
 
         model = Process
-        fields = BaseResolweFilter.Meta.fields + ['category']
+        fields = BaseResolweFilter.Meta.fields + ['category', 'type', 'scheduling_class']
 
 
 class DataFilter(BaseResolweFilter):

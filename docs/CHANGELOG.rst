@@ -23,6 +23,8 @@ Added
 - Add size to Data serializer
 - Implement ``ResolweSlugRelatedField``. As a result, ``DescriptorSchema``
   objects can only be referenced by ``slug`` (instead of ``id``)
+- Add options to filter by ``type`` and ``scheduling_class`` on Process API
+  endpoint
 
 
 ===================
