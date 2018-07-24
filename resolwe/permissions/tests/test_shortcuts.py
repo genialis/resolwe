@@ -219,22 +219,6 @@ class StoragePermsTestCase(TestCase):
             'get': 'retrieve',
         })
 
-    def test_list_permissons(self):
-        request = factory.get('/', content_type='application/json')
-        force_authenticate(request, self.user)
-
-        resp = self.storage_list_viewset(request)
-        self.assertEqual(len(resp.data), 0)
-
-        assign_perm("view_data", self.user, self.data)
-        resp = self.storage_list_viewset(request)
-        self.assertCountEqual([storage['id'] for storage in resp.data],
-                              [self.storage1.pk, self.storage2.pk])
-
-        remove_perm("view_data", self.user, self.data)
-        resp = self.storage_list_viewset(request)
-        self.assertEqual(len(resp.data), 0)
-
     def test_detail_permissons(self):
         request = factory.get('/', content_type='application/json')
         force_authenticate(request, self.user)
