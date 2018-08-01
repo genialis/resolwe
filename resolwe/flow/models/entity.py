@@ -64,7 +64,7 @@ class Relation(BaseModel):
     #: collection in which relation is
     collection = models.ForeignKey('Collection', null=True, on_delete=models.SET_NULL)
 
-    #: enteties in the relation
+    #: entities in the relation
     entities = models.ManyToManyField(Entity, through='PositionInRelation')
 
     #: optional label of the relation (i.e. to further specify relation type)
@@ -80,5 +80,5 @@ class PositionInRelation(models.Model):
     #: relation to which entity belongs
     relation = models.ForeignKey(Relation, on_delete=models.CASCADE)
 
-    #: position of the entity in the relatin (relevant if `relation.type.odrered` is True)
+    #: position of the entity in the relation (relevant if `relation.type.ordered` is True)
     position = JSONField(null=True, blank=True)
