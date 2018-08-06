@@ -3,13 +3,13 @@ from django.contrib.auth.models import AnonymousUser
 
 from rest_framework import serializers
 
-from resolwe.flow.models import Collection, DescriptorSchema
+from resolwe.flow.models import Collection
 from resolwe.permissions.shortcuts import get_objects_for_user
 from resolwe.rest.fields import ProjectableJSONField
 
 from .base import ResolweBaseSerializer
 from .data import DataSerializer
-from .fields import ResolweSlugRelatedField
+from .fields import NestedDescriptorSchemaSerializer
 
 
 class CollectionSerializer(ResolweBaseSerializer):
@@ -17,7 +17,7 @@ class CollectionSerializer(ResolweBaseSerializer):
 
     settings = ProjectableJSONField(required=False)
     descriptor = ProjectableJSONField(required=False)
-    descriptor_schema = ResolweSlugRelatedField(required=False, queryset=DescriptorSchema.objects.all())
+    descriptor_schema = NestedDescriptorSchemaSerializer(required=False)
 
     class Meta:
         """CollectionSerializer Meta options."""

@@ -4,8 +4,11 @@ from django.utils.encoding import smart_text
 
 from rest_framework.relations import RelatedField
 
+from resolwe.flow.models import DescriptorSchema
 from resolwe.permissions.shortcuts import get_objects_for_user
 from resolwe.permissions.utils import get_full_perm
+
+from .descriptor import DescriptorSchemaSerializer
 
 
 class ResolweSlugRelatedField(RelatedField):
@@ -56,3 +59,16 @@ class ResolweSlugRelatedField(RelatedField):
     def to_representation(self, obj):
         """Convert to representation."""
         return obj.pk
+
+
+class NestedDescriptorSchemaSerializer(ResolweSlugRelatedField):
+    """DescriptorSchema specific implementation of ResolweSlugRelatedField."""
+
+    def __init__(self, **kwargs):
+        """Initialize attributes."""
+        kwargs['queryset'] = DescriptorSchema.objects.all()
+        super().__init__(slug_field='slug', **kwargs)
+
+    def to_representation(self, obj):
+        """Convert to representation."""
+        return DescriptorSchemaSerializer(obj, required=self.required).data

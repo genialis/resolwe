@@ -1,11 +1,11 @@
 """Resolwe data serializer."""
 from rest_framework import serializers
 
-from resolwe.flow.models import Data, DescriptorSchema, Process
+from resolwe.flow.models import Data, Process
 from resolwe.rest.fields import ProjectableJSONField
 
 from .base import ResolweBaseSerializer
-from .fields import ResolweSlugRelatedField
+from .fields import NestedDescriptorSchemaSerializer, ResolweSlugRelatedField
 
 
 class DataSerializer(ResolweBaseSerializer):
@@ -20,7 +20,7 @@ class DataSerializer(ResolweBaseSerializer):
     process_input_schema = ProjectableJSONField(source='process.input_schema', read_only=True)
     process_output_schema = ProjectableJSONField(source='process.output_schema', read_only=True)
     process = ResolweSlugRelatedField(queryset=Process.objects.all())
-    descriptor_schema = ResolweSlugRelatedField(required=False, queryset=DescriptorSchema.objects.all())
+    descriptor_schema = NestedDescriptorSchemaSerializer(required=False)
 
     class Meta:
         """DataSerializer Meta options."""

@@ -1,4 +1,6 @@
 # pylint: disable=missing-docstring
+from collections import OrderedDict
+
 from guardian.shortcuts import assign_perm
 from rest_framework.test import APIRequestFactory
 
@@ -165,4 +167,24 @@ class ResolweSlugRelatedFieldTest(TestCase):
         )
 
         serializer = DataSerializer(data, context={'request': request})
-        self.assertEqual(serializer.data['descriptor_schema'], self.descriptor_schema1.pk)
+        self.assertEqual(serializer.data['process'], self.process.pk)
+
+        # Check that descriptor_schema is properly hydrated (but remove
+        # values that are not deterministic from the checking procedure)
+        descriptor_schema_hydrated = serializer.data['descriptor_schema']
+        for key in ['created', 'modified', 'id']:
+            self.assertTrue(key in descriptor_schema_hydrated)
+            descriptor_schema_hydrated.pop(key)
+        descriptor_schema_hydrated.get('contributor', {}).pop('id')
+        self.assertDictEqual(descriptor_schema_hydrated, {
+            'slug': 'test-schema',
+            'version': '1.0.0',
+            'name': '',
+            'description': '',
+            'schema': [],
+            'contributor': OrderedDict([
+                ('first_name', 'Joe'),
+                ('last_name', 'Miller'),
+                ('username', 'contributor'),
+            ]),
+        })
