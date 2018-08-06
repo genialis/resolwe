@@ -17,6 +17,7 @@ from rest_framework.exceptions import APIException
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 
+from .composer import composer
 from .lookup import QueryBuilder
 from .pagination import LimitOffsetPostPagination
 
@@ -52,6 +53,25 @@ class ElasticSearchMixin:
     ordering_fields = []
     ordering_map = {}
     ordering = None
+
+    def __init__(self, *args, **kwargs):
+        """Construct viewset."""
+        # Add registered viewset extensions. We take care not to modify the original
+        # class-derived attributes.
+        self.ordering_map = self.ordering_map.copy()
+
+        for extension in composer.get_extensions(self):
+            filtering_fields = getattr(extension, 'filtering_fields', [])
+            filtering_map = getattr(extension, 'filtering_map', {})
+            ordering_fields = getattr(extension, 'ordering_fields', [])
+            ordering_map = getattr(extension, 'ordering_map', {})
+
+            self.filtering_fields = self.filtering_fields + tuple(filtering_fields)
+            self.filtering_map.update(filtering_map)
+            self.ordering_fields = self.ordering_fields + tuple(ordering_fields)
+            self.ordering_map.update(ordering_map)
+
+        super().__init__(*args, **kwargs)
 
     def get_query_param(self, key, default=None):
         """Get query parameter uniformly for GET and POST requests."""

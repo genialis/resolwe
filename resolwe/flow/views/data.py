@@ -58,25 +58,6 @@ class DataViewSet(ElasticSearchCombinedViewSet,
     }
     ordering = '-created'
 
-    def __init__(self, *args, **kwargs):
-        """Construct Data viewset."""
-        # Add registered viewset extensions. We take care not to modify the original
-        # class-derived attributes.
-        self.ordering_map = self.ordering_map.copy()
-
-        for extension in composer.get_extensions(self):
-            filtering_fields = getattr(extension, 'filtering_fields', [])
-            filtering_map = getattr(extension, 'filtering_map', {})
-            ordering_fields = getattr(extension, 'ordering_fields', [])
-            ordering_map = getattr(extension, 'ordering_map', {})
-
-            self.filtering_fields = self.filtering_fields + tuple(filtering_fields)
-            self.filtering_map.update(filtering_map)
-            self.ordering_fields = self.ordering_fields + tuple(ordering_fields)
-            self.ordering_map.update(ordering_map)
-
-        super().__init__(*args, **kwargs)
-
     def get_always_allowed_arguments(self):
         """Return query arguments which are always allowed."""
         return super().get_always_allowed_arguments() + [

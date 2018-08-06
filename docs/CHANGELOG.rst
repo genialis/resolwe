@@ -12,6 +12,8 @@ Unreleased
 
 Changed
 -------
+- **BACKWARD INCOMPATIBLE:** Switch ``Collection`` and ``Entity`` API viewsets
+  to use Elasticsearch
 - Omit ``current_user_permissions`` field in serialization if only a subset of
   fields is requested
 

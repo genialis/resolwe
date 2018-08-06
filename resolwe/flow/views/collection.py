@@ -1,23 +1,28 @@
 """Collection viewset."""
 from distutils.util import strtobool  # pylint: disable=import-error,no-name-in-module
 
+from elasticsearch_dsl.query import Q
+
 from django.db.models.query import Prefetch
 
 from rest_framework import exceptions, mixins, status, viewsets
 from rest_framework.decorators import detail_route
 from rest_framework.response import Response
 
-from resolwe.flow.filters import CollectionFilter
+from resolwe.elastic.composer import composer
+from resolwe.elastic.viewsets import ElasticSearchCombinedViewSet
 from resolwe.flow.models import Collection, Data
 from resolwe.flow.serializers import CollectionSerializer
 from resolwe.permissions.loader import get_permissions_class
 from resolwe.permissions.mixins import ResolwePermissionsMixin
 from resolwe.permissions.utils import remove_permission, update_permission
 
+from ..elastic_indexes import CollectionDocument
 from .mixins import ResolweCheckSlugMixin, ResolweCreateModelMixin, ResolweUpdateModelMixin
 
 
-class CollectionViewSet(ResolweCreateModelMixin,
+class CollectionViewSet(ElasticSearchCombinedViewSet,
+                        ResolweCreateModelMixin,
                         mixins.RetrieveModelMixin,
                         ResolweUpdateModelMixin,
                         mixins.DestroyModelMixin,
@@ -34,9 +39,49 @@ class CollectionViewSet(ResolweCreateModelMixin,
     )
     serializer_class = CollectionSerializer
     permission_classes = (get_permissions_class(),)
-    filter_class = CollectionFilter
-    ordering_fields = ('id', 'created', 'modified', 'name')
-    ordering = ('id',)
+    document_class = CollectionDocument
+
+    filtering_fields = ('id', 'slug', 'name', 'created', 'modified', 'contributor', 'owners', 'text')
+    filtering_map = {
+        'name': 'name.ngrams',
+        'contributor': 'contributor_id',
+        'owners': 'owner_ids',
+    }
+    ordering_fields = ('id', 'created', 'modified', 'name', 'contributor')
+    ordering_map = {
+        'name': 'name.raw',
+        'contributor': 'contributor_sort',
+    }
+    ordering = 'id'
+
+    def get_always_allowed_arguments(self):
+        """Return query arguments which are always allowed."""
+        return super().get_always_allowed_arguments() + [
+            'hydrate_data',
+        ]
+
+    def custom_filter_text(self, value, search):
+        """Support general query using the 'text' attribute."""
+        if isinstance(value, list):
+            value = ' '.join(value)
+
+        should = [
+            Q('match', name={'query': value, 'operator': 'and', 'boost': 10.0}),
+            Q('match', **{'name.ngrams': {'query': value, 'operator': 'and', 'boost': 5.0}}),
+            Q('match', contributor_name={'query': value, 'operator': 'and', 'boost': 5.0}),
+            Q('match', **{'contributor_name.ngrams': {'query': value, 'operator': 'and', 'boost': 2.0}}),
+            Q('match', owner_names={'query': value, 'operator': 'and', 'boost': 5.0}),
+            Q('match', **{'owner_names.ngrams': {'query': value, 'operator': 'and', 'boost': 2.0}}),
+        ]
+
+        # Add registered text extensions.
+        for extension in composer.get_extensions(self):
+            if hasattr(extension, 'text_filter'):
+                should += extension.text_filter(value)
+
+        search = search.query('bool', should=should)
+
+        return search
 
     def set_content_permissions(self, user, obj, payload):
         """Apply permissions to data objects and entities in ``Collection``."""

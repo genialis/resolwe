@@ -1,6 +1,8 @@
 """Entity viewset."""
 from distutils.util import strtobool  # pylint: disable=import-error,no-name-in-module
 
+from elasticsearch_dsl.query import Q
+
 from django.db.models import Max
 from django.db.models.query import Prefetch
 
@@ -8,19 +10,19 @@ from rest_framework import exceptions, status
 from rest_framework.decorators import detail_route
 from rest_framework.response import Response
 
-from resolwe.flow.filters import EntityFilter
 from resolwe.flow.models import Collection, Data, Entity
 from resolwe.flow.serializers import EntitySerializer
 from resolwe.permissions.utils import remove_permission, update_permission
 
+from ..elastic_indexes import EntityDocument
 from .collection import CollectionViewSet
 
 
 class EntityViewSet(CollectionViewSet):
     """API view for entities."""
 
-    filter_class = EntityFilter
     serializer_class = EntitySerializer
+    document_class = EntityDocument
 
     queryset = Entity.objects.prefetch_related(
         Prefetch('data', queryset=Data.objects.all().order_by('id')),
@@ -29,6 +31,18 @@ class EntityViewSet(CollectionViewSet):
     ).annotate(
         latest_date=Max('data__modified')
     ).order_by('-latest_date')
+
+    filtering_fields = CollectionViewSet.filtering_fields + ('tags', 'collections')
+
+    def custom_filter_tags(self, value, search):
+        """Support tags query."""
+        if not isinstance(value, list):
+            value = value.split(',')
+
+        filters = [Q('match', **{'tags': item}) for item in value]
+        search = search.query('bool', must=filters)
+
+        return search
 
     def _check_collection_permissions(self, collection_id, user):
         """Check that collection exists and user has `add` permission."""
