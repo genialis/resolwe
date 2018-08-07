@@ -34,6 +34,21 @@ Postgres ORM model for keeping the data structured.
 .. autoclass:: resolwe.flow.models.DataDependency
     :members:
 
+Entity–relationship model
+=========================
+
+Postgres ORM to define the entity–relationship model that describes how
+data objects are related in a specific domain.
+
+.. autoclass:: resolwe.flow.models.Entity
+    :members:
+
+.. autoclass:: resolwe.flow.models.Relation
+    :members:
+
+.. autoclass:: resolwe.flow.models.RelationType
+    :members:
+
 DescriptorSchema model
 ======================
 

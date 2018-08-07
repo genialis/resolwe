@@ -21,5 +21,5 @@ from .data import DataSerializer
 from .descriptor import DescriptorSchemaSerializer
 from .entity import EntitySerializer
 from .process import ProcessSerializer
-from .relation import PositionInRelationSerializer, RelationSerializer
+from .relation import RelationPartitionSerializer, RelationSerializer
 from .storage import StorageSerializer

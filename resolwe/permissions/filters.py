@@ -25,6 +25,10 @@ class ResolwePermissionsFilter(BaseFilterBackend):
             model_name = 'data'
             kwargs['perms_filter'] = 'data__pk__in'
 
+        if model_name == 'relation':
+            model_name = 'collection'
+            kwargs['perms_filter'] = 'collection__pk__in'
+
         permission = '{}.view_{}'.format(app_label, model_name)
 
         return get_objects_for_user(user, permission, queryset, **kwargs)

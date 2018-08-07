@@ -14,6 +14,15 @@ Changed
 -------
 - **BACKWARD INCOMPATIBLE:** Switch ``Collection`` and ``Entity`` API viewsets
   to use Elasticsearch
+- **BACKWARD INCOMPATIBLE:** Refactor ``Relation`` model, which includes:
+
+  - renaming ``position`` to ``partiiton``
+  - renaming ``label`` to ``category`` and making it required
+  - adding ``unit``
+  - making ``collection`` field required
+  - requireing uniqe combination of ``collection`` and ``category``
+  - renaming partition's ``position`` to ``label``
+  - adding (integer) ``position`` to partition (used for sorting)
 - Omit ``current_user_permissions`` field in serialization if only a subset of
   fields is requested
 - Allow slug to be null on update to enable slug autogeneration

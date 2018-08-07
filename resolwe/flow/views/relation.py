@@ -1,81 +1,58 @@
 """Relation viewset."""
 from itertools import zip_longest
 
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError
 
-from rest_framework import exceptions, mixins, permissions, status, viewsets
-from rest_framework.decorators import detail_route
+from rest_framework import exceptions, permissions, status, viewsets
 from rest_framework.response import Response
 
+from resolwe.flow.filters import RelationFilter
 from resolwe.flow.models import Relation
-from resolwe.flow.models.entity import PositionInRelation, RelationType
-from resolwe.flow.serializers import PositionInRelationSerializer, RelationSerializer
-from resolwe.permissions.utils import assign_contributor_permissions
+from resolwe.flow.models.entity import RelationType
+from resolwe.flow.serializers import RelationSerializer
 
 
-class RelationViewSet(mixins.CreateModelMixin,
-                      mixins.ListModelMixin,
-                      mixins.RetrieveModelMixin,
-                      mixins.UpdateModelMixin,
-                      mixins.DestroyModelMixin,
-                      viewsets.GenericViewSet):
+class RelationViewSet(viewsets.ModelViewSet):
     """API view for :class:`Relation` objects."""
 
     queryset = Relation.objects.all().prefetch_related('contributor')
     serializer_class = RelationSerializer
     permission_classes = (permissions.IsAuthenticated,)
+    filter_class = RelationFilter
     ordering_fields = ('id', 'created', 'modified')
     ordering = ('id',)
 
     def _filter_queryset(self, queryset):
-        """Filter queryset by queryparameters.
+        """Filter queryset by entity, label and position.
 
-        Filtering is supported by ``name``, ``collection``, ``entities``
-        and ``positions``.
-
-        If ``positions`` parameter is given, it is combined with
-        coresponding id in ``samples`` parameter and relations are
-        filtered by (sample, position) pairs. Because of this, if
-        ``positions`` is given, also ``samples`` must be given and
-        they must be of the same length.
-
-        NOTE: Because of complex filtering requirements it is not
-              possible to use django_restframework_filters (at least
-              not in a straight foreward way)
+        Due to a bug in django-filter these filters have to be applied
+        manually:
+        https://github.com/carltongibson/django-filter/issues/883
         """
-        # query_params must be casted to dict, otherwise list values cannot be retrieved
-        query_params = dict(self.request.query_params)
+        entities = self.request.query_params.getlist('entity')
+        labels = self.request.query_params.getlist('label')
+        positions = self.request.query_params.getlist('position')
 
-        id_ = query_params.get('id', None)
-        relation_type = query_params.get('type', None)
-        label = query_params.get('label', None)
-        entities = query_params.get('entity', None)
-        positions = query_params.get('position', None)
-        collection = query_params.get('collection', None)
+        if labels and len(labels) != len(entities):
+            raise exceptions.ParseError(
+                'If `labels` query parameter is given, also `entities` '
+                'must be given and they must be of the same length.'
+            )
 
-        if id_:
-            queryset = queryset.filter(id=id_[0])
-
-        if relation_type:
-            queryset = queryset.filter(type__name=relation_type[0])
-
-        if label:
-            queryset = queryset.filter(label=label[0])
-
-        if positions is not None and (entities is None or len(positions) != len(entities)):
+        if positions and len(positions) != len(entities):
             raise exceptions.ParseError(
                 'If `positions` query parameter is given, also `entities` '
                 'must be given and they must be of the same length.'
             )
 
-        if collection:
-            queryset = queryset.filter(collection__pk=collection[0])
-
         if entities:
-            for entity, position in zip_longest(entities, positions or []):
+            for entity, label, position in zip_longest(entities, labels, positions):
                 filter_params = {'entities__pk': entity}
+                if label:
+                    filter_params['relationpartition__label'] = label
                 if position:
-                    filter_params['positioninrelation__position'] = position
+                    filter_params['relationpartition__position'] = position
+
                 queryset = queryset.filter(**filter_params)
 
         return queryset
@@ -110,32 +87,29 @@ class RelationViewSet(mixins.CreateModelMixin,
         except IntegrityError as ex:
             return Response({'error': str(ex)}, status=status.HTTP_409_CONFLICT)
 
-    def perform_create(self, serializer):
-        """Create a relation."""
-        with transaction.atomic():
-            instance = serializer.save()
+    def update(self, request, *args, **kwargs):
+        """Update the ``Relation`` object.
 
-            assign_contributor_permissions(instance)
+        Reject the update if user doesn't have ``EDIT`` permission on
+        the collection referenced in the ``Relation``.
+        """
+        instance = self.get_object()
+        if (not request.user.has_perm('edit_collection', instance.collection)
+                and not request.user.is_superuser):
+            return Response(status=status.HTTP_401_UNAUTHORIZED)
 
-    @detail_route(methods=['post'])
-    def add_entity(self, request, pk=None):
-        """Add ``Entity`` to ``Relation``."""
-        relation = self.get_object()
-        serializer = PositionInRelationSerializer(data=request.data, many=True)
-        if not serializer.is_valid():
-            Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        serializer.save(relation=relation)
+        return super().update(request, *args, **kwargs)
 
-        return Response()
+    def destroy(self, request, *args, **kwargs):
+        """Delete the ``Relation`` object.
 
-    @detail_route(methods=['post'])
-    def remove_entity(self, request, pk=None):
-        """Remove data from collection."""
-        if 'ids' not in request.data:
-            return Response({"error": "`ids` parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
+        Reject the delete if user doesn't have ``EDIT`` permission on
+        the collection referenced in the ``Relation``.
+        """
+        instance = self.get_object()
 
-        relation = self.get_object()
-        for entity_id in request.data['ids']:
-            PositionInRelation.objects.filter(relation=relation, entity=entity_id).delete()
+        if (not request.user.has_perm('edit_collection', instance.collection)
+                and not request.user.is_superuser):
+            return Response(status=status.HTTP_401_UNAUTHORIZED)
 
-        return Response()
+        return super().destroy(request, *args, **kwargs)

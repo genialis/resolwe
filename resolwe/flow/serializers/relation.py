@@ -4,30 +4,27 @@ from django.db import transaction
 from rest_framework import serializers
 
 from resolwe.flow.models.collection import Collection
-from resolwe.flow.models.entity import PositionInRelation, Relation, RelationType
-from resolwe.rest.fields import ProjectableJSONField
+from resolwe.flow.models.entity import Relation, RelationPartition, RelationType
 from resolwe.rest.serializers import SelectiveFieldMixin
 
 from .base import ResolweBaseSerializer
 
 
-class PositionInRelationSerializer(SelectiveFieldMixin, serializers.ModelSerializer):
-    """Serializer for PositionInRelation objects."""
-
-    position = ProjectableJSONField(allow_null=True, required=False)
+class RelationPartitionSerializer(SelectiveFieldMixin, serializers.ModelSerializer):
+    """Serializer for RelationPartition objects."""
 
     class Meta:
-        """PositionInRelationSerializer Meta options."""
+        """RelationPartitionSerializer Meta options."""
 
-        model = PositionInRelation
-        fields = ('entity', 'position')
+        model = RelationPartition
+        fields = ('id', 'entity', 'position', 'label')
 
 
 class RelationSerializer(ResolweBaseSerializer):
     """Serializer for Relation objects."""
 
-    entities = PositionInRelationSerializer(source='positioninrelation_set', many=True)
-    collection = serializers.PrimaryKeyRelatedField(queryset=Collection.objects.all(), required=True)
+    partitions = RelationPartitionSerializer(source='relationpartition_set', many=True)
+    collection = serializers.PrimaryKeyRelatedField(queryset=Collection.objects.all())
 
     class Meta:
         """RelationSerializer Meta options."""
@@ -40,12 +37,13 @@ class RelationSerializer(ResolweBaseSerializer):
         )
         update_protected_fields = (
             'contributor',
-            'entities',
             'type',
         )
         fields = read_only_fields + update_protected_fields + (
             'collection',
-            'label',
+            'category',
+            'partitions',
+            'unit',
         )
 
     def get_fields(self):
@@ -59,22 +57,37 @@ class RelationSerializer(ResolweBaseSerializer):
 
         return fields
 
+    def _create_partitions(self, instance, partitions):
+        """Create partitions."""
+        for partition in partitions:
+            RelationPartition.objects.create(
+                relation=instance,
+                entity=partition['entity'],
+                label=partition.get('label', None),
+                position=partition.get('position', None),
+            )
+
     def create(self, validated_data):
-        """Create ``Relation`` object and add ``Entities``."""
-        # `entities` field is renamed to `positioninrelation_set` based on source of nested serializer
-
-        entities = validated_data.pop('positioninrelation_set', {})
-
-        # Prevent "Failed to populate slug Relation.slug from name" output
-        validated_data['name'] = 'Relation'
+        """Create ``Relation`` object and add partitions of ``Entities``."""
+        # `partitions` field is renamed to `relationpartition_set` based on source of nested serializer
+        partitions = validated_data.pop('relationpartition_set', {})
 
         with transaction.atomic():
             instance = Relation.objects.create(**validated_data)
-            for entity in entities:
-                PositionInRelation.objects.create(
-                    relation=instance,
-                    entity=entity['entity'],
-                    position=entity.get('position', None)
-                )
+            self._create_partitions(instance, partitions)
+
+        return instance
+
+    def update(self, instance, validated_data):
+        """Update ``Relation``."""
+        # `partitions` field is renamed to `relationpartition_set` based on source of nested serializer
+        partitions = validated_data.pop('relationpartition_set', {})
+
+        with transaction.atomic():
+            instance = super().update(instance, validated_data)
+
+            # TODO: Apply the diff instead of recreating all obejcts.
+            instance.relationpartition_set.all().delete()
+            self._create_partitions(instance, partitions)
 
         return instance

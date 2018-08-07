@@ -74,6 +74,7 @@ class ResolweAPITestCase(TestCaseHelpers, APITestCase):
         # TODO: Change username to `admin` when fixtures are removed
         self.admin = user_model.objects.create_superuser(username='admin2', email='admin@test.com', password='admin')
         self.contributor = user_model.objects.create_user(username='contributor')
+        self.user = user_model.objects.create_user(username='user')
 
         if not hasattr(self, 'viewset'):
             raise KeyError("`self.viewset` must be defined in child class")

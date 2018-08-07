@@ -8,7 +8,7 @@ Flow Filters
 import rest_framework_filters as filters
 from django_filters.filters import BaseCSVFilter
 
-from .models import Collection, Data, DescriptorSchema, Entity, Process
+from .models import Collection, Data, DescriptorSchema, Entity, Process, Relation
 
 
 class BaseResolweFilter(filters.FilterSet):
@@ -111,4 +111,20 @@ class DataFilter(BaseResolweFilter):
         fields = BaseResolweFilter.Meta.fields + [
             'collection', 'entity', 'type', 'status', 'finished', 'started', 'process', 'tags',
             'parents', 'children'
+        ]
+
+
+class RelationFilter(BaseResolweFilter):
+    """Filter the Relation endpoint."""
+
+    category = filters.CharFilter(lookup_expr='iexact')
+    collection = filters.ModelChoiceFilter(queryset=Collection.objects.all())
+    type = filters.CharFilter(name='type__name')
+
+    class Meta(BaseResolweFilter.Meta):
+        """Filter configuration."""
+
+        model = Relation
+        fields = BaseResolweFilter.Meta.fields + [
+            'category', 'collection', 'type'
         ]

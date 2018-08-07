@@ -306,7 +306,6 @@ class CollectionPermissionsTest(ResolweAPITestCase):
 class DescriptorSchemaPermissionsTest(ResolweAPITestCase):
 
     def setUp(self):
-        self.user = get_user_model().objects.create(username='user')
         self.group = Group.objects.create(name='Test group')
 
         self.resource_name = 'collection'
