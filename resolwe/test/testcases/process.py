@@ -19,6 +19,8 @@ from itertools import filterfalse
 
 from django.conf import settings
 from django.core import management
+from django.core.exceptions import ValidationError
+from django.core.validators import URLValidator
 from django.db import transaction
 from django.utils.crypto import get_random_string
 from django.utils.text import slugify
@@ -363,23 +365,39 @@ class ProcessTestCase(TransactionTestCase):
 
         def mock_upload(file_path):
             """Mock file upload."""
-            old_path = os.path.join(self.files_path, file_path)
-            if not os.path.isfile(old_path):
-                raise RuntimeError('Missing file: {}'.format(old_path))
+            def is_url(path):
+                """Check if path is a URL."""
+                validate = URLValidator()
+                try:
+                    validate(path)
+                except (ValueError, ValidationError):
+                    return False
+                return True
 
-            file_temp = '{}_{}'.format(file_path, uuid.uuid4())
-            upload_file_path = os.path.join(self.upload_dir, file_temp)
-            # create directories needed by new_path
-            upload_file_dir = os.path.dirname(upload_file_path)
-            if not os.path.exists(upload_file_dir):
-                os.makedirs(upload_file_dir)
+            if is_url(file_path):
+                return {
+                    'file': file_path,
+                    'file_temp': file_path,
+                    'is_remote': True,
+                }
+            else:
+                old_path = os.path.join(self.files_path, file_path)
+                if not os.path.isfile(old_path):
+                    raise RuntimeError('Missing file: {}'.format(old_path))
 
-            shutil.copy2(old_path, upload_file_path)
-            self._upload_files.append(upload_file_path)
-            return {
-                'file': file_path,
-                'file_temp': file_temp,
-            }
+                file_temp = '{}_{}'.format(file_path, uuid.uuid4())
+                upload_file_path = os.path.join(self.upload_dir, file_temp)
+                # create directories needed by new_path
+                upload_file_dir = os.path.dirname(upload_file_path)
+                if not os.path.exists(upload_file_dir):
+                    os.makedirs(upload_file_dir)
+
+                shutil.copy2(old_path, upload_file_path)
+                self._upload_files.append(upload_file_path)
+                return {
+                    'file': file_path,
+                    'file_temp': file_temp,
+                }
 
         for field_schema, fields in iterate_fields(input_, process.input_schema):
             # copy referenced files to upload dir

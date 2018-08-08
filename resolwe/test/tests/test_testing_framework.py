@@ -8,7 +8,9 @@ import tempfile
 import unittest.mock as mock
 
 from resolwe.flow.models import Storage
-from resolwe.test import ProcessTestCase, TestCase, is_testing
+from resolwe.test import ProcessTestCase, TestCase, is_testing, tag_process
+
+PROCESSES_DIR = os.path.join(os.path.dirname(__file__), 'processes')
 
 
 class TestingFrameworkTestCase(TestCase):
@@ -191,3 +193,21 @@ class TestingFrameworkTestCase(TestCase):
 
     def test_is_testing(self):
         self.assertTrue(is_testing())
+
+
+class TestingFrameworkProcessTestCase(ProcessTestCase):
+    def setUp(self):
+        super().setUp()
+        self._register_schemas(path=[PROCESSES_DIR])
+
+    @tag_process('test-url-file')
+    def test_url_file(self):
+        url = 'https://www.genialis.com/data.csv.gz'
+        inputs = {
+            'src': url,
+        }
+        datum = self.run_process('test-url-file', inputs)
+        datum.refresh_from_db()
+
+        self.assertFields(datum, 'file_temp', url)
+        self.assertFields(datum, 'file', url)

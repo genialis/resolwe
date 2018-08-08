@@ -1,0 +1,22 @@
+- slug: test-url-file
+  name: URL in input field
+  requirements:
+    expression-engine: jinja
+  version: 1.0.0
+  type: "data:test:url"
+  input:
+    - name: src
+      label: Source
+      type: basic:file
+  output:
+    - name: file_temp
+      label: file_temp
+      type: basic:string
+    - name: file
+      label: file
+      type: basic:string
+  run:
+    language: bash
+    program: |
+      re-save file_temp {{ src.file_temp }}
+      re-save file {{ src.file }}

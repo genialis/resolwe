@@ -15,6 +15,7 @@ Changed
 
 Added
 -----
+- Add support for URLs in ``basic:file:`` fields in Django tests
 
 Fixed
 -----
