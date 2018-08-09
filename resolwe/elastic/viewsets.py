@@ -78,14 +78,17 @@ class ElasticSearchMixin:
         if not ordering:
             return search
 
-        ordering_field = ordering.lstrip('-')
-        if ordering_field not in self.ordering_fields:
-            raise KeyError('Ordering by `{}` is not supported.'.format(ordering_field))
+        sort_fields = []
+        for raw_ordering in ordering.split(','):
+            ordering_field = raw_ordering.lstrip('-')
+            if ordering_field not in self.ordering_fields:
+                raise KeyError('Ordering by `{}` is not supported.'.format(ordering_field))
 
-        ordering_field = self.ordering_map.get(ordering_field, ordering_field)
-        direction = '-' if ordering[0] == '-' else ''
+            ordering_field = self.ordering_map.get(ordering_field, ordering_field)
+            direction = '-' if raw_ordering[0] == '-' else ''
+            sort_fields.append('{}{}'.format(direction, ordering_field))
 
-        return search.sort('{}{}'.format(direction, ordering_field))
+        return search.sort(*sort_fields)
 
     def get_always_allowed_arguments(self):
         """Return query arguments which are always allowed."""

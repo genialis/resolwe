@@ -207,6 +207,15 @@ class IndexViewsetTest(APITestCase, TestCase):
         self.assertEqual(response.data[0]['name'], 'Object name 3')
         self.assertEqual(response.data[1]['name'], 'Object name 1')
 
+        # Test order by multiple fields.
+        request = factory.get('', {'name': 'Object', 'ordering': '-name,num'})
+        force_authenticate(request, self.user_1)
+        response = viewset(request)
+
+        self.assertEqual(len(response.data), 2)
+        self.assertEqual(response.data[0]['name'], 'Object name 3')
+        self.assertEqual(response.data[1]['name'], 'Object name 1')
+
     def _make_request(self, **kwargs):
         request = factory.post('', kwargs, format='json')
         force_authenticate(request, self.admin)

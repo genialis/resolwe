@@ -57,4 +57,4 @@ class TestCombinedViewSet(ElasticSearchCombinedViewSet, TestModelViewSet):
 
     filtering_fields = ('name',)
     ordering_map = {'name': 'field_name.raw'}
-    ordering_fields = ('name',)
+    ordering_fields = ('name', 'num')
