@@ -13,7 +13,7 @@ from guardian.shortcuts import assign_perm
 
 from resolwe.flow.executors.prepare import BaseFlowExecutorPreparer
 from resolwe.flow.managers import manager
-from resolwe.flow.models import Data, DataDependency, Process
+from resolwe.flow.models import Collection, Data, DataDependency, DescriptorSchema, Process
 from resolwe.test import ProcessTestCase, TestCase, tag_process, with_docker_executor, with_null_executor
 
 # Workaround for false positive warnings in pylint.
@@ -61,6 +61,8 @@ class ManagerRunProcessTest(ProcessTestCase):
         super().setUp()
 
         self._register_schemas(path=[PROCESSES_DIR])
+
+        DescriptorSchema.objects.create(contributor=self.contributor, slug='sample')
 
     @tag_process('test-min')
     def test_minimal_process(self):
@@ -167,6 +169,25 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.assertTrue(self.contributor.has_perm('flow.view_data', step1_data))
         # User inherites permission from group
         self.assertTrue(self.user.has_perm('flow.view_data', step1_data))
+
+    @tag_process('test-workflow-2')
+    def test_workflow_entity(self):
+        collection = Collection.objects.create(contributor=self.contributor)
+
+        with transaction.atomic():
+            # We need this transaction to delay calling the manager until we've
+            # add data to the collection.
+            with self.preparation_stage():
+                input_data = self.run_process('test-example-3')
+
+            collection.data.add(input_data)
+            input_data.entity_set.first().collections.add(collection)
+
+        workflow_data = self.run_process('test-workflow-2', {'data1': input_data.pk})
+
+        # Check that workflow results are added to the collection.
+        self.assertEqual(collection.data.filter(pk__in=workflow_data.output['steps']).count(), 1)
+        self.assertEqual(collection.data.all().count(), 2)
 
     @with_docker_executor
     @tag_process('test-docker')

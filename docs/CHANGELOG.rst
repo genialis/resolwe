@@ -26,6 +26,10 @@ Added
 - Add options to filter by ``type`` and ``scheduling_class`` on Process API
   endpoint
 
+Fixed
+-----
+- Inherit collections from ``Entity`` when adding ``Data`` object to it
+
 
 ===================
 10.1.0 - 2018-07-16
