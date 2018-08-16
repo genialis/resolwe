@@ -111,7 +111,15 @@ class ExecutorListener:
         """Reset the executor queue channel to an empty state."""
         conn = await self._make_connection()
         try:
-            await conn.delete(state.MANAGER_EXECUTOR_CHANNELS.queue)
+            script = """
+                local keys = redis.call('KEYS', ARGV[1])
+                redis.call('DEL', unpack(keys))
+            """
+            await conn.eval(
+                script,
+                keys=[],
+                args=['*{}*'.format(settings.FLOW_MANAGER['REDIS_PREFIX'])],
+            )
         finally:
             conn.close()
 
@@ -549,6 +557,7 @@ class ExecutorListener:
         try:
             serialized = json.dumps(snapshot)
             await self._call_redis(aioredis.Redis.set, state.MANAGER_LISTENER_STATS, serialized)
+            await self._call_redis(aioredis.Redis.expire, state.MANAGER_LISTENER_STATS, 3600)
         except TypeError:
             logger.error(__(
                 "Listener can't serialize statistics:\n\n{}",

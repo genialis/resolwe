@@ -126,7 +126,7 @@ class Manager:
                 await self.condition.wait()
             finally:
                 self.condition.release()
-            logging.debug(__(
+            logger.debug(__(
                 "Sync semaphore dropped to 0, tag sequence was {}.",
                 self.tag_sequence
             ))
@@ -145,6 +145,7 @@ class Manager:
             """Increase executor count by 1."""
             await self.condition.acquire()
             self.value += 1
+            logger.debug(__("Sync semaphore increased to {}, tag {}.", self.value, tag))
             self.tag_sequence.append(tag + '-up')
             self.condition.release()
 
@@ -157,6 +158,7 @@ class Manager:
             await self.condition.acquire()
             try:
                 self.value -= 1
+                logger.debug(__("Sync semaphore decreased to {}, tag {}.", self.value, tag))
                 self.tag_sequence.append(tag + '-down')
                 ret = self.value == 0
                 if self.active and self.value == 0:
@@ -556,7 +558,10 @@ class Manager:
         self.settings_actual.update(override)
 
         if cmd == WorkerProtocol.COMMUNICATE:
-            await database_sync_to_async(self._data_scan)(**message[WorkerProtocol.COMMUNICATE_EXTRA])
+            try:
+                await database_sync_to_async(self._data_scan)(**message[WorkerProtocol.COMMUNICATE_EXTRA])
+            finally:
+                await self.sync_counter.dec('communicate')
 
         elif cmd == WorkerProtocol.FINISH:
             try:
@@ -583,17 +588,18 @@ class Manager:
                 if message[WorkerProtocol.FINISH_SPAWNED]:
                     await database_sync_to_async(self._data_scan)(**message[WorkerProtocol.FINISH_COMMUNICATE_EXTRA])
             finally:
-                zeroed = await self.sync_counter.dec('executor')
-                if zeroed:
-                    await consumer.exit_consumer()
+                await self.sync_counter.dec('executor')
 
         elif cmd == WorkerProtocol.ABORT:
-            zeroed = await self.sync_counter.dec('executor')
-            if zeroed:
-                await consumer.exit_consumer()
+            await self.sync_counter.dec('executor')
 
         else:
             logger.error(__("Ignoring unknown manager control command '{}'.", cmd))
+
+    def _ensure_counter(self):
+        """Ensure the sync counter is a valid non-dummy object."""
+        if not isinstance(self.sync_counter, self._SynchronizationManager):
+            self.sync_counter = self._SynchronizationManager()
 
     async def execution_barrier(self):
         """Wait for executors to finish.
@@ -606,7 +612,7 @@ class Manager:
                 pass
             await consumer.exit_consumer()
 
-        self.sync_counter = self._SynchronizationManager()
+        self._ensure_counter()
         await asyncio.wait([
             _barrier(),
             consumer.run_consumer(),
@@ -645,6 +651,9 @@ class Manager:
             saved_settings = self._marshal_settings()
             self.state.settings_override = saved_settings
 
+        if run_sync:
+            self._ensure_counter()
+        await self.sync_counter.inc('communicate')
         try:
             await consumer.send_event({
                 WorkerProtocol.COMMAND: WorkerProtocol.COMMUNICATE,
@@ -656,6 +665,7 @@ class Manager:
             })
         except ChannelFull:
             logger.exception("ChannelFull error occurred while sending communicate message.")
+            await self.sync_counter.dec('communicate')
 
         if run_sync and not self.sync_counter.active:
             logger.debug(__(
@@ -799,7 +809,6 @@ class Manager:
             # Ensure settings overrides apply
             self.discover_engines(executor=executor)
 
-        async_to_sync(self.sync_counter.inc)('scan-guard')
         try:
             queryset = Data.objects.filter(status=Data.STATUS_RESOLVING)
             if data_id is not None:
@@ -860,8 +869,6 @@ class Manager:
         except IntegrityError as exp:
             logger.error(__("IntegrityError in manager {}", exp))
             return
-        finally:
-            async_to_sync(self.sync_counter.dec)('scan-guard')
 
     def get_executor(self):
         """Return an executor instance."""

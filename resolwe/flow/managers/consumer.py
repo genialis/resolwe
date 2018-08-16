@@ -29,14 +29,19 @@ async def send_event(message):
     await get_channel_layer().send(state.MANAGER_CONTROL_CHANNEL, packet)
 
 
-async def run_consumer(timeout=None):
-    """Run the consumer until it finishes processing."""
+async def run_consumer(timeout=None, dry_run=False):
+    """Run the consumer until it finishes processing.
+
+    :param timeout: Set maximum execution time before cancellation, or
+        ``None`` (default) for unlimited.
+    :param dry_run: If ``True``, don't actually dispatch messages, just
+        dequeue them. Defaults to ``False``.
+    """
     channel = state.MANAGER_CONTROL_CHANNEL
     scope = {
         'type': 'control_event',
         'channel': channel,
     }
-    from . import manager
 
     app = ApplicationCommunicator(ManagerConsumer, scope)
 
@@ -46,10 +51,11 @@ async def run_consumer(timeout=None):
         """Run a loop to consume messages off the channels layer."""
         while True:
             message = await channel_layer.receive(channel)
+            if dry_run:
+                continue
             if message.get('type', {}) == '_resolwe_manager_quit':
                 break
             message.update(scope)
-            await manager.sync_counter.inc('message-handling')
             await app.send_input(message)
 
     if timeout is None:
@@ -62,9 +68,8 @@ async def run_consumer(timeout=None):
         pass
 
     await app.wait()
-    flush = getattr(channel_layer, 'flush', None)
-    if flush:
-        await flush()
+    # Shouldn't flush channels here in case there are more processes
+    # using the same Redis, since flushing is global.
 
 
 async def exit_consumer():
@@ -87,7 +92,4 @@ class ManagerConsumer(AsyncConsumer):
 
     async def control_event(self, message):
         """Forward control events to the manager dispatcher."""
-        try:
-            await self.manager.handle_control_event(message['content'])
-        finally:
-            await self.manager.sync_counter.dec('message-handling')
+        await self.manager.handle_control_event(message['content'])
