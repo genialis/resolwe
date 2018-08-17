@@ -47,9 +47,12 @@ class ResolwePermissionsMixin:
 
             def to_representation(serializer_self, instance):  # pylint: disable=no-self-argument
                 """Object serializer."""
-                # TODO: These permissions queries may be expensive. Should we limit or optimize this?
                 data = super().to_representation(instance)
-                data['current_user_permissions'] = get_object_perms(instance, self.request.user)
+
+                if ('fields' not in self.request.query_params
+                        or 'current_user_permissions' in self.request.query_params['fields']):
+                    data['current_user_permissions'] = get_object_perms(instance, self.request.user)
+
                 return data
 
         return SerializerWithPermissions

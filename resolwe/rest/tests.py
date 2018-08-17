@@ -55,18 +55,18 @@ class ProjectionTest(TestCase):
         for field_count in range(1, 3):
             for fields in itertools.combinations(all_fields, field_count):
                 data = self.get_projection(fields)[0]
-                self.assertCountEqual(data.keys(), set(fields + ('current_user_permissions',)))
+                self.assertCountEqual(data.keys(), set(fields))
 
         # Test nested projection.
         data = self.get_projection(['data__name'])[0]
-        self.assertCountEqual(data.keys(), ['data', 'current_user_permissions'])
+        self.assertCountEqual(data.keys(), ['data'])
         self.assertEqual(len(data['data']), 2)
         for item in data['data']:
             self.assertCountEqual(item.keys(), ['name'])
 
         # Test top-level JSON projection.
         data = self.get_projection(['data__output'])[0]
-        self.assertCountEqual(data.keys(), ['data', 'current_user_permissions'])
+        self.assertCountEqual(data.keys(), ['data'])
         self.assertEqual(len(data['data']), 2)
         for item in data['data']:
             self.assertCountEqual(item.keys(), ['output'])
