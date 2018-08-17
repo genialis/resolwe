@@ -75,7 +75,7 @@ class TestDataViewSetCase(TestCase):
 
     def test_descriptor_schema(self):
         # Descriptor schema can be assigned by slug.
-        data = {'process': 'test-process', 'descriptor_schema': 'test-schema'}
+        data = {'process': {'slug': 'test-process'}, 'descriptor_schema': {'slug': 'test-schema'}}
         request = factory.post('/', data, format='json')
         force_authenticate(request, self.contributor)
         self.data_viewset(request)
@@ -84,7 +84,7 @@ class TestDataViewSetCase(TestCase):
         self.assertEqual(data.descriptor_schema, self.descriptor_schema)
 
         # Descriptor schema can be assigned by id.
-        data = {'process': 'test-process', 'descriptor_schema': self.descriptor_schema.pk}
+        data = {'process': {'slug': 'test-process'}, 'descriptor_schema': {'id': self.descriptor_schema.pk}}
         request = factory.post('/', data, format='json')
         force_authenticate(request, self.contributor)
         self.data_viewset(request)
@@ -107,7 +107,7 @@ class TestDataViewSetCase(TestCase):
             contributor=self.contributor,
         )
 
-        data = {'process': 'test-process', 'descriptor_schema': 'test-schema'}
+        data = {'process': {'slug': 'test-process'}, 'descriptor_schema': {'slug': 'test-schema'}}
         request = factory.post('/', data, format='json')
         force_authenticate(request, self.contributor)
         self.data_viewset(request)
@@ -120,7 +120,7 @@ class TestDataViewSetCase(TestCase):
     def test_public_create(self):
         assign_perm('view_process', AnonymousUser(), self.proc)
 
-        data = {'process': 'test-process'}
+        data = {'process': {'slug': 'test-process'}}
         request = factory.post('/', data, format='json')
         resp = self.data_viewset(request)
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
@@ -137,7 +137,7 @@ class TestDataViewSetCase(TestCase):
         assign_perm('view_collection', self.user, self.collection)
         assign_perm('add_collection', self.user, self.collection)
 
-        post_data = {'process': 'test-process', 'collections': [self.collection.pk]}
+        post_data = {'process': {'slug': 'test-process'}, 'collections': [self.collection.pk]}
         request = factory.post('/', post_data, format='json')
         force_authenticate(request, self.contributor)
         resp = self.data_viewset(request)
@@ -157,7 +157,7 @@ class TestDataViewSetCase(TestCase):
         assign_perm('share_entity', self.user, entity)
 
         post_data = {
-            'process': 'test-process',
+            'process': {'slug': 'test-process'},
             'collections': [self.collection.pk],
             'input': {'input_data': data.pk},
         }
@@ -175,7 +175,7 @@ class TestDataViewSetCase(TestCase):
         self.assertEqual(UserObjectPermission.objects.filter(content_type=entity_ctype, user=self.user).count(), 3)
 
     def test_create_entity(self):
-        data = {'process': 'test-process', 'collections': [self.collection.pk]}
+        data = {'process': {'slug': 'test-process'}, 'collections': [self.collection.pk]}
         request = factory.post('/', data, format='json')
         force_authenticate(request, self.contributor)
         resp = self.data_viewset(request)
@@ -236,7 +236,7 @@ class TestCollectionViewSetCase(TestCase):
 
         data = {
             'name': 'Test collection',
-            'descriptor_schema': 'new-schema',
+            'descriptor_schema': {'slug': 'new-schema'},
         }
 
         request = factory.post('/', data=data, format='json')
@@ -250,7 +250,8 @@ class TestCollectionViewSetCase(TestCase):
         collection = Collection.objects.create(slug="collection1", name="Collection 1", contributor=self.contributor)
         d_schema = DescriptorSchema.objects.create(slug="new-schema", name="New Schema", contributor=self.contributor)
 
-        request = factory.patch(self.detail_url(collection.pk), {'descriptor_schema': 'new-schema'}, format='json')
+        request = factory.patch(
+            self.detail_url(collection.pk), {'descriptor_schema': {'slug': 'new-schema'}}, format='json')
         force_authenticate(request, self.admin)
         self.collection_detail_viewset(request, pk=collection.pk)
 

@@ -5,7 +5,7 @@ from resolwe.flow.models import Data, Process
 from resolwe.rest.fields import ProjectableJSONField
 
 from .base import ResolweBaseSerializer
-from .fields import NestedDescriptorSchemaSerializer, ResolweSlugRelatedField
+from .fields import DictRelatedField, NestedDescriptorSchemaSerializer
 
 
 class DataSerializer(ResolweBaseSerializer):
@@ -19,7 +19,7 @@ class DataSerializer(ResolweBaseSerializer):
     process_type = serializers.CharField(source='process.type', read_only=True)
     process_input_schema = ProjectableJSONField(source='process.input_schema', read_only=True)
     process_output_schema = ProjectableJSONField(source='process.output_schema', read_only=True)
-    process = ResolweSlugRelatedField(queryset=Process.objects.all())
+    process = DictRelatedField(queryset=Process.objects.all())
     descriptor_schema = NestedDescriptorSchemaSerializer(required=False)
 
     class Meta:

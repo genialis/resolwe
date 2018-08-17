@@ -343,7 +343,7 @@ class GetOrCreateTestCase(APITestCase):
     def test_get_same(self):
         request = self.factory.post(
             '',
-            {'name': 'Data object', 'input': {'some_value': 42}, 'process': 'tmp-process'},
+            {'name': 'Data object', 'input': {'some_value': 42}, 'process': {'slug': 'tmp-process'}},
             format='json'
         )
         force_authenticate(request, user=self.user)
@@ -355,7 +355,7 @@ class GetOrCreateTestCase(APITestCase):
     def test_use_defaults(self):
         request = self.factory.post(
             '',
-            {'name': 'Data object', 'input': {}, 'process': 'tmp-process'},
+            {'name': 'Data object', 'input': {}, 'process': {'slug': 'tmp-process'}},
             format='json'
         )
         force_authenticate(request, user=self.user)
@@ -369,7 +369,7 @@ class GetOrCreateTestCase(APITestCase):
 
         request = self.factory.post(
             '',
-            {'name': 'Data object', 'input': {'some_value': 42}, 'process': 'tmp-process'},
+            {'name': 'Data object', 'input': {'some_value': 42}, 'process': {'slug': 'tmp-process'}},
             format='json'
         )
         force_authenticate(request, user=self.user)
@@ -381,7 +381,7 @@ class GetOrCreateTestCase(APITestCase):
     def test_different_input(self):
         request = self.factory.post(
             '',
-            {'name': 'Data object', 'input': {'some_value': 43}, 'process': 'tmp-process'},
+            {'name': 'Data object', 'input': {'some_value': 43}, 'process': {'slug': 'tmp-process'}},
             format='json'
         )
         force_authenticate(request, user=self.user)
@@ -393,7 +393,7 @@ class GetOrCreateTestCase(APITestCase):
     def test_different_process(self):
         request = self.factory.post(
             '',
-            {'name': 'Data object', 'input': {'some_value': 43}, 'process': 'another-process'},
+            {'name': 'Data object', 'input': {'some_value': 43}, 'process': {'slug': 'another-process'}},
             format='json'
         )
         force_authenticate(request, user=self.user)
@@ -408,7 +408,7 @@ class GetOrCreateTestCase(APITestCase):
 
         request = self.factory.post(
             '',
-            {'name': 'Data object', 'input': {'some_value': 42}, 'process': 'tmp-process'},
+            {'name': 'Data object', 'input': {'some_value': 42}, 'process': {'slug': 'tmp-process'}},
             format='json'
         )
         force_authenticate(request, user=self.user)
@@ -423,7 +423,7 @@ class GetOrCreateTestCase(APITestCase):
 
         request = self.factory.post(
             '',
-            {'name': 'Data object', 'input': {'some_value': 42}, 'process': 'tmp-process'},
+            {'name': 'Data object', 'input': {'some_value': 42}, 'process': {'slug': 'tmp-process'}},
             format='json'
         )
         force_authenticate(request, user=self.user)
