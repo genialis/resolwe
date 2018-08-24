@@ -34,6 +34,9 @@ class TestDataViewSetCase(TestCase):
             'get': 'list',
             'post': 'create',
         })
+        self.data_detail_viewset = DataViewSet.as_view(actions={
+            'get': 'retrieve',
+        })
 
         self.collection = Collection.objects.create(contributor=self.contributor)
 
@@ -185,6 +188,47 @@ class TestDataViewSetCase(TestCase):
         self.assertEqual(Entity.objects.count(), 1)
         self.assertEqual(Entity.objects.first().collections.count(), 1)
         self.assertEqual(Entity.objects.first().collections.first().pk, self.collection.pk)
+
+    def test_collections_fields(self):
+        # Create data object.
+        data = {'process': 'test-process', 'collections': [self.collection.pk]}
+        request = factory.post('/', data, format='json')
+        force_authenticate(request, self.contributor)
+        response = self.data_viewset(request)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        data = Data.objects.last()
+        entity = Entity.objects.last()
+
+        # Ensure collections/entities are not present in lists.
+        request = factory.get('/', '', format='json')
+        force_authenticate(request, self.contributor)
+        response = self.data_viewset(request)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertNotIn('collections', response.data[0].keys())
+        self.assertNotIn('entities', response.data[0].keys())
+
+        # Check that query returns the correct collection ids.
+        request = factory.get('/', '', format='json')
+        force_authenticate(request, self.contributor)
+        response = self.data_detail_viewset(request, pk=data.pk)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['collections'], [self.collection.pk])
+        self.assertEqual(response.data['entities'], [entity.pk])
+
+        # Check that hydrate_{collections,entities} works. Also ensure that the serializer
+        # doesn't crash if hydrate_data is also set (could cause infinite recursion).
+        request = factory.get('/', {
+            'hydrate_collections': '1',
+            'hydrate_entities': '1',
+            'hydrate_data': '1',
+        }, format='json')
+        force_authenticate(request, self.contributor)
+        response = self.data_detail_viewset(request, pk=data.pk)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['collections'][0]['id'], self.collection.pk)
+        self.assertEqual(response.data['entities'][0]['id'], entity.pk)
 
 
 class TestCollectionViewSetCase(TestCase):
