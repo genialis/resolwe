@@ -25,6 +25,7 @@ Added
 
 Fixed
 -----
+- Prevent mutation of ``input_`` parameter in ``ProcessTestCase.run_process``
 
 
 ===================

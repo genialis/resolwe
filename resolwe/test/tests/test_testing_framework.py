@@ -11,6 +11,7 @@ from resolwe.flow.models import Storage
 from resolwe.test import ProcessTestCase, TestCase, is_testing, tag_process
 
 PROCESSES_DIR = os.path.join(os.path.dirname(__file__), 'processes')
+TEST_FILES_DIR = os.path.join(os.path.dirname(__file__), 'files')
 
 
 class TestingFrameworkTestCase(TestCase):
@@ -200,14 +201,26 @@ class TestingFrameworkProcessTestCase(ProcessTestCase):
         super().setUp()
         self._register_schemas(path=[PROCESSES_DIR])
 
-    @tag_process('test-url-file')
+    @tag_process('test-file-upload')
     def test_url_file(self):
         url = 'https://www.genialis.com/data.csv.gz'
         inputs = {
             'src': url,
         }
-        datum = self.run_process('test-url-file', inputs)
+        datum = self.run_process('test-file-upload', inputs)
         datum.refresh_from_db()
 
         self.assertFields(datum, 'file_temp', url)
         self.assertFields(datum, 'file', url)
+
+    @tag_process('test-file-upload')
+    def test_do_not_mutate_inputs(self):
+        inputs = {
+            'src': 'example_file.txt',
+        }
+        original_inputs = inputs.copy()
+
+        self.files_path = TEST_FILES_DIR
+        self.run_process('test-file-upload', inputs)
+
+        self.assertEqual(original_inputs, inputs)

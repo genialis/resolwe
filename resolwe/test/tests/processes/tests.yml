@@ -1,9 +1,9 @@
-- slug: test-url-file
-  name: URL in input field
+- slug: test-file-upload
+  name: Test file upload
   requirements:
     expression-engine: jinja
   version: 1.0.0
-  type: "data:test:url"
+  type: "data:test:file:upload"
   input:
     - name: src
       label: Source

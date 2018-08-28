@@ -338,6 +338,9 @@ class ProcessTestCase(TransactionTestCase):
         :rtype: ~resolwe.flow.models.Data
 
         """
+        # Copy input_, to avoid mutation that would occur in ``mock_upload``
+        input_ = input_.copy()
+
         # backward compatibility
         process_slug = slugify(process_slug.replace(':', '-'))
 
