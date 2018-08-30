@@ -2,9 +2,10 @@
 from django.apps import apps
 from django.conf import settings
 from django.core.management import call_command
-from django.db import DatabaseError
 from django.db.utils import DataError
 from django.test import TestCase, override_settings
+
+from resolwe.flow.exceptions import SlugError
 
 # Workaround for false positive warnings in pylint.
 # TODO: Can be removed with Django 2.0 or when pylint issue is fixed:
@@ -47,7 +48,7 @@ class FieldsTest(TestCase):
         # It is ok to add a sequence to slug if it is not explicitly defined.
         TestModel.objects.create(name='Test object')
 
-        with self.assertRaisesRegex(DatabaseError, 'is already taken'):
+        with self.assertRaisesRegex(SlugError, 'is already taken'):
             TestModel.objects.create(name='Test object', slug=obj.slug)
 
     def test_predefined_long_slugs(self):
@@ -84,7 +85,7 @@ class FieldsTest(TestCase):
         self.assertEqual(obj.slug, 'test-object')
 
         obj.version = '1.0.0'
-        with self.assertRaisesRegex(DatabaseError, 'is already taken'):
+        with self.assertRaisesRegex(SlugError, 'is already taken'):
             obj.save()
 
     def test_long_sequence(self):
@@ -93,7 +94,7 @@ class FieldsTest(TestCase):
         TestModel.objects.create(name='Test object', slug='test-object')
         TestModel.objects.create(name='Test object', slug='test-object-999999999')
 
-        with self.assertRaisesRegex(DatabaseError, 'slug sequence too long'):
+        with self.assertRaisesRegex(SlugError, 'slug sequence too long'):
             TestModel.objects.create(name='Test object')
 
     def test_empty_name(self):

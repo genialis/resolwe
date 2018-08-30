@@ -317,6 +317,11 @@ class TestCollectionViewSetCase(TestCase):
         response = self.collection_detail_viewset(request, pk=collection2.pk)
         self.assertEqual(response.data['slug'], 'collection-3')
 
+        request = factory.patch(self.detail_url(collection2.pk), {'slug': 'collection'}, format='json')
+        force_authenticate(request, self.admin)
+        response = self.collection_detail_viewset(request, pk=collection2.pk)
+        self.assertContains(response, 'already taken', status_code=400)
+
     def test_check_slug(self):
         Collection.objects.create(slug="collection1", name="Collection 1", contributor=self.admin)
 

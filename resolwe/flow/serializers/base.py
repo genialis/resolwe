@@ -1,8 +1,10 @@
 """Resolwe base serializer."""
+
 from rest_framework import serializers, status
-from rest_framework.exceptions import APIException
+from rest_framework.exceptions import APIException, ParseError
 from rest_framework.fields import empty
 
+from resolwe.flow.exceptions import SlugError
 from resolwe.rest.serializers import SelectiveFieldMixin
 
 from .contributor import ContributorSerializer
@@ -57,3 +59,10 @@ class ResolweBaseSerializer(SelectiveFieldMixin, serializers.ModelSerializer):
     def request(self):
         """Extract request object from serializer context."""
         return self.context.get('request', None)
+
+    def save(self, **kwargs):
+        """Override save method to catch handled errors and repackage them as 400 errors."""
+        try:
+            return super().save(**kwargs)
+        except SlugError as error:
+            raise ParseError(error)

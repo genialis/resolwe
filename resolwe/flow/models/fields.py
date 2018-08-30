@@ -1,8 +1,10 @@
 """Custom database fields."""
-from django.db import DatabaseError, connection
+from django.db import connection
 from django.db.models import constants
 from django.db.models.fields import SlugField
 from django.utils.text import slugify
+
+from resolwe.flow.exceptions import SlugError
 
 MAX_SLUG_SEQUENCE_DIGITS = 9
 
@@ -175,12 +177,12 @@ class ResolweSlugField(SlugField):
 
             if result is not None:
                 if predefined_slug:
-                    raise DatabaseError(
+                    raise SlugError(
                         "Slug '{}' (version {}) is already taken.".format(slug, instance.version)
                     )
 
                 if len(str(result)) > MAX_SLUG_SEQUENCE_DIGITS:
-                    raise DatabaseError(
+                    raise SlugError(
                         "Auto-generated slug sequence too long - please choose a different slug."
                     )
 
