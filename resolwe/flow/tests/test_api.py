@@ -301,6 +301,22 @@ class TestCollectionViewSetCase(TestCase):
         collection.refresh_from_db()
         self.assertEqual(collection.descriptor_schema, d_schema)
 
+    def test_change_slug(self):
+        collection1 = Collection.objects.create(name="Collection", contributor=self.contributor)
+        collection2 = Collection.objects.create(name="Collection", contributor=self.contributor)
+        self.assertEqual(collection1.slug, 'collection')
+        self.assertEqual(collection2.slug, 'collection-2')
+
+        request = factory.patch(self.detail_url(collection1.pk), {'name': 'Collection', 'slug': None}, format='json')
+        force_authenticate(request, self.admin)
+        response = self.collection_detail_viewset(request, pk=collection1.pk)
+        self.assertEqual(response.data['slug'], 'collection')
+
+        request = factory.patch(self.detail_url(collection2.pk), {'slug': 'collection-3'}, format='json')
+        force_authenticate(request, self.admin)
+        response = self.collection_detail_viewset(request, pk=collection2.pk)
+        self.assertEqual(response.data['slug'], 'collection-3')
+
     def test_check_slug(self):
         Collection.objects.create(slug="collection1", name="Collection 1", contributor=self.admin)
 

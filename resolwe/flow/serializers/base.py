@@ -36,7 +36,8 @@ class ResolweBaseSerializer(SelectiveFieldMixin, serializers.ModelSerializer):
 
     contributor = ContributorSerializer()
     name = serializers.CharField(required=False)
-    slug = serializers.CharField(required=False)
+    # Allow null to support slug autogeneration.
+    slug = serializers.CharField(required=False, allow_null=True)
 
     def __init__(self, instance=None, data=empty, **kwargs):
         """Initialize attributes."""

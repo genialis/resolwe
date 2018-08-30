@@ -16,6 +16,7 @@ Changed
   to use Elasticsearch
 - Omit ``current_user_permissions`` field in serialization if only a subset of
   fields is requested
+- Allow slug to be null on update to enable slug autogeneration
 
 Added
 -----
