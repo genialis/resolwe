@@ -13,7 +13,7 @@ from elasticsearch_dsl.query import Q
 from django.db.models import Case, IntegerField, Value, When
 
 from guardian.utils import get_anonymous_user
-from rest_framework.exceptions import APIException
+from rest_framework.exceptions import APIException, ParseError
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 
@@ -102,7 +102,7 @@ class ElasticSearchMixin:
         for raw_ordering in ordering.split(','):
             ordering_field = raw_ordering.lstrip('-')
             if ordering_field not in self.ordering_fields:
-                raise KeyError('Ordering by `{}` is not supported.'.format(ordering_field))
+                raise ParseError('Ordering by `{}` is not supported.'.format(ordering_field))
 
             ordering_field = self.ordering_map.get(ordering_field, ordering_field)
             direction = '-' if raw_ordering[0] == '-' else ''
@@ -138,7 +138,7 @@ class ElasticSearchMixin:
             unmatched.pop(argument, None)
 
         if unmatched:
-            raise KeyError('Unsupported filter arguments: {}'.format(', '.join(unmatched.keys())))
+            raise ParseError('Unsupported filter arguments: {}'.format(', '.join(unmatched.keys())))
 
         return search
 
