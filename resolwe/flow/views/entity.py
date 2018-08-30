@@ -32,7 +32,7 @@ class EntityViewSet(CollectionViewSet):
         latest_date=Max('data__modified')
     ).order_by('-latest_date')
 
-    filtering_fields = CollectionViewSet.filtering_fields + ('tags', 'collections')
+    filtering_fields = CollectionViewSet.filtering_fields + ('descriptor_completed', 'tags', 'collections')
 
     def custom_filter_tags(self, value, search):
         """Support tags query."""
