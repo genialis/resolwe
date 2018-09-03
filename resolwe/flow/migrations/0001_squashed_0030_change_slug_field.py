@@ -14,39 +14,6 @@ import resolwe.flow.models.fields
 
 class Migration(migrations.Migration):
 
-    replaces = [
-        ('flow', '0001_initial'),
-        ('flow', '0002_project_to_collection'),
-        ('flow', '0003_support_sample'),
-        ('flow', '0004_autoslug_field'),
-        ('flow', '0005_process_data_name'),
-        ('flow', '0006_data_named_by_user'),
-        ('flow', '0007_add_owner'),
-        ('flow', '0008_fix_jsonfields'),
-        ('flow', '0009_data_parents'),
-        ('flow', '0010_fix_jsonfields'),
-        ('flow', '0011_calculate_checksum'),
-        ('flow', '0012_require_checksum'),
-        ('flow', '0013_add_requirements'),
-        ('flow', '0014_add_entity'),
-        ('flow', '0015_make_data_indexes'),
-        ('flow', '0016_update_versionfield'),
-        ('flow', '0017_update_checksum'),
-        ('flow', '0018_remove_triggers'),
-        ('flow', '0019_data_descriptor_dirty'),
-        ('flow', '0020_collection_descriptor_dirty'),
-        ('flow', '0021_entity_descriptor_completed'),
-        ('flow', '0022_data_sha1_to_sha256'),
-        ('flow', '0023_update_checksum'),
-        ('flow', '0024_add_relations'),
-        ('flow', '0025_set_get_last_by'),
-        ('flow', '0026_tags'),
-        ('flow', '0027_scheduling_class'),
-        ('flow', '0028_remove_public_processes'),
-        ('flow', '0029_data_checksum_index'),
-        ('flow', '0030_change_slug_field')
-    ]
-
     initial = True
 
     dependencies = [

@@ -50,9 +50,6 @@ setup(
         'Django~=1.11.0',
         'djangorestframework~=3.7.0',
         'djangorestframework-filters~=0.10.0',
-        # XXX: Remove django-autoslug after all migrations that import
-        # it are deleted
-        'django-autoslug==1.9.3',
         'django-guardian>=1.4.2',
         'django-mathfilters>=0.3.0',
         'django-versionfield2>=0.5.0',
