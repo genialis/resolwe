@@ -14,9 +14,21 @@ services:
 addons:
   # NOTE: We need to use the postgresql addon since the default PostgreSQL
   # service provided on Trusty machines is PostgreSQL 9.2.
-  postgresql: "9.4"
+  postgresql: "10"
+  apt:
+    packages:
+    - postgresql-10
+    - postgresql-client-10
 
 before_install:
+  # NOTE: We need to manually reconfigure PostgreSQL 10 since Travis CI
+  # doesn't provide standard configuration out-of-the-box.
+  # For more details, see:
+  # https://github.com/travis-ci/travis-ci/issues/8537#issuecomment-416467506
+  - sudo sed -i 's/port = 5433/port = 5432/' /etc/postgresql/10/main/postgresql.conf
+  - sudo cp /etc/postgresql/{9.6,10}/main/pg_hba.conf
+  - sudo service postgresql restart
+
   # NOTE: We need to manually install ElasticSearch since we want to control
   # the exact version we use instead of relying on the version shipped by
   # Travis CI's python image.
@@ -78,7 +90,14 @@ jobs:
         - RESOLWE_POSTGRESQL_USER=postgres
         - RESOLWE_POSTGRESQL_PORT=5432
       services: []
-      before_install: skip
+      before_install:
+        # NOTE: We need to manually reconfigure PostgreSQL 10 since Travis CI
+        # doesn't provide standard configuration out-of-the-box.
+        # For more details, see:
+        # https://github.com/travis-ci/travis-ci/issues/8537#issuecomment-416467506
+        - sudo sed -i 's/port = 5433/port = 5432/' /etc/postgresql/10/main/postgresql.conf
+        - sudo cp /etc/postgresql/{9.6,10}/main/pg_hba.conf
+        - sudo service postgresql restart
       after_success: skip
 
     # NOTE: We undo all the global Travis CI step definitions to ensure
