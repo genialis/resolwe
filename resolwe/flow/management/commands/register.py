@@ -16,7 +16,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.management.base import BaseCommand
-from django.db.models import Max
+from django.db.models import Max, Q
 
 from resolwe.flow.engine import InvalidEngineError
 from resolwe.flow.finders import get_finders
@@ -39,6 +39,7 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         """Command arguments."""
         parser.add_argument('-f', '--force', action='store_true', help="register also if version mismatch")
+        parser.add_argument('--retire', default=False, action='store_true', help="retire obsolete processes")
 
     def valid(self, instance, schema):
         """Validate schema."""
@@ -271,9 +272,35 @@ class Command(BaseCommand):
             for log in log_descriptors:
                 self.stdout.write("  {}".format(log))
 
+    def retire(self, process_schemas):
+        """Retire obsolete processes.
+
+        Remove old process versions without data. Find processes that have been
+        registered but do not exist in the code anymore, then:
+
+        - If they do not have data: remove them
+        - If they have data: flag them not active (``is_active=False``)
+
+        """
+        process_slugs = set(ps['slug'] for ps in process_schemas)
+
+        # Processes that are in DB but not in the code
+        retired_processes = Process.objects.filter(~Q(slug__in=process_slugs))
+
+        # Remove retired processes which do not have data
+        retired_processes.filter(data__exact=None).delete()
+
+        # Remove non-latest processes which do not have data
+        latest_version_processes = Process.objects.order_by('slug', 'version').distinct('slug')
+        Process.objects.filter(data__exact=None).difference(latest_version_processes).delete()
+
+        # Deactivate retired processes which have data
+        retired_processes.update(is_active=False)
+
     def handle(self, *args, **options):
         """Register processes."""
         force = options.get('force')
+        retire = options.get('retire')
         verbosity = int(options.get('verbosity'))
 
         users = get_user_model().objects.filter(is_superuser=True).order_by('date_joined')
@@ -300,6 +327,9 @@ class Command(BaseCommand):
         user_admin = users.first()
         self.register_processes(process_schemas, user_admin, force, verbosity=verbosity)
         self.register_descriptors(descriptor_schemas, user_admin, force, verbosity=verbosity)
+
+        if retire:
+            self.retire(process_schemas)
 
         if verbosity > 0:
             self.stdout.write("Running executor post-registration hook...")

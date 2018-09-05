@@ -28,6 +28,15 @@ Changed
 - Omit ``current_user_permissions`` field in serialization if only a subset of
   fields is requested
 - Allow slug to be null on update to enable slug autogeneration
+- Retire obsolete processes. We have added the ``is_active`` field to the
+  Process model. The field is read-only on the API and can only be changed
+  through Django ORM. Inactive processes can not be executed. The ``register``
+  command was extended with the ``--retire`` flag that removes old process
+  versions which do not have associated data. Then it finds the processes that
+  have been registered but do not exist in the code anymore, and:
+
+  - If they do not have data: removes them
+  - If they have data: flags them not active (``is_active=False``)
 
 Added
 -----

@@ -165,6 +165,12 @@ class DataViewSet(ElasticSearchCombinedViewSet,
 
     def perform_create(self, serializer):
         """Create a resource."""
+        process = serializer.validated_data.get('process')
+        if not process.is_active:
+            raise exceptions.ParseError(
+                'Process retired (id: {}, slug: {}/{}).'.format(process.id, process.slug, process.version)
+            )
+
         with transaction.atomic():
             instance = serializer.save()
 

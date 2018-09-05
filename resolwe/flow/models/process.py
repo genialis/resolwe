@@ -72,6 +72,9 @@ class Process(BaseModel):
 
     """
 
+    #: designates whether this process should be treated as active
+    is_active = models.BooleanField('active', default=True)
+
     #: detailed description
     description = models.TextField(default='')
 

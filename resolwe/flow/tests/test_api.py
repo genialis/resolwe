@@ -230,6 +230,15 @@ class TestDataViewSetCase(TestCase):
         self.assertEqual(response.data['collections'][0]['id'], self.collection.pk)
         self.assertEqual(response.data['entities'][0]['id'], entity.pk)
 
+    def test_process_is_active(self):
+        # Do not allow creating data of inactive processes
+        Process.objects.filter(slug='test-process').update(is_active=False)
+        data = {'process': 'test-process'}
+        request = factory.post('/', data, format='json')
+        force_authenticate(request, self.contributor)
+        response = self.data_viewset(request)
+        self.assertEqual(response.status_code, 400)
+
 
 class TestCollectionViewSetCase(TestCase):
     def setUp(self):

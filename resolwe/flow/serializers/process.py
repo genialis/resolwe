@@ -15,6 +15,7 @@ class ProcessSerializer(ResolweBaseSerializer):
             'created',
             'id',
             'modified',
+            'is_active',
         )
         update_protected_fields = (
             'category',

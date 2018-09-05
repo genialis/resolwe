@@ -12,7 +12,7 @@ from django.test import override_settings
 from guardian.models import UserObjectPermission
 from guardian.shortcuts import assign_perm, get_perms
 
-from resolwe.flow.models import Process
+from resolwe.flow.models import Data, Process
 from resolwe.test import ProcessTestCase, TestCase
 
 PROCESSES_DIR = os.path.join(os.path.dirname(__file__), 'processes')
@@ -76,6 +76,43 @@ class ProcessRegisterTest(TestCase):
 
         self.assertEqual(UserObjectPermission.objects.filter(user=self.user).count(), 2)
         self.assertTrue(self.user.has_perm('flow.view_process', process))
+
+    def test_retire(self):
+        # No process should be in data base initially
+        self.assertEqual(Process.objects.count(), 0)
+
+        out, err = StringIO(), StringIO()
+        call_command('register', stdout=out, stderr=err)
+
+        # Check that all registered processes are active
+        initial_processes = Process.objects.count()
+        active_processes = Process.objects.filter(is_active=True).count()
+        self.assertGreater(initial_processes, 0)
+        self.assertEqual(initial_processes, active_processes)
+
+        # Create data with one of the processes
+        process = Process.objects.filter(slug='test-min').latest()
+        Data.objects.create(name='Test min', process=process, contributor=self.contributor)
+
+        # Nothing changes if register is called again in subfolder without --retire
+        with self.settings(FLOW_PROCESSES_DIRS=[os.path.join(PROCESSES_DIR, 'second_version')]):
+            call_command('register', stdout=out, stderr=err)
+
+        self.assertEqual(initial_processes, Process.objects.count())
+        self.assertEqual(initial_processes, Process.objects.filter(is_active=True).count())
+
+        # Check that retired processes without data are removed and
+        # that retired processes with data are deactivated
+        with self.settings(FLOW_PROCESSES_DIRS=[os.path.join(PROCESSES_DIR, 'second_version')]):
+            call_command('register', '--retire', stdout=out, stderr=err)
+
+        # One process had data and one is left in the schema path, so 2
+        # processes remain
+        self.assertEqual(Process.objects.count(), 2)
+        # The process that is left in the schema path remains active
+        self.assertEqual(Process.objects.filter(is_active=True).count(), 1)
+        # The process with associated data is inactive
+        self.assertEqual(Process.objects.filter(is_active=False).count(), 1)
 
 
 @override_settings(FLOW_PROCESSES_FINDERS=['resolwe.flow.finders.FileSystemProcessesFinder'])

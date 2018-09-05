@@ -82,12 +82,13 @@ class ProcessFilter(BaseResolweFilter):
     category = filters.CharFilter(name='category', lookup_expr='startswith')
     type = filters.CharFilter(name='type', lookup_expr='startswith')
     scheduling_class = filters.AllLookupsFilter()
+    is_active = filters.BooleanFilter()
 
     class Meta(BaseResolweFilter.Meta):
         """Filter configuration."""
 
         model = Process
-        fields = BaseResolweFilter.Meta.fields + ['category', 'type', 'scheduling_class']
+        fields = BaseResolweFilter.Meta.fields + ['category', 'type', 'scheduling_class', 'is_active']
 
 
 class DataFilter(BaseResolweFilter):
