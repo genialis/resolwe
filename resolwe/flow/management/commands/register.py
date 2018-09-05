@@ -38,10 +38,7 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         """Command arguments."""
-        parser.add_argument('-s', '--schemas', type=str, nargs='*', help="process names to register")
         parser.add_argument('-f', '--force', action='store_true', help="register also if version mismatch")
-        parser.add_argument('--path', type=str, nargs='*', default=[],
-                            help="search paths for processes and descriptors")
 
     def valid(self, instance, schema):
         """Validate schema."""
@@ -68,8 +65,8 @@ class Command(BaseCommand):
 
         return True
 
-    def find_schemas(self, schema_path, filters=None, schema_type='process', verbosity=1):
-        """Find schemas in packages that match filters."""
+    def find_schemas(self, schema_path, schema_type='process', verbosity=1):
+        """Find process and descriptor schemas in given path."""
         schema_matches = []
 
         if not os.path.isdir(schema_path):
@@ -93,9 +90,6 @@ class Command(BaseCommand):
                     continue
 
                 for schema in schemas:
-                    if filters and not (schema.get('slug', '') in filters or schema.get('name', '') in filters):
-                        continue
-
                     if schema_type == 'process' and 'run' not in schema:
                         continue
 
@@ -279,17 +273,8 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         """Register processes."""
-        schemas = options.get('schemas')
         force = options.get('force')
-        paths = options.get('path')
-
         verbosity = int(options.get('verbosity'))
-
-        if not isinstance(paths, list):
-            raise ValueError("Argument paths must be of type list")
-
-        if schemas is not None and not isinstance(schemas, list):
-            raise ValueError("Argument schemas must be of type list or None")
 
         users = get_user_model().objects.filter(is_superuser=True).order_by('date_joined')
 
@@ -297,28 +282,23 @@ class Command(BaseCommand):
             self.stderr.write("Admin does not exist: create a superuser")
             exit(1)
 
-        user_admin = users.first()
+        process_paths, descriptor_paths = [], []
+        process_schemas, descriptor_schemas = [], []
 
-        processes_paths = paths[:]
-        descriptors_paths = paths[:]
+        for finder in get_finders():
+            process_paths.extend(finder.find_processes())
+            descriptor_paths.extend(finder.find_descriptors())
 
-        if not paths:
-            for finder in get_finders():
-                processes_paths.extend(finder.find_processes())
-                descriptors_paths.extend(finder.find_descriptors())
-
-        process_schemas = []
-        for proc_path in processes_paths:
+        for proc_path in process_paths:
             process_schemas.extend(
-                self.find_schemas(proc_path, filters=schemas, schema_type='process', verbosity=verbosity))
+                self.find_schemas(proc_path, schema_type='process', verbosity=verbosity))
 
-        self.register_processes(process_schemas, user_admin, force, verbosity=verbosity)
-
-        descriptor_schemas = []
-        for desc_path in descriptors_paths:
+        for desc_path in descriptor_paths:
             descriptor_schemas.extend(
-                self.find_schemas(desc_path, filters=schemas, schema_type='descriptor', verbosity=verbosity))
+                self.find_schemas(desc_path, schema_type='descriptor', verbosity=verbosity))
 
+        user_admin = users.first()
+        self.register_processes(process_schemas, user_admin, force, verbosity=verbosity)
         self.register_descriptors(descriptor_schemas, user_admin, force, verbosity=verbosity)
 
         if verbosity > 0:

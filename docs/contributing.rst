@@ -82,7 +82,7 @@ Registering processes
 .. code-block:: none
 
     cd tests
-    ./manage.py process_register --path <path to packages>
+    ./manage.py register
 
 Running tests
 =============

@@ -134,7 +134,7 @@ class ProcessTestCase(TransactionTestCase):
         for schema in schemas:
             schema.contributor = self.admin
 
-    def _register_schemas(self, **kwargs):
+    def _register_schemas(self, path=None):
         """Register process and descriptor schemas.
 
         Process and DescriptorSchema cached to SCHEMAS_FIXTURE_CACHE
@@ -161,7 +161,7 @@ class ProcessTestCase(TransactionTestCase):
         for schemas in schemas_types:
             schemas['model'].objects.all().delete()
 
-        cache_key = json.dumps(kwargs)
+        cache_key = str('path={}'.format(path))
         global SCHEMAS_FIXTURE_CACHE  # pylint: disable=global-statement
         if not SCHEMAS_FIXTURE_CACHE:
             SCHEMAS_FIXTURE_CACHE = {}
@@ -181,7 +181,13 @@ class ProcessTestCase(TransactionTestCase):
                 self._update_schema_relations(schemas_cache)
                 schemas['model'].objects.bulk_create(schemas_cache)
         else:
-            management.call_command('register', force=True, stdout=stdout, stderr=stderr, **kwargs)
+            if path is None:
+                management.call_command('register', force=True, stdout=stdout, stderr=stderr)
+            else:
+                with self.settings(FLOW_PROCESSES_FINDERS=['resolwe.flow.finders.FileSystemProcessesFinder'],
+                                   FLOW_PROCESSES_DIRS=path,
+                                   FLOW_DESCRIPTORS_DIRS=path):
+                    management.call_command('register', force=True, stdout=stdout, stderr=stderr)
 
             if cache_key not in SCHEMAS_FIXTURE_CACHE:
                 SCHEMAS_FIXTURE_CACHE[cache_key] = {}

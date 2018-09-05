@@ -563,3 +563,13 @@ class ProcessFilterTestCase(TestCase):
     def test_scheduling_class(self):
         self._apply_filter({'scheduling_class': 'BA'}, [self.proc_1])
         self._apply_filter({'scheduling_class': 'IN'}, [self.proc_2])
+
+    def test_is_active(self):
+        self._apply_filter({'is_active': True}, [self.proc_1, self.proc_2])
+        self._apply_filter({'is_active': False}, [])
+
+        self.proc_1.is_active = False
+        self.proc_1.save()
+
+        self._apply_filter({'is_active': True}, [self.proc_2])
+        self._apply_filter({'is_active': False}, [self.proc_1])

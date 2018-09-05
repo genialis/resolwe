@@ -477,6 +477,23 @@ class ProcessTestCase(ResolweAPITestCase):
         resp = self._post(post_data, self.admin)
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
 
+    def test_is_active(self):
+        post_data = {
+            'name': 'Test process',
+            'slug': 'test-process',
+            'type': 'data:test:',
+            'is_active': False,
+        }
+
+        # is_active can not be set through API and is True by default
+        response = self._post(post_data, self.admin)
+        self.assertTrue(response.data['is_active'])
+
+        # is_active should not be changed through API
+        process_id = response.data['id']
+        response = self._patch(process_id, {'is_active': False}, self.admin)
+        self.assertEqual(response.status_code, 405)  # PATCH not allowed on process
+
 
 class EntityViewSetTest(TestCase):
     def setUp(self):

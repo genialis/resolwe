@@ -23,6 +23,8 @@ Changed
   - requireing uniqe combination of ``collection`` and ``category``
   - renaming partition's ``position`` to ``label``
   - adding (integer) ``position`` to partition (used for sorting)
+- **BACKWARD INCOMPATIBLE:** Remove rarely used parameters of the ``register``
+  command ``--path`` and ``--schemas``.
 - Omit ``current_user_permissions`` field in serialization if only a subset of
   fields is requested
 - Allow slug to be null on update to enable slug autogeneration

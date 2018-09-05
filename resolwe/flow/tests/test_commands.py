@@ -7,6 +7,7 @@ import yaml
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase as DjangoTestCase
+from django.test import override_settings
 
 from guardian.models import UserObjectPermission
 from guardian.shortcuts import assign_perm, get_perms
@@ -17,11 +18,14 @@ from resolwe.test import ProcessTestCase, TestCase
 PROCESSES_DIR = os.path.join(os.path.dirname(__file__), 'processes')
 
 
+@override_settings(FLOW_PROCESSES_FINDERS=['resolwe.flow.finders.FileSystemProcessesFinder'])
+@override_settings(FLOW_PROCESSES_DIRS=[PROCESSES_DIR])
+@override_settings(FLOW_DESCRIPTORS_DIRS=[PROCESSES_DIR])
 class ProcessRegisterTest(TestCase):
 
     def test_process_register_all(self):
         out, err = StringIO(), StringIO()
-        call_command('register', path=[PROCESSES_DIR], stdout=out, stderr=err)
+        call_command('register', stdout=out, stderr=err)
         self.assertTrue('Inserted test-min' in out.getvalue())
         self.assertTrue('Skip processor test-min: newer version installed' in err.getvalue())
         self.assertTrue(
@@ -34,59 +38,39 @@ class ProcessRegisterTest(TestCase):
         self.assertEqual(len(get_perms(self.admin, process)), 3)
 
         out, err = StringIO(), StringIO()
-        call_command('register', path=[PROCESSES_DIR], stdout=out, stderr=err)
+        call_command('register', stdout=out, stderr=err)
         self.assertTrue('Skip processor test-min: same version installed' in out.getvalue())
         self.assertTrue('Skip processor test-bloated: same version installed' in out.getvalue())
         self.assertTrue('Skip processor test-min: newer version installed' in err.getvalue())
 
         out, err = StringIO(), StringIO()
-        call_command('register', path=[PROCESSES_DIR], force=True, stdout=out, stderr=err)
+        call_command('register', force=True, stdout=out, stderr=err)
         self.assertTrue('Updated test-min' in out.getvalue())
         self.assertTrue('Updated test-bloated' in out.getvalue())
         self.assertTrue('Skip processor test-min: newer version installed' in err.getvalue())
 
     def test_validation_of_defaults(self):
-        process_path = os.path.join(PROCESSES_DIR, 'wrong_defaults')
-
         out, err = StringIO(), StringIO()
-        call_command('register', path=[process_path], schemas=['test-wrong-type'], stdout=out, stderr=err)
-        self.assertIn('VALIDATION ERROR:', err.getvalue())
 
-        out, err = StringIO(), StringIO()
-        call_command('register', path=[process_path], schemas=['test-out-of-range'], stdout=out, stderr=err)
-        self.assertIn('VALIDATION ERROR:', err.getvalue())
+        with self.settings(FLOW_PROCESSES_DIRS=[os.path.join(PROCESSES_DIR, 'wrong_defaults')]):
+            call_command('register', stdout=out, stderr=err)
 
-    def test_process_register_filter(self):
-        out, err = StringIO(), StringIO()
-        # Fields types are also tested here, as process won't register
-        # if any of them fail.
-        call_command('register', path=[PROCESSES_DIR], schemas=['test-bloated'], stdout=out, stderr=err)
-        self.assertTrue('Inserted test-bloated' in out.getvalue())
-        self.assertTrue('Inserted test-min' not in out.getvalue())
-        self.assertEqual('', err.getvalue())
-
-        out, err = StringIO(), StringIO()
-        call_command('register', path=[PROCESSES_DIR], schemas=['test-bloated'], stdout=out, stderr=err)
-        self.assertTrue('Skip processor test-bloated: same version installed' in out.getvalue())
-        self.assertEqual('', err.getvalue())
-
-        out, err = StringIO(), StringIO()
-        call_command(
-            'register', path=[PROCESSES_DIR], schemas=['test-bloated'], force=True, stdout=out, stderr=err)
-        self.assertTrue('Updated test-bloated' in out.getvalue())
-        self.assertEqual('', err.getvalue())
+        self.assertIn('VALIDATION ERROR: Test Process Wrong Type', err.getvalue())
+        self.assertIn('VALIDATION ERROR: Test Process Out of Range', err.getvalue())
 
     def test_inherit_perms(self):
         out, err = StringIO(), StringIO()
-        first_version_path = os.path.join(PROCESSES_DIR, 'first_version')
-        call_command('register', path=[first_version_path], stdout=out, stderr=err)
+
+        with self.settings(FLOW_PROCESSES_DIRS=[os.path.join(PROCESSES_DIR, 'first_version')]):
+            call_command('register', stdout=out, stderr=err)
 
         process = Process.objects.latest()
         assign_perm('view_process', self.user, process)
 
         out, err = StringIO(), StringIO()
-        second_version_path = os.path.join(PROCESSES_DIR, 'second_version')
-        call_command('register', path=[second_version_path], stdout=out, stderr=err)
+
+        with self.settings(FLOW_PROCESSES_DIRS=[os.path.join(PROCESSES_DIR, 'second_version')]):
+            call_command('register', stdout=out, stderr=err)
 
         process = Process.objects.latest()
 
@@ -94,11 +78,14 @@ class ProcessRegisterTest(TestCase):
         self.assertTrue(self.user.has_perm('flow.view_process', process))
 
 
+@override_settings(FLOW_PROCESSES_FINDERS=['resolwe.flow.finders.FileSystemProcessesFinder'])
+@override_settings(FLOW_PROCESSES_DIRS=[PROCESSES_DIR])
+@override_settings(FLOW_DESCRIPTORS_DIRS=[PROCESSES_DIR])
 class ProcessRegisterTestNoAdmin(DjangoTestCase):
 
     def test_process_register_no_admin(self):
         err = StringIO()
-        self.assertRaises(SystemExit, call_command, 'register', path=[PROCESSES_DIR], stderr=err)
+        self.assertRaises(SystemExit, call_command, 'register', stderr=err)
         self.assertEqual('Admin does not exist: create a superuser\n', err.getvalue())
 
 

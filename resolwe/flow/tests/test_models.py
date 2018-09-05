@@ -433,6 +433,19 @@ class GetOrCreateTestCase(APITestCase):
         self.assertNotEqual(response.data['id'], self.data.pk)
 
 
+class ProcessModelTest(TestCase):
+
+    def test_process_isactive(self):
+        process = Process.objects.create(contributor=self.contributor)
+        # is_active is true by default
+        self.assertIs(process.is_active, True)
+        process.is_active = False
+        process.save()
+        process_fetched = Process.objects.get(pk=process.pk)
+        # the is_active flag is saved
+        self.assertFalse(process_fetched.is_active)
+
+
 @patch('resolwe.flow.models.utils.os')
 class HydrateFileSizeUnitTest(TestCase):
 
