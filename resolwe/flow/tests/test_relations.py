@@ -71,14 +71,6 @@ class TestRelationsAPI(ResolweAPITestCase):
         assign_perm('view_relation', self.contributor, self.relation_group)
         assign_perm('view_relation', self.contributor, self.relation_series)
 
-        self.add_entity_viewset = RelationViewSet.as_view({
-            'post': 'add_entity',
-        })
-
-        self.remove_entity_viewset = RelationViewSet.as_view({
-            'post': 'remove_entity',
-        })
-
     def test_get(self):
         resp = self._get_detail(self.relation_group.pk, user=self.contributor)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
@@ -157,7 +149,7 @@ class TestRelationsAPI(ResolweAPITestCase):
         data = {
             'collection': self.collection.pk,
             'type': 'group',
-            'category': 'time series',
+            'category': 'clones',
             'partitions': [
                 {'entity': self.entity_3.pk},
                 {'entity': self.entity_4.pk},

@@ -75,7 +75,7 @@ class Relation(BaseModel):
     category must be unique in a collection, so that users can
     distinguish between different relations. In the example above, we
     could add another ``comparison`` relation of ``category``, say
-    ``Case-case study`` to compare ``<entity1>`` with ``<entity2>``.
+    ``Case-case study`` to compare ``<entity2>`` with ``<entity3>``.
 
     Relation is linked to :class:`resolwe.flow.models.Collection` to
     enable defining different relations structures in different
