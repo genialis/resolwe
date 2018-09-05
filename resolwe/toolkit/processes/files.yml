@@ -10,13 +10,17 @@
     executor:
       docker:
         image: resolwe/base:fedora-26
-  data_name: '{{ src.file|default("?") }}'
-  version: 0.0.4
+    resources:
+      cores: 1
+      memory: 1024
+      network: true
+  data_name: '{{ src.file }}'
+  version: 1.0.0
   type: data:file
-  category: upload
+  category: Import
   persistence: RAW
   description: >
-    Upload files of and kind.
+    Import any other file format such as a pdf.
   input:
     - name: src
       label: Input file
@@ -40,13 +44,17 @@
     executor:
       docker:
         image: resolwe/base:fedora-26
-  data_name: '{{ src.file|default("?") }}'
-  version: 0.0.4
+    resources:
+      cores: 1
+      memory: 1024
+      network: true
+  data_name: '{{ src.file }}'
+  version: 1.0.0
   type: data:file:image
-  category: upload
+  category: Import
   persistence: RAW
   description: >
-    Upload image files.
+    Import image files such as JPG or PNG.
   input:
     - name: src
       label: Image file
@@ -73,13 +81,17 @@
     executor:
       docker:
         image: resolwe/upload-tab-file:1.0.0
-  data_name: '{{ src.file|default("?") }}'
-  version: 0.0.3
+    resources:
+      cores: 1
+      memory: 1024
+      network: true
+  data_name: '{{ src.file }}'
+  version: 1.0.0
   type: data:file:tab
-  category: upload
+  category: Import
   persistence: RAW
   description: >
-    Upload tabular files.
+    Import tabular files such as CSV or XLSX.
   input:
     - name: src
       label: CSV file

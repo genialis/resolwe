@@ -1,14 +1,17 @@
 - slug: archiver
-  name: Archive Files
+  name: File Archive
   data_name: File archive
   requirements:
     expression-engine: jinja
     executor:
       docker:
         image: resolwe/archiver:1.0.0
-  version: 0.0.1
+    resources:
+      cores: 1
+      memory: 1024
+  version: 1.0.0
   type: "data:archive:"
-  category: other
+  category: Other
   persistence: TEMP
   description: >
     Create an archive of output files. The process does not support
