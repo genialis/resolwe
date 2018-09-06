@@ -1,25 +1,28 @@
 """.. Ignore pydocstyle D400.
 
-.. autoclass:: resolwe.test.ResolweAPITestCase
+.. autoclass:: resolwe.test.TransactionResolweAPITestCase
     :members:
+
+.. autoclass:: resolwe.test.ResolweAPITestCase
 
 """
 
 from django.contrib.auth import get_user_model
 from django.core.urlresolvers import reverse
+from django.test import TestCase as DjangoTestCase
 
-from rest_framework.test import APIRequestFactory, APITestCase, force_authenticate
+from rest_framework.test import APIRequestFactory, APITransactionTestCase, force_authenticate
 
 from resolwe.test import TestCaseHelpers
 
 
-class ResolweAPITestCase(TestCaseHelpers, APITestCase):
+class TransactionResolweAPITestCase(TestCaseHelpers, APITransactionTestCase):
     """Base class for testing Resolwe REST API.
 
     This class is derived from Django REST Framework's
-    :drf:`APITestCase <testing/#test-cases>` class and has implemented
-    some basic features that makes testing Resolwe API easier. These
-    features includes following functions:
+    :drf:`APITransactionTestCase <testing/#test-cases>` class and has
+    implemented some basic features that makes testing Resolwe
+    API easier. These features includes following functions:
 
     .. automethod:: _get_list
     .. automethod:: _get_detail
@@ -237,3 +240,14 @@ class ResolweAPITestCase(TestCaseHelpers, APITestCase):
     def assertKeys(self, data, wanted):  # pylint: disable=invalid-name
         """Assert dictionary keys."""
         self.assertEqual(sorted(data.keys()), sorted(wanted))
+
+
+class ResolweAPITestCase(TransactionResolweAPITestCase, DjangoTestCase):
+    """Base class for writing Resolwe API tests.
+
+    It is based on :class:`~.TransactionResolweAPITestCase` and Django's
+    :class:`~django.test.TestCase`. The latter encloses the test code in
+    a database transaction that is rolled back at the end of the test.
+    """
+
+    pass

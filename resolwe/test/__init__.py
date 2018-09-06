@@ -13,7 +13,7 @@ Resolwe Test Framework
 from resolwe.test.testcases import (
     ElasticSearchTestCase, TestCase, TestCaseHelpers, TransactionElasticSearchTestCase, TransactionTestCase,
 )
-from resolwe.test.testcases.api import ResolweAPITestCase
+from resolwe.test.testcases.api import ResolweAPITestCase, TransactionResolweAPITestCase
 from resolwe.test.testcases.process import ProcessTestCase
 from resolwe.test.utils import (
     check_docker, check_installed, has_process_tag, is_testing, tag_process, with_custom_executor,
