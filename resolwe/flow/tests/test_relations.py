@@ -11,10 +11,10 @@ from resolwe.flow.models import Collection, Entity, Relation
 from resolwe.flow.models.entity import RelationPartition, RelationType
 from resolwe.flow.views import RelationViewSet
 from resolwe.permissions.utils import assign_contributor_permissions
-from resolwe.test import ResolweAPITestCase
+from resolwe.test import TransactionResolweAPITestCase
 
 
-class TestRelationsAPI(ResolweAPITestCase):
+class TestRelationsAPI(TransactionResolweAPITestCase):
 
     def setUp(self):
         self.viewset = RelationViewSet
@@ -333,3 +333,10 @@ class TestRelationsAPI(ResolweAPITestCase):
     def test_delete_entity(self):
         self.entity_1.delete()
         self.assertEqual(self.relation_group.entities.count(), 1)
+
+    def test_delete_empty(self):
+        self.entity_1.delete()
+        self.assertTrue(Relation.objects.filter(pk=self.relation_group.pk).exists())
+        self.entity_2.delete()
+        self.assertFalse(Relation.objects.filter(pk=self.relation_group.pk).exists())
+        self.assertTrue(Relation.objects.filter(pk=self.relation_series.pk).exists())
