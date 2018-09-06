@@ -266,6 +266,8 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
 
         self.relation_group.refresh_from_db()
         self.assertEqual(self.relation_group.collection, self.collection_2)
+        # Make sure partitions were not deleted.
+        self.assertEqual(self.relation_group.relationpartition_set.count(), 2)
 
         # Relation type cannot be changed
         data = {'type': 'series'}

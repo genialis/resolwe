@@ -60,7 +60,7 @@ class RelationSerializer(ResolweBaseSerializer):
     def create(self, validated_data):
         """Create ``Relation`` object and add partitions of ``Entities``."""
         # `partitions` field is renamed to `relationpartition_set` based on source of nested serializer
-        partitions = validated_data.pop('relationpartition_set', {})
+        partitions = validated_data.pop('relationpartition_set', [])
 
         with transaction.atomic():
             instance = Relation.objects.create(**validated_data)
@@ -71,13 +71,14 @@ class RelationSerializer(ResolweBaseSerializer):
     def update(self, instance, validated_data):
         """Update ``Relation``."""
         # `partitions` field is renamed to `relationpartition_set` based on source of nested serializer
-        partitions = validated_data.pop('relationpartition_set', {})
+        partitions = validated_data.pop('relationpartition_set', None)
 
         with transaction.atomic():
             instance = super().update(instance, validated_data)
 
-            # TODO: Apply the diff instead of recreating all obejcts.
-            instance.relationpartition_set.all().delete()
-            self._create_partitions(instance, partitions)
+            if partitions is not None:
+                # TODO: Apply the diff instead of recreating all objects.
+                instance.relationpartition_set.all().delete()
+                self._create_partitions(instance, partitions)
 
         return instance
