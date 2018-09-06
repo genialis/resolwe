@@ -1,5 +1,5 @@
 """Resolwe entity model."""
-from django.contrib.postgres.fields import ArrayField
+from django.contrib.postgres.fields import ArrayField, CICharField
 from django.db import models
 
 from .base import BaseModel
@@ -110,16 +110,10 @@ class Relation(BaseModel):
     entities = models.ManyToManyField(Entity, through='RelationPartition')
 
     #: category of the relation
-    category = models.CharField(max_length=100)
+    category = CICharField(max_length=100)
 
     #: unit used in the partitions' positions (where applicable, e.g. for serieses)
     unit = models.CharField(max_length=3, choices=UNIT_CHOICES, null=True, blank=True)
-
-    def save(self, *args, **kwargs):
-        """Lowercase the ``category`` field and save the model."""
-        self.category = self.category.lower()
-
-        super().save(*args, **kwargs)
 
     class Meta(BaseModel.Meta):
         """Relation Meta options."""

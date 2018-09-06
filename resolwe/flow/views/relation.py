@@ -1,8 +1,6 @@
 """Relation viewset."""
 from itertools import zip_longest
 
-from django.db import IntegrityError
-
 from rest_framework import exceptions, permissions, status, viewsets
 from rest_framework.response import Response
 
@@ -68,11 +66,7 @@ class RelationViewSet(viewsets.ModelViewSet):
 
         request.data['contributor'] = user.pk
 
-        try:
-            return super().create(request, *args, **kwargs)
-
-        except IntegrityError as ex:
-            return Response({'error': str(ex)}, status=status.HTTP_409_CONFLICT)
+        return super().create(request, *args, **kwargs)
 
     def update(self, request, *args, **kwargs):
         """Update the ``Relation`` object.

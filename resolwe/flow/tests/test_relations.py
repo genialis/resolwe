@@ -257,7 +257,8 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
         }
 
         resp = self._post(data, user=self.contributor)
-        self.assertEqual(resp.status_code, status.HTTP_409_CONFLICT)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(resp.data['non_field_errors'], ["The fields collection, category must make a unique set."])
 
     def test_create_missing_collection(self):
         data = {
