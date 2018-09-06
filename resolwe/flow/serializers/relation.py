@@ -47,6 +47,13 @@ class RelationSerializer(ResolweBaseSerializer):
             'unit',
         )
 
+    def validate_partitions(self, partitions):
+        """Raise validation error if list of partitions is empty."""
+        if not partitions:
+            raise serializers.ValidationError("List of partitions must not be empty.")
+
+        return partitions
+
     def _create_partitions(self, instance, partitions):
         """Create partitions."""
         for partition in partitions:
@@ -60,7 +67,7 @@ class RelationSerializer(ResolweBaseSerializer):
     def create(self, validated_data):
         """Create ``Relation`` object and add partitions of ``Entities``."""
         # `partitions` field is renamed to `relationpartition_set` based on source of nested serializer
-        partitions = validated_data.pop('relationpartition_set', [])
+        partitions = validated_data.pop('relationpartition_set')
 
         with transaction.atomic():
             instance = Relation.objects.create(**validated_data)

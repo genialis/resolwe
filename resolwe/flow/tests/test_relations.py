@@ -167,6 +167,18 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
         self.assertTrue(relation.relationpartition_set.filter(entity=self.entity_3.pk).exists())
         self.assertTrue(relation.relationpartition_set.filter(entity=self.entity_4.pk).exists())
 
+    def test_create_empty_partitions(self):
+        data = {
+            'collection': self.collection.pk,
+            'type': 'group',
+            'category': 'clones',
+            'partitions': [],
+        }
+
+        resp = self._post(data, user=self.contributor)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(resp.data['partitions'], ["List of partitions must not be empty."])
+
     def test_create_with_position(self):
         data = {
             'collection': self.collection.pk,
