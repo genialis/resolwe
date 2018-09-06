@@ -201,6 +201,7 @@ class FlowExecutor(LocalFlowExecutor):
         # (https://github.com/PyCQA/pylint/issues/1469).
         self.proc = await subprocess.create_subprocess_exec(  # pylint: disable=no-member
             *shlex.split(docker_command),
+            limit=4 * (2 ** 20),  # 4MB buffer size for line buffering
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT
