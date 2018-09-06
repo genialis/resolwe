@@ -25,6 +25,7 @@ class RelationSerializer(ResolweBaseSerializer):
 
     partitions = RelationPartitionSerializer(source='relationpartition_set', many=True)
     collection = serializers.PrimaryKeyRelatedField(queryset=Collection.objects.all())
+    type = serializers.SlugRelatedField(queryset=RelationType.objects.all(), slug_field='name')
 
     class Meta:
         """RelationSerializer Meta options."""
@@ -45,17 +46,6 @@ class RelationSerializer(ResolweBaseSerializer):
             'partitions',
             'unit',
         )
-
-    def get_fields(self):
-        """Dynamically adapt fields based on the current request."""
-        fields = super(RelationSerializer, self).get_fields()
-
-        if self.request.method == "GET":
-            fields['type'] = serializers.CharField(source='type.name')
-        else:
-            fields['type'] = serializers.PrimaryKeyRelatedField(queryset=RelationType.objects.all())
-
-        return fields
 
     def _create_partitions(self, instance, partitions):
         """Create partitions."""

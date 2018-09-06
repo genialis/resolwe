@@ -8,7 +8,6 @@ from rest_framework.response import Response
 
 from resolwe.flow.filters import RelationFilter
 from resolwe.flow.models import Relation
-from resolwe.flow.models.entity import RelationType
 from resolwe.flow.serializers import RelationSerializer
 
 
@@ -66,18 +65,6 @@ class RelationViewSet(viewsets.ModelViewSet):
         user = request.user
         if not user.is_authenticated:
             raise exceptions.NotFound
-
-        relation_type = request.data.get('type')
-        if not relation_type:
-            return Response({'type': ['This field is required.']}, status=status.HTTP_400_BAD_REQUEST)
-
-        rel_type_query = RelationType.objects.filter(name=relation_type)
-        try:
-            request.data['type'] = rel_type_query.last().pk
-        except RelationType.DoesNotExist:
-            return Response(
-                {'type': ['Invalid type name "{}" - object does not exist.'.format(relation_type)]},
-                status=status.HTTP_400_BAD_REQUEST)
 
         request.data['contributor'] = user.pk
 
