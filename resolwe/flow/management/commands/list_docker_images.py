@@ -57,7 +57,7 @@ class Command(BaseCommand):
         # The 'image' field is optional, so be careful about that as well
         unique_docker_images = set(
             p.requirements['executor']['docker']['image']
-            for p in Process.objects.order_by(
+            for p in Process.objects.filter(is_active=True).order_by(
                 'slug', '-version'
             ).distinct(
                 'slug'
