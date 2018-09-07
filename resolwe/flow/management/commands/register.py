@@ -291,7 +291,7 @@ class Command(BaseCommand):
         retired_processes.filter(data__exact=None).delete()
 
         # Remove non-latest processes which do not have data
-        latest_version_processes = Process.objects.order_by('slug', 'version').distinct('slug')
+        latest_version_processes = Process.objects.order_by('slug', '-version').distinct('slug')
         Process.objects.filter(data__exact=None).difference(latest_version_processes).delete()
 
         # Deactivate retired processes which have data

@@ -82,6 +82,13 @@ class ProcessRegisterTest(TestCase):
         self.assertEqual(Process.objects.count(), 0)
 
         out, err = StringIO(), StringIO()
+        # Register process test-proc, version 1.0.0 (first version of the process)
+        # There is also version 2.0.0 of the same process
+        with self.settings(FLOW_PROCESSES_DIRS=[os.path.join(PROCESSES_DIR, 'first_version')]):
+            call_command('register', stdout=out, stderr=err)
+
+        self.assertEqual(Process.objects.get(slug='test-proc').version, '1.0.0')
+
         call_command('register', stdout=out, stderr=err)
 
         # Check that all registered processes are active
@@ -103,14 +110,18 @@ class ProcessRegisterTest(TestCase):
 
         # Check that retired processes without data are removed and
         # that retired processes with data are deactivated
-        with self.settings(FLOW_PROCESSES_DIRS=[os.path.join(PROCESSES_DIR, 'second_version')]):
+        with self.settings(FLOW_PROCESSES_DIRS=[os.path.join(PROCESSES_DIR, 'first_version'),
+                                                os.path.join(PROCESSES_DIR, 'second_version')]):
             call_command('register', '--retire', stdout=out, stderr=err)
 
-        # One process had data and one is left in the schema path, so 2
-        # processes remain
+        # One process had data and is kept but inactive
+        # Of the two process of the same slug only the latest remains
         self.assertEqual(Process.objects.count(), 2)
-        # The process that is left in the schema path remains active
+        # The process that is left in the schema path remains active and is
+        # of the latest version
         self.assertEqual(Process.objects.filter(is_active=True).count(), 1)
+        self.assertEqual(Process.objects.filter(is_active=True)[0].slug, 'test-proc')
+        self.assertEqual(Process.objects.filter(is_active=True)[0].version, '2.0.0')
         # The process with associated data is inactive
         self.assertEqual(Process.objects.filter(is_active=False).count(), 1)
 
