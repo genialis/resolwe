@@ -110,13 +110,27 @@ re-import() {
       fi
     }
 
+    # Downloading large files from Google Drive requires a cookie and a
+    # confirmation token in the URL
+    regex='^https://drive.google.com/[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]$'
+    if [[ "$TEMP" =~ $regex ]]; then
+        query=`curl -c ./cookie.txt -s "${TEMP}" \
+        | perl -nE'say/uc-download-link.*? href="(.*?)\">/' \
+        | sed -e 's/amp;//g' | sed -n 2p`
+
+        # Small files download instantly so we skip setting cookie and confirmation token
+        if [ ! -z "$query" ] && [ -f ./cookie.txt ]; then
+          TEMP="https://drive.google.com$query"
+          COOKIE="-b ./cookie.txt"
+        fi
+    fi
+
     regex='^(https?|ftp)://[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]$'
-    if [[ "$TEMP" =~ $regex ]]
-    then
+    if [[ "$TEMP" =~ $regex ]]; then
         URL=${TEMP}
         FILE=${FILE:-`basename "${URL%%\?*}"`}
         TEMP=download_`basename "${URL%%\?*}"`
-        curl --connect-timeout 10 -a --retry 10 -# -L -o "${TEMP}" "${URL}" 2>&1 | stdbuf -oL tr '\r' '\n' | grep -o '[0-9]*\.[0-9]' | curlprogress.py --scale $MAX_PROGRES
+        curl ${COOKIE} --connect-timeout 10 -a --retry 10 -# -L -o "${TEMP}" "${URL}" 2>&1 | stdbuf -oL tr '\r' '\n' | grep -o '[0-9]*\.[0-9]' | curlprogress.py --scale $MAX_PROGRES
         testrc
     fi
 

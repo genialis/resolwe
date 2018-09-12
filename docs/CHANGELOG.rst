@@ -44,6 +44,7 @@ Added
 - Add support for URLs in ``basic:file:`` fields in Django tests
 - Add ``collections`` and ``entities`` fields to Data serializer, with optional
   hydration using ``hydrate_collections`` and/or ``hydrate_entities``
+- Support importing large files from Google Drive in re-import
 
 Fixed
 -----
