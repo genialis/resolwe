@@ -50,6 +50,7 @@ Fixed
 -----
 - Prevent mutation of ``input_`` parameter in ``ProcessTestCase.run_process``
 - Return 400 instead of 500 error when slug already exists
+- Add trailing colon to process category default
 
 
 ===================

@@ -48,9 +48,9 @@ class Process(BaseModel):
     ])
 
     #: category
-    category = models.CharField(max_length=200, default='other', validators=[
+    category = models.CharField(max_length=200, default='Other:', validators=[
         RegexValidator(
-            regex=r'^([a-z0-9]+[:\-])*[a-z0-9]+:$',
+            regex=r'^([a-zA-Z0-9]+[:\-])*[a-zA-Z0-9]+:$',
             message='Category may be alphanumerics separated by colon',
             code='invalid_category'
         )
