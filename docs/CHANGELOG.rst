@@ -45,6 +45,7 @@ Added
 - Add ``collections`` and ``entities`` fields to Data serializer, with optional
   hydration using ``hydrate_collections`` and/or ``hydrate_entities``
 - Support importing large files from Google Drive in re-import
+- Add ``python3-plumbum`` package to resolwe/base:ubuntu-18.04 image
 
 Fixed
 -----
