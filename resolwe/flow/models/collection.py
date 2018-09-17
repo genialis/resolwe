@@ -30,13 +30,18 @@ class BaseCollection(BaseModel):
     #: indicate whether `descriptor` doesn't match `descriptor_schema` (is dirty)
     descriptor_dirty = models.BooleanField(default=False)
 
-    def save(self, *args, **kwargs):
-        """Perform descriptor validation and save object."""
+    def save(self, *args, allow_dirty=True, **kwargs):
+        """Perform descriptor validation and save object.
+
+        :param allow_dirty: Allow saving partially filled in descriptor
+        """
         if self.descriptor_schema:
             try:
                 validate_schema(self.descriptor, self.descriptor_schema.schema)  # pylint: disable=no-member
                 self.descriptor_dirty = False
-            except DirtyError:
+            except DirtyError as dirty_error:
+                if not allow_dirty:
+                    raise DirtyError(dirty_error)
                 self.descriptor_dirty = True
         elif self.descriptor and self.descriptor != {}:
             raise ValueError("`descriptor_schema` must be defined if `descriptor` is given")

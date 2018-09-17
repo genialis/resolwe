@@ -38,6 +38,8 @@ Changed
 
   - If they do not have data: removes them
   - If they have data: flags them not active (``is_active=False``)
+- Raise ``DirtyError`` if ``Entity.descriptor_completed`` is ``True`` and
+  descriptor is not completed
 
 Added
 -----

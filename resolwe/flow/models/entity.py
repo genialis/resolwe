@@ -30,6 +30,11 @@ class Entity(BaseCollection):
     #: tags for categorizing objects
     tags = ArrayField(models.CharField(max_length=255), default=list)
 
+    def save(self, *args, **kwargs):
+        """Perform descriptor validation and save object."""
+        allow_dirty = not self.descriptor_completed
+        super().save(*args, allow_dirty=allow_dirty, **kwargs)
+
 
 class RelationType(models.Model):
     """Model for storing relation types."""
