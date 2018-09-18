@@ -6,9 +6,9 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+===================
+12.0.0 - 2018-09-18
+===================
 
 Changed
 -------
@@ -16,11 +16,11 @@ Changed
   to use Elasticsearch
 - **BACKWARD INCOMPATIBLE:** Refactor ``Relation`` model, which includes:
 
-  - renaming ``position`` to ``partiiton``
+  - renaming ``position`` to ``partition``
   - renaming ``label`` to ``category`` and making it required
   - adding ``unit``
   - making ``collection`` field required
-  - requireing uniqe combination of ``collection`` and ``category``
+  - requiring unique combination of ``collection`` and ``category``
   - renaming partition's ``position`` to ``label``
   - adding (integer) ``position`` to partition (used for sorting)
   - deleting ``Relation`` when the last ``Entity`` is removed
@@ -28,7 +28,7 @@ Changed
   command ``--path`` and ``--schemas``.
 - Omit ``current_user_permissions`` field in serialization if only a subset of
   fields is requested
-- Allow slug to be null on update to enable slug autogeneration
+- Allow slug to be null on update to enable slug auto-generation
 - Retire obsolete processes. We have added the ``is_active`` field to the
   Process model. The field is read-only on the API and can only be changed
   through Django ORM. Inactive processes can not be executed. The ``register``
@@ -52,6 +52,7 @@ Fixed
 - Prevent mutation of ``input_`` parameter in ``ProcessTestCase.run_process``
 - Return 400 instead of 500 error when slug already exists
 - Add trailing colon to process category default
+- Increase stdout buffer size in the Docker executor
 
 
 ===================
