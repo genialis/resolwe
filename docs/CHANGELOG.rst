@@ -6,6 +6,20 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Changed
+-------
+
+Added
+-----
+
+Fixed
+-----
+
+
 ===================
 12.0.0 - 2018-09-18
 ===================
