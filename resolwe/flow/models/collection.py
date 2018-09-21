@@ -1,5 +1,5 @@
 """Resolwe collection model."""
-from django.contrib.postgres.fields import JSONField
+from django.contrib.postgres.fields import ArrayField, JSONField
 from django.db import models
 
 from .base import BaseModel
@@ -29,6 +29,9 @@ class BaseCollection(BaseModel):
 
     #: indicate whether `descriptor` doesn't match `descriptor_schema` (is dirty)
     descriptor_dirty = models.BooleanField(default=False)
+
+    #: tags for categorizing objects
+    tags = ArrayField(models.CharField(max_length=255), default=list)
 
     def save(self, *args, **kwargs):
         """Perform descriptor validation and save object."""

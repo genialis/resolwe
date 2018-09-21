@@ -15,6 +15,7 @@ Changed
 
 Added
 -----
+- Add tags to collections
 
 Fixed
 -----

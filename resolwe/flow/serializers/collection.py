@@ -40,6 +40,7 @@ class CollectionSerializer(ResolweBaseSerializer):
             'name',
             'settings',
             'slug',
+            'tags',
         )
 
     def _serialize_data(self, data):

@@ -1,5 +1,5 @@
 """Resolwe entity model."""
-from django.contrib.postgres.fields import ArrayField, CICharField
+from django.contrib.postgres.fields import CICharField
 from django.db import models
 
 from .base import BaseModel
@@ -26,9 +26,6 @@ class Entity(BaseCollection):
 
     #: indicate whether `descriptor` is completed (set by user)
     descriptor_completed = models.BooleanField(default=False)
-
-    #: tags for categorizing objects
-    tags = ArrayField(models.CharField(max_length=255), default=list)
 
 
 class RelationType(models.Model):
