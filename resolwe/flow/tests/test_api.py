@@ -45,7 +45,8 @@ class TestDataViewSetCase(TestCase):
             slug='test-process',
             version='1.0.0',
             contributor=self.contributor,
-            flow_collection='test-schema',
+            entity_type='test-schema',
+            entity_descriptor_schema='test-schema',
             input_schema=[{'name': 'input_data', 'type': 'data:test:', 'required': False}],
         )
 

@@ -16,6 +16,7 @@ Changed
 Added
 -----
 - Python execution engine
+- Support multiple entity types
 
 Fixed
 -----

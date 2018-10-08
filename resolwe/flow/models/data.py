@@ -1,6 +1,7 @@
 """Reslowe process model."""
 import copy
 import json
+import logging
 import os
 
 from django.conf import settings
@@ -11,7 +12,7 @@ from django.db import models, transaction
 
 from resolwe.flow.expression_engines.exceptions import EvaluationError
 from resolwe.flow.models.utils import fill_with_defaults
-from resolwe.flow.utils import get_data_checksum, iterate_fields
+from resolwe.flow.utils import dict_dot, get_data_checksum, iterate_fields
 from resolwe.permissions.utils import assign_contributor_permissions, copy_permissions
 
 from .base import BaseModel
@@ -26,6 +27,8 @@ from .utils import (
 # Compatibilty for Python < 3.5.
 if not hasattr(json, 'JSONDecodeError'):
     json.JSONDecodeError = ValueError
+
+logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
 class DataQuerySet(models.QuerySet):
@@ -319,31 +322,57 @@ class Data(BaseModel):
         any `Entity`, create new `Entity`
 
         """
-        ds_slug = self.process.flow_collection  # pylint: disable=no-member
-        if ds_slug:
-            entity_query = Entity.objects.filter(data__in=self.parents.all()).distinct()  # pylint: disable=no-member
+        entity_type = self.process.entity_type  # pylint: disable=no-member
+        entity_descriptor_schema = self.process.entity_descriptor_schema  # pylint: disable=no-member
+        entity_input = self.process.entity_input  # pylint: disable=no-member
 
-            if entity_query.count() == 1:
-                entity = entity_query.first()
-
-                copy_permissions(entity, self)
+        if entity_type:
+            data_filter = {}
+            if entity_input:
+                input_id = dict_dot(self.input, entity_input, default=lambda: None)
+                if input_id is None:
+                    logger.warning("Skipping creation of entity due to missing input.")
+                    return
+                if isinstance(input_id, int):
+                    data_filter['data__pk'] = input_id
+                elif isinstance(input_id, list):
+                    data_filter['data__pk__in'] = input_id
+                else:
+                    raise ValueError(
+                        "Cannot create entity due to invalid value of field {}.".format(entity_input)
+                    )
             else:
+                data_filter['data__in'] = self.parents.all()  # pylint: disable=no-member
 
-                descriptor_schema = DescriptorSchema.objects.filter(slug=ds_slug).latest()
+            entity_query = Entity.objects.filter(type=entity_type, **data_filter).distinct()
+            entity_count = entity_query.count()
+
+            if entity_count == 0:
+                descriptor_schema = DescriptorSchema.objects.filter(
+                    slug=entity_descriptor_schema
+                ).latest()
                 entity = Entity.objects.create(
                     contributor=self.contributor,
                     descriptor_schema=descriptor_schema,
+                    type=entity_type,
                     name=self.name,
                     tags=self.tags,
                 )
-
                 assign_contributor_permissions(entity)
 
-            entity.data.add(self)
+            elif entity_count == 1:
+                entity = entity_query.first()
+                copy_permissions(entity, self)
 
-            # Inherite collections from entity.
-            for collection in entity.collections.all():
-                collection.data.add(self)
+            else:
+                logger.info("Skipping creation of entity due to multiple entities found.")
+                entity = None
+
+            if entity:
+                entity.data.add(self)
+                # Inherite collections from entity.
+                for collection in entity.collections.all():
+                    collection.data.add(self)
 
     def save(self, render_name=False, *args, **kwargs):  # pylint: disable=keyword-arg-before-vararg
         """Save the data model."""
@@ -407,9 +436,7 @@ class Data(BaseModel):
             # is why a transaction block is needed and the save method must be called first.
             if create:
                 self.save_dependencies(self.input, self.process.input_schema)  # pylint: disable=no-member
-
-        if create:
-            self.create_entity()
+                self.create_entity()
 
     def _render_name(self):
         """Render data name.

@@ -80,7 +80,8 @@
     expression-engine: jinja
   version: 1.0.0
   type: data:test:example3
-  flow_collection: sample
+  entity:
+    type: sample
   run:
     language: bash
     program: |
@@ -92,7 +93,8 @@
     expression-engine: jinja
   version: 1.0.0
   type: data:test:example4
-  flow_collection: sample
+  entity:
+    type: sample
   input:
     - name: param1
       label: Param 1

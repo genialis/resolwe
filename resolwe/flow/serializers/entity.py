@@ -18,6 +18,7 @@ class EntitySerializer(CollectionSerializer):
         fields = CollectionSerializer.Meta.fields + (
             'collections',
             'descriptor_completed',
+            'type',
         )
 
     def get_data(self, entity):

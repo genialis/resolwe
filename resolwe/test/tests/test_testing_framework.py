@@ -199,7 +199,7 @@ class TestingFrameworkTestCase(TestCase):
 class TestingFrameworkProcessTestCase(ProcessTestCase):
     def setUp(self):
         super().setUp()
-        self._register_schemas(processes_path=[PROCESSES_DIR])
+        self._register_schemas(processes_paths=[PROCESSES_DIR])
 
     @tag_process('test-file-upload')
     def test_url_file(self):

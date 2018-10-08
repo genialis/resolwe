@@ -30,7 +30,9 @@ class EntityViewSet(CollectionViewSet):
         latest_date=Max('data__modified')
     ).order_by('-latest_date')
 
-    filtering_fields = CollectionViewSet.filtering_fields + ('descriptor_completed', 'collections')
+    filtering_fields = CollectionViewSet.filtering_fields + (
+        'descriptor_completed', 'collections', 'type'
+    )
 
     def _check_collection_permissions(self, collection_id, user):
         """Check that collection exists and user has `add` permission."""

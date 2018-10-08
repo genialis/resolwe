@@ -120,20 +120,25 @@ class Process(BaseModel):
 
     """
 
-    flow_collection = models.CharField(max_length=100, null=True, blank=True)
+    entity_type = models.CharField(max_length=100, null=True, blank=True)
     """
     Automatically add :class:`~resolwe.flow.models.Data` object created
-    with this process to a special
-    :class:`~resolwe.flow.models.Collection` object representing a
-    data-flow. If all input ``Data`` objects belong to the same
-    collection, add newly created ``Data`` object to it, otherwise
-    create a new collection.
-    If :class:`~resolwe.flow.models.DescriptorSchema` object with
-    ``type`` matching this field exists, reference it in the
-    collection's
-    :attr:`~resolwe.flow.models.collection.BaseCollection.descriptor_schema`
-    field.
+    with this process to an :class:`~resolwe.flow.models.Entity` object
+    representing a data-flow. If all input ``Data`` objects belong to
+    the same entity, add newly created ``Data`` object to it, otherwise
+    create a new one.
+    """
 
+    entity_descriptor_schema = models.CharField(max_length=100, null=True, blank=True)
+    """
+    Slug of the descriptor schema assigned to the Entity created with
+    :attr:`~resolwe.flow.models.Process.entity_type`.
+    """
+
+    entity_input = models.CharField(max_length=100, null=True, blank=True)
+    """
+    Limit the entity selection in
+    :attr:`~resolwe.flow.models.Process.entity_type` to a single input.
     """
 
     run = JSONField(default=dict)

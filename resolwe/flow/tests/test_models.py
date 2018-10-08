@@ -258,9 +258,11 @@ class EntityModelTest(TestCase):
 
         DescriptorSchema.objects.create(name='Sample', slug='sample', contributor=self.contributor)
         self.process = Process.objects.create(name='Test process',
+                                              type='data:test:',
                                               contributor=self.contributor,
-                                              flow_collection='sample')
-        # `Sample`is created automatically when `Data` object is created
+                                              entity_type='sample',
+                                              entity_descriptor_schema='sample')
+        # Entity is created automatically when Data object is created
         self.data = Data.objects.create(name='Test data', contributor=self.contributor, process=self.process)
 
     def test_delete_data(self):
@@ -290,6 +292,86 @@ class EntityModelTest(TestCase):
 
         # Make sure tags are copied.
         self.assertEqual(entity.tags, data.tags)
+
+    def test_entity_inheritance(self):
+        # Prepare Data objects with entities.
+        process_entity = self.process
+        data_1 = self.data
+        data_2 = Data.objects.create(contributor=self.contributor, process=process_entity)
+        # Prepare Data objects without entities.
+        process_no_entity = Process.objects.create(type='data:test:', contributor=self.contributor)
+        data_3 = Data.objects.create(contributor=self.contributor, process=process_no_entity)
+        # Prepare test process.
+        test_process = Process.objects.create(
+            contributor=self.contributor,
+            entity_type='sample',
+            entity_descriptor_schema='sample',
+            input_schema=[
+                {'name': 'data_list', 'type': 'list:data:test:', 'required': False},
+                {'name': 'data', 'type': 'data:test:', 'required': False},
+            ],
+        )
+
+        # Single Entity - Data object should be added to it.
+        data = Data.objects.create(
+            contributor=self.contributor,
+            process=test_process,
+            input={
+                'data_list': [data_1.pk, data_3.pk],
+            }
+        )
+        self.assertEqual(data.entity_set.first(), data_1.entity_set.first())
+
+        # Multiple Entities - Data object should be added to none of them.
+        data = Data.objects.create(
+            contributor=self.contributor,
+            process=test_process,
+            input={
+                'data_list': [data_1.pk, data_2.pk],
+            }
+        )
+        self.assertEqual(data.entity_set.count(), 0)
+
+        # Multiple Entities with entity_input defined - Data object should be added to it.
+        test_process.entity_input = 'data'
+        test_process.save()
+        data = Data.objects.create(
+            contributor=self.contributor,
+            process=test_process,
+            input={
+                'data': data_1.pk,
+                'data_list': [data_2.pk],
+            }
+        )
+        self.assertEqual(data.entity_set.first(), data_1.entity_set.first())
+        test_process.entity_input = 'data_list'
+        test_process.save()
+        data = Data.objects.create(
+            contributor=self.contributor,
+            process=test_process,
+            input={
+                'data': data_1.pk,
+                'data_list': [data_2.pk],
+            }
+        )
+        self.assertEqual(data.entity_set.first(), data_2.entity_set.first())
+        test_process.entity_input = None
+        test_process.save()
+
+        # Entities of different types - Data object should be added to the right one.
+        entity_2 = data_2.entity_set.first()
+        entity_2.type = 'something_else'
+        entity_2.save()
+        data = Data.objects.create(
+            contributor=self.contributor,
+            process=test_process,
+            input={
+                'data_list': [data_1.pk, data_2.pk],
+            }
+        )
+        self.assertEqual(data.entity_set.first(), data_1.entity_set.first())
+        entity_2.type = 'sample'
+        entity_2.save()
 
 
 class GetOrCreateTestCase(APITestCase):

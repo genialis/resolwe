@@ -183,7 +183,8 @@ class TestDataViewSetFilters(TestCase):
             slug='test-process-1',
             version='1.0.0',
             contributor=self.contributor,
-            flow_collection='test-schema',
+            entity_type='test-schema',
+            entity_descriptor_schema='test-schema',
             input_schema=[{'name': 'input_data', 'type': 'data:test:', 'required': False}],
         )
 
@@ -193,7 +194,8 @@ class TestDataViewSetFilters(TestCase):
             slug='test-process-2',
             version='1.0.0',
             contributor=self.contributor,
-            flow_collection='test-schema',
+            entity_type='test-schema',
+            entity_descriptor_schema='test-schema',
             input_schema=[{'name': 'input_data', 'type': 'data:test:', 'required': False}],
         )
 

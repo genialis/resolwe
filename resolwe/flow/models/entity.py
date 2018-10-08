@@ -27,6 +27,9 @@ class Entity(BaseCollection):
     #: indicate whether `descriptor` is completed (set by user)
     descriptor_completed = models.BooleanField(default=False)
 
+    #: entity type
+    type = models.CharField(max_length=100, db_index=True, null=True, blank=True)
+
 
 class RelationType(models.Model):
     """Model for storing relation types."""

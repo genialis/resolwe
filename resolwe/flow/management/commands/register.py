@@ -124,6 +124,18 @@ class Command(BaseCommand):
         log_templates = []
 
         for p in process_schemas:
+            # TODO: Remove this when all processes are migrated to the
+            #       new syntax.
+            if 'flow_collection' in p:
+                if 'entity' in p:
+                    self.stderr.write(
+                        "Skip processor {}: only one of 'flow_collection' and 'entity' fields "
+                        "allowed".format(p['slug'])
+                    )
+                    continue
+
+                p['entity'] = {'type': p.pop('flow_collection')}
+
             if p['type'][-1] != ':':
                 p['type'] += ':'
 
@@ -138,6 +150,25 @@ class Command(BaseCommand):
 
             if not self.valid(p, PROCESSOR_SCHEMA):
                 continue
+
+            if 'entity' in p:
+                if 'type' not in p['entity']:
+                    self.stderr.write(
+                        "Skip process {}: 'entity.type' required if 'entity' defined".format(p['slug'])
+                    )
+                    continue
+
+                p['entity_type'] = p['entity']['type']
+                p['entity_descriptor_schema'] = p['entity'].get('descriptor_schema', p['entity_type'])
+                p['entity_input'] = p['entity'].get('input', None)
+                p.pop('entity')
+
+                if not DescriptorSchema.objects.filter(slug=p['entity_descriptor_schema']).exists():
+                    self.stderr.write(
+                        "Skip processor {}: Unknown descriptor schema '{}' used in 'entity' "
+                        "field.".format(p['slug'], p['entity_descriptor_schema'])
+                    )
+                    continue
 
             if 'persistence' in p:
                 persistence_mapping = {
@@ -342,8 +373,10 @@ class Command(BaseCommand):
                 self.find_schemas(desc_path, schema_type=SCHEMA_TYPE_DESCRIPTOR, verbosity=verbosity))
 
         user_admin = users.first()
-        self.register_processes(process_schemas, user_admin, force, verbosity=verbosity)
         self.register_descriptors(descriptor_schemas, user_admin, force, verbosity=verbosity)
+        # NOTE: Descriptor schemas must be registered first, so
+        #       processes can validate 'entity_descriptor_schema' field.
+        self.register_processes(process_schemas, user_admin, force, verbosity=verbosity)
 
         if retire:
             self.retire(process_schemas)

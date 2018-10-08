@@ -1,0 +1,4 @@
+- slug: sample
+  name: Sample
+  description: Test descriptor schema
+  schema: []

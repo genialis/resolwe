@@ -146,6 +146,7 @@ Field                            Short description     Required Default
 :ref:`version <version>`         version numbering     optional
 :ref:`type <type>`               data type             required
 :ref:`category <category>`       menu category         optional <empty string>
+:ref:`entity <entity>`           automatic grouping    optional
 :ref:`persistence <persistence>` storage optimization  optional RAW
 :ref:`scheduling_class <sch>`    scheduling class      optional batch
 :ref:`input <io>`                list of input fields  optional <empty list>
@@ -201,6 +202,24 @@ categories into sub-categories (`e.g.,` ``analyses:alignment``).
 We have predefined three top categories: upload, import and analyses. Processes
 without this top category will not be displayed in the GenBoard interface, but
 will be available on the platform.
+
+.. _entity:
+
+Entity
+------
+
+With defining the ``entity`` field in the process, new data objects will be
+automatically attached to a new or existing Entity, depending on it's parents
+and the definition of the field.
+
+``entity`` field has 3 subfields:
+
+* ``type`` is required and defines the type of entity that the new ``Data``
+  object is attached to
+* ``input`` limits the group of parents' enteties to a single field (dot
+  separated path to the field in the definition of input)
+* ``descriptor_schema`` specifies the slug of the descriptor schema that is
+  attached to newly created entity. It defaults to the value of ``type``
 
 .. _persistence:
 

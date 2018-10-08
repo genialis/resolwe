@@ -14,6 +14,7 @@ class EntityDocument(CollectionDocument):
 
     descriptor_completed = dsl.Boolean()
     collections = dsl.Integer(multi=True)
+    type = dsl.Keyword()
 
     class Meta:
         """Meta class for entity search document."""
