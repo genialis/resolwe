@@ -41,7 +41,9 @@ class CollectionViewSet(ElasticSearchCombinedViewSet,
     permission_classes = (get_permissions_class(),)
     document_class = CollectionDocument
 
-    filtering_fields = ('id', 'slug', 'name', 'created', 'modified', 'contributor', 'owners', 'text')
+    filtering_fields = (
+        'id', 'slug', 'name', 'created', 'modified', 'contributor', 'owners', 'text', 'tags',
+    )
     filtering_map = {
         'name': 'name.ngrams',
         'contributor': 'contributor_id',
