@@ -78,12 +78,15 @@ class CollectionViewSet(ElasticSearchCombinedViewSet,
             value = ' '.join(value)
 
         should = [
+            Q('match', slug={'query': value, 'operator': 'and', 'boost': 10.0}),
+            Q('match', **{'slug.ngrams': {'query': value, 'operator': 'and', 'boost': 5.0}}),
             Q('match', name={'query': value, 'operator': 'and', 'boost': 10.0}),
             Q('match', **{'name.ngrams': {'query': value, 'operator': 'and', 'boost': 5.0}}),
             Q('match', contributor_name={'query': value, 'operator': 'and', 'boost': 5.0}),
             Q('match', **{'contributor_name.ngrams': {'query': value, 'operator': 'and', 'boost': 2.0}}),
             Q('match', owner_names={'query': value, 'operator': 'and', 'boost': 5.0}),
             Q('match', **{'owner_names.ngrams': {'query': value, 'operator': 'and', 'boost': 2.0}}),
+            Q('match', descriptor_data={'query': value, 'operator': 'and'}),
         ]
 
         # Add registered text extensions.

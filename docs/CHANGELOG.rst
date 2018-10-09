@@ -12,6 +12,8 @@ Unreleased
 
 Changed
 -------
+- Support searching by ``slug`` and ``descriptor_data`` in entity viewset text
+  search
 
 Added
 -----
