@@ -1,7 +1,6 @@
 """Elastic Search indexes for Collection model."""
 import elasticsearch_dsl as dsl
 
-from resolwe.elastic.fields import Name
 from resolwe.elastic.indices import BaseIndex
 from resolwe.flow.utils import dict_dot, iterate_schema
 
@@ -13,7 +12,7 @@ class CollectionDocument(BaseDocument):
     """Document for collection search."""
 
     # Data values extracted from the descriptor.
-    descriptor_data = Name(multi=True)
+    descriptor_data = dsl.Text(multi=True)
     tags = dsl.Keyword(multi=True)
 
     class Meta:
