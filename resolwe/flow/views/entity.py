@@ -1,8 +1,6 @@
 """Entity viewset."""
 from distutils.util import strtobool  # pylint: disable=import-error,no-name-in-module
 
-from elasticsearch_dsl.query import Q
-
 from django.db.models import Max
 from django.db.models.query import Prefetch
 
@@ -33,16 +31,6 @@ class EntityViewSet(CollectionViewSet):
     ).order_by('-latest_date')
 
     filtering_fields = CollectionViewSet.filtering_fields + ('descriptor_completed', 'collections')
-
-    def custom_filter_tags(self, value, search):
-        """Support tags query."""
-        if not isinstance(value, list):
-            value = value.split(',')
-
-        filters = [Q('match', **{'tags': item}) for item in value]
-        search = search.query('bool', must=filters)
-
-        return search
 
     def _check_collection_permissions(self, collection_id, user):
         """Check that collection exists and user has `add` permission."""

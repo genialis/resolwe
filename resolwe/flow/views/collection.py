@@ -56,6 +56,16 @@ class CollectionViewSet(ElasticSearchCombinedViewSet,
     }
     ordering = 'id'
 
+    def custom_filter_tags(self, value, search):
+        """Support tags query."""
+        if not isinstance(value, list):
+            value = value.split(',')
+
+        filters = [Q('match', **{'tags': item}) for item in value]
+        search = search.query('bool', must=filters)
+
+        return search
+
     def get_always_allowed_arguments(self):
         """Return query arguments which are always allowed."""
         return super().get_always_allowed_arguments() + [
