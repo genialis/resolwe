@@ -13,7 +13,6 @@ class EntityDocument(CollectionDocument):
     """Document for entity search."""
 
     descriptor_completed = dsl.Boolean()
-
     collections = dsl.Integer(multi=True)
 
     class Meta:
@@ -39,8 +38,6 @@ class EntityIndex(BaseIndexMixin, CollectionIndexMixin, BaseIndex):
     """Index for entity objects used in ``EntityDocument``."""
 
     queryset = Entity.objects.all().prefetch_related(
-        'data',
-        'data__descriptor_schema',
         'descriptor_schema',
         'contributor',
     )
@@ -52,16 +49,7 @@ class EntityIndex(BaseIndexMixin, CollectionIndexMixin, BaseIndex):
         # pylint: disable=no-member
         return super().get_dependencies() + [
             Entity.collections,
-            DataDescriptorDependency(Entity.data),
         ]
-
-    def get_descriptor_data_value(self, obj):
-        """Extract data from the descriptors."""
-        entity_descriptor = self.extract_descriptor(obj)
-        data_descriptors = [item for data in obj.data.all() for item in self.extract_descriptor(data)]
-        descriptors = list(set(entity_descriptor + data_descriptors))
-
-        return descriptors
 
     def get_collections_value(self, obj):
         """Extract collections."""

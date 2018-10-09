@@ -12,6 +12,8 @@ Unreleased
 
 Changed
 -------
+- **BACKWARD INCOMPATIBLE:** Remove Data descriptors from Entity Elasticsearch
+  index
 - Support searching by ``slug`` and ``descriptor_data`` in entity viewset text
   search
 
