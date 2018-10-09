@@ -2,7 +2,6 @@
 import elasticsearch_dsl as dsl
 
 from resolwe.elastic.indices import BaseIndex
-from resolwe.flow.utils import dict_dot, iterate_schema
 
 from ..models import Collection
 from .base import BaseDocument, BaseIndexMixin
@@ -26,24 +25,20 @@ class CollectionIndexMixin:
 
     def extract_descriptor(self, obj):
         """Extract data from the descriptor."""
-        if not obj.descriptor_schema:
-            return []
-
         descriptor = []
-        for _, _, path in iterate_schema(obj.descriptor, obj.descriptor_schema.schema):
-            try:
-                value = dict_dot(obj.descriptor, path)
-            except KeyError:
-                continue
 
-            if not isinstance(value, list):
-                value = [value]
+        def flatten(current):
+            """Flatten descriptor."""
+            if isinstance(current, dict):
+                for key in current:
+                    flatten(current[key])
+            elif isinstance(current, list):
+                for val in current:
+                    flatten(val)
+            elif isinstance(current, (int, bool, float, str)):
+                descriptor.append(str(current))
 
-            for item in value:
-                if not isinstance(item, (int, bool, float, str)):
-                    continue
-
-                descriptor.append('{}'.format(item))
+        flatten(obj.descriptor)
 
         return descriptor
 
