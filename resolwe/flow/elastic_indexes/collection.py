@@ -50,7 +50,7 @@ class CollectionIndexMixin:
 
     def get_descriptor_data_value(self, obj):
         """Extract data from the descriptors."""
-        return [self.extract_descriptor(obj)]
+        return self.extract_descriptor(obj)
 
 
 class CollectionIndex(BaseIndexMixin, CollectionIndexMixin, BaseIndex):
