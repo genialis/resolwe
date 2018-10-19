@@ -194,25 +194,10 @@ class ManyToManyDependency(Dependency):
 
     def __init__(self, field):
         """Construct m2m dependency."""
-        # Determine which model is the target model as either side of the relation
-        # may be passed as `field`.
-        if field.reverse:
-            model = field.rel.related_model
-            self.accessor = field.rel.field.attname
-        else:
-            model = field.rel.model
-            if field.rel.symmetrical:
-                # Symmetrical m2m relation on self has no reverse accessor.
-                raise NotImplementedError(
-                    'Dependencies on symmetrical M2M relations are not supported due '
-                    'to strange handling of the m2m_changed signal which only makes '
-                    'half of the relation visible during signal execution. For now you '
-                    'need to use symmetrical=False on the M2M field definition.'
-                )
-            else:
-                self.accessor = field.rel.get_accessor_name()
+        # We use None as the model as we cannot determine it until assigned to an index.
+        super().__init__(None)
 
-        super().__init__(model)
+        self.accessor = None
         self.field = field
         # Cache for pre/post-delete signals.
         self.delete_cache = BuildArgumentsCache()
@@ -221,6 +206,25 @@ class ManyToManyDependency(Dependency):
 
     def connect(self, index):
         """Connect signals needed for dependency updates."""
+        # Determine which model is the target model as either side of the relation
+        # may be passed as `field`.
+        if index.object_type == self.field.rel.model:
+            self.model = self.field.rel.related_model
+            self.accessor = self.field.rel.field.attname
+        else:
+            self.model = self.field.rel.model
+            if self.field.rel.symmetrical:
+                # Symmetrical m2m relation on self has no reverse accessor.
+                raise NotImplementedError(
+                    'Dependencies on symmetrical M2M relations are not supported due '
+                    'to strange handling of the m2m_changed signal which only makes '
+                    'half of the relation visible during signal execution. For now you '
+                    'need to use symmetrical=False on the M2M field definition.'
+                )
+            else:
+                self.accessor = self.field.rel.get_accessor_name()
+
+        # Connect signals.
         signals = super().connect(index)
 
         m2m_signal = ElasticSignal(self, 'process_m2m', pass_kwargs=True)
@@ -261,26 +265,43 @@ class ManyToManyDependency(Dependency):
 
     def _get_build_kwargs(self, obj, pk_set=None, action=None, update_fields=None, reverse=None, **kwargs):
         """Prepare arguments for rebuilding indices."""
-        # Invert the meaning of reverse for fields which are already reverse descriptors.
-        if reverse is not None and self.field.reverse:
-            reverse = not reverse
-        elif reverse is None:
-            reverse = True
-
-        if reverse:
+        if action is None:
             # Check filter before rebuilding index.
             if not self._filter([obj], update_fields=update_fields):
                 return
 
             queryset = getattr(obj, self.accessor).all()
+
+            # Special handling for relations to self.
+            if self.field.rel.model == self.field.rel.related_model:
+                queryset = queryset.union(getattr(obj, self.field.rel.get_accessor_name()).all())
+
             return {'queryset': queryset}
         else:
+            # Update to relation itself, only update the object in question.
+            if self.field.rel.model == self.field.rel.related_model:
+                # Special case, self-reference, update both ends of the relation.
+                pks = set()
+                if self._filter(self.model.objects.filter(pk__in=pk_set)):
+                    pks.add(obj.pk)
+
+                if self._filter(self.model.objects.filter(pk__in=[obj.pk])):
+                    pks.update(pk_set)
+
+                return {'queryset': self.index.object_type.objects.filter(pk__in=pks)}
+            elif isinstance(obj, self.model):
+                # Need to switch the role of object and pk_set.
+                result = {'queryset': self.index.object_type.objects.filter(pk__in=pk_set)}
+                pk_set = {obj.pk}
+            else:
+                result = {'obj': obj}
+
             if action != 'post_clear':
                 # Check filter before rebuilding index.
                 if not self._filter(self.model.objects.filter(pk__in=pk_set)):
                     return
 
-            return {'obj': obj}
+            return result
 
     def process_predelete(self, obj, pk_set=None, action=None, update_fields=None, **kwargs):
         """Render the queryset of influenced objects and cache it."""

@@ -18,6 +18,7 @@ Added
 
 Fixed
 -----
+- Fix handling of M2M dependencies in ES indexer
 
 
 ===================

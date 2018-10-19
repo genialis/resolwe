@@ -56,7 +56,6 @@ class DataIndex(BaseIndexMixin, BaseIndex):
             Data.collection_set,
             Data.entity_set,
             Data.parents,
-            Data.children,
         ]
 
     def get_collection_value(self, obj):
