@@ -7,6 +7,7 @@ recursive-include docs/example/example/processes *.yml
 recursive-include docs/images *.png
 # include tests and files needed by tests
 include tox.ini
+include pyproject.toml
 include .coveragerc
 include .pylintrc
 include tests/.env
