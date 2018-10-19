@@ -15,6 +15,7 @@ Changed
 
 Added
 -----
+- Use prioritized batcher in listener
 
 Fixed
 -----

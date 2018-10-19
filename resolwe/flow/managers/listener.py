@@ -30,6 +30,8 @@ from django.db import transaction
 from django.db.models import Count
 from django.urls import reverse
 
+from django_priority_batch import PrioritizedBatcher
+
 from resolwe.flow.models import Data, DataDependency, Entity, Process
 from resolwe.flow.utils import dict_dot, iterate_fields, stats
 from resolwe.flow.utils.purge import data_purge
@@ -294,7 +296,8 @@ class ExecutorListener:
                 dict_dot(d.output, key, val)
 
         try:
-            d.save(update_fields=list(changeset.keys()))
+            with PrioritizedBatcher.global_instance():
+                d.save(update_fields=list(changeset.keys()))
         except ValidationError as exc:
             logger.error(
                 __(
@@ -313,7 +316,8 @@ class ExecutorListener:
             d.status = Data.STATUS_ERROR
 
             try:
-                d.save(update_fields=['process_error', 'status'])
+                with PrioritizedBatcher.global_instance():
+                    d.save(update_fields=['process_error', 'status'])
             except Exception:  # pylint: disable=broad-except
                 pass
         except Exception:  # pylint: disable=broad-except
