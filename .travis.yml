@@ -1,11 +1,10 @@
-sudo: required
-
-language: python
-
 # Global Travis CI step definitions that will be used by all jobs unless
 # explicitly overriden in the jobs.include matrix.
-python:
-  - "3.6"
+
+language: python
+# We need to be able to install packages.
+sudo: required
+python: "3.6"
 
 services:
   - docker
@@ -21,8 +20,8 @@ addons:
     - postgresql-client-10
 
 before_install:
-  # NOTE: We need to manually reconfigure PostgreSQL 10 since Travis CI
-  # doesn't provide standard configuration out-of-the-box.
+  # NOTE: We need to manually reconfigure PostgreSQL 10 since Travis CI doesn't
+  # provide standard configuration out-of-the-box.
   # For more details, see:
   # https://github.com/travis-ci/travis-ci/issues/8537#issuecomment-416467506
   - sudo sed -i 's/port = 5433/port = 5432/' /etc/postgresql/10/main/postgresql.conf
