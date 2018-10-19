@@ -123,8 +123,8 @@ Checkout the latest code and create a release branch::
     git pull
     git checkout -b release-<new-version>
 
-Bump project's version in ``resolwe/__about__.py`` file and update the
-changelog in ``docs/CHANGELOG.rst``.
+Replace the *Unreleased* heading in ``docs/CHANGELOG.rst`` with the new
+version, followed by release's date (e.g. *13.2.0 - 2018-10-23*).
 
 .. note::
 
@@ -133,14 +133,6 @@ changelog in ``docs/CHANGELOG.rst``.
 Commit changes to git::
 
     git commit -a -m "Prepare release <new-version>"
-
-Bump project's version in ``resolwe/__about__.py`` file to the next alpha
-release and update the changelog in ``docs/CHANGELOG.rst`` with the
-_Unreleased_ section.
-
-Commit changes to git::
-
-    git commit -a -m "Bump version to <new-alpha-version>"
 
 Push changes to your fork and open a pull request::
 
@@ -153,16 +145,30 @@ to master::
     git merge --ff-only release-<new-version>
     git push <resolwe-upstream-name> master <new-version>
 
-Tag the new release from the penultimate commit::
+Tag the new release from the latest commit::
 
-    git checkout master~1
+    git checkout master
     git tag -m "Version <new-version>" <new-version>
+
+.. note::
+
+    Project's version will be automatically inferred from the git tag using
+    `setuptools_scm`_.
 
 Push the tag to the main `Resolwe's git repository`_::
 
     git push <resolwe-upstream-name> master <new-version>
 
-.. _Semantic versioning: https://packaging.python.org/en/latest/distributing/#semantic-versioning-preferred
-
 The tagged code will we be released to PyPI automatically. Inspect Travis logs
 of the Release step if errors occur.
+
+Preparing pre-release
+---------------------
+
+When preparing a pre-release (i.e. an alpha release), one can skip the
+"release" commit that updates the change log and just tag the desired commit
+with a pre-release tag (e.g. *13.3.0a1*). By pushing it to GitHub, the tagged
+code will be automatically tested by Travis CI and then released to PyPI.
+
+.. _Semantic versioning: https://packaging.python.org/en/latest/distributing/#semantic-versioning-preferred
+.. _setuptools_scm: https://github.com/pypa/setuptools_scm/

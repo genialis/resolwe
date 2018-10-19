@@ -106,7 +106,8 @@ jobs:
       services: []
       addons: {}
       before_install: skip
-      install: skip
+      # Project uses setuptools_scm to determine the version from a SCM tag.
+      install: pip install setuptools_scm
       script: skip
       # NOTE: Due to the way Travis CI currently works, setting
       # 'after_success: skip' would also result in skipping the deploy step.

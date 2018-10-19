@@ -13,7 +13,7 @@ with open(os.path.join(base_dir, 'resolwe', '__about__.py'), 'r') as fh:
 
 setuptools.setup(
     name=about['__title__'],
-    version=about['__version__'],
+    use_scm_version=True,
     description=about['__summary__'],
     long_description=long_description,
     long_description_content_type='text/x-rst',
@@ -72,6 +72,7 @@ setuptools.setup(
             'pylint~=1.9.1',
             'readme_renderer',
             'resolwe-runtime-utils>=1.1.0',
+            'setuptools_scm',
             'testfixtures>=4.10.0',
             'tblib>=1.3.0',
             'isort',
