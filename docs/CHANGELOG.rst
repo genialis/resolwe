@@ -15,6 +15,7 @@ Changed
 
 Added
 -----
+- Use batching for ES index builds
 
 Fixed
 -----

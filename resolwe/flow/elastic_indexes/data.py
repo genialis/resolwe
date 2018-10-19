@@ -59,7 +59,7 @@ class DataIndex(BaseIndexMixin, BaseIndex):
         ]
 
     def get_collection_value(self, obj):
-        """Extract contributor."""
+        """Extract collections this object is in."""
         return list(obj.collection_set.values_list('pk', flat=True))
 
     def get_parents_value(self, obj):

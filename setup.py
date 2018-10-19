@@ -54,6 +54,7 @@ setup(
         'django-mathfilters>=0.3.0',
         'django-versionfield2>=0.5.0',
         'django-fernet-fields>=0.5',
+        'django-priority-batch>=1.0.0',
         'elasticsearch-dsl~=5.4.0',
         'psycopg2>=2.5.0',
         'mock>=1.3.0',

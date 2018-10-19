@@ -25,6 +25,7 @@ from elasticsearch_dsl.exceptions import IllegalOperation
 
 from django.contrib.contenttypes.models import ContentType
 
+from django_priority_batch import PrioritizedBatcher
 from guardian.conf.settings import ANONYMOUS_USER_NAME
 from guardian.models import GroupObjectPermission, UserObjectPermission
 
@@ -264,14 +265,14 @@ class BaseIndex:
         if obj is not None:
             if self.queryset.model != obj._meta.model:  # pylint: disable=protected-access
                 logger.debug(
-                    "Object type mismatch, aborting build of '%s' Elasticsearch index.",
+                    "Object type mismatch, skipping build of '%s' Elasticsearch index.",
                     self.__class__.__name__
                 )
                 return
 
             if not self.queryset.filter(pk=self.get_object_id(obj)).exists():
                 logger.debug(
-                    "Object not in predefined queryset, aborting build of '%s' Elasticsearch index.",
+                    "Object not in predefined queryset, skipping build of '%s' Elasticsearch index.",
                     self.__class__.__name__
                 )
                 return
@@ -279,11 +280,51 @@ class BaseIndex:
         elif queryset is not None:
             if self.queryset.model != queryset.model:
                 logger.debug(
-                    "Queryset type mismatch, aborting build of '%s' Elasticsearch index.",
+                    "Queryset type mismatch, skipping build of '%s' Elasticsearch index.",
                     self.__class__.__name__
                 )
                 return
 
+        FULL_REBUILD = 'full'  # pylint: disable=invalid-name
+
+        def handler(agg=None):
+            """Index build handler."""
+            if agg == FULL_REBUILD:
+                queryset = self.queryset.all()
+            else:
+                queryset = self.queryset.none().union(*agg)
+
+            self._build(queryset=queryset, push=push)
+
+        def aggregator(agg=None):
+            """Index build aggregator."""
+            if agg == FULL_REBUILD:
+                # A full rebuild is required, ignore any other builds.
+                pass
+            else:
+                if agg is None:
+                    agg = []
+
+                if obj is not None:
+                    # Build of a single object.
+                    agg.append(self.queryset.filter(pk=obj.pk))
+                elif queryset is not None:
+                    # Build of multiple objects.
+                    agg.append(queryset)
+                else:
+                    # Full rebuild, ignore any other builds.
+                    agg = FULL_REBUILD
+
+            return agg
+
+        batcher = PrioritizedBatcher.global_instance()
+        if batcher.is_started:
+            batcher.add('resolwe.elastic', handler, group_by=(self._index_name, push), aggregator=aggregator)
+        else:
+            self._build(obj=obj, queryset=queryset, push=push)
+
+    def _build(self, obj=None, queryset=None, push=True):
+        """Build indexes."""
         logger.debug("Building '%s' Elasticsearch index...", self.__class__.__name__)
 
         if obj is not None:
