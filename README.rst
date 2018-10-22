@@ -2,7 +2,7 @@
 Resolwe
 =======
 
-|build| |coverage| |docs| |pypi_version| |pypi_pyversions|
+|build| |coverage| |docs| |pypi_version| |pypi_pyversions| |pypi_downloads|
 
 .. |build| image:: https://travis-ci.org/genialis/resolwe.svg?branch=master
     :target: https://travis-ci.org/genialis/resolwe
@@ -17,15 +17,15 @@ Resolwe
     :alt: Documentation Status
 
 .. |pypi_version| image:: https://img.shields.io/pypi/v/resolwe.svg
-    :target: https://pypi.python.org/pypi/resolwe
+    :target: https://pypi.org/project/resolwe
     :alt: Version on PyPI
 
 .. |pypi_pyversions| image:: https://img.shields.io/pypi/pyversions/resolwe.svg
-    :target: https://pypi.python.org/pypi/resolwe
+    :target: https://pypi.org/project/resolwe
     :alt: Supported Python versions
 
-.. |pypi_downloads| image:: https://img.shields.io/pypi/dm/resolwe.svg
-    :target: https://pypi.python.org/pypi/resolwe
+.. |pypi_downloads| image:: https://pepy.tech/badge/resolwe
+    :target: https://pepy.tech/project/resolwe
     :alt: Number of downloads from PyPI
 
 Resolwe is an open source dataflow package for `Django framework`_. We envision
