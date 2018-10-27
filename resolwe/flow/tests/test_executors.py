@@ -232,6 +232,7 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.run_process('test-cpu-resource-1core')
         self.run_process('test-cpu-resource-2core')
 
+    @unittest.skipIf(settings.FLOW_DOCKER_DISABLE_SECCOMP, "Docker seccomp is disabled.")
     @with_docker_executor
     @tag_process('test-network-resource-enabled', 'test-network-resource-disabled', 'test-network-resource-policy')
     def test_network_resource(self):
