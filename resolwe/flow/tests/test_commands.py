@@ -139,7 +139,7 @@ class ListDockerImagesTest(ProcessTestCase):
         super().setUp()
 
         # Make sure the test processes are in the database
-        self._register_schemas(path=[PROCESSES_DIR])
+        self._register_schemas(processes_paths=[PROCESSES_DIR])
 
     def test_basic_list(self):
         # List Docker images and check if there's at least one

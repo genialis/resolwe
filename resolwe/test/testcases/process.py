@@ -134,11 +134,18 @@ class ProcessTestCase(TransactionTestCase):
         for schema in schemas:
             schema.contributor = self.admin
 
-    def _register_schemas(self, path=None):
+    def _register_schemas(self, path=None, processes_paths=None, descriptors_paths=None):
         """Register process and descriptor schemas.
 
-        Process and DescriptorSchema cached to SCHEMAS_FIXTURE_CACHE
-        global variable based on ``path`` key in ``kwargs``.
+        If ``processes_paths`` or ``descriptor_path`` arguments are
+        given, only processes/descriptors from that path are registered.
+
+        ``path`` argument is supported for backward compatibility and
+        applies to both arguments above.
+
+        Process and DescriptorSchema are cached to SCHEMAS_FIXTURE_CACHE
+        global variable based on ``processes_paths`` and
+        ``descriptors_paths`` keys in ``kwargs``.
 
         """
         def remove_pks(schemas):
@@ -147,21 +154,30 @@ class ProcessTestCase(TransactionTestCase):
                 s.pk = None
             return schemas
 
+        if path:
+            if processes_paths or descriptors_paths:
+                raise ValueError(
+                    "processes_paths and descriptors_paths arguments must be None if path is defined."
+                )
+            processes_paths = descriptors_paths = path
+
         schemas_types = [
-            {
-                'name': 'processes',
-                'model': Process,
-            },
             {
                 'name': 'descriptor_schemas',
                 'model': DescriptorSchema,
+                'cache_key': descriptors_paths,
+            },
+            {
+                'name': 'processes',
+                'model': Process,
+                'cache_key': processes_paths,
             },
         ]
 
         for schemas in schemas_types:
             schemas['model'].objects.all().delete()
 
-        cache_key = str('path={}'.format(path))
+        cache_key = str('processes_paths={};descriptors_paths={}'.format(processes_paths, descriptors_paths))
         global SCHEMAS_FIXTURE_CACHE  # pylint: disable=global-statement
         if not SCHEMAS_FIXTURE_CACHE:
             SCHEMAS_FIXTURE_CACHE = {}
@@ -181,12 +197,18 @@ class ProcessTestCase(TransactionTestCase):
                 self._update_schema_relations(schemas_cache)
                 schemas['model'].objects.bulk_create(schemas_cache)
         else:
-            if path is None:
+            if processes_paths is None and descriptors_paths is None:
                 management.call_command('register', force=True, stdout=stdout, stderr=stderr)
             else:
-                with self.settings(FLOW_PROCESSES_FINDERS=['resolwe.flow.finders.FileSystemProcessesFinder'],
-                                   FLOW_PROCESSES_DIRS=path,
-                                   FLOW_DESCRIPTORS_DIRS=path):
+                settings_overrides = {
+                    'FLOW_PROCESSES_FINDERS': ['resolwe.flow.finders.FileSystemProcessesFinder']
+                }
+                if processes_paths is not None:
+                    settings_overrides['FLOW_PROCESSES_DIRS'] = processes_paths
+                if descriptors_paths is not None:
+                    settings_overrides['FLOW_DESCRIPTORS_DIRS'] = descriptors_paths
+
+                with self.settings(**settings_overrides):
                     management.call_command('register', force=True, stdout=stdout, stderr=stderr)
 
             if cache_key not in SCHEMAS_FIXTURE_CACHE:

@@ -25,7 +25,7 @@ class SecretsProcessTest(ProcessTestCase):
     def setUp(self):
         super().setUp()
 
-        self._register_schemas(path=[PROCESSES_DIR])
+        self._register_schemas(processes_paths=[PROCESSES_DIR])
 
         # Create some secrets.
         self.secret_value = 'hello secret world'

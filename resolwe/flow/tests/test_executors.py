@@ -13,7 +13,7 @@ from guardian.shortcuts import assign_perm
 
 from resolwe.flow.executors.prepare import BaseFlowExecutorPreparer
 from resolwe.flow.managers import manager
-from resolwe.flow.models import Collection, Data, DataDependency, DescriptorSchema, Process, Storage
+from resolwe.flow.models import Collection, Data, DataDependency, Process, Storage
 from resolwe.test import ProcessTestCase, TestCase, tag_process, with_docker_executor, with_null_executor
 
 # Workaround for false positive warnings in pylint.
@@ -22,6 +22,7 @@ from resolwe.test import ProcessTestCase, TestCase, tag_process, with_docker_exe
 # pylint: disable=deprecated-method
 
 PROCESSES_DIR = os.path.join(os.path.dirname(__file__), 'processes')
+DESCRIPTORS_DIR = os.path.join(os.path.dirname(__file__), 'descriptors')
 
 
 class GetToolsTestCase(TestCase):
@@ -59,10 +60,7 @@ class GetToolsTestCase(TestCase):
 class ManagerRunProcessTest(ProcessTestCase):
     def setUp(self):
         super().setUp()
-
-        self._register_schemas(path=[PROCESSES_DIR])
-
-        DescriptorSchema.objects.create(contributor=self.contributor, slug='sample')
+        self._register_schemas(processes_paths=[PROCESSES_DIR], descriptors_paths=[DESCRIPTORS_DIR])
 
     @tag_process('test-min')
     def test_minimal_process(self):

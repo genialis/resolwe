@@ -22,7 +22,7 @@ class TestManager(ProcessTestCase):
 
         self.collection = Collection.objects.create(contributor=self.contributor)
 
-        self._register_schemas(path=[PROCESSES_DIR])
+        self._register_schemas(processes_paths=[PROCESSES_DIR])
 
     def test_create_data(self):
         """Test that manager is run when new object is created."""
