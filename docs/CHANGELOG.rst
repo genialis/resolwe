@@ -6,6 +6,21 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Changed
+-------
+
+Added
+-----
+- Python execution engine
+
+Fixed
+-----
+
+
 ===================
 13.2.0 - 2018-10-23
 ===================
@@ -21,7 +36,6 @@ Added
 
 Added
 -----
-- Python execution engine
 - Use batching for ES index builds
 
 Fixed
