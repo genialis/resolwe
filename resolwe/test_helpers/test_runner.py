@@ -224,10 +224,12 @@ async def _run_on_infrastructure(meth, *args, **kwargs):
                 listener = ExecutorListener(redis_params=redis_params)
                 await listener.clear_queue()
                 async with listener:
-                    with override_settings(FLOW_MANAGER_SYNC_AUTO_CALLS=True):
-                        result = await database_sync_to_async(meth)(*args, **kwargs)
-                    listener.terminate()
-                    return result
+                    try:
+                        with override_settings(FLOW_MANAGER_SYNC_AUTO_CALLS=True):
+                            result = await database_sync_to_async(meth)(*args, **kwargs)
+                        return result
+                    finally:
+                        listener.terminate()
 
 
 def _run_manager(meth, *args, **kwargs):
