@@ -14,7 +14,8 @@ def migrate_flow_collection(apps, schema_editor):
         process.entity_type = process.flow_collection
         process.entity_descriptor_schema = process.flow_collection
 
-        if not DescriptorSchema.objects.filter(slug=process.entity_descriptor_schema).exists():
+        if (process.entity_descriptor_schema is not None and
+                not DescriptorSchema.objects.filter(slug=process.entity_descriptor_schema).exists()):
             raise LookupError(
                 "Descriptow schema '{}' referenced in 'entity_descriptor_schema' not "
                 "found.".format(process.entity_descriptor_schema)
