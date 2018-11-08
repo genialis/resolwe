@@ -8,6 +8,8 @@ Elastic Viewsets
     :members:
 
 """
+from types import MethodType
+
 from elasticsearch_dsl.query import Q
 
 from django.db.models import Case, IntegerField, Value, When
@@ -70,6 +72,12 @@ class ElasticSearchMixin:
             self.filtering_map.update(filtering_map)
             self.ordering_fields = self.ordering_fields + tuple(ordering_fields)
             self.ordering_map.update(ordering_map)
+
+            for field_name in filtering_fields:
+                custom_filter_name = 'custom_filter_{}'.format(field_name)
+                custom_filter = getattr(extension, custom_filter_name, None)
+                if custom_filter:
+                    setattr(self, custom_filter_name, MethodType(custom_filter, self))
 
         super().__init__(*args, **kwargs)
 
