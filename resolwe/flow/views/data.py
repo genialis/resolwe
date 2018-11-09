@@ -42,7 +42,7 @@ class DataViewSet(ElasticSearchCombinedViewSet,
                         'status', 'process', 'process_type', 'type', 'process_name', 'tags', 'collection',
                         'parents', 'children', 'entity', 'started', 'finished', 'text')
     filtering_map = {
-        'name': 'name.ngrams',
+        'name': 'name.raw',
         'contributor': 'contributor_id',
         'owners': 'owner_ids',
         'process_name': 'process_name.ngrams',

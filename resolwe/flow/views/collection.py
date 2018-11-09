@@ -45,7 +45,7 @@ class CollectionViewSet(ElasticSearchCombinedViewSet,
         'id', 'slug', 'name', 'created', 'modified', 'contributor', 'owners', 'text', 'tags',
     )
     filtering_map = {
-        'name': 'name.ngrams',
+        'name': 'name.raw',
         'contributor': 'contributor_id',
         'owners': 'owner_ids',
     }

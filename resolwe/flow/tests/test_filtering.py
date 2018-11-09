@@ -9,7 +9,7 @@ from rest_framework.test import APIRequestFactory, force_authenticate
 
 from resolwe.flow.filters import CollectionFilter, DataFilter, EntityFilter, ProcessFilter
 from resolwe.flow.models import Collection, Data, DataDependency, DescriptorSchema, Entity, Process
-from resolwe.flow.views import DataViewSet
+from resolwe.flow.views import CollectionViewSet, DataViewSet
 from resolwe.test import TestCase
 
 factory = APIRequestFactory()  # pylint: disable=invalid-name
@@ -168,6 +168,7 @@ class DataFilterTestCase(TestCase):
 
 
 class TestDataViewSetFilters(TestCase):
+
     def setUp(self):
         super().setUp()
 
@@ -252,13 +253,10 @@ class TestDataViewSetFilters(TestCase):
 
     def test_filter_name(self):
         self._check_filter({'name': 'Data 1'}, [self.data[1]])
-        self._check_filter({'name': 'data 1'}, [self.data[1]])
+        self._check_filter({'name': 'data 1'}, [])
         self._check_filter({'name': 'Data 2'}, [self.data[2]])
-        self._check_filter({'name': 'Data'}, self.data)
-        self._check_filter({'name': 'data'}, self.data)
-        self._check_filter({'name': 'dat'}, self.data)
-        self._check_filter({'name': 'ata'}, [])
-        self._check_filter({'name': '1'}, [self.data[1]])
+        self._check_filter({'name': 'Data'}, [])
+        self._check_filter({'name': '1'}, [])
 
     def test_filter_contributor(self):
         self._check_filter({'contributor': str(self.contributor.pk)}, self.data)
@@ -500,6 +498,36 @@ class CollectionFilterTestCase(TestCase):
 
     def test_filter_descriptor_schema(self):
         self._apply_filter({'descriptor_schema': self.descriptor_schema_1.pk}, [self.collection_1, self.collection_2])
+
+
+class TestCollectionViewSetFilters(TestCase):
+
+    def setUp(self):
+        super().setUp()
+
+        self.collection_viewset = CollectionViewSet.as_view(actions={
+            'get': 'list',
+        })
+
+        self.collection = Collection.objects.create(
+            name='Test collection 1',
+            contributor=self.contributor,
+        )
+
+    def _check_filter(self, query_args, expected):
+        request = factory.get('/', query_args, format='json')
+        force_authenticate(request, self.admin)
+        response = self.collection_viewset(request)
+        expected = [item.pk for item in expected]
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), len(expected))
+        for item in response.data:
+            self.assertIn(item['id'], expected)
+
+    def test_filter_name(self):
+        self._check_filter({'name': 'Test collection 1'}, [self.collection])
+        self._check_filter({'name': 'Test collection'}, [])
 
 
 class EntityFilterTestCase(TestCase):
