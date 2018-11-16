@@ -327,7 +327,7 @@ class ProcessTestCase(TransactionTestCase):
         # TODO: warning
 
     def run_process(self, process_slug, input_={}, assert_status=Data.STATUS_DONE,
-                    descriptor=None, descriptor_schema=None, verbosity=0):
+                    descriptor=None, descriptor_schema=None, verbosity=0, tags=None):
         """Run the specified process with the given inputs.
 
         If input is a file, file path should be given relative to the
@@ -359,6 +359,9 @@ class ProcessTestCase(TransactionTestCase):
             :class:`~resolwe.flow.models.Data` object
 
         :param dict descriptor_schema: descriptor schema to set on the
+            :class:`~resolwe.flow.models.Data` object
+
+        :param list tags: list of tags that will be added to the created
             :class:`~resolwe.flow.models.Data` object
 
         :return: object created by
@@ -449,6 +452,7 @@ class ProcessTestCase(TransactionTestCase):
             contributor=self.admin,
             process=process,
             slug=get_random_string(length=6),
+            tags=tags or [],
             descriptor_schema=descriptor_schema,
             descriptor=descriptor or {})
         self.collection.data.add(data)

@@ -18,6 +18,8 @@ Added
 - Python execution engine
 - Support multiple entity types
 - Support extending viewsets with custom filter methods
+- Add `tags` attribute to ``ProcessTestCase.run_process`` method which
+  adds listed tag to the created ``Data`` object
 
 Fixed
 -----
