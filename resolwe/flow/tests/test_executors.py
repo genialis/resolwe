@@ -77,13 +77,14 @@ class ManagerRunProcessTest(ProcessTestCase):
 
     @tag_process('test-spawn-new')
     def test_spawn(self):
-        self.run_process('test-spawn-new')
+        self.run_process('test-spawn-new', tags=['test-tag'])
 
         data = Data.objects.last()
         data_dir = settings.FLOW_EXECUTOR['DATA_DIR']
         file_path = os.path.join(data_dir, str(data.pk), 'foo.bar')
         self.assertEqual(data.output['saved_file']['file'], 'foo.bar')
         self.assertTrue(os.path.isfile(file_path))
+        self.assertEqual(data.tags, ['test-tag'])
 
         parent_data = Data.objects.first()
         self.assertEqual(data.parents.count(), 1)
@@ -132,7 +133,7 @@ class ManagerRunProcessTest(ProcessTestCase):
         with transaction.atomic():
             # We need this transaction to delay calling the manager until we've
             # assigned permissions
-            self.run_process('test-workflow-1', {'param1': 'world'})
+            self.run_process('test-workflow-1', {'param1': 'world'}, tags=['test-tag'])
             workflow_data = Data.objects.get(process__slug='test-workflow-1')
 
             assign_perm('view_data', self.contributor, workflow_data)
@@ -149,10 +150,12 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.assertEqual(step1_data.input['param1'], 'world')
         self.assertEqual(step1_data.input['param2'], True)
         self.assertEqual(step1_data.output['out1'], 'hello world')
+        self.assertEqual(step1_data.tags, ['test-tag'])
         self.assertEqual(step2_data.input['param1'], step1_data.pk)
         self.assertEqual(step2_data.input['param2']['a'], step1_data.pk)
         self.assertEqual(step2_data.input['param2']['b'], 'hello')
         self.assertEqual(step2_data.output['out1'], 'simon says: hello world')
+        self.assertEqual(step2_data.tags, ['test-tag'])
 
         self.assertEqual(step1_data.parents.count(), 1)
         self.assertEqual(step1_data.parents.first(), workflow_data)

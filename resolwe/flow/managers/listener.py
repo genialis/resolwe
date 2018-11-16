@@ -391,6 +391,7 @@ class ExecutorListener:
                         for d in obj[ExecutorProtocol.FINISH_SPAWN_PROCESSES]:
                             d['contributor'] = parent_data.contributor
                             d['process'] = Process.objects.filter(slug=d['process']).latest()
+                            d['tags'] = parent_data.tags
 
                             for field_schema, fields in iterate_fields(d.get('input', {}), d['process'].input_schema):
                                 type_ = field_schema['type']

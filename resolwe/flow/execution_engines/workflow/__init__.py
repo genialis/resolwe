@@ -131,6 +131,7 @@ class ExecutionEngine(BaseExecutionEngine):
             data_object = Data.objects.create(
                 process=process,
                 contributor=data.contributor,
+                tags=data.tags,
                 input=data_input,
             )
             DataDependency.objects.create(

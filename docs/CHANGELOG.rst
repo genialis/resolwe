@@ -20,6 +20,8 @@ Added
 - Support extending viewsets with custom filter methods
 - Add `tags` attribute to ``ProcessTestCase.run_process`` method which
   adds listed tag to the created ``Data`` object
+- Copy ``Data`` objects tags from parent objects for spawned ``Data``
+  objects and ``Data`` objects created by workflows
 
 Fixed
 -----
