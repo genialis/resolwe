@@ -6,12 +6,13 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+===================
+13.3.0 - 2018-11-20
+===================
 
 Changed
 -------
+- Switch channels_redis dependency to upstream version
 
 Added
 -----
@@ -25,6 +26,12 @@ Added
 
 Fixed
 -----
+- Fix manager shutdown in the test runner. If an unrecoverable exception
+  occurred while running a test, and never got caught (e.g. an unpicklable
+  exception in a parallel test worker), the listener would not get terminated
+  properly, leading to a hang.
+- Data and collection name API filters were fixed to work as expected (ngrams
+  was switched to raw).
 
 
 ===================
