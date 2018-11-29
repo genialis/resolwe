@@ -5,6 +5,7 @@
 
 """
 # pylint: disable=logging-format-interpolation
+import asyncio
 import json
 import logging
 import os
@@ -18,6 +19,8 @@ from ..global_settings import PROCESS_META, SETTINGS
 from ..local.run import FlowExecutor as LocalFlowExecutor
 from ..protocol import ExecutorFiles
 from .seccomp import SECCOMP_POLICY
+
+DOCKER_START_TIMEOUT = 30
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
@@ -234,13 +237,28 @@ class FlowExecutor(LocalFlowExecutor):
             stderr=subprocess.STDOUT
         )
 
-        # Wait for Docker container to start to avoid blocking the code that uses it.
-        self.proc.stdin.write(('echo PING' + os.linesep).encode('utf-8'))
-        await self.proc.stdin.drain()
-        while True:
-            line = await self.proc.stdout.readline()
-            if line.rstrip() == b'PING':
-                break
+        stdout = []
+
+        async def wait_for_container():
+            """Wait for Docker container to start to avoid blocking the code that uses it."""
+            self.proc.stdin.write(('echo PING' + os.linesep).encode('utf-8'))
+            await self.proc.stdin.drain()
+            while True:
+                line = await self.proc.stdout.readline()
+                stdout.append(line)
+                if line.rstrip() == b'PING':
+                    break
+                if self.proc.stdout.at_eof():
+                    raise RuntimeError()
+
+        try:
+            await asyncio.wait_for(wait_for_container(), timeout=DOCKER_START_TIMEOUT)
+        except (asyncio.TimeoutError, RuntimeError):
+            error_msg = "Docker container has not started for {} seconds.".format(DOCKER_START_TIMEOUT)
+            stdout = ''.join([line.decode('utf-8') for line in stdout if line])
+            if stdout:
+                error_msg = '\n'.join([error_msg, stdout])
+            raise RuntimeError(error_msg)
 
         end_time = time.time()
         logger.info("It took {:.2f}s for Docker container to start".format(end_time - start_time))

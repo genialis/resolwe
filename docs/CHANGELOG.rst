@@ -6,6 +6,16 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Added
+-----
+- Raise an exception in Docker executor if container doesn't start for 30
+  seconds
+
+
 ===================
 13.3.0 - 2018-11-20
 ===================
