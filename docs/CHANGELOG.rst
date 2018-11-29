@@ -15,6 +15,11 @@ Added
 - Raise an exception in Docker executor if container doesn't start for 30
   seconds
 
+Fixed
+-----
+- Process SIGTERM signal in executor as expected - set the Data status to
+  error and set the process_error field
+
 
 ===================
 13.3.0 - 2018-11-20

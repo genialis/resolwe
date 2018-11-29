@@ -54,16 +54,18 @@ class BaseFlowExecutor:
         self.requirements = {}
         self.resources = {}
 
-        asyncio.get_event_loop().add_signal_handler(signal.SIGTERM, self._exit_gracefully)
+        asyncio.get_event_loop().add_signal_handler(
+            signal.SIGTERM, lambda: asyncio.ensure_future(self._exit_gracefully())
+        )
 
-    def _exit_gracefully(self):
+    async def _exit_gracefully(self):
         """Handle SIGTERM signal."""
-        self.update_data_status(
+        await self.update_data_status(
             process_error=["Executor was killed by the scheduling system."],
             status=DATA_META['STATUS_ERROR'],
         )
 
-        self.terminate()
+        await self.terminate()
 
     async def _send_manager_command(self, *args, **kwargs):
         """Send an update to manager and terminate the process if it fails."""
