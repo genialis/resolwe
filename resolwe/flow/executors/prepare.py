@@ -101,3 +101,7 @@ class BaseFlowExecutorPreparer:
             return settings.FLOW_EXECUTOR['UPLOAD_DIR']
 
         return os.path.join(settings.FLOW_EXECUTOR['UPLOAD_DIR'], filename)
+
+    def get_environment_variables(self):
+        """Return dict of environment variables that will be added to executor."""
+        return {}

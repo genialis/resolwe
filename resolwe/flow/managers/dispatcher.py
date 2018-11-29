@@ -343,13 +343,14 @@ class Manager:
                 result[key] = getattr(settings, key)
         return result
 
-    def _include_environment_variables(self, program):
+    def _include_environment_variables(self, program, executor_vars):
         """Define environment variables."""
         env_vars = {
             'RESOLWE_HOST_URL': self.settings_actual.get('RESOLWE_HOST_URL', 'localhost'),
         }
 
         set_env = self.settings_actual.get('FLOW_EXECUTOR', {}).get('SET_ENV', {})
+        env_vars.update(executor_vars)
         env_vars.update(set_env)
 
         export_commands = ['export {}={}'.format(key, shlex.quote(value)) for key, value in env_vars.items()]
@@ -698,7 +699,8 @@ class Manager:
 
         # Prepare the executor's environment.
         try:
-            program = self._include_environment_variables(program)
+            executor_env_vars = self.get_executor().get_environment_variables()
+            program = self._include_environment_variables(program, executor_env_vars)
             data_dir = self._prepare_data_dir(data.id)
             executor_module, runtime_dir = self._prepare_executor(data.id, executor)
 
