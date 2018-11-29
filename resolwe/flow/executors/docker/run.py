@@ -200,6 +200,22 @@ class FlowExecutor(LocalFlowExecutor):
         # A non-login Bash shell should be used here (a subshell will be spawned later).
         command_args['shell'] = '/bin/bash'
 
+        pull_command = '{command} pull {container_image}'.format(**command_args)
+
+        logger.info("Pulling docker image: {}".format(command_args['container_image']))
+
+        pull_proc = await subprocess.create_subprocess_exec(  # pylint: disable=no-member
+            *shlex.split(pull_command),
+            stderr=subprocess.PIPE
+        )
+        _, stderr = await pull_proc.communicate()
+
+        if pull_proc.returncode != 0:
+            error_msg = "Docker failed to pull {} image.".format(command_args['container_image'])
+            if stderr:
+                error_msg = '\n'.join([error_msg, stderr.decode('utf-8')])
+            raise RuntimeError(error_msg)
+
         docker_command = (
             '{command} run --rm --interactive {container_name} {network} {volumes} {limits} '
             '{security} {workdir} {user} {container_image} {shell}'.format(**command_args)
