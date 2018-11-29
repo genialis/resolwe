@@ -101,7 +101,11 @@ class PurgeE2ETest(PurgeTestFieldsMixin, ProcessTestCase):
             **processor
         )
 
-        return self.run_process(processor_slug, **kwargs)
+        data = self.run_process(processor_slug, **kwargs)
+        # Purge is normally called in an async worker, so we have to emulate the call.
+        purge.data_purge(data_ids=[data.id], delete=True)
+
+        return data
 
     def assertFilesRemoved(self, data, *files):  # pylint: disable=invalid-name
         for name in files:

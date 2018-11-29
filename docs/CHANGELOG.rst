@@ -10,6 +10,11 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Changed
+-------
+- **BACKWARD INCOMPATIBLE:** Run data purge in a separate worker to make sure
+  that listener replies to the executor within 60 seconds
+
 Added
 -----
 - Raise an exception in Docker executor if container doesn't start for 30

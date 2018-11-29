@@ -22,6 +22,7 @@ import traceback
 import aioredis
 from asgiref.sync import async_to_sync
 from channels.db import database_sync_to_async
+from channels.layers import get_channel_layer
 
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
@@ -33,8 +34,8 @@ from django.urls import reverse
 from django_priority_batch import PrioritizedBatcher
 
 from resolwe.flow.models import Data, DataDependency, Entity, Process
+from resolwe.flow.protocol import CHANNEL_PURGE_WORKER, TYPE_PURGE_RUN
 from resolwe.flow.utils import dict_dot, iterate_fields, stats
-from resolwe.flow.utils.purge import data_purge
 from resolwe.permissions.utils import copy_permissions
 from resolwe.test.utils import is_testing
 from resolwe.utils import BraceMessage as __
@@ -475,16 +476,15 @@ class ExecutorListener:
                 self.handle_update(obj, internal_call=True)
 
                 if not getattr(settings, 'FLOW_MANAGER_KEEP_DATA', False):
-                    try:
-                        # Clean up after process
-                        data_purge(data_ids=[data_id], delete=True, verbosity=self._verbosity)
-                    except Exception:  # pylint: disable=broad-except
-                        logger.error(
-                            __("Purge error:\n\n{}", traceback.format_exc()),
-                            extra={
-                                'data_id': data_id
-                            }
-                        )
+                    channel_layer = get_channel_layer()
+                    async_to_sync(channel_layer.send)(
+                        CHANNEL_PURGE_WORKER,
+                        {
+                            'type': TYPE_PURGE_RUN,
+                            'data_id': data_id,
+                            'verbosity': self._verbosity,
+                        }
+                    )
 
         # Notify the executor that we're done.
         async_to_sync(self._send_reply)(obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK})
