@@ -209,6 +209,7 @@ class FlowExecutor(LocalFlowExecutor):
 
         pull_proc = await subprocess.create_subprocess_exec(  # pylint: disable=no-member
             *shlex.split(pull_command),
+            stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
         )
         _, stderr = await pull_proc.communicate()
