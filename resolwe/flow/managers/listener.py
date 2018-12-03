@@ -22,6 +22,7 @@ import traceback
 import aioredis
 from asgiref.sync import async_to_sync
 from channels.db import database_sync_to_async
+from channels.exceptions import ChannelFull
 from channels.layers import get_channel_layer
 
 from django.conf import settings
@@ -477,14 +478,20 @@ class ExecutorListener:
 
                 if not getattr(settings, 'FLOW_MANAGER_KEEP_DATA', False):
                     channel_layer = get_channel_layer()
-                    async_to_sync(channel_layer.send)(
-                        CHANNEL_PURGE_WORKER,
-                        {
-                            'type': TYPE_PURGE_RUN,
-                            'data_id': data_id,
-                            'verbosity': self._verbosity,
-                        }
-                    )
+                    try:
+                        async_to_sync(channel_layer.send)(
+                            CHANNEL_PURGE_WORKER,
+                            {
+                                'type': TYPE_PURGE_RUN,
+                                'data_id': data_id,
+                                'verbosity': self._verbosity,
+                            }
+                        )
+                    except ChannelFull:
+                        logger.warning(
+                            "Cannot triger purge because channel is full.",
+                            extra={'data_id': data_id}
+                        )
 
         # Notify the executor that we're done.
         async_to_sync(self._send_reply)(obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK})
