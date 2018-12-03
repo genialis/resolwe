@@ -26,7 +26,7 @@ from django.utils.crypto import get_random_string
 from django.utils.text import slugify
 
 from resolwe.flow.models import Collection, Data, DescriptorSchema, Process, Storage
-from resolwe.flow.utils import dict_dot, iterate_fields, iterate_schema
+from resolwe.flow.utils import dict_dot, iterate_fields, iterate_schema, purge
 from resolwe.test import TransactionTestCase
 
 from ..utils import get_processes_from_tags, has_process_tag
@@ -466,6 +466,9 @@ class ProcessTestCase(TransactionTestCase):
                 # until after the block. Therefore the expected status is resolving.
                 assert_status = Data.STATUS_RESOLVING
             self.assertStatus(data, assert_status)
+
+        # Purge is normally called in an async worker, so we have to emulate the call.
+        purge.data_purge(data_ids=[data.id], delete=True)
 
         return data
 
