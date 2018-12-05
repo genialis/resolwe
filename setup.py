@@ -53,6 +53,9 @@ setuptools.setup(
         'wrapt>=1.10.8',
         'shellescape>=3.4.1',
         'asteval~=0.9.12',
+        # XXX: Temporarily pin idna since the latest version of the requests
+        # package (2.20.1) explicitly requires idna>=2.5,<2.8
+        'idna==2.7',
         # XXX: djangorestframework-filters has too open requirement for
         # django-filter and doesn't work with the latest version, so we
         # have to pin it
