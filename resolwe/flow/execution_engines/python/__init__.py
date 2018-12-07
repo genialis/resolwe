@@ -72,8 +72,19 @@ class ExecutionEngine(BaseExecutionEngine):
         hydrate_input_references(inputs, data.process.input_schema)
         hydrate_input_uploads(inputs, data.process.input_schema)
         inputs_path = os.path.join(runtime_dir, PYTHON_INPUTS_FILENAME)
+
+        # XXX: Skip serialization of LazyStorageJSON. We should support
+        # LazyStorageJSON in Python processes on the new communication protocol
+        def default(obj):
+            """Get default value."""
+            class_name = obj.__class__.__name__
+            if class_name == 'LazyStorageJSON':
+                return ''
+
+            raise TypeError(f'Object of type {class_name} is not JSON serializable')
+
         with open(inputs_path, 'w') as file:
-            json.dump(inputs, file)
+            json.dump(inputs, file, default=default)
 
         # Generate volume maps required to expose needed files.
         volume_maps = {

@@ -309,3 +309,13 @@ class ManagerRunProcessTest(ProcessTestCase):
             }
         })
         self.assertEqual(data.output['my_output'], 'OK')
+
+    @with_docker_executor
+    @tag_process('test-python-process-json')
+    def test_python_process_json(self):
+        with self.preparation_stage():
+            input_data = self.run_process('test-output-json')
+
+        self.run_process('test-python-process-json', {
+            'data': input_data.pk,
+        })
