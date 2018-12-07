@@ -22,9 +22,11 @@ if __name__ == '__main__':
     # Switch to target directory to import the module.
     try:
         filename = os.path.realpath(args.filename)
+        start_dir = os.getcwd()
         os.chdir(os.path.dirname(filename))
         module, _ = os.path.splitext(os.path.basename(filename))
         module = import_module(module, __package__)
+        os.chdir(start_dir)
     except (OSError, ImportError):
         print("ERROR: Failed to load Python process from '{}'.".format(args.filename))
         sys.exit(1)
