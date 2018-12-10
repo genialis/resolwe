@@ -1,7 +1,7 @@
 # pylint: disable=missing-docstring
 import os
 
-from resolwe.flow.models import Entity, Process, Storage
+from resolwe.flow.models import Entity, Process
 from resolwe.test import ProcessTestCase, tag_process, with_docker_executor
 
 PROCESSES_DIR = os.path.join(os.path.dirname(__file__), 'processes')
@@ -51,10 +51,9 @@ class PythonProcessTest(ProcessTestCase):
             input_data.name = "bar"
             input_data.save()
 
-            storage = Storage.objects.create(
+            storage = input_data.storages.create(
                 name="storage",
                 contributor=self.user,
-                data_id=input_data.pk,
                 json={'value': 42}
             )
 

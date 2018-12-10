@@ -10,7 +10,7 @@ from guardian.shortcuts import assign_perm, get_objects_for_group, remove_perm
 from rest_framework import status
 from rest_framework.test import APIRequestFactory, force_authenticate
 
-from resolwe.flow.models import Collection, Data, Process, Storage
+from resolwe.flow.models import Collection, Data, Process
 from resolwe.flow.views import StorageViewSet
 from resolwe.permissions.shortcuts import get_object_perms, get_objects_for_user, get_user_group_perms
 from resolwe.test import TestCase
@@ -187,24 +187,21 @@ class StoragePermsTestCase(TestCase):
         self.data = Data.objects.create(name='Test data', contributor=self.contributor, process=proc)
         dummy_data = Data.objects.create(name='Dummy data', contributor=self.contributor, process=proc)
 
-        self.storage1 = Storage.objects.create(
+        self.storage1 = self.data.storages.create(
             name='Test storage',
             json={},
-            data=self.data,
             contributor=self.contributor,
         )
 
-        self.storage2 = Storage.objects.create(
+        self.storage2 = self.data.storages.create(
             name='Test storage 2',
             json={},
-            data=self.data,
             contributor=self.contributor,
         )
 
-        Storage.objects.create(
+        dummy_data.storages.create(
             name='Dummy storage',
             json={},
-            data=dummy_data,
             contributor=self.contributor,
         )
 

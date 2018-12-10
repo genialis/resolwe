@@ -14,6 +14,7 @@ Changed
 -------
 - Purge processes only not jet purged Data objects
 - Log plumbum commands to standard output
+- Change storage data relation from many-to-one to many-to-many
 
 Added
 -----

@@ -244,10 +244,9 @@ class Data(BaseModel):
                                     "Value of '{}' must be a valid JSON, current: {}".format(name, content)
                                 )
 
-                storage = Storage.objects.create(
+                storage = self.storages.create(  # pylint: disable=no-member
                     name='Storage for data id {}'.format(self.pk),
                     contributor=self.contributor,
-                    data_id=self.pk,
                     json=value,
                 )
 
@@ -448,6 +447,15 @@ class Data(BaseModel):
             if create:
                 self.save_dependencies(self.input, self.process.input_schema)  # pylint: disable=no-member
                 self.create_entity()
+
+    def delete(self, *args, **kwargs):
+        """Delete the data model."""
+        # Store ids in memory as relations are also deleted with the Data object.
+        storage_ids = list(self.storages.values_list('pk', flat=True))  # pylint: disable=no-member
+
+        super().delete(*args, **kwargs)
+
+        Storage.objects.filter(pk__in=storage_ids, data=None).delete()
 
     def _render_name(self):
         """Render data name.

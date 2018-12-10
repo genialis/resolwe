@@ -37,8 +37,8 @@ class StorageManager(models.Manager):
 class Storage(BaseModel):
     """Postgres model for storing storages."""
 
-    #: corresponding data object
-    data = models.ForeignKey('Data', on_delete=models.CASCADE)
+    #: corresponding data objects
+    data = models.ManyToManyField('Data', related_name='storages')
 
     #: actual JSON stored
     json = JSONField()

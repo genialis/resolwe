@@ -9,7 +9,7 @@ import logging
 import os
 import shutil
 
-from resolwe.flow.models import Data, DataLocation
+from resolwe.flow.models import Data, DataLocation, Storage
 from resolwe.flow.utils import iterate_fields
 from resolwe.utils import BraceMessage as __
 
@@ -168,6 +168,23 @@ def _location_purge_all(delete=False, verbosity=0):
         logger.info("No data locations")
 
 
+def _storage_purge_all(delete=False, verbosity=0):
+    """Purge unreferenced storages."""
+    orphaned_storages = Storage.objects.filter(data=None)
+
+    if verbosity >= 1:
+        if orphaned_storages.exists():
+            logger.info(__("Unreferenced storages ({}):", orphaned_storages.count()))
+            for storage_id in orphaned_storages.values_list('id', flat=True):
+                logger.info(__("  {}", storage_id))
+        else:
+            logger.info("No unreferenced storages")
+
+    if delete:
+        orphaned_storages.delete()
+
+
 def purge_all(delete=False, verbosity=0):
     """Purge all data locations."""
     _location_purge_all(delete, verbosity)
+    _storage_purge_all(delete, verbosity)

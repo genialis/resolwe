@@ -14,7 +14,7 @@ from django.test import override_settings
 from django.utils.crypto import get_random_string
 
 from resolwe.flow.managers.utils import disable_auto_calls
-from resolwe.flow.models import Data, DataLocation, DescriptorSchema, Process
+from resolwe.flow.models import Data, DataLocation, DescriptorSchema, Process, Storage
 from resolwe.flow.utils import purge
 from resolwe.test import ProcessTestCase
 
@@ -504,3 +504,18 @@ class PurgeUnitTest(PurgeTestFieldsMixin, ProcessTestCase):
             purge.purge_all(delete=True)
             rmtree_mock.assert_called_once_with(
                 os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], subpath))
+
+    # This patch is required so that the manager is not invoked while saving Data.
+    @disable_auto_calls()
+    def test_remove_storage(self):
+        Storage.objects.create(contributor=self.user, json={})
+        Storage.objects.create(contributor=self.user, json={})
+
+        data = Data.objects.create(**self.data)
+        data.storages.add(Storage.objects.create(contributor=self.user, json={}))
+
+        purge._storage_purge_all()  # pylint: disable=protected-access
+        self.assertEqual(Storage.objects.count(), 3)
+
+        purge._storage_purge_all(delete=True)  # pylint: disable=protected-access
+        self.assertEqual(Storage.objects.count(), 1)

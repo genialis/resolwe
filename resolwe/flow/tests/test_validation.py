@@ -4,7 +4,7 @@ from mock import MagicMock, patch
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 
-from resolwe.flow.models import Collection, Data, DataLocation, DescriptorSchema, Entity, Process, Storage
+from resolwe.flow.models import Collection, Data, DataLocation, DescriptorSchema, Entity, Process
 from resolwe.flow.models.utils import validate_schema
 from resolwe.test import TestCase
 
@@ -165,13 +165,13 @@ class ValidationTest(TestCase):
         with self.assertRaisesRegex(ValidationError, '`Storage` object does not exist'):
             d.save()
 
-        storage = Storage.objects.create(
+        d.storages.create(
             name="storage",
             contributor=self.user,
-            data_id=d.pk,
             json={'value': 42}
         )
-        d.output = {'big_result': storage.pk}
+        self.assertEqual(d.storages.count(), 1)
+        d.output = {'big_result': d.storages.first().id}
         d.save()
 
     def test_referenced_data(self):

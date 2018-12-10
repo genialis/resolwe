@@ -11,13 +11,13 @@ from resolwe.flow.utils.purge import purge_all
 
 
 class Command(BaseCommand):
-    """Purge files with no reference in Data objects."""
+    """Purge files with no reference in Data objects, and orphaned storages."""
 
-    help = "Purge files with no reference in Data objects."
+    help = "Purge files with no reference in Data objects, and orphaned storages."
 
     def add_arguments(self, parser):
         """Command arguments."""
-        parser.add_argument('-f', '--force', action='store_true', help="Delete unreferenced files")
+        parser.add_argument('-f', '--force', action='store_true', help="Delete unreferenced files and storages")
 
     def handle(self, *args, **options):
         """Call :func:`~resolwe.flow.utils.purge.purge_all`."""

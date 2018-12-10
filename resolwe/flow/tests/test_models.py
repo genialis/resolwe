@@ -697,21 +697,31 @@ class StorageModelTestCase(TestCase):
         self.assertEqual(storage.json, {'foo': 'bar'})
 
     def test_delete_data(self):
-        """`Storage` is deleted when `Data` object is deleted"""
-        data = Data.objects.create(
-            name='Test data',
-            contributor=self.contributor,
-            process=self.proc,
-        )
+        """Orphaned storages are deleted when data object is deleted"""
+        storage_referenced_by_both = Storage.objects.create(contributor=self.user, json={})
 
-        data.output = {'json_field': {'foo': 'bar'}}
-        data.status = Data.STATUS_DONE
-        data.save()
+        data_1 = Data.objects.create(contributor=self.contributor, process=self.proc)
+        data_1.storages.create(contributor=self.user, json={})
+        data_1.storages.add(storage_referenced_by_both)
 
+        data_2 = Data.objects.create(contributor=self.contributor, process=self.proc)
+        data_2.storages.add(storage_referenced_by_both)
+        data_2.save()
+
+        Storage.objects.create(contributor=self.user, json={})
+
+        self.assertEqual(Data.objects.count(), 2)
+        self.assertEqual(Storage.objects.count(), 3)
+
+        # Delete first object.
+        data_1.delete()
+        self.assertEqual(Data.objects.count(), 1)
+        self.assertEqual(Storage.objects.count(), 2)
+
+        # Delete second object.
+        data_2.delete()
+        self.assertEqual(Data.objects.count(), 0)
         self.assertEqual(Storage.objects.count(), 1)
-
-        data.delete()
-        self.assertEqual(Storage.objects.count(), 0)
 
     def test_storage_manager(self):
         data = Data.objects.create(
