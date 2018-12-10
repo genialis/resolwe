@@ -389,46 +389,50 @@ class ExecutorListener:
                     with transaction.atomic():
                         parent_data = Data.objects.get(pk=data_id)
 
-                        # Spawn processes.
-                        for d in obj[ExecutorProtocol.FINISH_SPAWN_PROCESSES]:
-                            d['contributor'] = parent_data.contributor
-                            d['process'] = Process.objects.filter(slug=d['process']).latest()
-                            d['tags'] = parent_data.tags
+                        with PrioritizedBatcher.global_instance():
+                            # Spawn processes.
+                            for d in obj[ExecutorProtocol.FINISH_SPAWN_PROCESSES]:
+                                d['contributor'] = parent_data.contributor
+                                d['process'] = Process.objects.filter(slug=d['process']).latest()
+                                d['tags'] = parent_data.tags
 
-                            for field_schema, fields in iterate_fields(d.get('input', {}), d['process'].input_schema):
-                                type_ = field_schema['type']
-                                name = field_schema['name']
-                                value = fields[name]
+                                input_schema = d['process'].input_schema
+                                for field_schema, fields in iterate_fields(d.get('input', {}), input_schema):
+                                    type_ = field_schema['type']
+                                    name = field_schema['name']
+                                    value = fields[name]
 
-                                if type_ == 'basic:file:':
-                                    fields[name] = self.hydrate_spawned_files(exported_files_mapper, value, data_id)
-                                elif type_ == 'list:basic:file:':
-                                    fields[name] = [self.hydrate_spawned_files(exported_files_mapper, fn, data_id)
-                                                    for fn in value]
+                                    if type_ == 'basic:file:':
+                                        fields[name] = self.hydrate_spawned_files(
+                                            exported_files_mapper, value, data_id
+                                        )
+                                    elif type_ == 'list:basic:file:':
+                                        fields[name] = [self.hydrate_spawned_files(exported_files_mapper, fn, data_id)
+                                                        for fn in value]
 
-                            with transaction.atomic():
-                                d = Data.objects.create(**d)
-                                DataDependency.objects.create(
-                                    parent=parent_data,
-                                    child=d,
-                                    kind=DataDependency.KIND_SUBPROCESS,
-                                )
+                                with transaction.atomic():
+                                    d = Data.objects.create(**d)
+                                    DataDependency.objects.create(
+                                        parent=parent_data,
+                                        child=d,
+                                        kind=DataDependency.KIND_SUBPROCESS,
+                                    )
 
-                                # Copy permissions.
-                                copy_permissions(parent_data, d)
+                                    # Copy permissions.
+                                    copy_permissions(parent_data, d)
 
-                                # Entity is added to the collection only when it is
-                                # created - when it only contains 1 Data object.
-                                entities = Entity.objects.filter(data=d).annotate(num_data=Count('data')).filter(
-                                    num_data=1)
+                                    # Entity is added to the collection only when it is
+                                    # created - when it only contains 1 Data object.
+                                    entities = Entity.objects.filter(data=d).annotate(num_data=Count('data')).filter(
+                                        num_data=1)
 
-                                # Copy collections.
-                                for collection in parent_data.collection_set.all():
-                                    collection.data.add(d)
+                                    # Copy collections.
+                                    for collection in parent_data.collection_set.all():
+                                        collection.data.add(d)
 
-                                    # Add entities to which data belongs to the collection.
-                                    for entity in entities:
-                                        entity.collections.add(collection)
+                                        # Add entities to which data belongs to the collection.
+                                        for entity in entities:
+                                            entity.collections.add(collection)
 
                 except Exception:  # pylint: disable=broad-except
                     logger.error(

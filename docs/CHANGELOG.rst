@@ -14,6 +14,7 @@ Changed
 -------
 - **BACKWARD INCOMPATIBLE:** Run data purge in a separate worker to make sure
   that listener replies to the executor within 60 seconds
+- Use batcher for spawned processes in listener
 
 Added
 -----
