@@ -20,7 +20,7 @@ from ..local.run import FlowExecutor as LocalFlowExecutor
 from ..protocol import ExecutorFiles
 from .seccomp import SECCOMP_POLICY
 
-DOCKER_START_TIMEOUT = 30
+DOCKER_START_TIMEOUT = 60
 
 # We add this much to the memory limit to make sure process will remain
 # stable and won't be killed by OOM signal even when living on the edge.

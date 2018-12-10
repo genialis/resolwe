@@ -20,7 +20,7 @@ Changed
 
 Added
 -----
-- Raise an exception in Docker executor if container doesn't start for 30
+- Raise an exception in Docker executor if container doesn't start for 60
   seconds
 - Set ``TMPDIR`` environment variable in Docker executor to ``.tmp`` dir in
   data directory to prevent filling up container's local storage
