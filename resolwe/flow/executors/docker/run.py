@@ -22,6 +22,10 @@ from .seccomp import SECCOMP_POLICY
 
 DOCKER_START_TIMEOUT = 30
 
+# We add this much to the memory limit to make sure process will remain
+# stable and won't be killed by OOM signal even when living on the edge.
+DOCKER_MEMORY_OVERHEAD = 100
+
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
@@ -60,7 +64,7 @@ class FlowExecutor(LocalFlowExecutor):
         # is 1024 shares (we don't need to explicitly set that).
         limits.append('--cpu-shares={}'.format(int(self.process['resource_limits']['cores']) * 1024))
 
-        memory = self.process['resource_limits']['memory']
+        memory = self.process['resource_limits']['memory'] + DOCKER_MEMORY_OVERHEAD
 
         # Set both memory and swap limits as we want to enforce the total amount of memory
         # used (otherwise swap would not count against the limit).
