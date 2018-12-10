@@ -82,6 +82,8 @@ PROCESS_METADATA = {
     'category': StaticStringMetadata(),
     'scheduling_class': StaticEnumMetadata(choices=SchedulingClass),
     'requirements': StaticDictMetadata(),
+    'data_name': StaticStringMetadata(),
+    'entity': StaticDictMetadata(),
 }
 
 

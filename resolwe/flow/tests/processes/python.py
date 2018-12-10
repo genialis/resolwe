@@ -9,7 +9,10 @@ class PythonProcess(Process):
     version = '0.1.2'
     category = 'analyses'
     scheduling_class = SchedulingClass.BATCH
+    data_name = "Foo: {{input_data | name}}"
+    entity = {'type': 'sample'}
     requirements = {
+        'expression-engine': 'jinja',
         'executor': {
             'docker': {
                 'image': 'resolwe/base:ubuntu-18.04',
@@ -37,6 +40,8 @@ class PythonProcess(Process):
 
     class Output:
         my_output = StringField(label="My output")
+        file_output = FileField(label="My output")
+        dir_output = DirField(label="My output")
 
     def run(self, inputs, outputs):
         print('All inputs are:', inputs)
@@ -50,5 +55,10 @@ class PythonProcess(Process):
 
         bar = Cmd['ls']['-l', '-a', '/'] | Cmd['grep']['python']
         print('hello world:\n', bar())
+
+        cmd = Cmd['mkdir']['test']()
+        cmd = (Cmd['echo']['"Some content"'] > 'test/testfile.txt')()
+        outputs.file_output = 'test/testfile.txt'
+        outputs.dir_output = 'test/'
 
         outputs.my_output = 'OK'

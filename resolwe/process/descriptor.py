@@ -38,6 +38,7 @@ class ProcessDescriptor:
         scheduling_class = None
         requirements = None
         data_name = None
+        entity = None
 
         def __repr__(self):
             """Return string representation."""
@@ -93,6 +94,8 @@ class ProcessDescriptor:
             schema['requirements'] = self.metadata.requirements
         if self.metadata.data_name is not None:
             schema['data_name'] = self.metadata.data_name
+        if self.metadata.entity is not None:
+            schema['entity'] = self.metadata.entity
 
         if self.inputs:
             schema['input'] = []

@@ -13,7 +13,7 @@ from guardian.shortcuts import assign_perm
 
 from resolwe.flow.executors.prepare import BaseFlowExecutorPreparer
 from resolwe.flow.managers import manager
-from resolwe.flow.models import Collection, Data, DataDependency, Process, Storage
+from resolwe.flow.models import Collection, Data, DataDependency, DescriptorSchema, Entity, Process, Storage
 from resolwe.test import ProcessTestCase, TestCase, tag_process, with_docker_executor, with_null_executor
 
 # Workaround for false positive warnings in pylint.
@@ -286,12 +286,20 @@ class ManagerRunProcessTest(ProcessTestCase):
     def test_python_process(self):
         with self.preparation_stage():
             input_data = self.run_process('test-save-number', {'number': 19})
+            input_data.name = "bar"
+            input_data.save()
 
             storage = Storage.objects.create(
                 name="storage",
                 contributor=self.user,
                 data_id=input_data.pk,
                 json={'value': 42}
+            )
+
+            DescriptorSchema.objects.create(
+                slug='sample',
+                version='1.0.0',
+                contributor=self.user,
             )
 
         data = self.run_process('test-python-process', {
@@ -308,7 +316,24 @@ class ManagerRunProcessTest(ProcessTestCase):
                 'foo': 21,
             }
         })
+
+        self.assertEqual(data.process.type, 'data:python:')
+        self.assertEqual(data.process.version, '0.1.2')
+        self.assertEqual(data.process.category, 'analyses:')
+        self.assertEqual(data.process.scheduling_class, Process.SCHEDULING_CLASS_BATCH)
+
         self.assertEqual(data.output['my_output'], 'OK')
+        del data.output['file_output']['size']  # Non-deterministic output.
+        del data.output['file_output']['total_size']  # Non-deterministic output.
+        self.assertEqual(data.output['file_output'], {'file': 'test/testfile.txt'})
+        del data.output['dir_output']['size']  # Non-deterministic output.
+        del data.output['dir_output']['total_size']  # Non-deterministic output.
+        self.assertEqual(data.output['dir_output'], {'dir': 'test/'})
+
+        self.assertEqual(data.name, 'Foo: bar')
+
+        entity = Entity.objects.get(data=data)
+        self.assertEqual(entity.data.first(), data)
 
     @with_docker_executor
     @tag_process('test-python-process-json')
