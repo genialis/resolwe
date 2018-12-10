@@ -65,6 +65,7 @@ setuptools.setup(
         'channels_redis~=2.3',
         'async-timeout~=2.0',
         'plumbum~=1.6.6',
+        'resolwe-runtime-utils>=1.2.0',
     ],
     extras_require={
         'docs': ['sphinx_rtd_theme'],
@@ -76,7 +77,6 @@ setuptools.setup(
             'pydocstyle~=2.1.1',
             'pylint~=1.9.1',
             'readme_renderer',
-            'resolwe-runtime-utils>=1.1.0',
             'setuptools_scm',
             'testfixtures>=4.10.0',
             'tblib>=1.3.0',
