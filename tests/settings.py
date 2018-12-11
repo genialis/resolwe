@@ -173,6 +173,7 @@ FLOW_DOCKER_VOLUME_EXTRA_OPTIONS = {
     'secrets': 'Z',
     'users': 'Z',
     'tools': 'z',
+    'runtime': 'Z',
 }
 
 FLOW_DOCKER_EXTRA_VOLUMES = []
