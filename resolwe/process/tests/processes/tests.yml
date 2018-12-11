@@ -1,0 +1,31 @@
+- slug: test-output-json
+  name: Test output JSON
+  version: 1.0.0
+  type: "data:test"
+  output:
+    - name: storage
+      label: Storage
+      type: basic:json
+  run:
+    program: |
+      echo '{"foo":"bar"}' > storage.json
+      re-save storage storage.json
+
+- slug: test-save-number
+  name: Save number
+  version: 1.0.0
+  type: "data:test:save"
+  requirements:
+    expression-engine: jinja
+  input:
+    - name: number
+      label: Number
+      type: basic:integer
+  output:
+    - name: number
+      label: Number
+      required: false
+      type: basic:integer
+  run:
+    program: |
+      re-save number {{ number }}

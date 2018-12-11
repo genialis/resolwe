@@ -5,12 +5,16 @@ class PythonProcess(Process):
     """This is a process description."""
     slug = 'test-python-process'
     name = "Test Python Process"
-    process_type = 'data:python'
     version = '0.1.2'
+    process_type = 'data:python'
     category = 'analyses'
     scheduling_class = SchedulingClass.BATCH
     data_name = "Foo: {{input_data | name}}"
-    entity = {'type': 'sample'}
+    entity = {
+        'type': 'sample',
+        'descriptor_schema': 'sample',
+        'input': 'input_data',
+    }
     requirements = {
         'expression-engine': 'jinja',
         'executor': {

@@ -477,19 +477,6 @@
   run:
     program: "true"
 
-- slug: test-output-json
-  name: Test invalide storage file
-  version: 1.0.0
-  type: "data:test"
-  output:
-    - name: storage
-      label: Storage
-      type: basic:json
-  run:
-    program: |
-      echo '{"foo":"bar"}' > storage.json
-      re-save storage storage.json
-
 - slug: test-broken-invalide-storage
   name: Test invalide storage file
   version: 1.0.0
