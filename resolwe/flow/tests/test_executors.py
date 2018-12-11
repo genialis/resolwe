@@ -80,8 +80,7 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.run_process('test-spawn-new', tags=['test-tag'])
 
         data = Data.objects.last()
-        data_dir = settings.FLOW_EXECUTOR['DATA_DIR']
-        file_path = os.path.join(data_dir, str(data.pk), 'foo.bar')
+        file_path = data.location.get_path(filename='foo.bar')
         self.assertEqual(data.output['saved_file']['file'], 'foo.bar')
         self.assertTrue(os.path.isfile(file_path))
         self.assertEqual(data.tags, ['test-tag'])
@@ -263,7 +262,7 @@ class ManagerRunProcessTest(ProcessTestCase):
 
         process = subprocess.run(
             ['python', '-m', 'executors', '.docker'],
-            cwd=os.path.join(settings.FLOW_EXECUTOR['RUNTIME_DIR'], str(data.pk)),
+            cwd=data.location.get_runtime_path(),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             timeout=5,

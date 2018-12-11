@@ -9,9 +9,7 @@ import logging
 import os
 import shutil
 
-from django.conf import settings
-
-from resolwe.flow.models import Data
+from resolwe.flow.models import Data, DataLocation
 from resolwe.flow.utils import iterate_fields
 from resolwe.utils import BraceMessage as __
 
@@ -97,59 +95,54 @@ def get_purge_files(root, output, output_schema, descriptor, descriptor_schema):
     return set([os.path.join(root, filename) for filename in unreferenced_files])
 
 
-def data_purge(data_ids=None, delete=False, verbosity=0):
-    """Print files not referenced from meta data.
+def location_purge(location_id, delete=False, verbosity=0):
+    """Print and conditionally delete files not referenced by meta data.
 
-    If data_ids not given, run on all data objects.
-    If delete is True, delete unreferenced files.
-
+    :param location_id: Id of the
+        :class:`~resolwe.flow.models.DataLocation` model that data
+        objects reference to.
+    :param delete: If ``True``, then delete unreferenced files.
     """
-    data_path = settings.FLOW_EXECUTOR['DATA_DIR']
-    runtime_path = settings.FLOW_EXECUTOR['RUNTIME_DIR']
+    try:
+        location = DataLocation.objects.get(id=location_id)
+    except DataLocation.DoesNotExist:
+        logger.warning("Data location does not exist", extra={'location_id': location_id})
+        return
+
     unreferenced_files = set()
+    purged_data = Data.objects.none()
+    referenced_by_data = location.data.exists()
+    if referenced_by_data:
+        if location.data.exclude(status__in=[Data.STATUS_DONE, Data.STATUS_ERROR]).exists():
+            return
 
-    data_qs = Data.objects.filter(
-        status__in=[Data.STATUS_DONE, Data.STATUS_ERROR], purged=False
-    )
-    if data_ids is not None:
-        data_qs = data_qs.filter(pk__in=data_ids)
+        # Perform cleanup.
+        purge_files_sets = list()
+        purged_data = location.data.filter(purged=False)
+        for data in purged_data:
+            purge_files_sets.append(get_purge_files(
+                location.get_path(),
+                data.output,
+                data.process.output_schema,
+                data.descriptor,
+                getattr(data.descriptor_schema, 'schema', [])
+            ))
 
-    for data in data_qs:
-        root = os.path.join(data_path, str(data.id))
-
-        unreferenced_files.update(get_purge_files(
-            root,
-            data.output,
-            data.process.output_schema,
-            data.descriptor,
-            getattr(data.descriptor_schema, 'schema', [])
-        ))
-
-    # Remove any folders, which do not belong to any data objects.
-    if data_ids is None:
-        for base_path in (data_path, runtime_path):
-            for directory in os.listdir(base_path):
-                directory_path = os.path.join(base_path, directory)
-                if not os.path.isdir(directory_path):
-                    continue
-
-                try:
-                    data_id = int(directory)
-                except ValueError:
-                    continue
-
-                # Check if a data object with the given identifier exists.
-                if not Data.objects.filter(pk=data_id).exists():
-                    unreferenced_files.add(directory_path)
+        intersected_files = set.intersection(*purge_files_sets) if purge_files_sets else set()
+        unreferenced_files.update(intersected_files)
+    else:
+        # Remove data directory.
+        unreferenced_files.add(location.get_path())
+        unreferenced_files.add(location.get_runtime_path())
 
     if verbosity >= 1:
         # Print unreferenced files
         if unreferenced_files:
-            logger.info(__("Unreferenced files ({}):", len(unreferenced_files)))
+            logger.info(__("Unreferenced files for location id {} ({}):", location_id, len(unreferenced_files)))
             for name in unreferenced_files:
                 logger.info(__("  {}", name))
         else:
-            logger.info("No unreferenced files")
+            logger.info(__("No unreferenced files for location id {}", location_id))
 
     # Go through unreferenced files and delete them.
     if delete:
@@ -159,5 +152,22 @@ def data_purge(data_ids=None, delete=False, verbosity=0):
             elif os.path.isdir(name):
                 shutil.rmtree(name)
 
-    # NOTE: This doesn't trigger Django's signals!
-    data_qs.update(purged=True)
+        # NOTE: This doesn't trigger Django's signals!
+        purged_data.update(purged=True)
+
+        if not referenced_by_data:
+            location.delete()
+
+
+def _location_purge_all(delete=False, verbosity=0):
+    """Purge all data locations."""
+    if DataLocation.objects.exists():
+        for location in DataLocation.objects.all():
+            location_purge(location.id, delete, verbosity)
+    else:
+        logger.info("No data locations")
+
+
+def purge_all(delete=False, verbosity=0):
+    """Purge all data locations."""
+    _location_purge_all(delete, verbosity)

@@ -10,15 +10,16 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
-Added
------
-- Add ``run_process`` method to ``Process`` to support triggering
-  of a new process from the running Python process
-
 Changed
 -------
 - Purge processes only not jet purged Data objects
 - Log plumbum commands to standard output
+
+Added
+-----
+- Add ``run_process`` method to ``Process`` to support triggering
+  of a new process from the running Python process
+- Add DataLocation model and pair it with Data model to handle data location
 
 Fixed
 -----

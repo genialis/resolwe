@@ -73,7 +73,7 @@ class ExecutorListener:
         self._runner_coro = None
 
         # The verbosity level to pass around to Resolwe utilities
-        # such as data_purge.
+        # such as location_purge.
         self._verbosity = kwargs.get('verbosity', 1)
 
         # Statistics about how much time each event needed for handling.
@@ -485,7 +485,7 @@ class ExecutorListener:
                         CHANNEL_PURGE_WORKER,
                         {
                             'type': TYPE_PURGE_RUN,
-                            'data_id': data_id,
+                            'location_id': d.location.id,
                             'verbosity': self._verbosity,
                         }
                     )

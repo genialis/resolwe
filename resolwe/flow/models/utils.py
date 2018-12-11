@@ -6,7 +6,6 @@ import re
 
 import jsonschema
 
-from django.conf import settings
 from django.contrib.staticfiles import finders
 from django.core.exceptions import ValidationError
 
@@ -46,7 +45,7 @@ def validation_schema(name):
 TYPE_SCHEMA = validation_schema('type')
 
 
-def validate_schema(instance, schema, test_required=True, path_prefix=None,
+def validate_schema(instance, schema, test_required=True, data_location=None,
                     skip_missing_data=False):
     """Check if DictField values are consistent with our data types.
 
@@ -57,9 +56,9 @@ def validate_schema(instance, schema, test_required=True, path_prefix=None,
       * check if ``basic:file:`` and ``list:basic:file`` fields match
         regex given in schema (only if ``validate_regex`` is defined in
         schema for coresponding fields) and exists (only if
-        ``path_prefix`` is given)
+        ``data_location`` is given)
       * check if directories referenced in ``basic:dir:`` and
-        ``list:basic:dir``fields exist (only if ``path_prefix`` is
+        ``list:basic:dir``fields exist (only if ``data_location`` is
         given)
       * check that referenced ``Data`` objects (in ``data:<data_type>``
         and  ``list:data:<data_type>`` fields) exists and are of type
@@ -73,8 +72,9 @@ def validate_schema(instance, schema, test_required=True, path_prefix=None,
         are present. It is usefule if validation is run before ``Data``
         object is finished and there are some field stil missing
         (default: ``False``)
-    :param str path_prefix: path prefix used for checking if files and
-        directories exist (default: ``None``)
+    :param :class:`~resolwe.flow.models.data.DataLocation` data_location:
+        data location used for checking if files and directories exist
+        (default: ``None``)
     :param bool skip_missing_data: Don't raise an error if referenced
         ``Data`` object does not exist
     :rtype: None
@@ -83,6 +83,10 @@ def validate_schema(instance, schema, test_required=True, path_prefix=None,
 
     """
     from .storage import Storage  # Prevent circular import.
+
+    path_prefix = None
+    if data_location:
+        path_prefix = data_location.get_path()
 
     def validate_refs(field):
         """Validate reference paths."""
@@ -405,7 +409,7 @@ def hydrate_size(data, force=False):
         """
         total_size = 0
         for ref in obj.get('refs', []):
-            ref_path = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.pk), ref)
+            ref_path = data.location.get_path(filename=ref)
             if ref_path in obj_path:
                 # It is a common case that ``obj['file']`` is also contained in
                 # one of obj['ref']. In that case, we need to make sure that it's
@@ -423,7 +427,7 @@ def hydrate_size(data, force=False):
         if data.status in [Data.STATUS_DONE, Data.STATUS_ERROR] and 'size' in obj and not force:
             return
 
-        path = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.pk), obj['file'])
+        path = data.location.get_path(filename=obj['file'])
         if not os.path.isfile(path):
             raise ValidationError("Referenced file does not exist ({})".format(path))
 
@@ -435,7 +439,7 @@ def hydrate_size(data, force=False):
         if data.status in [Data.STATUS_DONE, Data.STATUS_ERROR] and 'size' in obj and not force:
             return
 
-        path = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.pk), obj['dir'])
+        path = data.location.get_path(filename=obj['dir'])
         if not os.path.isdir(path):
             raise ValidationError("Referenced dir does not exist ({})".format(path))
 

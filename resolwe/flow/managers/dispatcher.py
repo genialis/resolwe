@@ -12,6 +12,7 @@ import logging
 import os
 import shlex
 import shutil
+import uuid
 from contextlib import suppress
 from importlib import import_module
 
@@ -28,7 +29,7 @@ from django.db.models import Q
 
 from resolwe.flow.engine import InvalidEngineError, load_engines
 from resolwe.flow.execution_engines import ExecutionError
-from resolwe.flow.models import Data, DataDependency, Process
+from resolwe.flow.models import Data, DataDependency, DataLocation, Process
 from resolwe.test.utils import is_testing
 from resolwe.utils import BraceMessage as __
 
@@ -389,7 +390,7 @@ class Manager:
         async_to_sync(self.sync_counter.inc)('executor')
         return self.connectors[class_name].submit(data, runtime_dir, argv)
 
-    def _get_per_data_dir(self, dir_base, data_id):
+    def _get_per_data_dir(self, dir_base, subpath):
         """Extend the given base directory with a per-data component.
 
         The method creates a private path for the
@@ -397,13 +398,12 @@ class Manager:
 
             ./test_data/1/
 
-        if ``base_dir`` is ``'./test_data'`` and ``data_id`` is ``1``.
+        if ``base_dir`` is ``'./test_data'`` and ``subpath`` is ``1``.
 
         :param dir_base: The base path to be extended. This will usually
             be one of the directories configured in the
             ``FLOW_EXECUTOR`` setting.
-        :param data_id: The :class:`~resolwe.flow.models.Data` object's
-            id used for the extending.
+        :param subpath: Objects's subpath used for the extending.
         :return: The new path for the :class:`~resolwe.flow.models.Data`
             object.
         :rtype: str
@@ -413,19 +413,29 @@ class Manager:
         # be patched outside the manager and then just sent along in the
         # command packets.
         result = self.settings_actual.get('FLOW_EXECUTOR', {}).get(dir_base, '')
-        return os.path.join(result, str(data_id))
+        return os.path.join(result, subpath)
 
-    def _prepare_data_dir(self, data_id):
+    def _prepare_data_dir(self, data):
         """Prepare destination directory where the data will live.
 
-        :param data_id: The :class:`~resolwe.flow.models.Data` object id
-            for which to prepare the private execution directory.
+        :param data: The :class:`~resolwe.flow.models.Data` object for
+            which to prepare the private execution directory.
         :return: The prepared data directory path.
         :rtype: str
         """
-        logger.debug(__("Preparing data directory for Data with id {}.", data_id))
+        logger.debug(__("Preparing data directory for Data with id {}.", data.id))
 
-        output_path = self._get_per_data_dir('DATA_DIR', data_id)
+        with transaction.atomic():
+            # Create a temporary random location and then override it with data
+            # location id since object has to be created first.
+            # TODO Find a better solution, e.g. defer the database constraint.
+            temporary_location_string = uuid.uuid4().hex[:10]
+            data_location = DataLocation.objects.create(subpath=temporary_location_string)
+            data_location.subpath = str(data_location.id)
+            data_location.save()
+            data_location.data.add(data)
+
+        output_path = self._get_per_data_dir('DATA_DIR', data_location.subpath)
         dir_mode = self.settings_actual.get('FLOW_EXECUTOR', {}).get('DATA_DIR_MODE', 0o755)
         os.mkdir(output_path, mode=dir_mode)
         # os.mkdir is not guaranteed to set the given mode
@@ -504,11 +514,11 @@ class Manager:
             finally:
                 os.umask(old_umask)
 
-    def _prepare_executor(self, data_id, executor):
+    def _prepare_executor(self, data, executor):
         """Copy executor sources into the destination directory.
 
-        :param data_id: The :class:`~resolwe.flow.models.Data` object id
-            being prepared for.
+        :param data: The :class:`~resolwe.flow.models.Data` object being
+            prepared for.
         :param executor: The fully qualified name of the executor that
             is to be used for this data object.
         :return: Tuple containing the relative fully qualified name of
@@ -517,13 +527,13 @@ class Manager:
             be deployed.
         :rtype: (str, str)
         """
-        logger.debug(__("Preparing executor for Data with id {}", data_id))
+        logger.debug(__("Preparing executor for Data with id {}", data.id))
 
         # Both of these imports are here only to get the packages' paths.
         import resolwe.flow.executors as executor_package
 
         exec_dir = os.path.dirname(inspect.getsourcefile(executor_package))
-        dest_dir = self._get_per_data_dir('RUNTIME_DIR', data_id)
+        dest_dir = self._get_per_data_dir('RUNTIME_DIR', data.location.subpath)
         dest_package_dir = os.path.join(dest_dir, 'executors')
         shutil.copytree(exec_dir, dest_package_dir)
         dir_mode = self.settings_actual.get('FLOW_EXECUTOR', {}).get('RUNTIME_DIR_MODE', 0o755)
@@ -586,6 +596,7 @@ class Manager:
         elif cmd == WorkerProtocol.FINISH:
             try:
                 data_id = message[WorkerProtocol.DATA_ID]
+                data_location = DataLocation.objects.get(data__id=data_id)
                 if not getattr(settings, 'FLOW_MANAGER_KEEP_DATA', False):
                     try:
                         def handle_error(func, path, exc_info):
@@ -598,7 +609,7 @@ class Manager:
                         # intact. Runtime directory will be removed during data purge, when the
                         # data object is removed.
                         secrets_dir = os.path.join(
-                            self._get_per_data_dir('RUNTIME_DIR', data_id),
+                            self._get_per_data_dir('RUNTIME_DIR', data_location.subpath),
                             ExecutorFiles.SECRETS_DIR
                         )
                         shutil.rmtree(secrets_dir, onerror=handle_error)
@@ -726,8 +737,8 @@ class Manager:
         try:
             executor_env_vars = self.get_executor().get_environment_variables()
             program = self._include_environment_variables(program, executor_env_vars)
-            data_dir = self._prepare_data_dir(data.id)
-            executor_module, runtime_dir = self._prepare_executor(data.id, executor)
+            data_dir = self._prepare_data_dir(data)
+            executor_module, runtime_dir = self._prepare_executor(data, executor)
 
             # Execute execution engine specific runtime preparation.
             execution_engine = data.process.run.get('language', None)

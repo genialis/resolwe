@@ -1,4 +1,5 @@
 # pylint: disable=missing-docstring
+import contextlib
 import os
 import shutil
 import tempfile
@@ -13,7 +14,7 @@ from django.test import override_settings
 from django.utils.crypto import get_random_string
 
 from resolwe.flow.managers.utils import disable_auto_calls
-from resolwe.flow.models import Data, DescriptorSchema, Process
+from resolwe.flow.models import Data, DataLocation, DescriptorSchema, Process
 from resolwe.flow.utils import purge
 from resolwe.test import ProcessTestCase
 
@@ -103,18 +104,18 @@ class PurgeE2ETest(PurgeTestFieldsMixin, ProcessTestCase):
 
         data = self.run_process(processor_slug, **kwargs)
         # Purge is normally called in an async worker, so we have to emulate the call.
-        purge.data_purge(data_ids=[data.id], delete=True)
+        purge.location_purge(location_id=data.location.id, delete=True)
 
         return data
 
     def assertFilesRemoved(self, data, *files):  # pylint: disable=invalid-name
         for name in files:
-            path = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.pk), name)
+            path = data.location.get_path(filename=name)
             self.assertFalse(os.path.isfile(path), msg=path)
 
     def assertFilesNotRemoved(self, data, *files):  # pylint: disable=invalid-name
         for name in files:
-            path = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.pk), name)
+            path = data.location.get_path(filename=name)
             self.assertTrue(os.path.isfile(path), msg=path)
 
     def test_complex_processor(self):
@@ -316,25 +317,19 @@ class PurgeUnitTest(PurgeTestFieldsMixin, ProcessTestCase):
         finally:
             shutil.rmtree(simulated_root)
 
-    def create_test_file(self, data, filename):
+    def create_test_file(self, location, filename):
         """
         Creates an empty file in the proper directory, so that a file can be used
         as a reference in the Data object's output/descriptor.
         """
-
-        if isinstance(data, Data):
-            data_id = data.pk
-        else:
-            data_id = int(data)
-
-        root = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data_id))
+        root = location.get_path()
         try:
             os.makedirs(root)
             self.test_files.add(root)
         except OSError:
             pass
 
-        filename = os.path.join(root, filename)
+        filename = location.get_path(filename=filename)
         with open(filename, 'w'):
             self.test_files.add(filename)
 
@@ -342,6 +337,20 @@ class PurgeUnitTest(PurgeTestFieldsMixin, ProcessTestCase):
         super().setUp()
 
         self.test_files = set()
+
+        self.user = get_user_model().objects.create(username="test_user")
+        processor = Process.objects.create(
+            name='Test process',
+            contributor=self.user,
+            output_schema=[
+                {'name': 'sample', 'type': 'basic:file:'}
+            ]
+        )
+        self.data = {
+            'name': 'Test data',
+            'contributor': self.user,
+            'process': processor,
+        }
 
     def tearDown(self):
         for filename in self.test_files:
@@ -355,37 +364,29 @@ class PurgeUnitTest(PurgeTestFieldsMixin, ProcessTestCase):
     # This patch is required so that the manager is not invoked while saving Data.
     @disable_auto_calls()
     def test_remove(self):
-        user = get_user_model().objects.create(username="test_user")
-        processor = Process.objects.create(
-            name='Test process',
-            contributor=user,
-            output_schema=[
-                {'name': 'sample', 'type': 'basic:file:'}
-            ]
-        )
-
-        data = {
-            'name': 'Test data',
-            'contributor': user,
-            'process': processor,
-        }
-
-        completed_data = Data.objects.create(**data)
+        completed_data = Data.objects.create(**self.data)
+        data_location = DataLocation.objects.create(subpath='')
+        data_location.subpath = str(data_location.id)
+        data_location.save()
+        data_location.data.add(completed_data)
         completed_data.status = Data.STATUS_DONE
         completed_data.output = {'sample': {'file': 'test-file'}}
-        self.create_test_file(completed_data, 'test-file')
-        self.create_test_file(completed_data, 'removeme')
+        self.create_test_file(completed_data.location, 'test-file')
+        self.create_test_file(completed_data.location, 'removeme')
         completed_data.save()
 
-        pending_data = Data.objects.create(**data)
-        self.create_test_file(pending_data, 'test-file')
-        self.create_test_file(pending_data, 'donotremoveme')
+        pending_data = Data.objects.create(**self.data)
+        data_location = DataLocation.objects.create(subpath='')
+        data_location.subpath = str(data_location.id)
+        data_location.save()
+        data_location.data.add(pending_data)
+        self.create_test_file(pending_data.location, 'test-file')
+        self.create_test_file(pending_data.location, 'donotremoveme')
 
         # Check that nothing is removed if delete is False (the default).
         with patch('resolwe.flow.utils.purge.os', wraps=os) as os_mock:
-            os_mock.path.isfile = MagicMock(return_value=True)
             os_mock.remove = MagicMock()
-            purge.data_purge()
+            purge.purge_all()
             os_mock.remove.assert_not_called()
 
         completed_data.purged = False
@@ -394,31 +395,34 @@ class PurgeUnitTest(PurgeTestFieldsMixin, ProcessTestCase):
         # Check that only the 'removeme' file from the completed Data objects is removed
         # and files from the second (not completed) Data objects are unchanged.
         with patch('resolwe.flow.utils.purge.os', wraps=os) as os_mock:
-            os_mock.path.isfile = MagicMock(return_value=True)
             os_mock.remove = MagicMock()
-            purge.data_purge(delete=True)
+            purge.purge_all(delete=True)
             os_mock.remove.assert_called_once_with(
-                os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(completed_data.pk), 'removeme'))
+                completed_data.location.get_path(filename='removeme'))
 
         completed_data.purged = False
         completed_data.save()
 
         # Create dummy data directories for non-existant data objects.
-        self.create_test_file(990, 'dummy')
-        self.create_test_file(991, 'dummy')
+        self.create_test_file(DataLocation.objects.create(subpath='990'), 'dummy')
+        self.create_test_file(DataLocation.objects.create(subpath='991'), 'dummy')
 
         # Check that only the 'removeme' file from the completed Data objects is removed
         # together with directories not belonging to any data objects.
-        with patch('resolwe.flow.utils.purge.os', wraps=os) as os_mock:
-            os_mock.path.isfile = MagicMock(return_value=True)
+        with contextlib.ExitStack() as stack:
+            os_mock = stack.enter_context(patch('resolwe.flow.utils.purge.os', wraps=os))
+            shutil_mock = stack.enter_context(patch('resolwe.flow.utils.purge.shutil', wraps=shutil))
+
             os_mock.remove = MagicMock()
-            purge.data_purge(delete=True)
-            self.assertEqual(os_mock.remove.call_count, 3)
-            os_mock.remove.assert_any_call(
-                os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(completed_data.pk), 'removeme'))
-            os_mock.remove.assert_any_call(
+            shutil_mock.rmtree = MagicMock()
+            purge.purge_all(delete=True)
+            self.assertEqual(os_mock.remove.call_count, 1)
+            self.assertEqual(shutil_mock.rmtree.call_count, 2)
+            os_mock.remove.assert_called_once_with(
+                os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(completed_data.location.id), 'removeme'))
+            shutil_mock.rmtree.assert_any_call(
                 os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], '990'))
-            os_mock.remove.assert_any_call(
+            shutil_mock.rmtree.assert_any_call(
                 os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], '991'))
 
         completed_data.purged = False
@@ -426,16 +430,77 @@ class PurgeUnitTest(PurgeTestFieldsMixin, ProcessTestCase):
 
         # Create another data object and check that if remove is called on one object,
         # only that object's data is removed.
-        another_data = Data.objects.create(**data)
+        another_data = Data.objects.create(**self.data)
+        data_location = DataLocation.objects.create(subpath='')
+        data_location.subpath = str(data_location.id)
+        data_location.save()
+        data_location.data.add(another_data)
         another_data.status = Data.STATUS_DONE
         another_data.output = {'sample': {'file': 'test-file'}}
-        self.create_test_file(another_data, 'test-file')
-        self.create_test_file(another_data, 'removeme')
+        self.create_test_file(another_data.location, 'test-file')
+        self.create_test_file(another_data.location, 'removeme')
         another_data.save()
 
-        with patch('resolwe.flow.utils.purge.os', wraps=os) as os_mock:
-            os_mock.path.isfile = MagicMock(return_value=True)
+        with contextlib.ExitStack() as stack:
+            os_mock = stack.enter_context(patch('resolwe.flow.utils.purge.os', wraps=os))
+            shutil_mock = stack.enter_context(patch('resolwe.flow.utils.purge.shutil', wraps=shutil))
+
             os_mock.remove = MagicMock()
-            purge.data_purge(data_ids=[another_data.pk], delete=True)
+            purge.location_purge(location_id=another_data.location.id, delete=True)
             os_mock.remove.assert_called_once_with(
-                os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(another_data.pk), 'removeme'))
+                another_data.location.get_path(filename='removeme'))
+            shutil_mock.rmtree.assert_not_called()
+
+    # This patch is required so that the manager is not invoked while saving Data.
+    @disable_auto_calls()
+    def test_remove_same_location(self):
+        # Create two data objects that reference the same data location and check
+        # that if one object is deleted, the data is not removed upon purge.
+        # It should be removed only when location is not referenced by any data object.
+        same_location_data = Data.objects.create(**self.data)
+        data_location = DataLocation.objects.create(subpath='')
+        data_location.subpath = str(data_location.id)
+        data_location.save()
+        data_location.data.add(same_location_data)
+        subpath = same_location_data.location.subpath
+
+        same_location_data.output = {'sample': {'file': 'test-file'}}
+        same_location_data.status = Data.STATUS_DONE
+        self.create_test_file(same_location_data.location, 'test-file')
+        same_location_data.save()
+
+        same_location_data_2 = Data.objects.create(**self.data)
+        same_location_data.location.data.add(same_location_data_2)
+        same_location_data_2.output = {'sample': {'file': 'test-file'}}
+        same_location_data_2.status = Data.STATUS_DONE
+        same_location_data_2.save()
+
+        not_to_be_deleted = Data.objects.create(**self.data)
+        data_location = DataLocation.objects.create(subpath='')
+        data_location.subpath = str(data_location.id)
+        data_location.save()
+        data_location.data.add(not_to_be_deleted)
+        not_to_be_deleted.output = {'sample': {'file': 'test-file'}}
+        not_to_be_deleted.status = Data.STATUS_DONE
+        self.create_test_file(not_to_be_deleted.location, 'test-file')
+        not_to_be_deleted.save()
+
+        self.assertEqual(Data.objects.count(), 3)
+
+        # Delete first object.
+        same_location_data.delete()
+
+        self.assertEqual(Data.objects.count(), 2)
+        with patch('resolwe.flow.utils.purge.shutil.rmtree', wraps=shutil.rmtree) as rmtree_mock:
+            purge.purge_all(delete=True)
+            rmtree_mock.assert_not_called()
+
+        # Delete second object.
+        same_location_data_2.delete()
+
+        self.assertEqual(Data.objects.count(), 1)
+        self.assertEqual(Data.objects.first().id, not_to_be_deleted.id)
+        with patch('resolwe.flow.utils.purge.shutil.rmtree', wraps=shutil.rmtree) as rmtree_mock:
+            purge.purge_all(delete=True)
+            rmtree_mock.assert_called_once_with(
+                os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], subpath))

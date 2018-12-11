@@ -1,5 +1,10 @@
 ---
 
+- model: flow.DataLocation
+  fields:
+    id: 1
+    subpath: '1'
+
 - model: flow.data
   pk: 1
   fields:
@@ -15,6 +20,13 @@
     process: 1
     version: 0.0.0
     size: 42
+    location: 1
+
+
+- model: flow.DataLocation
+  fields:
+    id: 2
+    subpath: '2'
 
 - model: flow.data
   pk: 2
@@ -31,3 +43,4 @@
     process: 1
     version: 0.0.0
     size: 42
+    location: 2

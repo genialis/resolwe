@@ -15,7 +15,7 @@ import time
 from asyncio import subprocess
 
 from . import constants
-from ..global_settings import PROCESS_META, SETTINGS
+from ..global_settings import DATA_LOCATION, PROCESS_META, SETTINGS
 from ..local.run import FlowExecutor as LocalFlowExecutor
 from ..protocol import ExecutorFiles
 from .seccomp import SECCOMP_POLICY
@@ -147,10 +147,17 @@ class FlowExecutor(LocalFlowExecutor):
             }
 
         volumes = [
-            new_volume('data', 'DATA_DIR', constants.DATA_VOLUME, [self.data_id], read_only=False),
+            new_volume(
+                'data', 'DATA_DIR', constants.DATA_VOLUME, [DATA_LOCATION['subpath']], read_only=False
+            ),
             new_volume('data_all', 'DATA_DIR', constants.DATA_ALL_VOLUME),
             new_volume('upload', 'UPLOAD_DIR', constants.UPLOAD_VOLUME, read_only=False),
-            new_volume('secrets', 'RUNTIME_DIR', constants.SECRETS_VOLUME, [self.data_id, ExecutorFiles.SECRETS_DIR]),
+            new_volume(
+                'secrets',
+                'RUNTIME_DIR',
+                constants.SECRETS_VOLUME,
+                [DATA_LOCATION['subpath'], ExecutorFiles.SECRETS_DIR]
+            ),
         ]
 
         # Generate dummy passwd and create mappings for it. This is required because some tools
@@ -194,7 +201,7 @@ class FlowExecutor(LocalFlowExecutor):
                     'runtime',
                     'RUNTIME_DIR',
                     dst,
-                    [self.data_id, src],
+                    [DATA_LOCATION['subpath'], src],
                 ))
 
         # Add any extra volumes verbatim.

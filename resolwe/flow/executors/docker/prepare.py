@@ -37,10 +37,11 @@ class FlowExecutorPreparer(BaseFlowExecutorPreparer):
         if data is None:
             return constants.DATA_ALL_VOLUME
 
-        if filename is None:
-            return os.path.join(constants.DATA_ALL_VOLUME, str(data.id))
-
-        return os.path.join(constants.DATA_ALL_VOLUME, str(data.id), filename)
+        # Prefix MUST be set because ``get_path`` uses Django's settings,
+        # if prefix is not set, to get path prefix. But the executor
+        # shouldn't use Django's settings directly, so prefix is set
+        # via a constant.
+        return data.location.get_path(prefix=constants.DATA_ALL_VOLUME, filename=filename)
 
     def resolve_upload_path(self, filename=None):
         """Resolve upload path for use with the executor.

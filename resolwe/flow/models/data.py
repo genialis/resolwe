@@ -208,6 +208,9 @@ class Data(BaseModel):
     #: actual allocated cores
     process_cores = models.PositiveSmallIntegerField(default=0)
 
+    #: data location
+    location = models.ForeignKey('DataLocation', blank=True, null=True, on_delete=models.PROTECT, related_name='data')
+
     def __init__(self, *args, **kwargs):
         """Initialize attributes."""
         super().__init__(*args, **kwargs)
@@ -228,7 +231,7 @@ class Data(BaseModel):
                     continue
 
                 if isinstance(value, str):
-                    file_path = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(self.pk), value)
+                    file_path = self.location.get_path(filename=value)  # pylint: disable=no-member
                     if os.path.isfile(file_path):
                         try:
                             with open(file_path) as file_handler:
@@ -383,7 +386,6 @@ class Data(BaseModel):
 
     def save(self, render_name=False, *args, **kwargs):  # pylint: disable=keyword-arg-before-vararg
         """Save the data model."""
-        # Generate the descriptor if one is not already set.
         if self.name != self._original_name:
             self.named_by_user = True
 
@@ -428,15 +430,14 @@ class Data(BaseModel):
             raise ValueError("`descriptor_schema` must be defined if `descriptor` is given")
 
         if self.status != Data.STATUS_ERROR:
-            path_prefix = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(self.pk))
             output_schema = self.process.output_schema  # pylint: disable=no-member
             if self.status == Data.STATUS_DONE:
                 validate_schema(
-                    self.output, output_schema, path_prefix=path_prefix, skip_missing_data=True
+                    self.output, output_schema, data_location=self.location, skip_missing_data=True
                 )
             else:
                 validate_schema(
-                    self.output, output_schema, path_prefix=path_prefix, test_required=False
+                    self.output, output_schema, data_location=self.location, test_required=False
                 )
 
         with transaction.atomic():
@@ -496,3 +497,24 @@ class DataDependency(models.Model):
     parent = models.ForeignKey(Data, null=True, on_delete=models.SET_NULL, related_name='children_dependency')
     #: kind of dependency
     kind = models.CharField(max_length=16, choices=KIND_CHOICES)
+
+
+class DataLocation(models.Model):
+    """Location data of the data object."""
+
+    #: subpath of data location
+    subpath = models.CharField(max_length=30, unique=True)
+
+    def get_path(self, prefix=None, filename=None):
+        """Compose data location path."""
+        prefix = prefix or settings.FLOW_EXECUTOR['DATA_DIR']
+
+        path = os.path.join(prefix, self.subpath)
+        if filename:
+            path = os.path.join(path, filename)
+
+        return path
+
+    def get_runtime_path(self, filename=None):
+        """Compose data runtime location path."""
+        return self.get_path(prefix=settings.FLOW_EXECUTOR['RUNTIME_DIR'], filename=filename)

@@ -6,7 +6,6 @@ import shutil
 
 from mock import MagicMock, patch
 
-from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -15,8 +14,8 @@ from guardian.shortcuts import assign_perm, remove_perm
 from rest_framework.test import APIRequestFactory, APITestCase, force_authenticate
 
 from resolwe.flow.expression_engines import EvaluationError
-from resolwe.flow.models import Data, DataDependency, DescriptorSchema, Entity, Process, Storage
-from resolwe.flow.models.data import hydrate_size, render_template
+from resolwe.flow.models import DescriptorSchema, Entity, Process, Storage
+from resolwe.flow.models.data import Data, DataDependency, DataLocation, hydrate_size, render_template
 from resolwe.flow.models.utils import hydrate_input_references
 from resolwe.flow.views import DataViewSet
 from resolwe.test import TestCase, TransactionTestCase
@@ -155,11 +154,17 @@ class DataModelTest(TestCase):
             'output_file': {'file': 'output.txt'}
         }
 
+        data_location = DataLocation.objects.create(subpath='')
+        data_location.subpath = str(data_location.id)
+        data_location.save()
+        data_location.data.add(data)
+
+        dir_path = data.location.get_path()
+        os.makedirs(dir_path)
+
         with self.assertRaises(ValidationError):
             data.save()
 
-        dir_path = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.pk))
-        os.makedirs(dir_path)
         file_path = os.path.join(dir_path, 'output.txt')
         with open(file_path, 'w') as fn:
             fn.write('foo bar')
@@ -417,8 +422,9 @@ class GetOrCreateTestCase(APITestCase):
 
     def tearDown(self):
         for data in Data.objects.all():
-            data_dir = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.id))
-            shutil.rmtree(data_dir, ignore_errors=True)
+            if data.location:
+                data_dir = data.location.get_path()
+                shutil.rmtree(data_dir, ignore_errors=True)
 
         super().tearDown()
 
@@ -531,45 +537,65 @@ class ProcessModelTest(TestCase):
 @patch('resolwe.flow.models.utils.os')
 class HydrateFileSizeUnitTest(TestCase):
 
+    def create_data(self, os_mock, contributor, process):
+        # Mock isfile and getsize for data creation to pass.
+        # Make sure to set these two values to desired
+        # values after calling this method.
+        os_mock.path.isfile.return_value = True
+        os_mock.path.getsize.return_value = 0
+
+        data = Data.objects.create(contributor=contributor, process=process)
+        data_location = DataLocation.objects.create(subpath='')
+        data_location.subpath = str(data_location.id)
+        data_location.save()
+        data_location.data.add(data)
+
+        data.output = {'test_file': {'file': 'test_file.tmp'}}
+        data.save()
+
+        return data
+
     def setUp(self):
         super().setUp()
 
-        self.process = Process(
+        self.process = Process.objects.create(
+            contributor=self.contributor,
             output_schema=[
                 {'name': 'test_file', 'type': 'basic:file:', 'required': False},
                 {'name': 'file_list', 'type': 'list:basic:file:', 'required': False}
             ]
         )
-        self.data = Data(
-            pk=13,
-            process=self.process,
-            output={'test_file': {'file': 'test_file.tmp'}}
-        )
 
     def test_done_data(self, os_mock):
+        data = self.create_data(os_mock, self.contributor, self.process)
+
         os_mock.path.isfile.return_value = True
         os_mock.path.getsize.return_value = 42000
-        hydrate_size(self.data)
-        self.assertEqual(self.data.output['test_file']['size'], 42000)
+        hydrate_size(data)
+        self.assertEqual(data.output['test_file']['size'], 42000)
 
     def test_data_with_refs(self, os_mock):
+        data = self.create_data(os_mock, self.contributor, self.process)
+
         os_mock.path.isfile.return_value = True
         os_mock.path.getsize.side_effect = [42000, 8000, 42]
-        self.data.output = {
+        data.output = {
             'test_file': {
                 'file': 'test_file.tmp',
                 'refs': ['ref_file1.tmp', 'ref_file2.tmp']
             }
         }
-        hydrate_size(self.data)
-        self.assertEqual(self.data.output['test_file']['size'], 42000)
-        self.assertEqual(self.data.output['test_file']['total_size'], 50042)
-        self.assertEqual(self.data.size, 50042)
+        hydrate_size(data)
+        self.assertEqual(data.output['test_file']['size'], 42000)
+        self.assertEqual(data.output['test_file']['total_size'], 50042)
+        self.assertEqual(data.size, 50042)
 
     def test_list(self, os_mock):
+        data = self.create_data(os_mock, self.contributor, self.process)
+
         os_mock.path.isfile.return_value = True
         os_mock.path.getsize.side_effect = [34, 42000, 42]
-        self.data.output = {
+        data.output = {
             'file_list': [
                 {
                     'file': 'test_01.tmp',
@@ -580,33 +606,37 @@ class HydrateFileSizeUnitTest(TestCase):
                 },
             ]
         }
-        hydrate_size(self.data)
-        self.assertEqual(self.data.output['file_list'][0]['size'], 34)
-        self.assertEqual(self.data.output['file_list'][0]['total_size'], 34)
-        self.assertEqual(self.data.output['file_list'][1]['size'], 42000)
-        self.assertEqual(self.data.output['file_list'][1]['total_size'], 42042)
-        self.assertEqual(self.data.size, 34 + 42042)
+        hydrate_size(data)
+        self.assertEqual(data.output['file_list'][0]['size'], 34)
+        self.assertEqual(data.output['file_list'][0]['total_size'], 34)
+        self.assertEqual(data.output['file_list'][1]['size'], 42000)
+        self.assertEqual(data.output['file_list'][1]['total_size'], 42042)
+        self.assertEqual(data.size, 34 + 42042)
 
     def test_change_size(self, os_mock):
         """Size is not changed after object is done."""
+        data = self.create_data(os_mock, self.contributor, self.process)
+
         os_mock.path.isfile.return_value = True
         os_mock.path.getsize.return_value = 42000
-        hydrate_size(self.data)
-        self.assertEqual(self.data.output['test_file']['size'], 42000)
+        hydrate_size(data)
+        self.assertEqual(data.output['test_file']['size'], 42000)
 
         os_mock.path.getsize.return_value = 43000
-        hydrate_size(self.data)
-        self.assertEqual(self.data.output['test_file']['size'], 43000)
+        hydrate_size(data)
+        self.assertEqual(data.output['test_file']['size'], 43000)
 
-        self.data.status = Data.STATUS_DONE
+        data.status = Data.STATUS_DONE
         os_mock.path.getsize.return_value = 44000
-        hydrate_size(self.data)
-        self.assertEqual(self.data.output['test_file']['size'], 43000)
+        hydrate_size(data)
+        self.assertEqual(data.output['test_file']['size'], 43000)
 
     def test_missing_file(self, os_mock):
+        data = self.create_data(os_mock, self.contributor, self.process)
+
         os_mock.path.isfile.return_value = False
         with self.assertRaises(ValidationError):
-            hydrate_size(self.data)
+            hydrate_size(data)
 
 
 class StorageModelTestCase(TestCase):
@@ -645,6 +675,10 @@ class StorageModelTestCase(TestCase):
             contributor=self.contributor,
             process=self.proc,
         )
+        data_location = DataLocation.objects.create(subpath='')
+        data_location.subpath = str(data_location.id)
+        data_location.save()
+        data_location.data.add(data)
 
         data.output = {'json_field': 'json.txt'}
         data.status = Data.STATUS_DONE
@@ -766,6 +800,10 @@ class UtilsTestCase(TestCase):
             },
             size=0,
         )
+        data_location = DataLocation.objects.create(subpath='')
+        data_location.subpath = str(data_location.id)
+        data_location.save()
+        data_location.data.add(data)
 
         input_schema = [
             {
@@ -776,7 +814,7 @@ class UtilsTestCase(TestCase):
         input_ = {'data': data.pk}
         hydrate_input_references(input_, input_schema)
 
-        path_prefix = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.id))
+        path_prefix = data.location.get_path()
 
         self.assertEqual(input_['data']['__descriptor'], {'annotation': 'my-annotation'})
         self.assertEqual(input_['data']['__type'], 'data:test:')

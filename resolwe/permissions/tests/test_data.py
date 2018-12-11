@@ -1,5 +1,4 @@
 # pylint: disable=missing-docstring
-import os
 import shutil
 import unittest
 from datetime import datetime, timedelta
@@ -53,8 +52,8 @@ class DataTestCase(ResolweAPITestCase):
 
     def tearDown(self):
         for data in Data.objects.all():
-            data_dir = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.id))
-            shutil.rmtree(data_dir, ignore_errors=True)
+            if data.location:
+                shutil.rmtree(data.location.get_path(), ignore_errors=True)
 
         super().tearDown()
 

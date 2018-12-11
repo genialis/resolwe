@@ -48,6 +48,7 @@ class BaseFlowExecutorPreparer:
             'FLOW_EXECUTOR_TOOLS_PATHS': self.get_tools_paths(),
         })
         files[ExecutorFiles.DATA] = model_to_dict(data)
+        files[ExecutorFiles.DATA_LOCATION] = model_to_dict(data.location)
         files[ExecutorFiles.PROCESS] = model_to_dict(data.process)
         files[ExecutorFiles.PROCESS]['resource_limits'] = data.process.get_resource_limits()
 
@@ -84,10 +85,7 @@ class BaseFlowExecutorPreparer:
         if data is None:
             return settings.FLOW_EXECUTOR['DATA_DIR']
 
-        if filename is None:
-            return os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.id))
-
-        return os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.id), filename)
+        return data.location.get_path(filename=filename)
 
     def resolve_upload_path(self, filename=None):
         """Resolve upload path for use with the executor.

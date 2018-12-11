@@ -4,7 +4,7 @@ from mock import MagicMock, patch
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 
-from resolwe.flow.models import Collection, Data, DescriptorSchema, Entity, Process, Storage
+from resolwe.flow.models import Collection, Data, DataLocation, DescriptorSchema, Entity, Process, Storage
 from resolwe.flow.models.utils import validate_schema
 from resolwe.test import TestCase
 
@@ -389,6 +389,8 @@ class ValidationUnitTest(TestCase):
         ]
         instance = {'result': {'file': 'result.txt'}}
 
+        data_location = DataLocation.objects.create(subpath='1')
+
         with patch('resolwe.flow.models.utils.os') as os_mock:
             validate_schema(instance, schema)
             self.assertEqual(os_mock.path.isfile.call_count, 0)
@@ -397,7 +399,7 @@ class ValidationUnitTest(TestCase):
         with patch('resolwe.flow.models.utils.os') as os_mock:
             os_mock.path.exists = MagicMock(return_value=False)
             with self.assertRaisesRegex(ValidationError, 'Referenced path .* does not exist.'):
-                validate_schema(instance, schema, path_prefix='/home/genialis/')
+                validate_schema(instance, schema, data_location=data_location)
             self.assertEqual(os_mock.path.exists.call_count, 1)
 
         # File is not a normal file
@@ -405,19 +407,19 @@ class ValidationUnitTest(TestCase):
             os_mock.path.exists = MagicMock(return_value=True)
             os_mock.path.isfile = MagicMock(return_value=False)
             with self.assertRaisesRegex(ValidationError, 'Referenced path .* is not a file.'):
-                validate_schema(instance, schema, path_prefix='/home/genialis/')
+                validate_schema(instance, schema, data_location=data_location)
             self.assertEqual(os_mock.path.isfile.call_count, 1)
 
         with patch('resolwe.flow.models.utils.os') as os_mock:
             os_mock.path.isfile = MagicMock(return_value=True)
-            validate_schema(instance, schema, path_prefix='/home/genialis/')
+            validate_schema(instance, schema, data_location=data_location)
             self.assertEqual(os_mock.path.isfile.call_count, 1)
 
         instance = {'result': {'file': 'result.txt', 'refs': ['user1.txt', 'user2.txt']}}
 
         with patch('resolwe.flow.models.utils.os') as os_mock:
             os_mock.path.isfile = MagicMock(return_value=True)
-            validate_schema(instance, schema, path_prefix='/home/genialis/')
+            validate_schema(instance, schema, data_location=data_location)
             self.assertEqual(os_mock.path.isfile.call_count, 3)
 
         # missing second `refs` file
@@ -426,7 +428,7 @@ class ValidationUnitTest(TestCase):
             os_mock.path.isdir = MagicMock(return_value=False)
             message = 'Path referenced in `refs` .* is neither a file or directory.'
             with self.assertRaisesRegex(ValidationError, message):
-                validate_schema(instance, schema, path_prefix='/home/genialis/')
+                validate_schema(instance, schema, data_location=data_location)
             self.assertEqual(os_mock.path.isfile.call_count, 3)
             self.assertEqual(os_mock.path.isdir.call_count, 1)
 
@@ -436,7 +438,9 @@ class ValidationUnitTest(TestCase):
         ]
         instance = {'result': {'dir': 'results'}}
 
-        # dir validation is not called if `path_prefix` is not given
+        data_location = DataLocation.objects.create(subpath='1')
+
+        # dir validation is not called if `data_location` is not given
         with patch('resolwe.flow.models.utils.os') as os_mock:
             validate_schema(instance, schema)
             self.assertEqual(os_mock.path.isdir.call_count, 0)
@@ -444,14 +448,14 @@ class ValidationUnitTest(TestCase):
         with patch('resolwe.flow.models.utils.os') as os_mock:
             os_mock.path.exists = MagicMock(return_value=True)
             os_mock.path.isdir = MagicMock(return_value=True)
-            validate_schema(instance, schema, path_prefix='/home/genialis/')
+            validate_schema(instance, schema, data_location=data_location)
             self.assertEqual(os_mock.path.isdir.call_count, 1)
 
         # missing path
         with patch('resolwe.flow.models.utils.os') as os_mock:
             os_mock.path.exists = MagicMock(return_value=False)
             with self.assertRaisesRegex(ValidationError, 'Referenced path .* does not exist.'):
-                validate_schema(instance, schema, path_prefix='/home/genialis/')
+                validate_schema(instance, schema, data_location=data_location)
             self.assertEqual(os_mock.path.exists.call_count, 1)
 
         # not a dir
@@ -459,7 +463,7 @@ class ValidationUnitTest(TestCase):
             os_mock.path.exists = MagicMock(return_value=True)
             os_mock.path.isdir = MagicMock(return_value=False)
             with self.assertRaisesRegex(ValidationError, 'Referenced path .* is not a directory'):
-                validate_schema(instance, schema, path_prefix='/home/genialis/')
+                validate_schema(instance, schema, data_location=data_location)
             self.assertEqual(os_mock.path.isdir.call_count, 1)
 
         instance = {'result': {'dir': 'results', 'refs': ['file01.txt', 'file02.txt']}}
@@ -467,7 +471,7 @@ class ValidationUnitTest(TestCase):
         with patch('resolwe.flow.models.utils.os') as os_mock:
             os_mock.path.isdir = MagicMock(return_value=True)
             os_mock.path.isfile = MagicMock(return_value=True)
-            validate_schema(instance, schema, path_prefix='/home/genialis/')
+            validate_schema(instance, schema, data_location=data_location)
             self.assertEqual(os_mock.path.isdir.call_count, 1)
             self.assertEqual(os_mock.path.isfile.call_count, 2)
 
@@ -477,7 +481,7 @@ class ValidationUnitTest(TestCase):
             os_mock.path.isfile = MagicMock(side_effect=[True, False])
             message = 'Path referenced in `refs` .* is neither a file or directory'
             with self.assertRaisesRegex(ValidationError, message):
-                validate_schema(instance, schema, path_prefix='/home/genialis/')
+                validate_schema(instance, schema, data_location=data_location)
             self.assertEqual(os_mock.path.isdir.call_count, 2)
             self.assertEqual(os_mock.path.isfile.call_count, 2)
 

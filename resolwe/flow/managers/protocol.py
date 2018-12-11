@@ -50,6 +50,7 @@ class ExecutorFiles:
     EXECUTOR_SETTINGS = 'settings.json'
     DJANGO_SETTINGS = 'django_settings.json'
     DATA = 'data.json'
+    DATA_LOCATION = 'data_location.json'
     DATA_META = 'data_meta.json'
     PROCESS = 'process.json'
     PROCESS_META = 'process_meta.json'

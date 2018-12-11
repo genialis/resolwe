@@ -257,8 +257,8 @@ class ProcessTestCase(TransactionTestCase):
         for d in Data.objects.all():
             if self._keep_data:
                 print("KEEPING DATA: {}".format(d.pk))
-            else:
-                data_dir = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(d.pk))
+            elif d.location:
+                data_dir = d.location.get_path()
                 export_dir = os.path.join(settings.FLOW_EXECUTOR['UPLOAD_DIR'], str(d.pk))
                 d.delete()
                 shutil.rmtree(data_dir, ignore_errors=True)
@@ -470,7 +470,8 @@ class ProcessTestCase(TransactionTestCase):
             self.assertStatus(data, assert_status)
 
         # Purge is normally called in an async worker, so we have to emulate the call.
-        purge.data_purge(data_ids=[data.id], delete=True)
+        if data.location:
+            purge.location_purge(location_id=data.location.id, delete=True)
 
         return data
 
@@ -607,7 +608,7 @@ class ProcessTestCase(TransactionTestCase):
                 contents = b"".join(contents)
             return hashlib.sha256(contents).hexdigest()
 
-        output = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(obj.pk), fn_tested)
+        output = obj.location.get_path(filename=fn_tested)
         output_hash = get_sha256(output, **open_kwargs)
 
         correct_path = os.path.join(self.files_path, fn_correct)
@@ -705,7 +706,7 @@ class ProcessTestCase(TransactionTestCase):
             file name/path
         """
         field = dict_dot(obj.output, field_path)
-        output = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(obj.pk), field['file'])
+        output = obj.location.get_path(filename=field['file'])
 
         if not os.path.isfile(output):
             self.fail(msg="File {} does not exist.".format(field_path))
@@ -724,7 +725,7 @@ class ProcessTestCase(TransactionTestCase):
         field = dict_dot(obj.output, field_path)
 
         for item in field:
-            output_file = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(obj.pk), item['file'])
+            output_file = obj.location.get_path(filename=item['file'])
             if not os.path.isfile(output_file):
                 self.fail(msg="File {} in output field {} does not exist.".format(item['file'], field_path))
 
@@ -780,8 +781,8 @@ class ProcessTestCase(TransactionTestCase):
         """Return data's debugging information."""
         msg_header = "Debugging information for data object {}".format(data.pk)
         msg = "\n\n" + len(msg_header) * "=" + "\n" + msg_header + "\n" + len(msg_header) * "=" + "\n"
-        path = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(data.pk), "stdout.txt")
-        if os.path.isfile(path):
+        path = data.location.get_path(filename='stdout.txt') if data.location else None
+        if path and os.path.isfile(path):
             msg += "\nstdout.txt:\n" + 11 * "-" + "\n"
             with io.open(path, mode='rt') as fn:
                 msg += fn.read()

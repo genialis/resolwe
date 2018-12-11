@@ -7,7 +7,7 @@ Delete Unreferenced Files
 """
 from django.core.management.base import BaseCommand
 
-from resolwe.flow.utils.purge import data_purge
+from resolwe.flow.utils.purge import purge_all
 
 
 class Command(BaseCommand):
@@ -17,9 +17,8 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         """Command arguments."""
-        parser.add_argument('-d', '--data', type=str, nargs='+', help="list of data ids")
-        parser.add_argument('-f', '--force', action='store_true', help="delete unreferenced files")
+        parser.add_argument('-f', '--force', action='store_true', help="Delete unreferenced files")
 
     def handle(self, *args, **options):
-        """Call :func:`~resolwe.flow.utils.purge.data_purge`."""
-        data_purge(options['data'], options['force'], options['verbosity'])
+        """Call :func:`~resolwe.flow.utils.purge.purge_all`."""
+        purge_all(delete=options['force'], verbosity=options['verbosity'])
