@@ -69,7 +69,7 @@ class FlowExecutor(LocalFlowExecutor):
         # Some SWAP is needed to avoid OOM signal. Swappiness is low to prevent
         # extensive usage of SWAP (this would reduce the performance).
         memory = self.process['resource_limits']['memory'] + DOCKER_MEMORY_HARD_LIMIT_BUFFER
-        memory_swap = int(self.process['resource_limits']['memory'] * DOCKER_MEMORY_SWAP_RATIO)
+        memory_swap = int(memory * DOCKER_MEMORY_SWAP_RATIO)
 
         limits.append('--memory={}m'.format(memory))
         limits.append('--memory-swap={}m'.format(memory_swap))
