@@ -22,9 +22,11 @@ from .seccomp import SECCOMP_POLICY
 
 DOCKER_START_TIMEOUT = 60
 
-# We add this much to the memory limit to make sure process will remain
-# stable and won't be killed by OOM signal even when living on the edge.
-DOCKER_MEMORY_OVERHEAD = 100
+# Limits of containers' access to memory. We set the limit to ensure
+# processes are stable and do not get killed by OOM signal.
+DOCKER_MEMORY_HARD_LIMIT_BUFFER = 100
+DOCKER_MEMORY_SWAP_RATIO = 2
+DOCKER_MEMORY_SWAPPINESS = 1
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
@@ -64,11 +66,15 @@ class FlowExecutor(LocalFlowExecutor):
         # is 1024 shares (we don't need to explicitly set that).
         limits.append('--cpu-shares={}'.format(int(self.process['resource_limits']['cores']) * 1024))
 
-        memory = self.process['resource_limits']['memory'] + DOCKER_MEMORY_OVERHEAD
+        # Some SWAP is needed to avoid OOM signal. Swappiness is low to prevent
+        # extensive usage of SWAP (this would reduce the performance).
+        memory = self.process['resource_limits']['memory'] + DOCKER_MEMORY_HARD_LIMIT_BUFFER
+        memory_swap = int(self.process['resource_limits']['memory'] * DOCKER_MEMORY_SWAP_RATIO)
 
-        # Set both memory and swap limits as we want to enforce the total amount of memory
-        # used (otherwise swap would not count against the limit).
-        limits.append('--memory={0}m --memory-swap={0}m'.format(memory))
+        limits.append('--memory={}m'.format(memory))
+        limits.append('--memory-swap={}m'.format(memory_swap))
+        limits.append('--memory-reservation={}m'.format(self.process['resource_limits']['memory']))
+        limits.append('--memory-swappiness={}'.format(DOCKER_MEMORY_SWAPPINESS))
 
         # Set ulimits for interactive processes to prevent them from running too long.
         if self.process['scheduling_class'] == PROCESS_META['SCHEDULING_CLASS_INTERACTIVE']:
