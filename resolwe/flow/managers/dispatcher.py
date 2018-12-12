@@ -12,11 +12,13 @@ import logging
 import os
 import shlex
 import shutil
+from contextlib import suppress
 from importlib import import_module
 
 from asgiref.sync import async_to_sync
 from channels.db import database_sync_to_async
 from channels.exceptions import ChannelFull
+from redis.exceptions import ConnectionError as RedisConnectionError
 
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
@@ -265,6 +267,13 @@ class Manager:
         self.discover_engines()
         self.state = state.ManagerState(state.MANAGER_STATE_PREFIX)
 
+        # Don't call the full self.reset() here, that's only meant for testing
+        # since it also runs a dummy consumer to drain channels.
+        with suppress(RedisConnectionError):
+            # It's awkward to handle documentation and migration testing
+            # any other way.
+            self.state.reset()
+
         # The number of executors currently running; used for test synchronization.
         # We need to start out with a dummy object, so that the async
         # infrastructure isn't started too early. In particular, this handles
@@ -292,11 +301,9 @@ class Manager:
         # Ensure there is only one manager instance per process. This
         # is required as other parts of the code access the global
         # manager instance.
-        try:
+        with suppress(ImportError):
             from resolwe.flow import managers
             assert not hasattr(managers, 'manager')
-        except ImportError:
-            pass
 
         self.scheduling_class_map = dict(Process.SCHEDULING_CLASS_CHOICES)
 

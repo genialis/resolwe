@@ -29,6 +29,7 @@ Fixed
 -----
 - Process SIGTERM signal in executor as expected - set the Data status to
   error and set the process_error field
+- Clear cached Django settings from the manager's shared state on startup
 
 
 ===================
