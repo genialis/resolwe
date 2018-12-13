@@ -12,7 +12,7 @@ from django.db import models, transaction
 
 from resolwe.flow.expression_engines.exceptions import EvaluationError
 from resolwe.flow.models.utils import fill_with_defaults
-from resolwe.flow.utils import dict_dot, get_data_checksum, iterate_fields
+from resolwe.flow.utils import dict_dot, get_data_checksum, iterate_fields, rewire_inputs
 from resolwe.permissions.utils import assign_contributor_permissions, copy_permissions
 
 from .base import BaseModel
@@ -23,6 +23,12 @@ from .storage import Storage
 from .utils import (
     DirtyError, hydrate_input_references, hydrate_size, render_descriptor, render_template, validate_schema,
 )
+
+if settings.USE_TZ:
+    from django.utils.timezone import now  # pylint: disable=ungrouped-imports
+else:
+    import datetime
+    now = datetime.datetime.now  # pylint: disable=invalid-name
 
 # Compatibility for Python < 3.5.
 if not hasattr(json, 'JSONDecodeError'):
@@ -68,6 +74,22 @@ class DataQuerySet(models.QuerySet):
         :param chunk_size: Optional chunk size
         """
         return DataQuerySet._delete_chunked(self, chunk_size=chunk_size)
+
+    @transaction.atomic
+    def duplicate(self, contributor=None):
+        """Duplicate (make a copy) ``Data`` objects.
+
+        :param contributor: Duplication user
+        """
+        bundle = [
+            {'original': data, 'copy': data.duplicate(contributor=contributor)}
+            for data in self
+        ]
+
+        bundle = rewire_inputs(bundle)
+        duplicated = [item['copy'] for item in bundle]
+
+        return duplicated
 
 
 class Data(BaseModel):
@@ -122,6 +144,9 @@ class Data(BaseModel):
     #: process finished date date and time (set by
     #: ``resolwe.flow.executors.run.BaseFlowExecutor.run`` or its derivatives)
     finished = models.DateTimeField(blank=True, null=True, db_index=True)
+
+    #: duplication date and time
+    duplicated = models.DateTimeField(blank=True, null=True)
 
     #: checksum field calculated on inputs
     checksum = models.CharField(max_length=64, db_index=True, validators=[
@@ -440,13 +465,17 @@ class Data(BaseModel):
                 )
 
         with transaction.atomic():
-            super().save(*args, **kwargs)
+            self._perform_save(*args, **kwargs)
 
             # We can only save dependencies after the data object has been saved. This
             # is why a transaction block is needed and the save method must be called first.
             if create:
                 self.save_dependencies(self.input, self.process.input_schema)  # pylint: disable=no-member
                 self.create_entity()
+
+    def _perform_save(self, *args, **kwargs):
+        """Save the data model."""
+        super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
         """Delete the data model."""
@@ -456,6 +485,55 @@ class Data(BaseModel):
         super().delete(*args, **kwargs)
 
         Storage.objects.filter(pk__in=storage_ids, data=None).delete()
+
+    def is_duplicate(self):
+        """Return True if data object is a duplicate."""
+        return bool(self.duplicated)
+
+    def duplicate(self, contributor=None):
+        """Duplicate (make a copy)."""
+        if self.status not in [self.STATUS_DONE, self.STATUS_ERROR]:
+            raise ValidationError('Data object must have done or error status to be duplicated')
+
+        duplicate = Data.objects.get(id=self.id)
+        duplicate.pk = None
+        duplicate.slug = None
+        name_max_length = Data._meta.get_field('name').max_length
+        duplicate.name = 'Copy of {}'.format(self.name)[:name_max_length]
+        duplicate.duplicated = now()
+        if contributor:
+            duplicate.contributor = contributor
+
+        duplicate._perform_save(force_insert=True)  # pylint: disable=protected-access
+
+        assign_contributor_permissions(duplicate)
+
+        # Override fields that are automatically set on create.
+        duplicate.created = self.created
+        duplicate._perform_save()  # pylint: disable=protected-access
+
+        if self.location:
+            self.location.data.add(duplicate)  # pylint: disable=no-member
+
+        duplicate.storages.set(self.storages.all())  # pylint: disable=no-member
+
+        for migration in self.migration_history.order_by('created'):  # pylint: disable=no-member
+            migration.pk = None
+            migration.data = duplicate
+            migration.save(force_insert=True)
+
+        # Inherit existing child dependencies.
+        DataDependency.objects.bulk_create([
+            DataDependency(child=duplicate, parent=dependency.parent, kind=dependency.kind)
+            for dependency in DataDependency.objects.filter(child=self)
+        ])
+        # Inherit existing parent dependencies.
+        DataDependency.objects.bulk_create([
+            DataDependency(child=dependency.child, parent=duplicate, kind=dependency.kind)
+            for dependency in DataDependency.objects.filter(parent=self)
+        ])
+
+        return duplicate
 
     def _render_name(self):
         """Render data name.

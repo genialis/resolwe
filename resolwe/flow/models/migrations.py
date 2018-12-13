@@ -2,9 +2,6 @@
 from django.contrib.postgres.fields import JSONField
 from django.db import models
 
-from .data import Data
-from .process import Process
-
 
 class MigrationHistoryBase(models.Model):
     """Abstract model for storing migration history."""
@@ -31,10 +28,10 @@ class MigrationHistoryBase(models.Model):
 class ProcessMigrationHistory(MigrationHistoryBase):
     """Model for storing process migration history."""
 
-    process = models.ForeignKey(Process, related_name='migration_history', on_delete=models.CASCADE)
+    process = models.ForeignKey('Process', related_name='migration_history', on_delete=models.CASCADE)
 
 
 class DataMigrationHistory(MigrationHistoryBase):
     """Model for storing data migration history."""
 
-    data = models.ForeignKey(Data, related_name='migration_history', on_delete=models.CASCADE)
+    data = models.ForeignKey('Data', related_name='migration_history', on_delete=models.CASCADE)

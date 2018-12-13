@@ -20,7 +20,7 @@ from resolwe.permissions.shortcuts import get_objects_for_user
 from resolwe.permissions.utils import assign_contributor_permissions, copy_permissions
 
 from ..elastic_indexes import DataDocument
-from .mixins import ResolweCheckSlugMixin, ResolweCreateModelMixin, ResolweUpdateModelMixin
+from .mixins import ParametersMixin, ResolweCheckSlugMixin, ResolweCreateModelMixin, ResolweUpdateModelMixin
 
 
 class DataViewSet(ElasticSearchCombinedViewSet,
@@ -30,6 +30,7 @@ class DataViewSet(ElasticSearchCombinedViewSet,
                   mixins.DestroyModelMixin,
                   ResolwePermissionsMixin,
                   ResolweCheckSlugMixin,
+                  ParametersMixin,
                   viewsets.GenericViewSet):
     """API view for :class:`Data` objects."""
 
@@ -136,6 +137,27 @@ class DataViewSet(ElasticSearchCombinedViewSet,
                 return response
 
         return super().create(request, *args, **kwargs)
+
+    @list_route(methods=['post'])
+    def duplicate(self, request, *args, **kwargs):
+        """Duplicate (make copy of) ``Data`` objects."""
+        if not request.user.is_authenticated:
+            raise exceptions.NotFound
+
+        ids = self.get_ids(request.data)
+        queryset = get_objects_for_user(request.user, 'view_data', Data.objects.filter(id__in=ids))
+        actual_ids = queryset.values_list('id', flat=True)
+        missing_ids = list(set(ids) - set(actual_ids))
+        if missing_ids:
+            raise exceptions.ParseError(
+                "Data objects with the following ids not found: {}".format(', '.join(map(str, missing_ids)))
+            )
+
+        # TODO support ``inherit_collections``
+        duplicated = queryset.duplicate(contributor=request.user)
+
+        serializer = self.get_serializer(duplicated, many=True)
+        return Response(serializer.data)
 
     @list_route(methods=['post'])
     def get_or_create(self, request, *args, **kwargs):

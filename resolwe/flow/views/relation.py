@@ -8,8 +8,11 @@ from resolwe.flow.filters import RelationFilter
 from resolwe.flow.models import Relation
 from resolwe.flow.serializers import RelationSerializer
 
+from .mixins import ResolweCreateModelMixin
 
-class RelationViewSet(viewsets.ModelViewSet):
+
+class RelationViewSet(ResolweCreateModelMixin,
+                      viewsets.ModelViewSet):
     """API view for :class:`Relation` objects."""
 
     queryset = Relation.objects.all().prefetch_related('contributor')
@@ -64,7 +67,7 @@ class RelationViewSet(viewsets.ModelViewSet):
         if not user.is_authenticated:
             raise exceptions.NotFound
 
-        request.data['contributor'] = user.pk
+        self.define_contributor(request)
 
         return super().create(request, *args, **kwargs)
 

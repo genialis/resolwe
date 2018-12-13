@@ -50,6 +50,7 @@ class DataSerializer(ResolweBaseSerializer):
             'checksum',
             'created',
             'descriptor_dirty',
+            'duplicated',
             'finished',
             'id',
             'modified',

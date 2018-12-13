@@ -4,6 +4,7 @@ from django.db import IntegrityError, transaction
 from guardian.utils import get_anonymous_user
 from rest_framework import mixins, status
 from rest_framework.decorators import list_route
+from rest_framework.exceptions import ParseError
 from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
 
@@ -22,12 +23,13 @@ class ResolweCreateModelMixin(mixins.CreateModelMixin):
 
     """
 
+    def resolve_user(self, user):
+        """Resolve user instance from request."""
+        return get_anonymous_user() if user.is_anonymous else user
+
     def define_contributor(self, request):
-        """Define contibutor by adding it to request.data."""
-        if request.user.is_anonymous:
-            request.data['contributor'] = get_anonymous_user().pk
-        else:
-            request.data['contributor'] = request.user.pk
+        """Define contributor by adding it to request.data."""
+        request.data['contributor'] = self.resolve_user(request.user).pk
 
     def create(self, request, *args, **kwargs):
         """Create a resource."""
@@ -133,3 +135,24 @@ class ResolweCheckSlugMixin:
         queryset = self.get_queryset()
         slug_name = request.query_params['name']
         return Response(queryset.filter(slug__iexact=slug_name).exists())
+
+
+class ParametersMixin:
+    """Mixin for viewsets for handling various parameters."""
+
+    def get_ids(self, request_data, parameter_name='ids'):
+        """Extract a list of integers from request data."""
+        if parameter_name not in request_data:
+            raise ParseError("`{}` parameter is required".format(parameter_name))
+
+        ids = request_data.get(parameter_name)
+        if not isinstance(ids, list):
+            raise ParseError("`{}` parameter not a list".format(parameter_name))
+
+        if not ids:
+            raise ParseError("`{}` parameter is empty".format(parameter_name))
+
+        if any(map(lambda id: not isinstance(id, int), ids)):
+            raise ParseError("`{}` parameter contains non-integers".format(parameter_name))
+
+        return ids

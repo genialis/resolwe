@@ -104,3 +104,40 @@ def get_apps_tools():
         tools_paths[custom_key] = custom_path
 
     return tools_paths
+
+
+def rewire_inputs(data_list):
+    """Rewire inputs of provided data objects.
+
+    Input parameter is a list of original and copied data object model
+    instances: ``[{'original': original, 'copy': copy}]``. This
+    function finds which objects reference other objects (in the list)
+    on the input and replaces original objects with the copies (mutates
+    copies' inputs).
+
+    """
+    if len(data_list) < 2:
+        return data_list
+
+    mapped_ids = {bundle['original'].id: bundle['copy'].id for bundle in data_list}
+
+    for bundle in data_list:
+        updated = False
+        copy = bundle['copy']
+
+        for field_schema, fields in iterate_fields(copy.input, copy.process.input_schema):
+            name = field_schema['name']
+            value = fields[name]
+
+            if field_schema['type'].startswith('data:') and value in mapped_ids:
+                fields[name] = mapped_ids[value]
+                updated = True
+
+            elif field_schema['type'].startswith('list:data:') and any([id_ in mapped_ids for id_ in value]):
+                fields[name] = [mapped_ids[id_] if id_ in mapped_ids else id_ for id_ in value]
+                updated = True
+
+        if updated:
+            copy.save()
+
+    return data_list

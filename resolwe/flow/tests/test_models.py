@@ -1,8 +1,9 @@
-# pylint: disable=missing-docstring
+# pylint: disable=missing-docstring,too-many-lines
 import io
 import json
 import os
 import shutil
+from datetime import datetime, timedelta
 
 from mock import MagicMock, patch
 
@@ -10,11 +11,11 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
-from guardian.shortcuts import assign_perm, remove_perm
+from guardian.shortcuts import assign_perm, get_perms, remove_perm
 from rest_framework.test import APIRequestFactory, APITestCase, force_authenticate
 
 from resolwe.flow.expression_engines import EvaluationError
-from resolwe.flow.models import DescriptorSchema, Entity, Process, Storage
+from resolwe.flow.models import DataMigrationHistory, DescriptorSchema, Entity, Process, Storage
 from resolwe.flow.models.data import Data, DataDependency, DataLocation, hydrate_size, render_template
 from resolwe.flow.models.utils import hydrate_input_references
 from resolwe.flow.views import DataViewSet
@@ -519,6 +520,229 @@ class GetOrCreateTestCase(APITestCase):
         response = self.get_or_create_view(request)
         self.assertEqual(response.status_code, 201)
         self.assertNotEqual(response.data['id'], self.data.pk)
+
+
+class DuplicateTestCase(TestCase):
+
+    def test_data_duplicate(self):
+        process1 = Process.objects.create(
+            contributor=self.user,
+            type='data:test:first:',
+        )
+        process2 = Process.objects.create(
+            contributor=self.user,
+            input_schema=[
+                {'name': 'data_field', 'type': 'data:test:first:'},
+            ],
+            output_schema=[
+                {'name': 'json_field', 'type': 'basic:json:'},
+            ],
+        )
+
+        input_data = Data.objects.create(
+            name='Data 1',
+            contributor=self.user,
+            process=process1,
+        )
+        input_data.status = Data.STATUS_DONE
+        input_data.save()
+
+        data2 = Data.objects.create(
+            name='Data 2',
+            contributor=self.user,
+            process=process2,
+            started=datetime.now(),
+            input={'data_field': input_data.id},
+        )
+        data_location = DataLocation.objects.create(subpath='')
+        data_location.subpath = str(data_location.id)
+        data_location.save()
+        data_location.data.add(data2)
+        data2.output = {'json_field': {'foo': 'bar'}}
+        data2.status = Data.STATUS_DONE
+        data2.save()
+        data2.migration_history.create(migration='migration_1')
+        data2.migration_history.create(migration='migration_2')
+
+        # Duplicate.
+        duplicates = Data.objects.filter(id=data2.id).duplicate(self.contributor)
+        self.assertEqual(len(duplicates), 1)
+        duplicate = duplicates[0]
+        self.assertTrue(duplicate.is_duplicate())
+
+        # Convert original and duplicated to dict.
+        data2_dict = Data.objects.filter(id=data2.id).values()[0]
+        duplicate_dict = Data.objects.filter(id=duplicate.id).values()[0]
+
+        # Pop fields that should differ and assert the remaining.
+        fields_to_differ = ('id', 'slug', 'contributor_id', 'name', 'duplicated', 'modified')
+        for model_dict in (data2_dict, duplicate_dict):
+            for field in fields_to_differ:
+                model_dict.pop(field)
+
+        self.assertDictEqual(data2_dict, duplicate_dict)
+
+        # Assert location.
+        self.assertEqual(data2.location.id, duplicate.location.id)
+
+        # Assert fields that differ.
+        self.assertEqual(duplicate.slug, 'copy-of-data-2')
+        self.assertEqual(duplicate.name, 'Copy of Data 2')
+        self.assertEqual(duplicate.contributor.username, 'contributor')
+        self.assertAlmostEqual(duplicate.duplicated, datetime.now(), delta=timedelta(seconds=3))
+        self.assertAlmostEqual(duplicate.modified, datetime.now(), delta=timedelta(seconds=3))
+
+        # Assert dependencies.
+        self.assertEqual(DataDependency.objects.count(), 2)
+        self.assertTrue(
+            DataDependency.objects.filter(
+                kind=DataDependency.KIND_IO,
+                parent=input_data,
+                child=data2
+            ).exists()
+        )
+        self.assertTrue(
+            DataDependency.objects.filter(
+                kind=DataDependency.KIND_IO,
+                parent=input_data,
+                child=duplicate
+            ).exists()
+        )
+
+        # Assert storage
+        self.assertEqual(Storage.objects.count(), 1)
+        self.assertEqual(data2.storages.first(), Storage.objects.first())
+        self.assertEqual(duplicate.storages.first(), Storage.objects.first())
+
+        # Assert migration history
+        self.assertEqual(DataMigrationHistory.objects.count(), 4)
+        self.assertEqual(data2.migration_history.earliest('created').migration, 'migration_1')
+        self.assertEqual(data2.migration_history.latest('created').migration, 'migration_2')
+        self.assertEqual(duplicate.migration_history.earliest('created').migration, 'migration_1')
+        self.assertEqual(duplicate.migration_history.latest('created').migration, 'migration_2')
+
+        # Assert permissions.
+        self.assertEqual(len(get_perms(self.contributor, duplicate)), 5)
+
+    def test_data_duplicate_duplicate(self):
+        process1 = Process.objects.create(
+            contributor=self.user,
+            type='data:test:first:',
+        )
+        process2 = Process.objects.create(
+            contributor=self.user,
+            input_schema=[
+                {'name': 'data_field', 'type': 'data:test:first:'},
+            ],
+            output_schema=[
+                {'name': 'json_field', 'type': 'basic:json:'},
+            ],
+        )
+
+        input_data = Data.objects.create(contributor=self.user, process=process1)
+
+        data = Data.objects.create(contributor=self.user, process=process2, input={'data_field': input_data.id})
+        data_location = DataLocation.objects.create(subpath='')
+        data_location.subpath = str(data_location.id)
+        data_location.save()
+        data_location.data.add(data)
+        data.output = {'json_field': {'foo': 'bar'}}
+        data.status = Data.STATUS_DONE
+        data.save()
+        data.migration_history.create(migration='migration_1')
+
+        # Duplicate.
+        duplicate = data.duplicate(self.contributor)
+        duplicate_of_duplicate = duplicate.duplicate()
+
+        self.assertEqual(duplicate.contributor.id, duplicate_of_duplicate.contributor.id)
+
+        # Assert location
+        self.assertEqual(duplicate.location.id, duplicate_of_duplicate.location.id)
+
+        # Assert dependencies.
+        self.assertEqual(DataDependency.objects.count(), 3)
+        self.assertTrue(
+            DataDependency.objects.filter(
+                kind=DataDependency.KIND_IO,
+                parent=input_data,
+                child=duplicate_of_duplicate
+            ).exists()
+        )
+
+        # Assert storage
+        self.assertEqual(duplicate_of_duplicate.storages.first().id, Storage.objects.first().id)
+
+        # Assert migration history
+        self.assertEqual(DataMigrationHistory.objects.count(), 3)
+        self.assertEqual(duplicate_of_duplicate.migration_history.latest('created').migration, 'migration_1')
+
+        # Assert permissions.
+        self.assertEqual(len(get_perms(self.contributor, duplicate_of_duplicate)), 5)
+
+    def test_input_rewiring(self):
+        process1 = Process.objects.create(
+            contributor=self.user,
+            type='data:test:first:',
+        )
+        process2 = Process.objects.create(
+            contributor=self.user,
+            type='data:test:second:',
+            input_schema=[
+                {'name': 'data_field1', 'type': 'data:test:first:'},
+                {'name': 'data_field2', 'type': 'data:test:first:'},
+                {'name': 'data_list_field', 'type': 'list:data:test:first:'},
+            ],
+        )
+
+        data1 = Data.objects.create(
+            contributor=self.user,
+            process=process1,
+            status=Data.STATUS_DONE,
+        )
+
+        should_not_be_rewritten = data1.duplicate()
+
+        data2 = Data.objects.create(
+            contributor=self.user,
+            process=process2,
+            input={
+                'data_field1': data1.id,
+                'data_field2': should_not_be_rewritten.id,
+                'data_list_field': [data1.id, should_not_be_rewritten.id],
+            },
+            status=Data.STATUS_DONE,
+        )
+
+        # Duplicate.
+        duplicates = Data.objects.filter(id__in=[data1.id, data2.id]).duplicate(self.contributor)
+        duplicate1, duplicate2 = duplicates
+
+        self.assertEqual(duplicate2.input['data_field1'], duplicate1.id)
+        self.assertEqual(duplicate2.input['data_field2'], should_not_be_rewritten.id)
+        self.assertEqual(duplicate2.input['data_list_field'], [duplicate1.id, should_not_be_rewritten.id])
+
+    def test_data_status_not_done(self):
+        process = Process.objects.create(contributor=self.user)
+        data = Data.objects.create(contributor=self.user, process=process, status=Data.STATUS_WAITING)
+        data2 = Data.objects.create(contributor=self.user, process=process, status=Data.STATUS_DONE)
+
+        with self.assertRaisesMessage(ValidationError, 'Data object must have done or error status to be duplicated'):
+            Data.objects.filter(id__in=[data.id, data2.id]).duplicate(self.contributor)
+
+    def test_data_long_name(self):
+        process = Process.objects.create(contributor=self.user)
+
+        long_name = 'a' * (Data._meta.get_field('name').max_length - 1)  # pylint: disable=protected-access
+        data = Data.objects.create(name=long_name, contributor=self.user, process=process, status=Data.STATUS_DONE)
+
+        duplicate = Data.objects.filter(id=data.id).duplicate(self.contributor)[0]
+
+        self.assertTrue(duplicate.name.startswith('Copy of '))
+        self.assertTrue(duplicate.name.endswith('...'))
+        self.assertEqual(
+            len(duplicate.name), Data._meta.get_field('name').max_length  # pylint: disable=protected-access
+        )
 
 
 class ProcessModelTest(TestCase):

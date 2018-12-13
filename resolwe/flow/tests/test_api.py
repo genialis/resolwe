@@ -13,7 +13,7 @@ from guardian.shortcuts import assign_perm, remove_perm
 from rest_framework import exceptions, status
 from rest_framework.test import APIRequestFactory, force_authenticate
 
-from resolwe.flow.models import Collection, Data, DescriptorSchema, Entity, Process
+from resolwe.flow.models import Collection, Data, DataLocation, DescriptorSchema, Entity, Process
 from resolwe.flow.views import CollectionViewSet, DataViewSet, EntityViewSet, ProcessViewSet
 from resolwe.test import ResolweAPITestCase, TestCase
 
@@ -33,6 +33,9 @@ class TestDataViewSetCase(TestCase):
         self.data_viewset = DataViewSet.as_view(actions={
             'get': 'list',
             'post': 'create',
+        })
+        self.duplicate_viewset = DataViewSet.as_view(actions={
+            'post': 'duplicate',
         })
         self.data_detail_viewset = DataViewSet.as_view(actions={
             'get': 'retrieve',
@@ -239,6 +242,55 @@ class TestDataViewSetCase(TestCase):
         force_authenticate(request, self.contributor)
         response = self.data_viewset(request)
         self.assertEqual(response.status_code, 400)
+
+    def test_duplicate(self):
+        data = Data.objects.create(contributor=self.contributor, process=self.proc)
+        assign_perm("view_data", self.contributor, data)
+        data_location = DataLocation.objects.create(subpath='')
+        data_location.subpath = str(data_location.id)
+        data_location.save()
+        data_location.data.add(data)
+        data.status = Data.STATUS_DONE
+        data.save()
+
+        request = factory.post(reverse('resolwe-api:data-duplicate'), {'ids': [data.id]}, format='json')
+        force_authenticate(request, self.contributor)
+        response = self.duplicate_viewset(request)
+
+        duplicate = Data.objects.get(id=response.data[0]['id'])
+        self.assertTrue(duplicate.is_duplicate())
+
+    def test_duplicate_not_auth(self):
+        request = factory.post(reverse('resolwe-api:data-duplicate'), format='json')
+        response = self.duplicate_viewset(request)
+
+        self.assertEqual(response.data['detail'], MESSAGES['NOT_FOUND'])
+
+    def test_duplicate_wrong_parameters(self):
+        request = factory.post(reverse('resolwe-api:data-duplicate'), format='json')
+        force_authenticate(request, self.contributor)
+        response = self.duplicate_viewset(request)
+        self.assertEqual(response.data['detail'], "`ids` parameter is required")
+
+        request = factory.post(reverse('resolwe-api:data-duplicate'), {'ids': 1}, format='json')
+        force_authenticate(request, self.contributor)
+        response = self.duplicate_viewset(request)
+        self.assertEqual(response.data['detail'], "`ids` parameter not a list")
+
+        request = factory.post(reverse('resolwe-api:data-duplicate'), {'ids': []}, format='json')
+        force_authenticate(request, self.contributor)
+        response = self.duplicate_viewset(request)
+        self.assertEqual(response.data['detail'], "`ids` parameter is empty")
+
+        request = factory.post(reverse('resolwe-api:data-duplicate'), {'ids': ['a']}, format='json')
+        force_authenticate(request, self.contributor)
+        response = self.duplicate_viewset(request)
+        self.assertEqual(response.data['detail'], "`ids` parameter contains non-integers")
+
+        request = factory.post(reverse('resolwe-api:data-duplicate'), {'ids': [0]}, format='json')
+        force_authenticate(request, self.contributor)
+        response = self.duplicate_viewset(request)
+        self.assertEqual(response.data['detail'], "Data objects with the following ids not found: 0")
 
 
 class TestCollectionViewSetCase(TestCase):
