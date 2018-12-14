@@ -169,10 +169,15 @@ class ProcessVisitor(ast.NodeVisitor):
         """Visit top-level classes."""
         # Resolve everything as root scope contains everything from the process module.
         for base in node.bases:
-            if not isinstance(base, ast.Name) or not isinstance(base.ctx, ast.Load):
+            # Cover `from resolwe.process import ...`.
+            if isinstance(base, ast.Name) and isinstance(base.ctx, ast.Load):
+                base = getattr(runtime, base.id, None)
+            # Cover `from resolwe import process`.
+            elif isinstance(base, ast.Attribute) and isinstance(base.ctx, ast.Load):
+                base = getattr(runtime, base.attr, None)
+            else:
                 continue
 
-            base = getattr(runtime, base.id, None)
             if issubclass(base, runtime.Process):
                 break
         else:

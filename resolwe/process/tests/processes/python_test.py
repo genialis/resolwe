@@ -1,3 +1,4 @@
+from resolwe import process
 from resolwe.process import *
 
 
@@ -66,3 +67,11 @@ class PythonProcess(Process):
         outputs.dir_output = 'test/'
 
         outputs.my_output = 'OK'
+
+
+class PythonProcess2(process.Process):
+    """Inherit from 'module.Class'."""
+    slug = 'test-python-process-2'
+    name = "Test Python Process 2"
+    version = '0.0.1'
+    process_type = 'data:python'

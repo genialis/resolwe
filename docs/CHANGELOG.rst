@@ -6,6 +6,15 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Fixed
+-----
+- Support registration of Python processes inherited from ``process.Process``
+
+
 ===================
 14.0.1 - 2018-12-17
 ===================

@@ -17,7 +17,7 @@ class PythonProcessTest(ProcessTestCase):
 
     @with_docker_executor
     def test_registration(self):
-        process = Process.objects.filter(slug='test-python-process').latest()
+        process = Process.objects.get(slug='test-python-process')
 
         self.assertEqual(process.slug, 'test-python-process')
         self.assertEqual(process.name, 'Test Python Process')
@@ -39,6 +39,9 @@ class PythonProcessTest(ProcessTestCase):
             }
         })
         self.assertEqual(process.scheduling_class, Process.SCHEDULING_CLASS_BATCH)
+
+        # Make sure that process with inheritance from `module.Class` is also registered.
+        process = Process.objects.get(slug='test-python-process-2')
 
     @with_docker_executor
     @tag_process('test-python-process')
