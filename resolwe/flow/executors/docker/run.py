@@ -200,6 +200,9 @@ class FlowExecutor(LocalFlowExecutor):
         # Add any extra volumes verbatim.
         volumes += SETTINGS.get('FLOW_DOCKER_EXTRA_VOLUMES', [])
 
+        # Make sure that tmp dir exists.
+        os.makedirs(constants.TMPDIR, mode=0o755, exist_ok=True)
+
         # Create Docker --volume parameters from volumes.
         command_args['volumes'] = ' '.join(['--volume="{src}":"{dest}":{options}'.format(**volume)
                                             for volume in volumes])

@@ -58,5 +58,5 @@ class FlowExecutorPreparer(BaseFlowExecutorPreparer):
     def get_environment_variables(self):
         """Return dict of environment variables that will be added to executor."""
         return {
-            'TMPDIR': os.path.join(constants.DATA_VOLUME, '.tmp')
+            'TMPDIR': os.path.join(constants.DATA_VOLUME, constants.TMPDIR)
         }
