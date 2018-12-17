@@ -419,7 +419,9 @@ class ProcessTestCase(TransactionTestCase):
                 if not os.path.isfile(old_path):
                     raise RuntimeError('Missing file: {}'.format(old_path))
 
-                file_temp = '{}_{}'.format(file_path, uuid.uuid4())
+                file_basename = os.path.basename(file_path)
+
+                file_temp = '{}_{}'.format(file_basename, uuid.uuid4())
                 upload_file_path = os.path.join(self.upload_dir, file_temp)
                 # create directories needed by new_path
                 upload_file_dir = os.path.dirname(upload_file_path)
@@ -429,7 +431,7 @@ class ProcessTestCase(TransactionTestCase):
                 shutil.copy2(old_path, upload_file_path)
                 self._upload_files.append(upload_file_path)
                 return {
-                    'file': file_path,
+                    'file': file_basename,
                     'file_temp': file_temp,
                 }
 

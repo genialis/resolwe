@@ -17,6 +17,13 @@ class FilesProcessTestCase(ProcessTestCase):
         self.assertFile(upload_file, 'file', 'file binary')
 
     @with_docker_executor
+    @tag_process('upload-file')
+    def test_upload_file_nested_path(self):
+        """Test that nested files from files directory are processed correctly."""
+        upload_file = self.run_process('upload-file', {'src': 'upload_file/input_file.txt'})
+        self.assertFile(upload_file, 'file', 'upload_file/input_file.txt')
+
+    @with_docker_executor
     @tag_process('upload-image-file')
     def test_upload_image(self):
         upload_image = self.run_process('upload-image-file', {'src': 'file image.png'})
