@@ -6,9 +6,9 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+===================
+14.0.0 - 2018-12-17
+===================
 
 Changed
 -------
@@ -16,7 +16,8 @@ Changed
   that listener replies to the executor within 60 seconds
 - Use batcher for spawned processes in listener
 - Increase Docker's memory limit for 100MB to make sure processes are not
-  killed when using all available memory
+  killed when using all available memory and tune Docker memory limits to
+  avoid OOM.
 
 Added
 -----
