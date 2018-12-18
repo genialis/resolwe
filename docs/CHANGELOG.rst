@@ -10,6 +10,10 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Added
+-----
+- Add ``assertFilesExist`` method to ``ProcessTestCase``
+
 Fixed
 -----
 - Support registration of Python processes inherited from ``process.Process``

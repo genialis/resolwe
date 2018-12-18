@@ -15,8 +15,13 @@
     - name: file
       label: file
       type: basic:string
+    - name: files
+      label: List of files
+      type: list:basic:file
   run:
     language: bash
     program: |
       re-save file_temp {{ src.file_temp }}
       re-save file {{ src.file }}
+      mv {{ src.file_temp }} {{ src.file }}
+      re-save-file-list files {{ src.file }}

@@ -710,6 +710,24 @@ class ProcessTestCase(TransactionTestCase):
         if not os.path.isfile(output):
             self.fail(msg="File {} does not exist.".format(field_path))
 
+    def assertFilesExist(self, obj, field_path):  # pylint: disable=invalid-name
+        """Ensure files in the given object's field exists.
+
+        :param obj: object that includes list of files for which to check
+            existance
+        :type obj: ~resolwe.flow.models.Data
+
+        :param str field_path: path to
+            :class:`~resolwe.flow.models.Data` object's field with the
+            file name/path
+        """
+        field = dict_dot(obj.output, field_path)
+
+        for item in field:
+            output_file = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(obj.pk), item['file'])
+            if not os.path.isfile(output_file):
+                self.fail(msg="File {} in output field {} does not exist.".format(item['file'], field_path))
+
     def assertJSON(self, obj, storage, field_path, file_name):  # pylint: disable=invalid-name
         """Compare JSON in Storage object to the given correct JSON.
 

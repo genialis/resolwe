@@ -224,3 +224,9 @@ class TestingFrameworkProcessTestCase(ProcessTestCase):
         self.run_process('test-file-upload', inputs)
 
         self.assertEqual(original_inputs, inputs)
+
+    @tag_process('test-file-upload')
+    def test_assert_files_exist(self):
+        self.files_path = TEST_FILES_DIR
+        data = self.run_process('test-file-upload', {'src': 'example_file.txt'})
+        self.assertFilesExist(data, 'files')
