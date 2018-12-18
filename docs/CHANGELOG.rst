@@ -17,6 +17,8 @@ Added
 Fixed
 -----
 - Support registration of Python processes inherited from ``process.Process``
+- Skip docker image pull if image exists locally. This solves the issue
+  where pull would fail if process uses an image that is only used locally
 
 
 ===================
