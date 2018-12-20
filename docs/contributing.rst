@@ -98,8 +98,8 @@ To run the tests with Tox_, use::
 
 .. _Tox: http://tox.testrun.org/
 
-Buildling documentation
-=======================
+Building documentation
+======================
 
 .. code-block:: none
 

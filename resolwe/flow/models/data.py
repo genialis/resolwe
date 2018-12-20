@@ -24,7 +24,7 @@ from .utils import (
     DirtyError, hydrate_input_references, hydrate_size, render_descriptor, render_template, validate_schema,
 )
 
-# Compatibilty for Python < 3.5.
+# Compatibility for Python < 3.5.
 if not hasattr(json, 'JSONDecodeError'):
     json.JSONDecodeError = ValueError
 
@@ -323,7 +323,7 @@ class Data(BaseModel):
 
         Following rules applies for adding `Data` object to `Entity`:
         * Only add `Data object` to `Entity` if process has defined
-        `flow_collwection` field
+        `flow_collection` field
         * Add object to existing `Entity`, if all parents that are part
         of it (but not necessary all parents), are part of the same
         `Entity`
@@ -379,7 +379,7 @@ class Data(BaseModel):
 
             if entity:
                 entity.data.add(self)
-                # Inherite collections from entity.
+                # Inherit collections from entity.
                 for collection in entity.collections.all():
                     collection.data.add(self)
 

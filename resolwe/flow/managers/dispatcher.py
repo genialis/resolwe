@@ -63,7 +63,7 @@ class SettingsJSONifier(json.JSONEncoder):
 
 
 def dependency_status(data):
-    """Return abstracted satus of dependencies.
+    """Return abstracted status of dependencies.
 
     - ``STATUS_ERROR`` .. one dependency has error status or was deleted
     - ``STATUS_DONE`` .. all dependencies have done status

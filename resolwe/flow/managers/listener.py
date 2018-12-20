@@ -491,7 +491,7 @@ class ExecutorListener:
                     )
                 except ChannelFull:
                     logger.warning(
-                        "Cannot triger purge because channel is full.",
+                        "Cannot trigger purge because channel is full.",
                         extra={'data_id': data_id}
                     )
 

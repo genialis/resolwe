@@ -402,7 +402,7 @@ def hydrate_size(data, force=False):
         return total_size
 
     def get_refs_size(obj, obj_path):
-        """Caculate size of all references of ``obj``.
+        """Calculate size of all references of ``obj``.
 
         :param dict obj: Data object's output field (of type file/dir).
         :param str obj_path: Path to ``obj``.
