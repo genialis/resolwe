@@ -498,8 +498,7 @@ class Data(BaseModel):
         duplicate = Data.objects.get(id=self.id)
         duplicate.pk = None
         duplicate.slug = None
-        name_max_length = Data._meta.get_field('name').max_length
-        duplicate.name = 'Copy of {}'.format(self.name)[:name_max_length]
+        duplicate.name = 'Copy of {}'.format(self.name)
         duplicate.duplicated = now()
         if contributor:
             duplicate.contributor = contributor

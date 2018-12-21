@@ -5,18 +5,21 @@ from django.db.models import Max
 from django.db.models.query import Prefetch
 
 from rest_framework import exceptions, status
-from rest_framework.decorators import detail_route
+from rest_framework.decorators import detail_route, list_route
 from rest_framework.response import Response
 
 from resolwe.flow.models import Collection, Data, Entity
 from resolwe.flow.serializers import EntitySerializer
+from resolwe.permissions.shortcuts import get_objects_for_user
 from resolwe.permissions.utils import remove_permission, update_permission
 
 from ..elastic_indexes import EntityDocument
 from .collection import CollectionViewSet
+from .mixins import ParametersMixin
 
 
-class EntityViewSet(CollectionViewSet):
+class EntityViewSet(ParametersMixin,
+                    CollectionViewSet):
     """API view for entities."""
 
     serializer_class = EntitySerializer
@@ -93,6 +96,9 @@ class EntityViewSet(CollectionViewSet):
         """Add Entity to a collection."""
         entity = self.get_object()
 
+        # TODO use `self.get_ids` (and elsewhere). Backwards
+        # incompatible because raised error's response contains
+        # ``detail`` instead of ``error``).
         if 'ids' not in request.data:
             return Response({"error": "`ids` parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -163,3 +169,24 @@ class EntityViewSet(CollectionViewSet):
         resp = super().update(request, *args, **kwargs)
         self.get_queryset = orig_get_queryset
         return resp
+
+    @list_route(methods=['post'])
+    def duplicate(self, request, *args, **kwargs):
+        """Duplicate (make copy of) ``Entity`` models."""
+        if not request.user.is_authenticated:
+            raise exceptions.NotFound
+
+        inherit_collections = request.data.get('inherit_collections', False)
+        ids = self.get_ids(request.data)
+        queryset = get_objects_for_user(request.user, 'view_entity', Entity.objects.filter(id__in=ids))
+        actual_ids = queryset.values_list('id', flat=True)
+        missing_ids = list(set(ids) - set(actual_ids))
+        if missing_ids:
+            raise exceptions.ParseError(
+                "Entities with the following ids not found: {}".format(', '.join(map(str, missing_ids)))
+            )
+
+        duplicated = queryset.duplicate(contributor=request.user, inherit_collections=inherit_collections)
+
+        serializer = self.get_serializer(duplicated, many=True)
+        return Response(serializer.data)

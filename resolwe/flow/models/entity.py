@@ -1,9 +1,35 @@
 """Resolwe entity model."""
+import datetime
+
 from django.contrib.postgres.fields import CICharField
-from django.db import models
+from django.db import models, transaction
+
+from resolwe.permissions.shortcuts import get_objects_for_user
+from resolwe.permissions.utils import assign_contributor_permissions, copy_permissions
 
 from .base import BaseModel
 from .collection import BaseCollection
+
+
+class EntityQuerySet(models.QuerySet):
+    """Query set for ``Entity`` objects."""
+
+    @transaction.atomic
+    def duplicate(self, contributor=None, inherit_collections=False):
+        """Duplicate (make a copy) ``Entity`` objects.
+
+        :param contributor: Duplication user
+        :param inherit_collections: If ``True`` then duplicated
+            entities will be added to collections the original entity
+            is part of. Duplicated entities' data objects will also be
+            added to the collections, but only those which are in the
+            collection
+        :return: A list of duplicated entities
+        """
+        return [
+            entity.duplicate(contributor, inherit_collections)
+            for entity in self
+        ]
 
 
 class Entity(BaseCollection):
@@ -21,6 +47,9 @@ class Entity(BaseCollection):
             ("owner_entity", "Is owner of the entity"),
         )
 
+    #: manager
+    objects = EntityQuerySet.as_manager()
+
     #: list of collections to which entity belongs
     collections = models.ManyToManyField('Collection')
 
@@ -29,6 +58,51 @@ class Entity(BaseCollection):
 
     #: entity type
     type = models.CharField(max_length=100, db_index=True, null=True, blank=True)
+
+    #: duplication date and time
+    duplicated = models.DateTimeField(blank=True, null=True)
+
+    def is_duplicate(self):
+        """Return True if entity is a duplicate."""
+        return bool(self.duplicated)
+
+    def duplicate(self, contributor=None, inherit_collections=False):
+        """Duplicate (make a copy)."""
+        duplicate = Entity.objects.get(id=self.id)
+        duplicate.pk = None
+        duplicate.slug = None
+        duplicate.name = 'Copy of {}'.format(self.name)
+        duplicate.duplicated = datetime.datetime.now()
+        if contributor:
+            duplicate.contributor = contributor
+
+        duplicate.save(force_insert=True)
+
+        assign_contributor_permissions(duplicate)
+
+        # Override fields that are automatically set on create.
+        duplicate.created = self.created
+        duplicate.save()
+
+        # Duplicate entity's data objects.
+        data = get_objects_for_user(contributor, 'view_data', self.data.all())  # pylint: disable=no-member
+        duplicated_data = data.duplicate(contributor)
+        duplicate.data.add(*duplicated_data)
+
+        if inherit_collections:
+            collections = get_objects_for_user(
+                contributor,
+                'add_collection',
+                self.collections.all()  # pylint: disable=no-member
+            )
+            for collection in collections:
+                collection.entity_set.add(duplicate)
+                copy_permissions(collection, duplicate)
+                collection.data.add(*duplicated_data)
+                for datum in duplicated_data:
+                    copy_permissions(collection, datum)
+
+        return duplicate
 
 
 class RelationType(models.Model):

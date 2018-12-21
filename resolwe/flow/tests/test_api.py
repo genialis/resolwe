@@ -565,11 +565,33 @@ class EntityViewSetTest(TestCase):
         self.collection2 = Collection.objects.create(name="Test Collection 2", contributor=self.contributor)
         self.entity = Entity.objects.create(name="Test entity", contributor=self.contributor)
         process = Process.objects.create(name="Test process", contributor=self.contributor)
-        self.data = Data.objects.create(name="Test data", contributor=self.contributor, process=process)
-        self.data_2 = Data.objects.create(name="Test data 2", contributor=self.contributor, process=process)
+        self.data = Data.objects.create(
+            name="Test data",
+            contributor=self.contributor,
+            process=process,
+            status=Data.STATUS_DONE
+        )
+        data_location = DataLocation.objects.create(subpath='')
+        data_location.subpath = str(data_location.id)
+        data_location.save()
+        data_location.data.add(self.data)
+        self.data_2 = Data.objects.create(
+            name="Test data 2",
+            contributor=self.contributor,
+            process=process,
+            status=Data.STATUS_DONE
+        )
+        data_location = DataLocation.objects.create(subpath='')
+        data_location.subpath = str(data_location.id)
+        data_location.save()
+        data_location.data.add(self.data_2)
 
         # another Data object to make sure that other objects are not processed
-        Data.objects.create(name="Dummy data", contributor=self.contributor, process=process)
+        data = Data.objects.create(name="Dummy data", contributor=self.contributor, process=process)
+        data_location = DataLocation.objects.create(subpath='')
+        data_location.subpath = str(data_location.id)
+        data_location.save()
+        data_location.data.add(data)
 
         self.entity.data.add(self.data)
         self.entity.collections.add(self.collection2)
@@ -582,6 +604,9 @@ class EntityViewSetTest(TestCase):
 
         self.entityviewset = EntityViewSet()
 
+        self.duplicate_viewset = EntityViewSet.as_view(actions={
+            'post': 'duplicate',
+        })
         self.entity_detail_viewset = EntityViewSet.as_view(actions={
             'get': 'retrieve',
             'put': 'update',
@@ -739,3 +764,46 @@ class EntityViewSetTest(TestCase):
         self.assertEqual(response.status_code, 204)
         self.assertFalse(Entity.objects.filter(pk=entity.pk).exists())
         self.assertFalse(Data.objects.filter(pk=data_2.pk).exists())
+
+    def test_duplicate(self):
+        entity = Entity.objects.first()
+        collection = Collection.objects.create(contributor=self.contributor)
+        assign_perm('add_collection', self.contributor, collection)
+        collection.entity_set.add(entity)
+        data = entity.data.all()
+        for datum in data:
+            assign_perm('view_data', self.contributor, datum)
+        collection.data.add(*data)
+
+        request = factory.post(reverse('resolwe-api:entity-duplicate'), {'ids': [entity.id]}, format='json')
+        force_authenticate(request, self.contributor)
+        response = self.duplicate_viewset(request)
+
+        duplicate = Entity.objects.get(id=response.data[0]['id'])
+        self.assertTrue(duplicate.is_duplicate())
+        self.assertEqual(collection.entity_set.count(), 1)
+        self.assertEqual(collection.data.count(), 1)
+
+        # Assert collection membership.
+        collection_without_perm = Collection.objects.create(contributor=self.contributor)
+        collection_without_perm.entity_set.add(entity)
+        collection_without_perm.data.add(*entity.data.all())
+
+        request = factory.post(reverse('resolwe-api:entity-duplicate'), {
+            'ids': [entity.id],
+            'inherit_collections': True
+        }, format='json')
+        force_authenticate(request, self.contributor)
+        response = self.duplicate_viewset(request)
+
+        self.assertEqual(collection.entity_set.count(), 2)
+        self.assertEqual(collection.data.count(), 2)
+
+        self.assertEqual(collection_without_perm.entity_set.count(), 1)
+        self.assertEqual(collection_without_perm.data.count(), 1)
+
+    def test_duplicate_not_auth(self):
+        request = factory.post(reverse('resolwe-api:entity-duplicate'), format='json')
+        response = self.duplicate_viewset(request)
+
+        self.assertEqual(response.data['detail'], MESSAGES['NOT_FOUND'])
