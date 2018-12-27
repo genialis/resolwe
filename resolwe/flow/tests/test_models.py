@@ -868,6 +868,61 @@ class DuplicateTestCase(TestCase):
         self.assertListEqual(get_perms(self.contributor, duplicated_entity2), ['edit_entity'])
         self.assertListEqual(get_perms(self.contributor, duplicated_entity2.data.first()), ['edit_data'])
 
+    def test_collection_duplicate(self):
+        entity = Entity.objects.create(name='Entity', contributor=self.user)
+        assign_perm('view_entity', self.contributor, entity)
+
+        # Add to collection.
+        collection = Collection.objects.create(name='Collection', contributor=self.user)
+        entity.collections.add(collection.id)
+
+        # Duplicate.
+        collections = Collection.objects.filter(id=collection.id).duplicate(self.contributor)
+        self.assertEqual(len(collections), 1)
+        duplicate = collections[0]
+
+        collection_dict = Collection.objects.filter(id=collection.id).values()[0]
+        duplicate_dict = Collection.objects.filter(id=duplicate.id).values()[0]
+
+        entity_dict = Entity.objects.filter(id=entity.id).values()[0]
+        entity_duplicate = duplicate.entity_set.first()
+        entity_duplicate_dict = Entity.objects.filter(id=entity_duplicate.id).values()[0]
+
+        self.assertTrue(duplicate.is_duplicate())
+        self.assertTrue(entity_duplicate.is_duplicate())
+
+        # Pop fields that should differ and assert the remaining.
+        fields_to_differ = ('id', 'slug', 'contributor_id', 'name', 'duplicated', 'modified')
+        for model_dict in (
+                collection_dict, duplicate_dict,
+                entity_dict, entity_duplicate_dict,
+        ):
+            for field in fields_to_differ:
+                model_dict.pop(field)
+
+        self.assertDictEqual(collection_dict, duplicate_dict)
+        self.assertDictEqual(entity_dict, entity_duplicate_dict)
+
+        # Assert fields that differ.
+        self.assertEqual(duplicate.slug, 'copy-of-collection')
+        self.assertEqual(duplicate.name, 'Copy of Collection')
+        self.assertEqual(duplicate.contributor.username, 'contributor')
+        self.assertAlmostEqual(duplicate.duplicated, datetime.now(), delta=timedelta(seconds=3))
+        self.assertAlmostEqual(duplicate.modified, datetime.now(), delta=timedelta(seconds=3))
+
+        self.assertEqual(entity_duplicate.slug, 'copy-of-entity')
+        self.assertEqual(entity_duplicate.name, 'Copy of Entity')
+        self.assertEqual(entity_duplicate.contributor.username, 'contributor')
+        self.assertAlmostEqual(entity_duplicate.duplicated, datetime.now(), delta=timedelta(seconds=3))
+        self.assertAlmostEqual(entity_duplicate.modified, datetime.now(), delta=timedelta(seconds=3))
+
+        # Assert duplicated entity and data objects are in collection.
+        self.assertEqual(duplicate.entity_set.count(), 1)
+        self.assertEqual(duplicate.entity_set.first().name, 'Copy of Entity')
+
+        # Assert permissions.
+        self.assertEqual(len(get_perms(self.contributor, duplicate)), 6)
+
 
 class ProcessModelTest(TestCase):
 

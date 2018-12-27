@@ -26,6 +26,7 @@ class CollectionSerializer(ResolweBaseSerializer):
         read_only_fields = (
             'created',
             'descriptor_dirty',
+            'duplicated',
             'id',
             'modified',
         )

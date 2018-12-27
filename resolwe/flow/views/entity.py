@@ -15,11 +15,9 @@ from resolwe.permissions.utils import remove_permission, update_permission
 
 from ..elastic_indexes import EntityDocument
 from .collection import CollectionViewSet
-from .mixins import ParametersMixin
 
 
-class EntityViewSet(ParametersMixin,
-                    CollectionViewSet):
+class EntityViewSet(CollectionViewSet):
     """API view for entities."""
 
     serializer_class = EntitySerializer

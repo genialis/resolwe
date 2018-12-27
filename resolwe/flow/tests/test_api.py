@@ -306,6 +306,9 @@ class TestCollectionViewSetCase(TestCase):
         self.remove_data_viewset = CollectionViewSet.as_view(actions={
             'post': 'remove_data',
         })
+        self.duplicate_viewset = CollectionViewSet.as_view(actions={
+            'post': 'duplicate',
+        })
         self.collection_detail_viewset = CollectionViewSet.as_view(actions={
             'get': 'retrieve',
             'put': 'update',
@@ -515,6 +518,26 @@ class TestCollectionViewSetCase(TestCase):
         self.assertTrue(Data.objects.filter(pk=data_2.pk).exists())
         self.assertFalse(Entity.objects.filter(pk=entity_1.pk).exists())
         self.assertTrue(Entity.objects.filter(pk=entity_2.pk).exists())
+
+    def test_duplicate(self):
+        request = factory.post('/', {}, format='json')
+        force_authenticate(request, self.contributor)
+        self.collection_list_viewset(request)
+
+        collection = Collection.objects.first()
+
+        request = factory.post(reverse('resolwe-api:collection-duplicate'), {'ids': [collection.id]}, format='json')
+        force_authenticate(request, self.contributor)
+        response = self.duplicate_viewset(request)
+
+        duplicate = Collection.objects.get(id=response.data[0]['id'])
+        self.assertTrue(duplicate.is_duplicate())
+
+    def test_duplicate_not_auth(self):
+        request = factory.post(reverse('resolwe-api:collection-duplicate'), format='json')
+        response = self.duplicate_viewset(request)
+
+        self.assertEqual(response.data['detail'], MESSAGES['NOT_FOUND'])
 
 
 class ProcessTestCase(ResolweAPITestCase):

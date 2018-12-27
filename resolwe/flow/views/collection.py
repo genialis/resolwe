@@ -6,7 +6,7 @@ from elasticsearch_dsl.query import Q
 from django.db.models.query import Prefetch
 
 from rest_framework import exceptions, mixins, status, viewsets
-from rest_framework.decorators import detail_route
+from rest_framework.decorators import detail_route, list_route
 from rest_framework.response import Response
 
 from resolwe.elastic.composer import composer
@@ -15,10 +15,11 @@ from resolwe.flow.models import Collection, Data
 from resolwe.flow.serializers import CollectionSerializer
 from resolwe.permissions.loader import get_permissions_class
 from resolwe.permissions.mixins import ResolwePermissionsMixin
+from resolwe.permissions.shortcuts import get_objects_for_user
 from resolwe.permissions.utils import remove_permission, update_permission
 
 from ..elastic_indexes import CollectionDocument
-from .mixins import ResolweCheckSlugMixin, ResolweCreateModelMixin, ResolweUpdateModelMixin
+from .mixins import ParametersMixin, ResolweCheckSlugMixin, ResolweCreateModelMixin, ResolweUpdateModelMixin
 
 
 class CollectionViewSet(ElasticSearchCombinedViewSet,
@@ -29,6 +30,7 @@ class CollectionViewSet(ElasticSearchCombinedViewSet,
                         mixins.ListModelMixin,
                         ResolwePermissionsMixin,
                         ResolweCheckSlugMixin,
+                        ParametersMixin,
                         viewsets.GenericViewSet):
     """API view for :class:`Collection` objects."""
 
@@ -181,3 +183,23 @@ class CollectionViewSet(ElasticSearchCombinedViewSet,
             collection.data.remove(data_id)
 
         return Response()
+
+    @list_route(methods=['post'])
+    def duplicate(self, request, *args, **kwargs):
+        """Duplicate (make copy of) ``Collection`` models."""
+        if not request.user.is_authenticated:
+            raise exceptions.NotFound
+
+        ids = self.get_ids(request.data)
+        queryset = get_objects_for_user(request.user, 'view_collection', Collection.objects.filter(id__in=ids))
+        actual_ids = queryset.values_list('id', flat=True)
+        missing_ids = list(set(ids) - set(actual_ids))
+        if missing_ids:
+            raise exceptions.ParseError(
+                "Collections with the following ids not found: {}".format(', '.join(map(str, missing_ids)))
+            )
+
+        duplicated = queryset.duplicate(contributor=request.user)
+
+        serializer = self.get_serializer(duplicated, many=True)
+        return Response(serializer.data)

@@ -45,7 +45,7 @@ class CollectionTestCase(ResolweAPITestCase):
         # check that (one of the) objects have expected keys
         self.assertKeys(resp.data[0], ['slug', 'name', 'created', 'modified', 'contributor', 'description', 'id',
                                        'settings', 'current_user_permissions', 'descriptor_schema', 'descriptor',
-                                       'descriptor_dirty', 'data', 'tags'])
+                                       'descriptor_dirty', 'data', 'tags', 'duplicated'])
 
     def test_get_list_admin(self):
         resp = self._get_list(self.admin)
@@ -84,7 +84,7 @@ class CollectionTestCase(ResolweAPITestCase):
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertKeys(resp.data, ['slug', 'name', 'created', 'modified', 'contributor', 'description', 'settings',
                                     'id', 'current_user_permissions', 'descriptor_schema', 'descriptor',
-                                    'descriptor_dirty', 'data', 'tags'])
+                                    'descriptor_dirty', 'data', 'tags', 'duplicated'])
 
         # user w/o permissions
         resp = self._get_detail(2, self.user2)
@@ -96,7 +96,7 @@ class CollectionTestCase(ResolweAPITestCase):
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertKeys(resp.data, ['slug', 'name', 'created', 'modified', 'contributor', 'description', 'settings',
                                     'id', 'current_user_permissions', 'descriptor_schema', 'descriptor',
-                                    'descriptor_dirty', 'data', 'tags'])
+                                    'descriptor_dirty', 'data', 'tags', 'duplicated'])
 
     def test_patch(self):
         data = {'name': 'New collection'}
