@@ -36,8 +36,9 @@ setuptools.setup(
     python_requires='>=3.6, <3.7',
     install_requires=[
         'Django~=1.11.0',
-        'djangorestframework~=3.7.0',
-        'djangorestframework-filters~=0.10.0',
+        'djangorestframework~=3.9.0',
+        'djangorestframework-filters~=1.0.0.dev0',
+        'django-filter~=2.0.0',
         'django-guardian>=1.4.2',
         'django-mathfilters>=0.3.0',
         'django-versionfield2>=0.5.0',
@@ -56,10 +57,6 @@ setuptools.setup(
         # XXX: Temporarily pin idna since the latest version of the requests
         # package (2.20.1) explicitly requires idna>=2.5,<2.8
         'idna==2.7',
-        # XXX: djangorestframework-filters has too open requirement for
-        # django-filter and doesn't work with the latest version, so we
-        # have to pin it
-        'django-filter~=1.0.0',
         'redis~=3.2.0',
         'channels~=2.1',
         'channels_redis~=2.3',

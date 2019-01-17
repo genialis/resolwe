@@ -14,12 +14,12 @@ from .models import Collection, Data, DescriptorSchema, Entity, Process, Relatio
 class BaseResolweFilter(filters.FilterSet):
     """Base filter for Resolwe's endpoints."""
 
-    id = filters.AllLookupsFilter()  # pylint: disable=invalid-name
-    slug = filters.AllLookupsFilter()
-    name = filters.AllLookupsFilter()
+    id = filters.AutoFilter(lookups='__all__')  # pylint: disable=invalid-name
+    slug = filters.AutoFilter(lookups='__all__')
+    name = filters.AutoFilter(lookups='__all__')
     contributor = filters.NumberFilter()
-    created = filters.AllLookupsFilter()
-    modified = filters.AllLookupsFilter()
+    created = filters.AutoFilter(lookups='__all__')
+    modified = filters.AutoFilter(lookups='__all__')
 
     class Meta:
         """Filter configuration."""
@@ -42,9 +42,9 @@ class CollectionFilter(BaseResolweFilter):
     data = filters.ModelChoiceFilter(queryset=Data.objects.all())
     entity = filters.ModelChoiceFilter(queryset=Entity.objects.all())
     descriptor_schema = filters.RelatedFilter(
-        DescriptorSchemaFilter, name='descriptor_schema', queryset=DescriptorSchema.objects.all()
+        DescriptorSchemaFilter, field_name='descriptor_schema', queryset=DescriptorSchema.objects.all()
     )
-    description = filters.AllLookupsFilter()
+    description = filters.AutoFilter(lookups='__all__')
 
     class Meta(BaseResolweFilter.Meta):
         """Filter configuration."""
@@ -79,9 +79,9 @@ class EntityFilter(CollectionFilter):
 class ProcessFilter(BaseResolweFilter):
     """Filter the Process endpoint."""
 
-    category = filters.CharFilter(name='category', lookup_expr='startswith')
-    type = filters.CharFilter(name='type', lookup_expr='startswith')
-    scheduling_class = filters.AllLookupsFilter()
+    category = filters.CharFilter(field_name='category', lookup_expr='startswith')
+    type = filters.CharFilter(field_name='type', lookup_expr='startswith')
+    scheduling_class = filters.AutoFilter(lookups='__all__')
     is_active = filters.BooleanFilter()
 
     class Meta(BaseResolweFilter.Meta):
@@ -96,10 +96,10 @@ class DataFilter(BaseResolweFilter):
 
     collection = filters.RelatedFilter(CollectionFilter, queryset=Collection.objects.all())
     entity = filters.ModelChoiceFilter(queryset=Entity.objects.all())
-    type = filters.CharFilter(name='process__type', lookup_expr='startswith')
+    type = filters.CharFilter(field_name='process__type', lookup_expr='startswith')
     status = filters.CharFilter(lookup_expr='iexact')
-    finished = filters.AllLookupsFilter()
-    started = filters.AllLookupsFilter()
+    finished = filters.AutoFilter(lookups='__all__')
+    started = filters.AutoFilter(lookups='__all__')
     process = filters.RelatedFilter(ProcessFilter, queryset=Process.objects.all())
     tags = TagsFilter()
     parents = filters.ModelChoiceFilter(queryset=Data.objects.all())
@@ -120,7 +120,7 @@ class RelationFilter(BaseResolweFilter):
 
     category = filters.CharFilter(lookup_expr='iexact')
     collection = filters.ModelChoiceFilter(queryset=Collection.objects.all())
-    type = filters.CharFilter(name='type__name')
+    type = filters.CharFilter(field_name='type__name')
 
     class Meta(BaseResolweFilter.Meta):
         """Filter configuration."""

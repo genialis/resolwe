@@ -18,6 +18,7 @@ class SearchRouter(DefaultRouter):
                 'post': 'list_with_post'
             },
             name='{basename}',
-            initkwargs={}
+            initkwargs={},
+            detail=False,
         )
     ]

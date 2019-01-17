@@ -5,7 +5,7 @@ from django.db.models import Max
 from django.db.models.query import Prefetch
 
 from rest_framework import exceptions, status
-from rest_framework.decorators import detail_route, list_route
+from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from resolwe.flow.models import Collection, Data, Entity
@@ -103,7 +103,7 @@ class EntityViewSet(CollectionViewSet):
             request, *args, **kwargs
         )
 
-    @detail_route(methods=['post'])
+    @action(detail=True, methods=['post'])
     def add_to_collection(self, request, pk=None):
         """Add Entity to a collection."""
         entity = self.get_object()
@@ -126,7 +126,7 @@ class EntityViewSet(CollectionViewSet):
 
         return Response()
 
-    @detail_route(methods=['post'])
+    @action(detail=True, methods=['post'])
     def remove_from_collection(self, request, pk=None):
         """Remove Entity from a collection."""
         entity = self.get_object()
@@ -146,7 +146,7 @@ class EntityViewSet(CollectionViewSet):
 
         return Response()
 
-    @detail_route(methods=['post'])
+    @action(detail=True, methods=['post'])
     def add_data(self, request, pk=None):
         """Add data to Entity and it's collection."""
         # add data to entity
@@ -159,7 +159,7 @@ class EntityViewSet(CollectionViewSet):
 
         return resp
 
-    @list_route(methods=['post'])
+    @action(detail=False, methods=['post'])
     def move_to_collection(self, request, *args, **kwargs):
         """Move samples from source to destination collection."""
         ids = self.get_ids(request.data)
@@ -197,7 +197,7 @@ class EntityViewSet(CollectionViewSet):
         self.get_queryset = orig_get_queryset
         return resp
 
-    @list_route(methods=['post'])
+    @action(detail=False, methods=['post'])
     def duplicate(self, request, *args, **kwargs):
         """Duplicate (make copy of) ``Entity`` models."""
         if not request.user.is_authenticated:

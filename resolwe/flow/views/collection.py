@@ -6,7 +6,7 @@ from elasticsearch_dsl.query import Q
 from django.db.models.query import Prefetch
 
 from rest_framework import exceptions, mixins, status, viewsets
-from rest_framework.decorators import detail_route, list_route
+from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from resolwe.elastic.composer import composer
@@ -148,7 +148,7 @@ class CollectionViewSet(ElasticSearchCombinedViewSet,
 
         return super().destroy(request, *args, **kwargs)  # pylint: disable=no-member
 
-    @detail_route(methods=['post'])
+    @action(detail=True, methods=['post'])
     def add_data(self, request, pk=None):
         """Add data to collection."""
         collection = self.get_object()
@@ -171,7 +171,7 @@ class CollectionViewSet(ElasticSearchCombinedViewSet,
 
         return Response()
 
-    @detail_route(methods=['post'])
+    @action(detail=True, methods=['post'])
     def remove_data(self, request, pk=None):
         """Remove data from collection."""
         collection = self.get_object()
@@ -184,7 +184,7 @@ class CollectionViewSet(ElasticSearchCombinedViewSet,
 
         return Response()
 
-    @list_route(methods=['post'])
+    @action(detail=False, methods=['post'])
     def duplicate(self, request, *args, **kwargs):
         """Duplicate (make copy of) ``Collection`` models."""
         if not request.user.is_authenticated:

@@ -5,7 +5,7 @@ from django.db import transaction
 from django.db.models import Count
 
 from rest_framework import exceptions, mixins, status, viewsets
-from rest_framework.decorators import list_route
+from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from resolwe.elastic.composer import composer
@@ -138,7 +138,7 @@ class DataViewSet(ElasticSearchCombinedViewSet,
 
         return super().create(request, *args, **kwargs)
 
-    @list_route(methods=['post'])
+    @action(detail=False, methods=['post'])
     def duplicate(self, request, *args, **kwargs):
         """Duplicate (make copy of) ``Data`` objects."""
         if not request.user.is_authenticated:
@@ -159,7 +159,7 @@ class DataViewSet(ElasticSearchCombinedViewSet,
         serializer = self.get_serializer(duplicated, many=True)
         return Response(serializer.data)
 
-    @list_route(methods=['post'])
+    @action(detail=False, methods=['post'])
     def get_or_create(self, request, *args, **kwargs):
         """Get ``Data`` object if similar already exists, otherwise create it."""
         kwargs['get_or_create'] = True

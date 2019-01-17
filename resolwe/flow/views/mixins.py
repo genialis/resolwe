@@ -3,7 +3,7 @@ from django.db import IntegrityError, transaction
 
 from guardian.utils import get_anonymous_user
 from rest_framework import mixins, status
-from rest_framework.decorators import list_route
+from rest_framework.decorators import action
 from rest_framework.exceptions import ParseError
 from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
@@ -117,7 +117,7 @@ class ResolweUpdateModelMixin(mixins.UpdateModelMixin):
 class ResolweCheckSlugMixin:
     """Slug validation."""
 
-    @list_route(methods=['get'])
+    @action(detail=False, methods=['get'])
     def slug_exists(self, request):
         """Check if given url slug exists.
 

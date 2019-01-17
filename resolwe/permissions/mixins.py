@@ -6,7 +6,7 @@ from django.db import transaction
 
 from guardian.models import UserObjectPermission
 from rest_framework import exceptions, serializers, status
-from rest_framework.decorators import detail_route, list_route
+from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from resolwe.permissions.shortcuts import get_object_perms
@@ -67,7 +67,7 @@ class ResolwePermissionsMixin:
         """
         pass
 
-    @detail_route(methods=['get', 'post'], url_path='permissions')
+    @action(detail=True, methods=['get', 'post'], url_path='permissions', url_name='permissions')
     def detail_permissions(self, request, pk=None):
         """Get or set permissions API endpoint."""
         obj = self.get_object()
@@ -101,7 +101,7 @@ class ResolwePermissionsMixin:
 
         return Response(get_object_perms(obj))
 
-    @list_route(methods=['get', 'post'], url_path='permissions')
+    @action(detail=False, methods=['get', 'post'], url_path='permissions', url_name='permissions')
     def list_permissions(self, request):
         """Batch get or set permissions API endpoint."""
         # TODO: Implement batch get/set permissions
