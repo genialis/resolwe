@@ -6,19 +6,21 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+===================
+14.1.0 - 2019-01-17
+===================
 
 Added
 -----
 - Add ``assertFilesExist`` method to ``ProcessTestCase``
+- Add ``clean_test_dir`` management command that removes files created during
+  testing
 
 Fixed
 -----
 - Support registration of Python processes inherited from ``process.Process``
 - Skip docker image pull if image exists locally. This solves the issue
-  where pull would fail if process uses an image that is only used locally
+  where pull would fail if process uses an image that is only used locally.
 
 
 ===================
