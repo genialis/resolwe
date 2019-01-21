@@ -630,6 +630,9 @@ class EntityViewSetTest(TestCase):
         self.duplicate_viewset = EntityViewSet.as_view(actions={
             'post': 'duplicate',
         })
+        self.move_to_collection_viewset = EntityViewSet.as_view(actions={
+            'post': 'move_to_collection',
+        })
         self.entity_detail_viewset = EntityViewSet.as_view(actions={
             'get': 'retrieve',
             'put': 'update',
@@ -724,6 +727,43 @@ class EntityViewSetTest(TestCase):
 
         self.assertEqual(self.entity.data.count(), 1)
         self.assertEqual(self.collection.data.count(), 1)
+
+    def test_move_to_collection(self):
+        entity = Entity.objects.create(contributor=self.contributor)
+        assign_perm('view_entity', self.contributor, entity)
+        data = self._create_data()
+        assign_perm('view_data', self.contributor, data)
+        entity.data.add(data)
+
+        source_collection = Collection.objects.create(contributor=self.contributor)
+        assign_perm('view_collection', self.contributor, source_collection)
+        assign_perm('add_collection', self.contributor, source_collection)
+        entity.collections.add(source_collection)
+        data.collection_set.add(source_collection)
+
+        destination_collection = Collection.objects.create(contributor=self.contributor)
+        assign_perm('view_collection', self.contributor, destination_collection)
+        assign_perm('add_collection', self.contributor, destination_collection)
+
+        request = factory.post(reverse('resolwe-api:entity-move-to-collection'), {
+            'ids': [entity.id],
+            'source_collection': source_collection.id,
+            'destination_collection': destination_collection.id,
+        }, format='json')
+        force_authenticate(request, self.contributor)
+
+        self.assertEqual(source_collection.entity_set.count(), 1)
+        self.assertEqual(source_collection.data.count(), 1)
+        self.assertEqual(destination_collection.entity_set.count(), 0)
+        self.assertEqual(destination_collection.data.count(), 0)
+
+        self.move_to_collection_viewset(request)
+
+        self.assertEqual(source_collection.entity_set.count(), 0)
+        self.assertEqual(source_collection.data.count(), 0)
+        self.assertEqual(destination_collection.entity_set.count(), 1)
+        self.assertEqual(destination_collection.entity_set.first().id, entity.id)
+        self.assertEqual(destination_collection.data.first().id, data.id)
 
     def test_delete(self):
         entity = Entity.objects.create(

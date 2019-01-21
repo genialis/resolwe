@@ -31,6 +31,12 @@ class EntityQuerySet(models.QuerySet):
             for entity in self
         ]
 
+    @transaction.atomic
+    def move_to_collection(self, source_collection, destination_collection):
+        """Move entities from source to destination collection."""
+        for entity in self:
+            entity.move_to_collection(source_collection, destination_collection)
+
 
 class Entity(BaseCollection):
     """Postgres model for storing entities."""
@@ -103,6 +109,16 @@ class Entity(BaseCollection):
                     copy_permissions(collection, datum)
 
         return duplicate
+
+    def move_to_collection(self, source_collection, destination_collection):
+        """Move entity from source to destination collection."""
+        # Remove from collection.
+        self.collections.remove(source_collection)  # pylint: disable=no-member
+        source_collection.data.remove(*self.data.all())  # pylint: disable=no-member
+
+        # Add to collection.
+        self.collections.add(destination_collection)  # pylint: disable=no-member
+        destination_collection.data.add(*self.data.all())  # pylint: disable=no-member
 
 
 class RelationType(models.Model):

@@ -22,6 +22,7 @@ Added
 - Add DataLocation model and pair it with Data model to handle data location
 - Add ``entity_names`` field to ``DataSerializer``
 - Support duplication of ``Data``, ``Entity`` and ``Collection``
+- Support moving entities between collections
 
 
 ===================

@@ -156,3 +156,14 @@ class ParametersMixin:
             raise ParseError("`{}` parameter contains non-integers".format(parameter_name))
 
         return ids
+
+    def get_id(self, request_data, parameter_name='id'):
+        """Extract an integer from request data."""
+        if parameter_name not in request_data:
+            raise ParseError("`{}` parameter is required".format(parameter_name))
+
+        id_parameter = request_data.get(parameter_name, None)
+        if not isinstance(id_parameter, int):
+            raise ParseError("`{}` parameter not an integer".format(parameter_name))
+
+        return id_parameter

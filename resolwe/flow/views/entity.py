@@ -57,6 +57,18 @@ class EntityViewSet(CollectionViewSet):
 
         return collection
 
+    def _get_entities(self, user, ids):
+        """Return entities queryset based on provided entity ids."""
+        queryset = get_objects_for_user(user, 'view_entity', Entity.objects.filter(id__in=ids))
+        actual_ids = queryset.values_list('id', flat=True)
+        missing_ids = list(set(ids) - set(actual_ids))
+        if missing_ids:
+            raise exceptions.ParseError(
+                "Entities with the following ids not found: {}" .format(', '.join(map(str, missing_ids)))
+            )
+
+        return queryset
+
     def set_content_permissions(self, user, obj, payload):
         """Apply permissions to data objects in ``Entity``."""
         # Data doesn't have "ADD" permission, so it has to be removed
@@ -146,6 +158,21 @@ class EntityViewSet(CollectionViewSet):
             collection.data.add(*request.data['ids'])
 
         return resp
+
+    @list_route(methods=['post'])
+    def move_to_collection(self, request, *args, **kwargs):
+        """Move samples from source to destination collection."""
+        ids = self.get_ids(request.data)
+        src_collection_id = self.get_id(request.data, 'source_collection')
+        dst_collection_id = self.get_id(request.data, 'destination_collection')
+
+        src_collection = self._get_collection_for_user(src_collection_id, request.user)
+        dst_collection = self._get_collection_for_user(dst_collection_id, request.user)
+
+        entity_qs = self._get_entities(request.user, ids)
+        entity_qs.move_to_collection(src_collection, dst_collection)
+
+        return Response()
 
     # NOTE: This can be deleted when DRF will support select_for_update
     #       on updates and ResolweUpdateModelMixin will use it.
