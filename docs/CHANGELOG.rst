@@ -16,6 +16,9 @@ Changed
   input) changed from dict to Python objects. For example,
   ``input_field.file_field['name']`` changed to
   ``input_field.file_field.path``.
+- **BACKWARD INCOMPATIBLE:** Filters that are based on ``django-filter``
+  ``FilterSet`` now use dict-declaring-syntax. This requires that subclasses
+  of respective filters modify their syntax too
 - Interactively save results in Python processes
 
 Added

@@ -184,7 +184,7 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_FILTER_BACKENDS': (
         'resolwe.permissions.filters.ResolwePermissionsFilter',
-        'rest_framework_filters.backends.RestFrameworkFilterBackend',
+        'django_filters.rest_framework.backends.DjangoFilterBackend',
         'rest_framework.filters.OrderingFilter',
     ),
     'EXCEPTION_HANDLER': 'resolwe.flow.utils.exceptions.resolwe_exception_handler',

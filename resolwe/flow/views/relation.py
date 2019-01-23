@@ -18,7 +18,7 @@ class RelationViewSet(ResolweCreateModelMixin,
     queryset = Relation.objects.all().prefetch_related('contributor')
     serializer_class = RelationSerializer
     permission_classes = (permissions.IsAuthenticated,)
-    filter_class = RelationFilter
+    filterset_class = RelationFilter
     ordering_fields = ('id', 'created', 'modified')
     ordering = ('id',)
 

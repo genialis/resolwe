@@ -129,6 +129,8 @@ class DataFilterTestCase(TestCase):
 
     def test_filter_status(self):
         self._apply_filter({'status': 'ok'}, [self.data_1, self.data_3])
+        self._apply_filter({'status__in': 'ER'}, [self.data_2])
+        self._apply_filter({'status__in': 'ER,OK'}, [self.data_1, self.data_2, self.data_3])
 
     def test_filter_finished(self):
         self._apply_filter({'finished__year': '2016'}, [self.data_1, self.data_2])
@@ -536,15 +538,20 @@ class EntityFilterTestCase(TestCase):
     def setUpTestData(cls):
         cls.user_1 = get_user_model().objects.create(username="first_user")
 
+        cls.collection_1 = Collection.objects.create(contributor=cls.user_1)
+        cls.collection_2 = Collection.objects.create(contributor=cls.user_1)
+
         cls.entity_1 = Entity.objects.create(
             contributor=cls.user_1,
             descriptor_completed=True,
         )
+        cls.entity_1.collections.add(cls.collection_1)
 
         cls.entity_2 = Entity.objects.create(
             contributor=cls.user_1,
             descriptor_completed=False,
         )
+        cls.entity_2.collections.add(cls.collection_2)
 
     def _apply_filter(self, filters, expected):
         filtered = EntityFilter(filters, queryset=Entity.objects.all())
@@ -555,6 +562,10 @@ class EntityFilterTestCase(TestCase):
         self._apply_filter({'descriptor_completed': '1'}, [self.entity_1])
         self._apply_filter({'descriptor_completed': 'false'}, [self.entity_2])
         self._apply_filter({'descriptor_completed': '0'}, [self.entity_2])
+
+    def test_collection(self):
+        self._apply_filter({'collection': self.collection_1.id}, [self.entity_1])
+        self._apply_filter({'collection': self.collection_2.id}, [self.entity_2])
 
 
 class ProcessFilterTestCase(TestCase):

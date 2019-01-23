@@ -37,7 +37,6 @@ setuptools.setup(
     install_requires=[
         'Django~=1.11.0',
         'djangorestframework~=3.9.0',
-        'djangorestframework-filters~=1.0.0.dev0',
         'django-filter~=2.0.0',
         'django-guardian>=1.4.2',
         'django-mathfilters>=0.3.0',

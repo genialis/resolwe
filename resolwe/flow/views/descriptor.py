@@ -17,6 +17,6 @@ class DescriptorSchemaViewSet(mixins.RetrieveModelMixin,
     queryset = DescriptorSchema.objects.all().prefetch_related('contributor')
     serializer_class = DescriptorSchemaSerializer
     permission_classes = (get_permissions_class(),)
-    filter_class = DescriptorSchemaFilter
+    filterset_class = DescriptorSchemaFilter
     ordering_fields = ('id', 'created', 'modified', 'name', 'version')
     ordering = ('id',)

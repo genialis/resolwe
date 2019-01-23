@@ -21,7 +21,7 @@ class ProcessViewSet(ResolweCreateModelMixin,
     queryset = Process.objects.all().prefetch_related('contributor')
     serializer_class = ProcessSerializer
     permission_classes = (get_permissions_class(),)
-    filter_class = ProcessFilter
+    filterset_class = ProcessFilter
     ordering_fields = ('id', 'created', 'modified', 'name', 'version')
     ordering = ('id',)
 
