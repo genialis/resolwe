@@ -10,10 +10,28 @@ from resolwe.test import TestCase, TransactionTestCase
 class ProcessFieldsTagsTest(TransactionTestCase):
 
     def test_templatetags(self):
+        inputs_input_process = Process.objects.create(
+            name='Inputs input process',
+            contributor=self.contributor,
+            type='data:test:inputsinputobject:',
+            run={'language': 'bash', 'program': 'echo foobar'}
+        )
+
+        inputs_input_data = Data.objects.create(
+            name='Inputs input Data object',
+            contributor=self.contributor,
+            process=inputs_input_process,
+        )
+
+        async_to_sync(manager.communicate)(run_sync=True)
+
         input_process = Process.objects.create(
             name='Input process',
             contributor=self.contributor,
             type='data:test:inputobject:',
+            input_schema=[
+                {'name': 'test_input', 'type': 'data:test:inputsinputobject:'},
+            ],
             output_schema=[
                 {'name': 'test_file', 'type': 'basic:file:'},
             ],
@@ -26,6 +44,7 @@ re-save-file test_file path/to/file.txt
 """
             }
         )
+
         descriptor_schema = DescriptorSchema.objects.create(
             name='Test schema',
             slug='test-schema',
@@ -42,6 +61,7 @@ re-save-file test_file path/to/file.txt
             name='Input Data object',
             contributor=self.contributor,
             process=input_process,
+            input={'test_input': inputs_input_data.pk},
             descriptor_schema=descriptor_schema,
             descriptor={'descriptions': {'text': 'This is test Data object.'}}
         )
@@ -84,6 +104,7 @@ re-save-file test_file path/to/file.txt
                 {'name': 'list_description_full', 'type': 'basic:json:'},
                 {'name': 'all', 'type': 'basic:string:'},
                 {'name': 'any', 'type': 'basic:string:'},
+                {'name': 'input_id', 'type': 'basic:integer:'},
             ],
             run={
                 'language': 'bash',
@@ -112,6 +133,7 @@ re-save list_description_text {{ input_data_list[0] | descriptor('descriptions.t
 re-save list_description_full {{ input_data_list[0] | descriptor }}
 re-save all {{ [true, false] | all }}
 re-save any {{ [true, false] | any }}
+re-save input_id {{ input_data | input('test_input') | id }}
 
 function save-safe() {
     re-save safe $1
@@ -135,7 +157,6 @@ save-safe {{ spacy | safe }}
         async_to_sync(manager.communicate)(run_sync=True)
 
         data.refresh_from_db()
-
         self.assertEqual(data.output['name'], input_data.name)
         self.assertEqual(data.output['slug'], input_data.slug)
         self.assertEqual(data.output['id'], input_data.pk)
@@ -153,6 +174,7 @@ save-safe {{ spacy | safe }}
         self.assertEqual(data.output['safe'], 'this')
         self.assertEqual(data.output['description_text'], 'This is test Data object.')
         self.assertEqual(data.output['list_description_text'], 'This is test Data object.')
+        self.assertEqual(data.output['input_id'], inputs_input_data.pk)
 
         storage = Storage.objects.get(pk=data.output['description_full'])
         self.assertEqual(storage.json, {'descriptions': {'text': 'This is test Data object.'}})

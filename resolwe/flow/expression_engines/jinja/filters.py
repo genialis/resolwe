@@ -1,10 +1,12 @@
 """Filters for Jinja expression engine."""
+import copy
 import json
 import os
 
 from django.conf import settings
 
 from resolwe.flow.models import Data
+from resolwe.flow.models.utils import hydrate_input_references, hydrate_input_uploads
 from resolwe.flow.utils import dict_dot
 
 
@@ -34,6 +36,18 @@ def name(data):
 def slug(data):
     """Return `slug` of `Data`."""
     return apply_filter_list(lambda datum: _get_data_attr(datum, 'slug'), data)
+
+
+def input_(data, field_path):
+    """Return a hydrated value of the ``input`` field."""
+    data_obj = Data.objects.get(id=data['__id'])
+
+    inputs = copy.deepcopy(data_obj.input)
+    # XXX: Optimize by hydrating only the required field (major refactoring).
+    hydrate_input_references(inputs, data_obj.process.input_schema)
+    hydrate_input_uploads(inputs, data_obj.process.input_schema)
+
+    return dict_dot(inputs, field_path)
 
 
 def id_(obj):
@@ -135,6 +149,7 @@ def any_(obj):
 filters = {  # pylint: disable=invalid-name
     'name': name,
     'slug': slug,
+    'input': input_,
     'id': id_,
     'type': type_,
     'basename': basename,
