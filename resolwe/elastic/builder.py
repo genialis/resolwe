@@ -8,6 +8,7 @@ Elastic Index Builder
 import inspect
 import os
 import re
+import threading
 import uuid
 from importlib import import_module
 
@@ -39,25 +40,22 @@ class BuildArgumentsCache:
 
     """
 
-    def __init__(self):
-        """Initialize cache."""
-        self._cache = {}
+    _thread_local = threading.local()
 
     def _get_cache_key(self, obj):
         """Derive cache key for given object."""
         if obj is not None:
-            return obj.pk
+            # Make sure that key is REALLY unique.
+            return '{}-{}'.format(id(self), obj.pk)
 
-        return obj
+        return "{}-None".format(id(self))
 
     def _clean_cache(self, obj):
         """Clean cache."""
-        del self._cache[self._get_cache_key(obj)]
+        del self._thread_local.cache[self._get_cache_key(obj)]
 
     def set(self, obj, build_kwargs):
         """Set cached value."""
-        assert self._get_cache_key(obj) not in self._cache
-
         if build_kwargs is None:
             build_kwargs = {}
 
@@ -73,11 +71,13 @@ class BuildArgumentsCache:
                 'obj': build_kwargs['obj'],
             }
 
-        self._cache[self._get_cache_key(obj)] = cached
+        if not hasattr(self._thread_local, 'cache'):
+            self._thread_local.cache = {}
+        self._thread_local.cache[self._get_cache_key(obj)] = cached
 
     def take(self, obj):
         """Get cached value and clean cache."""
-        cached = self._cache[self._get_cache_key(obj)]
+        cached = self._thread_local.cache[self._get_cache_key(obj)]
         build_kwargs = {}
 
         if 'model' in cached and 'pks' in cached:

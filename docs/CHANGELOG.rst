@@ -6,6 +6,16 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Fixed
+-----
+- Make Elasticsearch build arguments cache thread-safe and namespace cache
+  keys to make sure they don't interfere
+
+
 ===================
 14.2.0 - 2019-01-28
 ===================
