@@ -10,6 +10,11 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Added
+-----
+- Add ``scheduled`` field to ``Data`` objects to store the date when object
+  was dispatched to the scheduling system
+
 Fixed
 -----
 - Make Elasticsearch build arguments cache thread-safe and namespace cache

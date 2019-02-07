@@ -214,7 +214,7 @@ class DataTestCase(ResolweAPITestCase):
                                     'checksum', 'status', 'process', 'process_progress', 'process_rc', 'process_info',
                                     'process_warning', 'process_error', 'input', 'output', 'process_type',
                                     'descriptor_schema', 'descriptor', 'id', 'process_slug', 'process_name',
-                                    'process_input_schema', 'process_output_schema', 'size',
+                                    'process_input_schema', 'process_output_schema', 'size', 'scheduled',
                                     'current_user_permissions', 'descriptor_dirty', 'tags', 'process_memory',
                                     'process_cores', 'collections', 'entities'])
 
@@ -225,7 +225,7 @@ class DataTestCase(ResolweAPITestCase):
                                     'checksum', 'status', 'process', 'process_progress', 'process_rc', 'process_info',
                                     'process_warning', 'process_error', 'input', 'output', 'process_type',
                                     'descriptor_schema', 'descriptor', 'id', 'process_slug', 'process_name',
-                                    'process_input_schema', 'process_output_schema', 'size',
+                                    'process_input_schema', 'process_output_schema', 'size', 'scheduled',
                                     'current_user_permissions', 'descriptor_dirty', 'tags', 'process_memory',
                                     'process_cores', 'collections', 'entities'])
 

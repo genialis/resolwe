@@ -111,6 +111,10 @@ class Data(BaseModel):
     #: manager
     objects = DataQuerySet.as_manager()
 
+    #: date and time when process was dispatched to the scheduling system
+    #: (set by``resolwe.flow.managers.dispatcher.Manager.run``
+    scheduled = models.DateTimeField(blank=True, null=True, db_index=True)
+
     #: process started date and time (set by
     #: ``resolwe.flow.executors.run.BaseFlowExecutor.run`` or its derivatives)
     started = models.DateTimeField(blank=True, null=True, db_index=True)

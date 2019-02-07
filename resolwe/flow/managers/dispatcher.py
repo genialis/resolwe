@@ -35,6 +35,12 @@ from resolwe.utils import BraceMessage as __
 from . import consumer, state
 from .protocol import ExecutorFiles, WorkerProtocol
 
+if settings.USE_TZ:
+    from django.utils.timezone import now  # pylint: disable=ungrouped-imports
+else:
+    import datetime
+    now = datetime.datetime.now  # pylint: disable=invalid-name
+
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 DEFAULT_CONNECTOR = 'resolwe.flow.managers.workload_connectors.local'
@@ -376,6 +382,9 @@ class Manager:
             class_name = settings.FLOW_MANAGER['DISPATCHER_MAPPING'][process_scheduling]
         else:
             class_name = getattr(settings, 'FLOW_MANAGER', {}).get('NAME', DEFAULT_CONNECTOR)
+
+        data.scheduled = now()
+        data.save(update_fields=['scheduled'])
 
         async_to_sync(self.sync_counter.inc)('executor')
         return self.connectors[class_name].submit(data, runtime_dir, argv)

@@ -65,6 +65,7 @@ class DataSerializer(ResolweBaseSerializer):
             'process_type',
             'process_warning',
             'output',
+            'scheduled',
             'size',
             'started',
             'status',
