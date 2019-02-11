@@ -19,6 +19,8 @@ Fixed
 -----
 - Make Elasticsearch build arguments cache thread-safe and namespace cache
   keys to make sure they don't interfere
+- Trigger the purge outside of the transaction, to make sure the Data object
+  is commited in the database when purge worger grabs it
 
 
 ===================

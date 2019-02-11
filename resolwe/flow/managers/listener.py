@@ -476,24 +476,24 @@ class ExecutorListener:
                 obj[ExecutorProtocol.UPDATE_CHANGESET] = changeset
                 self.handle_update(obj, internal_call=True)
 
-                if not getattr(settings, 'FLOW_MANAGER_KEEP_DATA', False):
-                    # Purge worker is not running in test runner, so we should skip triggering it.
-                    if not is_testing():
-                        channel_layer = get_channel_layer()
-                        try:
-                            async_to_sync(channel_layer.send)(
-                                CHANNEL_PURGE_WORKER,
-                                {
-                                    'type': TYPE_PURGE_RUN,
-                                    'data_id': data_id,
-                                    'verbosity': self._verbosity,
-                                }
-                            )
-                        except ChannelFull:
-                            logger.warning(
-                                "Cannot triger purge because channel is full.",
-                                extra={'data_id': data_id}
-                            )
+        if not getattr(settings, 'FLOW_MANAGER_KEEP_DATA', False):
+            # Purge worker is not running in test runner, so we should skip triggering it.
+            if not is_testing():
+                channel_layer = get_channel_layer()
+                try:
+                    async_to_sync(channel_layer.send)(
+                        CHANNEL_PURGE_WORKER,
+                        {
+                            'type': TYPE_PURGE_RUN,
+                            'data_id': data_id,
+                            'verbosity': self._verbosity,
+                        }
+                    )
+                except ChannelFull:
+                    logger.warning(
+                        "Cannot triger purge because channel is full.",
+                        extra={'data_id': data_id}
+                    )
 
         # Notify the executor that we're done.
         async_to_sync(self._send_reply)(obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK})
