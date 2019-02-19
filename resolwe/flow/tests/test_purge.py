@@ -175,6 +175,9 @@ re-save-dir-list sample_dir_list dir1:ref2 dir2 dir3
                                    'entry1', 'entry2', 'entry3', 'dir1/a', 'dir2/b', 'dir3/c', 'dir3/d', 'ref1',
                                    'ref2', 'ref3', 'ref4', 'refs/a', 'refs/b')
 
+        data.refresh_from_db()
+        self.assertEqual(data.purged, True)
+
     def assertFieldWorks(self, field_type, field_value, script_setup,  # pylint: disable=invalid-name
                          script_save, removed, not_removed):
         """

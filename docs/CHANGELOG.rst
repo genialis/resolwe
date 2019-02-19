@@ -14,6 +14,8 @@ Added
 -----
 - Add ``scheduled`` field to ``Data`` objects to store the date when object
   was dispatched to the scheduling system
+- Add ``purge`` field to ``Data`` model that indicates whether ``Data`` object
+  was processed by ``purge``
 
 Fixed
 -----

@@ -156,3 +156,7 @@ def data_purge(data_ids=None, delete=False, verbosity=0):
                 os.remove(name)
             elif os.path.isdir(name):
                 shutil.rmtree(name)
+
+    for data in data_qs:
+        data.purged = True
+        data.save(update_fields=['purged'])
