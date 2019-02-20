@@ -10,6 +10,10 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Changed
+-------
+- Purge processes only not jet purged Data objects
+
 Fixed
 -----
 - Allow references to missing Data objects in the output of finished Data

@@ -388,6 +388,9 @@ class PurgeUnitTest(PurgeTestFieldsMixin, ProcessTestCase):
             purge.data_purge()
             os_mock.remove.assert_not_called()
 
+        completed_data.purged = False
+        completed_data.save()
+
         # Check that only the 'removeme' file from the completed Data objects is removed
         # and files from the second (not completed) Data objects are unchanged.
         with patch('resolwe.flow.utils.purge.os', wraps=os) as os_mock:
@@ -396,6 +399,9 @@ class PurgeUnitTest(PurgeTestFieldsMixin, ProcessTestCase):
             purge.data_purge(delete=True)
             os_mock.remove.assert_called_once_with(
                 os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(completed_data.pk), 'removeme'))
+
+        completed_data.purged = False
+        completed_data.save()
 
         # Create dummy data directories for non-existant data objects.
         self.create_test_file(990, 'dummy')
@@ -414,6 +420,9 @@ class PurgeUnitTest(PurgeTestFieldsMixin, ProcessTestCase):
                 os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], '990'))
             os_mock.remove.assert_any_call(
                 os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], '991'))
+
+        completed_data.purged = False
+        completed_data.save()
 
         # Create another data object and check that if remove is called on one object,
         # only that object's data is removed.

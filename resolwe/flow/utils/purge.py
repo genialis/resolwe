@@ -108,7 +108,9 @@ def data_purge(data_ids=None, delete=False, verbosity=0):
     runtime_path = settings.FLOW_EXECUTOR['RUNTIME_DIR']
     unreferenced_files = set()
 
-    data_qs = Data.objects.filter(status__in=[Data.STATUS_DONE, Data.STATUS_ERROR])
+    data_qs = Data.objects.filter(
+        status__in=[Data.STATUS_DONE, Data.STATUS_ERROR], purged=False
+    )
     if data_ids is not None:
         data_qs = data_qs.filter(pk__in=data_ids)
 
