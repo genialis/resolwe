@@ -6,6 +6,16 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Fixed
+-----
+- Allow references to missing Data objects in the output of finished Data
+  objects, as we don't have the control over what (and when) is deleted
+
+
 ===================
 14.3.0 - 2019-02-19
 ===================

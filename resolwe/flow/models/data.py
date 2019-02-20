@@ -431,10 +431,13 @@ class Data(BaseModel):
             path_prefix = os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], str(self.pk))
             output_schema = self.process.output_schema  # pylint: disable=no-member
             if self.status == Data.STATUS_DONE:
-                validate_schema(self.output, output_schema, path_prefix=path_prefix)
+                validate_schema(
+                    self.output, output_schema, path_prefix=path_prefix, skip_missing_data=True
+                )
             else:
-                validate_schema(self.output, output_schema, path_prefix=path_prefix,
-                                test_required=False)
+                validate_schema(
+                    self.output, output_schema, path_prefix=path_prefix, test_required=False
+                )
 
         with transaction.atomic():
             super().save(*args, **kwargs)
