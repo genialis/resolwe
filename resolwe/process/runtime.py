@@ -1,4 +1,5 @@
 """Process runtime."""
+import json
 import logging
 import sys
 
@@ -145,6 +146,10 @@ class Process(metaclass=ProcessMeta):
     def run(self, inputs, outputs):
         """Process entry point."""
         raise NotImplementedError
+
+    def run_process(self, slug, inputs):
+        """Run a new process from a running process."""
+        print('run {}'.format(json.dumps({'process': slug, 'input': inputs}, separators=(',', ':'))))
 
     def progress(self, progress):
         """Report process progress.
