@@ -1,5 +1,6 @@
 """Process runtime."""
 import logging
+import sys
 
 import resolwe_runtime_utils
 
@@ -8,6 +9,18 @@ from .fields import *  # pylint: disable=wildcard-import,unused-wildcard-import
 
 try:
     from plumbum import local as Cmd  # pylint: disable=unused-import
+    # Log plumbum commands to standard output.
+    # pylint: disable=invalid-name
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(name)s[%(process)s]: %(message)s')
+
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(handler)
+
+    plumbum_logger = logging.getLogger('plumbum.local')
+    plumbum_logger.setLevel(logging.DEBUG)
+    plumbum_logger.addHandler(handler)
+    # pylint: enable=invalid-name
+
 except ImportError:
     # Generate a dummy class that defers the ImportError to a point where
     # the package actually tries to be used.

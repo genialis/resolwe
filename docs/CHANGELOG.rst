@@ -13,6 +13,7 @@ Unreleased
 Changed
 -------
 - Purge processes only not jet purged Data objects
+- Log plumbum commands to standard output
 
 Fixed
 -----
