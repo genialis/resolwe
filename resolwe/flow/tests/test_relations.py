@@ -79,7 +79,7 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
         self.assertEqual(resp.data['type'], "group")
         self.assertEqual(resp.data['category'], "replicates")
         self.assertEqual(resp.data['unit'], None)
-        self.assertEqual(resp.data['partitions'], [
+        self.assertCountEqual(resp.data['partitions'], [
             {'id': self.group_partiton_1.pk, 'entity': self.entity_1.pk, 'position': None, 'label': None},
             {'id': self.group_partiton_2.pk, 'entity': self.entity_2.pk, 'position': None, 'label': None},
         ])
@@ -91,7 +91,7 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
         self.assertEqual(resp.data['type'], "series")
         self.assertEqual(resp.data['category'], "time-series")
         self.assertEqual(resp.data['unit'], 'hr')
-        self.assertEqual(resp.data['partitions'], [
+        self.assertCountEqual(resp.data['partitions'], [
             {'id': self.series_partiton_1.pk, 'entity': self.entity_1.pk, 'position': 0, 'label': 'beginning'},
             {'id': self.series_partiton_2.pk, 'entity': self.entity_2.pk, 'position': 0, 'label': 'beginning'},
             {'id': self.series_partiton_3.pk, 'entity': self.entity_3.pk, 'position': 1, 'label': 'end'},
