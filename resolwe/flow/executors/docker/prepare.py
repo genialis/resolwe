@@ -14,8 +14,8 @@ import os
 from django.conf import settings
 from django.core.management import call_command
 
-from . import constants
 from ..prepare import BaseFlowExecutorPreparer
+from . import constants
 
 
 class FlowExecutorPreparer(BaseFlowExecutorPreparer):
