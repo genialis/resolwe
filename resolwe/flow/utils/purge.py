@@ -159,5 +159,5 @@ def data_purge(data_ids=None, delete=False, verbosity=0):
             elif os.path.isdir(name):
                 shutil.rmtree(name)
 
-    # NOTE: This doesn't trigger Django's signals!
-    data_qs.update(purged=True)
+        # NOTE: This doesn't trigger Django's signals!
+        data_qs.update(purged=True)
