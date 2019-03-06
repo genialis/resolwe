@@ -21,6 +21,7 @@ Added
 - Add ``run_process`` method to ``Process`` to support triggering
   of a new process from the running Python process
 - Add DataLocation model and pair it with Data model to handle data location
+- Add ``entity_names`` field to ``DataSerializer``
 
 Fixed
 -----

@@ -56,6 +56,13 @@ class CollectionViewSet(ElasticSearchCombinedViewSet,
     }
     ordering = 'id'
 
+    def get_queryset(self):
+        """Return queryset."""
+        if self.request and self.request.query_params.get('hydrate_data', False):
+            return self.queryset.prefetch_related('entity_set')
+
+        return self.queryset
+
     def custom_filter_tags(self, value, search):
         """Support tags query."""
         if not isinstance(value, list):

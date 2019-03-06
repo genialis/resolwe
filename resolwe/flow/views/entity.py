@@ -34,6 +34,13 @@ class EntityViewSet(CollectionViewSet):
         'descriptor_completed', 'collections', 'type'
     )
 
+    def get_queryset(self):  # pylint: disable=method-hidden
+        """Return queryset."""
+        if self.request and self.request.query_params.get('hydrate_data', False):
+            return self.queryset.prefetch_related('data__entity_set')
+
+        return self.queryset
+
     def _check_collection_permissions(self, collection_id, user):
         """Check that collection exists and user has `add` permission."""
         collection_query = Collection.objects.filter(pk=collection_id)

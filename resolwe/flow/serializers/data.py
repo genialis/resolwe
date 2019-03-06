@@ -37,6 +37,7 @@ class DataSerializer(ResolweBaseSerializer):
     process_output_schema = ProjectableJSONField(source='process.output_schema', read_only=True)
     process = ResolweSlugRelatedField(queryset=Process.objects.all())
     descriptor_schema = NestedDescriptorSchemaSerializer(required=False)
+    entity_names = serializers.SerializerMethodField()
 
     collections = serializers.SerializerMethodField()
     entities = serializers.SerializerMethodField()
@@ -69,6 +70,7 @@ class DataSerializer(ResolweBaseSerializer):
             'size',
             'started',
             'status',
+            'entity_names',
         )
         update_protected_fields = (
             'contributor',
@@ -98,6 +100,11 @@ class DataSerializer(ResolweBaseSerializer):
         """Filter object objects by permissions of user in request."""
         user = self.request.user if self.request else AnonymousUser()
         return get_objects_for_user(user, perms, queryset)
+
+    def get_entity_names(self, data):
+        """Return serialized list of entity names on data that user has `view` permission on."""
+        entities = self._filter_queryset('view_entity', data.entity_set.all())
+        return list(entities.values_list('name', flat=True))
 
     def get_collections(self, data):
         """Return serialized list of collection objects on data that user has `view` permission on."""
