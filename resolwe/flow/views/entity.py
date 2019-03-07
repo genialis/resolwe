@@ -42,7 +42,7 @@ class EntityViewSet(CollectionViewSet):
 
         return self.queryset
 
-    def _check_collection_permissions(self, collection_id, user):
+    def _get_collection_for_user(self, collection_id, user):
         """Check that collection exists and user has `add` permission."""
         collection_query = Collection.objects.filter(pk=collection_id)
         if not collection_query.exists():
@@ -54,6 +54,8 @@ class EntityViewSet(CollectionViewSet):
                 raise exceptions.PermissionDenied()
             else:
                 raise exceptions.NotFound()
+
+        return collection
 
     def set_content_permissions(self, user, obj, payload):
         """Apply permissions to data objects in ``Entity``."""
@@ -101,7 +103,7 @@ class EntityViewSet(CollectionViewSet):
             return Response({"error": "`ids` parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         for collection_id in request.data['ids']:
-            self._check_collection_permissions(collection_id, request.user)
+            self._get_collection_for_user(collection_id, request.user)
 
         for collection_id in request.data['ids']:
             entity.collections.add(collection_id)
@@ -121,7 +123,7 @@ class EntityViewSet(CollectionViewSet):
             return Response({"error": "`ids` parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         for collection_id in request.data['ids']:
-            self._check_collection_permissions(collection_id, request.user)
+            self._get_collection_for_user(collection_id, request.user)
 
         for collection_id in request.data['ids']:
             entity.collections.remove(collection_id)
