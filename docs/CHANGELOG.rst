@@ -12,7 +12,6 @@ Unreleased
 
 Changed
 -------
-- Purge processes only not jet purged Data objects
 - Log plumbum commands to standard output
 - Change storage data relation from many-to-one to many-to-many
 
@@ -22,6 +21,15 @@ Added
   of a new process from the running Python process
 - Add DataLocation model and pair it with Data model to handle data location
 - Add ``entity_names`` field to ``DataSerializer``
+
+
+===================
+14.4.0 - 2019-03-07
+===================
+
+Changed
+-------
+- Purge processes only not jet purged Data objects
 
 Fixed
 -----
