@@ -47,6 +47,10 @@ class BaseModel(models.Model):
 
     def save(self, *args, **kwargs):
         """Save the model."""
+        name_max_len = self._meta.get_field('name').max_length
+        if len(self.name) > name_max_len:
+            self.name = self.name[:(name_max_len - 3)] + '...'
+
         for _ in range(MAX_SLUG_RETRIES):
             try:
                 # Attempt to save the model. It may fail due to slug conflict.

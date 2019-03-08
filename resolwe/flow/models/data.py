@@ -480,10 +480,6 @@ class Data(BaseModel):
         except EvaluationError:
             name = '?'
 
-        name_max_len = self._meta.get_field('name').max_length
-        if len(name) > name_max_len:
-            name = name[:(name_max_len - 3)] + '...'
-
         self.name = name
 
 
