@@ -176,8 +176,8 @@ re-save-dir-list sample_dir_list dir1:ref2 dir2 dir3
                                    'entry1', 'entry2', 'entry3', 'dir1/a', 'dir2/b', 'dir3/c', 'dir3/d', 'ref1',
                                    'ref2', 'ref3', 'ref4', 'refs/a', 'refs/b')
 
-        data.refresh_from_db()
-        self.assertEqual(data.purged, True)
+        data.location.refresh_from_db()
+        self.assertEqual(data.location.purged, True)
 
     def assertFieldWorks(self, field_type, field_value, script_setup,  # pylint: disable=invalid-name
                          script_save, removed, not_removed):
@@ -389,8 +389,8 @@ class PurgeUnitTest(PurgeTestFieldsMixin, ProcessTestCase):
             purge.purge_all()
             os_mock.remove.assert_not_called()
 
-        completed_data.purged = False
-        completed_data.save()
+        completed_data.location.purged = False
+        completed_data.location.save()
 
         # Check that only the 'removeme' file from the completed Data objects is removed
         # and files from the second (not completed) Data objects are unchanged.
@@ -400,8 +400,8 @@ class PurgeUnitTest(PurgeTestFieldsMixin, ProcessTestCase):
             os_mock.remove.assert_called_once_with(
                 completed_data.location.get_path(filename='removeme'))
 
-        completed_data.purged = False
-        completed_data.save()
+        completed_data.location.purged = False
+        completed_data.location.save()
 
         # Create dummy data directories for non-existant data objects.
         self.create_test_file(DataLocation.objects.create(subpath='990'), 'dummy')
@@ -425,8 +425,8 @@ class PurgeUnitTest(PurgeTestFieldsMixin, ProcessTestCase):
             shutil_mock.rmtree.assert_any_call(
                 os.path.join(settings.FLOW_EXECUTOR['DATA_DIR'], '991'))
 
-        completed_data.purged = False
-        completed_data.save()
+        completed_data.location.purged = False
+        completed_data.location.save()
 
         # Create another data object and check that if remove is called on one object,
         # only that object's data is removed.

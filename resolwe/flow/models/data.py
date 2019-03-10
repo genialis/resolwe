@@ -192,9 +192,6 @@ class Data(BaseModel):
     #: error log message
     process_error = ArrayField(models.CharField(max_length=255), default=[])
 
-    #: indicate wether the object was processed by `purge`
-    purged = models.BooleanField(default=False)
-
     #: actual inputs used by the process
     input = JSONField(default=dict)
 
@@ -585,6 +582,9 @@ class DataLocation(models.Model):
 
     #: subpath of data location
     subpath = models.CharField(max_length=30, unique=True)
+
+    #: indicate wether the object was processed by `purge`
+    purged = models.BooleanField(default=False)
 
     def get_path(self, prefix=None, filename=None):
         """Compose data location path."""

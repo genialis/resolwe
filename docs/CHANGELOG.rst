@@ -14,6 +14,7 @@ Changed
 -------
 - Log plumbum commands to standard output
 - Change storage data relation from many-to-one to many-to-many
+- Moved ``purged`` field from ``Data`` to ``DataLocation`` model
 
 Added
 -----

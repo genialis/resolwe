@@ -9,6 +9,8 @@ import logging
 import os
 import shutil
 
+from django.db.models import Q
+
 from resolwe.flow.models import Data, DataLocation, Storage
 from resolwe.flow.utils import iterate_fields
 from resolwe.utils import BraceMessage as __
@@ -118,7 +120,7 @@ def location_purge(location_id, delete=False, verbosity=0):
 
         # Perform cleanup.
         purge_files_sets = list()
-        purged_data = location.data.filter(purged=False)
+        purged_data = location.data.all()
         for data in purged_data:
             purge_files_sets.append(get_purge_files(
                 location.get_path(),
@@ -152,8 +154,8 @@ def location_purge(location_id, delete=False, verbosity=0):
             elif os.path.isdir(name):
                 shutil.rmtree(name)
 
-        # NOTE: This doesn't trigger Django's signals!
-        purged_data.update(purged=True)
+        location.purged = True
+        location.save()
 
         if not referenced_by_data:
             location.delete()
@@ -162,7 +164,7 @@ def location_purge(location_id, delete=False, verbosity=0):
 def _location_purge_all(delete=False, verbosity=0):
     """Purge all data locations."""
     if DataLocation.objects.exists():
-        for location in DataLocation.objects.all():
+        for location in DataLocation.objects.filter(Q(purged=False) | Q(data=None)):
             location_purge(location.id, delete, verbosity)
     else:
         logger.info("No data locations")
