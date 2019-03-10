@@ -60,7 +60,7 @@ setuptools.setup(
         # django-filter and doesn't work with the latest version, so we
         # have to pin it
         'django-filter~=1.0.0',
-        'redis~=2.10.6',
+        'redis~=3.2.0',
         'channels~=2.1',
         'channels_redis~=2.3',
         'async-timeout~=2.0',
