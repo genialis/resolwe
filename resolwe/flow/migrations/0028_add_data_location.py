@@ -25,7 +25,9 @@ def set_data_location(apps, schema_editor):
     if DataLocation.objects.exists():
         max_id = DataLocation.objects.order_by('id').last().id
         with connection.cursor() as cursor:
-            cursor.execute("ALTER SEQUENCE flow_datalocation_id_seq RESTART WITH %s;", [str(max_id + 1)])
+            cursor.execute(
+                "ALTER SEQUENCE flow_datalocation_id_seq RESTART WITH {};".format(max_id + 1)
+            )
 
 
 class Migration(migrations.Migration):
