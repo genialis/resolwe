@@ -767,11 +767,11 @@ class DuplicateTestCase(TestCase):
         duplicate_dict = Entity.objects.filter(id=duplicate.id).values()[0]
 
         data1_dict = Data.objects.filter(id=data.id).values()[0]
-        data1_duplicate = duplicate.data.first()
+        data1_duplicate = duplicate.data.get(name='Copy of Data 1')
         data1_duplicate_dict = Data.objects.filter(id=data1_duplicate.id).values()[0]
 
         data2_dict = Data.objects.filter(id=data2.id).values()[0]
-        data2_duplicate = duplicate.data.last()
+        data2_duplicate = duplicate.data.get(name='Copy of Data 2')
         data2_duplicate_dict = Data.objects.filter(id=data2_duplicate.id).values()[0]
 
         self.assertTrue(duplicate.is_duplicate())
@@ -795,11 +795,6 @@ class DuplicateTestCase(TestCase):
         self.assertEqual(duplicate.contributor.username, 'contributor')
         self.assertAlmostEqual(duplicate.duplicated, datetime.now(), delta=timedelta(seconds=3))
         self.assertAlmostEqual(duplicate.modified, datetime.now(), delta=timedelta(seconds=3))
-
-        self.assertEqual(data1_duplicate.slug, 'copy-of-data-1')
-        self.assertEqual(data1_duplicate.name, 'Copy of Data 1')
-        self.assertEqual(data2_duplicate.slug, 'copy-of-data-2')
-        self.assertEqual(data2_duplicate.name, 'Copy of Data 2')
 
         # Assert collection is not altered.
         self.assertEqual(Collection.objects.count(), 1)
