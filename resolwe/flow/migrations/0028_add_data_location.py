@@ -5,7 +5,7 @@ from __future__ import unicode_literals
 import os
 
 from django.conf import settings
-from django.db import migrations, models, transaction
+from django.db import connection, migrations, models, transaction
 import django.db.models.deletion
 
 
@@ -20,6 +20,12 @@ def set_data_location(apps, schema_editor):
                 # Manually set DataLocation id to preserve data directory.
                 data_location = DataLocation.objects.create(id=data.id, subpath=str(data.id))
                 data_location.data.add(data)
+
+    # Increment DataLocation id's sequence
+    if DataLocation.objects.exists():
+        max_id = DataLocation.objects.order_by('id').last().id
+        with connection.cursor() as cursor:
+            cursor.execute("ALTER SEQUENCE flow_datalocation_id_seq RESTART WITH %s;", [str(max_id + 1)])
 
 
 class Migration(migrations.Migration):
