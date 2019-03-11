@@ -745,6 +745,10 @@ class DuplicateTestCase(TestCase):
         )
 
     def test_entity_duplicate(self):
+        # Tmp
+        self.maxDiff = None
+
+
         process = Process.objects.create(contributor=self.user)
         data = Data.objects.create(name='Data 1', contributor=self.user, process=process, status=Data.STATUS_DONE)
         assign_perm('view_data', self.contributor, data)
