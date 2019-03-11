@@ -6,13 +6,10 @@ from django.db import migrations, models
 
 
 def set_data_relation(apps, schema_editor):
-    Data = apps.get_model('flow', 'Data')
     Storage = apps.get_model('flow', 'Storage')
 
-    for data in Data.objects.all():
-        storage = Storage.objects.filter(data_migration_temporary=data).first()
-        if storage:
-            storage.data.add(data)
+    for storage in Storage.objects.all():
+        storage.data.add(storage.data_migration_temporary)
 
 
 class Migration(migrations.Migration):
