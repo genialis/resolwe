@@ -160,6 +160,33 @@
                             "type": "boolean"
                         }
                     }
+                },
+                "relations": {
+                    "description": "List of relations used by the process",
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "type": {
+                                "type": "string"
+                            },
+                            "category": {
+                                "type": "string"
+                            },
+                            "labels": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": {
+                                "type": "boolean"
+                            }
+                        },
+                        "required": [
+                            "type"
+                        ]
+                    }
                 }
             },
             "additionalProperties": false
