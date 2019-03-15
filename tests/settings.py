@@ -188,11 +188,38 @@ REST_FRAMEWORK = {
         'rest_framework.filters.OrderingFilter',
     ),
     'EXCEPTION_HANDLER': 'resolwe.flow.utils.exceptions.resolwe_exception_handler',
+
+    # Python<3.7 cannot parse iso-8601 formatted datetimes with tz-info form
+    # "+01:00" (DRF default). It can only parse "+0100" form, so we need to
+    # modify this setting. This will be fixed in Python3.7, where "+01:00" can
+    # be parsed by ``datetime.datetime.strptime`` syntax.
+    # For more, check "%z" syntax description in:
+    # https://docs.python.org/3.7/library/datetime.html#strftime-and-strptime-behavior
+    'DATETIME_FORMAT': '%Y-%m-%dT%H:%M:%S.%f%z'
 }
 
 # Time
 USE_TZ = True
 TIME_ZONE = 'UTC'
+
+# Django does not support parsing of 'iso-8601' formated datetimes by default.
+# Since Django-filters uses Django forms for parsing, we need to modify Django
+# setting ``DATETIME_INPUT_FORMATS`` to support 'iso-8601' format.
+# https://docs.djangoproject.com/en/1.11/ref/settings/#datetime-input-formats
+DATETIME_INPUT_FORMATS = (
+    # These are already given Django defaults:
+    '%Y-%m-%d %H:%M:%S',       # '2006-10-25 14:30:59'
+    '%Y-%m-%d %H:%M:%S.%f',    # '2006-10-25 14:30:59.000200'
+    '%Y-%m-%d %H:%M',          # '2006-10-25 14:30'
+    '%Y-%m-%d',                # '2006-10-25'
+    # These are iso-8601 formatted:
+    '%Y-%m-%dT%H:%M:%S.%f%z',  # '2006-10-25T14:30:59.000200+0200' or '2006-10-25T14:30:59.000200+02:00' (Python>=3.7)
+    '%Y-%m-%dT%H:%M:%S.%fZ',   # '2006-10-25T14:30:59.000200Z'
+    '%Y-%m-%dT%H:%M:%S.%f',    # '2006-10-25T14:30:59.000200'
+    '%Y-%m-%dT%H:%M:%SZ',      # '2006-10-25T14:30:59Z'
+    '%Y-%m-%dT%H:%M:%S',       # '2006-10-25T14:30:59'
+    '%Y-%m-%dT%H:%M',          # '2006-10-25T14:30'
+)
 
 
 ELASTICSEARCH_HOST = os.environ.get('RESOLWE_ES_HOST', 'localhost')
