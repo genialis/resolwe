@@ -7,6 +7,8 @@ Flow Filters
 """
 import django_filters as filters
 
+from rest_framework.exceptions import ParseError
+
 from .models import Collection, Data, DescriptorSchema, Entity, Process, Relation
 
 NUMBER_LOOKUPS = [
@@ -41,7 +43,40 @@ DATETIME_LOOKUPS = DATE_LOOKUPS + [
 ]
 
 
-class BaseResolweFilter(filters.FilterSet):
+class CheckQueryParamsMixin:
+    """Custom query params validation."""
+
+    def get_always_allowed_arguments(self):
+        """Get always allowed query arguments."""
+        return (
+            'fields',
+            'format',
+            'limit',
+            'offset',
+            'ordering',
+        )
+
+    def validate_query_params(self):
+        """Ensure no unsupported query params were used."""
+        allowed_params = set(self.get_filters().keys())
+        allowed_params.update(self.get_always_allowed_arguments())
+
+        unallowed = set(self.request.query_params.keys()) - allowed_params
+
+        if unallowed:
+            msg = 'Unsupported filter argument(s): {}. Please use any of the supported arguments: {}.'.format(
+                ', '.join(unallowed),
+                ', '.join(allowed_params),
+            )
+            self.form.add_error(field=None, error=ParseError(msg))
+
+    def is_valid(self):
+        """Validate filterset."""
+        self.validate_query_params()
+        return super().is_valid()
+
+
+class BaseResolweFilter(CheckQueryParamsMixin, filters.FilterSet):
     """Base filter for Resolwe's endpoints."""
 
     class Meta:
@@ -167,3 +202,11 @@ class RelationFilter(BaseResolweFilter):
 
         model = Relation
         fields = BaseResolweFilter.Meta.fields
+
+    def get_always_allowed_arguments(self):
+        """Get always allowed query arguments."""
+        return super().get_always_allowed_arguments() + (
+            'entity',
+            'label',
+            'position',
+        )

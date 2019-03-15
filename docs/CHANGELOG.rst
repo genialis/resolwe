@@ -28,6 +28,7 @@ Added
 
   - Support ``.entity_name`` in data inputs
   - Easy access to process resources through ``self.resources``
+- Raise error if ViewSet receives invalid filter parameter(s)
 
 Fixed
 -----

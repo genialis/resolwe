@@ -280,6 +280,14 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter({'text': 'rst'}, [])
         self._check_filter({'text': 'process'}, self.data)
 
+    def test_nonexisting_parameter(self):
+        response = self._check_filter({'foo': 'bar'}, [self.data[0]], expected_status_code=400)
+
+        self.assertRegex(  # pylint: disable=deprecated-method
+            str(response.data['detail']),
+            r'Unsupported filter argument\(s\): foo. Please use any of the supported arguments: .*'
+        )
+
 
 class DescriptorSchemaViewSetFiltersTest(BaseViewSetFiltersTest):
 
@@ -357,6 +365,14 @@ class DescriptorSchemaViewSetFiltersTest(BaseViewSetFiltersTest):
         now = self.ds1.modified
         self._check_filter({'modified': now.strftime('%Y-%m-%dT%H:%M:%S.%f%z')}, [self.ds1])
         self._check_filter({'modified__year': now.year}, [self.ds1, self.ds2, self.ds3])
+
+    def test_nonexisting_parameter(self):
+        response = self._check_filter({'foo': 'bar'}, [self.ds1], expected_status_code=400)
+
+        self.assertRegex(  # pylint: disable=deprecated-method
+            str(response.data['__all__'][0]),
+            r'Unsupported filter argument\(s\): foo. Please use any of the supported arguments: .*'
+        )
 
 
 class ProcessViewSetFiltersTest(BaseViewSetFiltersTest):

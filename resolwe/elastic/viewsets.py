@@ -146,7 +146,11 @@ class ElasticSearchMixin:
             unmatched.pop(argument, None)
 
         if unmatched:
-            raise ParseError('Unsupported filter arguments: {}'.format(', '.join(unmatched.keys())))
+            msg = 'Unsupported filter argument(s): {}. Please use any of the supported arguments: {}.'.format(
+                ', '.join(unmatched),
+                ', '.join(self.filtering_fields),
+            )
+            raise ParseError(msg)
 
         return search
 
