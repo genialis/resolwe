@@ -178,6 +178,11 @@ class TestDataViewSetFilters(TestCase):
 
         self.collection = Collection.objects.create(contributor=self.contributor)
 
+        self.tag = 'foo'
+
+        self.entity1 = Entity.objects.create(contributor=self.contributor, tags=[self.tag])
+        self.entity2 = Entity.objects.create(contributor=self.contributor, tags=[self.tag])
+
         self.proc1 = Process.objects.create(
             type='data:test:process1:',
             name='First process',
@@ -216,7 +221,7 @@ class TestDataViewSetFilters(TestCase):
                 status=Data.STATUS_DONE if index > 0 else Data.STATUS_RESOLVING,
                 started=datetime.datetime(2016, 7, 31, index, 0),
                 finished=datetime.datetime(2016, 7, 31, index, 30),
-                tags=['foo', 'index{}'.format(index)],
+                tags=[self.tag, 'index{}'.format(index)],
             )
 
             data.created = datetime.datetime(2016, 7, 30, index, 59)
@@ -224,8 +229,11 @@ class TestDataViewSetFilters(TestCase):
 
             assign_perm('owner_data', self.admin, data)
 
-            if index == 0:
+            if index % 2 == 0:
                 self.collection.data.add(data)
+                self.entity1.data.add(data)
+            else:
+                self.entity2.data.add(data)
 
             self.data.append(data)
 
@@ -307,7 +315,7 @@ class TestDataViewSetFilters(TestCase):
         self._check_filter({'finished__lte': '2016-07-31T05:30:00'}, self.data[:6])
 
     def test_filter_collection(self):
-        self._check_filter({'collection': str(self.collection.pk)}, [self.data[0]])
+        self._check_filter({'collection': str(self.collection.pk)}, self.data[0::2])
 
     def test_filter_type(self):
         self._check_filter({'type': 'data'}, self.data)
@@ -399,6 +407,33 @@ class TestDataViewSetFilters(TestCase):
         self._check_filter({'text': 'fir'}, self.data[:5])
         self._check_filter({'text': 'rst'}, [])
         self._check_filter({'text': 'process'}, self.data)
+
+    def test_filter_combined(self):
+        # This works as it should:
+        self._check_filter(
+            {
+                'collection': self.collection.id,
+                'tags': self.tag,
+                'entity__in': '{}'.format(self.entity1.id),
+            },
+            [
+                self.data[0],
+                self.data[2],
+                self.data[4],
+                self.data[6],
+                self.data[8],
+            ],
+        )
+
+        # But this miraculously finds zero results (even though only order of parameters is changed).
+        self._check_filter(
+            {
+                'entity__in': '{}'.format(self.entity1.id),
+                'collection': self.collection.id,
+                'tags': self.tag,
+            },
+            [],
+        )
 
 
 class CollectionFilterTestCase(TestCase):
