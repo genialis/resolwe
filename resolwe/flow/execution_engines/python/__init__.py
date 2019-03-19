@@ -43,7 +43,7 @@ class ExecutionEngine(BaseExecutionEngine):
 
     def evaluate(self, data):
         """Evaluate the code needed to compute a given Data object."""
-        return 'PYTHONPATH="{runtime}" python3 -m resolwe.process {program} --slug {slug} --inputs {inputs}'.format(
+        return 'PYTHONPATH="{runtime}" python3 -u -m resolwe.process {program} --slug {slug} --inputs {inputs}'.format(
             runtime=PYTHON_RUNTIME_VOLUME,
             program=PYTHON_PROGRAM_VOLUME,
             slug=shlex.quote(data.process.slug),
