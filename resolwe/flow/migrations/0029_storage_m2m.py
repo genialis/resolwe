@@ -8,7 +8,7 @@ from django.db import migrations, models
 def set_data_relation(apps, schema_editor):
     Storage = apps.get_model('flow', 'Storage')
 
-    for storage in Storage.objects.all():
+    for storage in Storage.objects.iterator():
         storage.data.add(storage.data_migration_temporary)
 
 
