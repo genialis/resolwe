@@ -75,3 +75,6 @@ class PythonProcess2(process.Process):
     name = "Test Python Process 2"
     version = '0.0.1'
     process_type = 'data:python'
+
+    def run(self, inputs, outputs):
+        pass
