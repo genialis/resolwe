@@ -78,7 +78,7 @@ class ProcessDescriptor:
             'requirements': {
                 'executor': {
                     'docker': {
-                        'image': 'resolwe/base:ubuntu-18.10',
+                        'image': 'resolwe/base:ubuntu-18.04',
                     },
                 },
             },
