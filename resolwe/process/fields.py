@@ -161,6 +161,10 @@ class IntegerField(Field):
             except (TypeError, ValueError):
                 raise ValidationError("field must be an integer")
 
+    def to_output(self, value):
+        """Convert value to process output format."""
+        return json.loads(resolwe_runtime_utils.save(self.name, str(value)))
+
 
 class FloatField(Field):
     """Float field."""
@@ -175,6 +179,10 @@ class FloatField(Field):
                 return float(value)
             except (TypeError, ValueError):
                 raise ValidationError("field must be a float")
+
+    def to_output(self, value):
+        """Convert value to process output format."""
+        return json.loads(resolwe_runtime_utils.save(self.name, str(value)))
 
 
 class DateField(Field):

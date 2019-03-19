@@ -13,6 +13,7 @@ Unreleased
 Fixed
 -----
 - Interactively write to standard output within Python processes
+- Fix writing to integer and float output fields
 
 
 ===================
