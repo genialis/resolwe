@@ -6,9 +6,9 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+===================
+15.0.0 - 2019-03-19
+===================
 
 Changed
 -------
@@ -24,6 +24,7 @@ Added
 - Add ``entity_names`` field to ``DataSerializer``
 - Support duplication of ``Data``, ``Entity`` and ``Collection``
 - Support moving entities between collections
+- Support relations requirement in process syntax
 
 
 ===================
