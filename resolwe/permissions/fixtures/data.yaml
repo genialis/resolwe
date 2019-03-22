@@ -9,13 +9,13 @@
   pk: 1
   fields:
     contributor: 1
-    created: 2015-01-01T09:00:00.000
-    finished: 2015-01-01T09:00:00.000
-    modified: 2015-01-01T09:00:00.000
+    created: 2015-01-01T09:00:00.000+0000
+    finished: 2015-01-01T09:00:00.000+0000
+    modified: 2015-01-01T09:00:00.000+0000
     name: 'Test data'
     slug: 'test_data'
     checksum: 05bc76611c382a88817389019679f35cdb32ac65fe6662210805b588c30f71e6
-    started: 2015-01-01T09:00:00.000
+    started: 2015-01-01T09:00:00.000+0000
     status: OK
     process: 1
     version: 0.0.0
@@ -32,13 +32,13 @@
   pk: 2
   fields:
     contributor: 1
-    created: 2015-01-01T10:00:00.000
-    finished: 2015-01-01T10:00:00.000
-    modified: 2015-01-01T10:00:00.000
+    created: 2015-01-01T10:00:00.000+0000
+    finished: 2015-01-01T10:00:00.000+0000
+    modified: 2015-01-01T10:00:00.000+0000
     name: 'Test data 2'
     slug: 'test_data_2'
     checksum: 05bc76611c382a88817389019679f35cdb32ac65fe6662210805b588c30f71e6
-    started: 2015-01-01T09:00:00.000
+    started: 2015-01-01T09:00:00.000+0000
     status: OK
     process: 1
     version: 0.0.0

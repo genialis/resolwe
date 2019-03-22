@@ -9,6 +9,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser, Group
 from django.core.management import call_command
 from django.test import override_settings
+from django.utils.timezone import get_current_timezone
 
 from guardian.shortcuts import assign_perm
 from rest_framework.test import APIRequestFactory, APITestCase, force_authenticate
@@ -47,13 +48,14 @@ class IndexViewsetTest(APITestCase, TestCase):
         group = Group.objects.create(name='group')
         group.user_set.add(self.user_2)
 
+        tzone = get_current_timezone()
         # Prepare test data
         test_obj_1 = TestModel.objects.create(name='Object name 1', number=43,
-                                              date=datetime.datetime(2018, 1, 1, 0, 0))
+                                              date=datetime.datetime(2018, 1, 1, 0, 0, tzinfo=tzone))
         test_obj_2 = TestModel.objects.create(name='Object name 2', number=44,
-                                              date=datetime.datetime(2017, 1, 1, 0, 0))
+                                              date=datetime.datetime(2017, 1, 1, 0, 0, tzinfo=tzone))
         test_obj_3 = TestModel.objects.create(name='Object name 3', number=45,
-                                              date=datetime.datetime(2016, 1, 1, 0, 0))
+                                              date=datetime.datetime(2016, 1, 1, 0, 0, tzinfo=tzone))
 
         # Assing permissions
         assign_perm('view_testmodel', self.user_1, test_obj_1)
@@ -355,8 +357,9 @@ class IndexViewsetTest(APITestCase, TestCase):
     def test_lookup_expressions_exact(self):
         from .test_app.models import TestModel
 
+        tzone = get_current_timezone()
         TestModel.objects.create(name='Object name 4', number=45,
-                                 date=datetime.datetime(2016, 1, 1, 0, 0),
+                                 date=datetime.datetime(2016, 1, 1, 0, 0, tzinfo=tzone),
                                  field_process_type='foo:bar:moo:')
 
         response = self._make_request(field_process_type='foo:bar')

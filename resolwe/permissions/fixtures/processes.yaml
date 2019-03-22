@@ -8,7 +8,7 @@
       program: ''
     category: 'test:category:2'
     contributor: 1
-    created: 2015-01-01T10:00:00.000
+    created: 2015-01-01T10:00:00.000+0000
     description: Test process 2
     input_schema:
       - name: test_input_field
@@ -19,7 +19,7 @@
         label: test_boolean_field label
         type: 'basic:boolean:'
         required: False
-    modified: 2015-01-01T10:00:00.000
+    modified: 2015-01-01T10:00:00.000+0000
     name: 'test.process'
     output_schema: []
     persistence: RAW
@@ -35,14 +35,14 @@
       program: 'test'
     category: 'test:category:'
     contributor: 1
-    created: 2015-01-01T09:00:00.000
+    created: 2015-01-01T09:00:00.000+0000
     description: Test process
     input_schema:
       - name: uploadfile
         type: 'basic:file:'
         validate_regex: '\.(txt|csv)(|\.gz|\.bz2|\.tgz|\.tar\.gz|\.tar\.bz2|\.zip|\.rar|\.7z)$'
         required: False
-    modified: 2015-01-01T09:00:00.000
+    modified: 2015-01-01T09:00:00.000+0000
     name: 'test.upload'
     output_schema: []
     persistence: TMP

@@ -1,6 +1,5 @@
 """Resolwe entity model."""
-import datetime
-
+from django.conf import settings
 from django.contrib.postgres.fields import CICharField
 from django.db import models, transaction
 
@@ -9,6 +8,12 @@ from resolwe.permissions.utils import assign_contributor_permissions, copy_permi
 
 from .base import BaseModel
 from .collection import BaseCollection
+
+if settings.USE_TZ:
+    from django.utils.timezone import now  # pylint: disable=ungrouped-imports
+else:
+    import datetime
+    now = datetime.datetime.now  # pylint: disable=invalid-name
 
 
 class EntityQuerySet(models.QuerySet):
@@ -78,7 +83,7 @@ class Entity(BaseCollection):
         duplicate.pk = None
         duplicate.slug = None
         duplicate.name = 'Copy of {}'.format(self.name)
-        duplicate.duplicated = datetime.datetime.now()
+        duplicate.duplicated = now()
         if contributor:
             duplicate.contributor = contributor
 

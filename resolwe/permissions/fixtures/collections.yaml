@@ -4,9 +4,9 @@
   pk: 1
   fields:
     contributor: 1
-    created: 2015-01-01T09:00:00.000
+    created: 2015-01-01T09:00:00.000+0000
     description: ''
-    modified: 2015-01-01T09:00:00.000
+    modified: 2015-01-01T09:00:00.000+0000
     name: Test collection 1
     slug: test_collection1
     version: 0.0.0
@@ -15,9 +15,9 @@
   pk: 2
   fields:
     contributor: 1
-    created: 2015-01-01T10:00:00.000
+    created: 2015-01-01T10:00:00.000+0000
     description: ''
-    modified: 2015-01-01T10:00:00.000
+    modified: 2015-01-01T10:00:00.000+0000
     name: Test collection 2
     slug: test_collection2
     version: 0.0.0
@@ -26,9 +26,9 @@
   pk: 3
   fields:
     contributor: 1
-    created: 2015-01-01T11:00:00.000
+    created: 2015-01-01T11:00:00.000+0000
     description: ''
-    modified: 2015-01-01T11:00:00.000
+    modified: 2015-01-01T11:00:00.000+0000
     name: Test collection 3
     slug: test_collection3
     version: 0.0.0

@@ -190,6 +190,11 @@ REST_FRAMEWORK = {
     'EXCEPTION_HANDLER': 'resolwe.flow.utils.exceptions.resolwe_exception_handler',
 }
 
+# Time
+USE_TZ = True
+TIME_ZONE = 'UTC'
+
+
 ELASTICSEARCH_HOST = os.environ.get('RESOLWE_ES_HOST', 'localhost')
 ELASTICSEARCH_PORT = int(os.environ.get('RESOLWE_ES_PORT', '59200'))
 

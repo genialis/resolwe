@@ -3,10 +3,11 @@ import io
 import json
 import os
 import shutil
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from mock import MagicMock, patch
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -25,6 +26,12 @@ try:
     import builtins  # py3
 except ImportError:
     import __builtin__ as builtins  # py2
+
+if settings.USE_TZ:
+    from django.utils.timezone import now  # pylint: disable=ungrouped-imports
+else:
+    import datetime
+    now = datetime.datetime.now  # pylint: disable=invalid-name
 
 
 class DataModelNameTest(TransactionTestCase):
@@ -551,7 +558,7 @@ class DuplicateTestCase(TestCase):
             name='Data 2',
             contributor=self.user,
             process=process2,
-            started=datetime.now(),
+            started=now(),
             input={'data_field': input_data.id},
         )
         data_location = DataLocation.objects.create(subpath='')
@@ -589,8 +596,8 @@ class DuplicateTestCase(TestCase):
         self.assertEqual(duplicate.slug, 'copy-of-data-2')
         self.assertEqual(duplicate.name, 'Copy of Data 2')
         self.assertEqual(duplicate.contributor.username, 'contributor')
-        self.assertAlmostEqual(duplicate.duplicated, datetime.now(), delta=timedelta(seconds=3))
-        self.assertAlmostEqual(duplicate.modified, datetime.now(), delta=timedelta(seconds=3))
+        self.assertAlmostEqual(duplicate.duplicated, now(), delta=timedelta(seconds=3))
+        self.assertAlmostEqual(duplicate.modified, now(), delta=timedelta(seconds=3))
 
         # Assert dependencies.
         self.assertEqual(DataDependency.objects.count(), 2)
@@ -793,8 +800,8 @@ class DuplicateTestCase(TestCase):
         self.assertEqual(duplicate.slug, 'copy-of-entity')
         self.assertEqual(duplicate.name, 'Copy of Entity')
         self.assertEqual(duplicate.contributor.username, 'contributor')
-        self.assertAlmostEqual(duplicate.duplicated, datetime.now(), delta=timedelta(seconds=3))
-        self.assertAlmostEqual(duplicate.modified, datetime.now(), delta=timedelta(seconds=3))
+        self.assertAlmostEqual(duplicate.duplicated, now(), delta=timedelta(seconds=3))
+        self.assertAlmostEqual(duplicate.modified, now(), delta=timedelta(seconds=3))
 
         # Assert collection is not altered.
         self.assertEqual(Collection.objects.count(), 1)
@@ -902,14 +909,14 @@ class DuplicateTestCase(TestCase):
         self.assertEqual(duplicate.slug, 'copy-of-collection')
         self.assertEqual(duplicate.name, 'Copy of Collection')
         self.assertEqual(duplicate.contributor.username, 'contributor')
-        self.assertAlmostEqual(duplicate.duplicated, datetime.now(), delta=timedelta(seconds=3))
-        self.assertAlmostEqual(duplicate.modified, datetime.now(), delta=timedelta(seconds=3))
+        self.assertAlmostEqual(duplicate.duplicated, now(), delta=timedelta(seconds=3))
+        self.assertAlmostEqual(duplicate.modified, now(), delta=timedelta(seconds=3))
 
         self.assertEqual(entity_duplicate.slug, 'copy-of-entity')
         self.assertEqual(entity_duplicate.name, 'Copy of Entity')
         self.assertEqual(entity_duplicate.contributor.username, 'contributor')
-        self.assertAlmostEqual(entity_duplicate.duplicated, datetime.now(), delta=timedelta(seconds=3))
-        self.assertAlmostEqual(entity_duplicate.modified, datetime.now(), delta=timedelta(seconds=3))
+        self.assertAlmostEqual(entity_duplicate.duplicated, now(), delta=timedelta(seconds=3))
+        self.assertAlmostEqual(entity_duplicate.modified, now(), delta=timedelta(seconds=3))
 
         # Assert duplicated entity and data objects are in collection.
         self.assertEqual(duplicate.entity_set.count(), 1)

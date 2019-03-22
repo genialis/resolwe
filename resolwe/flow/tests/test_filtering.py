@@ -2,6 +2,7 @@
 import datetime
 
 from django.contrib.auth import get_user_model
+from django.utils.timezone import get_current_timezone
 
 from guardian.shortcuts import assign_perm
 from rest_framework import status
@@ -21,6 +22,8 @@ class DataFilterTestCase(TestCase):
     def setUpTestData(cls):
         cls.user_1 = get_user_model().objects.create(username="first_user")
         cls.user_2 = get_user_model().objects.create(username="second_user")
+
+        tzone = get_current_timezone()
 
         cls.proc_1 = Process.objects.create(
             name='Test process 1',
@@ -49,11 +52,11 @@ class DataFilterTestCase(TestCase):
             contributor=cls.user_1,
             process=cls.proc_1,
             status=Data.STATUS_DONE,
-            started=datetime.datetime(2016, 7, 30, 14, 0),
-            finished=datetime.datetime(2016, 7, 30, 14, 30),
+            started=datetime.datetime(2016, 7, 30, 14, 0, tzinfo=tzone),
+            finished=datetime.datetime(2016, 7, 30, 14, 30, tzinfo=tzone),
             size=42,
         )
-        cls.data_1.created = datetime.datetime(2016, 7, 30, 13, 59)
+        cls.data_1.created = datetime.datetime(2016, 7, 30, 13, 59, tzinfo=tzone)
         cls.data_1.save()
 
         cls.data_2 = Data.objects.create(
@@ -62,12 +65,12 @@ class DataFilterTestCase(TestCase):
             contributor=cls.user_1,
             process=cls.proc_2,
             status=Data.STATUS_ERROR,
-            started=datetime.datetime(2016, 8, 30, 15, 0),
-            finished=datetime.datetime(2016, 8, 30, 15, 30),
+            started=datetime.datetime(2016, 8, 30, 15, 0, tzinfo=tzone),
+            finished=datetime.datetime(2016, 8, 30, 15, 30, tzinfo=tzone),
             tags=['foo', 'bar', 'moo'],
             size=42,
         )
-        cls.data_2.created = datetime.datetime(2016, 8, 30, 14, 59)
+        cls.data_2.created = datetime.datetime(2016, 8, 30, 14, 59, tzinfo=tzone)
         cls.data_2.save()
 
         cls.data_3 = Data.objects.create(
@@ -76,11 +79,11 @@ class DataFilterTestCase(TestCase):
             contributor=cls.user_2,
             process=cls.proc_3,
             status=Data.STATUS_DONE,
-            started=datetime.datetime(2013, 1, 15, 8, 0),
-            finished=datetime.datetime(2013, 1, 15, 10, 0),
+            started=datetime.datetime(2013, 1, 15, 8, 0, tzinfo=tzone),
+            finished=datetime.datetime(2013, 1, 15, 10, 0, tzinfo=tzone),
             tags=['bar']
         )
-        cls.data_3.created = datetime.datetime(2013, 1, 15, 7, 59)
+        cls.data_3.created = datetime.datetime(2013, 1, 15, 7, 59, tzinfo=tzone)
         cls.data_3.save()
 
         cls.collection = Collection.objects.create(
@@ -178,6 +181,8 @@ class TestDataViewSetFilters(TestCase):
             'get': 'list',
         })
 
+        tzone = get_current_timezone()
+
         self.collection = Collection.objects.create(contributor=self.contributor)
 
         self.proc1 = Process.objects.create(
@@ -216,12 +221,12 @@ class TestDataViewSetFilters(TestCase):
                 contributor=self.contributor,
                 process=self.proc1 if index < 5 else self.proc2,
                 status=Data.STATUS_DONE if index > 0 else Data.STATUS_RESOLVING,
-                started=datetime.datetime(2016, 7, 31, index, 0),
-                finished=datetime.datetime(2016, 7, 31, index, 30),
+                started=datetime.datetime(2016, 7, 31, index, 0, tzinfo=tzone),
+                finished=datetime.datetime(2016, 7, 31, index, 30, tzinfo=tzone),
                 tags=['foo', 'index{}'.format(index)],
             )
 
-            data.created = datetime.datetime(2016, 7, 30, index, 59)
+            data.created = datetime.datetime(2016, 7, 30, index, 59, tzinfo=tzone)
             data.save()
 
             assign_perm('owner_data', self.admin, data)
@@ -410,6 +415,8 @@ class CollectionFilterTestCase(TestCase):
         cls.user_1 = get_user_model().objects.create(username="first_user")
         cls.user_2 = get_user_model().objects.create(username="second_user")
 
+        tzone = get_current_timezone()
+
         cls.descriptor_schema_1 = DescriptorSchema.objects.create(
             contributor=cls.user_1,
             name='Descriptor schema 1'
@@ -426,7 +433,7 @@ class CollectionFilterTestCase(TestCase):
             descriptor_schema=cls.descriptor_schema_1,
             contributor=cls.user_1
         )
-        cls.collection_1.created = datetime.datetime(2016, 7, 30, 13, 59)
+        cls.collection_1.created = datetime.datetime(2016, 7, 30, 13, 59, tzinfo=tzone)
         cls.collection_1.save()
 
         cls.collection_2 = Collection.objects.create(
@@ -435,7 +442,7 @@ class CollectionFilterTestCase(TestCase):
             descriptor_schema=cls.descriptor_schema_1,
             contributor=cls.user_1
         )
-        cls.collection_2.created = datetime.datetime(2016, 8, 30, 14, 59)
+        cls.collection_2.created = datetime.datetime(2016, 8, 30, 14, 59, tzinfo=tzone)
         cls.collection_2.save()
 
         cls.collection_3 = Collection.objects.create(
@@ -444,7 +451,7 @@ class CollectionFilterTestCase(TestCase):
             descriptor_schema=cls.descriptor_schema_2,
             contributor=cls.user_2
         )
-        cls.collection_3.created = datetime.datetime(2013, 1, 15, 7, 59)
+        cls.collection_3.created = datetime.datetime(2013, 1, 15, 7, 59, tzinfo=tzone)
         cls.collection_3.save()
 
         cls.proc = Process.objects.create(
