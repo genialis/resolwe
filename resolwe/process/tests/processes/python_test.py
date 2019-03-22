@@ -63,6 +63,7 @@ class PythonProcess(Process):
         file_output = FileField(label="My output")
         dir_output = DirField(label="My output")
         input_entity_name = StringField(label="Input entity name")
+        docker_image = StringField(label="Docker image")
 
     def run(self, inputs, outputs):
         print('All inputs are:', inputs)
@@ -74,7 +75,7 @@ class PythonProcess(Process):
         print('Group bar:', inputs.my_group.bar)
         print('Group foo:', inputs.my_group.foo)
         print('Entity name of the input:', inputs.input_entity_data.entity_name)
-
+        print('Docker image:', self.requirements.executor.docker.image)
         bar = Cmd['ls']['-l', '-a', '/'] | Cmd['grep']['python']
         print('hello world:\n', bar())
 
@@ -84,6 +85,7 @@ class PythonProcess(Process):
         outputs.file_output = 'test/testfile.txt'
         outputs.dir_output = 'test/'
         outputs.input_entity_name = inputs.input_entity_data.entity_name
+        outputs.docker_image = self.requirements.executor.docker.image
         outputs.my_output = 'OK'
 
 

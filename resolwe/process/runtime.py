@@ -202,6 +202,18 @@ class Process(metaclass=ProcessMeta):
         """Update sample descriptor."""
         raise NotImplementedError
 
+    @property
+    def requirements(self):
+        """Process requirements."""
+        class dotdict(dict):  # pylint: disable=invalid-name
+            """Dot notation access to dictionary attributes."""
+
+            def __getattr__(self, attr):
+                value = self.get(attr)
+                return dotdict(value) if isinstance(value, dict) else value
+
+        return dotdict(self._meta.metadata.requirements)
+
     def start(self, inputs):
         """Start the process.
 

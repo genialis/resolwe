@@ -89,7 +89,7 @@ class PythonProcessTest(ProcessTestCase):
 
         self.assertEqual(data.output['dir_output'], {'dir': 'test/'})
         self.assertEqual(data.output['input_entity_name'], 'Data with entity')
-
+        self.assertEqual(data.output['docker_image'], 'resolwe/base:ubuntu-18.04')
         self.assertEqual(data.name, 'Foo: bar')
 
         entity = Entity.objects.get(data=data)
