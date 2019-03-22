@@ -1,7 +1,9 @@
 """Process runtime."""
 import json
 import logging
+import os
 import sys
+import urllib
 
 import resolwe_runtime_utils
 
@@ -177,6 +179,24 @@ class Process(metaclass=ProcessMeta):
         report = resolwe_runtime_utils.error(' '.join([str(x) for x in args]))
         # TODO: Use the protocol to report progress.
         print(report)
+
+    def get_data_id_by_slug(self, slug):
+        """Find data object ID for given slug.
+
+        This method queries the Resolwe API and requires network access.
+        """
+        resolwe_host = os.environ.get('RESOLWE_HOST_URL')
+        url = urllib.parse.urljoin(resolwe_host, '/api/data?slug={}&fields=id'.format(slug))
+
+        with urllib.request.urlopen(url, timeout=60) as f:
+            data = json.loads(f.read().decode('utf-8'))
+
+        if len(data) == 1:
+            return data[0]['id']
+        elif not data:
+            raise ValueError('Data not found for slug {}'.format(slug))
+        else:
+            raise ValueError('More than one data object returned for slug {}'.format(slug))
 
     def update_descriptor(self, **kwargs):
         """Update sample descriptor."""

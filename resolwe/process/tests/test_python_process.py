@@ -1,8 +1,13 @@
 # pylint: disable=missing-docstring
 import os
 
-from resolwe.flow.models import Entity, Process
-from resolwe.test import ProcessTestCase, tag_process, with_docker_executor
+from django.contrib.auth.models import AnonymousUser
+from django.test import LiveServerTestCase
+
+from guardian.shortcuts import assign_perm
+
+from resolwe.flow.models import Data, Entity, Process
+from resolwe.test import ProcessTestCase, tag_process, with_docker_executor, with_resolwe_host
 
 PROCESSES_DIR = os.path.join(os.path.dirname(__file__), 'processes')
 DESCRIPTORS_DIR = os.path.join(os.path.dirname(__file__), 'descriptors')
@@ -96,3 +101,28 @@ class PythonProcessTest(ProcessTestCase):
         self.run_process('test-python-process-json', {
             'data': input_data.pk,
         })
+
+
+class PythonProcessDataBySlugTest(ProcessTestCase, LiveServerTestCase):
+
+    def setUp(self):
+        super().setUp()
+        self._register_schemas(processes_paths=[PROCESSES_DIR], descriptors_paths=[DESCRIPTORS_DIR])
+        self.files_path = FILES_PATH
+
+    @with_resolwe_host
+    @with_docker_executor
+    @tag_process('test-python-process-data-id-by-slug', 'test-python-process-2')
+    def test_process_data_by_slug(self):
+        """Test that data object with json output can be given as input."""
+        with self.preparation_stage():
+            input_data = self.run_process('test-python-process-2')
+
+        input_data = Data.objects.get(id=input_data.id)
+        assign_perm("view_data", AnonymousUser(), input_data)
+
+        data = self.run_process('test-python-process-data-id-by-slug', {
+            'slug': input_data.slug,
+        })
+
+        self.assertEqual(data.output['data_id'], input_data.pk)

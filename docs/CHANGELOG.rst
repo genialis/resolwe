@@ -10,6 +10,10 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Added
+-----
+- Add get_data_id_by_slug method to Python processes' Process class
+
 Fixed
 -----
 - Interactively write to standard output within Python processes
