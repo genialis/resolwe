@@ -19,5 +19,5 @@ api_router.register(r'storage', StorageViewSet)
 
 
 urlpatterns = [  # pylint: disable=invalid-name
-    url(r'^', include(api_router.urls, namespace='resolwe-api')),
+    url(r'^api/', include(api_router.urls, namespace='resolwe-api')),
 ]

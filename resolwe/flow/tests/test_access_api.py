@@ -61,7 +61,7 @@ class AccessAPIFromExecutorProcessTestCase(ProcessTestCase, LiveServerTestCase):
                 # its progress since it can interfere with parsing of JSON on
                 # process' standard output
                 'program': r"""
-echo "{\"collection-list\": $(curl --silent --show-error $RESOLWE_HOST_URL/collection)}"
+echo "{\"collection-list\": $(curl --silent --show-error $RESOLWE_HOST_URL/api/collection)}"
 """
             }
         )
