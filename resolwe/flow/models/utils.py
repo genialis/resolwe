@@ -321,6 +321,12 @@ def hydrate_input_references(input_, input_schema, hydrate_values=True):
                 output["__id"] = data.id
                 output["__type"] = data.process.type
                 output["__descriptor"] = data.descriptor
+                output["__entity_name"] = None
+
+                entity = data.entity_set.values('name').first()
+                if entity:
+                    output["__entity_name"] = entity['name']
+
                 fields[name] = output
 
             elif field_schema['type'].startswith('list:data:'):
@@ -342,6 +348,12 @@ def hydrate_input_references(input_, input_schema, hydrate_values=True):
                     output["__id"] = data.id
                     output["__type"] = data.process.type
                     output["__descriptor"] = data.descriptor
+                    output["__entity_name"] = None
+
+                    entity = data.entity_set.values('name').first()
+                    if entity:
+                        output["__entity_name"] = entity['name']
+
                     outputs.append(output)
 
                 fields[name] = outputs

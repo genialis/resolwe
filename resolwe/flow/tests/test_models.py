@@ -1163,6 +1163,22 @@ class UtilsTestCase(TestCase):
             render_template(process_mock, '{{ 1 | missing_increase }}', {})
 
     def test_hydrate_input_references(self):
+        DescriptorSchema.objects.create(
+            name='Sample',
+            slug='sample',
+            contributor=self.contributor
+        )
+
+        descriptor_schema = DescriptorSchema.objects.create(
+            contributor=self.contributor,
+            schema=[
+                {
+                    'name': 'annotation',
+                    'type': 'basic:string:',
+                },
+            ],
+        )
+
         process = Process.objects.create(
             contributor=self.contributor,
             type='data:test:',
@@ -1181,17 +1197,12 @@ class UtilsTestCase(TestCase):
                     'type': 'list:basic:dir:',
                 },
             ],
+            entity_type='sample',
+            entity_descriptor_schema='sample'
         )
-        descriptor_schema = DescriptorSchema.objects.create(
-            contributor=self.contributor,
-            schema=[
-                {
-                    'name': 'annotation',
-                    'type': 'basic:string:',
-                },
-            ],
-        )
+
         data = Data.objects.create(
+            name='test',
             contributor=self.contributor,
             status=Data.STATUS_ERROR,
             process=process,
@@ -1212,7 +1223,6 @@ class UtilsTestCase(TestCase):
         data_location.subpath = str(data_location.id)
         data_location.save()
         data_location.data.add(data)
-
         input_schema = [
             {
                 'name': 'data',
@@ -1267,3 +1277,5 @@ class UtilsTestCase(TestCase):
         self.assertEqual(input_['data']['dir_list'][1]['dir'].data_id, data.id)
         self.assertEqual(input_['data']['dir_list'][1]['dir'].file_name, 'another-dir')
         self.assertEqual(str(input_['data']['dir_list'][1]['dir']), os.path.join(path_prefix, 'another-dir'))
+
+        self.assertEqual(input_['data']['__entity_name'], 'test')
