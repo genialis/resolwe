@@ -56,6 +56,8 @@ class PythonProcessTest(ProcessTestCase):
             input_data.name = "bar"
             input_data.save()
 
+            input_entity = self.run_process('entity-process')
+
             storage = input_data.storages.create(
                 name="storage",
                 contributor=self.user,
@@ -68,6 +70,7 @@ class PythonProcessTest(ProcessTestCase):
             'bar': input_data.pk,
             'url': {'url': "https://www.genialis.com"},
             'input_data': input_data.pk,
+            'input_entity_data': input_entity.pk,
             'integer': 42,
             'my_float': 0.42,
             'my_json': storage.pk,
@@ -85,6 +88,7 @@ class PythonProcessTest(ProcessTestCase):
         del data.output['dir_output']['total_size']
 
         self.assertEqual(data.output['dir_output'], {'dir': 'test/'})
+        self.assertEqual(data.output['input_entity_name'], 'Data with entity')
 
         self.assertEqual(data.name, 'Foo: bar')
 

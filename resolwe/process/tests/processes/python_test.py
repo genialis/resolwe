@@ -2,6 +2,20 @@ from resolwe import process
 from resolwe.process import *
 
 
+class EntityProcess(Process):
+    slug = 'entity-process'
+    name = "Entity process"
+    data_name = "Data with entity"
+    version = '1.0.0'
+    process_type = 'data:entity'
+    entity = {
+        'type': 'sample',
+    }
+
+    def run(self, inputs, outputs):
+        pass
+
+
 class PythonProcess(Process):
     """This is a process description."""
     slug = 'test-python-process'
@@ -30,6 +44,7 @@ class PythonProcess(Process):
         my_field = StringField(label="My field")
         my_list = ListField(StringField(), label="My list")
         input_data = DataField('test:save', label="My input data")
+        input_entity_data = DataField('entity', label="My entity data")
         bar = DataField(data_type='test:save', label="My bar")
         url = UrlField(UrlField.DOWNLOAD, label="My URL")
         integer = IntegerField(label="My integer")
@@ -47,6 +62,7 @@ class PythonProcess(Process):
         my_output = StringField(label="My output")
         file_output = FileField(label="My output")
         dir_output = DirField(label="My output")
+        input_entity_name = StringField(label="Input entity name")
 
     def run(self, inputs, outputs):
         print('All inputs are:', inputs)
@@ -57,15 +73,17 @@ class PythonProcess(Process):
         print('Input data descriptor:', inputs.input_data.descriptor)
         print('Group bar:', inputs.my_group.bar)
         print('Group foo:', inputs.my_group.foo)
+        print('Entity name of the input:', inputs.input_entity_data.entity_name)
 
         bar = Cmd['ls']['-l', '-a', '/'] | Cmd['grep']['python']
         print('hello world:\n', bar())
 
         cmd = Cmd['mkdir']['test']()
         cmd = (Cmd['echo']['"Some content"'] > 'test/testfile.txt')()
+
         outputs.file_output = 'test/testfile.txt'
         outputs.dir_output = 'test/'
-
+        outputs.input_entity_name = inputs.input_entity_data.entity_name
         outputs.my_output = 'OK'
 
 

@@ -13,6 +13,7 @@ Unreleased
 Added
 -----
 - Add get_data_id_by_slug method to Python processes' Process class
+- Support ``.entity_name`` in data inputs to Python processes
 
 Fixed
 -----

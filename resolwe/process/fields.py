@@ -497,6 +497,11 @@ class DataDescriptor:
         """Descriptor of this data object."""
         return self._get('__descriptor')
 
+    @property
+    def entity_name(self):
+        """Entity name."""
+        return self._get('__entity_name')
+
     def __getattr__(self, key):
         """Get attribute."""
         return self._get(key)
