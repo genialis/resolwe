@@ -17,7 +17,7 @@ try:
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(name)s[%(process)s]: %(message)s')
 
     handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(handler)
+    handler.setFormatter(formatter)
 
     plumbum_logger = logging.getLogger('plumbum.local')
     plumbum_logger.setLevel(logging.DEBUG)
