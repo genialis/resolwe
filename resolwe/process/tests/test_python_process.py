@@ -45,6 +45,14 @@ class PythonProcessTest(ProcessTestCase):
         })
         self.assertEqual(process.scheduling_class, Process.SCHEDULING_CLASS_BATCH)
 
+        for field in process.input_schema:
+            if field['name'] == 'my_group':
+                self.assertEqual(field['group'][0]['name'], 'foo')
+                self.assertEqual(field['group'][1]['name'], 'bar')
+                break
+        else:
+            self.fail("Field my_group not found in test-python-process")
+
         # Make sure that process with inheritance from `module.Class` is also registered.
         process = Process.objects.get(slug='test-python-process-2')
 

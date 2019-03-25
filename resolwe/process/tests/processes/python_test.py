@@ -53,8 +53,8 @@ class PythonProcess(Process):
         my_optional = StringField(label="Optional", required=False, default='default value')
 
         class MyGroup:
-            bar = StringField(label="Bar")
             foo = IntegerField(label="Foo")
+            bar = StringField(label="Bar")
 
         my_group = GroupField(MyGroup, label="My group")
 

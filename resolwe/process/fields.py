@@ -593,7 +593,9 @@ class GroupField(Field):
         :param fields: Fields registry to use
         :param name: Field name
         """
-        for field_name in dir(self.field_group):
+        # Use order-preserving definition namespace (__dict__) to respect the
+        # order of GroupField's fields definition.
+        for field_name in self.field_group.__dict__:
             if field_name.startswith('_'):
                 continue
 
