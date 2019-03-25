@@ -80,8 +80,10 @@ class PythonProcessTest(ProcessTestCase):
             }
         })
 
-        self.assertFields(data, 'my_output', 'OK')
+        self.assertFields(data, 'string_output', 'OK')
+        self.assertFields(data, 'list_string_output', ['foo', 'bar'])
         self.assertFile(data, 'file_output', 'testfile.txt')
+        self.assertFiles(data, 'list_file_output', ['testfile.txt', 'testfile2.txt'])
 
         # Non-deterministic output.
         del data.output['dir_output']['size']

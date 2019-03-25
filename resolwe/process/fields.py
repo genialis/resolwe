@@ -426,9 +426,13 @@ class ListField(Field):
         self.inner.name = name
         self.inner.process = process
 
+    def to_python(self, value):
+        """Convert value if needed."""
+        return [self.inner.to_python(v) for v in value]
+
     def to_output(self, value):
         """Convert value to process output format."""
-        return {self.name: [value[self.name] for value in value]}
+        return {self.name: [self.inner.to_output(v)[self.name] for v in value]}
 
     def get_field_type(self):
         """Return this field's type."""

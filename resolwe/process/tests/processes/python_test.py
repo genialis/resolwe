@@ -59,8 +59,10 @@ class PythonProcess(Process):
         my_group = GroupField(MyGroup, label="My group")
 
     class Output:
-        my_output = StringField(label="My output")
+        string_output = StringField(label="My string output")
+        list_string_output = ListField(StringField(), label="My list string output")
         file_output = FileField(label="My output")
+        list_file_output = ListField(FileField(), label="My list output")
         dir_output = DirField(label="My output")
         input_entity_name = StringField(label="Input entity name")
         docker_image = StringField(label="Docker image")
@@ -81,12 +83,15 @@ class PythonProcess(Process):
 
         cmd = Cmd['mkdir']['test']()
         cmd = (Cmd['echo']['"Some content"'] > 'test/testfile.txt')()
+        cmd = (Cmd['echo']['"Some more content"'] > 'testfile2.txt')()
 
         outputs.file_output = 'test/testfile.txt'
+        outputs.list_file_output = ['test/testfile.txt', 'testfile2.txt']
         outputs.dir_output = 'test/'
         outputs.input_entity_name = inputs.input_entity_data.entity_name
         outputs.docker_image = self.requirements.executor.docker.image
-        outputs.my_output = 'OK'
+        outputs.string_output = 'OK'
+        outputs.list_string_output = ['foo', 'bar']
 
 
 class PythonProcess2(process.Process):
