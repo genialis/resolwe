@@ -106,11 +106,12 @@ class Inputs(_IoBase):
 class Outputs(_IoBase):
     """Process outputs."""
 
-    def save_outputs(self):
-        """Save process outputs."""
-        for name, value in self.items():
-            output = self._fields[name].to_output(value)
-            print(json.dumps(output))
+    def __setattr__(self, name, value):
+        """Store attribute value and save output."""
+        super().__setattr__(name, value)
+
+        output_value = self._fields[name].to_output(self._data[name])
+        print(json.dumps(output_value))
 
 
 class ProcessMeta(type):

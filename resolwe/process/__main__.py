@@ -81,10 +81,7 @@ if __name__ == '__main__':
     # Start the process.
     instance = process()
     try:
-        outputs = instance.start(inputs)
+        instance.start(inputs)
     except ValidationError as error:
         print("ERROR: Output field validation failed: {}".format(error.args[0]))
         sys.exit(1)
-
-    # Save outputs.
-    outputs.save_outputs()

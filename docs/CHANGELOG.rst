@@ -16,6 +16,7 @@ Changed
   input) changed from dict to Python objects. For example,
   ``input_field.file_field['name']`` changed to
   ``input_field.file_field.path``.
+- Interactively save results in Python processes
 
 Added
 -----
