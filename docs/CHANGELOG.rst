@@ -10,6 +10,13 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Changed
+-------
+- **BACKWARD INCOMPATIBLE:** Access to DataField members (in Python process
+  input) changed from dict to Python objects. For example,
+  ``input_field.file_field['name']`` changed to
+  ``input_field.file_field.path``.
+
 Added
 -----
 - Add get_data_id_by_slug method to Python processes' Process class

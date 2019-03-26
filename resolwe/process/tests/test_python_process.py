@@ -57,10 +57,10 @@ class PythonProcessTest(ProcessTestCase):
         process = Process.objects.get(slug='test-python-process-2')
 
     @with_docker_executor
-    @tag_process('test-python-process')
+    @tag_process('test-python-process', 'test-save-file', 'entity-process')
     def test_python_process(self):
         with self.preparation_stage():
-            input_data = self.run_process('test-save-number', {'number': 19})
+            input_data = self.run_process('test-save-file', {'input_file': 'testfile.txt'})
             input_data.name = "bar"
             input_data.save()
 

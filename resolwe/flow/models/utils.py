@@ -322,6 +322,7 @@ def hydrate_input_references(input_, input_schema, hydrate_values=True):
                 output["__type"] = data.process.type
                 output["__descriptor"] = data.descriptor
                 output["__entity_name"] = None
+                output["__output_schema"] = data.process.output_schema
 
                 entity = data.entity_set.values('name').first()
                 if entity:
@@ -348,7 +349,7 @@ def hydrate_input_references(input_, input_schema, hydrate_values=True):
                     output["__id"] = data.id
                     output["__type"] = data.process.type
                     output["__descriptor"] = data.descriptor
-                    output["__entity_name"] = None
+                    output["__output_schema"] = data.process.output_schema
 
                     entity = data.entity_set.values('name').first()
                     if entity:

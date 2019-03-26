@@ -467,6 +467,22 @@ class DataDescriptor:
         :param cache: Optional cached object to use
         """
         super().__setattr__('_data_id', data_id)
+
+        # Map output fields to a valid Python process syntax.
+        for field_descriptor in cache['__output_schema']:
+            field_name = field_descriptor['name']
+
+            if field_name not in cache:
+                # Non-required fields may be missing.
+                continue
+
+            field_type = field_descriptor['type'].rstrip(':')
+            field = ALL_FIELDS_MAP[field_type]()
+
+            value = cache[field_name]
+            value = field.clean(value)
+            cache[field_name] = value
+
         super().__setattr__('_cache', cache)
 
     def _populate_cache(self):
@@ -650,6 +666,8 @@ ALL_FIELDS = [
     DataField,
     GroupField,
 ]
+
+ALL_FIELDS_MAP = {field.field_type: field for field in ALL_FIELDS}
 
 
 def get_available_fields():

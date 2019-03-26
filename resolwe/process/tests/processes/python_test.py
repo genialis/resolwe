@@ -71,7 +71,7 @@ class PythonProcess(Process):
         print('All inputs are:', inputs)
         print('Input data:', inputs.input_data)
         print('Input data ID:', inputs.input_data.id)
-        print('Input data number output:', inputs.input_data.number)
+        print('Input data file output:', inputs.input_data.saved_file.path)
         print('Input data type:', inputs.input_data.type)
         print('Input data descriptor:', inputs.input_data.descriptor)
         print('Group bar:', inputs.my_group.bar)

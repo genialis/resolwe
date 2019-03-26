@@ -11,21 +11,21 @@
       echo '{"foo":"bar"}' > storage.json
       re-save storage storage.json
 
-- slug: test-save-number
-  name: Save number
-  version: 1.0.0
-  type: "data:test:save"
+- slug: test-save-file
+  name: Save file
   requirements:
     expression-engine: jinja
+  version: 1.0.0
+  type: "data:test:save"
   input:
-    - name: number
-      label: Number
-      type: basic:integer
+    - name: input_file
+      label: Input file
+      type: basic:file
   output:
-    - name: number
-      label: Number
-      required: false
-      type: basic:integer
+    - name: saved_file
+      label: Saved file
+      type: basic:file
   run:
     program: |
-      re-save number {{ number }}
+      mv {{ input_file.file_temp }} {{ input_file.file }}
+      re-save-file saved_file {{ input_file.file }}
