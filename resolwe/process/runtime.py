@@ -47,9 +47,10 @@ class _IoBase:
 
     frozen = False
 
-    def __init__(self, **kwargs):
+    def __init__(self, fields, **kwargs):
         """Construct an I/O object."""
         super().__setattr__('_data', {})
+        super().__setattr__('_fields', fields)
         self._data.update(kwargs)
 
     def freeze(self):
@@ -71,6 +72,10 @@ class _IoBase:
         if self.frozen:
             raise ValueError("cannot mutate frozen object")
 
+        if name not in self._fields:
+            raise ValueError("invalid field name '{}'".format(name))
+
+        value = self._fields[name].clean(value)
         self._data[name] = value
 
     def __delattr__(self, name):
@@ -101,7 +106,11 @@ class Inputs(_IoBase):
 class Outputs(_IoBase):
     """Process outputs."""
 
-    pass
+    def save_outputs(self):
+        """Save process outputs."""
+        for name, value in self.items():
+            output = self._fields[name].to_output(value)
+            print(json.dumps(output))
 
 
 class ProcessMeta(type):
@@ -223,47 +232,14 @@ class Process(metaclass=ProcessMeta):
         # pylint: disable=logging-format-interpolation
         self.logger.info("Process is starting")
 
-        outputs = Outputs()
-
-        # Validate and clean inputs.
-        try:
-            inputs = self._validate_inputs(inputs)
-        except ValidationError as error:
-            self.logger.error("Input validation has failed: {}".format(error.args[0]))
-            raise
+        outputs = Outputs(self._meta.outputs)
 
         self.logger.info("Process is running")
         try:
             self.run(inputs.freeze(), outputs)
-            try:
-                outputs = self._validate_outputs(outputs)
-            except ValidationError as error:
-                self.logger.error("Output validation has failed: {}".format(error.args[0]))
-                raise
-
             return outputs.freeze()
         except:  # noqa pylint: disable=bare-except
             self.logger.exception("Exception while running process")
             raise
         finally:
             self.logger.info("Process has finished")
-
-    def _validate_inputs(self, inputs):
-        """Validate process inputs."""
-        valid_inputs = Inputs()
-        for name, field in self._meta.inputs.items():
-            value = getattr(inputs, name, None)
-            setattr(valid_inputs, name, field.clean(value))
-
-        return valid_inputs
-
-    def _validate_outputs(self, outputs):
-        """Validate process outputs."""
-        valid_outputs = Outputs()
-        for name, field in self._meta.outputs.items():
-            value = getattr(outputs, name, None)
-            value = field.clean(value)
-            value = field.to_output(value)
-            setattr(valid_outputs, name, value)
-
-        return valid_outputs

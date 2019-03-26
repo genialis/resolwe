@@ -64,13 +64,17 @@ if __name__ == '__main__':
         sys.exit(1)
 
     # Prepare process inputs.
-    inputs = Inputs()
-    if args.inputs:
-        with open(args.inputs) as inputs_file:
-            data = json.load(inputs_file)
+    try:
+        inputs = Inputs(process._meta.inputs)  # pylint: disable=protected-access
+        if args.inputs:
+            with open(args.inputs) as inputs_file:
+                data = json.load(inputs_file)
 
-        for key, value in data.items():
-            setattr(inputs, key, value)
+            for key, value in data.items():
+                setattr(inputs, key, value)
+    except ValidationError as error:
+        print("ERROR: Input field validation failed: {}".format(error.args[0]))
+        sys.exit(1)
 
     # TODO: Configure logging.
 
@@ -79,10 +83,8 @@ if __name__ == '__main__':
     try:
         outputs = instance.start(inputs)
     except ValidationError as error:
-        print("ERROR: Field validation failed: {}".format(error.args[0]))
+        print("ERROR: Output field validation failed: {}".format(error.args[0]))
         sys.exit(1)
 
-    # Prepare outputs.
-    for name, value in outputs.items():
-        # TODO: Use the protocol to submit outputs.
-        print(json.dumps(value))
+    # Save outputs.
+    outputs.save_outputs()
