@@ -104,6 +104,12 @@ class PythonProcess(Process):
             if 'Inputs have no field invalid_input' in str(err):
                 pass
 
+        try:
+            inputs.input_entity_data.invalid_field
+        except AttributeError as err:
+            if 'DataField has no member invalid_field' in str(err):
+                pass
+
         bar = Cmd['ls']['-l', '-a', '/'] | Cmd['grep']['python']
         print('hello world:\n', bar())
 

@@ -502,10 +502,10 @@ class DataDescriptor:
     def _get(self, key):
         """Return given key from cache."""
         self._populate_cache()
-        try:
-            return self._cache[key]
-        except KeyError:
-            raise AttributeError(key)
+        if key not in self._cache:
+            raise AttributeError("DataField has no member {}".format(key))
+
+        return self._cache[key]
 
     @property
     def id(self):  # pylint: disable=invalid-name
