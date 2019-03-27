@@ -474,6 +474,7 @@ class DataDescriptor:
 
             if field_name not in cache:
                 # Non-required fields may be missing.
+                cache[field_name] = None
                 continue
 
             field_type = field_descriptor['type'].rstrip(':')

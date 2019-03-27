@@ -14,6 +14,7 @@ class EntityProcess(Process):
 
     class Output:
         list_string = ListField(StringField(), label="My list")
+        optional = StringField("Optional output", required=False)
 
     def run(self, inputs, outputs):
         outputs.list_string = ["foo", "bar"]
@@ -93,6 +94,9 @@ class PythonProcess(Process):
 
         if inputs.my_group.group_optional_no_default:
             raise AttributeError('inputs.my_group.group_optional_no_default should not exist.')
+
+        if inputs.input_entity_data.optional:
+            raise AttributeError('inputs.list_string_output.optional should not exist.')
 
         try:
             inputs.invalid_input
