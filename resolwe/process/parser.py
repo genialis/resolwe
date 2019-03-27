@@ -6,7 +6,7 @@ import json
 import asteval
 
 from . import runtime
-from .descriptor import ProcessDescriptor, SchedulingClass
+from .descriptor import Persistence, ProcessDescriptor, SchedulingClass
 from .fields import get_available_fields
 
 
@@ -81,6 +81,7 @@ PROCESS_METADATA = {
     'version': StaticStringMetadata(),
     'category': StaticStringMetadata(),
     'scheduling_class': StaticEnumMetadata(choices=SchedulingClass),
+    'persistence': StaticEnumMetadata(choices=Persistence),
     'requirements': StaticDictMetadata(),
     'data_name': StaticStringMetadata(),
     'entity': StaticDictMetadata(),

@@ -13,6 +13,14 @@ class SchedulingClass:
     BATCH = 'batch'
 
 
+class Persistence:
+    """Process data persistance."""
+
+    RAW = 'RAW'
+    CACHED = 'CACHED'
+    TEMP = 'TEMP'
+
+
 class ValidationError(Exception):
     """Process descriptor validation error."""
 
@@ -36,6 +44,7 @@ class ProcessDescriptor:
         version = None
         category = None
         scheduling_class = None
+        persistence = None
         requirements = None
         data_name = None
         entity = None
@@ -90,6 +99,8 @@ class ProcessDescriptor:
             schema['category'] = self.metadata.category
         if self.metadata.scheduling_class is not None:
             schema['scheduling_class'] = self.metadata.scheduling_class
+        if self.metadata.persistence is not None:
+            schema['persistence'] = self.metadata.persistence
         if self.metadata.requirements is not None:
             schema['requirements'] = self.metadata.requirements
         if self.metadata.data_name is not None:

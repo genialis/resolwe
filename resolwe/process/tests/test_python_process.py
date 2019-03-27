@@ -29,7 +29,8 @@ class PythonProcessTest(ProcessTestCase):
         self.assertEqual(process.version, '0.1.2')
         self.assertEqual(process.type, 'data:python:')
         self.assertEqual(process.category, 'analyses:')
-        self.assertEqual(process.persistence, Process.PERSISTENCE_RAW)
+        self.assertEqual(process.scheduling_class, Process.SCHEDULING_CLASS_BATCH)
+        self.assertEqual(process.persistence, Process.PERSISTENCE_CACHED)
         self.assertEqual(process.description, 'This is a process description.')
         self.assertEqual(process.data_name, 'Foo: {{input_data | name}}')
         self.assertEqual(process.entity_type, 'sample')
@@ -43,7 +44,6 @@ class PythonProcessTest(ProcessTestCase):
                 }
             }
         })
-        self.assertEqual(process.scheduling_class, Process.SCHEDULING_CLASS_BATCH)
 
         for field in process.input_schema:
             if field['name'] == 'my_group':

@@ -24,6 +24,7 @@ class PythonProcess(Process):
     process_type = 'data:python'
     category = 'analyses'
     scheduling_class = SchedulingClass.BATCH
+    persistence = Persistence.CACHED
     data_name = "Foo: {{input_data | name}}"
     entity = {
         'type': 'sample',
