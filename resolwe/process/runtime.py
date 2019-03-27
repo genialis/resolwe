@@ -63,10 +63,7 @@ class _IoBase:
         return self._data.items()
 
     def __getattr__(self, name):
-        try:
-            return self._data[name]
-        except KeyError:
-            raise AttributeError(name)
+        return self._data.get(name, None)
 
     def __setattr__(self, name, value):
         if self.frozen:
@@ -100,11 +97,29 @@ class _IoBase:
 class Inputs(_IoBase):
     """Process inputs."""
 
-    pass
+    def __getattr__(self, name):
+        """Get input field.
+
+        Check that the input exists.
+        """
+        if name not in self._fields:
+            raise AttributeError('Inputs have no field {}'.format(name))
+
+        return super().__getattr__(name)
 
 
 class Outputs(_IoBase):
     """Process outputs."""
+
+    def __getattr__(self, name):
+        """Get output field.
+
+        Check that the output exists.
+        """
+        if name not in self._fields:
+            raise AttributeError('Outputs have no field {}'.format(name))
+
+        return super().__getattr__(name)
 
     def __setattr__(self, name, value):
         """Store attribute value and save output."""

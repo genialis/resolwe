@@ -52,10 +52,12 @@ class PythonProcess(Process):
         my_float = FloatField(label="My float")
         my_json = JsonField(label="Blah blah")
         my_optional = StringField(label="Optional", required=False, default='default value')
+        my_optional_no_default = StringField(label="Optional no default", required=False)
 
         class MyGroup:
             foo = IntegerField(label="Foo")
             bar = StringField(label="Bar")
+            group_optional_no_default = StringField(label="Group optional no default", required=False)
 
         my_group = GroupField(MyGroup, label="My group")
 
@@ -79,6 +81,22 @@ class PythonProcess(Process):
         print('Group foo:', inputs.my_group.foo)
         print('Entity name of the input:', inputs.input_entity_data.entity_name)
         print('Docker image:', self.requirements.executor.docker.image)
+
+        if inputs.my_optional:
+            print('My optional:', inputs.my_optional)
+
+        if inputs.my_optional_no_default:
+            print('my_optional_no_default should not print:', inputs.my_optional_no_default)
+
+        if inputs.my_group.group_optional_no_default:
+            print('group_optional_no_default should not print:', inputs.my_group.group_optional_no_default)
+
+        try:
+            inputs.invalid_input
+        except AttributeError as err:
+            if 'Inputs have no field invalid_input' in str(err):
+                pass
+
         bar = Cmd['ls']['-l', '-a', '/'] | Cmd['grep']['python']
         print('hello world:\n', bar())
 
