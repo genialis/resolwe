@@ -12,8 +12,11 @@ class EntityProcess(Process):
         'type': 'sample',
     }
 
+    class Output:
+        list_string = ListField(StringField(), label="My list")
+
     def run(self, inputs, outputs):
-        pass
+        outputs.list_string = ["foo", "bar"]
 
 
 class PythonProcess(Process):
@@ -86,10 +89,10 @@ class PythonProcess(Process):
             print('My optional:', inputs.my_optional)
 
         if inputs.my_optional_no_default:
-            print('my_optional_no_default should not print:', inputs.my_optional_no_default)
+            raise AttributeError('inputs.my_optional_no_default should not exist.')
 
         if inputs.my_group.group_optional_no_default:
-            print('group_optional_no_default should not print:', inputs.my_group.group_optional_no_default)
+            raise AttributeError('inputs.my_group.group_optional_no_default should not exist.')
 
         try:
             inputs.invalid_input

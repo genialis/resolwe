@@ -477,7 +477,11 @@ class DataDescriptor:
                 continue
 
             field_type = field_descriptor['type'].rstrip(':')
-            field = ALL_FIELDS_MAP[field_type]()
+
+            if field_type.startswith('list:'):
+                field = ListField(ALL_FIELDS_MAP[field_type[5:]]())
+            else:
+                field = ALL_FIELDS_MAP[field_type]()
 
             value = cache[field_name]
             value = field.clean(value)
