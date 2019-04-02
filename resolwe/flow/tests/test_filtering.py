@@ -25,7 +25,7 @@ class BaseViewSetFiltersTest(TestCase):
             'get': 'list',
         })
 
-    def _check_filter(self, query_args, expected, expected_status_code=status.HTTP_200_OK):
+    def _check_filter(self, query_args, expected, expected_status_code=status.HTTP_200_OK, check_ordering=False):
         """Check that query_args filter to expected queryset."""
         request = factory.get('/', query_args, format='json')
         force_authenticate(request, self.admin)
@@ -33,10 +33,16 @@ class BaseViewSetFiltersTest(TestCase):
 
         if status.is_success(response.status_code):
             self.assertEqual(len(response.data), len(expected))
-            self.assertCountEqual(
-                [item.pk for item in expected],
-                [item['id'] for item in response.data],
-            )
+            if check_ordering:
+                self.assertEqual(
+                    [item.pk for item in expected],
+                    [item['id'] for item in response.data],
+                )
+            else:
+                self.assertCountEqual(
+                    [item.pk for item in expected],
+                    [item['id'] for item in response.data],
+                )
         else:
             self.assertEqual(response.status_code, expected_status_code)
             response.render()
@@ -110,6 +116,10 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
                 tags=['foo', 'index{}'.format(index)],
             )
 
+            if index < 3:
+                append_names = ['hellodata', 'hello hello', 'hello']
+                data.name += ' ' + append_names[index]
+
             data.created = datetime.datetime(2016, 7, 30, index, 59, tzinfo=tzone)
             data.save()
 
@@ -132,9 +142,9 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter({'slug__in': 'dataslug-1,dataslug-5'}, [self.data[1], self.data[5]])
 
     def test_filter_name(self):
-        self._check_filter({'name': 'Data 1'}, [self.data[1]])
-        self._check_filter({'name': 'data 1'}, [])
-        self._check_filter({'name': 'Data 2'}, [self.data[2]])
+        self._check_filter({'name': 'Data 5'}, [self.data[5]])
+        self._check_filter({'name': 'data 5'}, [])
+        self._check_filter({'name': 'Data 6'}, [self.data[6]])
         self._check_filter({'name': 'Data'}, [])
         self._check_filter({'name': '1'}, [])
 
@@ -279,6 +289,21 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter({'text': 'fir'}, self.data[:5])
         self._check_filter({'text': 'rst'}, [])
         self._check_filter({'text': 'process'}, self.data)
+
+        # Order by newest first by default.
+        self._check_filter({'text': 'hello'},
+                           # "Data 2 hello , "Data 1 hello hello", "Data 0 hellodata"
+                           [self.data[2], self.data[1], self.data[0]],
+                           check_ordering=True)
+
+        # Order by relevance.
+        # Ordering by empty string should override DataViewSet's default ordering (-created)
+        # and return as ordered by Elastic Search.
+        self._check_filter({'text': 'hello', 'ordering': ''},
+                           # "Data 1 hello hello", "Data 2 hello", "Data 0 hellodata"
+                           [self.data[1], self.data[2], self.data[0]],
+                           check_ordering=True)
+
 
     def test_nonexisting_parameter(self):
         response = self._check_filter({'foo': 'bar'}, [self.data[0]], expected_status_code=400)
