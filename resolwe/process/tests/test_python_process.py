@@ -10,6 +10,7 @@ from resolwe.flow.models import Data, Entity, Process
 from resolwe.test import ProcessTestCase, tag_process, with_docker_executor, with_resolwe_host
 
 PROCESSES_DIR = os.path.join(os.path.dirname(__file__), 'processes')
+WORKFLOWS_DIR = os.path.join(os.path.dirname(__file__), 'workflows')
 DESCRIPTORS_DIR = os.path.join(os.path.dirname(__file__), 'descriptors')
 FILES_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'files')
 
@@ -17,7 +18,7 @@ FILES_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'files')
 class PythonProcessTest(ProcessTestCase):
     def setUp(self):
         super().setUp()
-        self._register_schemas(processes_paths=[PROCESSES_DIR], descriptors_paths=[DESCRIPTORS_DIR])
+        self._register_schemas(processes_paths=[PROCESSES_DIR, WORKFLOWS_DIR], descriptors_paths=[DESCRIPTORS_DIR])
         self.files_path = FILES_PATH
 
     @with_docker_executor
@@ -115,6 +116,20 @@ class PythonProcessTest(ProcessTestCase):
         self.run_process('test-python-process-json', {
             'data': input_data.pk,
         })
+
+    @with_docker_executor
+    @tag_process('test-non-required-data-inputs')
+    def test_non_required_data_input(self):
+        """Test workflow with non-required data inputs"""
+        with self.preparation_stage():
+            input_data = self.run_process('test-output-json')
+
+        self.run_process('test-non-required-data-inputs', {
+            'data': input_data.pk,
+        })
+
+        data = Data.objects.get(process__slug='test-python-process-json')
+        self.assertEqual(data.status, 'OK')
 
 
 class PythonProcessDataBySlugTest(ProcessTestCase, LiveServerTestCase):

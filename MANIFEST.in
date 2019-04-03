@@ -25,6 +25,7 @@ recursive-include resolwe/process/tests/ *.py
 recursive-include resolwe/process/tests/descriptors *.yml
 recursive-include resolwe/process/tests/files *.txt
 recursive-include resolwe/process/tests/processes *.yml *.py
+recursive-include resolwe/process/tests/workflows *.yml
 recursive-include resolwe/test/tests *.py
 recursive-include resolwe/test/tests/files *
 recursive-include resolwe/test/tests/processes *.yml

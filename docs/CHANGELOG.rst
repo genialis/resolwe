@@ -34,6 +34,7 @@ Fixed
 -----
 - Interactively write to standard output within Python processes
 - Fix writing to integer and float output fields
+- Allow non-required ``DataField`` as Python process input
 
 
 ===================

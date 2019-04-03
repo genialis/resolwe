@@ -459,7 +459,7 @@ class ListField(Field):
 class DataDescriptor:
     """Descriptor for accessing data objects."""
 
-    def __init__(self, data_id, field, cache=None):
+    def __init__(self, data_id, field, cache):
         """Construct a data descriptor.
 
         :param data_id: Data object primary key
@@ -556,20 +556,22 @@ class DataField(Field):
     def to_python(self, value):
         """Convert value if needed."""
         cache = None
-        if value is not None:
-            if isinstance(value, DataDescriptor):
-                return value
-            elif isinstance(value, dict):
-                # Allow pre-hydrated data objects.
-                cache = value
-                try:
-                    value = cache['__id']
-                except KeyError:
-                    raise ValidationError("dictionary must contain an '__id' element")
-            elif not isinstance(value, int):
-                raise ValidationError("field must be a DataDescriptor, data object primary key or dict")
+        if value is None:
+            return None
 
-        return DataDescriptor(value, self, cache=cache)
+        if isinstance(value, DataDescriptor):
+            return value
+        elif isinstance(value, dict):
+            # Allow pre-hydrated data objects.
+            cache = value
+            try:
+                value = cache['__id']
+            except KeyError:
+                raise ValidationError("dictionary must contain an '__id' element")
+        elif not isinstance(value, int):
+            raise ValidationError("field must be a DataDescriptor, data object primary key or dict")
+
+        return DataDescriptor(value, self, cache)
 
 
 class GroupDescriptor:

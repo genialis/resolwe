@@ -18,6 +18,7 @@ class PythonProcessJson(Process):
     class Input:
         """Input fields."""
         data = DataField('test', label="My input data")
+        data2 = DataField('test', label="My second non-required input data", required=False)
 
     def run(self, inputs, outputs):
         print('Input data:', inputs.data)

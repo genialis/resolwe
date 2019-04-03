@@ -1,0 +1,23 @@
+- slug: test-non-required-data-inputs
+  name: Test workflow
+  version: 1.0.0
+  type: data:workflow
+  requirements:
+    expression-engine: jinja
+  input:
+    - name: data
+      label: Test data
+      type: data:test
+      required: false
+    - name: data2
+      label: Test data 2
+      type: data:test
+      required: false
+  run:
+    language: workflow
+    program:
+      - id: python-process
+        run: test-python-process-json
+        input:
+          data: '{{input.data}}'
+          data2: '{{input.data2}}'
