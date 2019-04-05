@@ -31,6 +31,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Count
 from django.urls import reverse
+from django.utils.timezone import now
 
 from django_priority_batch import PrioritizedBatcher
 
@@ -43,12 +44,6 @@ from resolwe.utils import BraceMessage as __
 
 from . import consumer, state
 from .protocol import ExecutorProtocol, WorkerProtocol
-
-if settings.USE_TZ:
-    from django.utils.timezone import now  # pylint: disable=ungrouped-imports
-else:
-    import datetime
-    now = datetime.datetime.now  # pylint: disable=invalid-name
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 

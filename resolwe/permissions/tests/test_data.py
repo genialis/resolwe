@@ -1,9 +1,9 @@
 # pylint: disable=missing-docstring
 import shutil
 import unittest
-from datetime import datetime, timedelta
+from datetime import timedelta
 
-from django.conf import settings
+from django.utils.timezone import now
 
 from rest_framework import exceptions, status
 
@@ -11,12 +11,6 @@ from resolwe.flow.models import Collection, Data
 from resolwe.flow.serializers import ContributorSerializer
 from resolwe.flow.views import DataViewSet
 from resolwe.test import ResolweAPITestCase
-
-if settings.USE_TZ:
-    from django.utils.timezone import now  # pylint: disable=ungrouped-imports
-else:
-    now = datetime.now  # pylint: disable=invalid-name
-
 
 DATE_FORMAT = r'%Y-%m-%dT%H:%M:%S.%f'
 

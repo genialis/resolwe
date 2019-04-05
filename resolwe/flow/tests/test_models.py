@@ -7,10 +7,10 @@ from datetime import timedelta
 
 from mock import MagicMock, patch
 
-from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.utils.timezone import now
 
 from guardian.shortcuts import assign_perm, get_perms, remove_perm
 from rest_framework.test import APIRequestFactory, APITestCase, force_authenticate
@@ -26,12 +26,6 @@ try:
     import builtins  # py3
 except ImportError:
     import __builtin__ as builtins  # py2
-
-if settings.USE_TZ:
-    from django.utils.timezone import now  # pylint: disable=ungrouped-imports
-else:
-    import datetime
-    now = datetime.datetime.now  # pylint: disable=invalid-name
 
 
 class DataModelNameTest(TransactionTestCase):

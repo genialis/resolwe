@@ -26,6 +26,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ImproperlyConfigured, PermissionDenied
 from django.db import IntegrityError, connection, transaction
 from django.db.models import Q
+from django.utils.timezone import now
 
 from resolwe.flow.engine import InvalidEngineError, load_engines
 from resolwe.flow.execution_engines import ExecutionError
@@ -35,12 +36,6 @@ from resolwe.utils import BraceMessage as __
 
 from . import consumer, state
 from .protocol import ExecutorFiles, WorkerProtocol
-
-if settings.USE_TZ:
-    from django.utils.timezone import now  # pylint: disable=ungrouped-imports
-else:
-    import datetime
-    now = datetime.datetime.now  # pylint: disable=invalid-name
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 

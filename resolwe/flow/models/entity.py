@@ -1,19 +1,13 @@
 """Resolwe entity model."""
-from django.conf import settings
 from django.contrib.postgres.fields import CICharField
 from django.db import models, transaction
+from django.utils.timezone import now
 
 from resolwe.permissions.shortcuts import get_objects_for_user
 from resolwe.permissions.utils import assign_contributor_permissions, copy_permissions
 
 from .base import BaseModel
 from .collection import BaseCollection
-
-if settings.USE_TZ:
-    from django.utils.timezone import now  # pylint: disable=ungrouped-imports
-else:
-    import datetime
-    now = datetime.datetime.now  # pylint: disable=invalid-name
 
 
 class EntityQuerySet(models.QuerySet):

@@ -9,6 +9,7 @@ from django.contrib.postgres.fields import ArrayField, JSONField
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.validators import RegexValidator
 from django.db import models, transaction
+from django.utils.timezone import now
 
 from resolwe.flow.expression_engines.exceptions import EvaluationError
 from resolwe.flow.models.utils import fill_with_defaults
@@ -23,12 +24,6 @@ from .storage import Storage
 from .utils import (
     DirtyError, hydrate_input_references, hydrate_size, render_descriptor, render_template, validate_schema,
 )
-
-if settings.USE_TZ:
-    from django.utils.timezone import now  # pylint: disable=ungrouped-imports
-else:
-    import datetime
-    now = datetime.datetime.now  # pylint: disable=invalid-name
 
 # Compatibility for Python < 3.5.
 if not hasattr(json, 'JSONDecodeError'):
