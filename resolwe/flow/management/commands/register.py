@@ -75,7 +75,7 @@ class Command(BaseCommand):
             return []
 
         with open(schema_file) as fn:
-            schemas = yaml.load(fn)
+            schemas = yaml.load(fn, Loader=yaml.FullLoader)
         if not schemas:
             self.stderr.write("Could not read YAML file {}".format(schema_file))
             return []

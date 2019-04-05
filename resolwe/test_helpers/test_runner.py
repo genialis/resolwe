@@ -469,7 +469,7 @@ class ResolweRunner(DiscoverRunner):
             # Parse file types metadata.
             try:
                 with open(self.changes_file_types, 'r') as definition_file:
-                    types = yaml.load(definition_file)
+                    types = yaml.load(definition_file, Loader=yaml.FullLoader)
             except (OSError, ValueError):
                 raise CommandError("Failed loading or parsing file types metadata.")
         else:
@@ -522,7 +522,7 @@ class ResolweRunner(DiscoverRunner):
                     continue
 
                 with open(schema_file) as fn:
-                    schemas = yaml.load(fn)
+                    schemas = yaml.load(fn, Loader=yaml.FullLoader)
 
                 if not schemas:
                     print("WARNING: Could not read YAML file {}".format(schema_file), file=sys.stderr)
@@ -585,7 +585,7 @@ class ResolweRunner(DiscoverRunner):
         def load_process_slugs(filename):
             """Add all process slugs from specified file."""
             with open(filename, 'r') as process_file:
-                data = yaml.load(process_file)
+                data = yaml.load(process_file, Loader=yaml.FullLoader)
 
                 for process in data:
                     # Add all process slugs.

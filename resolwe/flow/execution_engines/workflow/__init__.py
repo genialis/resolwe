@@ -28,7 +28,7 @@ class ExecutionEngine(BaseExecutionEngine):
             return []
 
         with open(path) as fn:
-            schemas = yaml.load(fn)
+            schemas = yaml.load(fn, Loader=yaml.FullLoader)
         if not schemas:
             # TODO: Logger.
             # self.stderr.write("Could not read YAML file {}".format(schema_file))

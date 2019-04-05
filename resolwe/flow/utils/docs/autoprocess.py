@@ -86,7 +86,7 @@ def get_processes(process_dir, base_source_uri):
     def read_yaml_file(fname):
         """Read the yaml file."""
         with open(fname) as f:
-            return yaml.load(f)
+            return yaml.load(f, Loader=yaml.FullLoader)
 
     processes = []
     for process_file in all_process_files:
