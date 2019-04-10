@@ -14,10 +14,10 @@ class CollectionDocument(BaseDocument):
     descriptor_data = dsl.Text(multi=True)
     tags = dsl.Keyword(multi=True)
 
-    class Meta:
+    class Index:
         """Meta class for collection search document."""
 
-        index = 'collection'
+        name = 'collection'
 
 
 class CollectionIndexMixin:

@@ -6,6 +6,15 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Changed
+-------
+- **BACKWARD INCOMPATIBLE:** Use Elasticsearch version 6.x
+
+
 ===================
 16.0.0 - 2019-04-16
 ===================

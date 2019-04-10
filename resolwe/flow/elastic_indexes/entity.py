@@ -16,10 +16,10 @@ class EntityDocument(CollectionDocument):
     collections = dsl.Integer(multi=True)
     type = dsl.Keyword()
 
-    class Meta:
+    class Index:
         """Meta class for entity search document."""
 
-        index = 'entity'
+        name = 'entity'
 
 
 class DataDescriptorDependency(ManyToManyDependency):

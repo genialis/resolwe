@@ -26,10 +26,10 @@ class DataDocument(BaseDocument):
     children = dsl.Integer(multi=True)
     entity = dsl.Integer(multi=True)
 
-    class Meta:
+    class Index:
         """Meta class for data search document."""
 
-        index = 'data'
+        name = 'data'
 
 
 class DataIndex(BaseIndexMixin, BaseIndex):

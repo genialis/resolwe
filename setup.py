@@ -43,7 +43,7 @@ setuptools.setup(
         'django-versionfield2>=0.5.0',
         'django-fernet-fields>=0.5',
         'django-priority-batch>=1.1.0',
-        'elasticsearch-dsl~=5.4.0',
+        'elasticsearch-dsl~=6.3.1',
         'psycopg2>=2.5.0, <2.8',
         'mock>=1.3.0',
         'PyYAML~=5.1',

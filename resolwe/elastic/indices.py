@@ -39,7 +39,7 @@ __all__ = ('BaseDocument', 'BaseIndex')
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
-class BaseDocument(dsl.DocType):
+class BaseDocument(dsl.Document):
     """Base document class to build ElasticSearch documents.
 
     This is standard ``elasticsearch-dsl`` ``DocType`` class with

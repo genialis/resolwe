@@ -31,8 +31,9 @@ before_install:
   # NOTE: We need to manually install ElasticSearch since we want to control
   # the exact version we use instead of relying on the version shipped by
   # Travis CI's python image.
-  - curl -sSL -O https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-5.6.10.deb
-  - sudo dpkg -i --force-confnew elasticsearch-5.6.10.deb
+  # XXX: Version 6.7.0 should be used, but it doesn't work on Travis.
+  - curl -sSL -O https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-6.6.0.deb
+  - sudo dpkg -i --force-confnew elasticsearch-6.6.0.deb
   - sudo service elasticsearch restart
 
 install: pip install tox

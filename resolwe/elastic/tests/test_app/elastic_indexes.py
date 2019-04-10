@@ -20,8 +20,8 @@ class TestSearchDocument(BaseDocument):
     field_process_type = ProcessType()
     none_test = dsl.Integer()
 
-    class Meta:
-        index = 'test_search'
+    class Index:
+        name = 'test_search'
 
 
 class TestSearchIndex(BaseIndex):
@@ -50,8 +50,8 @@ class TestAnalyzerSearchDocument(BaseDocument):
         fielddata=True,
     ))
 
-    class Meta:
-        index = 'test_analyzer_search'
+    class Index:
+        name = 'test_analyzer_search'
 
 
 class TestAnalyzerSearchIndex(BaseIndex):
@@ -64,8 +64,8 @@ class TestModelWithDependencyDocument(BaseDocument):
     # pylint: disable=no-member
     name = dsl.Text(fielddata=True)
 
-    class Meta:
-        index = 'test_model_with_dependency_search'
+    class Index:
+        name = 'test_model_with_dependency_search'
 
 
 class TestModelWithDependencySearchIndex(BaseIndex):
@@ -85,8 +85,8 @@ class TestModelWithFilterDependencyDocument(BaseDocument):
     # pylint: disable=no-member
     name = dsl.Text(fielddata=True)
 
-    class Meta:
-        index = 'test_model_with_filter_dependency_search'
+    class Index:
+        name = 'test_model_with_filter_dependency_search'
 
 
 class FilterHelloDependency(ManyToManyDependency):
@@ -109,10 +109,10 @@ class TestModelWithFilterDependencySearchIndex(BaseIndex):
 
 class TestModelWithReverseDependencyDocument(BaseDocument):
     # pylint: disable=no-member
-    name = dsl.String()
+    name = dsl.Text()
 
-    class Meta:
-        index = 'test_model_with_reverse_dependency_search'
+    class Index:
+        name = 'test_model_with_reverse_dependency_search'
 
 
 class TestModelWithReverseDependencySearchIndex(BaseIndex):
@@ -130,10 +130,10 @@ class TestModelWithReverseDependencySearchIndex(BaseIndex):
 
 class TestModelWithSelfDependencyDocument(BaseDocument):
     # pylint: disable=no-member
-    name = dsl.String()
+    name = dsl.Text()
 
-    class Meta:
-        index = 'test_model_with_self_dependency_search'
+    class Index:
+        name = 'test_model_with_self_dependency_search'
 
 
 class TestModelWithSelfDependencySearchIndex(BaseIndex):

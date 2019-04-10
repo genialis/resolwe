@@ -447,7 +447,7 @@ class IndexBuilder:
                     if inspect.isclass(attr) and issubclass(attr, BaseIndex) and attr is not BaseIndex:
                         # Make sure that parallel tests have different indices.
                         if is_testing():
-                            index = attr.document_class._doc_type.index  # pylint: disable=protected-access
+                            index = attr.document_class._index._name  # pylint: disable=protected-access
                             testing_postfix = '_test_{}_{}'.format(TESTING_UUID, os.getpid())
 
                             if not index.endswith(testing_postfix):
@@ -457,7 +457,7 @@ class IndexBuilder:
                                 index = index + testing_postfix
                                 attr.testing_postfix = testing_postfix
 
-                            attr.document_class._doc_type.index = index  # pylint: disable=protected-access
+                            attr.document_class._index._name = index  # pylint: disable=protected-access
 
                         index = attr()
 

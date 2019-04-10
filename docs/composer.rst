@@ -82,10 +82,10 @@ defining an extension as follows:
 
     class ExtendedDataDocument:
         """Data ES document extensions."""
-        source = dsl.String(index='not_analyzed')
-        species = dsl.String(index='not_analyzed')
-        build = dsl.String(index='not_analyzed')
-        feature_type = dsl.String(index='not_analyzed')
+        source = dsl.Keyword()
+        species = dsl.Text()
+        build = dsl.Keyword()
+        feature_type = dsl.Keyword()
 
     composer.add_extension('resolwe.flow.elastic_indexes.data.DataDocument', ExtendedDataDocument)
 
