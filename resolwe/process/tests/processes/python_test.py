@@ -135,3 +135,13 @@ class PythonProcess2(process.Process):
 
     def run(self, inputs, outputs):
         pass
+
+
+class ErrorProcess(Process):
+    slug = 'test-python-process-error'
+    name = "Test Python Process Error"
+    version = '0.0.1'
+    process_type = 'data:python:error'
+
+    def run(self, inputs, outputs):
+        raise ValueError('Value error in ErrorProcess')

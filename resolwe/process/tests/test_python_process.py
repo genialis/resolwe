@@ -131,6 +131,13 @@ class PythonProcessTest(ProcessTestCase):
         data = Data.objects.get(process__slug='test-python-process-json')
         self.assertEqual(data.status, 'OK')
 
+    @with_docker_executor
+    @tag_process('test-python-process-error')
+    def test_error(self):
+        """Test workflow with non-required data inputs"""
+        data = self.run_process('test-python-process-error', assert_status=Data.STATUS_ERROR)
+        self.assertEqual(data.process_error[0], 'Value error in ErrorProcess')
+
 
 class PythonProcessDataBySlugTest(ProcessTestCase, LiveServerTestCase):
 

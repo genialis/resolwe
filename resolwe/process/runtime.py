@@ -254,8 +254,13 @@ class Process(metaclass=ProcessMeta):
         try:
             self.run(inputs.freeze(), outputs)
             return outputs.freeze()
+        except Exception as error:
+            self.logger.exception("Exception while running process")
+            print(resolwe_runtime_utils.error(str(error)))
+            raise
         except:  # noqa pylint: disable=bare-except
             self.logger.exception("Exception while running process")
+            print(resolwe_runtime_utils.error("Exception while running process"))
             raise
         finally:
             self.logger.info("Process has finished")
