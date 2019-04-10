@@ -138,6 +138,15 @@ class PythonProcessTest(ProcessTestCase):
         data = self.run_process('test-python-process-error', assert_status=Data.STATUS_ERROR)
         self.assertEqual(data.process_error[0], 'Value error in ErrorProcess')
 
+    @with_docker_executor
+    @tag_process('test-python-process-file')
+    def test_import_file(self):
+        """Test import file"""
+        inputs = {'src': 'testfile.txt'}
+        data = self.run_process('test-python-process-file', inputs)
+        self.assertEqual(data.output['dst']['file'], 'testfile.txt')
+        self.assertEqual(data.output['dst']['size'], 15)
+
 
 class PythonProcessDataBySlugTest(ProcessTestCase, LiveServerTestCase):
 

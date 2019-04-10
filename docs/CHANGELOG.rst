@@ -32,6 +32,8 @@ Added
 - Report process error for exceptions in Python processes
 - Report process error if spawning fails
 - Automatically export files for spawned processes (in Python process syntax)
+- Import files of Python process FileField inputs (usage:
+  `inputs.src.import_file()`)
 
 Fixed
 -----

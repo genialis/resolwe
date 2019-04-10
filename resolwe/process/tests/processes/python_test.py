@@ -145,3 +145,22 @@ class ErrorProcess(Process):
 
     def run(self, inputs, outputs):
         raise ValueError('Value error in ErrorProcess')
+
+
+class FileProcess(Process):
+    slug = 'test-python-process-file'
+    name = "Test Python Process File"
+    version = '0.0.1'
+    process_type = 'data:python:file'
+
+    class Input:
+        """Input fields."""
+        src = FileField(label="Input file")
+
+    class Output:
+        """Input fields."""
+        dst = FileField(label="Output file")
+
+    def run(self, inputs, outputs):
+        file_name = inputs.src.import_file()
+        outputs.dst = file_name

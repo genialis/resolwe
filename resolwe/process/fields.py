@@ -3,6 +3,7 @@ import collections
 import json
 
 import resolwe_runtime_utils
+from resolwe_runtime_utils import ImportedFormat
 
 
 class ValidationError(Exception):
@@ -259,6 +260,22 @@ class FileDescriptor:
         if refs is None:
             refs = []
         self.refs = refs
+
+    def import_file(self, imported_format=ImportedFormat.BOTH, progress_from=0.0, progress_to=None):
+        """Import field source file to working directory.
+
+        :param imported_format: Import file format (extracted, compressed or both)
+        :param progress_from: Initial progress value
+        :param progress_to: Final progress value
+        :return: Destination file path (if extracted and compressed, extracted path given)
+        """
+        return resolwe_runtime_utils.import_file(
+            src=self.file_temp,
+            file_name=self.path,
+            imported_format=imported_format,
+            progress_from=progress_from,
+            progress_to=progress_to
+        )
 
     def __repr__(self):
         """Return string representation."""
