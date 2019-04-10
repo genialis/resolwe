@@ -12,6 +12,7 @@ Standalone Redis client used as a contact point for executors.
 """
 
 import asyncio
+import copy
 import json
 import logging
 import math
@@ -359,7 +360,7 @@ class ExecutorListener:
                 'packet': obj
             }
         )
-
+        spawning_failed = False
         with transaction.atomic():
             # Spawn any new jobs in the request.
             spawned = False
@@ -441,6 +442,7 @@ class ExecutorListener:
                             'data_id': data_id
                         }
                     )
+                    spawning_failed = True
 
             # Data wrap up happens last, so that any triggered signals
             # already see the spawned children. What the children themselves
@@ -460,19 +462,22 @@ class ExecutorListener:
                     async_to_sync(self._send_reply)(obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_ERROR})
                     return
 
-                if process_rc == 0 and not d.status == Data.STATUS_ERROR:
-                    changeset = {
-                        'status': Data.STATUS_DONE,
-                        'process_progress': 100,
-                        'finished': now()
-                    }
+                changeset = {
+                    'process_progress': 100,
+                    'finished': now(),
+                }
+
+                if spawning_failed:
+                    changeset['status'] = Data.STATUS_ERROR
+                    changeset['process_error'] = ["Error while preparing spawned Data objects"]
+
+                elif process_rc == 0 and not d.status == Data.STATUS_ERROR:
+                    changeset['status'] = Data.STATUS_DONE
+
                 else:
-                    changeset = {
-                        'status': Data.STATUS_ERROR,
-                        'process_progress': 100,
-                        'process_rc': process_rc,
-                        'finished': now()
-                    }
+                    changeset['status'] = Data.STATUS_ERROR
+                    changeset['process_rc'] = process_rc
+
                 obj[ExecutorProtocol.UPDATE_CHANGESET] = changeset
                 self.handle_update(obj, internal_call=True)
 

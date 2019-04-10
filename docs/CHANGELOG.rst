@@ -30,6 +30,7 @@ Added
   - Easy access to process resources through ``self.resources``
 - Raise error if ViewSet receives invalid filter parameter(s)
 - Report process error for exceptions in Python processes
+- Report process error if spawning fails
 
 Fixed
 -----

@@ -92,11 +92,10 @@ class ManagerRunProcessTest(ProcessTestCase):
         # Check correct dependency type is created.
         self.assertEqual({d.kind for d in data.parents_dependency.all()}, {DataDependency.KIND_SUBPROCESS})
 
-    @unittest.skipIf(True, "since PR308: the exception happens in other processes, currently impossible to propagate")
     @tag_process('test-spawn-missing-file')
     def test_spawn_missing_export(self):
-        with self.assertRaisesRegex(KeyError, 'Use `re-export`'):
-            self.run_process('test-spawn-missing-file')
+        data = self.run_process('test-spawn-missing-file', assert_status=Data.STATUS_ERROR)
+        self.assertEqual(data.process_error[0], 'Error while preparing spawned Data objects')
 
     @tag_process('test-broken', 'test-broken-invalid-execution-engine', 'test-broken-invalid-expression-engine',
                  'test-broken-data-name')
