@@ -134,7 +134,7 @@ class PythonProcessTest(ProcessTestCase):
     @with_docker_executor
     @tag_process('test-python-process-error')
     def test_error(self):
-        """Test workflow with non-required data inputs"""
+        """Test process that raises exception"""
         data = self.run_process('test-python-process-error', assert_status=Data.STATUS_ERROR)
         self.assertEqual(data.process_error[0], 'Value error in ErrorProcess')
 

@@ -176,6 +176,20 @@ class Process(metaclass=ProcessMeta):
 
     def run_process(self, slug, inputs):
         """Run a new process from a running process."""
+        def export_files(value):
+            """Export input files of spawned process."""
+            if isinstance(value, str) and os.path.isfile(value):
+                # TODO: Use the protocol to export files and get the
+                # process schema to check field type.
+                print("export {}".format(value))
+            elif isinstance(value, dict):
+                for item in value.values():
+                    export_files(item)
+            elif isinstance(value, list):
+                for item in value:
+                    export_files(item)
+
+        export_files(inputs)
         print('run {}'.format(json.dumps({'process': slug, 'input': inputs}, separators=(',', ':'))))
 
     def progress(self, progress):

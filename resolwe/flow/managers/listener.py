@@ -12,7 +12,6 @@ Standalone Redis client used as a contact point for executors.
 """
 
 import asyncio
-import copy
 import json
 import logging
 import math

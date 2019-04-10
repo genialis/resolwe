@@ -31,6 +31,7 @@ Added
 - Raise error if ViewSet receives invalid filter parameter(s)
 - Report process error for exceptions in Python processes
 - Report process error if spawning fails
+- Automatically export files for spawned processes (in Python process syntax)
 
 Fixed
 -----
