@@ -35,6 +35,10 @@ setuptools.setup(
     },
     python_requires='>=3.6, <3.7',
     install_requires=[
+        # XXX: Temporarily pin Daphne since the latest version requires
+        # asgiref~=3.0 which is incompatible with Channels requirement of
+        # asgiref~=2.3
+        'daphne~=2.2.0',
         'Django~=1.11.0',
         'djangorestframework~=3.9.0',
         'django-filter~=2.0.0',
