@@ -65,7 +65,7 @@ setuptools.setup(
         'channels_redis~=2.3',
         'async-timeout~=2.0',
         'plumbum~=1.6.6',
-        'resolwe-runtime-utils>=1.2.0',
+        'resolwe-runtime-utils>=2.0.1',
     ],
     extras_require={
         'docs': ['sphinx_rtd_theme'],
