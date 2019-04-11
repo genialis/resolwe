@@ -3,7 +3,6 @@ import collections
 import json
 
 import resolwe_runtime_utils
-from resolwe_runtime_utils import ImportedFormat
 
 
 class ValidationError(Exception):
@@ -261,7 +260,7 @@ class FileDescriptor:
             refs = []
         self.refs = refs
 
-    def import_file(self, imported_format=ImportedFormat.BOTH, progress_from=0.0, progress_to=None):
+    def import_file(self, imported_format=None, progress_from=0.0, progress_to=None):
         """Import field source file to working directory.
 
         :param imported_format: Import file format (extracted, compressed or both)
@@ -269,6 +268,12 @@ class FileDescriptor:
         :param progress_to: Final progress value
         :return: Destination file path (if extracted and compressed, extracted path given)
         """
+        if not hasattr(resolwe_runtime_utils, 'import_file'):
+            raise RuntimeError('Requires resolwe-runtime-utils >= 2.0.0')
+
+        if imported_format is None:
+            imported_format = resolwe_runtime_utils.ImportedFormat.BOTH
+
         return resolwe_runtime_utils.import_file(
             src=self.file_temp,
             file_name=self.path,
