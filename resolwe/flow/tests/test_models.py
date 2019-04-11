@@ -722,7 +722,7 @@ class DuplicateTestCase(TestCase):
         )
 
         # Duplicate.
-        duplicates = Data.objects.filter(id__in=[data1.id, data2.id]).duplicate(self.contributor)
+        duplicates = Data.objects.filter(id__in=[data1.id, data2.id]).order_by('id').duplicate(self.contributor)
         duplicate1, duplicate2 = duplicates
 
         self.assertEqual(duplicate2.input['data_field1'], duplicate1.id)
