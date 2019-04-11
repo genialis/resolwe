@@ -7,4 +7,4 @@ SECRETS_VOLUME = '/secrets'
 TMPDIR = '.tmp'
 
 # Container image used if no image is specified.
-DEFAULT_CONTAINER_IMAGE = 'resolwe/base:ubuntu-16.04'
+DEFAULT_CONTAINER_IMAGE = 'resolwe/base:ubuntu-18.04'
