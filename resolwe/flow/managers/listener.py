@@ -412,18 +412,19 @@ class ExecutorListener:
                                 # Copy permissions.
                                 copy_permissions(parent_data, d)
 
+                                # Copy collection.
+                                d.collection = parent_data.collection
+                                d.save()
+
+                                # Add entity to which data belongs to the collection.
                                 # Entity is added to the collection only when it is
                                 # created - when it only contains 1 Data object.
-                                entities = Entity.objects.filter(data=d).annotate(num_data=Count('data')).filter(
+                                entity = Entity.objects.filter(data=d).annotate(num_data=Count('data')).filter(
                                     num_data=1)
-
-                                # Copy collections.
-                                for collection in parent_data.collection_set.all():
-                                    collection.data.add(d)
-
-                                    # Add entities to which data belongs to the collection.
-                                    for entity in entities:
-                                        entity.collections.add(collection)
+                                if entity:
+                                    entity = entity.first()
+                                    entity.collection = parent_data.collection
+                                    entity.save()
 
                 except Exception:  # pylint: disable=broad-except
                     logger.error(

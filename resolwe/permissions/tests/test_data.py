@@ -7,7 +7,7 @@ from django.utils.timezone import now
 
 from rest_framework import exceptions, status
 
-from resolwe.flow.models import Collection, Data
+from resolwe.flow.models import Data
 from resolwe.flow.serializers import ContributorSerializer
 from resolwe.flow.views import DataViewSet
 from resolwe.test import ResolweAPITestCase
@@ -33,7 +33,7 @@ class DataTestCase(ResolweAPITestCase):
         self.data = {
             'name': 'New data',
             'slug': 'new_data',
-            'collections': ['1'],
+            'collection': '1',
             'process': 'test_process',
         }
 
@@ -87,16 +87,16 @@ class DataTestCase(ResolweAPITestCase):
     def test_post_invalid_fields(self):
         data_n = Data.objects.count()
 
-        self.data['collections'] = ['42']
+        self.data['collection'] = '42'
         resp = self._post(self.data, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(resp.data['collections'][0], 'Invalid pk "42" - object does not exist.')
+        self.assertEqual(resp.data['collection'][0], 'Invalid pk "42" - object does not exist.')
 
-        self.data['collections'] = ['1']
+        self.data['collection'] = '1'
         self.data['process'] = '42'
         resp = self._post(self.data, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(resp.data['process'][0], 'Invalid process slug "42" - object does not exist.')
+        self.assertEqual(str(resp.data['process'][0]), 'Invalid process slug "42" - object does not exist.')
 
         self.assertEqual(Data.objects.count(), data_n)
 
@@ -187,13 +187,6 @@ class DataTestCase(ResolweAPITestCase):
                 'invalid-dictionary': True,
             })
 
-    def test_post_multiple_collections(self):
-        self.data['collections'].append('2')
-
-        resp = self._post(self.data, self.user1)
-        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(Collection.objects.filter(data=resp.data['id']).count(), 2)
-
     def test_get_detail(self):
         # public user w/ perms
         resp = self._get_detail(1)
@@ -209,7 +202,7 @@ class DataTestCase(ResolweAPITestCase):
                                     'descriptor_schema', 'descriptor', 'id', 'process_slug', 'process_name',
                                     'process_input_schema', 'process_output_schema', 'size', 'scheduled',
                                     'current_user_permissions', 'descriptor_dirty', 'tags', 'process_memory',
-                                    'process_cores', 'collections', 'entities', 'collection_names', 'entity_names',
+                                    'process_cores', 'collection', 'entity', 'collection_name', 'entity_name',
                                     'duplicated'])
 
         # user w/ public permissions
@@ -221,7 +214,7 @@ class DataTestCase(ResolweAPITestCase):
                                     'descriptor_schema', 'descriptor', 'id', 'process_slug', 'process_name',
                                     'process_input_schema', 'process_output_schema', 'size', 'scheduled',
                                     'current_user_permissions', 'descriptor_dirty', 'tags', 'process_memory',
-                                    'process_cores', 'collections', 'entities', 'collection_names', 'entity_names',
+                                    'process_cores', 'collection', 'entity', 'collection_name', 'entity_name',
                                     'duplicated'])
 
     def test_get_detail_no_perms(self):

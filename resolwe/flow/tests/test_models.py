@@ -273,19 +273,13 @@ class EntityModelTest(TestCase):
 
     def test_delete_data(self):
         # Create another Data object and add it to the same Entity.
-        data_2 = Data.objects.create(name='Test data', contributor=self.contributor, process=self.process)
-        data_2.entity_set.all().delete()
-        self.data.entity_set.first().data.add(data_2)
-
+        data_2 = Data.objects.create(name='Test data 2', contributor=self.contributor, process=self.process)
+        data_2.entity.delete()
+        data_2.entity = self.data.entity
+        data_2.save()
         data_2.delete()
+
         self.assertEqual(Entity.objects.count(), 1)
-
-        self.data.delete()
-        self.assertEqual(Entity.objects.count(), 0)
-
-    def test_two_entities(self):
-        entity_2 = Entity.objects.create(contributor=self.contributor)
-        entity_2.data.add(self.data)
 
         self.data.delete()
         self.assertEqual(Entity.objects.count(), 0)
@@ -326,7 +320,7 @@ class EntityModelTest(TestCase):
                 'data_list': [data_1.pk, data_3.pk],
             }
         )
-        self.assertEqual(data.entity_set.first(), data_1.entity_set.first())
+        self.assertEqual(data.entity, data_1.entity)
 
         # Multiple Entities - Data object should be added to none of them.
         data = Data.objects.create(
@@ -336,7 +330,7 @@ class EntityModelTest(TestCase):
                 'data_list': [data_1.pk, data_2.pk],
             }
         )
-        self.assertEqual(data.entity_set.count(), 0)
+        self.assertEqual(data.entity, None)
 
         # Multiple Entities with entity_always_create = True - Data object should be added to a whole new entity.
         test_process.entity_always_create = True
@@ -349,8 +343,7 @@ class EntityModelTest(TestCase):
                 'data_list': [data_2.pk, data_3.pk],
             }
         )
-        self.assertEqual(data.entity_set.count(), 1)
-        self.assertEqual(data.entity_set.last(), Entity.objects.last())
+        self.assertEqual(data.entity, Entity.objects.last())
         test_process.entity_always_create = False
         test_process.save()
 
@@ -365,7 +358,7 @@ class EntityModelTest(TestCase):
                 'data_list': [data_2.pk],
             }
         )
-        self.assertEqual(data.entity_set.first(), data_1.entity_set.first())
+        self.assertEqual(data.entity, data_1.entity)
         test_process.entity_input = 'data_list'
         test_process.save()
         data = Data.objects.create(
@@ -376,12 +369,12 @@ class EntityModelTest(TestCase):
                 'data_list': [data_2.pk],
             }
         )
-        self.assertEqual(data.entity_set.first(), data_2.entity_set.first())
+        self.assertEqual(data.entity, data_2.entity)
         test_process.entity_input = None
         test_process.save()
 
         # Entities of different types - Data object should be added to the right one.
-        entity_2 = data_2.entity_set.first()
+        entity_2 = data_2.entity
         entity_2.type = 'something_else'
         entity_2.save()
         data = Data.objects.create(
@@ -391,7 +384,7 @@ class EntityModelTest(TestCase):
                 'data_list': [data_1.pk, data_2.pk],
             }
         )
-        self.assertEqual(data.entity_set.first(), data_1.entity_set.first())
+        self.assertEqual(data.entity, data_1.entity)
         entity_2.type = 'sample'
         entity_2.save()
 
@@ -771,8 +764,11 @@ class DuplicateTestCase(TestCase):
 
         # Add to collection.
         collection = Collection.objects.create(contributor=self.user)
-        entity.collections.add(collection.id)
-        collection.data.add(data, data2)
+        collection.entity_set.add(entity)
+        data.collection = collection
+        data.save()
+        data2.collection = collection
+        data2.save()
 
         # Duplicate.
         entities = Entity.objects.filter(id=entity.id).duplicate(self.contributor)
@@ -794,12 +790,21 @@ class DuplicateTestCase(TestCase):
         self.assertTrue(data1_duplicate.is_duplicate())
 
         # Pop fields that should differ and assert the remaining.
-        fields_to_differ = ('id', 'slug', 'contributor_id', 'name', 'duplicated', 'modified')
+        fields_to_differ = (
+            'id',
+            'slug',
+            'contributor_id',
+            'name',
+            'duplicated',
+            'modified',
+            'collection_id',
+            'entity_id'
+        )
         for model_dict in (
                 entity_dict, duplicate_dict, data1_dict, data1_duplicate_dict, data2_dict, data2_duplicate_dict
         ):
             for field in fields_to_differ:
-                model_dict.pop(field)
+                model_dict.pop(field, '')
 
         self.assertDictEqual(entity_dict, duplicate_dict)
         self.assertDictEqual(data1_dict, data1_duplicate_dict)
@@ -811,6 +816,7 @@ class DuplicateTestCase(TestCase):
         self.assertEqual(duplicate.contributor.username, 'contributor')
         self.assertAlmostEqual(duplicate.duplicated, now(), delta=timedelta(seconds=3))
         self.assertAlmostEqual(duplicate.modified, now(), delta=timedelta(seconds=3))
+        self.assertEqual(duplicate.collection, None)
 
         # Assert collection is not altered.
         self.assertEqual(Collection.objects.count(), 1)
@@ -835,13 +841,13 @@ class DuplicateTestCase(TestCase):
         collection = Collection.objects.create(contributor=self.user)
         assign_perm('add_collection', self.user, collection)
         assign_perm('edit_collection', self.contributor, collection)
-        entity.collections.add(collection.id)
+        collection.entity_set.add(entity)
         collection.data.add(data)
 
         # Duplicate.
         duplicated_entity1 = Entity.objects.filter(id=entity.id).duplicate(
             self.user,
-            inherit_collections=False
+            inherit_collection=False
         )[0]
 
         self.assertEqual(collection.entity_set.count(), 1)
@@ -860,7 +866,7 @@ class DuplicateTestCase(TestCase):
 
         duplicated_entity2 = Entity.objects.filter(id=entity.id).duplicate(
             self.user,
-            inherit_collections=True
+            inherit_collection=True
         )[0]
 
         self.assertEqual(collection.entity_set.count(), 2)
@@ -885,7 +891,7 @@ class DuplicateTestCase(TestCase):
 
         # Add to collection.
         collection = Collection.objects.create(name='Collection', contributor=self.user)
-        entity.collections.add(collection.id)
+        collection.entity_set.add(entity)
 
         # Duplicate.
         collections = Collection.objects.filter(id=collection.id).duplicate(self.contributor)
@@ -903,13 +909,13 @@ class DuplicateTestCase(TestCase):
         self.assertTrue(entity_duplicate.is_duplicate())
 
         # Pop fields that should differ and assert the remaining.
-        fields_to_differ = ('id', 'slug', 'contributor_id', 'name', 'duplicated', 'modified')
+        fields_to_differ = ('id', 'slug', 'contributor_id', 'name', 'duplicated', 'modified', 'collection_id')
         for model_dict in (
                 collection_dict, duplicate_dict,
                 entity_dict, entity_duplicate_dict,
         ):
             for field in fields_to_differ:
-                model_dict.pop(field)
+                model_dict.pop(field, '')
 
         self.assertDictEqual(collection_dict, duplicate_dict)
         self.assertDictEqual(entity_dict, entity_duplicate_dict)

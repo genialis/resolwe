@@ -136,7 +136,7 @@ class TagsFilter(filters.filters.BaseCSVFilter, filters.CharFilter):
 class EntityFilter(CollectionFilter):
     """Filter the Entity endpoint."""
 
-    collection = filters.ModelChoiceFilter(field_name='collections', queryset=Collection.objects.all())
+    collection = filters.ModelChoiceFilter(field_name='collection', queryset=Collection.objects.all())
     descriptor_completed = filters.rest_framework.filters.BooleanFilter(field_name='descriptor_completed')
     tags = TagsFilter()
 

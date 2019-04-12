@@ -32,13 +32,13 @@ class EntityViewSet(CollectionViewSet):
     ).order_by('-latest_date')
 
     filtering_fields = CollectionViewSet.filtering_fields + (
-        'descriptor_completed', 'collections', 'type'
+        'descriptor_completed', 'collection', 'type'
     )
 
     def get_queryset(self):  # pylint: disable=method-hidden
         """Return queryset."""
         if self.request and self.request.query_params.get('hydrate_data', False):
-            return self.queryset.prefetch_related('data__entity_set', 'data__collection_set')
+            return self.queryset.prefetch_related('data__entity', 'data__collection')
 
         return self.queryset
 
@@ -103,62 +103,6 @@ class EntityViewSet(CollectionViewSet):
             request, *args, **kwargs
         )
 
-    @action(detail=True, methods=['post'])
-    def add_to_collection(self, request, pk=None):
-        """Add Entity to a collection."""
-        entity = self.get_object()
-
-        # TODO use `self.get_ids` (and elsewhere). Backwards
-        # incompatible because raised error's response contains
-        # ``detail`` instead of ``error``).
-        if 'ids' not in request.data:
-            return Response({"error": "`ids` parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
-
-        for collection_id in request.data['ids']:
-            self._get_collection_for_user(collection_id, request.user)
-
-        for collection_id in request.data['ids']:
-            entity.collections.add(collection_id)
-
-            collection = Collection.objects.get(pk=collection_id)
-            for data in entity.data.all():
-                collection.data.add(data)
-
-        return Response()
-
-    @action(detail=True, methods=['post'])
-    def remove_from_collection(self, request, pk=None):
-        """Remove Entity from a collection."""
-        entity = self.get_object()
-
-        if 'ids' not in request.data:
-            return Response({"error": "`ids` parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
-
-        for collection_id in request.data['ids']:
-            self._get_collection_for_user(collection_id, request.user)
-
-        for collection_id in request.data['ids']:
-            entity.collections.remove(collection_id)
-
-            collection = Collection.objects.get(pk=collection_id)
-            for data in entity.data.all():
-                collection.data.remove(data)
-
-        return Response()
-
-    @action(detail=True, methods=['post'])
-    def add_data(self, request, pk=None):
-        """Add data to Entity and it's collection."""
-        # add data to entity
-        resp = super().add_data(request, pk)
-
-        # add data to collections in which entity is
-        entity = self.get_object()
-        for collection in entity.collections.all():
-            collection.data.add(*request.data['ids'])
-
-        return resp
-
     @action(detail=False, methods=['post'])
     def move_to_collection(self, request, *args, **kwargs):
         """Move samples from source to destination collection."""
@@ -203,7 +147,7 @@ class EntityViewSet(CollectionViewSet):
         if not request.user.is_authenticated:
             raise exceptions.NotFound
 
-        inherit_collections = request.data.get('inherit_collections', False)
+        inherit_collection = request.data.get('inherit_collection', False)
         ids = self.get_ids(request.data)
         queryset = get_objects_for_user(request.user, 'view_entity', Entity.objects.filter(id__in=ids))
         actual_ids = queryset.values_list('id', flat=True)
@@ -213,7 +157,7 @@ class EntityViewSet(CollectionViewSet):
                 "Entities with the following ids not found: {}".format(', '.join(map(str, missing_ids)))
             )
 
-        duplicated = queryset.duplicate(contributor=request.user, inherit_collections=inherit_collections)
+        duplicated = queryset.duplicate(contributor=request.user, inherit_collection=inherit_collection)
 
         serializer = self.get_serializer(duplicated, many=True)
         return Response(serializer.data)

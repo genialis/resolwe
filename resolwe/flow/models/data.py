@@ -228,6 +228,12 @@ class Data(BaseModel):
     #: data location
     location = models.ForeignKey('DataLocation', blank=True, null=True, on_delete=models.PROTECT, related_name='data')
 
+    #: entity
+    entity = models.ForeignKey('Entity', blank=True, null=True, on_delete=models.SET_NULL, related_name='data')
+
+    #: collection
+    collection = models.ForeignKey('Collection', blank=True, null=True, on_delete=models.SET_NULL, related_name='data')
+
     def __init__(self, *args, **kwargs):
         """Initialize attributes."""
         super().__init__(*args, **kwargs)
@@ -396,10 +402,10 @@ class Data(BaseModel):
                 entity = None
 
             if entity:
-                entity.data.add(self)
-                # Inherit collections from entity.
-                for collection in entity.collections.all():
-                    collection.data.add(self)
+                self.entity = entity
+                # Inherit collection from entity.
+                self.collection = entity.collection
+                self.save()
 
     def save(self, render_name=False, *args, **kwargs):  # pylint: disable=keyword-arg-before-vararg
         """Save the data model."""
@@ -491,6 +497,8 @@ class Data(BaseModel):
         duplicate = Data.objects.get(id=self.id)
         duplicate.pk = None
         duplicate.slug = None
+        duplicate.entity = None
+        duplicate.collection = None
         duplicate.name = 'Copy of {}'.format(self.name)
         duplicate.duplicated = now()
         if contributor:

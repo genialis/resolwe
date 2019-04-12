@@ -116,7 +116,8 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
             assign_perm('owner_data', self.admin, data)
 
             if index == 0:
-                self.collection.data.add(data)
+                data.collection = self.collection
+                data.save()
 
             self.data.append(data)
 
@@ -595,7 +596,6 @@ class CollectionFilterTestCase(TestCase):
             status=Data.STATUS_DONE
         )
         cls.collection_1.data.add(cls.data)
-        cls.collection_2.data.add(cls.data)
 
     def _apply_filter(self, filters, expected):
         filtered = CollectionFilter(filters, queryset=Collection.objects.all())
@@ -629,7 +629,7 @@ class CollectionFilterTestCase(TestCase):
         self._apply_filter({'modified__year__gt': year}, [])
 
     def test_filter_data(self):
-        self._apply_filter({'data': self.data.pk}, [self.collection_1, self.collection_2])
+        self._apply_filter({'data': self.data.pk}, [self.collection_1])
 
     def test_filter_descriptor_schema(self):
         self._apply_filter({'descriptor_schema': self.descriptor_schema_1.pk}, [self.collection_1, self.collection_2])
@@ -648,13 +648,15 @@ class EntityFilterTestCase(TestCase):
             contributor=cls.user_1,
             descriptor_completed=True,
         )
-        cls.entity_1.collections.add(cls.collection_1)
+        cls.entity_1.collection = cls.collection_1
+        cls.entity_1.save()
 
         cls.entity_2 = Entity.objects.create(
             contributor=cls.user_1,
             descriptor_completed=False,
         )
-        cls.entity_2.collections.add(cls.collection_2)
+        cls.entity_2.collection = cls.collection_2
+        cls.entity_2.save()
 
     def _apply_filter(self, filters, expected):
         filtered = EntityFilter(filters, queryset=Entity.objects.all())

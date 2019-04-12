@@ -4,7 +4,6 @@ from django.contrib.auth.models import AnonymousUser
 from rest_framework import serializers
 
 from resolwe.flow.models import Data, Process
-from resolwe.permissions.shortcuts import get_objects_for_user
 from resolwe.rest.fields import ProjectableJSONField
 
 from .base import ResolweBaseSerializer
@@ -37,11 +36,11 @@ class DataSerializer(ResolweBaseSerializer):
     process_output_schema = ProjectableJSONField(source='process.output_schema', read_only=True)
     process = ResolweSlugRelatedField(queryset=Process.objects.all())
     descriptor_schema = NestedDescriptorSchemaSerializer(required=False)
-    entity_names = serializers.SerializerMethodField()
-    collection_names = serializers.SerializerMethodField()
+    entity_name = serializers.SerializerMethodField()
+    collection_name = serializers.SerializerMethodField()
 
-    collections = serializers.SerializerMethodField()
-    entities = serializers.SerializerMethodField()
+    collection = serializers.SerializerMethodField()
+    entity = serializers.SerializerMethodField()
 
     class Meta:
         """DataSerializer Meta options."""
@@ -72,15 +71,15 @@ class DataSerializer(ResolweBaseSerializer):
             'size',
             'started',
             'status',
-            'collection_names',
-            'entity_names',
+            'collection_name',
+            'entity_name',
         )
         update_protected_fields = (
             'contributor',
             'input',
             'process',
-            'collections',
-            'entities',
+            'collection',
+            'entity',
         )
         fields = read_only_fields + update_protected_fields + (
             'descriptor',
@@ -90,59 +89,61 @@ class DataSerializer(ResolweBaseSerializer):
             'tags',
         )
 
-    def _serialize_items(self, serializer, kind, items):
-        """Return serialized items or list of ids, depending on `hydrate_XXX` query param."""
+    def _serialize_item(self, serializer, kind, item):
+        """Return serialized item or id, depending on `hydrate_XXX` query param."""
         if self.request and self.request.query_params.get('hydrate_{}'.format(kind), False):
-            serializer = serializer(items, many=True, read_only=True)
+            serializer = serializer(item, read_only=True)
             serializer.bind(kind, self)
             return serializer.data
         else:
-            return [item.id for item in items]
+            return item.id
 
-    def _filter_queryset(self, perms, queryset):
-        """Filter object objects by permissions of user in request."""
-        user = self.request.user if self.request else AnonymousUser()
-        return get_objects_for_user(user, perms, queryset)
+    @property
+    def user(self):
+        """Get user."""
+        return self.request.user if self.request else AnonymousUser()
 
-    def get_collection_names(self, data):
-        """Return serialized list of collection names on data that user has `view` permission on."""
-        collections = self._filter_queryset('view_collection', data.collection_set.all())
-        return list(collections.values_list('name', flat=True))
+    def get_collection_name(self, data):
+        """Return collection name of data that user has `view` permission on."""
+        if self.user.has_perm('view_collection', data.collection):
+            return getattr(data.collection, 'name', '')
 
-    def get_entity_names(self, data):
-        """Return serialized list of entity names on data that user has `view` permission on."""
-        entities = self._filter_queryset('view_entity', data.entity_set.all())
-        return list(entities.values_list('name', flat=True))
+    def get_entity_name(self, data):
+        """Return entity name of data that user has `view` permission on."""
+        if self.user.has_perm('view_entity', data.entity):
+            return getattr(data.entity, 'name', '')
 
-    def get_collections(self, data):
-        """Return serialized list of collection objects on data that user has `view` permission on."""
-        collections = self._filter_queryset('view_collection', data.collection_set.all())
+    def get_collection(self, data):
+        """Return serialized collection object of data that user has `view` permission on."""
+        if not self.user.has_perm('view_collection', data.collection):
+            return
 
         from .collection import CollectionSerializer
 
         class CollectionWithoutDataSerializer(WithoutDataSerializerMixin, CollectionSerializer):
             """Collection without data field serializer."""
 
-        return self._serialize_items(CollectionWithoutDataSerializer, 'collections', collections)
+        return self._serialize_item(CollectionWithoutDataSerializer, 'collection', data.collection)
 
-    def get_entities(self, data):
+    def get_entity(self, data):
         """Return serialized list of entity objects on data that user has `view` permission on."""
-        entities = self._filter_queryset('view_entity', data.entity_set.all())
+        if not self.user.has_perm('view_entity', data.entity):
+            return
 
         from .entity import EntitySerializer
 
         class EntityWithoutDataSerializer(WithoutDataSerializerMixin, EntitySerializer):
             """Entity without data field serializer."""
 
-        return self._serialize_items(EntityWithoutDataSerializer, 'entities', entities)
+        return self._serialize_item(EntityWithoutDataSerializer, 'entity', data.entity)
 
     def get_fields(self):
         """Dynamically adapt fields based on the current request."""
         fields = super(DataSerializer, self).get_fields()
 
-        # Hide collections/entities fields on list views as fetching them may be expensive.
+        # Hide collection/entity fields on list views as fetching them may be expensive.
         if self.parent is not None:
-            del fields['collections']
-            del fields['entities']
+            del fields['collection']
+            del fields['entity']
 
         return fields

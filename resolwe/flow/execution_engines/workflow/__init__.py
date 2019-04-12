@@ -143,9 +143,12 @@ class ExecutionEngine(BaseExecutionEngine):
             # Copy permissions.
             copy_permissions(data, data_object)
 
-            # Copy collections.
-            for collection in data.collection_set.all():
-                collection.data.add(data_object)
+            # Copy collection.
+            if not data_object.collection and data.collection:
+                # Typically collection will be set during data object
+                # creation. Only if not set there, inherit from workflow.
+                data_object.collection = data.collection
+                data_object.save()
 
             context['steps'][step_id] = data_object.pk
 

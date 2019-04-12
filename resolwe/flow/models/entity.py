@@ -14,19 +14,19 @@ class EntityQuerySet(models.QuerySet):
     """Query set for ``Entity`` objects."""
 
     @transaction.atomic
-    def duplicate(self, contributor=None, inherit_collections=False):
+    def duplicate(self, contributor=None, inherit_collection=False):
         """Duplicate (make a copy) ``Entity`` objects.
 
         :param contributor: Duplication user
-        :param inherit_collections: If ``True`` then duplicated
-            entities will be added to collections the original entity
+        :param inherit_collection: If ``True`` then duplicated
+            entities will be added to collection the original entity
             is part of. Duplicated entities' data objects will also be
-            added to the collections, but only those which are in the
+            added to the collection, but only those which are in the
             collection
         :return: A list of duplicated entities
         """
         return [
-            entity.duplicate(contributor, inherit_collections)
+            entity.duplicate(contributor, inherit_collection)
             for entity in self
         ]
 
@@ -55,8 +55,8 @@ class Entity(BaseCollection):
     #: manager
     objects = EntityQuerySet.as_manager()
 
-    #: list of collections to which entity belongs
-    collections = models.ManyToManyField('Collection')
+    #: collection to which entity belongs
+    collection = models.ForeignKey('Collection', blank=True, null=True, on_delete=models.SET_NULL)
 
     #: indicate whether `descriptor` is completed (set by user)
     descriptor_completed = models.BooleanField(default=False)
@@ -71,11 +71,12 @@ class Entity(BaseCollection):
         """Return True if entity is a duplicate."""
         return bool(self.duplicated)
 
-    def duplicate(self, contributor=None, inherit_collections=False):
+    def duplicate(self, contributor=None, inherit_collection=False):
         """Duplicate (make a copy)."""
         duplicate = Entity.objects.get(id=self.id)
         duplicate.pk = None
         duplicate.slug = None
+        duplicate.collection = None
         duplicate.name = 'Copy of {}'.format(self.name)
         duplicate.duplicated = now()
         if contributor:
@@ -94,30 +95,25 @@ class Entity(BaseCollection):
         duplicated_data = data.duplicate(contributor)
         duplicate.data.add(*duplicated_data)
 
-        if inherit_collections:
-            collections = get_objects_for_user(
-                contributor,
-                'add_collection',
-                self.collections.all()  # pylint: disable=no-member
-            )
-            for collection in collections:
-                collection.entity_set.add(duplicate)
-                copy_permissions(collection, duplicate)
-                collection.data.add(*duplicated_data)
+        if inherit_collection:
+            if contributor.has_perm('add_collection', self.collection):
+                self.collection.entity_set.add(duplicate)
+                copy_permissions(self.collection, duplicate)
+                self.collection.data.add(*duplicated_data)
                 for datum in duplicated_data:
-                    copy_permissions(collection, datum)
+                    copy_permissions(self.collection, datum)
 
         return duplicate
 
+    @transaction.atomic
     def move_to_collection(self, source_collection, destination_collection):
         """Move entity from source to destination collection."""
         # Remove from collection.
-        self.collections.remove(source_collection)  # pylint: disable=no-member
         source_collection.data.remove(*self.data.all())  # pylint: disable=no-member
-
-        # Add to collection.
-        self.collections.add(destination_collection)  # pylint: disable=no-member
         destination_collection.data.add(*self.data.all())  # pylint: disable=no-member
+
+        self.collection = destination_collection
+        self.save()
 
 
 class RelationType(models.Model):

@@ -21,8 +21,8 @@ class DataDocument(BaseDocument):
     process_name = Name()
     tags = dsl.Keyword(multi=True)
 
-    collection = dsl.Integer(multi=True)
-    entity = dsl.Integer(multi=True)
+    collection = dsl.Integer()
+    entity = dsl.Integer()
 
     class Index:
         """Meta class for data search document."""
@@ -45,20 +45,6 @@ class DataIndex(BaseIndexMixin, BaseIndex):
         'process_name': 'process.name',
         'process_type': 'process.type',
         'type': 'process.type',
+        'entity': 'entity_id',
+        'collection': 'collection_id',
     }
-
-    def get_dependencies(self):
-        """Return dependencies, which should trigger updates of this model."""
-        # pylint: disable=no-member
-        return super().get_dependencies() + [
-            Data.collection_set,
-            Data.entity_set,
-        ]
-
-    def get_collection_value(self, obj):
-        """Extract collections this object is in."""
-        return list(obj.collection_set.values_list('pk', flat=True))
-
-    def get_entity_value(self, obj):
-        """Extract entities."""
-        return list(obj.entity_set.values_list('pk', flat=True))

@@ -64,10 +64,8 @@ class TestManager(ProcessTestCase):
         # Check that permissions are inherited.
         child = Data.objects.last()
         self.assertTrue(self.user.has_perm('view_data', child))
-        self.assertEqual(child.collection_set.count(), 1)
-        self.assertEqual(child.collection_set.first().pk, self.collection.pk)
-        self.assertEqual(child.entity_set.first().collections.count(), 1)
-        self.assertEqual(child.entity_set.first().collections.first().pk, self.collection.pk)
+        self.assertEqual(child.collection.pk, self.collection.pk)
+        self.assertEqual(child.entity.collection.pk, self.collection.pk)
 
     def test_workflow(self):
         """Test that manager is run for workflows."""

@@ -23,8 +23,6 @@ class BaseCollection(BaseModel):
 
     settings = JSONField(default=dict)
 
-    data = models.ManyToManyField('flow.Data')
-
     #: collection descriptor schema
     descriptor_schema = models.ForeignKey('flow.DescriptorSchema', blank=True, null=True, on_delete=models.PROTECT)
 

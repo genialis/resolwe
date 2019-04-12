@@ -5,7 +5,7 @@ from elasticsearch_dsl.query import Q
 
 from django.db.models.query import Prefetch
 
-from rest_framework import exceptions, mixins, status, viewsets
+from rest_framework import exceptions, mixins, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
@@ -61,7 +61,7 @@ class CollectionViewSet(ElasticSearchCombinedViewSet,
     def get_queryset(self):
         """Return queryset."""
         if self.request and self.request.query_params.get('hydrate_data', False):
-            return self.queryset.prefetch_related('data__entity_set', 'data__collection_set')
+            return self.queryset.prefetch_related('data__entity', 'data__collection')
 
         return self.queryset
 
@@ -122,7 +122,7 @@ class CollectionViewSet(ElasticSearchCombinedViewSet,
                 update_permission(data, payload)
 
     def create(self, request, *args, **kwargs):
-        """Only authenticated usesr can create new collections."""
+        """Only authenticated users can create new collections."""
         if not request.user.is_authenticated:
             raise exceptions.NotFound
 
@@ -148,42 +148,6 @@ class CollectionViewSet(ElasticSearchCombinedViewSet,
                     data.delete()
 
         return super().destroy(request, *args, **kwargs)  # pylint: disable=no-member
-
-    @action(detail=True, methods=['post'])
-    def add_data(self, request, pk=None):
-        """Add data to collection."""
-        collection = self.get_object()
-
-        if 'ids' not in request.data:
-            return Response({"error": "`ids`parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
-
-        missing = []
-        for data_id in request.data['ids']:
-            if not Data.objects.filter(pk=data_id).exists():
-                missing.append(data_id)
-
-        if missing:
-            return Response(
-                {"error": "Data objects with following ids are missing: {}".format(', '.join(missing))},
-                status=status.HTTP_400_BAD_REQUEST)
-
-        for data_id in request.data['ids']:
-            collection.data.add(data_id)
-
-        return Response()
-
-    @action(detail=True, methods=['post'])
-    def remove_data(self, request, pk=None):
-        """Remove data from collection."""
-        collection = self.get_object()
-
-        if 'ids' not in request.data:
-            return Response({"error": "`ids`parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
-
-        for data_id in request.data['ids']:
-            collection.data.remove(data_id)
-
-        return Response()
 
     @action(detail=False, methods=['post'])
     def duplicate(self, request, *args, **kwargs):

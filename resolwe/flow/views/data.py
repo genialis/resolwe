@@ -34,8 +34,8 @@ class DataViewSet(ElasticSearchCombinedViewSet,
                   viewsets.GenericViewSet):
     """API view for :class:`Data` objects."""
 
-    queryset = Data.objects.all().prefetch_related('process', 'descriptor_schema', 'contributor', 'collection_set',
-                                                   'entity_set')
+    queryset = Data.objects.all().prefetch_related('process', 'descriptor_schema', 'contributor', 'collection',
+                                                   'entity')
     serializer_class = DataSerializer
     permission_classes = (get_permissions_class(),)
     document_class = DataDocument
@@ -63,8 +63,8 @@ class DataViewSet(ElasticSearchCombinedViewSet,
     def get_always_allowed_arguments(self):
         """Return query arguments which are always allowed."""
         return super().get_always_allowed_arguments() + [
-            'hydrate_collections',
-            'hydrate_entities',
+            'hydrate_collection',
+            'hydrate_entity',
         ]
 
     def custom_filter_tags(self, value, search):
@@ -108,15 +108,14 @@ class DataViewSet(ElasticSearchCombinedViewSet,
 
     def create(self, request, *args, **kwargs):
         """Create a resource."""
-        collections = request.data.get('collections', [])
-
-        # check that user has permissions on all collections that Data
+        # check that user has permissions on collection that Data
         # object will be added to
-        for collection_id in collections:
+        collection_id = request.data.get('collection', None)
+        if collection_id:
             try:
                 collection = Collection.objects.get(pk=collection_id)
             except Collection.DoesNotExist:
-                return Response({'collections': ['Invalid pk "{}" - object does not exist.'.format(collection_id)]},
+                return Response({'collection': ['Invalid pk "{}" - object does not exist.'.format(collection_id)]},
                                 status=status.HTTP_400_BAD_REQUEST)
 
             if not request.user.has_perm('add_collection', obj=collection):
@@ -153,7 +152,7 @@ class DataViewSet(ElasticSearchCombinedViewSet,
                 "Data objects with the following ids not found: {}".format(', '.join(map(str, missing_ids)))
             )
 
-        # TODO support ``inherit_collections``
+        # TODO support ``inherit_collection``
         duplicated = queryset.duplicate(contributor=request.user)
 
         serializer = self.get_serializer(duplicated, many=True)
@@ -198,19 +197,22 @@ class DataViewSet(ElasticSearchCombinedViewSet,
 
             assign_contributor_permissions(instance)
 
-            # Entity is added to the collection only when it is
-            # created - when it only contains 1 Data object.
-            entities = Entity.objects.annotate(num_data=Count('data')).filter(data=instance, num_data=1)
-
-            # Assign data object to all specified collections.
-            collection_pks = self.request.data.get('collections', [])
-            for collection in Collection.objects.filter(pk__in=collection_pks):
-                collection.data.add(instance)
+            # Assign data object to specified collection.
+            collection_id = self.request.data.get('collection', None)
+            if collection_id:
+                collection = Collection.objects.get(pk=collection_id)
+                instance.collection = collection
+                instance.save()
                 copy_permissions(collection, instance)
 
-                # Add entities to which data belongs to the collection.
-                for entity in entities:
-                    entity.collections.add(collection)
+                # Add entity to which data belongs to the collection.
+                # Entity is added to the collection only when it is
+                # created - when it only contains 1 Data object.
+                entity = Entity.objects.annotate(num_data=Count('data')).filter(data=instance, num_data=1)
+                if entity:
+                    entity = entity.first()
+                    entity.collection = collection
+                    entity.save()
                     copy_permissions(collection, entity)
 
     def _parents_children(self, request, queryset):

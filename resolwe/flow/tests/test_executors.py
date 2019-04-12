@@ -173,8 +173,10 @@ class ManagerRunProcessTest(ProcessTestCase):
             with self.preparation_stage():
                 input_data = self.run_process('test-example-3')
 
-            collection.data.add(input_data)
-            input_data.entity_set.first().collections.add(collection)
+            input_data.collection = collection
+            input_data.save()
+            input_data.entity.collection = collection
+            input_data.entity.save()
 
         workflow_data = self.run_process('test-workflow-2', {'data1': input_data.pk})
 

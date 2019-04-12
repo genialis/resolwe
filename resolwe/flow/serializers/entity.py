@@ -9,14 +9,14 @@ from .collection import CollectionSerializer
 class EntitySerializer(CollectionSerializer):
     """Serializer for Entity."""
 
-    collections = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
+    collection = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta(CollectionSerializer.Meta):
         """EntitySerializer Meta options."""
 
         model = Entity
         fields = CollectionSerializer.Meta.fields + (
-            'collections',
+            'collection',
             'descriptor_completed',
             'duplicated',
             'type',

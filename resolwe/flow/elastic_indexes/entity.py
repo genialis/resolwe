@@ -13,7 +13,7 @@ class EntityDocument(CollectionDocument):
     """Document for entity search."""
 
     descriptor_completed = dsl.Boolean()
-    collections = dsl.Integer(multi=True)
+    collection = dsl.Integer()
     type = dsl.Keyword()
 
     class Index:
@@ -45,12 +45,6 @@ class EntityIndex(BaseIndexMixin, CollectionIndexMixin, BaseIndex):
     object_type = Entity
     document_class = EntityDocument
 
-    def get_dependencies(self):
-        """Return dependencies, which should trigger updates of this model."""
-        return super().get_dependencies() + [
-            Entity.collections,
-        ]
-
-    def get_collections_value(self, obj):
-        """Extract collections."""
-        return list(obj.collections.values_list('pk', flat=True))
+    mapping = {
+        'collection': 'collection_id',
+    }

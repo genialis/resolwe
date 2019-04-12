@@ -1,6 +1,4 @@
 # pylint: disable=missing-docstring
-from unittest import mock
-
 from django.contrib.auth.models import AnonymousUser
 from django.contrib.contenttypes.models import ContentType
 from django.db import DEFAULT_DB_ALIAS, connections
@@ -9,8 +7,8 @@ from django.urls import reverse
 
 from guardian.conf.settings import ANONYMOUS_USER_NAME
 from guardian.models import UserObjectPermission
-from guardian.shortcuts import assign_perm, remove_perm
-from rest_framework import exceptions, status
+from guardian.shortcuts import assign_perm
+from rest_framework import status
 from rest_framework.test import APIRequestFactory, force_authenticate
 
 from resolwe.flow.models import Collection, Data, DataDependency, DataLocation, DescriptorSchema, Entity, Process
@@ -150,7 +148,7 @@ class TestDataViewSetCase(TestCase):
         assign_perm('view_collection', self.user, self.collection)
         assign_perm('add_collection', self.user, self.collection)
 
-        post_data = {'process': 'test-process', 'collections': [self.collection.pk]}
+        post_data = {'process': 'test-process', 'collection': self.collection.pk}
         request = factory.post('/', post_data, format='json')
         force_authenticate(request, self.contributor)
         resp = self.data_viewset(request)
@@ -171,7 +169,7 @@ class TestDataViewSetCase(TestCase):
 
         post_data = {
             'process': 'test-process',
-            'collections': [self.collection.pk],
+            'collection': self.collection.pk,
             'input': {'input_data': data.pk},
         }
         request = factory.post('/', post_data, format='json')
@@ -188,7 +186,7 @@ class TestDataViewSetCase(TestCase):
         self.assertEqual(UserObjectPermission.objects.filter(content_type=entity_ctype, user=self.user).count(), 3)
 
     def test_create_entity(self):
-        data = {'process': 'test-process', 'collections': [self.collection.pk]}
+        data = {'process': 'test-process', 'collection': self.collection.pk}
         request = factory.post('/', data, format='json')
         force_authenticate(request, self.contributor)
         resp = self.data_viewset(request)
@@ -196,12 +194,11 @@ class TestDataViewSetCase(TestCase):
 
         # Test that one Entity was created and that it was added to the same collection as Data object.
         self.assertEqual(Entity.objects.count(), 1)
-        self.assertEqual(Entity.objects.first().collections.count(), 1)
-        self.assertEqual(Entity.objects.first().collections.first().pk, self.collection.pk)
+        self.assertEqual(Entity.objects.first().collection.pk, self.collection.pk)
 
     def test_collections_fields(self):
         # Create data object.
-        data = {'process': 'test-process', 'collections': [self.collection.pk]}
+        data = {'process': 'test-process', 'collection': self.collection.pk}
         request = factory.post('/', data, format='json')
         force_authenticate(request, self.contributor)
         response = self.data_viewset(request)
@@ -210,35 +207,35 @@ class TestDataViewSetCase(TestCase):
         data = Data.objects.last()
         entity = Entity.objects.last()
 
-        # Ensure collections/entities are not present in lists.
+        # Ensure collection/entity are not present in lists.
         request = factory.get('/', '', format='json')
         force_authenticate(request, self.contributor)
         response = self.data_viewset(request)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
-        self.assertNotIn('collections', response.data[0].keys())
-        self.assertNotIn('entities', response.data[0].keys())
+        self.assertNotIn('collection', response.data[0].keys())
+        self.assertNotIn('entity', response.data[0].keys())
 
         # Check that query returns the correct collection ids.
         request = factory.get('/', '', format='json')
         force_authenticate(request, self.contributor)
         response = self.data_detail_viewset(request, pk=data.pk)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['collections'], [self.collection.pk])
-        self.assertEqual(response.data['entities'], [entity.pk])
+        self.assertEqual(response.data['collection'], self.collection.pk)
+        self.assertEqual(response.data['entity'], entity.pk)
 
-        # Check that hydrate_{collections,entities} works. Also ensure that the serializer
+        # Check that hydrate_{collection,entity} works. Also ensure that the serializer
         # doesn't crash if hydrate_data is also set (could cause infinite recursion).
         request = factory.get('/', {
-            'hydrate_collections': '1',
-            'hydrate_entities': '1',
+            'hydrate_collection': '1',
+            'hydrate_entity': '1',
             'hydrate_data': '1',
         }, format='json')
         force_authenticate(request, self.contributor)
         response = self.data_detail_viewset(request, pk=data.pk)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['collections'][0]['id'], self.collection.pk)
-        self.assertEqual(response.data['entities'][0]['id'], entity.pk)
+        self.assertEqual(response.data['collection']['id'], self.collection.pk)
+        self.assertEqual(response.data['entity']['id'], entity.pk)
 
     def test_process_is_active(self):
         # Do not allow creating data of inactive processes
@@ -449,53 +446,6 @@ class TestCollectionViewSetCase(TestCase):
         resp = self.checkslug_viewset(request)
         self.assertEqual(resp.status_code, 400)
 
-    def test_add_remove_data(self):
-        c = Collection.objects.create(slug="collection1", name="Collection 1", contributor=self.contributor)
-        assign_perm('view_collection', self.contributor, c)
-        assign_perm('edit_collection', self.contributor, c)
-        assign_perm('share_collection', self.contributor, c)
-
-        proc = Process.objects.create(type='test:process', name='Test process', contributor=self.contributor)
-        d = Data.objects.create(contributor=self.contributor, slug='test1', process=proc)
-
-        request = factory.post(self.detail_url(c.pk), {'ids': [str(d.pk)]}, format='json')
-        force_authenticate(request, self.contributor)
-
-        # user w/o permissions cannot add data
-        resp = self.add_data_viewset(request, pk=c.pk)
-        self.assertEqual(resp.data['detail'], MESSAGES['NO_PERMS'])
-        self.assertEqual(c.data.count(), 0)
-
-        assign_perm('add_collection', self.contributor, c)
-
-        # user w/ permissions can add data
-        resp = self.add_data_viewset(request, pk=c.pk)
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(c.data.count(), 1)
-
-        request = factory.post(self.detail_url(c.pk), {'ids': [str(d.pk)]}, format='json')
-        force_authenticate(request, self.contributor)
-        remove_perm('add_collection', self.contributor, c)
-
-        # user w/o permissions cannot remove data
-        resp = self.remove_data_viewset(request, pk=c.pk)
-        self.assertEqual(resp.data['detail'], MESSAGES['NO_PERMS'])
-        self.assertEqual(c.data.count(), 1)
-
-        assign_perm('add_collection', self.contributor, c)
-
-        # user w/ permissions can remove data
-        resp = self.remove_data_viewset(request, pk=c.pk)
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(c.data.count(), 0)
-
-        request = factory.post(self.detail_url(c.pk), {'ids': ['42']}, format='json')
-        force_authenticate(request, self.contributor)
-
-        resp = self.remove_data_viewset(request, pk=c.pk)
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(c.data.count(), 0)
-
     def test_delete(self):
         collection = Collection.objects.create(
             name="Test collection",
@@ -646,7 +596,8 @@ class EntityViewSetTest(TestCase):
         data_location.data.add(data)
 
         self.entity.data.add(self.data)
-        self.entity.collections.add(self.collection2)
+        self.entity.collection = self.collection2
+        self.entity.save()
 
         assign_perm('add_collection', self.contributor, self.collection)
         assign_perm('add_entity', self.contributor, self.entity)
@@ -687,75 +638,26 @@ class EntityViewSetTest(TestCase):
             process=process,
         )
 
-    def test_list_filter_collections(self):
+    def test_list_filter_collection(self):
         request = factory.get('/', {}, format='json')
         force_authenticate(request, self.contributor)
         resp = self.entity_list_viewset(request)
         self.assertEqual(len(resp.data), 1)
 
-        request = factory.get('/', {'collections': 999999}, format='json')
+        request = factory.get('/', {'collection': 999999}, format='json')
         force_authenticate(request, self.contributor)
         resp = self.entity_list_viewset(request)
         self.assertEqual(len(resp.data), 0)
 
-        request = factory.get('/', {'collections': self.collection.pk}, format='json')
+        request = factory.get('/', {'collection': self.collection.pk}, format='json')
         force_authenticate(request, self.contributor)
         resp = self.entity_list_viewset(request)
         self.assertEqual(len(resp.data), 0)
 
-        request = factory.get('/', {'collections': self.collection2.pk}, format='json')
+        request = factory.get('/', {'collection': self.collection2.pk}, format='json')
         force_authenticate(request, self.contributor)
         resp = self.entity_list_viewset(request)
         self.assertEqual(len(resp.data), 1)
-
-    def test_add_to_collection(self):
-        request_mock = mock.MagicMock(data={'ids': [self.collection.pk]}, user=self.contributor)
-        self.entityviewset.get_object = lambda: self.entity
-
-        self.assertEqual(self.entity.collections.count(), 1)
-
-        self.entityviewset.add_to_collection(request_mock)
-
-        self.assertEqual(self.collection.data.count(), 1)
-        self.assertEqual(self.entity.collections.count(), 2)
-
-    def test_remove_from_collection(self):
-        # Manually add Entity and it's Data objects to the Collection
-        self.entity.collections.add(self.collection.pk)
-        self.collection.data.add(self.data)
-
-        request_mock = mock.MagicMock(data={'ids': [self.collection.pk]}, user=self.contributor)
-        self.entityviewset.get_object = lambda: self.entity
-
-        self.assertEqual(self.entity.collections.count(), 2)
-
-        self.entityviewset.remove_from_collection(request_mock)
-
-        self.assertEqual(self.collection.data.count(), 0)
-        self.assertEqual(self.entity.collections.count(), 1)
-
-    def test_add_remove_permissions(self):
-        request_mock = mock.MagicMock(data={'ids': [self.collection.pk]}, user=self.contributor)
-        self.entityviewset.get_object = lambda: self.entity
-
-        remove_perm('add_collection', self.contributor, self.collection)
-
-        with self.assertRaises(exceptions.PermissionDenied):
-            self.entityviewset.remove_from_collection(request_mock)
-
-        with self.assertRaises(exceptions.PermissionDenied):
-            self.entityviewset.add_to_collection(request_mock)
-
-    def test_add_data(self):
-        self.entity.collections.add(self.collection)
-
-        request_mock = mock.MagicMock(data={'ids': [self.data.pk]}, user=self.contributor)
-        self.entityviewset.get_object = lambda: self.entity
-
-        self.entityviewset.add_data(request_mock)
-
-        self.assertEqual(self.entity.data.count(), 1)
-        self.assertEqual(self.collection.data.count(), 1)
 
     def test_move_to_collection(self):
         entity = Entity.objects.create(contributor=self.contributor)
@@ -767,8 +669,10 @@ class EntityViewSetTest(TestCase):
         source_collection = Collection.objects.create(contributor=self.contributor)
         assign_perm('view_collection', self.contributor, source_collection)
         assign_perm('add_collection', self.contributor, source_collection)
-        entity.collections.add(source_collection)
-        data.collection_set.add(source_collection)
+        entity.collection = source_collection
+        entity.save()
+        data.collection = source_collection
+        data.save()
 
         destination_collection = Collection.objects.create(contributor=self.contributor)
         assign_perm('view_collection', self.contributor, destination_collection)
@@ -876,6 +780,16 @@ class EntityViewSetTest(TestCase):
         self.assertEqual(collection.entity_set.count(), 1)
         self.assertEqual(collection.data.count(), 1)
 
+        request = factory.post(reverse('resolwe-api:entity-duplicate'), {
+            'ids': [entity.id],
+            'inherit_collection': True
+        }, format='json')
+        force_authenticate(request, self.contributor)
+        response = self.duplicate_viewset(request)
+
+        self.assertEqual(collection.entity_set.count(), 2)
+        self.assertEqual(collection.data.count(), 2)
+
         # Assert collection membership.
         collection_without_perm = Collection.objects.create(contributor=self.contributor)
         collection_without_perm.entity_set.add(entity)
@@ -883,13 +797,10 @@ class EntityViewSetTest(TestCase):
 
         request = factory.post(reverse('resolwe-api:entity-duplicate'), {
             'ids': [entity.id],
-            'inherit_collections': True
+            'inherit_collection': True
         }, format='json')
         force_authenticate(request, self.contributor)
         response = self.duplicate_viewset(request)
-
-        self.assertEqual(collection.entity_set.count(), 2)
-        self.assertEqual(collection.data.count(), 2)
 
         self.assertEqual(collection_without_perm.entity_set.count(), 1)
         self.assertEqual(collection_without_perm.data.count(), 1)
