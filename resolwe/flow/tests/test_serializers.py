@@ -148,6 +148,7 @@ class ResolweSlugRelatedFieldTest(TestCase):
             'process': 'test-process',
             'descriptor_schema': 'test-schema',
         }
+        request.data = data
 
         serializer = DataSerializer(data=data, context={'request': request})
         # is_valid() needs to be called before accessing ``validated_data``

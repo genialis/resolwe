@@ -3,12 +3,12 @@ from django.contrib.auth.models import AnonymousUser
 
 from rest_framework import serializers
 
-from resolwe.flow.models import Data, Process
+from resolwe.flow.models import Collection, Data, Process
 from resolwe.permissions.shortcuts import get_objects_for_user
 from resolwe.rest.fields import ProjectableJSONField
 
 from .base import ResolweBaseSerializer
-from .fields import NestedDescriptorSchemaSerializer, ResolweSlugRelatedField
+from .fields import NestedDescriptorSchemaSerializer, ResolweProcessField
 
 
 class WithoutDataSerializerMixin:
@@ -35,7 +35,7 @@ class DataSerializer(ResolweBaseSerializer):
     process_type = serializers.CharField(source='process.type', read_only=True)
     process_input_schema = ProjectableJSONField(source='process.input_schema', read_only=True)
     process_output_schema = ProjectableJSONField(source='process.output_schema', read_only=True)
-    process = ResolweSlugRelatedField(queryset=Process.objects.all())
+    process = ResolweProcessField(queryset=Process.objects.all())
     descriptor_schema = NestedDescriptorSchemaSerializer(required=False)
     entity_names = serializers.SerializerMethodField()
 
@@ -143,3 +143,25 @@ class DataSerializer(ResolweBaseSerializer):
             del fields['entities']
 
         return fields
+
+    def validate(self, attrs):
+        """Validate incoming data during deserialization."""
+        # Check that user has permissions on all Collections that Data
+        # object will be added to.
+        for collection_id in self.request.data.get('collections', []):
+            try:
+                collection = Collection.objects.get(pk=collection_id)
+            except Collection.DoesNotExist:
+                raise serializers.ValidationError('Invalid pk "{}" - object does not exist.'.format(collection_id))
+
+            if not self.request.user.has_perm('add_collection', obj=collection):
+                if self.request.user.has_perm('view_collection', obj=collection):
+                    raise serializers.ValidationError(
+                        "You don't have `ADD` permission on collection (id: {}).".format(collection_id)
+                    )
+                else:
+                    raise serializers.ValidationError(
+                        'Invalid pk "{}" - object does not exist.'.format(collection_id)
+                    )
+
+        return attrs

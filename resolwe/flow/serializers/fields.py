@@ -2,9 +2,10 @@
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils.encoding import smart_text
 
+from rest_framework import exceptions
 from rest_framework.relations import RelatedField
 
-from resolwe.flow.models import DescriptorSchema
+from resolwe.flow.models import DescriptorSchema, Process
 from resolwe.permissions.shortcuts import get_objects_for_user
 from resolwe.permissions.utils import get_full_perm
 
@@ -59,6 +60,27 @@ class ResolweSlugRelatedField(RelatedField):
     def to_representation(self, obj):
         """Convert to representation."""
         return obj.pk
+
+
+class ResolweProcessField(ResolweSlugRelatedField):
+    """Process specific implementation of ResolweSlugRelatedField."""
+
+    def __init__(self, **kwargs):
+        """Initialize attributes."""
+        kwargs['queryset'] = Process.objects.all()
+        super().__init__(slug_field='slug', **kwargs)
+
+    def to_internal_value(self, data):
+        """Convert to representation.
+
+        Also, validate that process is active.
+        """
+        process = super().to_internal_value(data)
+        if not process.is_active:
+            msg = 'Process retired (id: {}, slug: {}/{}).'.format(process.id, process.slug, process.version)
+            raise exceptions.ParseError(msg)
+
+        return process
 
 
 class NestedDescriptorSchemaSerializer(ResolweSlugRelatedField):

@@ -4,7 +4,7 @@ from elasticsearch_dsl.query import Q
 from django.db import transaction
 from django.db.models import Count
 
-from rest_framework import exceptions, mixins, status, viewsets
+from rest_framework import exceptions, mixins, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
@@ -108,29 +108,6 @@ class DataViewSet(ElasticSearchCombinedViewSet,
 
     def create(self, request, *args, **kwargs):
         """Create a resource."""
-        collections = request.data.get('collections', [])
-
-        # check that user has permissions on all collections that Data
-        # object will be added to
-        for collection_id in collections:
-            try:
-                collection = Collection.objects.get(pk=collection_id)
-            except Collection.DoesNotExist:
-                return Response({'collections': ['Invalid pk "{}" - object does not exist.'.format(collection_id)]},
-                                status=status.HTTP_400_BAD_REQUEST)
-
-            if not request.user.has_perm('add_collection', obj=collection):
-                if request.user.has_perm('view_collection', obj=collection):
-                    raise exceptions.PermissionDenied(
-                        "You don't have `ADD` permission on collection (id: {}).".format(collection_id)
-                    )
-                else:
-                    raise exceptions.NotFound(
-                        "Collection not found (id: {}).".format(collection_id)
-                    )
-
-        self.define_contributor(request)
-
         if kwargs.pop('get_or_create', False):
             response = self.perform_get_or_create(request, *args, **kwargs)
             if response:
@@ -167,6 +144,7 @@ class DataViewSet(ElasticSearchCombinedViewSet,
 
     def perform_get_or_create(self, request, *args, **kwargs):
         """Perform "get_or_create" - return existing object if found."""
+        self.define_contributor(request)
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         process = serializer.validated_data.get('process')
@@ -187,12 +165,6 @@ class DataViewSet(ElasticSearchCombinedViewSet,
 
     def perform_create(self, serializer):
         """Create a resource."""
-        process = serializer.validated_data.get('process')
-        if not process.is_active:
-            raise exceptions.ParseError(
-                'Process retired (id: {}, slug: {}/{}).'.format(process.id, process.slug, process.version)
-            )
-
         with transaction.atomic():
             instance = serializer.save()
 

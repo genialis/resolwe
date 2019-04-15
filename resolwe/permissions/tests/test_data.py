@@ -90,7 +90,7 @@ class DataTestCase(ResolweAPITestCase):
         self.data['collections'] = ['42']
         resp = self._post(self.data, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(resp.data['collections'][0], 'Invalid pk "42" - object does not exist.')
+        self.assertEqual(str(resp.data['non_field_errors'][0]), 'Invalid pk "42" - object does not exist.')
 
         self.data['collections'] = ['1']
         self.data['process'] = '42'
@@ -103,14 +103,14 @@ class DataTestCase(ResolweAPITestCase):
     def test_post_no_perms(self):
         collection_n = Data.objects.count()
         resp = self._post(self.data, self.user2)
-        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(Data.objects.count(), collection_n)
 
     def test_post_public_user(self):
         collection_n = Data.objects.count()
         resp = self._post(self.data)
         # User has no permission to add Data object to the collection.
-        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(Data.objects.count(), collection_n)
 
     def test_post_protected_fields(self):
