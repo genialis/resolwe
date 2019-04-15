@@ -35,10 +35,6 @@ setuptools.setup(
     },
     python_requires='>=3.6, <3.7',
     install_requires=[
-        # XXX: Temporarily pin Daphne since the latest version requires
-        # asgiref~=3.0 which is incompatible with Channels requirement of
-        # asgiref~=2.3
-        'daphne~=2.2.0',
         'Django~=1.11.0',
         'djangorestframework~=3.9.0',
         'django-filter~=2.0.0',
@@ -61,8 +57,8 @@ setuptools.setup(
         # package (2.20.1) explicitly requires idna>=2.5,<2.8
         'idna==2.7',
         'redis~=3.2.0',
-        'channels~=2.1',
-        'channels_redis~=2.3',
+        'channels~=2.2',
+        'channels_redis~=2.4',
         'async-timeout~=2.0',
         'plumbum~=1.6.6',
         'resolwe-runtime-utils>=2.0.1',
