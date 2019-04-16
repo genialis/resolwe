@@ -46,7 +46,7 @@ setuptools.setup(
         'elasticsearch-dsl~=5.4.0',
         'psycopg2>=2.5.0, <2.8',
         'mock>=1.3.0',
-        'PyYAML>=3.11',
+        'PyYAML~=5.1',
         'jsonschema~=2.6.0',
         'Sphinx>=1.5.1, <1.7.0',
         'Jinja2>=2.9.6',
