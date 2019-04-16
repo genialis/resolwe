@@ -62,7 +62,6 @@ class DataViewSet(ElasticSearchCombinedViewSet,
     def get_always_allowed_arguments(self):
         """Return query arguments which are always allowed."""
         return super().get_always_allowed_arguments() + [
-            'hydrate_data',
             'hydrate_collections',
             'hydrate_entities',
         ]

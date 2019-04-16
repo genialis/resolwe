@@ -79,6 +79,7 @@ class CollectionViewSet(ElasticSearchCombinedViewSet,
         """Return query arguments which are always allowed."""
         return super().get_always_allowed_arguments() + [
             'hydrate_data',
+            'delete_content',
         ]
 
     def custom_filter_text(self, value, search):
