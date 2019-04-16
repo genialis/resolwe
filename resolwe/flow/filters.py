@@ -64,7 +64,7 @@ class CheckQueryParamsMixin:
         unallowed = set(self.request.query_params.keys()) - allowed_params
 
         if unallowed:
-            msg = 'Unsupported filter argument(s): {}. Please use any of the supported arguments: {}.'.format(
+            msg = 'Unsupported parameter(s): {}. Please use a combination of: {}.'.format(
                 ', '.join(unallowed),
                 ', '.join(allowed_params),
             )

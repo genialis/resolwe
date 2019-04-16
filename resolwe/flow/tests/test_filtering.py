@@ -285,7 +285,7 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
 
         self.assertRegex(  # pylint: disable=deprecated-method
             str(response.data['detail']),
-            r'Unsupported filter argument\(s\): foo. Please use any of the supported arguments: .*'
+            r'Unsupported parameter\(s\): foo. Please use a combination of: .*'
         )
 
 
@@ -371,7 +371,7 @@ class DescriptorSchemaViewSetFiltersTest(BaseViewSetFiltersTest):
 
         self.assertRegex(  # pylint: disable=deprecated-method
             str(response.data['__all__'][0]),
-            r'Unsupported filter argument\(s\): foo. Please use any of the supported arguments: .*'
+            r'Unsupported parameter\(s\): foo. Please use a combination of: .*'
         )
 
 

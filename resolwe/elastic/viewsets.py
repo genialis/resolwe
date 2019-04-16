@@ -146,7 +146,7 @@ class ElasticSearchMixin:
             unmatched.pop(argument, None)
 
         if unmatched:
-            msg = 'Unsupported filter argument(s): {}. Please use any of the supported arguments: {}.'.format(
+            msg = 'Unsupported parameter(s): {}. Please use a combination of: {}.'.format(
                 ', '.join(unmatched),
                 ', '.join(self.filtering_fields),
             )
