@@ -341,8 +341,13 @@ class ResolweRunner(DiscoverRunner):
 
             return wrapper
 
-        for case in suite:
-            case.tearDown = validate_manager_state(case, case.tearDown)
+        if isinstance(suite, self.parallel_test_suite):
+            # NOTE: validate_manager_state function cannot be pickled, so it
+            #       cannot be used in parallel tests.
+            pass
+        else:
+            for case in suite:
+                case.tearDown = validate_manager_state(case, case.tearDown)
 
         return suite
 
