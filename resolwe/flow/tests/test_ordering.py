@@ -1,7 +1,7 @@
 # pylint: disable=missing-docstring
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
-from django.core.urlresolvers import reverse
+from django.urls import reverse
 
 from guardian.shortcuts import assign_perm
 from rest_framework.test import APITestCase

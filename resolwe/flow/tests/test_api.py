@@ -3,9 +3,9 @@ from unittest import mock
 
 from django.contrib.auth.models import AnonymousUser
 from django.contrib.contenttypes.models import ContentType
-from django.core.urlresolvers import reverse
 from django.db import DEFAULT_DB_ALIAS, connections
 from django.test.utils import CaptureQueriesContext
+from django.urls import reverse
 
 from guardian.conf.settings import ANONYMOUS_USER_NAME
 from guardian.models import UserObjectPermission

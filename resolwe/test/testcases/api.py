@@ -8,8 +8,8 @@
 """
 
 from django.contrib.auth import get_user_model
-from django.core.urlresolvers import reverse
 from django.test import TestCase as DjangoTestCase
+from django.urls import reverse
 
 from rest_framework.test import APIRequestFactory, APITransactionTestCase, force_authenticate
 

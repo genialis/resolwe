@@ -1,7 +1,7 @@
-from django.conf.urls import include, url
+from django.urls import include, path
 
 
 urlpatterns = [
-    url(r'^', include('resolwe.api_urls')),
-    url(r'^api-auth/', include('rest_framework.urls', namespace='rest_framework'))
+    path('', include('resolwe.api_urls')),
+    path('api-auth/', include('rest_framework.urls', namespace='rest_framework'))
 ]

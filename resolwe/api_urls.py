@@ -1,5 +1,5 @@
 """Urls for Django Rest Framework."""
-from django.conf.urls import include, url
+from django.urls import include, path
 
 from rest_framework import routers
 
@@ -19,5 +19,5 @@ api_router.register(r'storage', StorageViewSet)
 
 
 urlpatterns = [  # pylint: disable=invalid-name
-    url(r'^api/', include(api_router.urls, namespace='resolwe-api')),
+    path('api/', include((api_router.urls, 'resolwe-api'), namespace='resolwe-api')),
 ]
