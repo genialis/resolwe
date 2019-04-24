@@ -179,13 +179,13 @@ class Data(BaseModel):
     process_rc = models.PositiveSmallIntegerField(blank=True, null=True)
 
     #: info log message
-    process_info = ArrayField(models.CharField(max_length=255), default=[])
+    process_info = ArrayField(models.CharField(max_length=255), default=list)
 
     #: warning log message
-    process_warning = ArrayField(models.CharField(max_length=255), default=[])
+    process_warning = ArrayField(models.CharField(max_length=255), default=list)
 
     #: error log message
-    process_error = ArrayField(models.CharField(max_length=255), default=[])
+    process_error = ArrayField(models.CharField(max_length=255), default=list)
 
     #: actual inputs used by the process
     input = JSONField(default=dict)
