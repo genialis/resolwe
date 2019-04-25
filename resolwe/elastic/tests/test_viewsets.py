@@ -36,7 +36,7 @@ class IndexViewsetTest(APITestCase, TestCase):
         super().setUp()
 
         apps.clear_cache()
-        call_command('migrate', verbosity=0, interactive=False, load_initial_data=False)
+        call_command('migrate', verbosity=0, interactive=False)
 
         index_builder.indexes = [TestSearchIndex()]
         index_builder.register_signals()

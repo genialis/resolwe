@@ -25,7 +25,7 @@ class IndexTest(ElasticSearchTestCase):
 
     def setUp(self):
         apps.clear_cache()
-        call_command('migrate', verbosity=0, interactive=False, load_initial_data=False)
+        call_command('migrate', verbosity=0, interactive=False)
 
         super().setUp()
 
@@ -126,25 +126,25 @@ class IndexTest(ElasticSearchTestCase):
         self.assertEqual(len(es_objects), 1)
 
         # Purge index
-        call_command('elastic_purge', interactive=False, verbosity=0)
+        call_command('elastic_purge', verbosity=0)
 
         es_objects = TestSearchDocument.search().execute()
         self.assertEqual(len(es_objects), 0)
 
         # Recreate index
-        call_command('elastic_index', interactive=False, verbosity=0)
+        call_command('elastic_index', verbosity=0)
 
         es_objects = TestSearchDocument.search().execute()
         self.assertEqual(len(es_objects), 1)
 
         # Purge index
-        call_command('elastic_purge', interactive=False, verbosity=0)
+        call_command('elastic_purge', verbosity=0)
 
         es_objects = TestSearchDocument.search().execute()
         self.assertEqual(len(es_objects), 0)
 
         # Recreate only a specific index
-        call_command('elastic_index', index=['TestAnalyzerSearchIndex'], interactive=False, verbosity=0)
+        call_command('elastic_index', index=['TestAnalyzerSearchIndex'], verbosity=0)
 
         es_objects = TestSearchDocument.search().execute()
         self.assertEqual(len(es_objects), 0)
@@ -152,20 +152,20 @@ class IndexTest(ElasticSearchTestCase):
         self.assertEqual(len(es_objects), 1)
 
         # Purge only a specific index
-        call_command('elastic_purge', index=['TestAnalyzerSearchIndex'], interactive=False, verbosity=0)
+        call_command('elastic_purge', index=['TestAnalyzerSearchIndex'], verbosity=0)
 
         es_objects = TestAnalyzerSearchDocument.search().execute()
         self.assertEqual(len(es_objects), 0)
 
-        call_command('elastic_index', exclude=['TestAnalyzerSearchIndex'], interactive=False, verbosity=0)
+        call_command('elastic_index', exclude=['TestAnalyzerSearchIndex'], verbosity=0)
         es_objects = TestAnalyzerSearchDocument.search().execute()
         self.assertEqual(len(es_objects), 0)
 
-        call_command('elastic_index', interactive=False, verbosity=0)
+        call_command('elastic_index', verbosity=0)
         es_objects = TestAnalyzerSearchDocument.search().execute()
         self.assertEqual(len(es_objects), 1)
 
-        call_command('elastic_purge', exclude=['TestAnalyzerSearchIndex'], interactive=False, verbosity=0)
+        call_command('elastic_purge', exclude=['TestAnalyzerSearchIndex'], verbosity=0)
 
         es_objects = TestAnalyzerSearchDocument.search().execute()
         self.assertEqual(len(es_objects), 1)
@@ -173,21 +173,21 @@ class IndexTest(ElasticSearchTestCase):
         # Recreate an invalid index
         output = io.StringIO()
 
-        call_command('elastic_index', index=['InvalidIndex'], interactive=False, verbosity=0, stderr=output)
+        call_command('elastic_index', index=['InvalidIndex'], verbosity=0, stderr=output)
         self.assertIn("Unknown index: InvalidIndex", output.getvalue())
 
-        call_command('elastic_index', exclude=['InvalidIndex'], interactive=False, verbosity=0, stderr=output)
+        call_command('elastic_index', exclude=['InvalidIndex'], verbosity=0, stderr=output)
         self.assertIn("Unknown index: InvalidIndex", output.getvalue())
 
         # Purge an invalid index
-        call_command('elastic_purge', index=['InvalidIndex'], interactive=False, verbosity=0, stderr=output)
+        call_command('elastic_purge', index=['InvalidIndex'], verbosity=0, stderr=output)
         self.assertIn("Unknown index: InvalidIndex", output.getvalue())
 
-        call_command('elastic_purge', exclude=['InvalidIndex'], interactive=False, verbosity=0, stderr=output)
+        call_command('elastic_purge', exclude=['InvalidIndex'], verbosity=0, stderr=output)
         self.assertIn("Unknown index: InvalidIndex", output.getvalue())
 
         # Create mappings.
-        call_command('elastic_mapping', interactive=False, verbosity=0)
+        call_command('elastic_mapping', verbosity=0)
 
     def test_permissions(self):
         from .test_app.models import TestModel

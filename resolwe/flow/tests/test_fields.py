@@ -24,7 +24,7 @@ class FieldsTest(TestCase):
         super().setUp()
 
         apps.clear_cache()
-        call_command('migrate', verbosity=0, interactive=False, load_initial_data=False)
+        call_command('migrate', verbosity=0, interactive=False)
         # NOTE: Models must be imported after migrations are run.
 
     def test_populate_from_name(self):
