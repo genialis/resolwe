@@ -1,5 +1,7 @@
 # pylint: disable=missing-docstring
 import os
+import sys
+import unittest
 
 from django.contrib.auth.models import AnonymousUser
 from django.test import LiveServerTestCase
@@ -155,6 +157,10 @@ class PythonProcessDataBySlugTest(ProcessTestCase, LiveServerTestCase):
         self._register_schemas(processes_paths=[PROCESSES_DIR], descriptors_paths=[DESCRIPTORS_DIR])
         self.files_path = FILES_PATH
 
+    @unittest.skipUnless(
+        sys.platform.startswith('linux'),
+        "Accessing live Resolwe host from a Docker container on non-Linux systems is not possible yet."
+    )
     @with_resolwe_host
     @with_docker_executor
     @tag_process('test-python-process-data-id-by-slug', 'test-python-process-2')
