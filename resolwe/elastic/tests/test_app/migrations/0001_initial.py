@@ -30,6 +30,7 @@ class Migration(migrations.Migration):
                 ('date', models.DateTimeField(null=True)),
             ],
             options={
+                'default_permissions': (),
                 'permissions': (('view_testmodel', 'Can view model'), ('edit_testmodel', 'Can edit model')),
             },
         ),

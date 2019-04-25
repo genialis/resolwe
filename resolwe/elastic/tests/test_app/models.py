@@ -5,6 +5,7 @@ from django.db import models
 class TestModel(models.Model):
 
     class Meta:
+        default_permissions = ()
         permissions = (
             ('view_testmodel', "Can view model"),
             ('edit_testmodel', "Can edit model"),
