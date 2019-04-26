@@ -33,7 +33,7 @@ setuptools.setup(
             'toolkit/tools/**.py',
         ]
     },
-    python_requires='>=3.6, <3.7',
+    python_requires='>=3.6, <3.8',
     install_requires=[
         'asteval~=0.9.12',
         'async-timeout~=3.0.0',
@@ -92,6 +92,7 @@ setuptools.setup(
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
     ],
     keywords='resolwe dataflow django',
 )

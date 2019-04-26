@@ -17,6 +17,10 @@ Changed
 - **BACKWARD INCOMPATIBLE:** Remove not used ``django-mathfilters``
   requirement
 
+Added
+-----
+- Support Python 3.7
+
 
 ===================
 16.0.0 - 2019-04-16
