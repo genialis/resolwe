@@ -56,6 +56,9 @@ setuptools.setup(
         'resolwe-runtime-utils~=2.0.1',
         'shellescape~=3.4.1',
         'Sphinx>=1.5.1, <1.7.0',
+        # XXX: Temporarily pin urllib to 1.24.x, since requests 2.21.0
+        # has requirement urllib3<1.25,>=1.21.1
+        'urllib3~=1.24.2',
         'wrapt~=1.11.1',
    ],
     extras_require={
