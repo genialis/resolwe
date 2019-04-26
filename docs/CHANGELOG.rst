@@ -13,6 +13,8 @@ Unreleased
 Changed
 -------
 - **BACKWARD INCOMPATIBLE:** Use Elasticsearch version 6.x
+- **BACKWARD INCOMPATIBLE:** Remove not used ``django-mathfilters``
+  requirement
 
 
 ===================

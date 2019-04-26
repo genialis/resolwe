@@ -1,7 +1,6 @@
 # pylint: disable=missing-docstring,invalid-name
 import datetime
-
-import mock
+from unittest import mock
 
 from django.apps import apps
 from django.conf import settings

@@ -13,8 +13,8 @@ import re
 import shutil
 import subprocess
 import sys
+from unittest import mock
 
-import mock
 import yaml
 from channels.db import database_sync_to_async
 

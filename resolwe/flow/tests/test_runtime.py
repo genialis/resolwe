@@ -1,5 +1,5 @@
 # pylint: disable=missing-docstring
-import mock
+from unittest import mock
 
 from resolwe.flow.execution_engines.bash import ExecutionEngine, ExecutionError
 from resolwe.flow.expression_engines.jinja import ExpressionEngine

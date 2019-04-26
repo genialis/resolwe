@@ -4,8 +4,7 @@ import json
 import os
 import shutil
 from datetime import timedelta
-
-from mock import MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError

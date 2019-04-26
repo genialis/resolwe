@@ -4,8 +4,8 @@ import os
 import shutil
 import tempfile
 import unittest
+from unittest.mock import MagicMock, patch
 
-from mock import MagicMock, patch
 from testfixtures import LogCapture
 
 from django.conf import settings

@@ -1,5 +1,5 @@
 # pylint: disable=missing-docstring
-from mock import patch
+from unittest.mock import patch
 
 from django.core.exceptions import ValidationError
 

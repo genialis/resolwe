@@ -28,7 +28,6 @@ INSTALLED_APPS = (
 
     'rest_framework',
     'guardian',
-    'mathfilters',
     'versionfield',
 
     'resolwe',

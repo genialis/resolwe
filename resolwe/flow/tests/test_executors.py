@@ -2,8 +2,7 @@
 import os
 import subprocess
 import unittest
-
-import mock
+from unittest import mock
 
 from django.conf import settings
 from django.db import transaction

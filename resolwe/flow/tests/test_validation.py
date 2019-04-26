@@ -1,5 +1,5 @@
 # pylint: disable=missing-docstring,too-many-lines
-from mock import MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError

@@ -16,7 +16,6 @@ settings.configure(
         'django.contrib.staticfiles',
         'rest_framework',
         'guardian',
-        'mathfilters',
         'versionfield',
         'resolwe',
         'resolwe.permissions',
