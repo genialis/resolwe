@@ -51,9 +51,6 @@ setuptools.setup(
         'wrapt>=1.10.8',
         'shellescape>=3.4.1',
         'asteval~=0.9.12',
-        # XXX: Temporarily pin idna since the latest version of the requests
-        # package (2.20.1) explicitly requires idna>=2.5,<2.8
-        'idna==2.7',
         'redis~=3.2.0',
         'channels~=2.2',
         'channels_redis~=2.4',
