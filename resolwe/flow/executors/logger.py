@@ -65,7 +65,7 @@ def configure_logging(emit_list):
         module_base = 'resolwe.flow.executors'
     else:
         module_base = 'executors'
-    logging_config = dict(  # pylint: disable=invalid-name
+    logging_config = dict(
         version=1,
         formatters={
             'json_formatter': {

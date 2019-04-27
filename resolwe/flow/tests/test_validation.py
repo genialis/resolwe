@@ -8,11 +8,6 @@ from resolwe.flow.models import Collection, Data, DataLocation, DescriptorSchema
 from resolwe.flow.models.utils import validate_schema
 from resolwe.test import TestCase
 
-# Workaround for false positive warnings in pylint.
-# TODO: Can be removed with Django 2.0 or when pylint issue is fixed:
-#       https://github.com/PyCQA/pylint/issues/1653
-# pylint: disable=deprecated-method
-
 
 class ValidationTest(TestCase):
 

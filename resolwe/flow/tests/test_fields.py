@@ -7,11 +7,6 @@ from django.test import TestCase, override_settings
 
 from resolwe.flow.exceptions import SlugError
 
-# Workaround for false positive warnings in pylint.
-# TODO: Can be removed with Django 2.0 or when pylint issue is fixed:
-#       https://github.com/PyCQA/pylint/issues/1653
-# pylint: disable=deprecated-method
-
 CUSTOM_SETTINGS = {
     'INSTALLED_APPS': settings.INSTALLED_APPS + ('resolwe.flow.tests.fields_test_app',),
 }

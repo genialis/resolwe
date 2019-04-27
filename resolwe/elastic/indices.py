@@ -129,7 +129,7 @@ class BaseIndex:
         #: list of built documents waiting to be pushed
         self.push_queue = []
 
-        self._index_name = self.document_class()._get_index()  # pylint: disable=not-callable,protected-access
+        self._index_name = self.document_class()._get_index()  # pylint: disable=protected-access
         self._mapping_created = False
 
         #: id of thread id where connection was established
@@ -184,7 +184,7 @@ class BaseIndex:
 
     def process_object(self, obj):
         """Process current object and push it to the ElasticSearch."""
-        document = self.document_class(meta={'id': self.generate_id(obj)})  # pylint: disable=not-callable
+        document = self.document_class(meta={'id': self.generate_id(obj)})
 
         for field in document._doc_type.mapping:  # pylint: disable=protected-access
             if field in ['users_with_permissions', 'groups_with_permissions', 'public_permission']:
@@ -394,8 +394,8 @@ class BaseIndex:
         self._refresh_connection()
 
         self.push_queue = []
-        index_name = self.document_class()._get_index()  # pylint: disable=protected-access,not-callable
-        connections.get_connection().indices.delete(index_name, ignore=404)  # pylint: disable=no-member
+        index_name = self.document_class()._get_index()  # pylint: disable=protected-access
+        connections.get_connection().indices.delete(index_name, ignore=404)
 
         self._mapping_created = False
 

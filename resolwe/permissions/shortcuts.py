@@ -35,7 +35,7 @@ def get_groups_with_perms(obj, attach_perms=False):
 
     if not attach_perms:
         # It's much easier without attached perms so we do it first if that is the case
-        group_rel_name = group_model.group.field.related_query_name()  # pylint: disable=no-member
+        group_rel_name = group_model.group.field.related_query_name()
         if group_model.objects.is_generic():
             group_filters = {
                 '%s__content_type' % group_rel_name: ctype,
@@ -99,9 +99,9 @@ def get_user_group_perms(user_or_group, obj):
     ctype = ContentType.objects.get_for_model(obj)
 
     group_model = get_group_obj_perms_model(obj)
-    group_rel_name = group_model.permission.field.related_query_name()  # pylint: disable=no-member
+    group_rel_name = group_model.permission.field.related_query_name()
     if user:
-        user_rel_name = user_model.groups.field.related_query_name()  # pylint: disable=no-member
+        user_rel_name = user_model.groups.field.related_query_name()
         group_filters = {user_rel_name: user}
     else:
         group_filters = {'pk': group.pk}
@@ -121,7 +121,7 @@ def get_user_group_perms(user_or_group, obj):
             user_perms = list(chain(perms_qs.values_list("codename", flat=True)))
         else:
             model = get_user_obj_perms_model(obj)
-            related_name = model.permission.field.related_query_name()  # pylint: disable=no-member
+            related_name = model.permission.field.related_query_name()
             user_filters = {'{}__user'.format(related_name): user}
             if model.objects.is_generic():
                 user_filters.update({
@@ -350,7 +350,7 @@ def get_objects_for_user(user, perms, klass=None, use_groups=True, any_perm=Fals
         group_model = get_group_obj_perms_model(queryset.model)
         group_filters = {
             'permission__content_type': ctype,
-            'group__{}'.format(get_user_model().groups.field.related_query_name()): user,  # pylint: disable=no-member
+            'group__{}'.format(get_user_model().groups.field.related_query_name()): user,
         }
         if codenames:
             group_filters.update({

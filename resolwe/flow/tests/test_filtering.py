@@ -283,7 +283,7 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
     def test_nonexisting_parameter(self):
         response = self._check_filter({'foo': 'bar'}, [self.data[0]], expected_status_code=400)
 
-        self.assertRegex(  # pylint: disable=deprecated-method
+        self.assertRegex(
             str(response.data['detail']),
             r'Unsupported parameter\(s\): foo. Please use a combination of: .*'
         )
@@ -369,7 +369,7 @@ class DescriptorSchemaViewSetFiltersTest(BaseViewSetFiltersTest):
     def test_nonexisting_parameter(self):
         response = self._check_filter({'foo': 'bar'}, [self.ds1], expected_status_code=400)
 
-        self.assertRegex(  # pylint: disable=deprecated-method
+        self.assertRegex(
             str(response.data['__all__'][0]),
             r'Unsupported parameter\(s\): foo. Please use a combination of: .*'
         )

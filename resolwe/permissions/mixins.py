@@ -18,7 +18,7 @@ class CurrentUserPermissionsSerializer(serializers.Serializer):  # pylint: disab
     """Current user permissions serializer."""
 
     id = serializers.IntegerField()  # pylint: disable=invalid-name
-    type = serializers.CharField(max_length=50)  # pylint: disable=invalid-name
+    type = serializers.CharField(max_length=50)
     name = serializers.CharField(max_length=100)
     permissions = serializers.ListField(
         child=serializers.CharField(max_length=30)

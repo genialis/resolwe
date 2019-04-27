@@ -47,7 +47,6 @@ class EntityIndex(BaseIndexMixin, CollectionIndexMixin, BaseIndex):
 
     def get_dependencies(self):
         """Return dependencies, which should trigger updates of this model."""
-        # pylint: disable=no-member
         return super().get_dependencies() + [
             Entity.collections,
         ]

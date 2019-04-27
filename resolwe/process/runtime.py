@@ -259,7 +259,6 @@ class Process(metaclass=ProcessMeta):
         :param inputs: An instance of `Inputs` describing the process inputs
         :return: An instance of `Outputs` describing the process outputs
         """
-        # pylint: disable=logging-format-interpolation
         self.logger.info("Process is starting")
 
         outputs = Outputs(self._meta.outputs)
@@ -272,7 +271,7 @@ class Process(metaclass=ProcessMeta):
             self.logger.exception("Exception while running process")
             print(resolwe_runtime_utils.error(str(error)))
             raise
-        except:  # noqa pylint: disable=bare-except
+        except:  # noqa
             self.logger.exception("Exception while running process")
             print(resolwe_runtime_utils.error("Exception while running process"))
             raise

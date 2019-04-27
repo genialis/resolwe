@@ -17,7 +17,7 @@ class DataDocument(BaseDocument):
     process = dsl.Integer()
     process_type = ProcessType()
     # Keep backward compatibility.
-    type = ProcessType()  # pylint: disable=invalid-name
+    type = ProcessType()
     process_name = Name()
     tags = dsl.Keyword(multi=True)
 

@@ -98,7 +98,7 @@ class Collection(BaseCollection):
         if contributor:
             duplicate.contributor = contributor
 
-        duplicate.save(force_insert=True)  # pylint: disable=protected-access
+        duplicate.save(force_insert=True)
 
         assign_contributor_permissions(duplicate)
 
@@ -112,7 +112,7 @@ class Collection(BaseCollection):
         duplicate.entity_set.add(*duplicated_entities)
 
         # Add duplicated data objects to collection.
-        for duplicated_entity in duplicate.entity_set.all():  # pylint: disable=no-member
+        for duplicated_entity in duplicate.entity_set.all():
             duplicate.data.add(*duplicated_entity.data.all())
 
         return duplicate

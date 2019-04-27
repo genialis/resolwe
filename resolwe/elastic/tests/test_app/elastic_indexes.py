@@ -9,7 +9,6 @@ from .models import TestDependency, TestModel, TestModelWithDependency, TestSelf
 
 
 class TestSearchDocument(BaseDocument):
-    # pylint: disable=no-member
     id = dsl.Integer()  # pylint: disable=invalid-name
     name = dsl.Text(fielddata=True)
     num = dsl.Integer()
@@ -40,7 +39,6 @@ class TestSearchIndex(BaseIndex):
 
 
 class TestAnalyzerSearchDocument(BaseDocument):
-    # pylint: disable=no-member
     name = dsl.Text(analyzer=dsl.analyzer(
         'test_analyzer',
         tokenizer='keyword',
@@ -61,7 +59,6 @@ class TestAnalyzerSearchIndex(BaseIndex):
 
 
 class TestModelWithDependencyDocument(BaseDocument):
-    # pylint: disable=no-member
     name = dsl.Text(fielddata=True)
 
     class Index:
@@ -82,7 +79,6 @@ class TestModelWithDependencySearchIndex(BaseIndex):
 
 
 class TestModelWithFilterDependencyDocument(BaseDocument):
-    # pylint: disable=no-member
     name = dsl.Text(fielddata=True)
 
     class Index:
@@ -108,7 +104,6 @@ class TestModelWithFilterDependencySearchIndex(BaseIndex):
 
 
 class TestModelWithReverseDependencyDocument(BaseDocument):
-    # pylint: disable=no-member
     name = dsl.Text()
 
     class Index:
@@ -129,7 +124,6 @@ class TestModelWithReverseDependencySearchIndex(BaseIndex):
 
 
 class TestModelWithSelfDependencyDocument(BaseDocument):
-    # pylint: disable=no-member
     name = dsl.Text()
 
     class Index:

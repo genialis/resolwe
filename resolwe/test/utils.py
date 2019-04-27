@@ -74,7 +74,6 @@ def with_custom_executor(wrapped=None, **custom_executor_settings):
     if wrapped is None:
         return functools.partial(with_custom_executor, **custom_executor_settings)
 
-    # pylint: disable=missing-docstring
     @wrapt.decorator
     def wrapper(wrapped_method, instance, args, kwargs):
         from resolwe.flow.managers import manager  # To prevent circular imports.
@@ -105,7 +104,6 @@ def with_docker_executor(wrapped=None):
     if wrapped is None:
         return functools.partial(with_docker_executor)
 
-    # pylint: disable=missing-docstring
     @wrapt.decorator
     def wrapper(wrapped_method, instance, args, kwargs):
         return unittest.skipUnless(*check_docker())(

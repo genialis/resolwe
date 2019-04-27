@@ -4,7 +4,7 @@ import sys
 
 from .protocol import ExecutorFiles
 
-DESERIALIZED_FILES = {}  # pylint: disable=invalid-name
+DESERIALIZED_FILES = {}
 
 if 'sphinx' not in sys.modules:
     with open(ExecutorFiles.EXECUTOR_SETTINGS, 'rt') as _settings_file:

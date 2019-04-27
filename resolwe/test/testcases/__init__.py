@@ -114,7 +114,6 @@ class TestCaseHelpers(DjangoSimpleTestCase):
         :param expected: object to compare against
         :param msg: optional message printed on failures
         """
-        # pylint: disable=no-member
         self.assertEqual(type(actual), type(expected), msg=msg)
 
         if isinstance(actual, dict):

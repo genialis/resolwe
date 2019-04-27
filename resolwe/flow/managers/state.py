@@ -157,7 +157,7 @@ class ManagerState:
 
         def cas(self, oldval, newval):
             """Compare and swap operation."""
-            return self._lua_cas(oldval, newval, self.initial_value)  # pylint: disable=not-callable
+            return self._lua_cas(oldval, newval, self.initial_value)
 
     class ObjectDatum(RedisAtomicBase):
         """Redis atomic class for JSONifiable Python data."""

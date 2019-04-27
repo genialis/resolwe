@@ -25,7 +25,7 @@ redis_conn = None  # pylint: disable=invalid-name
 async def init():
     """Create a connection to the Redis server."""
     global redis_conn  # pylint: disable=global-statement,invalid-name
-    conn = await aioredis.create_connection(  # pylint: disable=invalid-name
+    conn = await aioredis.create_connection(
         'redis://{}:{}'.format(
             SETTINGS.get('FLOW_EXECUTOR', {}).get('REDIS_CONNECTION', {}).get('host', 'localhost'),
             SETTINGS.get('FLOW_EXECUTOR', {}).get('REDIS_CONNECTION', {}).get('port', 56379)
@@ -63,7 +63,7 @@ async def send_manager_command(cmd, expect_reply=True, extra_fields={}):
     queue_channel = EXECUTOR_SETTINGS['REDIS_CHANNEL_PAIR'][0]
     try:
         await redis_conn.rpush(queue_channel, json.dumps(packet))
-    except Exception:  # pylint: disable=broad-except
+    except Exception:
         logger.error("Error sending command to manager:\n\n{}".format(traceback.format_exc()))
         raise
 

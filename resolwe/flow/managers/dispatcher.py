@@ -582,7 +582,7 @@ class Manager:
         if cmd == WorkerProtocol.COMMUNICATE:
             try:
                 await database_sync_to_async(self._data_scan)(**message[WorkerProtocol.COMMUNICATE_EXTRA])
-            except Exception:  # pylint: disable=broad-except
+            except Exception:
                 logger.exception("Unknown error occured while processing communicate control command.")
                 raise
             finally:
@@ -613,7 +613,7 @@ class Manager:
 
                 if message[WorkerProtocol.FINISH_SPAWNED]:
                     await database_sync_to_async(self._data_scan)(**message[WorkerProtocol.FINISH_COMMUNICATE_EXTRA])
-            except Exception:  # pylint: disable=broad-except
+            except Exception:
                 logger.exception(
                     "Unknown error occured while processing finish control command.",
                     extra={'data_id': data_id}

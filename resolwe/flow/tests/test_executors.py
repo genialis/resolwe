@@ -15,11 +15,6 @@ from resolwe.flow.managers import manager
 from resolwe.flow.models import Collection, Data, DataDependency, Process
 from resolwe.test import ProcessTestCase, TestCase, tag_process, with_docker_executor, with_null_executor
 
-# Workaround for false positive warnings in pylint.
-# TODO: Can be removed with Django 2.0 or when pylint issue is fixed:
-#       https://github.com/PyCQA/pylint/issues/1653
-# pylint: disable=deprecated-method
-
 PROCESSES_DIR = os.path.join(os.path.dirname(__file__), 'processes')
 DESCRIPTORS_DIR = os.path.join(os.path.dirname(__file__), 'descriptors')
 
