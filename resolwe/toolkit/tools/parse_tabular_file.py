@@ -42,7 +42,7 @@ def main():
                     csvwriter.writerow(worksheet.row_values(rownum))
             else:
                 print('{"proc.error":"File extension not recognized."}')
-        except:  # noqa
+        except Exception:
             print('{"proc.error":"Corrupt or unrecognized file."}')
             raise
 

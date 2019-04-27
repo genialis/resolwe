@@ -134,7 +134,7 @@ def _sequence_paths(paths):
         for path in created:
             try:
                 os.rmdir(path)
-            except:  # noqa pylint: disable=bare-except
+            except Exception:  # pylint: disable=broad-except
                 pass
 
 

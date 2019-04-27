@@ -29,7 +29,7 @@ class Composer:
                     pass
 
             self._discovery_done = True
-        except:  # noqa
+        except Exception:
             # Rollback state to prevent corrupted state on exceptions during import.
             self._extensions = previous_state
             raise

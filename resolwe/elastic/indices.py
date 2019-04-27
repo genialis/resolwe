@@ -226,7 +226,7 @@ class BaseIndex:
 
                 raise AttributeError("Cannot determine mapping for field {}".format(field))
 
-            except:  # noqa pylint: disable=bare-except
+            except Exception:  # pylint: disable=broad-except
                 logger.exception(
                     "Error occurred while setting value of field '%s' in '%s' Elasticsearch index.",
                     field, self.__class__.__name__,
@@ -345,7 +345,7 @@ class BaseIndex:
 
             try:
                 obj = self.preprocess_object(obj)
-            except:  # noqa pylint: disable=bare-except
+            except Exception:  # pylint: disable=broad-except
                 logger.exception(
                     "Error occurred while preprocessing '%s' Elasticsearch index.",
                     self.__class__.__name__,
@@ -354,7 +354,7 @@ class BaseIndex:
 
             try:
                 self.process_object(obj)
-            except:  # noqa pylint: disable=bare-except
+            except Exception:  # pylint: disable=broad-except
                 logger.exception(
                     "Error occurred while processing '%s' Elasticsearch index.",
                     self.__class__.__name__,
