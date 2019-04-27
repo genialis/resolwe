@@ -26,7 +26,7 @@ class ElasticConfig(AppConfig):
             return
 
         # Connect all signals
-        from . import signals  # pylint: disable=unused-variable
+        from . import signals  # pylint: disable=unused-import
 
         # Register ES indices
-        from . builder import index_builder  # pylint: disable=unused-variable
+        from . builder import index_builder  # pylint: disable=unused-import

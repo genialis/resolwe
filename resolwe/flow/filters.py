@@ -165,8 +165,6 @@ class ProcessFilter(BaseResolweFilter):
 class CharInFilter(filters.BaseInFilter, filters.CharFilter):
     """Helper class for creation of CharFilter with "in" lookup."""
 
-    pass
-
 
 class DataFilter(BaseResolweFilter):
     """Filter the Data endpoint."""

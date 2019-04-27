@@ -120,7 +120,6 @@ class ResolweProcessOperation(base.Operation):
 
     def state_forwards(self, app_label, state):
         """Operation does not alter database state, only data."""
-        pass
 
     def migrate_process_schema(self, process, schema, from_state):
         """Migrate process schema.
@@ -500,7 +499,6 @@ class ResolweDataCleanup(base.Operation):
 
     def state_forwards(self, app_label, state):
         """Operation does not alter database state, only data."""
-        pass
 
     def database_forwards(self, app_label, schema_editor, from_state, to_state):
         """Perform forward migration."""
@@ -533,7 +531,6 @@ class ResolweProcessDataRemove(base.Operation):
 
     def state_forwards(self, app_label, state):
         """Operation does not alter database state, only data."""
-        pass
 
     def database_forwards(self, app_label, schema_editor, from_state, to_state):
         """Perform forward migration."""
@@ -600,7 +597,6 @@ class ResolweProcessChangeType(ResolweProcessOperation):  # pylint: disable=abst
             to be migrated
         :param from_state: Database model state
         """
-        pass
 
     def describe(self):
         """Migration description."""
@@ -644,7 +640,6 @@ class ResolweValidateProcessSchema(base.Operation):
 
     def state_forwards(self, app_label, state):
         """Operation does not alter database state, only data."""
-        pass
 
     def database_forwards(self, app_label, schema_editor, from_state, to_state):
         """Perform forward migration."""

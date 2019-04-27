@@ -164,8 +164,6 @@ class TestCase(TransactionTestCase, DjangoTestCase):
 
     """
 
-    pass
-
 
 # Deprecated legacy aliases.
 TransactionElasticSearchTestCase = TransactionTestCase

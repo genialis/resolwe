@@ -58,9 +58,9 @@ class StaticDictMetadata(StaticMetadata):
         evaluator = SafeEvaluator()
         try:
             value = evaluator.run(node)
-        except:  # noqa pylint: disable=bare-except
+        except Exception as ex:
             # TODO: Handle errors.
-            raise
+            raise ex
 
         try:
             # Ensure value is a serializable dictionary.
@@ -146,9 +146,9 @@ class ProcessVisitor(ast.NodeVisitor):
             name = node.targets[0].id
             try:
                 field = evaluator.run(node.value)
-            except:  # noqa pylint: disable=bare-except
+            except Exception as ex:
                 # TODO: Handle errors.
-                raise
+                raise ex
 
             if descriptor is not None:
                 field.contribute_to_class(descriptor, fields, name)
@@ -158,8 +158,6 @@ class ProcessVisitor(ast.NodeVisitor):
         if descriptor is None:
             class Fields:
                 """Fields wrapper."""
-
-                pass
 
             for name, field in discovered_fields.items():
                 setattr(Fields, name, field)

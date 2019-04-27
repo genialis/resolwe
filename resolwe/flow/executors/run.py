@@ -81,7 +81,6 @@ class BaseFlowExecutor:
 
     async def start(self):
         """Start process execution."""
-        pass
 
     async def run_script(self, script):
         """Run process script."""
@@ -89,7 +88,6 @@ class BaseFlowExecutor:
 
     async def end(self):
         """End process execution."""
-        pass
 
     def get_stdout(self):
         """Get process' standard output."""
@@ -110,8 +108,8 @@ class BaseFlowExecutor:
         logger.debug("Executor for Data with id {} has started.".format(data_id))
         try:
             finish_fields = await self._run(data_id, script)
-        except SystemExit:
-            raise
+        except SystemExit as ex:
+            raise ex
         except Exception as error:  # pylint: disable=broad-except
             logger.exception("Unhandled exception in executor")
 

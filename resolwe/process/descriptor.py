@@ -24,8 +24,6 @@ class Persistence:
 class ValidationError(Exception):
     """Process descriptor validation error."""
 
-    pass
-
 
 class ProcessDescriptor:
     """Process descriptor.

@@ -249,5 +249,3 @@ class ResolweAPITestCase(TransactionResolweAPITestCase, DjangoTestCase):
     :class:`~django.test.TestCase`. The latter encloses the test code in
     a database transaction that is rolled back at the end of the test.
     """
-
-    pass

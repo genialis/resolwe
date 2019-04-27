@@ -15,8 +15,6 @@ from resolwe.flow.models.utils import hydrate_input_references, hydrate_input_up
 class SafeString(str):
     """String wrapper for marking strings safe."""
 
-    pass
-
 
 class ExecutionEngine(BaseExecutionEngine):
     """An execution engine that outputs bash programs."""

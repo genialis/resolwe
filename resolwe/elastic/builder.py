@@ -253,7 +253,6 @@ class ManyToManyDependency(Dependency):
         If ``False`` is returned, processing of the dependent object will
         be aborted.
         """
-        pass
 
     def _filter(self, objects, **kwargs):
         """Determine if dependent object should be processed."""

@@ -116,8 +116,6 @@ class DataSerializer(ResolweBaseSerializer):
         class CollectionWithoutDataSerializer(WithoutDataSerializerMixin, CollectionSerializer):
             """Collection without data field serializer."""
 
-            pass
-
         return self._serialize_items(CollectionWithoutDataSerializer, 'collections', collections)
 
     def get_entities(self, data):
@@ -128,8 +126,6 @@ class DataSerializer(ResolweBaseSerializer):
 
         class EntityWithoutDataSerializer(WithoutDataSerializerMixin, EntitySerializer):
             """Entity without data field serializer."""
-
-            pass
 
         return self._serialize_items(EntityWithoutDataSerializer, 'entities', entities)
 

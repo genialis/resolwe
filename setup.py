@@ -67,9 +67,9 @@ setuptools.setup(
         'test': [
             'check-manifest',
             'coverage>=4.2',
-            'pycodestyle~=2.4.0',
-            'pydocstyle~=2.1.1',
-            'pylint~=1.9.4',
+            'pycodestyle~=2.5.0',
+            'pydocstyle~=3.0.0',
+            'pylint~=2.3.1',
             'readme_renderer',
             'setuptools_scm',
             'testfixtures>=4.10.0',

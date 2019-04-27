@@ -82,7 +82,7 @@ class RelationViewSet(ResolweCreateModelMixin,
                 and not request.user.is_superuser):
             return Response(status=status.HTTP_401_UNAUTHORIZED)
 
-        return super().update(request, *args, **kwargs)
+        return super().update(request, *args, **kwargs)  # pylint: disable=no-member
 
     def destroy(self, request, *args, **kwargs):
         """Delete the ``Relation`` object.
@@ -96,4 +96,4 @@ class RelationViewSet(ResolweCreateModelMixin,
                 and not request.user.is_superuser):
             return Response(status=status.HTTP_401_UNAUTHORIZED)
 
-        return super().destroy(request, *args, **kwargs)
+        return super().destroy(request, *args, **kwargs)  # pylint: disable=no-member

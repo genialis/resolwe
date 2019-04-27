@@ -72,7 +72,6 @@ class BaseFlowExecutorPreparer:
         Subclasses may implement this hook to e.g. pull Docker images at
         this point. By default, it does nothing.
         """
-        pass
 
     def resolve_data_path(self, data=None, filename=None):
         """Resolve data path for use with the executor.

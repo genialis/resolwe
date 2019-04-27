@@ -32,7 +32,6 @@ class ElasticIndexFilterMixin:
 
     def handle_index(self, index):
         """Process index."""
-        pass
 
     def filter_indices(self, options, verbosity, *args, **kwargs):
         """Filter indices and execute an action for each index."""

@@ -65,7 +65,6 @@ class ResolwePermissionsMixin:
         content of current object, i.e. data objects and samples
         attached to a collection.
         """
-        pass
 
     @action(detail=True, methods=['get', 'post'], url_path='permissions', url_name='permissions')
     def detail_permissions(self, request, pk=None):

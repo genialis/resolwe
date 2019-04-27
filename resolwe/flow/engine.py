@@ -10,8 +10,6 @@ from django.utils._os import upath
 class InvalidEngineError(Exception):
     """Raised when an invalid engine is requested."""
 
-    pass
-
 
 class BaseEngine:
     """Base class for all engines in Resolwe workflow."""

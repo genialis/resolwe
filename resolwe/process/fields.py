@@ -8,8 +8,6 @@ import resolwe_runtime_utils
 class ValidationError(Exception):
     """Field value validation error."""
 
-    pass
-
 
 class Field:
     """Process input or output field."""

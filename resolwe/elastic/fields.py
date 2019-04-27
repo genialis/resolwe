@@ -96,10 +96,6 @@ class ProcessType(RawKeywordSubfieldMixin, dsl.Text):
 class User(NgramsSubfieldMixin, dsl.Text):
     """Field for users supporting partial matches."""
 
-    pass
-
 
 class Slug(NgramsSubfieldMixin, dsl.Keyword):
     """Field for slugs supporting partial matches."""
-
-    pass

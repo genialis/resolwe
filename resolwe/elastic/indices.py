@@ -159,7 +159,6 @@ class BaseIndex:
         If ``False`` is returned, processingg of the current object will
         be aborted.
         """
-        pass
 
     def preprocess_object(self, obj):
         """Preprocess object before indexing.
