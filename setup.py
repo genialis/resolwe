@@ -62,6 +62,9 @@ setuptools.setup(
         'async-timeout~=2.0',
         'plumbum~=1.6.6',
         'resolwe-runtime-utils>=2.0.1',
+        # XXX: Temporarily pin urllib to 1.24.x, since requests 2.21.0
+        # has requirement urllib3<1.25,>=1.21.1
+        'urllib3~=1.24.2',
     ],
     extras_require={
         'docs': ['sphinx_rtd_theme'],
