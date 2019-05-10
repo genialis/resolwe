@@ -26,6 +26,10 @@ class TestModelWithDependency(models.Model):
 
     dependencies = models.ManyToManyField('TestDependency')
 
+    dependency = models.ForeignKey(
+        'TestDependency', related_name='main_dep', null=True, on_delete=models.SET_NULL
+    )
+
 
 class TestDependency(models.Model):
 

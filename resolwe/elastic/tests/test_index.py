@@ -337,6 +337,9 @@ class IndexTest(ElasticSearchTestCase):
         dep1 = TestDependency.objects.create(name='one')
         dep2 = TestDependency.objects.create(name='two')
         dep3 = TestDependency.objects.create(name='three')
+        main_dep = TestDependency.objects.create(name='main')
+        model.dependency = main_dep
+        model.save()
         model.dependencies.add(dep1)
         model.dependencies.add(dep2)
         dep3.testmodelwithdependency_set.add(model)
@@ -354,6 +357,23 @@ class IndexTest(ElasticSearchTestCase):
         self.assertEqual(len(es_objects), 1)
 
         es_objects = TestModelWithDependencyDocument.search().query('match', name='four').execute()
+        self.assertEqual(len(es_objects), 0)
+
+        es_objects = TestModelWithDependencyDocument.search().query('match', dependency_name='main').execute()
+        self.assertEqual(len(es_objects), 1)
+
+        main_dep.name = 'four'
+        main_dep.save()
+
+        es_objects = TestModelWithDependencyDocument.search().query('match', dependency_name='main').execute()
+        self.assertEqual(len(es_objects), 0)
+
+        es_objects = TestModelWithDependencyDocument.search().query('match', dependency_name='four').execute()
+        self.assertEqual(len(es_objects), 1)
+
+        main_dep.delete()
+
+        es_objects = TestModelWithDependencyDocument.search().query('match', dependency_name='four').execute()
         self.assertEqual(len(es_objects), 0)
 
         dep3.name = 'four'
@@ -399,12 +419,13 @@ class IndexTest(ElasticSearchTestCase):
         from .test_app.models import TestModelWithDependency, TestDependency
         from .test_app.elastic_indexes import TestModelWithReverseDependencyDocument
 
-        model1 = TestModelWithDependency.objects.create(name='One')
+        dep = TestDependency.objects.create(name='deps')
+        model1 = TestModelWithDependency.objects.create(name='One', dependency=dep)
         model2 = TestModelWithDependency.objects.create(name='Two')
         model3 = TestModelWithDependency.objects.create(name='Three')
-        dep = TestDependency.objects.create(name='deps')
         model1.dependencies.add(dep)
         model2.dependencies.add(dep)
+        dep.main_dep.add(model2)
         dep.testmodelwithdependency_set.add(model3)
 
         es_objects = TestModelWithReverseDependencyDocument.search().query('match', name='deps').execute()
@@ -431,6 +452,23 @@ class IndexTest(ElasticSearchTestCase):
         model3.delete()
 
         es_objects = TestModelWithReverseDependencyDocument.search().query('match', name='four').execute()
+        self.assertEqual(len(es_objects), 0)
+
+        es_objects = TestModelWithReverseDependencyDocument.search().query('match', main_dep_name='two').execute()
+        self.assertEqual(len(es_objects), 1)
+
+        es_objects = TestModelWithReverseDependencyDocument.search().query('match', main_dep_name='four').execute()
+        self.assertEqual(len(es_objects), 0)
+
+        model2.name = 'four'
+        model2.save()
+
+        es_objects = TestModelWithReverseDependencyDocument.search().query('match', main_dep_name='four').execute()
+        self.assertEqual(len(es_objects), 1)
+
+        model2.delete()
+
+        es_objects = TestModelWithReverseDependencyDocument.search().query('match', main_dep_name='four').execute()
         self.assertEqual(len(es_objects), 0)
 
     def test_dependencies_self(self):

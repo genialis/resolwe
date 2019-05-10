@@ -60,6 +60,7 @@ class TestAnalyzerSearchIndex(BaseIndex):
 
 class TestModelWithDependencyDocument(BaseDocument):
     name = dsl.Text(fielddata=True)
+    dependency_name = dsl.Text(fielddata=True)
 
     class Index:
         name = 'test_model_with_dependency_search'
@@ -71,11 +72,17 @@ class TestModelWithDependencySearchIndex(BaseIndex):
     document_class = TestModelWithDependencyDocument
 
     def get_dependencies(self):
-        return [TestModelWithDependency.dependencies]
+        return [
+            TestModelWithDependency.dependencies,
+            TestModelWithDependency.dependency,
+        ]
 
     def get_name_value(self, obj):
         names = [dep.name for dep in obj.dependencies.all()]
         return '{}: {}'.format(obj.name, ', '.join(names))
+
+    def get_dependency_name_value(self, obj):
+        return obj.dependency.name
 
 
 class TestModelWithFilterDependencyDocument(BaseDocument):
@@ -105,6 +112,7 @@ class TestModelWithFilterDependencySearchIndex(BaseIndex):
 
 class TestModelWithReverseDependencyDocument(BaseDocument):
     name = dsl.Text()
+    main_dep_name = dsl.Text()
 
     class Index:
         name = 'test_model_with_reverse_dependency_search'
@@ -116,10 +124,18 @@ class TestModelWithReverseDependencySearchIndex(BaseIndex):
     document_class = TestModelWithReverseDependencyDocument
 
     def get_dependencies(self):
-        return [TestDependency.testmodelwithdependency_set]  # pylint: disable=no-member
+        return [
+            # pylint: disable=no-member
+            TestDependency.testmodelwithdependency_set,
+            TestDependency.main_dep,
+        ]
 
     def get_name_value(self, obj):
         names = [dep.name for dep in obj.testmodelwithdependency_set.all()]
+        return '{}: {}'.format(obj.name, ', '.join(names))
+
+    def get_main_dep_name_value(self, obj):
+        names = [dep.name for dep in obj.main_dep.all()]
         return '{}: {}'.format(obj.name, ', '.join(names))
 
 

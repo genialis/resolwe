@@ -14,7 +14,9 @@ from importlib import import_module
 
 from django.apps import apps
 from django.db import models
-from django.db.models.fields.related_descriptors import ManyToManyDescriptor
+from django.db.models.fields.related_descriptors import (
+    ForwardManyToOneDescriptor, ManyToManyDescriptor, ReverseManyToOneDescriptor,
+)
 from django.db.models.signals import m2m_changed, post_delete, post_save, pre_delete
 
 from resolwe.test.utils import is_testing
@@ -145,6 +147,9 @@ class Dependency:
         self.model = model
         self.index = None
 
+        # Cache for pre/post-delete signals.
+        self.delete_cache = BuildArgumentsCache()
+
     def connect(self, index):
         """Connect signals needed for dependency updates.
 
@@ -176,17 +181,43 @@ class Dependency:
 
         return [signal, pre_delete_signal, post_delete_signal]
 
-    def process(self, obj, **kwargs):
-        """Process signals from dependencies."""
+    def filter(self, obj, update_fields=None):
+        """Determine if dependent object should be processed.
+
+        If ``False`` is returned, processing of the dependent object will
+        be aborted.
+        """
+
+    def _filter(self, objects, **kwargs):
+        """Determine if dependent object should be processed."""
+        for obj in objects:
+            if self.filter(obj, **kwargs) is False:
+                return False
+
+        return True
+
+    def _get_build_kwargs(self, **kwargs):
+        """Prepare arguments for rebuilding indices."""
         raise NotImplementedError
 
     def process_predelete(self, obj, **kwargs):
-        """Process signals from dependencies."""
-        raise NotImplementedError
+        """Render the queryset of influenced objects and cache it."""
+        build_kwargs = self._get_build_kwargs(obj, **kwargs)  # pylint: disable=too-many-function-args
+        self.delete_cache.set(obj, build_kwargs)
 
     def process_delete(self, obj, **kwargs):
+        """Recreate queryset from the index and rebuild the index."""
+        build_kwargs = self.delete_cache.take(obj)
+
+        if build_kwargs:
+            self.index.build(**build_kwargs)
+
+    def process(self, obj, **kwargs):
         """Process signals from dependencies."""
-        raise NotImplementedError
+        build_kwargs = self._get_build_kwargs(obj, **kwargs)  # pylint: disable=too-many-function-args
+
+        if build_kwargs:
+            self.index.build(**build_kwargs)
 
 
 class ManyToManyDependency(Dependency):
@@ -199,8 +230,6 @@ class ManyToManyDependency(Dependency):
 
         self.accessor = None
         self.field = field
-        # Cache for pre/post-delete signals.
-        self.delete_cache = BuildArgumentsCache()
         # Cache for pre/post-remove action in m2m_changed signal.
         self.remove_cache = BuildArgumentsCache()
 
@@ -247,21 +276,6 @@ class ManyToManyDependency(Dependency):
 
         return signals
 
-    def filter(self, obj, update_fields=None):
-        """Determine if dependent object should be processed.
-
-        If ``False`` is returned, processing of the dependent object will
-        be aborted.
-        """
-
-    def _filter(self, objects, **kwargs):
-        """Determine if dependent object should be processed."""
-        for obj in objects:
-            if self.filter(obj, **kwargs) is False:
-                return False
-
-        return True
-
     def _get_build_kwargs(self, obj, pk_set=None, action=None, update_fields=None, reverse=None, **kwargs):
         """Prepare arguments for rebuilding indices."""
         if action is None:
@@ -301,18 +315,6 @@ class ManyToManyDependency(Dependency):
                     return
 
             return result
-
-    def process_predelete(self, obj, pk_set=None, action=None, update_fields=None, **kwargs):
-        """Render the queryset of influenced objects and cache it."""
-        build_kwargs = self._get_build_kwargs(obj, pk_set, action, update_fields, **kwargs)
-        self.delete_cache.set(obj, build_kwargs)
-
-    def process_delete(self, obj, pk_set=None, action=None, update_fields=None, **kwargs):
-        """Recreate queryset from the index and rebuild the index."""
-        build_kwargs = self.delete_cache.take(obj)
-
-        if build_kwargs:
-            self.index.build(**build_kwargs)
 
     def process_m2m(self, obj, pk_set=None, action=None, update_fields=None, cache_key=None, **kwargs):
         """Process signals from dependencies.
@@ -362,12 +364,37 @@ class ManyToManyDependency(Dependency):
         """Process M2M post delete for custom through model."""
         self._process_m2m_through(obj, 'post_remove')
 
-    def process(self, obj, pk_set=None, action=None, update_fields=None, **kwargs):
-        """Process signals from dependencies."""
-        build_kwargs = self._get_build_kwargs(obj, pk_set, action, update_fields, **kwargs)
 
-        if build_kwargs:
-            self.index.build(**build_kwargs)
+class ReverseManyToOneDependency(Dependency):
+    """Dependency on a reverse many-to-one relation."""
+
+    def __init__(self, descriptor):
+        """Construct reverse m2o dependency."""
+        super().__init__(descriptor.rel.related_model)
+        self.accessor = descriptor.rel.field.attname
+
+    def _get_build_kwargs(self, obj, update_fields=None, **kwargs):
+        """Prepare arguments for rebuilding indices."""
+        if not self._filter([obj], update_fields=update_fields):
+            return
+
+        return {'queryset': self.index.object_type.objects.filter(pk=getattr(obj, self.accessor))}
+
+
+class ForwardManyToOneDependency(Dependency):
+    """Dependency on a forward many-to-one relation."""
+
+    def __init__(self, descriptor):
+        """Construct forward m2o dependency."""
+        super().__init__(descriptor.field.related_model)
+        self.accessor = descriptor.field.remote_field.get_accessor_name()
+
+    def _get_build_kwargs(self, obj, update_fields=None, **kwargs):
+        """Prepare arguments for rebuilding indices."""
+        if not self._filter([obj], update_fields=update_fields):
+            return
+
+        return {'queryset': getattr(obj, self.accessor).all()}
 
 
 class IndexBuilder:
@@ -409,6 +436,10 @@ class IndexBuilder:
             # Automatically convert m2m fields to dependencies.
             if isinstance(dependency, (models.ManyToManyField, ManyToManyDescriptor)):
                 dependency = ManyToManyDependency(dependency)
+            elif isinstance(dependency, ReverseManyToOneDescriptor):
+                dependency = ReverseManyToOneDependency(dependency)
+            elif isinstance(dependency, ForwardManyToOneDescriptor):
+                dependency = ForwardManyToOneDependency(dependency)
             elif not isinstance(dependency, Dependency):
                 raise TypeError("Unsupported dependency type: {}".format(repr(dependency)))
 
