@@ -17,6 +17,8 @@ if __name__ == '__main__':
                         help="Slug of the process to run (required if multiple processes are defined)")
     parser.add_argument('--inputs', type=str,
                         help="Path to input JSON file")
+    parser.add_argument('--requirements', type=str,
+                        help="Path to requirements JSON file")
     args = parser.parse_args()
 
     # Switch to target directory to import the module.
@@ -76,11 +78,24 @@ if __name__ == '__main__':
         print("ERROR: Input field validation failed: {}".format(error.args[0]))
         sys.exit(1)
 
+    # Prepare process requirements.
+    requirements = None
+    try:
+        if args.requirements:
+            with open(args.requirements) as requirements_file:
+                requirements = json.load(requirements_file)
+    except Exception as error:  # pylint: disable=broad-except
+        print("ERROR: Requirements failed to load: {}".format(str(error)))
+        sys.exit(1)
+
     # TODO: Configure logging.
 
     # Start the process.
     instance = process()
     try:
+        if requirements is not None:
+            instance._meta.metadata.requirements = requirements  # pylint: disable=protected-access
+
         instance.start(inputs)
     except ValidationError as error:
         print("ERROR: Output field validation failed: {}".format(error.args[0]))

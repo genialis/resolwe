@@ -164,3 +164,28 @@ class FileProcess(Process):
     def run(self, inputs, outputs):
         file_name = inputs.src.import_file()
         outputs.dst = file_name
+
+
+class RequirementsProcess(Process):
+    slug = 'test-python-process-requirements'
+    name = "Test Python Process Requirements"
+    version = '0.0.1'
+    process_type = 'data:python:requirements'
+    requirements = {
+        'resources': {
+            'cores': 2,
+            'memory': 4096,
+        },
+    }
+
+    class Output:
+        """Input fields."""
+        cores = IntegerField(label="Cores")
+        memory = IntegerField(label="Memory")
+
+    def run(self, inputs, outputs):
+        outputs.cores = self.requirements['resources']['cores']
+        outputs.memory = self.requirements['resources']['memory']
+
+        print('Cores:', outputs.cores)
+        print('Memory:', outputs.memory)

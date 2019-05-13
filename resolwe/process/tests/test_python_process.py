@@ -4,7 +4,7 @@ import sys
 import unittest
 
 from django.contrib.auth.models import AnonymousUser
-from django.test import LiveServerTestCase
+from django.test import LiveServerTestCase, override_settings
 
 from guardian.shortcuts import assign_perm
 
@@ -148,6 +148,36 @@ class PythonProcessTest(ProcessTestCase):
         data = self.run_process('test-python-process-file', inputs)
         self.assertEqual(data.output['dst']['file'], 'testfile.txt')
         self.assertEqual(data.output['dst']['size'], 15)
+
+
+class PythonProcessRequirementsTest(ProcessTestCase):
+    def setUp(self):
+        super().setUp()
+        self._register_schemas(processes_paths=[PROCESSES_DIR, WORKFLOWS_DIR], descriptors_paths=[DESCRIPTORS_DIR])
+        self.files_path = FILES_PATH
+
+    @with_docker_executor
+    @tag_process('test-python-process-requirements')
+    def test_defaults(self):
+        data = self.run_process('test-python-process-requirements')
+        self.assertEqual(data.output['cores'], 2)
+        self.assertEqual(data.output['memory'], 4096)
+
+    @with_docker_executor
+    @override_settings(FLOW_PROCESS_MAX_CORES=1)
+    @tag_process('test-python-process-requirements')
+    def test_max_cores(self):
+        data = self.run_process('test-python-process-requirements')
+        self.assertEqual(data.output['cores'], 1)
+        self.assertEqual(data.output['memory'], 4096)
+
+    @with_docker_executor
+    @override_settings(FLOW_PROCESS_RESOURCE_OVERRIDES={'memory': {'test-python-process-requirements': 2048}})
+    @tag_process('test-python-process-requirements')
+    def test_resource_override(self):
+        data = self.run_process('test-python-process-requirements')
+        self.assertEqual(data.output['cores'], 2)
+        self.assertEqual(data.output['memory'], 2048)
 
 
 class PythonProcessDataBySlugTest(ProcessTestCase, LiveServerTestCase):

@@ -20,6 +20,9 @@ PYTHON_PROGRAM_VOLUME = os.path.join(PYTHON_PROGRAM_ROOT, PYTHON_PROGRAM_FILENAM
 PYTHON_INPUTS_FILENAME = 'inputs.json'
 PYTHON_INPUTS_ROOT = '/'
 PYTHON_INPUTS_VOLUME = os.path.join(PYTHON_INPUTS_ROOT, PYTHON_INPUTS_FILENAME)
+PYTHON_REQUIREMENTS_FILENAME = 'requirements.json'
+PYTHON_REQUIREMENTS_ROOT = '/'
+PYTHON_REQUIREMENTS_VOLUME = os.path.join(PYTHON_INPUTS_ROOT, PYTHON_REQUIREMENTS_FILENAME)
 
 
 class ExecutionEngine(BaseExecutionEngine):
@@ -43,12 +46,16 @@ class ExecutionEngine(BaseExecutionEngine):
 
     def evaluate(self, data):
         """Evaluate the code needed to compute a given Data object."""
-        return 'PYTHONPATH="{runtime}" python3 -u -m resolwe.process {program} --slug {slug} --inputs {inputs}'.format(
-            runtime=PYTHON_RUNTIME_VOLUME,
-            program=PYTHON_PROGRAM_VOLUME,
-            slug=shlex.quote(data.process.slug),
-            inputs=PYTHON_INPUTS_VOLUME,
-        )
+        return ('PYTHONPATH="{runtime}" python3 -u -m resolwe.process {program} '
+                '--slug {slug} '
+                '--inputs {inputs} '
+                '--requirements {requirements}'.format(
+                    runtime=PYTHON_RUNTIME_VOLUME,
+                    program=PYTHON_PROGRAM_VOLUME,
+                    slug=shlex.quote(data.process.slug),
+                    inputs=PYTHON_INPUTS_VOLUME,
+                    requirements=PYTHON_REQUIREMENTS_VOLUME,
+                ))
 
     def prepare_runtime(self, runtime_dir, data):
         """Prepare runtime directory."""
@@ -86,11 +93,23 @@ class ExecutionEngine(BaseExecutionEngine):
         with open(inputs_path, 'w') as file:
             json.dump(inputs, file, default=default)
 
+        # Write serialized requirements.
+        # Include special 'requirements' variable in the context.
+        requirements = copy.deepcopy(data.process.requirements)
+        # Inject default values and change resources according to
+        # the current Django configuration.
+        requirements['resources'] = data.process.get_resource_limits()
+        requirements_path = os.path.join(runtime_dir, PYTHON_REQUIREMENTS_FILENAME)
+
+        with open(requirements_path, 'w') as file:
+            json.dump(requirements, file)
+
         # Generate volume maps required to expose needed files.
         volume_maps = {
             PYTHON_RUNTIME_DIRNAME: PYTHON_RUNTIME_VOLUME,
             PYTHON_PROGRAM_FILENAME: PYTHON_PROGRAM_VOLUME,
             PYTHON_INPUTS_FILENAME: PYTHON_INPUTS_VOLUME,
+            PYTHON_REQUIREMENTS_FILENAME: PYTHON_REQUIREMENTS_VOLUME,
         }
 
         return volume_maps
