@@ -21,6 +21,7 @@ Added
 -----
 - Support Python 3.7
 - Support forward and reverse many-to-one relations in Elasticsearch
+- Add ``collection_names`` field to ``DataSerializer``
 
 
 ===================

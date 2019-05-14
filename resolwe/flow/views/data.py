@@ -34,7 +34,8 @@ class DataViewSet(ElasticSearchCombinedViewSet,
                   viewsets.GenericViewSet):
     """API view for :class:`Data` objects."""
 
-    queryset = Data.objects.all().prefetch_related('process', 'descriptor_schema', 'contributor', 'entity_set')
+    queryset = Data.objects.all().prefetch_related('process', 'descriptor_schema', 'contributor', 'collection_set',
+                                                   'entity_set')
     serializer_class = DataSerializer
     permission_classes = (get_permissions_class(),)
     document_class = DataDocument

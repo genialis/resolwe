@@ -38,6 +38,7 @@ class DataSerializer(ResolweBaseSerializer):
     process = ResolweSlugRelatedField(queryset=Process.objects.all())
     descriptor_schema = NestedDescriptorSchemaSerializer(required=False)
     entity_names = serializers.SerializerMethodField()
+    collection_names = serializers.SerializerMethodField()
 
     collections = serializers.SerializerMethodField()
     entities = serializers.SerializerMethodField()
@@ -71,6 +72,7 @@ class DataSerializer(ResolweBaseSerializer):
             'size',
             'started',
             'status',
+            'collection_names',
             'entity_names',
         )
         update_protected_fields = (
@@ -101,6 +103,11 @@ class DataSerializer(ResolweBaseSerializer):
         """Filter object objects by permissions of user in request."""
         user = self.request.user if self.request else AnonymousUser()
         return get_objects_for_user(user, perms, queryset)
+
+    def get_collection_names(self, data):
+        """Return serialized list of collection names on data that user has `view` permission on."""
+        collections = self._filter_queryset('view_collection', data.collection_set.all())
+        return list(collections.values_list('name', flat=True))
 
     def get_entity_names(self, data):
         """Return serialized list of entity names on data that user has `view` permission on."""

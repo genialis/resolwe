@@ -61,7 +61,7 @@ class CollectionViewSet(ElasticSearchCombinedViewSet,
     def get_queryset(self):
         """Return queryset."""
         if self.request and self.request.query_params.get('hydrate_data', False):
-            return self.queryset.prefetch_related('entity_set')
+            return self.queryset.prefetch_related('data__entity_set', 'data__collection_set')
 
         return self.queryset
 
