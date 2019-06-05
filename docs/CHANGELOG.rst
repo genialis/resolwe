@@ -24,6 +24,7 @@ Added
 - Add ``collection_names`` field to ``DataSerializer``
 - Add test methods  to ``ProcessTestCase`` that assert directory structure and
   content: ``assertDirExists``, ``assertDir``, and ``assertDirStructure``
+- Add ``upload-dir`` process
 
 
 ===================

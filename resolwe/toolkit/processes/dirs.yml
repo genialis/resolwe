@@ -1,0 +1,36 @@
+# ===================
+# Directory Processes
+# ===================
+---
+
+- slug: upload-dir
+  name: Directory
+  requirements:
+    expression-engine: jinja
+    executor:
+      docker:
+        image: resolwe/base:ubuntu-18.04
+  data_name: '{{ src.file|default("?") }}'
+  version: 0.0.1
+  type: data:dir
+  category: upload
+  persistence: RAW
+  description: >
+    Upload tarball of a directory.
+  input:
+    - name: src
+      label: Compressed directory
+      type: basic:file
+      validate_regex: '\.tar\.gz$'
+  output:
+    - name: dir
+      label: Directory
+      type: basic:dir
+  run:
+    runtime: polyglot
+    language: bash
+    program: |
+      mkdir data
+      tar xzf {{ src.file_temp }} --directory data
+      re-checkrc "Compressed directory is not in tar.gz format"
+      re-save-dir dir data
