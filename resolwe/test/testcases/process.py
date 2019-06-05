@@ -6,12 +6,15 @@
 """
 
 import contextlib
+import filecmp
 import gzip
 import hashlib
 import io
 import json
 import os
 import shutil
+import tarfile
+import tempfile
 import time
 import uuid
 import zipfile
@@ -535,6 +538,22 @@ class ProcessTestCase(TransactionTestCase):
             msg="Data status is '{}', not '{}'".format(obj.status, status) + self._debug_info(obj)
         )
 
+    def _get_output_field(self, obj, path):
+        """Return object's output field schema and field dict.
+
+        :param obj: object with the output field
+        :type obj: ~resolwe.flow.models.Data
+
+        :param str path: path to :class:`~resolwe.flow.models.Data`
+            object's output field
+
+        """
+        for field_schema, field, field_path in iterate_fields(obj.output, obj.process.output_schema, ''):
+            if path == field_path:
+                return field_schema, field
+
+        self.fail("Field not found in path {}.".format(path))
+
     def assertFields(self, obj, path, value):  # pylint: disable=invalid-name
         """Compare object's field to the given value.
 
@@ -728,6 +747,126 @@ class ProcessTestCase(TransactionTestCase):
             output_file = obj.location.get_path(filename=item['file'])
             if not os.path.isfile(output_file):
                 self.fail(msg="File {} in output field {} does not exist.".format(item['file'], field_path))
+
+    def assertDirExists(self, obj, field_path):  # pylint: disable=invalid-name
+        """Assert that a directory in the output field of the given object exists.
+
+        :param obj: object that includes the file for which to check if
+            it exists
+
+        :param field_path: directory name/path
+        """
+        schema, field = self._get_output_field(obj, field_path)
+        if not schema['type'].startswith('basic:dir:'):
+            self.fail(msg='Field {} is not of type basic:dir:'.format(field_path))
+
+        dir_path = obj.location.get_path(filename=field[field_path]['dir'])
+        if not os.path.isdir(dir_path):
+            self.fail(msg="Directory {} in output field {} does not exist.".format(dir_path, field_path))
+
+    def _assert_dir_structure(self, dir_path, dir_struct, exact=True):
+        """Compare tree structure of directory `dir_path` to `dir_struct`."""
+        test_dirs = set()
+        test_files = set()
+        for root, dirs, files in os.walk(dir_path):
+            for test_dir in dirs:
+                test_dirs.add(os.path.relpath(os.path.join(root, test_dir), dir_path))
+            for test_file in files:
+                test_files.add(os.path.relpath(os.path.join(root, test_file), dir_path))
+
+        def get_dirs(indict, root=''):
+            """Generate directory names from dict."""
+            for key, value in indict.items():
+                if isinstance(value, dict):
+                    yield os.path.join(root, key)
+                    yield from get_dirs(value, os.path.join(root, key))
+                elif value is not None:
+                    self.fail(msg='Directory structure specification is incorrect')
+
+        def get_files(indict, root=''):
+            """Generate file names from dict."""
+            for key, value in indict.items():
+                if value is None:
+                    yield os.path.join(root, key)
+                elif isinstance(value, dict) and value:
+                    yield from get_files(value, os.path.join(root, key))
+                elif not isinstance(value, dict):
+                    self.fail(msg='Directory structure specification is incorrect.')
+
+        correct_files = {file for file in get_files(dir_struct)}
+        correct_dirs = {correct_dir for correct_dir in get_dirs(dir_struct)}
+
+        if exact and (test_dirs != correct_dirs or test_files != correct_files):
+            self.fail(msg='Directory structure mismatch (exact check).')
+        if not exact and (correct_dirs - test_dirs or correct_files - test_files):
+            self.fail(msg='Directory structure mismatch (partial structure check).')
+
+    def assertDirStructure(self, obj, field_path, dir_struct, exact=True):  # pylint: disable=invalid-name
+        """Assert correct tree structure in output field of given object.
+
+        Only names of directories and files are asserted. Content of files is
+        not compared.
+
+        :param obj: object that includes the directory to compare
+        :type obj: ~resolwe.flow.models.Data
+
+        :param str dir_path: path to the directory to compare
+
+        :param dict dir_struct: correct tree structure of the directory.
+            Dictionary keys are directory and file names with the correct nested
+            structure. Dictionary value associated with each directory is a new
+            dictionary which lists the content of the directory. Dictionary
+            value associated with each file name is ``None``
+
+        :param bool exact: if ``True`` tested directory structure must exactly
+            match `dir_struct`. If ``False`` `dir_struct` must be a partial
+            structure of the directory to compare
+
+        """
+        self.assertDirExists(obj, field_path)
+        field = dict_dot(obj.output, field_path)
+        dir_path = obj.location.get_path(filename=field['dir'])
+        self._assert_dir_structure(dir_path, dir_struct, exact)
+
+    def _assert_dir(self, dir_path, fn_correct, fail_on_funny=True):
+        """Compare directory `dir_path` to compressed directory `fn_correct`."""
+        correct_path = os.path.join(self.files_path, fn_correct)
+        if not os.path.isfile(correct_path):
+            with tarfile.open(correct_path, 'w:gz') as f:
+                for content in os.listdir(dir_path):
+                    f.add(os.path.join(dir_path, content), arcname=content)
+            self.fail(msg="Compressed output directory {} missing so it was created.".format(fn_correct))
+
+        if not tarfile.is_tarfile(correct_path):
+            self.fail(msg="{} is not a tar file.".format(fn_correct))
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with tarfile.open(correct_path) as tar:
+                tar.extractall(temp_dir)
+            cmp = filecmp.dircmp(dir_path, temp_dir)
+            if cmp.left_only or cmp.right_only or cmp.diff_files or (fail_on_funny and cmp.funny_files):
+                self.fail(msg='Directory {} content mismatch: {}.'.format(fn_correct, cmp.report()))
+
+    def assertDir(self, obj, field_path, fn):  # pylint: disable=invalid-name
+        """Compare process output directory to correct compressed directory.
+
+        :param obj: object that includes the directory to compare
+        :type obj: ~resolwe.flow.models.Data
+
+        :param str field_path: path to
+            :class:`~resolwe.flow.models.Data` object's field with the
+            file name
+
+        :param str fn: file name (and relative path) of the correct compressed
+            directory to compare against. Path should be relative to the
+            ``tests/files`` directory of a Django application. Compressed
+            directory needs to be in ``tar.gz`` format.
+
+        """
+        self.assertDirExists(obj, field_path)
+        field = dict_dot(obj.output, field_path)
+        dir_path = obj.location.get_path(filename=field['dir'])
+        self._assert_dir(dir_path, fn)
 
     def assertJSON(self, obj, storage, field_path, file_name):  # pylint: disable=invalid-name
         """Compare JSON in Storage object to the given correct JSON.

@@ -1,10 +1,14 @@
 # pylint: disable=missing-docstring
 import builtins
+import copy
 import gzip
 import io
 import json
 import os.path
+import shutil
+import tarfile
 import tempfile
+import unittest
 import unittest.mock as mock
 
 from resolwe.flow.models import Storage
@@ -19,8 +23,18 @@ class TestingFrameworkTestCase(TestCase):
     def setUp(self):
         self.dummy_case = ProcessTestCase.__new__(ProcessTestCase)
         self.dummy_case.files_path = ''
-        self.dummy_case._debug_info = lambda _: ''  # pylint: disable=protected-access
+        self.dummy_case._debug_info = lambda _: ''
         setattr(self.dummy_case, 'assertEqual', self.assertEqual)
+
+        self.temp_dir = tempfile.mkdtemp()
+        open(os.path.join(self.temp_dir, 'extensionless file'), 'w').close()
+        open(os.path.join(self.temp_dir, 'text file.txt'), 'w').close()
+        os.mkdir(os.path.join(self.temp_dir, 'dir'))
+        open(os.path.join(self.temp_dir, 'dir', 'another file'), 'w').close()
+        os.mkdir(os.path.join(self.temp_dir, 'dir', 'empty dir.ext'))
+
+    def tearDown(self):
+        shutil.rmtree(self.temp_dir)
 
     @mock.patch("os.path.isfile")
     def test_assert_file_date_nofilter(self, isfile_mock):
@@ -149,8 +163,7 @@ class TestingFrameworkTestCase(TestCase):
         with mock.patch.object(os.path, 'join', join_mock):
             with mock.patch.object(os.path, 'isfile', isfile_mock):
 
-                # https://github.com/PyCQA/pylint/issues/1653
-                self.assertRaisesRegex(  # pylint: disable=deprecated-method
+                self.assertRaisesRegex(
                     AssertionError,
                     'Output file .* missing so it was created.',
                     ProcessTestCase.assertJSON,
@@ -194,6 +207,105 @@ class TestingFrameworkTestCase(TestCase):
 
     def test_is_testing(self):
         self.assertTrue(is_testing())
+
+    def test_assert_dir_structure(self):
+        correct_structure = {
+            'extensionless file': None,
+            'text file.txt': None,
+            'dir': {
+                'another file': None,
+                'empty dir.ext': {
+                },
+            },
+        }
+        substructure = copy.deepcopy(correct_structure)
+        del substructure['dir']
+        wrong_structure = copy.deepcopy(correct_structure)
+        wrong_structure['extensionless file'] = {}
+        wrong_format = copy.deepcopy(correct_structure)
+        wrong_format['dir']['another_file'] = 'foo'
+
+        # Exact structure checks
+        ProcessTestCase._assert_dir_structure(
+            self.dummy_case, self.temp_dir, correct_structure)
+
+        self.assertRaisesRegex(
+            AssertionError, r'Directory structure mismatch \(exact check\).',
+            ProcessTestCase._assert_dir_structure,
+            self.dummy_case, self.temp_dir, substructure)
+
+        self.assertRaisesRegex(
+            AssertionError, r'Directory structure mismatch \(exact check\).',
+            ProcessTestCase._assert_dir_structure,
+            self.dummy_case, self.temp_dir, wrong_structure)
+
+        self.assertRaisesRegex(
+            AssertionError, 'Directory structure specification is incorrect.',
+            ProcessTestCase._assert_dir_structure,
+            self.dummy_case, self.temp_dir, wrong_format)
+
+        # Partial structure checks
+        ProcessTestCase._assert_dir_structure(
+            self.dummy_case, self.temp_dir, correct_structure, False)
+
+        ProcessTestCase._assert_dir_structure(
+            self.dummy_case, self.temp_dir, substructure, False)
+
+        self.assertRaisesRegex(
+            AssertionError, r'Directory structure mismatch \(partial structure check\).',
+            ProcessTestCase._assert_dir_structure,
+            self.dummy_case, self.temp_dir, wrong_structure, False)
+
+        self.assertRaisesRegex(
+            AssertionError, 'Directory structure specification is incorrect.',
+            ProcessTestCase._assert_dir_structure,
+            self.dummy_case, self.temp_dir, wrong_format, False)
+
+    def test_assert_dir_structure_missing(self):  # pylint: disable=invalid-name
+        obj_mock = mock.MagicMock()
+        obj_mock.pk = 'no id'
+        obj_mock.output = {
+            'field_name': {
+                'dir': 'non-existing directory',
+            },
+        }
+        obj_mock.process.output_schema = [
+            {
+                'name': 'field_name',
+                'type': 'basic:dir:',
+            },
+        ]
+
+        self.assertRaisesRegex(
+            AssertionError, 'Directory .* does not exist.', ProcessTestCase.assertDirStructure,
+            self.dummy_case, obj_mock, 'field_name', 'foo.tar.gz')
+
+    def test_assert_dir_missing(self):
+        obj_mock = mock.MagicMock()
+        obj_mock.pk = 'no id'
+        obj_mock.output = {'field_name': {'dir': 'non-existing directory'}}
+        obj_mock.process.output_schema = [{'name': 'field_name', 'type': 'basic:dir:'}]
+
+        self.assertRaisesRegex(
+            AssertionError, 'Directory .* does not exist.', ProcessTestCase.assertDir,
+            self.dummy_case, obj_mock, 'field_name', 'foo.tar.gz')
+
+    def test_assert_dir_compressed_missing(self):  # pylint: disable=invalid-name
+        test_output = io.BytesIO()
+        correct_output = io.BytesIO()
+        open_mock = mock.MagicMock(return_value=tarfile.open(fileobj=test_output, mode='w:gz'))
+
+        with mock.patch.object(tarfile, 'open', open_mock):
+            self.assertRaisesRegex(
+                AssertionError, 'Compressed output directory .* missing so it was created.',
+                ProcessTestCase._assert_dir,
+                self.dummy_case, self.temp_dir, '')
+
+        with tarfile.open(fileobj=correct_output, mode='w:gz') as f:
+            for content in os.listdir(self.temp_dir):
+                f.add(os.path.join(self.temp_dir, content), arcname=content)
+
+        self.assertEqual(test_output.getvalue(), correct_output.getvalue())
 
 
 class TestingFrameworkProcessTestCase(ProcessTestCase):
