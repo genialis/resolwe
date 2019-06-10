@@ -111,7 +111,7 @@ jobs:
         provider: pypi
         user: genialis-bot
         password:
-          secure: "Z3shLiQqooqYevBBKzlJba0jPtB1bIfogsoTBHzTVV72w3SZtWzZrPYE0CYsMHRf8218DC0jNEK/0WEKWISmhJK3LAL04MjcmJVHGwR+4jaq5YS+I/U5NsdwmPkWzy4Vto856jjSKGMyeCDmQ/P8cMBvWppaMBKRhnR50F7UPueWnvfPCC9KKWZ3oAH+P+8tWHZxg9ehDG1uLvgmvcPe+RDmrClyZPw+A+QeUJ1zHtyDMfHRucsoorjqoG8KaCC8wE08oeuwDaQkSsq2r5et0Mp6edQsKZo86ZaTskDl4UcrxyOB7K8yK7UMwj1rD3uHGlgM6B1zTSOADFkLwJizK3GgIjBowVmPRr9zNQ7mMNXVPXIIMxEmkAksl8Ix5zWkOYmS0QzOdMAs6QgeK7zA+uqkTKDstfs8hd9M3xGtEdXwOsF2jzLvqj/UeqWSBdoDWQug16LxVz/lFZzj52QAf659eldQ4dLQHqtMa31ENlkoCZXNpPmq/m+8CErZPPBZVIbyBNw0vJwTSlH11E4WdDEGd4Z4dOWfBv5/XEvJuUHNUF2RDyii2iBEzybBmvt272xTYOv8XpfYB4nKJt+ci65pSp4lCgIQXF2wgAkLd39imMk9eymgys/llrR13W/Uqmd5iOR2J21Gh1uvkzOR+Oor6N7a9278Ii7OHJ7uzKI="
+          secure: "W3h29ynEK6ZGpbhVWI9bvlMfr6JG/EltL7k2/ZCNLEv2eCKKj0VMFLiAtWixBXfJi9xct04MbYjNo0YznoAMgGaVrtt8XhQfvbpG3D8coer4N/MEW/8gZXn+nAA9QZDXC5THhnQT5PQofo7b8e1Rv0N/bMuADARdc+OSsZwgvasYrJvNSbSTRMuScOdp/xdxVYcT4+gk8Dtf4y7O7vw3w/dzLYHOOLWUyzPvgCHg7RCXAQ/rjO1EQdOOz8yQkoIGVcdNMTHjsHZ9bhGE+/K9YRdIdC4iwXrQDCcnwqxro2gcIkYQVzp2FObUv2KKWKGYzYAKR+p6Hd/6dWcOiG2uFH3dkCEPQxB8eofxLLunRtakRzViFjm+ijq2sYyOhw+Q9fcUOPcJCqECQ9IO6USoFZ+hkII49zvS+zNESDNNA1p78EAy7prf3uqO5iP1opNdAnmHxwIogsfaWX4MfaTUmaABMxMmLiQ00XBToNuEYaXpkTsqAJJq7itm9x69zAsUIg29YnfCYGVG5K5J+AH/fbRndQcgBdsPzIsxWOQzZ0XCVsMdT1dD4pyRrDbmpv7KEoGn6DhVkLYzUKhyEvPN8a17HS3xslRvqgGrojXC67kZa4e2Zl+4vRRSIJ7go8vpuFXXEyyXaLOTnorEelafvLJ0zXlIOmbHa17DD+dPtYc="
         distributions: sdist bdist_wheel
         on:
           # Enable deploying tags. By default, Travis CI only deploys from the
