@@ -239,6 +239,8 @@ class ElasticSearchBaseViewSet(PaginationMixin, ElasticSearchMixin, GenericViewS
                 raise TooManyResults()
 
         search = search.extra(size=ELASTICSEARCH_SIZE)
+        for data in search.execute().hits:
+            print(data.meta.score, data.id)
         return search
 
     def list_with_post(self, request):

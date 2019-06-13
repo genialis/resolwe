@@ -34,6 +34,7 @@ class BaseViewSetFiltersTest(TestCase):
         if status.is_success(response.status_code):
             self.assertEqual(len(response.data), len(expected))
             if check_ordering:
+                print([item['id'] for item in response.data])
                 self.assertEqual(
                     [item.pk for item in expected],
                     [item['id'] for item in response.data],
