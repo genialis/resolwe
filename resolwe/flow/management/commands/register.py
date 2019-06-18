@@ -157,10 +157,17 @@ class Command(BaseCommand):
                         "Skip process {}: 'entity.type' required if 'entity' defined".format(p['slug'])
                     )
                     continue
+                if 'input' in p['entity'] and p['entity'].get('always_create', False):
+                    self.stderr.write(
+                        "Skip process {}: 'entity.input' will not be considered if 'entity.always_create' "
+                        "is set to true.".format(p['slug'])
+                    )
+                    continue
 
                 p['entity_type'] = p['entity']['type']
                 p['entity_descriptor_schema'] = p['entity'].get('descriptor_schema', p['entity_type'])
                 p['entity_input'] = p['entity'].get('input', None)
+                p['entity_always_create'] = p['entity'].get('always_create', False)
                 p.pop('entity')
 
                 if not DescriptorSchema.objects.filter(slug=p['entity_descriptor_schema']).exists():

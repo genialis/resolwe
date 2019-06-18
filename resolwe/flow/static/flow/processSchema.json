@@ -45,6 +45,10 @@
                 "input": {
                     "description": "Input or list of inputch from which entity will be propagated.",
                     "type": "string"
+                },
+                "always_create": {
+                    "description": "Create new entity, regardless of input or descriptor_schema properties.",
+                    "type": "boolean"
                 }
             },
             "additionalProperties": false

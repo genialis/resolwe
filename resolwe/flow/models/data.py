@@ -351,6 +351,7 @@ class Data(BaseModel):
         entity_type = self.process.entity_type  # pylint: disable=no-member
         entity_descriptor_schema = self.process.entity_descriptor_schema  # pylint: disable=no-member
         entity_input = self.process.entity_input  # pylint: disable=no-member
+        entity_always_create = self.process.entity_always_create  # pylint: disable=no-member
 
         if entity_type:
             data_filter = {}
@@ -373,7 +374,7 @@ class Data(BaseModel):
             entity_query = Entity.objects.filter(type=entity_type, **data_filter).distinct()
             entity_count = entity_query.count()
 
-            if entity_count == 0:
+            if entity_count == 0 or entity_always_create:
                 descriptor_schema = DescriptorSchema.objects.filter(
                     slug=entity_descriptor_schema
                 ).latest()

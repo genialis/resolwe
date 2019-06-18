@@ -141,6 +141,12 @@ class Process(BaseModel):
     :attr:`~resolwe.flow.models.Process.entity_type` to a single input.
     """
 
+    entity_always_create = models.BooleanField(default=False)
+    """
+    Create new entity, regardless of ``entity_input`` or
+    ``entity_descriptor_schema`` fields.
+    """
+
     run = JSONField(default=dict)
     """
     process command and environment description for internal use

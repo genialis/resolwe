@@ -338,6 +338,22 @@ class EntityModelTest(TestCase):
         )
         self.assertEqual(data.entity_set.count(), 0)
 
+        # Multiple Entities with entity_always_create = True - Data object should be added to a whole new entity.
+        test_process.entity_always_create = True
+        test_process.save()
+        data = Data.objects.create(
+            contributor=self.contributor,
+            process=test_process,
+            input={
+                'data': data_1.pk,
+                'data_list': [data_2.pk, data_3.pk],
+            }
+        )
+        self.assertEqual(data.entity_set.count(), 1)
+        self.assertEqual(data.entity_set.last(), Entity.objects.last())
+        test_process.entity_always_create = False
+        test_process.save()
+
         # Multiple Entities with entity_input defined - Data object should be added to it.
         test_process.entity_input = 'data'
         test_process.save()

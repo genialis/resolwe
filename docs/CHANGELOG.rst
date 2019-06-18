@@ -19,6 +19,7 @@ Added
 -----
 - ``/api/data/:id/parents`` and ``/api/data/:id/children`` API endpoints for
   listing parents and children Data objects of the object with given ``id``
+- Add ``entity_always_create`` field to ``Process`` model
 
 Fixed
 -----
