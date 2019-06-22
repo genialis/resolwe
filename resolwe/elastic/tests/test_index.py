@@ -208,56 +208,56 @@ class IndexTest(ElasticSearchTestCase):
         assign_perm('view_testmodel', group, test_obj)
 
         es_objects = TestSearchDocument.search().execute()
-        self.assertEqual(es_objects[0].users_with_permissions, [user_1.pk, user_2.pk])
-        self.assertEqual(es_objects[0].groups_with_permissions, [group.pk])
+        self.assertCountEqual(es_objects[0].users_with_permissions, [user_1.pk, user_2.pk])
+        self.assertCountEqual(es_objects[0].groups_with_permissions, [group.pk])
         self.assertEqual(es_objects[0].public_permission, False)
 
         # Add user permission
         assign_perm('view_testmodel', user_3, test_obj)
 
         es_objects = TestSearchDocument.search().execute()
-        self.assertEqual(es_objects[0].users_with_permissions, [user_1.pk, user_2.pk, user_3.pk])
-        self.assertEqual(es_objects[0].groups_with_permissions, [group.pk])
+        self.assertCountEqual(es_objects[0].users_with_permissions, [user_1.pk, user_2.pk, user_3.pk])
+        self.assertCountEqual(es_objects[0].groups_with_permissions, [group.pk])
         self.assertEqual(es_objects[0].public_permission, False)
 
         # Remove user permission
         remove_perm('view_testmodel', user_2, test_obj)
 
         es_objects = TestSearchDocument.search().execute()
-        self.assertEqual(es_objects[0].users_with_permissions, [user_1.pk, user_3.pk])
-        self.assertEqual(es_objects[0].groups_with_permissions, [group.pk])
+        self.assertCountEqual(es_objects[0].users_with_permissions, [user_1.pk, user_3.pk])
+        self.assertCountEqual(es_objects[0].groups_with_permissions, [group.pk])
         self.assertEqual(es_objects[0].public_permission, False)
 
         # Remove group permission
         remove_perm('view_testmodel', group, test_obj)
 
         es_objects = TestSearchDocument.search().execute()
-        self.assertEqual(es_objects[0].users_with_permissions, [user_1.pk, user_3.pk])
-        self.assertEqual(es_objects[0].groups_with_permissions, [])
+        self.assertCountEqual(es_objects[0].users_with_permissions, [user_1.pk, user_3.pk])
+        self.assertCountEqual(es_objects[0].groups_with_permissions, [])
         self.assertEqual(es_objects[0].public_permission, False)
 
         # Add group permission
         assign_perm('view_testmodel', group, test_obj)
 
         es_objects = TestSearchDocument.search().execute()
-        self.assertEqual(es_objects[0].users_with_permissions, [user_1.pk, user_3.pk])
-        self.assertEqual(es_objects[0].groups_with_permissions, [group.pk])
+        self.assertCountEqual(es_objects[0].users_with_permissions, [user_1.pk, user_3.pk])
+        self.assertCountEqual(es_objects[0].groups_with_permissions, [group.pk])
         self.assertEqual(es_objects[0].public_permission, False)
 
         # Add public permission
         assign_perm('view_testmodel', AnonymousUser(), test_obj)
 
         es_objects = TestSearchDocument.search().execute()
-        self.assertEqual(es_objects[0].users_with_permissions, [user_pub.pk, user_1.pk, user_3.pk])
-        self.assertEqual(es_objects[0].groups_with_permissions, [group.pk])
+        self.assertCountEqual(es_objects[0].users_with_permissions, [user_pub.pk, user_1.pk, user_3.pk])
+        self.assertCountEqual(es_objects[0].groups_with_permissions, [group.pk])
         self.assertEqual(es_objects[0].public_permission, True)
 
         # Remove public permission
         remove_perm('view_testmodel', AnonymousUser(), test_obj)
 
         es_objects = TestSearchDocument.search().execute()
-        self.assertEqual(es_objects[0].users_with_permissions, [user_1.pk, user_3.pk])
-        self.assertEqual(es_objects[0].groups_with_permissions, [group.pk])
+        self.assertCountEqual(es_objects[0].users_with_permissions, [user_1.pk, user_3.pk])
+        self.assertCountEqual(es_objects[0].groups_with_permissions, [group.pk])
         self.assertEqual(es_objects[0].public_permission, False)
 
     def test_field_name(self):

@@ -23,7 +23,10 @@ from elasticsearch.helpers import bulk
 from elasticsearch_dsl.connections import connections
 from elasticsearch_dsl.exceptions import IllegalOperation
 
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
+from django.db.models import Subquery
 
 from django_priority_batch import PrioritizedBatcher
 from guardian.conf.settings import ANONYMOUS_USER_NAME
@@ -406,19 +409,29 @@ class BaseIndex:
         contain list of ids of users/groups with ``view`` permission.
         """
         # TODO: Optimize this for bulk running
+        permissions_subquery = Subquery(
+            # Override the default ordering to simplify the query.
+            Permission.objects.filter(
+                content_type=ContentType.objects.get_for_model(obj),
+                codename__startswith='view',
+            ).order_by().values('pk')
+        )
+        public_user_subquery = Subquery(
+            get_user_model().objects.filter(username=ANONYMOUS_USER_NAME).values('pk')
+        )
+
         filters = {
             'object_pk': obj.id,
-            'content_type': ContentType.objects.get_for_model(obj),
-            'permission__codename__startswith': 'view',
+            'permission': permissions_subquery,
         }
         return {
             'users': list(
-                UserObjectPermission.objects.filter(**filters).distinct('user').values_list('user_id', flat=True)
+                UserObjectPermission.objects.filter(**filters).values_list('user_id', flat=True)
             ),
             'groups': list(
-                GroupObjectPermission.objects.filter(**filters).distinct('group').values_list('group', flat=True)
+                GroupObjectPermission.objects.filter(**filters).values_list('group', flat=True)
             ),
-            'public': UserObjectPermission.objects.filter(user__username=ANONYMOUS_USER_NAME, **filters).exists(),
+            'public': UserObjectPermission.objects.filter(user=public_user_subquery, **filters).exists(),
         }
 
     def get_dependencies(self):
