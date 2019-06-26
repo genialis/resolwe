@@ -245,6 +245,10 @@ class BaseIndex:
 
     def create_mapping(self):
         """Create the mappings in elasticsearch."""
+        if self._mapping_created:
+            return
+
+        logger.debug("Pushing mapping for Elasticsearch index '%s'.", self.__class__.__name__)
         try:
             self.document_class.init()
             self._mapping_created = True
@@ -372,14 +376,7 @@ class BaseIndex:
     def push(self):
         """Push built documents to ElasticSearch."""
         self._refresh_connection()
-
-        # Check if we need to update mappings as this needs to be done
-        # before we push anything to the Elasticsearch server.
-        # This must be done even if the queue is empty, as otherwise ES
-        # will fail when retrieving data.
-        if not self._mapping_created:
-            logger.debug("Pushing mapping for Elasticsearch index '%s'.", self.__class__.__name__)
-            self.create_mapping()
+        self.create_mapping()
 
         if not self.push_queue:
             logger.debug("No documents to push, skipping push.")
@@ -448,4 +445,5 @@ class BaseIndex:
 
     def search(self):
         """Return search query of document object."""
+        self.create_mapping()
         return self.document_class.search()

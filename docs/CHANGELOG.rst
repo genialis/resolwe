@@ -6,6 +6,15 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Fixed
+-----
+- Make sure that Elasticsearch index exists before executing a search query
+
+
 ===================
 17.0.0 - 2019-06-17
 ===================
