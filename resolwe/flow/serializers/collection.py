@@ -1,9 +1,10 @@
 """Resolwe collection serializer."""
-from resolwe.flow.models import Collection
+from resolwe.flow.models import Collection, DescriptorSchema
 from resolwe.rest.fields import ProjectableJSONField
 
 from .base import ResolweBaseSerializer
-from .fields import NestedDescriptorSchemaSerializer
+from .descriptor import DescriptorSchemaSerializer
+from .fields import DictRelatedField
 
 
 class CollectionSerializer(ResolweBaseSerializer):
@@ -11,7 +12,11 @@ class CollectionSerializer(ResolweBaseSerializer):
 
     settings = ProjectableJSONField(required=False)
     descriptor = ProjectableJSONField(required=False)
-    descriptor_schema = NestedDescriptorSchemaSerializer(required=False)
+    descriptor_schema = DictRelatedField(
+        queryset=DescriptorSchema.objects.all(),
+        serializer=DescriptorSchemaSerializer,
+        required=False
+    )
 
     class Meta:
         """CollectionSerializer Meta options."""

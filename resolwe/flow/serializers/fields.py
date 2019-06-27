@@ -2,73 +2,74 @@
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils.encoding import smart_text
 
-from rest_framework.relations import RelatedField
+from rest_framework import exceptions, relations
 
-from resolwe.flow.models import DescriptorSchema
 from resolwe.permissions.shortcuts import get_objects_for_user
 from resolwe.permissions.utils import get_full_perm
 
-from .descriptor import DescriptorSchemaSerializer
 
-
-class ResolweSlugRelatedField(RelatedField):
+class DictRelatedField(relations.RelatedField):
     """
-    Resolwe specific implementation of SlugRelatedField.
+    Field representing the target of the relationship by using dict.
 
-    A read-write field that represents the target of the relationship
-    by a unique combination of 'slug' and 'version' attributes.
-
-    This is a modification of rest_framework.relations.SlugRelatedField.
-    Since slug is not unique, (but combination of slug and version is),
-    we filter objects by slug, by permissions and return object with
+    A read-write field that represents the target of the relationship by
+    a dictionary, where objects are uniquely defined by ``id`` or
+    ``slug`` keys in the dictionary. If ``id`` is provided the uniquness
+    of object is arbitrary. If ``id`` is not in the dict, object is
+    determined by slug. Since multiple objects can have same slug, we
+    filter objects by slug, by permissions and return object with
     highest version.
-
     """
 
     default_error_messages = {
-        'does_not_exist': ('Invalid {model_name} {slug_name} "{value}" - object does not exist.'),
-        'invalid': ('Invalid value.'),
+        'slug_not_allowed': ('Use id (instead of slug) for update requests.'),
+        'no_data': ('At least one of id, slug must be present in field {name}.'),
+        'does_not_exist': ('Invalid {model_name} value: {value} - object does not exist.'),
+        'permission_denied': ("You do not have {permission} permission for {model_name}: {value}."),
     }
 
-    def __init__(self, slug_field='slug', **kwargs):
+    def __init__(self, serializer, write_permission='view', **kwargs):
         """Initialize attributes."""
-        self.slug_field = slug_field
+        self.serializer = serializer
+        self.write_permission = write_permission
         super().__init__(**kwargs)
+
+    @property
+    def model_name(self):
+        """Get name of queryset model."""
+        return self.get_queryset().model._meta.model_name  # pylint: disable=protected-access
 
     def to_internal_value(self, data):
         """Convert to internal value."""
+        if data.get('id', None) is not None:
+            kwargs = {'id': data['id']}
+        elif data.get('slug', None) is not None:
+            if self.root.instance:
+                # ``self.root.instance != None`` means that an instance is
+                # already present, so this is not "create" request.
+                self.fail('slug_not_allowed')
+            kwargs = {'slug': data['slug']}
+        else:
+            self.fail('no_data', name=self.field_name)
+
         user = getattr(self.context.get('request'), 'user')
         queryset = self.get_queryset()
-        permission = get_full_perm('view', queryset.model)
+        permission = get_full_perm(self.write_permission, queryset.model)
         try:
-            return get_objects_for_user(
-                user,
-                permission,
-                queryset.filter(**{self.slug_field: data}),
-            ).latest()
+            return get_objects_for_user(user, permission, queryset.filter(**kwargs)).latest('version')
         except ObjectDoesNotExist:
-            self.fail(
-                'does_not_exist',
-                slug_name=self.slug_field,
-                value=smart_text(data),
-                model_name=queryset.model._meta.model_name,  # pylint: disable=protected-access
-            )
-        except (TypeError, ValueError):
-            self.fail('invalid')
+            # Differentiate between "user has no permission" and "object does not exist"
+            view_permission = get_full_perm('view', queryset.model)
+            if permission != view_permission:
+                try:
+                    get_objects_for_user(user, view_permission, queryset.filter(**kwargs)).latest('version')
+                    raise exceptions.PermissionDenied("You do not have {} permission for {}: {}.".format(
+                        self.write_permission, self.model_name, data))
+                except ObjectDoesNotExist:
+                    pass
+
+            self.fail('does_not_exist', value=smart_text(data), model_name=self.model_name)
 
     def to_representation(self, obj):
         """Convert to representation."""
-        return obj.pk
-
-
-class NestedDescriptorSchemaSerializer(ResolweSlugRelatedField):
-    """DescriptorSchema specific implementation of ResolweSlugRelatedField."""
-
-    def __init__(self, **kwargs):
-        """Initialize attributes."""
-        kwargs['queryset'] = DescriptorSchema.objects.all()
-        super().__init__(slug_field='slug', **kwargs)
-
-    def to_representation(self, obj):
-        """Convert to representation."""
-        return DescriptorSchemaSerializer(obj, required=self.required).data
+        return self.serializer(obj, required=self.required).data

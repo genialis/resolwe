@@ -9,7 +9,7 @@ from resolwe.flow.serializers import DataSerializer
 from resolwe.test import TestCase
 
 
-class ResolweSlugRelatedFieldTest(TestCase):
+class ResolweDictRelatedFieldTest(TestCase):
     def setUp(self):
         super().setUp()
 
@@ -47,8 +47,8 @@ class ResolweSlugRelatedFieldTest(TestCase):
         request.query_params = {}
         data = {
             'contributor': self.user.pk,
-            'process': 'test-process',
-            'descriptor_schema': 'test-schema',
+            'process': {'slug': 'test-process'},
+            'descriptor_schema': {'slug': 'test-schema'},
         }
 
         serializer = DataSerializer(data=data, context={'request': request})
@@ -69,7 +69,7 @@ class ResolweSlugRelatedFieldTest(TestCase):
         )
 
         serializer = DataSerializer(data, context={'request': request})
-        self.assertEqual(serializer.data['process'], self.process.pk)
+        self.assertEqual(serializer.data['process']['id'], self.process.pk)
 
         # Check that descriptor_schema is properly hydrated (but remove
         # values that are not deterministic from the checking procedure)

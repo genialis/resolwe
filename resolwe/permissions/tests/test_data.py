@@ -33,8 +33,8 @@ class DataTestCase(ResolweAPITestCase):
         self.data = {
             'name': 'New data',
             'slug': 'new_data',
-            'collection': '1',
-            'process': 'test_process',
+            'collection': {'id': 1},
+            'process': {'slug': 'test_process'},
         }
 
         super().setUp()
@@ -87,31 +87,31 @@ class DataTestCase(ResolweAPITestCase):
     def test_post_invalid_fields(self):
         data_n = Data.objects.count()
 
-        self.data['collection'] = '42'
+        self.data['collection'] = {'id': 42}
         resp = self._post(self.data, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(resp.data['collection'][0], 'Invalid pk "42" - object does not exist.')
+        self.assertEqual(resp.data['collection'][0], "Invalid collection value: {'id': 42} - object does not exist.")
 
-        self.data['collection'] = '1'
-        self.data['process'] = '42'
+        self.data['collection'] = {'id': 1}
+        self.data['process'] = {'id': 42}
         resp = self._post(self.data, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(str(resp.data['process'][0]), 'Invalid process slug "42" - object does not exist.')
+        self.assertEqual(str(resp.data['process'][0]), "Invalid process value: {'id': 42} - object does not exist.")
 
         self.assertEqual(Data.objects.count(), data_n)
 
     def test_post_no_perms(self):
-        collection_n = Data.objects.count()
+        data_count = Data.objects.count()
         resp = self._post(self.data, self.user2)
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(Data.objects.count(), collection_n)
+        self.assertEqual(Data.objects.count(), data_count)
 
     def test_post_public_user(self):
-        collection_n = Data.objects.count()
+        data_count = Data.objects.count()
         resp = self._post(self.data)
         # User has no permission to add Data object to the collection.
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(Data.objects.count(), collection_n)
+        self.assertEqual(Data.objects.count(), data_count)
 
     def test_post_protected_fields(self):
         date_now = now()
@@ -198,22 +198,20 @@ class DataTestCase(ResolweAPITestCase):
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertKeys(resp.data, ['slug', 'name', 'created', 'modified', 'contributor', 'started', 'finished',
                                     'checksum', 'status', 'process', 'process_progress', 'process_rc', 'process_info',
-                                    'process_warning', 'process_error', 'input', 'output', 'process_type',
-                                    'descriptor_schema', 'descriptor', 'id', 'process_slug', 'process_name',
-                                    'process_input_schema', 'process_output_schema', 'size', 'scheduled',
-                                    'current_user_permissions', 'descriptor_dirty', 'tags', 'process_memory',
-                                    'process_cores', 'collection', 'entity', 'duplicated'])
+                                    'process_warning', 'process_error', 'input', 'output', 'descriptor_schema',
+                                    'descriptor', 'id', 'size', 'scheduled', 'current_user_permissions',
+                                    'descriptor_dirty', 'tags', 'process_memory', 'process_cores', 'collection',
+                                    'entity', 'duplicated'])
 
         # user w/ public permissions
         resp = self._get_detail(1, self.user2)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertKeys(resp.data, ['slug', 'name', 'created', 'modified', 'contributor', 'started', 'finished',
                                     'checksum', 'status', 'process', 'process_progress', 'process_rc', 'process_info',
-                                    'process_warning', 'process_error', 'input', 'output', 'process_type',
-                                    'descriptor_schema', 'descriptor', 'id', 'process_slug', 'process_name',
-                                    'process_input_schema', 'process_output_schema', 'size', 'scheduled',
-                                    'current_user_permissions', 'descriptor_dirty', 'tags', 'process_memory',
-                                    'process_cores', 'collection', 'entity', 'duplicated'])
+                                    'process_warning', 'process_error', 'input', 'output', 'descriptor_schema',
+                                    'descriptor', 'id', 'size', 'scheduled', 'current_user_permissions',
+                                    'descriptor_dirty', 'tags', 'process_memory', 'process_cores', 'collection',
+                                    'entity', 'duplicated'])
 
     def test_get_detail_no_perms(self):
         # public user w/o permissions
