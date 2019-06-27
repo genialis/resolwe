@@ -1,23 +1,19 @@
 """Data viewset."""
 from elasticsearch_dsl.query import Q
 
-from django.db import transaction
-from django.db.models import Count
-
-from rest_framework import exceptions, mixins, status, viewsets
+from rest_framework import exceptions, mixins, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from resolwe.elastic.composer import composer
 from resolwe.elastic.viewsets import ElasticSearchCombinedViewSet
-from resolwe.flow.models import Collection, Data, Entity, Process
+from resolwe.flow.models import Data, Process
 from resolwe.flow.models.utils import fill_with_defaults
 from resolwe.flow.serializers import DataSerializer
 from resolwe.flow.utils import get_data_checksum
 from resolwe.permissions.loader import get_permissions_class
 from resolwe.permissions.mixins import ResolwePermissionsMixin
 from resolwe.permissions.shortcuts import get_objects_for_user
-from resolwe.permissions.utils import assign_contributor_permissions, copy_permissions
 
 from ..elastic_indexes import DataDocument
 from .mixins import ParametersMixin, ResolweCheckSlugMixin, ResolweCreateModelMixin, ResolweUpdateModelMixin
@@ -106,37 +102,6 @@ class DataViewSet(ElasticSearchCombinedViewSet,
 
         return search
 
-    def create(self, request, *args, **kwargs):
-        """Create a resource."""
-        # check that user has permissions on collection that Data
-        # object will be added to
-        collection_id = request.data.get('collection', None)
-        if collection_id:
-            try:
-                collection = Collection.objects.get(pk=collection_id)
-            except Collection.DoesNotExist:
-                return Response({'collection': ['Invalid pk "{}" - object does not exist.'.format(collection_id)]},
-                                status=status.HTTP_400_BAD_REQUEST)
-
-            if not request.user.has_perm('add_collection', obj=collection):
-                if request.user.has_perm('view_collection', obj=collection):
-                    raise exceptions.PermissionDenied(
-                        "You don't have `ADD` permission on collection (id: {}).".format(collection_id)
-                    )
-                else:
-                    raise exceptions.NotFound(
-                        "Collection not found (id: {}).".format(collection_id)
-                    )
-
-        self.define_contributor(request)
-
-        if kwargs.pop('get_or_create', False):
-            response = self.perform_get_or_create(request, *args, **kwargs)
-            if response:
-                return response
-
-        return super().create(request, *args, **kwargs)
-
     @action(detail=False, methods=['post'])
     def duplicate(self, request, *args, **kwargs):
         """Duplicate (make copy of) ``Data`` objects."""
@@ -161,11 +126,15 @@ class DataViewSet(ElasticSearchCombinedViewSet,
     @action(detail=False, methods=['post'])
     def get_or_create(self, request, *args, **kwargs):
         """Get ``Data`` object if similar already exists, otherwise create it."""
-        kwargs['get_or_create'] = True
-        return self.create(request, *args, **kwargs)
+        response = self.perform_get_or_create(request, *args, **kwargs)
+        if response:
+            return response
+
+        return super().create(request, *args, **kwargs)
 
     def perform_get_or_create(self, request, *args, **kwargs):
         """Perform "get_or_create" - return existing object if found."""
+        self.define_contributor(request)
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         process = serializer.validated_data.get('process')
@@ -183,37 +152,6 @@ class DataViewSet(ElasticSearchCombinedViewSet,
             data = data_qs.order_by('created').last()
             serializer = self.get_serializer(data)
             return Response(serializer.data)
-
-    def perform_create(self, serializer):
-        """Create a resource."""
-        process = serializer.validated_data.get('process')
-        if not process.is_active:
-            raise exceptions.ParseError(
-                'Process retired (id: {}, slug: {}/{}).'.format(process.id, process.slug, process.version)
-            )
-
-        with transaction.atomic():
-            instance = serializer.save()
-
-            assign_contributor_permissions(instance)
-
-            # Assign data object to specified collection.
-            collection_id = self.request.data.get('collection', None)
-            if collection_id:
-                collection = Collection.objects.get(pk=collection_id)
-                instance.collection = collection
-                instance.save()
-                copy_permissions(collection, instance)
-
-                # Add entity to which data belongs to the collection.
-                # Entity is added to the collection only when it is
-                # created - when it only contains 1 Data object.
-                entity = Entity.objects.annotate(num_data=Count('data')).filter(data=instance, num_data=1)
-                if entity:
-                    entity = entity.first()
-                    entity.collection = collection
-                    entity.save()
-                    copy_permissions(collection, entity)
 
     def _parents_children(self, request, queryset):
         """Process given queryset and return serialized objects."""

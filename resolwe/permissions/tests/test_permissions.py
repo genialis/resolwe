@@ -30,36 +30,20 @@ class CollectionPermissionsTest(ResolweAPITestCase):
         self.group = Group.objects.create(name="Test group")
 
         self.collection = Collection.objects.create(
-            contributor=self.user1,
+            contributor=self.owner,
             name="Test collection 1"
         )
         assign_perm('owner_collection', self.owner, self.collection)
+
+        self.process = Process.objects.create(
+            name='Test process',
+            contributor=self.owner,
+        )
 
         self.resource_name = 'collection'
         self.viewset = CollectionViewSet
 
         super().setUp()
-
-    def _create_data(self):
-        process = Process.objects.create(
-            name='Test process',
-            contributor=self.user1,
-        )
-
-        data = Data.objects.create(
-            name='Test data',
-            contributor=self.user1,
-            process=process,
-        )
-        assign_perm('owner_data', self.owner, data)
-
-        return data
-
-    def _create_entity(self):
-        return Entity.objects.create(
-            name='Test entity',
-            contributor=self.user1,
-        )
 
     def test_public_user(self):
         """Public user cannot create/edit anything"""
@@ -200,8 +184,10 @@ class CollectionPermissionsTest(ResolweAPITestCase):
         self.assertFalse(user1_owner)
 
     def test_share_content(self):
-        data_1, data_2 = self._create_data(), self._create_data()
-        entity_1, entity_2 = self._create_entity(), self._create_entity()
+        data_1 = Data.objects.create(contributor=self.owner, process=self.process, name='Data 1')
+        data_2 = Data.objects.create(contributor=self.owner, process=self.process, name='Data 2')
+        entity_1 = Entity.objects.create(contributor=self.owner, name='Entity 1')
+        entity_2 = Entity.objects.create(contributor=self.owner, name='Entity 2')
 
         self.collection.data.add(data_1, data_2)
         self.collection.entity_set.add(entity_1, entity_2)

@@ -29,16 +29,14 @@ from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.db.models import Count
 from django.urls import reverse
 from django.utils.timezone import now
 
 from django_priority_batch import PrioritizedBatcher
 
-from resolwe.flow.models import Data, DataDependency, Entity, Process
+from resolwe.flow.models import Data, Process
 from resolwe.flow.protocol import CHANNEL_PURGE_WORKER, TYPE_PURGE_RUN
 from resolwe.flow.utils import dict_dot, iterate_fields, stats
-from resolwe.permissions.utils import copy_permissions
 from resolwe.test.utils import is_testing
 from resolwe.utils import BraceMessage as __
 
@@ -387,6 +385,8 @@ class ExecutorListener:
                             d['contributor'] = parent_data.contributor
                             d['process'] = Process.objects.filter(slug=d['process']).latest()
                             d['tags'] = parent_data.tags
+                            d['collection'] = parent_data.collection
+                            d['subprocess_parent'] = parent_data
 
                             for field_schema, fields in iterate_fields(d.get('input', {}), d['process'].input_schema):
                                 type_ = field_schema['type']
@@ -401,30 +401,7 @@ class ExecutorListener:
                                     fields[name] = [self.hydrate_spawned_files(exported_files_mapper, fn, data_id)
                                                     for fn in value]
 
-                            with transaction.atomic():
-                                d = Data.objects.create(**d)
-                                DataDependency.objects.create(
-                                    parent=parent_data,
-                                    child=d,
-                                    kind=DataDependency.KIND_SUBPROCESS,
-                                )
-
-                                # Copy permissions.
-                                copy_permissions(parent_data, d)
-
-                                # Copy collection.
-                                d.collection = parent_data.collection
-                                d.save()
-
-                                # Add entity to which data belongs to the collection.
-                                # Entity is added to the collection only when it is
-                                # created - when it only contains 1 Data object.
-                                entity = Entity.objects.filter(data=d).annotate(num_data=Count('data')).filter(
-                                    num_data=1)
-                                if entity:
-                                    entity = entity.first()
-                                    entity.collection = parent_data.collection
-                                    entity.save()
+                            d = Data.objects.create(**d)
 
                 except Exception:  # pylint: disable=broad-except
                     logger.error(

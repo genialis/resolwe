@@ -3,8 +3,6 @@ import os
 
 from asgiref.sync import async_to_sync
 
-from django.db import transaction
-
 from guardian.shortcuts import assign_perm
 
 from resolwe.flow.managers import manager
@@ -47,16 +45,13 @@ class TestManager(ProcessTestCase):
         spawned_process.entity_descriptor_schema = 'test-schema'
         spawned_process.save()
 
-        process = Process.objects.filter(slug='test-spawn-new').latest()
-
-        with transaction.atomic():
-            data = Data.objects.create(
-                name='Test data',
-                contributor=self.contributor,
-                process=process,
-            )
-            self.collection.data.add(data)
-            assign_perm('view_data', self.user, data)
+        assign_perm('view_collection', self.user, self.collection)
+        Data.objects.create(
+            name='Test data',
+            contributor=self.contributor,
+            process=Process.objects.filter(slug='test-spawn-new').latest(),
+            collection=self.collection,
+        )
 
         # Created and spawned objects should be done.
         self.assertEqual(Data.objects.filter(status=Data.STATUS_DONE).count(), 2)

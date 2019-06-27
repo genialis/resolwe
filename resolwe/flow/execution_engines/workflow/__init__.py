@@ -133,22 +133,9 @@ class ExecutionEngine(BaseExecutionEngine):
                 contributor=data.contributor,
                 tags=data.tags,
                 input=data_input,
+                collection=data.collection,
+                subprocess_parent=data,
             )
-            DataDependency.objects.create(
-                parent=data,
-                child=data_object,
-                kind=DataDependency.KIND_SUBPROCESS,
-            )
-
-            # Copy permissions.
-            copy_permissions(data, data_object)
-
-            # Copy collection.
-            if not data_object.collection and data.collection:
-                # Typically collection will be set during data object
-                # creation. Only if not set there, inherit from workflow.
-                data_object.collection = data.collection
-                data_object.save()
 
             context['steps'][step_id] = data_object.pk
 

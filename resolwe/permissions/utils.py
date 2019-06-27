@@ -64,6 +64,9 @@ def copy_permissions(src_obj, dest_obj):
 
         assign_perm(codename, user_or_group, dest_obj)
 
+    if src_obj is None:
+        return
+
     src_obj_ctype = ContentType.objects.get_for_model(src_obj)
     dest_obj_ctype = ContentType.objects.get_for_model(dest_obj)
     dest_all_perms = get_all_perms(dest_obj)

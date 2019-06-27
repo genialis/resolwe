@@ -81,8 +81,9 @@ class TestDataViewSetCase(TestCase):
         # different number of queries, so we set a loose constraint in test.
         conn = connections[DEFAULT_DB_ALIAS]
         with CaptureQueriesContext(conn) as captured_queries:
-            self.data_viewset(request)
-            self.assertLess(len(captured_queries), 62)
+            response = self.data_viewset(request)
+            self.assertEqual(len(response.data), 10)
+            self.assertLess(len(captured_queries), 90)
 
     def test_descriptor_schema(self):
         # Descriptor schema can be assigned by slug.
@@ -181,11 +182,10 @@ class TestDataViewSetCase(TestCase):
         self.assertTrue(self.user.has_perm('view_data', data_2))
         self.assertTrue(self.user.has_perm('edit_data', data_2))
         self.assertTrue(self.user.has_perm('share_data', data_2))
-        self.assertFalse(self.user.has_perm('edit_entity', entity))
         self.assertEqual(UserObjectPermission.objects.filter(content_type=data_ctype, user=self.user).count(), 4)
         self.assertEqual(UserObjectPermission.objects.filter(content_type=entity_ctype, user=self.user).count(), 3)
 
-    def test_create_entity(self):
+    def test_handle_entity(self):
         data = {'process': 'test-process', 'collection': self.collection.pk}
         request = factory.post('/', data, format='json')
         force_authenticate(request, self.contributor)

@@ -459,8 +459,9 @@ class ProcessTestCase(TransactionTestCase):
             slug=get_random_string(length=6),
             tags=tags or [],
             descriptor_schema=descriptor_schema,
-            descriptor=descriptor or {})
-        self.collection.data.add(data)
+            descriptor=descriptor or {},
+            collection=self.collection,
+        )
 
         # Fetch latest Data object from database
         data = Data.objects.get(pk=data.pk)

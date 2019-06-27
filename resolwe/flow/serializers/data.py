@@ -147,3 +147,9 @@ class DataSerializer(ResolweBaseSerializer):
             del fields['entity']
 
         return fields
+
+    def validate_process(self, process):
+        """Check that process is active."""
+        if not process.is_active:
+            raise serializers.ValidationError("Process {} is not active.".format(process))
+        return process

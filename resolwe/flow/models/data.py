@@ -1,5 +1,6 @@
 """Reslowe process model."""
 import copy
+import enum
 import json
 import logging
 import os
@@ -32,8 +33,156 @@ if not hasattr(json, 'JSONDecodeError'):
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
+@enum.unique
+class HandleEntityOperation(enum.Enum):
+    """Constants for entity handling."""
+
+    CREATE = 'CREATE'
+    ADD = 'ADD'
+    PASS = 'PASS'
+
+
 class DataQuerySet(models.QuerySet):
     """Query set for Data objects."""
+
+    @staticmethod
+    def _handle_entity(obj):
+        """Create entity if `entity.type` is defined in process.
+
+        Following rules applies for adding `Data` object to `Entity`:
+        * Only add `Data object` to `Entity` if process has defined
+        `entity.type` field
+        * Create new entity if parents do not belong to any `Entity`
+        * Add object to existing `Entity`, if all parents that are part
+        of it (but not necessary all parents), are part of the same
+        `Entity`
+        * If parents belong to different `Entities` don't do anything
+
+        """
+        entity_type = obj.process.entity_type
+        entity_descriptor_schema = obj.process.entity_descriptor_schema
+        entity_input = obj.process.entity_input
+        entity_always_create = obj.process.entity_always_create
+        operation = HandleEntityOperation.PASS
+
+        if entity_type:
+            data_filter = {}
+            if entity_input:
+                input_id = dict_dot(obj.input, entity_input, default=lambda: None)
+                if input_id is None:
+                    logger.warning("Skipping creation of entity due to missing input.")
+                    return
+                if isinstance(input_id, int):
+                    data_filter['data__pk'] = input_id
+                elif isinstance(input_id, list):
+                    data_filter['data__pk__in'] = input_id
+                else:
+                    raise ValueError(
+                        "Cannot create entity due to invalid value of field {}.".format(entity_input)
+                    )
+            else:
+                data_filter['data__in'] = obj.parents.all()
+
+            entity_query = Entity.objects.filter(type=entity_type, **data_filter).distinct()
+            entity_count = entity_query.count()
+
+            if entity_count == 0 or entity_always_create:
+                descriptor_schema = DescriptorSchema.objects.filter(
+                    slug=entity_descriptor_schema
+                ).latest()
+                entity = Entity.objects.create(
+                    contributor=obj.contributor,
+                    descriptor_schema=descriptor_schema,
+                    type=entity_type,
+                    name=obj.name,
+                    tags=obj.tags,
+                )
+                assign_contributor_permissions(entity)
+                operation = HandleEntityOperation.CREATE
+
+            elif entity_count == 1:
+                entity = entity_query.first()
+                obj.tags = entity.tags
+                copy_permissions(entity, obj)
+                operation = HandleEntityOperation.ADD
+
+            else:
+                logger.info("Skipping creation of entity due to multiple entities found.")
+                entity = None
+
+            if entity:
+                obj.entity = entity
+                obj.save()
+
+            return operation
+
+    @staticmethod
+    def _handle_collection(obj, entity_operation=None):
+        """Correclty assign Collection to Data and it's Entity.
+
+        There are 2 x 4 possible scenarios how to handle collection
+        assignment. One dimension in "decision matrix" is Data.collection:
+
+            1.x Data.collection = None
+            2.x Data.collection != None
+
+        Second dimension is about Data.entity:
+
+            x.1 Data.entity is None
+            x.2 Data.entity was just created
+            x.3 Data.entity already exists and Data.entity.collection = None
+            x.4 Data.entity already exists and Data.entity.collection != None
+        """
+        # 1.2 and 1.3 require no action.
+
+        # 1.1 and 2.1:
+        if not obj.entity:
+            return
+        if entity_operation == HandleEntityOperation.ADD and obj.collection:
+            # 2.3
+            if not obj.entity.collection:
+                raise ValueError("Created Data has collection {} assigned, but it is added to entity {} that is not "
+                                 "inside this collection.".format(obj.collection, obj.entity))
+            # 2.4
+            assert obj.collection == obj.entity.collection
+
+        # 1.4
+        if not obj.collection and obj.entity and obj.entity.collection:
+            obj.collection = obj.entity.collection
+            obj.tags = obj.entity.collection.tags
+            obj.save()
+        # 2.2
+        if entity_operation == HandleEntityOperation.CREATE and obj.collection:
+            obj.entity.collection = obj.collection
+            obj.entity.tags = obj.collection.tags
+            obj.entity.save()
+            copy_permissions(obj.collection, obj.entity)
+
+    @transaction.atomic
+    def create(self, subprocess_parent=None, **kwargs):
+        """Create new object with the given kwargs."""
+        obj = super().create(**kwargs)
+
+        # Data dependencies
+        obj.save_dependencies(obj.input, obj.process.input_schema)
+        if subprocess_parent:
+            DataDependency.objects.create(
+                parent=subprocess_parent,
+                child=obj,
+                kind=DataDependency.KIND_SUBPROCESS,
+            )
+            # Data was from a workflow / spawned process
+            copy_permissions(subprocess_parent, obj)
+
+        # Entity, Collection assignment
+        entity_operation = self._handle_entity(obj)
+        self._handle_collection(obj, entity_operation=entity_operation)
+
+        # Permissions:
+        assign_contributor_permissions(obj)
+        copy_permissions(obj.collection, obj)
+
+        return obj
 
     # NOTE: This is a static method because it is used from migrations.
     @staticmethod
@@ -348,72 +497,6 @@ class Data(BaseModel):
                 for data in value:
                     add_dependency(data)
 
-    def create_entity(self):
-        """Create entity if `flow_collection` is defined in process.
-
-        Following rules applies for adding `Data` object to `Entity`:
-        * Only add `Data object` to `Entity` if process has defined
-        `flow_collection` field
-        * Add object to existing `Entity`, if all parents that are part
-        of it (but not necessary all parents), are part of the same
-        `Entity`
-        * If parents belong to different `Entities` or do not belong to
-        any `Entity`, create new `Entity`
-
-        """
-        entity_type = self.process.entity_type  # pylint: disable=no-member
-        entity_descriptor_schema = self.process.entity_descriptor_schema  # pylint: disable=no-member
-        entity_input = self.process.entity_input  # pylint: disable=no-member
-        entity_always_create = self.process.entity_always_create  # pylint: disable=no-member
-
-        if entity_type:
-            data_filter = {}
-            if entity_input:
-                input_id = dict_dot(self.input, entity_input, default=lambda: None)
-                if input_id is None:
-                    logger.warning("Skipping creation of entity due to missing input.")
-                    return
-                if isinstance(input_id, int):
-                    data_filter['data__pk'] = input_id
-                elif isinstance(input_id, list):
-                    data_filter['data__pk__in'] = input_id
-                else:
-                    raise ValueError(
-                        "Cannot create entity due to invalid value of field {}.".format(entity_input)
-                    )
-            else:
-                data_filter['data__in'] = self.parents.all()  # pylint: disable=no-member
-
-            entity_query = Entity.objects.filter(type=entity_type, **data_filter).distinct()
-            entity_count = entity_query.count()
-
-            if entity_count == 0 or entity_always_create:
-                descriptor_schema = DescriptorSchema.objects.filter(
-                    slug=entity_descriptor_schema
-                ).latest()
-                entity = Entity.objects.create(
-                    contributor=self.contributor,
-                    descriptor_schema=descriptor_schema,
-                    type=entity_type,
-                    name=self.name,
-                    tags=self.tags,
-                )
-                assign_contributor_permissions(entity)
-
-            elif entity_count == 1:
-                entity = entity_query.first()
-                copy_permissions(entity, self)
-
-            else:
-                logger.info("Skipping creation of entity due to multiple entities found.")
-                entity = None
-
-            if entity:
-                self.entity = entity
-                # Inherit collection from entity.
-                self.collection = entity.collection
-                self.save()
-
     def save(self, render_name=False, *args, **kwargs):  # pylint: disable=keyword-arg-before-vararg
         """Save the data model."""
         if self.name != self._original_name:
@@ -473,12 +556,6 @@ class Data(BaseModel):
         with transaction.atomic():
             self._perform_save(*args, **kwargs)
 
-            # We can only save dependencies after the data object has been saved. This
-            # is why a transaction block is needed and the save method must be called first.
-            if create:
-                self.save_dependencies(self.input, self.process.input_schema)  # pylint: disable=no-member
-                self.create_entity()
-
     def _perform_save(self, *args, **kwargs):
         """Save the data model."""
         super().save(*args, **kwargs)
@@ -510,11 +587,15 @@ class Data(BaseModel):
             duplicate.contributor = contributor
 
         duplicate.entity = None
-        if inherit_entity and contributor.has_perm('add_entity', self.entity):
+        if inherit_entity:
+            if not contributor.has_perm('add_entity', self.entity):
+                raise ValidationError("You do not have add permission on entity {}.".format(self.entity))
             duplicate.entity = self.entity
 
         duplicate.collection = None
-        if inherit_collection and contributor.has_perm('add_collection', self.collection):
+        if inherit_collection:
+            if not contributor.has_perm('add_collection', self.collection):
+                raise ValidationError("You do not have add permission on collection {}.".format(self.collection))
             duplicate.collection = self.collection
 
         duplicate._perform_save(force_insert=True)  # pylint: disable=protected-access
@@ -545,12 +626,9 @@ class Data(BaseModel):
         ])
 
         # Permissions
-        if inherit_collection:
-            copy_permissions(self.collection, duplicate)
-        elif inherit_entity:
-            copy_permissions(self.entity, duplicate)
-        else:
-            assign_contributor_permissions(duplicate)
+        assign_contributor_permissions(duplicate)
+        copy_permissions(duplicate.entity, duplicate)
+        copy_permissions(duplicate.collection, duplicate)
 
         return duplicate
 

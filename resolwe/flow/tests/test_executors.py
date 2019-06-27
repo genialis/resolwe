@@ -5,14 +5,13 @@ import unittest
 from unittest import mock
 
 from django.conf import settings
-from django.db import transaction
 from django.test import override_settings
 
 from guardian.shortcuts import assign_perm
 
 from resolwe.flow.executors.prepare import BaseFlowExecutorPreparer
 from resolwe.flow.managers import manager
-from resolwe.flow.models import Collection, Data, DataDependency, Process
+from resolwe.flow.models import Data, DataDependency, Process
 from resolwe.test import ProcessTestCase, TestCase, tag_process, with_docker_executor, with_null_executor
 
 PROCESSES_DIR = os.path.join(os.path.dirname(__file__), 'processes')
@@ -122,14 +121,9 @@ class ManagerRunProcessTest(ProcessTestCase):
 
     @tag_process('test-workflow-1')
     def test_workflow(self):
-        with transaction.atomic():
-            # We need this transaction to delay calling the manager until we've
-            # assigned permissions
-            self.run_process('test-workflow-1', {'param1': 'world'}, tags=['test-tag'])
-            workflow_data = Data.objects.get(process__slug='test-workflow-1')
-
-            assign_perm('view_data', self.contributor, workflow_data)
-            assign_perm('view_data', self.group, workflow_data)
+        assign_perm('view_collection', self.contributor, self.collection)
+        assign_perm('view_collection', self.group, self.collection)
+        workflow_data = self.run_process('test-workflow-1', {'param1': 'world'}, tags=['test-tag'])
 
         workflow_data.refresh_from_db()
         step1_data = Data.objects.get(process__slug='test-example-1')
@@ -165,24 +159,16 @@ class ManagerRunProcessTest(ProcessTestCase):
 
     @tag_process('test-workflow-2')
     def test_workflow_entity(self):
-        collection = Collection.objects.create(contributor=self.contributor)
+        with self.preparation_stage():
+            # `self.run_process` adds input data in self.collection
+            input_data = self.run_process('test-example-3')
 
-        with transaction.atomic():
-            # We need this transaction to delay calling the manager until we've
-            # add data to the collection.
-            with self.preparation_stage():
-                input_data = self.run_process('test-example-3')
-
-            input_data.collection = collection
-            input_data.save()
-            input_data.entity.collection = collection
-            input_data.entity.save()
-
-        workflow_data = self.run_process('test-workflow-2', {'data1': input_data.pk})
+        workflow = self.run_process('test-workflow-2', {'data1': input_data.pk})
 
         # Check that workflow results are added to the collection.
-        self.assertEqual(collection.data.filter(pk__in=workflow_data.output['steps']).count(), 1)
-        self.assertEqual(collection.data.all().count(), 2)
+        self.assertEqual(self.collection.data.filter(pk__in=workflow.output['steps']).count(), 1)
+        # self.collection now contains workflow and two "normal" data objects
+        self.assertEqual(self.collection.data.all().count(), 3)
 
     @with_docker_executor
     @tag_process('test-docker')

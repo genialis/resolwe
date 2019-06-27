@@ -1,5 +1,6 @@
 """Resolwe entity model."""
 from django.contrib.postgres.fields import CICharField
+from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.utils.timezone import now
 
@@ -82,7 +83,9 @@ class Entity(BaseCollection):
             duplicate.contributor = contributor
 
         duplicate.collection = None
-        if inherit_collection and contributor.has_perm('add_collection', self.collection):
+        if inherit_collection:
+            if not contributor.has_perm('add_collection', self.collection):
+                raise ValidationError("You do not have add permission on collection {}.".format(self.collection))
             duplicate.collection = self.collection
 
         duplicate.save(force_insert=True)
@@ -99,12 +102,8 @@ class Entity(BaseCollection):
         duplicate.data.add(*duplicated_data)
 
         # Permissions
-        if inherit_collection:
-            copy_permissions(self.collection, duplicate)
-            for datum in duplicated_data:
-                copy_permissions(self.collection, datum)
-        else:
-            assign_contributor_permissions(duplicate)
+        assign_contributor_permissions(duplicate)
+        copy_permissions(duplicate.collection, duplicate)
 
         return duplicate
 
