@@ -1,14 +1,11 @@
 """Entity viewset."""
 from distutils.util import strtobool  # pylint: disable=import-error,no-name-in-module
 
-from django.db.models import Max
-from django.db.models.query import Prefetch
-
 from rest_framework import exceptions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from resolwe.flow.models import Collection, Data, Entity
+from resolwe.flow.models import Collection, Entity
 from resolwe.flow.serializers import EntitySerializer
 from resolwe.permissions.shortcuts import get_objects_for_user
 from resolwe.permissions.utils import remove_permission, update_permission
@@ -22,25 +19,8 @@ class EntityViewSet(CollectionViewSet):
 
     serializer_class = EntitySerializer
     document_class = EntityDocument
-
-    queryset = Entity.objects.prefetch_related(
-        Prefetch('data', queryset=Data.objects.all().order_by('id')),
-        'descriptor_schema',
-        'contributor'
-    ).annotate(
-        latest_date=Max('data__modified')
-    ).order_by('-latest_date')
-
-    filtering_fields = CollectionViewSet.filtering_fields + (
-        'descriptor_completed', 'collection', 'type'
-    )
-
-    def get_queryset(self):  # pylint: disable=method-hidden
-        """Return queryset."""
-        if self.request and self.request.query_params.get('hydrate_data', False):
-            return self.queryset.prefetch_related('data__entity', 'data__collection')
-
-        return self.queryset
+    queryset = Entity.objects.prefetch_related('descriptor_schema', 'contributor')
+    filtering_fields = CollectionViewSet.filtering_fields + ('descriptor_completed', 'collection', 'type')
 
     def _get_collection_for_user(self, collection_id, user):
         """Check that collection exists and user has `add` permission."""

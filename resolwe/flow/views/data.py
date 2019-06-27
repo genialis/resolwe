@@ -56,13 +56,6 @@ class DataViewSet(ElasticSearchCombinedViewSet,
     }
     ordering = '-created'
 
-    def get_always_allowed_arguments(self):
-        """Return query arguments which are always allowed."""
-        return super().get_always_allowed_arguments() + [
-            'hydrate_collection',
-            'hydrate_entity',
-        ]
-
     def custom_filter_tags(self, value, search):
         """Support tags query."""
         if not isinstance(value, list):

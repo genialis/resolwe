@@ -3,15 +3,13 @@ from distutils.util import strtobool  # pylint: disable=import-error,no-name-in-
 
 from elasticsearch_dsl.query import Q
 
-from django.db.models.query import Prefetch
-
 from rest_framework import exceptions, mixins, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from resolwe.elastic.composer import composer
 from resolwe.elastic.viewsets import ElasticSearchCombinedViewSet
-from resolwe.flow.models import Collection, Data
+from resolwe.flow.models import Collection
 from resolwe.flow.serializers import CollectionSerializer
 from resolwe.permissions.loader import get_permissions_class
 from resolwe.permissions.mixins import ResolwePermissionsMixin
@@ -34,11 +32,7 @@ class CollectionViewSet(ElasticSearchCombinedViewSet,
                         viewsets.GenericViewSet):
     """API view for :class:`Collection` objects."""
 
-    queryset = Collection.objects.all().prefetch_related(
-        'descriptor_schema',
-        'contributor',
-        Prefetch('data', queryset=Data.objects.all().order_by('id'))
-    )
+    queryset = Collection.objects.all().prefetch_related('descriptor_schema', 'contributor')
     serializer_class = CollectionSerializer
     permission_classes = (get_permissions_class(),)
     document_class = CollectionDocument
@@ -58,13 +52,6 @@ class CollectionViewSet(ElasticSearchCombinedViewSet,
     }
     ordering = 'id'
 
-    def get_queryset(self):
-        """Return queryset."""
-        if self.request and self.request.query_params.get('hydrate_data', False):
-            return self.queryset.prefetch_related('data__entity', 'data__collection')
-
-        return self.queryset
-
     def custom_filter_tags(self, value, search):
         """Support tags query."""
         if not isinstance(value, list):
@@ -78,7 +65,6 @@ class CollectionViewSet(ElasticSearchCombinedViewSet,
     def get_always_allowed_arguments(self):
         """Return query arguments which are always allowed."""
         return super().get_always_allowed_arguments() + [
-            'hydrate_data',
             'delete_content',
         ]
 

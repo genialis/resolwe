@@ -120,7 +120,6 @@ class CollectionFilter(BaseResolweFilter):
         """Get always allowed query arguments."""
         return super().get_always_allowed_arguments() + (
             'delete_content',
-            'hydrate_data',
         )
 
 

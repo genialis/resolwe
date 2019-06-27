@@ -224,19 +224,6 @@ class TestDataViewSetCase(TestCase):
         self.assertEqual(response.data['collection'], self.collection.pk)
         self.assertEqual(response.data['entity'], entity.pk)
 
-        # Check that hydrate_{collection,entity} works. Also ensure that the serializer
-        # doesn't crash if hydrate_data is also set (could cause infinite recursion).
-        request = factory.get('/', {
-            'hydrate_collection': '1',
-            'hydrate_entity': '1',
-            'hydrate_data': '1',
-        }, format='json')
-        force_authenticate(request, self.contributor)
-        response = self.data_detail_viewset(request, pk=data.pk)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['collection']['id'], self.collection.pk)
-        self.assertEqual(response.data['entity']['id'], entity.pk)
-
     def test_process_is_active(self):
         # Do not allow creating data of inactive processes
         Process.objects.filter(slug='test-process').update(is_active=False)

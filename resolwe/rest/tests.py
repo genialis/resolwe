@@ -4,7 +4,7 @@ import itertools
 from rest_framework.test import APIRequestFactory, force_authenticate
 
 from resolwe.flow.models import Data, Entity, Process
-from resolwe.flow.views import EntityViewSet
+from resolwe.flow.views import DataViewSet
 from resolwe.test import TestCase
 
 factory = APIRequestFactory()  # pylint: disable=invalid-name
@@ -42,12 +42,12 @@ class ProjectionTest(TestCase):
         self.entity.data.add(self.data)
         self.entity.data.add(self.data_2)
 
-        self.entity_viewset = EntityViewSet.as_view(actions={'get': 'list'})
+        self.data_viewset = DataViewSet.as_view(actions={'get': 'list'})
 
     def get_projection(self, fields):
-        request = factory.get('/', {'fields': ','.join(fields), 'hydrate_data': '1'}, format='json')
+        request = factory.get('/', {'fields': ','.join(fields)}, format='json')
         force_authenticate(request, self.admin)
-        return self.entity_viewset(request).data
+        return self.data_viewset(request).data
 
     def test_projection(self):
         # Test top-level projection.
@@ -58,25 +58,13 @@ class ProjectionTest(TestCase):
                 self.assertCountEqual(data.keys(), set(fields))
 
         # Test nested projection.
-        data = self.get_projection(['data__name'])[0]
-        self.assertCountEqual(data.keys(), ['data'])
-        self.assertEqual(len(data['data']), 2)
-        for item in data['data']:
-            self.assertCountEqual(item.keys(), ['name'])
+        data = self.get_projection(['entity__name'])[0]
+        self.assertEqual(data['entity']['name'], "Test entity")
 
         # Test top-level JSON projection.
-        data = self.get_projection(['data__output'])[0]
-        self.assertCountEqual(data.keys(), ['data'])
-        self.assertEqual(len(data['data']), 2)
-        for item in data['data']:
-            self.assertCountEqual(item.keys(), ['output'])
-            self.assertEqual(item['output'], self.data_output)
+        data = self.get_projection(['output'])[0]
+        self.assertEqual(data['output'], self.data_output)
 
         # Test nested projection into JSON.
-        data = self.get_projection(['data__name', 'data__output__foo__bar'])[0]
-        self.assertEqual(len(data['data']), 2)
-        for item in data['data']:
-            self.assertCountEqual(item.keys(), ['name', 'output'])
-            self.assertCountEqual(item['output'].keys(), ['foo'])
-            self.assertCountEqual(item['output']['foo'].keys(), ['bar'])
-            self.assertEqual(item['output']['foo']['bar'], 42)
+        data = self.get_projection(['output__foo__bar'])[0]
+        self.assertEqual(data['output']['foo']['bar'], 42)
