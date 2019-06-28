@@ -212,3 +212,25 @@ class DataViewSet(ElasticSearchCombinedViewSet,
                 for entity in entities:
                     entity.collections.add(collection)
                     copy_permissions(collection, entity)
+
+    def _parents_children(self, request, queryset):
+        """Process given queryset and return serialized objects."""
+        queryset = get_objects_for_user(request.user, 'view_data', queryset)
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=True)
+    def parents(self, request, pk=None):
+        """Return parents of the current data object."""
+        return self._parents_children(request, self.get_object().parents)
+
+    @action(detail=True)
+    def children(self, request, pk=None):
+        """Return children of the current data object."""
+        return self._parents_children(request, self.get_object().children)

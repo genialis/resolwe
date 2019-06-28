@@ -13,7 +13,7 @@ from guardian.shortcuts import assign_perm, remove_perm
 from rest_framework import exceptions, status
 from rest_framework.test import APIRequestFactory, force_authenticate
 
-from resolwe.flow.models import Collection, Data, DataLocation, DescriptorSchema, Entity, Process
+from resolwe.flow.models import Collection, Data, DataDependency, DataLocation, DescriptorSchema, Entity, Process
 from resolwe.flow.views import CollectionViewSet, DataViewSet, EntityViewSet, ProcessViewSet
 from resolwe.test import ResolweAPITestCase, TestCase
 
@@ -39,6 +39,12 @@ class TestDataViewSetCase(TestCase):
         })
         self.data_detail_viewset = DataViewSet.as_view(actions={
             'get': 'retrieve',
+        })
+        self.parents_viewset = DataViewSet.as_view(actions={
+            'get': 'parents',
+        })
+        self.children_viewset = DataViewSet.as_view(actions={
+            'get': 'children',
         })
 
         self.collection = Collection.objects.create(contributor=self.contributor)
@@ -291,6 +297,29 @@ class TestDataViewSetCase(TestCase):
         force_authenticate(request, self.contributor)
         response = self.duplicate_viewset(request)
         self.assertEqual(response.data['detail'], "Data objects with the following ids not found: 0")
+
+    def test_parents_children(self):
+        parent = Data.objects.create(contributor=self.contributor, process=self.proc)
+        child_1 = Data.objects.create(contributor=self.contributor, process=self.proc)
+        child_2 = Data.objects.create(contributor=self.contributor, process=self.proc)
+
+        DataDependency.objects.create(parent=parent, child=child_1, kind=DataDependency.KIND_IO)
+        DataDependency.objects.create(parent=parent, child=child_2, kind=DataDependency.KIND_IO)
+
+        assign_perm('view_data', self.user, parent)
+        assign_perm('view_data', self.user, child_1)
+
+        request = factory.get('/', format='json')
+        force_authenticate(request, self.user)
+        response = self.children_viewset(request, pk=parent.pk)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['id'], child_1.pk)
+
+        request = factory.get('/', format='json')
+        force_authenticate(request, self.user)
+        response = self.parents_viewset(request, pk=child_1.pk)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['id'], parent.pk)
 
 
 class TestCollectionViewSetCase(TestCase):
