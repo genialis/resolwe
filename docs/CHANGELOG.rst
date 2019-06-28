@@ -10,6 +10,11 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Changed
+-------
+- **BACKWARD INCOMPATIBLE:** Remove ``parents`` and ``children`` query filters
+  from Data API endpoint
+
 Added
 -----
 - ``/api/data/:id/parents`` and ``/api/data/:id/children`` API endpoints for

@@ -174,9 +174,6 @@ class DataFilter(BaseResolweFilter):
 
     entity = filters.ModelChoiceFilter(queryset=Entity.objects.all())
 
-    parents = filters.ModelChoiceFilter(queryset=Data.objects.all())
-    children = filters.ModelChoiceFilter(queryset=Data.objects.all())
-
     type = filters.CharFilter(field_name='process__type', lookup_expr='startswith')
     status = filters.CharFilter(lookup_expr='iexact')
     status__in = CharInFilter(field_name='status', lookup_expr='in')

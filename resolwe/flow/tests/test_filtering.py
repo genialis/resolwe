@@ -9,7 +9,7 @@ from rest_framework import status
 from rest_framework.test import APIRequestFactory, force_authenticate
 
 from resolwe.flow.filters import CollectionFilter, DataFilter, EntityFilter
-from resolwe.flow.models import Collection, Data, DataDependency, DescriptorSchema, Entity, Process
+from resolwe.flow.models import Collection, Data, DescriptorSchema, Entity, Process
 from resolwe.flow.views import CollectionViewSet, DataViewSet, DescriptorSchemaViewSet, ProcessViewSet
 from resolwe.test import TestCase
 
@@ -224,30 +224,6 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter({'tags': 'foo,index5'}, [self.data[5]])
         self._check_filter({'tags': 'foo,index10'}, [])
         self._check_filter({'tags': 'bar'}, [])
-
-    def test_filter_parents_children(self):
-        self._check_filter({'parents': self.data[0].pk}, [])
-        self._check_filter({'parents': self.data[1].pk}, [])
-        self._check_filter({'children': self.data[0].pk}, [])
-        self._check_filter({'children': self.data[1].pk}, [])
-
-        dependency = DataDependency.objects.create(
-            parent=self.data[0],
-            child=self.data[1],
-            kind=DataDependency.KIND_IO,
-        )
-
-        self._check_filter({'parents': self.data[0].pk}, Data.objects.filter(parents=self.data[0]))
-        self._check_filter({'parents': self.data[1].pk}, Data.objects.filter(parents=self.data[1]))
-        self._check_filter({'children': self.data[0].pk}, Data.objects.filter(children=self.data[0]))
-        self._check_filter({'children': self.data[1].pk}, Data.objects.filter(children=self.data[1]))
-
-        dependency.delete()
-
-        self._check_filter({'parents': self.data[0].pk}, [])
-        self._check_filter({'parents': self.data[1].pk}, [])
-        self._check_filter({'children': self.data[0].pk}, [])
-        self._check_filter({'children': self.data[1].pk}, [])
 
     def test_filter_text(self):
         # By slug.
@@ -556,23 +532,6 @@ class DataFilterTestCase(TestCase):
         self._apply_filter({'tags': 'foo'}, [self.data_2])
         self._apply_filter({'tags': 'bar'}, [self.data_2, self.data_3])
         self._apply_filter({'tags': 'bar,moo'}, [self.data_2])
-
-    def test_filter_parents_children(self):
-        self._apply_filter({'parents': self.data_1.pk}, [])
-        self._apply_filter({'parents': self.data_2.pk}, [])
-        self._apply_filter({'children': self.data_1.pk}, [])
-        self._apply_filter({'children': self.data_2.pk}, [])
-
-        DataDependency.objects.create(
-            parent=self.data_1,
-            child=self.data_2,
-            kind=DataDependency.KIND_IO,
-        )
-
-        self._apply_filter({'parents': self.data_1.pk}, Data.objects.filter(parents=self.data_1))
-        self._apply_filter({'parents': self.data_2.pk}, Data.objects.filter(parents=self.data_2))
-        self._apply_filter({'children': self.data_1.pk}, Data.objects.filter(children=self.data_1))
-        self._apply_filter({'children': self.data_2.pk}, Data.objects.filter(children=self.data_2))
 
 
 class CollectionFilterTestCase(TestCase):

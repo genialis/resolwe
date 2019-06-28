@@ -22,8 +22,6 @@ class DataDocument(BaseDocument):
     tags = dsl.Keyword(multi=True)
 
     collection = dsl.Integer(multi=True)
-    parents = dsl.Integer(multi=True)
-    children = dsl.Integer(multi=True)
     entity = dsl.Integer(multi=True)
 
     class Index:
@@ -55,20 +53,11 @@ class DataIndex(BaseIndexMixin, BaseIndex):
         return super().get_dependencies() + [
             Data.collection_set,
             Data.entity_set,
-            Data.parents,
         ]
 
     def get_collection_value(self, obj):
         """Extract collections this object is in."""
         return list(obj.collection_set.values_list('pk', flat=True))
-
-    def get_parents_value(self, obj):
-        """Extract parents."""
-        return list(obj.parents.values_list('pk', flat=True))
-
-    def get_children_value(self, obj):
-        """Extract children."""
-        return list(obj.children.values_list('pk', flat=True))
 
     def get_entity_value(self, obj):
         """Extract entities."""
