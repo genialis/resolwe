@@ -406,10 +406,11 @@ class BaseIndex:
         contain list of ids of users/groups with ``view`` permission.
         """
         # TODO: Optimize this for bulk running
+        content_type = ContentType.objects.get_for_model(obj)
         permissions_subquery = Subquery(
             # Override the default ordering to simplify the query.
             Permission.objects.filter(
-                content_type=ContentType.objects.get_for_model(obj),
+                content_type=content_type,
                 codename__startswith='view',
             ).order_by().values('pk')
         )
@@ -417,9 +418,13 @@ class BaseIndex:
             get_user_model().objects.filter(username=ANONYMOUS_USER_NAME).values('pk')
         )
 
+        # NOTE: Django-guardian has a combined database index on
+        # (object_pk, content_type), so we have to filter by both to
+        # take the advantage of it.
         filters = {
             'object_pk': obj.id,
             'permission': permissions_subquery,
+            'content_type': content_type,
         }
         return {
             'users': list(
