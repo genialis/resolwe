@@ -42,7 +42,7 @@ class DataViewSet(ElasticSearchCombinedViewSet,
 
     filtering_fields = ('id', 'slug', 'version', 'name', 'created', 'modified', 'contributor', 'owners',
                         'status', 'process', 'process_type', 'type', 'process_name', 'tags', 'collection',
-                        'parents', 'children', 'entity', 'started', 'finished', 'text')
+                        'entity', 'started', 'finished', 'text')
     filtering_map = {
         'name': 'name.raw',
         'contributor': 'contributor_id',
