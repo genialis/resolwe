@@ -13,6 +13,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser, Group
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
+from django.db.models import Q
 
 from guardian.models import GroupObjectPermission, UserObjectPermission
 from guardian.shortcuts import assign_perm, remove_perm
@@ -77,14 +78,22 @@ def copy_permissions(src_obj, dest_obj):
 
 
 def fetch_user(query):
-    """Get user by ``pk`` or ``username``. Raise error if it doesn't exist."""
-    user_filter = {'pk': query} if query.isdigit() else {'username': query}
-    user_model = get_user_model()
+    """Get user by ``pk``, ``username`` or ``email``.
 
-    try:
-        return user_model.objects.get(**user_filter)
-    except user_model.DoesNotExist:
+    Raise error if user can not be determined.
+    """
+    lookup = Q(username=query) | Q(email=query)
+    if query.isdigit():
+        lookup = lookup | Q(pk=query)
+
+    user_model = get_user_model()
+    users = user_model.objects.filter(lookup)
+
+    if not users:
         raise exceptions.ParseError("Unknown user: {}".format(query))
+    elif len(users) >= 2:
+        raise exceptions.ParseError("Cannot uniquely determine user: {}".format(query))
+    return users[0]
 
 
 def fetch_group(query):

@@ -20,8 +20,9 @@ from resolwe.test import ResolweAPITestCase, TestCase
 class CollectionPermissionsTest(ResolweAPITestCase):
 
     def setUp(self):
-        self.user1 = get_user_model().objects.create(username="test_user1")
-        self.user2 = get_user_model().objects.create(username="test_user2")
+        self.user1 = get_user_model().objects.create(username="test_user1", email='user1@test.com')
+        self.user2 = get_user_model().objects.create(username="test_user2", email='user2@test.com')
+        self.user3 = get_user_model().objects.create(username="test_user3", email='user1@test.com')
         self.owner = get_user_model().objects.create(username="owner")
         # public user is already created bt django-guardian
         self.public = get_user_model().objects.get(username="public")
@@ -301,6 +302,21 @@ class CollectionPermissionsTest(ResolweAPITestCase):
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(resp.data['detail'], 'Unknown group: 999')
         self.assertEqual(GroupObjectPermission.objects.count(), group_perms_count)
+
+    def test_share_by_email(self):
+        assign_perm("view_collection", self.user1, self.collection)
+        assign_perm("share_collection", self.user1, self.collection)
+
+        data = {'users': {'add': {self.user2.email: ['view']}}}
+        resp = self._detail_permissions(self.collection.pk, data, self.user1)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(UserObjectPermission.objects.filter(user=self.user2).count(), 1)
+
+        # Check if error is raise when trying to share with duplicated email.
+        data = {'users': {'add': {self.user3.email: ['view']}}}
+        resp = self._detail_permissions(self.collection.pk, data, self.user1)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(resp.data['detail'], 'Cannot uniquely determine user: user1@test.com')
 
 
 class DescriptorSchemaPermissionsTest(ResolweAPITestCase):
