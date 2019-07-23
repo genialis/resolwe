@@ -489,7 +489,7 @@ class Data(BaseModel):
         """Return True if data object is a duplicate."""
         return bool(self.duplicated)
 
-    def duplicate(self, contributor=None):
+    def duplicate(self, contributor=None, inherit_entity=False, inherit_collection=False):
         """Duplicate (make a copy)."""
         if self.status not in [self.STATUS_DONE, self.STATUS_ERROR]:
             raise ValidationError('Data object must have done or error status to be duplicated')
@@ -497,16 +497,20 @@ class Data(BaseModel):
         duplicate = Data.objects.get(id=self.id)
         duplicate.pk = None
         duplicate.slug = None
-        duplicate.entity = None
-        duplicate.collection = None
         duplicate.name = 'Copy of {}'.format(self.name)
         duplicate.duplicated = now()
         if contributor:
             duplicate.contributor = contributor
 
-        duplicate._perform_save(force_insert=True)  # pylint: disable=protected-access
+        duplicate.entity = None
+        if inherit_entity and contributor.has_perm('add_entity', self.entity):
+            duplicate.entity = self.entity
 
-        assign_contributor_permissions(duplicate)
+        duplicate.collection = None
+        if inherit_collection and contributor.has_perm('add_collection', self.collection):
+            duplicate.collection = self.collection
+
+        duplicate._perform_save(force_insert=True)  # pylint: disable=protected-access
 
         # Override fields that are automatically set on create.
         duplicate.created = self.created
@@ -532,6 +536,14 @@ class Data(BaseModel):
             DataDependency(child=dependency.child, parent=duplicate, kind=dependency.kind)
             for dependency in DataDependency.objects.filter(parent=self)
         ])
+
+        # Permissions
+        if inherit_collection:
+            copy_permissions(self.collection, duplicate)
+        elif inherit_entity:
+            copy_permissions(self.entity, duplicate)
+        else:
+            assign_contributor_permissions(duplicate)
 
         return duplicate
 
