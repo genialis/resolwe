@@ -71,13 +71,20 @@ class DataQuerySet(models.QuerySet):
         return DataQuerySet._delete_chunked(self, chunk_size=chunk_size)
 
     @transaction.atomic
-    def duplicate(self, contributor=None):
+    def duplicate(self, contributor=None, inherit_entity=False, inherit_collection=False):
         """Duplicate (make a copy) ``Data`` objects.
 
         :param contributor: Duplication user
         """
         bundle = [
-            {'original': data, 'copy': data.duplicate(contributor=contributor)}
+            {
+                'original': data,
+                'copy': data.duplicate(
+                    contributor=contributor,
+                    inherit_entity=inherit_entity,
+                    inherit_collection=inherit_collection,
+                )
+            }
             for data in self
         ]
 

@@ -858,7 +858,7 @@ class DuplicateTestCase(TestCase):
 
         # Assert permissions.
         self.assertEqual(duplicated_entity1.data.count(), 1)
-        self.assertListEqual(get_perms(self.user, collection), ['view_collection', 'add_collection'])
+        self.assertCountEqual(get_perms(self.user, collection), ['view_collection', 'add_collection'])
         self.assertEqual(len(get_perms(self.user, duplicated_entity1)), 6)
         self.assertEqual(len(get_perms(self.user, duplicated_entity1.data.first())), 5)
         self.assertListEqual(get_perms(self.contributor, collection), ['edit_collection'])
@@ -879,9 +879,9 @@ class DuplicateTestCase(TestCase):
 
         # Assert permissions.
         self.assertEqual(duplicated_entity2.data.count(), 1)
-        self.assertListEqual(get_perms(self.user, collection), ['view_collection', 'add_collection'])
+        self.assertCountEqual(get_perms(self.user, collection), ['view_collection', 'add_collection'])
         self.assertEqual(len(get_perms(self.user, duplicated_entity2)), 6)
-        self.assertEqual(len(get_perms(self.user, duplicated_entity2.data.first())), 1)
+        self.assertEqual(len(get_perms(self.user, duplicated_entity2.data.first())), 5)
         self.assertListEqual(get_perms(self.contributor, collection), ['edit_collection'])
         self.assertListEqual(get_perms(self.contributor, duplicated_entity2), ['edit_entity'])
         self.assertListEqual(get_perms(self.contributor, duplicated_entity2.data.first()), ['edit_data'])

@@ -76,11 +76,14 @@ class Entity(BaseCollection):
         duplicate = Entity.objects.get(id=self.id)
         duplicate.pk = None
         duplicate.slug = None
-        duplicate.collection = None
         duplicate.name = 'Copy of {}'.format(self.name)
         duplicate.duplicated = now()
         if contributor:
             duplicate.contributor = contributor
+
+        duplicate.collection = None
+        if inherit_collection and contributor.has_perm('add_collection', self.collection):
+            duplicate.collection = self.collection
 
         duplicate.save(force_insert=True)
 
@@ -92,16 +95,16 @@ class Entity(BaseCollection):
 
         # Duplicate entity's data objects.
         data = get_objects_for_user(contributor, 'view_data', self.data.all())  # pylint: disable=no-member
-        duplicated_data = data.duplicate(contributor)
+        duplicated_data = data.duplicate(contributor, inherit_collection=inherit_collection)
         duplicate.data.add(*duplicated_data)
 
+        # Permissions
         if inherit_collection:
-            if contributor.has_perm('add_collection', self.collection):
-                self.collection.entity_set.add(duplicate)
-                copy_permissions(self.collection, duplicate)
-                self.collection.data.add(*duplicated_data)
-                for datum in duplicated_data:
-                    copy_permissions(self.collection, datum)
+            copy_permissions(self.collection, duplicate)
+            for datum in duplicated_data:
+                copy_permissions(self.collection, datum)
+        else:
+            assign_contributor_permissions(duplicate)
 
         return duplicate
 
