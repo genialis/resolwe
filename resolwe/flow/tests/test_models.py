@@ -281,9 +281,6 @@ class EntityModelTest(TestCase):
 
         self.assertEqual(Entity.objects.count(), 1)
 
-        self.data.delete()
-        self.assertEqual(Entity.objects.count(), 0)
-
     def test_new_sample(self):
         data = Data.objects.create(name='Test data', contributor=self.contributor, process=self.process,
                                    tags=['foo', 'bar'])

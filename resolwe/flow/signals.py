@@ -9,12 +9,11 @@ from asgiref.sync import async_to_sync
 
 from django.conf import settings
 from django.db import transaction
-from django.db.models import Count
-from django.db.models.signals import post_delete, post_save, pre_delete
+from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
 from resolwe.flow.managers import manager
-from resolwe.flow.models import Data, Entity, Relation
+from resolwe.flow.models import Data, Relation
 from resolwe.flow.models.entity import RelationPartition
 
 
@@ -33,13 +32,6 @@ def manager_post_save_handler(sender, instance, created, **kwargs):
         # tasks are send to workers before transaction ends and therefore
         # workers cannot access objects created inside transaction.
         transaction.on_commit(lambda: commit_signal(instance.id))
-
-
-@receiver(pre_delete, sender=Data)
-def delete_entity(sender, instance, **kwargs):
-    """Delete Entity when last Data object is deleted."""
-    # 1 means that the last Data object is going to be deleted.
-    Entity.objects.annotate(num_data=Count('data')).filter(data=instance, num_data=1).delete()
 
 
 # NOTE: m2m_changed signal cannot be used because of a bug:

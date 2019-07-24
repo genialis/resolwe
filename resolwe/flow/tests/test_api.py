@@ -472,32 +472,11 @@ class TestCollectionViewSetCase(TestCase):
         force_authenticate(request, self.user)
         self.collection_detail_viewset(request, pk=collection.pk)
 
-        self.assertTrue(Data.objects.filter(pk=data_1.pk).exists())
-        self.assertTrue(Data.objects.filter(pk=data_2.pk).exists())
-        self.assertTrue(Entity.objects.filter(pk=entity_1.pk).exists())
-        self.assertTrue(Entity.objects.filter(pk=entity_2.pk).exists())
-
-        # Recreate the initial state and test with `delete_content` flag.
-        collection = Collection.objects.create(
-            name="Test collection",
-            contributor=self.contributor,
-        )
-
-        collection.data.add(data_1, data_2)
-        collection.entity_set.add(entity_1, entity_2)
-
-        assign_perm("view_collection", self.user, collection)
-        assign_perm("edit_collection", self.user, collection)
-
-        request = factory.delete('{}?delete_content=1'.format(self.detail_url(collection.pk)))
-        force_authenticate(request, self.user)
-        self.collection_detail_viewset(request, pk=collection.pk)
-
-        # Only objects with `edit` permission can be deleted.
+        # All containing objects are deleted, regardless of their permission.
         self.assertFalse(Data.objects.filter(pk=data_1.pk).exists())
-        self.assertTrue(Data.objects.filter(pk=data_2.pk).exists())
+        self.assertFalse(Data.objects.filter(pk=data_2.pk).exists())
         self.assertFalse(Entity.objects.filter(pk=entity_1.pk).exists())
-        self.assertTrue(Entity.objects.filter(pk=entity_2.pk).exists())
+        self.assertFalse(Entity.objects.filter(pk=entity_2.pk).exists())
 
     def test_duplicate(self):
         request = factory.post('/', {}, format='json')
@@ -719,47 +698,9 @@ class EntityViewSetTest(TestCase):
         force_authenticate(request, self.user)
         self.entity_detail_viewset(request, pk=entity.pk)
 
-        self.assertTrue(Data.objects.filter(pk=data_1.pk).exists())
-        self.assertTrue(Data.objects.filter(pk=data_2.pk).exists())
-
-        # Recreate the initial state and test with `delete_content` flag.
-        entity = Entity.objects.create(
-            name="Test entity",
-            contributor=self.contributor,
-        )
-
-        entity.data.add(data_1, data_2)
-
-        assign_perm('view_entity', self.user, entity)
-        assign_perm('edit_entity', self.user, entity)
-
-        request = factory.delete('{}?delete_content=1'.format(self.detail_url(entity.pk)))
-        force_authenticate(request, self.user)
-        self.entity_detail_viewset(request, pk=entity.pk)
-
-        # Only objects with `edit` permission can be deleted.
+        # If user has edit permison on entity, all containing objects
+        # are deleted, regardless of their permission.
         self.assertFalse(Data.objects.filter(pk=data_1.pk).exists())
-        self.assertTrue(Data.objects.filter(pk=data_2.pk).exists())
-
-        # Ensure that deletion works correctly when all data objects of an entity
-        # are deleted.
-        entity = Entity.objects.create(
-            name="Test entity",
-            contributor=self.contributor,
-        )
-
-        assign_perm('view_entity', self.user, entity)
-        assign_perm('edit_entity', self.user, entity)
-        assign_perm('edit_data', self.user, data_2)
-
-        entity.data.add(data_2)
-
-        request = factory.delete('{}?delete_content=1'.format(self.detail_url(entity.pk)))
-        force_authenticate(request, self.user)
-        response = self.entity_detail_viewset(request, pk=entity.pk)
-
-        self.assertEqual(response.status_code, 204)
-        self.assertFalse(Entity.objects.filter(pk=entity.pk).exists())
         self.assertFalse(Data.objects.filter(pk=data_2.pk).exists())
 
     def test_duplicate(self):

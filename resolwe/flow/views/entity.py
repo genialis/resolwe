@@ -1,7 +1,5 @@
 """Entity viewset."""
-from distutils.util import strtobool  # pylint: disable=import-error,no-name-in-module
-
-from rest_framework import exceptions, status
+from rest_framework import exceptions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
@@ -57,31 +55,6 @@ class EntityViewSet(CollectionViewSet):
         for data in obj.data.all():
             if user.has_perm('share_data', data):
                 update_permission(data, payload)
-
-    def destroy(self, request, *args, **kwargs):
-        """Destroy a model instance.
-
-        If ``delete_content`` flag is set in query parameters, also all
-        Data objects contained in entity will be deleted.
-        """
-        obj = self.get_object()
-        user = request.user
-
-        if strtobool(request.query_params.get('delete_content', 'false')):
-            for data in obj.data.all():
-                if user.has_perm('edit_data', data):
-                    data.delete()
-
-            # If all data objects in an entity are removed, the entity may
-            # have already been removed, so there is no need to call destroy.
-            if not Entity.objects.filter(pk=obj.pk).exists():
-                return Response(status=status.HTTP_204_NO_CONTENT)
-
-        # NOTE: Collection's ``destroy`` method should be skiped, so we
-        # intentionaly call it's parent.
-        return super(CollectionViewSet, self).destroy(  # pylint: disable=no-member,bad-super-call
-            request, *args, **kwargs
-        )
 
     @action(detail=False, methods=['post'])
     def move_to_collection(self, request, *args, **kwargs):

@@ -1,6 +1,4 @@
 """Collection viewset."""
-from distutils.util import strtobool  # pylint: disable=import-error,no-name-in-module
-
 from elasticsearch_dsl.query import Q
 
 from rest_framework import exceptions, mixins, viewsets
@@ -62,12 +60,6 @@ class CollectionViewSet(ElasticSearchCombinedViewSet,
 
         return search
 
-    def get_always_allowed_arguments(self):
-        """Return query arguments which are always allowed."""
-        return super().get_always_allowed_arguments() + [
-            'delete_content',
-        ]
-
     def custom_filter_text(self, value, search):
         """Support general query using the 'text' attribute."""
         if isinstance(value, list):
@@ -113,27 +105,6 @@ class CollectionViewSet(ElasticSearchCombinedViewSet,
             raise exceptions.NotFound
 
         return super().create(request, *args, **kwargs)
-
-    def destroy(self, request, *args, **kwargs):
-        """Destroy a model instance.
-
-        If ``delete_content`` flag is set in query parameters, also all
-        Data objects and Entities, on which user has ``EDIT``
-        permission, contained in collection will be deleted.
-        """
-        obj = self.get_object()
-        user = request.user
-
-        if strtobool(request.query_params.get('delete_content', 'false')):
-            for entity in obj.entity_set.all():
-                if user.has_perm('edit_entity', entity):
-                    entity.delete()
-
-            for data in obj.data.all():
-                if user.has_perm('edit_data', data):
-                    data.delete()
-
-        return super().destroy(request, *args, **kwargs)  # pylint: disable=no-member
 
     @action(detail=False, methods=['post'])
     def duplicate(self, request, *args, **kwargs):

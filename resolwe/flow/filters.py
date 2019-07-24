@@ -116,12 +116,6 @@ class CollectionFilter(BaseResolweFilter):
             'descriptor_schema': ['exact'],
         }}
 
-    def get_always_allowed_arguments(self):
-        """Get always allowed query arguments."""
-        return super().get_always_allowed_arguments() + (
-            'delete_content',
-        )
-
 
 class TagsFilter(filters.filters.BaseCSVFilter, filters.CharFilter):
     """Filter for tags."""

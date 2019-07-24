@@ -57,7 +57,7 @@ class Entity(BaseCollection):
     objects = EntityQuerySet.as_manager()
 
     #: collection to which entity belongs
-    collection = models.ForeignKey('Collection', blank=True, null=True, on_delete=models.SET_NULL)
+    collection = models.ForeignKey('Collection', blank=True, null=True, on_delete=models.CASCADE)
 
     #: indicate whether `descriptor` is completed (set by user)
     descriptor_completed = models.BooleanField(default=False)

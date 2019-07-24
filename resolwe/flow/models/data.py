@@ -385,10 +385,10 @@ class Data(BaseModel):
     location = models.ForeignKey('DataLocation', blank=True, null=True, on_delete=models.PROTECT, related_name='data')
 
     #: entity
-    entity = models.ForeignKey('Entity', blank=True, null=True, on_delete=models.SET_NULL, related_name='data')
+    entity = models.ForeignKey('Entity', blank=True, null=True, on_delete=models.CASCADE, related_name='data')
 
     #: collection
-    collection = models.ForeignKey('Collection', blank=True, null=True, on_delete=models.SET_NULL, related_name='data')
+    collection = models.ForeignKey('Collection', blank=True, null=True, on_delete=models.CASCADE, related_name='data')
 
     def __init__(self, *args, **kwargs):
         """Initialize attributes."""
