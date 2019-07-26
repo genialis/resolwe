@@ -11,6 +11,7 @@ import shlex
 import shutil
 import subprocess
 import unittest
+from sys import platform
 
 import wrapt
 
@@ -143,8 +144,10 @@ def with_resolwe_host(wrapped_method, instance, args, kwargs):
             "(sub)class of LiveServerTestCase that has the "
             "'server_thread' attribute"
         )
-    resolwe_host_url = 'http://{host}:{port}'.format(
-        host=instance.server_thread.host, port=instance.server_thread.port)
+    host = instance.server_thread.host
+    if platform not in ["linux", "linux2"]:
+        host = 'host.docker.internal'
+    resolwe_host_url = 'http://{host}:{port}'.format(host=host, port=instance.server_thread.port)
     with override_settings(RESOLWE_HOST_URL=resolwe_host_url):
         with manager.override_settings(RESOLWE_HOST_URL=resolwe_host_url):
             # Run the actual unit test method.

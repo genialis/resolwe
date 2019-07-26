@@ -13,6 +13,7 @@ Unreleased
 Added
 -----
 - Enable sharing based on user email
+- Support running tests with live Resolwe host on non-linux platforms
 
 
 ===================
