@@ -58,8 +58,17 @@ class ProjectionTest(TestCase):
                 self.assertCountEqual(data.keys(), set(fields))
 
         # Test nested projection.
-        data = self.get_projection(['entity__name'])[0]
-        self.assertEqual(data['entity']['name'], "Test entity")
+        data = self.get_projection(['entity__name,process__contributor__username'])[0]
+        self.assertEqual(data, {
+            'entity': {
+                'name': 'Test entity'
+            },
+            'process': {
+                'contributor': {
+                    'username': 'contributor',
+                },
+            },
+        })
 
         # Test top-level JSON projection.
         data = self.get_projection(['output'])[0]
@@ -67,4 +76,10 @@ class ProjectionTest(TestCase):
 
         # Test nested projection into JSON.
         data = self.get_projection(['output__foo__bar'])[0]
-        self.assertEqual(data['output']['foo']['bar'], 42)
+        self.assertEqual(data, {
+            'output': {
+                'foo': {
+                    'bar': 42,
+                },
+            },
+        })

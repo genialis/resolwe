@@ -72,4 +72,10 @@ class DictRelatedField(relations.RelatedField):
 
     def to_representation(self, obj):
         """Convert to representation."""
-        return self.serializer(obj, required=self.required).data
+        serializer = self.serializer(obj, required=self.required, context=self.context)
+
+        # Manually bind this serializer to field.parent as field projection
+        # relies on parent/child relations between serializers.
+        serializer.bind(self.field_name, self.parent)
+
+        return serializer.data
