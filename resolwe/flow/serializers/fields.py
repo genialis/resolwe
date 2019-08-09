@@ -23,7 +23,7 @@ class DictRelatedField(relations.RelatedField):
 
     default_error_messages = {
         'slug_not_allowed': ('Use id (instead of slug) for update requests.'),
-        'no_data': ('At least one of id, slug must be present in field {name}.'),
+        'null': ('At least one of id, slug must be present in field {name}.'),
         'does_not_exist': ('Invalid {model_name} value: {value} - object does not exist.'),
         'permission_denied': ("You do not have {permission} permission for {model_name}: {value}."),
     }
@@ -41,7 +41,10 @@ class DictRelatedField(relations.RelatedField):
 
     def to_internal_value(self, data):
         """Convert to internal value."""
-        if data.get('id', None) is not None:
+        # Allow None values only in case field is not required.
+        if 'id' in data and data['id'] is None and not self.required:
+            return
+        elif data.get('id', None) is not None:
             kwargs = {'id': data['id']}
         elif data.get('slug', None) is not None:
             if self.root.instance:
@@ -50,7 +53,7 @@ class DictRelatedField(relations.RelatedField):
                 self.fail('slug_not_allowed')
             kwargs = {'slug': data['slug']}
         else:
-            self.fail('no_data', name=self.field_name)
+            self.fail('null', name=self.field_name)
 
         user = getattr(self.context.get('request'), 'user')
         queryset = self.get_queryset()

@@ -11,6 +11,7 @@ class EntitySerializer(CollectionSerializer):
     collection = DictRelatedField(
         queryset=Collection.objects.all(),
         serializer=CollectionSerializer,
+        allow_null=True,
         required=False,
         write_permission='add',
     )

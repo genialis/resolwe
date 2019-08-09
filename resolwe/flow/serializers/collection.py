@@ -15,7 +15,8 @@ class CollectionSerializer(ResolweBaseSerializer):
     descriptor_schema = DictRelatedField(
         queryset=DescriptorSchema.objects.all(),
         serializer=DescriptorSchemaSerializer,
-        required=False
+        allow_null=True,
+        required=False,
     )
 
     class Meta:

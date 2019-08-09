@@ -22,17 +22,20 @@ class DataSerializer(ResolweBaseSerializer):
     descriptor_schema = DictRelatedField(
         queryset=DescriptorSchema.objects.all(),
         serializer=DescriptorSchemaSerializer,
-        required=False
+        allow_null=True,
+        required=False,
     )
     collection = DictRelatedField(
         queryset=Collection.objects.all(),
         serializer=CollectionSerializer,
+        allow_null=True,
         required=False,
         write_permission='add',
     )
     entity = DictRelatedField(
         queryset=Entity.objects.all(),
         serializer=EntitySerializer,
+        allow_null=True,
         required=False,
         write_permission='add',
     )

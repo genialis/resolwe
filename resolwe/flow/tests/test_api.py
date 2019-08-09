@@ -37,6 +37,7 @@ class TestDataViewSetCase(TestCase):
         })
         self.data_detail_viewset = DataViewSet.as_view(actions={
             'get': 'retrieve',
+            'patch': 'partial_update',
         })
         self.parents_viewset = DataViewSet.as_view(actions={
             'get': 'parents',
@@ -219,7 +220,7 @@ class TestDataViewSetCase(TestCase):
         data = Data.objects.last()
         entity = Entity.objects.last()
 
-        # Ensure collection/entity are present in lists.
+        # Ensure collection/entity are present
         request = factory.get('/', '', format='json')
         force_authenticate(request, self.contributor)
         response = self.data_viewset(request)
@@ -235,6 +236,36 @@ class TestDataViewSetCase(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['collection']['id'], self.collection.pk)
         self.assertEqual(response.data['entity']['id'], entity.pk)
+
+    def test_collection_unassigned(self):
+        # Data can be removed from collection through the api.
+
+        # Create data object.
+        data = {'process': {'slug': 'test-process'}, 'collection': {'id': self.collection.pk}}
+        request = factory.post('/', data, format='json')
+        force_authenticate(request, self.contributor)
+        response = self.data_viewset(request)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        data = Data.objects.last()
+        entity = Entity.objects.last()
+
+        self.assertEqual(data.collection.id, self.collection.id)
+        self.assertEqual(data.entity.id, entity.id)
+        self.assertEqual(entity.collection.id, self.collection.id)
+
+        # Assign collection to None
+        request = factory.patch('/', {'collection': {'id': None}}, format='json')
+        force_authenticate(request, self.contributor)
+        response = self.data_detail_viewset(request, pk=data.pk)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = Data.objects.last()
+        entity = Entity.objects.last()
+
+        self.assertEqual(data.collection, None)
+        self.assertEqual(data.entity.id, entity.id)
+        self.assertEqual(entity.collection.id, self.collection.id)
 
     def test_process_is_active(self):
         # Do not allow creating data of inactive processes
