@@ -109,13 +109,22 @@ class Entity(BaseCollection):
 
     @transaction.atomic
     def move_to_collection(self, source_collection, destination_collection):
-        """Move entity from source to destination collection."""
-        # Remove from collection.
-        source_collection.data.remove(*self.data.all())  # pylint: disable=no-member
-        destination_collection.data.add(*self.data.all())  # pylint: disable=no-member
+        """Move entity to destination collection."""
+        if source_collection == destination_collection:
+            return
 
         self.collection = destination_collection
+        if destination_collection:
+            self.tags = destination_collection.tags
+            copy_permissions(destination_collection, self)
         self.save()
+
+        for datum in self.data.all():  # pylint: disable=no-member
+            datum.collection = destination_collection
+            if destination_collection:
+                datum.tags = destination_collection.tags
+                copy_permissions(destination_collection, datum)
+            datum.save()
 
 
 class RelationType(models.Model):

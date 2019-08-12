@@ -26,3 +26,11 @@ class EntitySerializer(CollectionSerializer):
             'duplicated',
             'type',
         )
+
+    def update(self, instance, validated_data):
+        """Update."""
+        source_collection = instance.collection
+        instance = super().update(instance, validated_data)
+        instance.move_to_collection(source_collection, instance.collection)
+
+        return instance

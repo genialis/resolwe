@@ -255,17 +255,43 @@ class TestDataViewSetCase(TestCase):
         self.assertEqual(entity.collection.id, self.collection.id)
 
         # Assign collection to None
+        data.entity = None
+        data.save()
         request = factory.patch('/', {'collection': {'id': None}}, format='json')
         force_authenticate(request, self.contributor)
         response = self.data_detail_viewset(request, pk=data.pk)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         data = Data.objects.last()
-        entity = Entity.objects.last()
-
         self.assertEqual(data.collection, None)
-        self.assertEqual(data.entity.id, entity.id)
-        self.assertEqual(entity.collection.id, self.collection.id)
+
+    def test_change_collection(self):
+        # Create data object. Note that an entity is created as well.
+        data = Data.objects.create(
+            name='Test data',
+            contributor=self.contributor,
+            process=self.proc,
+        )
+
+        # Move data to some collection
+        request = factory.patch('/', {'collection': {'id': self.collection.pk}}, format='json')
+        force_authenticate(request, self.contributor)
+        response = self.data_detail_viewset(request, pk=data.pk)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data['collection'][0],
+            'If Data is in entity, you can only move it to another collection by moving entire entity.',
+        )
+
+        # But moving the data when it is not in entity is OK.
+        data.entity = None
+        data.save()
+        request = factory.patch('/', {'collection': {'id': self.collection.pk}}, format='json')
+        force_authenticate(request, self.contributor)
+        response = self.data_detail_viewset(request, pk=data.pk)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data.refresh_from_db()
+        self.assertEqual(data.collection, self.collection)
 
     def test_process_is_active(self):
         # Do not allow creating data of inactive processes
@@ -669,6 +695,44 @@ class EntityViewSetTest(TestCase):
         force_authenticate(request, self.contributor)
         resp = self.entity_list_viewset(request)
         self.assertEqual(len(resp.data), 1)
+
+    def test_change_collection(self):
+        self.collection.tags = ['test:tag']
+        self.collection.save()
+        self.data.collection = self.collection2
+        self.data.save()
+        assign_perm('edit_entity', self.contributor, self.entity)
+
+        request_data = {'collection': {'id': self.collection.pk}}
+        request = factory.patch('/', request_data, format='json')
+        force_authenticate(request, self.contributor)
+        resp = self.entity_detail_viewset(request, pk=self.entity.pk)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+
+        self.entity.refresh_from_db()
+        self.data.refresh_from_db()
+        self.assertEqual(self.data.entity.id, self.entity.id)
+        self.assertEqual(self.data.collection.id, self.collection.id)
+        self.assertEqual(self.entity.collection.id, self.collection.id)
+        self.assertEqual(self.entity.tags, self.collection.tags)
+        self.assertEqual(self.data.tags, self.collection.tags)
+
+    def test_change_collection_to_none(self):
+        assign_perm('edit_entity', self.contributor, self.entity)
+        self.data.collection = self.collection2
+        self.data.save()
+
+        request_data = {'collection': {'id': None}}
+        request = factory.patch('/', request_data, format='json')
+        force_authenticate(request, self.contributor)
+        resp = self.entity_detail_viewset(request, pk=self.entity.pk)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+
+        self.entity.refresh_from_db()
+        self.data.refresh_from_db()
+        self.assertEqual(self.data.entity.id, self.entity.id)
+        self.assertEqual(self.data.collection, None)
+        self.assertEqual(self.entity.collection, None)
 
     def test_move_to_collection(self):
         entity = Entity.objects.create(contributor=self.contributor)
