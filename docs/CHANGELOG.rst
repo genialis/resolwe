@@ -10,10 +10,46 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Changed
+-------
+- **BACKWARD INCOMPATIBLE:** Change relations between ``Data``, ``Entity`` and
+  ``Collection`` from ``ManyToMany`` to ``ManyToOne``. In practice this means
+  that ``Data.entity``, ``Data.colllecton`` and ``Entity.collection`` are now
+  ``ForeignKey``-s. This also implies the following changes:
+
+  - ``CollectionViewSet`` methods ``add_data`` and ``remove_data`` are removed
+  - ``EntityViewset`` methods ``add_data``,``remove_data``,
+    ``add_to_collection`` and ``remove_from_collection`` are removed
+  - ``EntityQuerySet`` and ``Entity`` method ``duplicate`` argument
+    ``inherit_collections`` is renamed to ``inherit_collection``.
+  - ``EntityFilter`` FilterSet field ``collections`` is renamed to
+    ``collection``.
+- **BACKWARD INCOMPATIBLE:** Change following fields in ``DataSerializer``:
+
+  - ``process_slug``, ``process_name``, ``process_type``,
+    ``process_input_schema``, ``process_output_schema`` are removed and moved
+    in ``process`` field which is now ``DictRelatedField`` that uses
+    ``ProcessSerializer`` for representation
+  - Remove ``entity_names`` and ``collection_names`` fields
+  - add ``entity`` and ``colection`` fields which are ``DictRelatedField``-s
+    that use corresponding serializers for representation
+  - Remove support for ``hydrate_entities`` and ``hydrate_collections``
+    query parameters
+- **BACKWARD INCOMPATIBLE:** Remove ``data`` field in ``EntitySerializer``
+  and ``CollectionSerializer``. This implies that parameter ``hydrate_data``
+  is no longer supported.
+- **BACKWARD INCOMPATIBLE:** Remove ``delete_content`` paremeter in ``delete``
+  method of ``EntityViewset`` and ``CollectionViewSet``. From now on, when
+  ``Entity``/``Collection`` is deleted, all it's objects are removed as well
+- Gather all ``Data`` creation logic into ``DataQuerySet.create`` method
+
 Added
 -----
 - Enable sharing based on user email
 - Support running tests with live Resolwe host on non-linux platforms
+- Add ``inherit_entity`` and ``inherit_collection`` arguments to
+  ``Data.duplicate`` and ``DataQuerySet.duplicate`` method
+- Implement ``DictRelatedField``
 
 
 ===================
