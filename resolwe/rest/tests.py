@@ -69,6 +69,27 @@ class ProjectionTest(TestCase):
                 },
             },
         })
+        # Test deep projection: an empty projection means that all fields
+        # should be returned without any projection.
+        data = self.get_projection(['entity'])[0]
+        self.assertCountEqual(data['entity'].keys(), [
+            'created',
+            'descriptor_dirty',
+            'duplicated',
+            'id',
+            'modified',
+            'contributor',
+            'description',
+            'descriptor',
+            'descriptor_schema',
+            'name',
+            'settings',
+            'slug',
+            'tags',
+            'collection',
+            'descriptor_completed',
+            'type',
+        ])
 
         # Test top-level JSON projection.
         data = self.get_projection(['output'])[0]

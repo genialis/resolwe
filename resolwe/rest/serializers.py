@@ -11,4 +11,4 @@ class SelectiveFieldMixin:
     def fields(self):
         """Filter fields based on request query parameters."""
         fields = super().fields
-        return apply_subfield_projection(self, copy.copy(fields))
+        return apply_subfield_projection(self, copy.copy(fields), deep=True)
