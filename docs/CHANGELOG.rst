@@ -14,6 +14,10 @@ Added
 -----
 - Support filtering by ``process_slug`` in ``DataViewSet``
 
+Fixed
+-----
+- Fix ``DictRelatedField`` so it can be used in browsable-API
+
 
 ===================
 19.0.0 - 2019-08-20

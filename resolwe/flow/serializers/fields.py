@@ -1,4 +1,6 @@
 """Resolwe custom serializer fields."""
+from collections import OrderedDict
+
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils.encoding import smart_text
 
@@ -82,3 +84,34 @@ class DictRelatedField(relations.RelatedField):
         serializer.bind(self.field_name, self.parent)
 
         return serializer.data
+
+    def get_choices(self, cutoff=None):
+        """
+        Get choices for a field.
+
+        The caller of this method is BrowsableAPIRenderer (indirectly).
+
+        Method is direct copy of ``RelatedField.get_choices``, with one
+        modified line (noted below). Line is modified so ``OrderedDict``
+        receives hashable keys. The impementation in parent class
+        returns result of ``self.to_representaton``, which is not
+        hashable in case of this field (``self.to_representaton``
+        returns a ``ReturnDict`` object).
+        """
+        queryset = self.get_queryset()
+        if queryset is None:
+            # Ensure that field.choices returns something sensible
+            # even when accessed with a read-only field.
+            return {}
+
+        if cutoff is not None:
+            queryset = queryset[:cutoff]
+
+        return OrderedDict([
+            (
+                # This line below is modifed.
+                item.pk,
+                self.display_value(item)
+            )
+            for item in queryset
+        ])
