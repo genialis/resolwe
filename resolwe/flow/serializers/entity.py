@@ -22,7 +22,6 @@ class EntitySerializer(CollectionSerializer):
         model = Entity
         fields = CollectionSerializer.Meta.fields + (
             'collection',
-            'descriptor_completed',
             'duplicated',
             'type',
         )

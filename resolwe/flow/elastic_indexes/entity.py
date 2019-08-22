@@ -12,7 +12,6 @@ from .collection import CollectionDocument, CollectionIndexMixin
 class EntityDocument(CollectionDocument):
     """Document for entity search."""
 
-    descriptor_completed = dsl.Boolean()
     collection = dsl.Integer()
     type = dsl.Keyword()
 

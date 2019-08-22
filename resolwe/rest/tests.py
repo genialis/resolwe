@@ -87,7 +87,6 @@ class ProjectionTest(TestCase):
             'slug',
             'tags',
             'collection',
-            'descriptor_completed',
             'type',
         ])
 

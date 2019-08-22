@@ -18,7 +18,7 @@ class EntityViewSet(CollectionViewSet):
     serializer_class = EntitySerializer
     document_class = EntityDocument
     queryset = Entity.objects.prefetch_related('descriptor_schema', 'contributor')
-    filtering_fields = CollectionViewSet.filtering_fields + ('descriptor_completed', 'collection', 'type')
+    filtering_fields = CollectionViewSet.filtering_fields + ('collection', 'type')
 
     def _get_collection_for_user(self, collection_id, user):
         """Check that collection exists and user has `add` permission."""

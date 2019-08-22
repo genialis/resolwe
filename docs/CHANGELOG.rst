@@ -6,6 +6,15 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Changed
+-------
+- **BACKWARD INCOMPATIBLE:** Remove ``Entity.descriptor_completed`` field
+
+
 ===================
 19.1.0 - 2019-09-17
 ===================

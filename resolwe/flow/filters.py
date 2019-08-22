@@ -130,7 +130,6 @@ class EntityFilter(CollectionFilter):
     """Filter the Entity endpoint."""
 
     collection = filters.ModelChoiceFilter(field_name='collection', queryset=Collection.objects.all())
-    descriptor_completed = filters.rest_framework.filters.BooleanFilter(field_name='descriptor_completed')
     tags = TagsFilter()
 
     class Meta(CollectionFilter.Meta):

@@ -649,29 +649,12 @@ class EntityFilterTestCase(TestCase):
         cls.collection_1 = Collection.objects.create(contributor=cls.user_1)
         cls.collection_2 = Collection.objects.create(contributor=cls.user_1)
 
-        cls.entity_1 = Entity.objects.create(
-            contributor=cls.user_1,
-            descriptor_completed=True,
-        )
-        cls.entity_1.collection = cls.collection_1
-        cls.entity_1.save()
-
-        cls.entity_2 = Entity.objects.create(
-            contributor=cls.user_1,
-            descriptor_completed=False,
-        )
-        cls.entity_2.collection = cls.collection_2
-        cls.entity_2.save()
+        cls.entity_1 = Entity.objects.create(contributor=cls.user_1, collection=cls.collection_1)
+        cls.entity_2 = Entity.objects.create(contributor=cls.user_1, collection=cls.collection_2)
 
     def _apply_filter(self, filters, expected):
         filtered = EntityFilter(filters, queryset=Entity.objects.all())
         self.assertCountEqual(filtered.qs, expected)
-
-    def test_descriptor_completed(self):
-        self._apply_filter({'descriptor_completed': 'true'}, [self.entity_1])
-        self._apply_filter({'descriptor_completed': '1'}, [self.entity_1])
-        self._apply_filter({'descriptor_completed': 'false'}, [self.entity_2])
-        self._apply_filter({'descriptor_completed': '0'}, [self.entity_2])
 
     def test_collection(self):
         self._apply_filter({'collection': self.collection_1.id}, [self.entity_1])

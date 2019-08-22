@@ -59,9 +59,6 @@ class Entity(BaseCollection):
     #: collection to which entity belongs
     collection = models.ForeignKey('Collection', blank=True, null=True, on_delete=models.CASCADE)
 
-    #: indicate whether `descriptor` is completed (set by user)
-    descriptor_completed = models.BooleanField(default=False)
-
     #: entity type
     type = models.CharField(max_length=100, db_index=True, null=True, blank=True)
 
