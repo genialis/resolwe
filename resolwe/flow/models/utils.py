@@ -612,6 +612,8 @@ def validate_process_types(queryset=None):
 
 def fill_with_defaults(process_input, input_schema):
     """Fill empty optional fields in input with default values."""
-    for field_schema, fields, path in iterate_schema(process_input, input_schema):
+    for field_schema, fields, path in iterate_schema(process_input, input_schema, include_groups=True):
+        if 'group' in field_schema and field_schema['name'] not in fields:
+            dict_dot(process_input, path, {})
         if 'default' in field_schema and field_schema['name'] not in fields:
             dict_dot(process_input, path, field_schema['default'])

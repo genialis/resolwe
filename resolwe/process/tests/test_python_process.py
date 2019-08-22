@@ -109,6 +109,29 @@ class PythonProcessTest(ProcessTestCase):
         self.assertEqual(entity.data.first(), data)
 
     @with_docker_executor
+    @tag_process('test-python-process-group-field')
+    def test_python_process_group(self):
+        # Run with explicitly given inputs.
+        data = self.run_process('test-python-process-group-field', {
+            'my_group': {
+                'foo': 123,
+                'bar': 'foobar',
+            },
+            'my_group2': {
+                'foo': 124,
+            },
+        })
+        self.assertFields(data, 'out_foo', 123)
+        self.assertFields(data, 'out_bar', 'foobar')
+        self.assertFields(data, 'out_foo2', 124)
+
+        # Run with no inputs - check that default values are used.
+        data = self.run_process('test-python-process-group-field')
+        self.assertFields(data, 'out_foo', 42)
+        self.assertFalse(hasattr(data.output, 'out_bar'))
+        self.assertFalse(hasattr(data.output, 'out_bar2'))
+
+    @with_docker_executor
     @tag_process('test-python-process-json')
     def test_python_process_json(self):
         """Test that data object with json output can be given as input."""

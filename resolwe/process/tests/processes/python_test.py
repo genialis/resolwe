@@ -126,6 +126,41 @@ class PythonProcess(Process):
         outputs.list_string_output = ['foo', 'bar']
 
 
+class PythonProcessGroup(Process):
+    """Process with Group fields."""
+    slug = 'test-python-process-group-field'
+    name = "Test Python Process for GroupField"
+    version = '0.1.2'
+    process_type = 'data:python:group'
+
+    class Input:
+        """Input fields."""
+
+        class MyGroup:
+            foo = IntegerField(label="Foo", required=False, default=42)
+            bar = StringField(label="Bar", required=False)
+
+        class MyGroup2:
+            foo = IntegerField(label="Foo", required=False)
+
+        my_group = GroupField(MyGroup, label="My group")
+        my_group2 = GroupField(MyGroup2, label="My group2 that has all elements without defaults.")
+
+    class Output:
+        """Output fields."""
+        out_foo = IntegerField(label="Foo.", required=False)
+        out_bar = StringField(label="Bar.", required=False)
+        out_foo2 = IntegerField(label="Foo2.", required=False)
+
+    def run(self, inputs, outputs):
+        if inputs.my_group.foo:
+            outputs.out_foo = inputs.my_group.foo
+        if inputs.my_group.bar:
+            outputs.out_bar = inputs.my_group.bar
+        if inputs.my_group2.foo:
+            outputs.out_foo2 = inputs.my_group2.foo
+
+
 class PythonProcess2(process.Process):
     """Inherit from 'module.Class'."""
     slug = 'test-python-process-2'

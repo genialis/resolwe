@@ -32,7 +32,7 @@ def iterate_fields(fields, schema, path_prefix=None):
             yield rvals if path_prefix is not None else rvals[:2]
 
 
-def iterate_schema(fields, schema, path_prefix=''):
+def iterate_schema(fields, schema, path_prefix='', include_groups=False):
     """Iterate over all schema sub-fields.
 
     This will iterate over all field definitions in the schema. Some field v
@@ -54,6 +54,8 @@ def iterate_schema(fields, schema, path_prefix=''):
     for field_schema in schema:
         name = field_schema['name']
         if 'group' in field_schema:
+            if include_groups:
+                yield (field_schema, fields, '{}{}'.format(path_prefix, name))
             for rvals in iterate_schema(fields[name] if name in fields else {},
                                         field_schema['group'], '{}{}'.format(path_prefix, name)):
                 yield rvals
