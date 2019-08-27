@@ -1,4 +1,5 @@
 - slug: mini
+  version: "1.0.0"
   name: Minimalistic Process
   requirements:
     expression-engine: jinja
