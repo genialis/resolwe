@@ -1,7 +1,7 @@
 """Elastic Search indexes for Data model."""
 import elasticsearch_dsl as dsl
 
-from resolwe.elastic.fields import Name, ProcessType
+from resolwe.elastic.fields import Name, ProcessType, Slug
 from resolwe.elastic.indices import BaseIndex
 
 from ..models import Data
@@ -19,6 +19,7 @@ class DataDocument(BaseDocument):
     # Keep backward compatibility.
     type = ProcessType()
     process_name = Name()
+    process_slug = Slug()
     tags = dsl.Keyword(multi=True)
 
     collection = dsl.Integer()
@@ -44,6 +45,7 @@ class DataIndex(BaseIndexMixin, BaseIndex):
         'process': 'process.id',
         'process_name': 'process.name',
         'process_type': 'process.type',
+        'process_slug': 'process.slug',
         'type': 'process.type',
         'entity': 'entity_id',
         'collection': 'collection_id',

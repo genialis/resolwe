@@ -219,6 +219,11 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter({'process_name': 'second'}, self.data[5:])
         self._check_filter({'process_name': 'sec'}, self.data[5:])
 
+    def test_filter_process_slug(self):
+        self._check_filter({'process_slug': 'test-process-1'}, self.data[:5])
+        self._check_filter({'process_slug': 'test-process-2'}, self.data[5:])
+        self._check_filter({'process_slug': 'test-process'}, [])
+
     def test_filter_tags(self):
         self._check_filter({'tags': 'foo'}, self.data)
         self._check_filter({'tags': 'foo,index1'}, [self.data[1]])
