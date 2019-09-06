@@ -46,7 +46,7 @@ class TestDataViewSetCase(TestCase):
             'get': 'children',
         })
 
-        self.collection = Collection.objects.create(contributor=self.contributor)
+        self.collection = Collection.objects.create(contributor=self.contributor, tags=['foo:bar'])
 
         self.proc = Process.objects.create(
             type='data:test:process',
@@ -208,6 +208,12 @@ class TestDataViewSetCase(TestCase):
         # Test that one Entity was created and that it was added to the same collection as Data object.
         self.assertEqual(Entity.objects.count(), 1)
         self.assertEqual(Entity.objects.first().collection.pk, self.collection.pk)
+
+        # Test that data/entity object inherits tags.
+        data = Data.objects.last()
+        self.assertEqual(data.tags, self.collection.tags)
+        entity = Entity.objects.last()
+        self.assertEqual(entity.tags, self.collection.tags)
 
     def test_collections_fields(self):
         # Create data object.

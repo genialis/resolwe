@@ -18,6 +18,7 @@ Fixed
 -----
 - Fix ``DictRelatedField`` so it can be used in browsable-API
 - Fix access to subfields of empty ``GroupField`` in Python processes
+- Fix tag inheritance in ``Data.create`` method
 
 
 ===================

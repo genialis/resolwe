@@ -161,6 +161,12 @@ class DataQuerySet(models.QuerySet):
     @transaction.atomic
     def create(self, subprocess_parent=None, **kwargs):
         """Create new object with the given kwargs."""
+        entity_tags = kwargs['entity'].tags if 'entity' in kwargs else []
+        collection_tags = kwargs['collection'].tags if 'collection' in kwargs else []
+
+        # Object should have all the tags of its containers:
+        kwargs['tags'] = list(set(kwargs.get('tags', []) + entity_tags + collection_tags))
+
         obj = super().create(**kwargs)
 
         # Data dependencies

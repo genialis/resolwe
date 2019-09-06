@@ -288,7 +288,7 @@ class EntityModelTest(TestCase):
         self.assertTrue(entity.data.filter(pk=data.pk).exists())
 
         # Make sure tags are copied.
-        self.assertEqual(entity.tags, data.tags)
+        self.assertCountEqual(entity.tags, data.tags)
 
     def test_entity_inheritance(self):
         # Prepare Data objects with entities.
