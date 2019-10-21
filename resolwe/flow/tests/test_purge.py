@@ -410,8 +410,10 @@ class PurgeUnitTest(PurgeTestFieldsMixin, ProcessTestCase):
         # Check that only the 'removeme' file from the completed Data objects is removed
         # together with directories not belonging to any data objects.
         with contextlib.ExitStack() as stack:
+            # pylint: disable=no-member
             os_mock = stack.enter_context(patch('resolwe.flow.utils.purge.os', wraps=os))
             shutil_mock = stack.enter_context(patch('resolwe.flow.utils.purge.shutil', wraps=shutil))
+            # pylint: enable=no-member
 
             os_mock.remove = MagicMock()
             shutil_mock.rmtree = MagicMock()
@@ -442,8 +444,10 @@ class PurgeUnitTest(PurgeTestFieldsMixin, ProcessTestCase):
         another_data.save()
 
         with contextlib.ExitStack() as stack:
+            # pylint: disable=no-member
             os_mock = stack.enter_context(patch('resolwe.flow.utils.purge.os', wraps=os))
             shutil_mock = stack.enter_context(patch('resolwe.flow.utils.purge.shutil', wraps=shutil))
+            # pylint: enable=no-member
 
             os_mock.remove = MagicMock()
             purge.location_purge(location_id=another_data.location.id, delete=True)

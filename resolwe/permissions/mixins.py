@@ -1,5 +1,5 @@
 """Permissions functions used in Resolwe Viewsets."""
-from distutils.util import strtobool  # pylint: disable=import-error,no-name-in-module
+from distutils.util import strtobool
 
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
