@@ -65,7 +65,6 @@ class CollectionPermissionsTest(ResolweAPITestCase):
     def test_user_without_share(self):
         """User without ``SHARE`` permission cannot do anything"""
         assign_perm("view_collection", self.user1, self.collection)
-        assign_perm("download_collection", self.user1, self.collection)
         assign_perm("add_collection", self.user1, self.collection)
         assign_perm("edit_collection", self.user1, self.collection)
 
@@ -120,7 +119,6 @@ class CollectionPermissionsTest(ResolweAPITestCase):
     def test_protect_owner(self):
         """Only owners can modify `owner` permission"""
         assign_perm("view_collection", self.user1, self.collection)
-        assign_perm("download_collection", self.user1, self.collection)
         assign_perm("add_collection", self.user1, self.collection)
         assign_perm("edit_collection", self.user1, self.collection)
         assign_perm("share_collection", self.user1, self.collection)
@@ -420,9 +418,6 @@ class PermissionsUtilitiesTest(TestCase):
     def test_filter_public_permissions(self):
         """Check that public user cannot get to open permissions"""
         data = {'public': {'add': ['view']}}
-        check_public_permissions(data)
-
-        data = {'public': {'add': ['download']}}
         check_public_permissions(data)
 
         data = {'public': {'add': ['add']}}

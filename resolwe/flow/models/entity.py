@@ -48,7 +48,6 @@ class Entity(BaseCollection):
             ("view_entity", "Can view entity"),
             ("edit_entity", "Can edit entity"),
             ("share_entity", "Can share entity"),
-            ("download_entity", "Can download files from entity"),
             ("add_entity", "Can add data objects to entity"),
             ("owner_entity", "Is owner of the entity"),
         )

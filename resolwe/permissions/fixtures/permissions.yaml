@@ -13,13 +13,6 @@
     permission: [view_collection, flow, collection]
     user: [public]
 
-- model: guardian.userobjectpermission
-  fields:
-    content_type: [flow, collection]
-    object_pk: 1
-    permission: [download_collection, flow, collection]
-    user: [public]
-
 # COLLECTION 2
 
 # COLLECTION 3
@@ -38,13 +31,6 @@
     content_type: [flow, data]
     object_pk: 1
     permission: [view_data, flow, data]
-    user: [public]
-
-- model: guardian.userobjectpermission
-  fields:
-    content_type: [flow, data]
-    object_pk: 1
-    permission: [download_data, flow, data]
     user: [public]
 
 # PROCESS 1
@@ -87,13 +73,6 @@
   fields:
     content_type: [flow, collection]
     object_pk: 1
-    permission: [download_collection, flow, collection]
-    user: [user1]
-
-- model: guardian.userobjectpermission
-  fields:
-    content_type: [flow, collection]
-    object_pk: 1
     permission: [add_collection, flow, collection]
     user: [user1]
 
@@ -111,13 +90,6 @@
     content_type: [flow, collection]
     object_pk: 2
     permission: [edit_collection, flow, collection]
-    user: [user1]
-
-- model: guardian.userobjectpermission
-  fields:
-    content_type: [flow, collection]
-    object_pk: 2
-    permission: [download_collection, flow, collection]
     user: [user1]
 
 - model: guardian.userobjectpermission
@@ -157,13 +129,6 @@
     content_type: [flow, data]
     object_pk: 1
     permission: [share_data, flow, data]
-    user: [user1]
-
-- model: guardian.userobjectpermission
-  fields:
-    content_type: [flow, data]
-    object_pk: 1
-    permission: [download_data, flow, data]
     user: [user1]
 
 # DATA 2

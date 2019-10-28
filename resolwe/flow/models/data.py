@@ -253,7 +253,6 @@ class Data(BaseModel):
             ("view_data", "Can view data"),
             ("edit_data", "Can edit data"),
             ("share_data", "Can share data"),
-            ("download_data", "Can download files from data"),
             ("owner_data", "Is owner of the data"),
         )
 

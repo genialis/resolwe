@@ -12,6 +12,8 @@ Unreleased
 
 Changed
 -------
+- **BACKWARD INCOMPATIBLE:** Remove ``download`` permission from Data objects,
+  samples and collections
 - **BACKWARD INCOMPATIBLE:** Remove ``Entity.descriptor_completed`` field
 
 
