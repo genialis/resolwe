@@ -44,7 +44,7 @@ class UtilsTestCase(TestCase):
 
     def test_copy_different_ctype(self):
         assign_perm('view_collection', self.contributor, self.collection)
-        assign_perm('add_collection', self.contributor, self.collection)
+        assign_perm('edit_collection', self.contributor, self.collection)
 
         copy_permissions(self.collection, self.dst_process)
 

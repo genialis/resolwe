@@ -71,7 +71,6 @@ class Collection(BaseCollection):
             ("view_collection", "Can view collection"),
             ("edit_collection", "Can edit collection"),
             ("share_collection", "Can share collection"),
-            ("add_collection", "Can add data objects to collection"),
             ("owner_collection", "Is owner of the collection"),
         )
 

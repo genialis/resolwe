@@ -65,7 +65,7 @@ class TestDataViewSetCase(TestCase):
         )
 
         assign_perm('view_collection', self.contributor, self.collection)
-        assign_perm('add_collection', self.contributor, self.collection)
+        assign_perm('edit_collection', self.contributor, self.collection)
         assign_perm('view_process', self.contributor, self.proc)
         assign_perm('view_descriptorschema', self.contributor, self.descriptor_schema)
 
@@ -157,7 +157,7 @@ class TestDataViewSetCase(TestCase):
         entity_ctype = ContentType.objects.get_for_model(Entity)
 
         assign_perm('view_collection', self.user, self.collection)
-        assign_perm('add_collection', self.user, self.collection)
+        assign_perm('edit_collection', self.user, self.collection)
 
         post_data = {
             'process': {'slug': 'test-process'},
@@ -173,8 +173,7 @@ class TestDataViewSetCase(TestCase):
 
         self.assertTrue(self.user.has_perm('view_data', data))
         self.assertTrue(self.user.has_perm('view_entity', entity))
-        self.assertTrue(self.user.has_perm('add_entity', entity))
-        self.assertEqual(UserObjectPermission.objects.filter(content_type=data_ctype, user=self.user).count(), 1)
+        self.assertEqual(UserObjectPermission.objects.filter(content_type=data_ctype, user=self.user).count(), 2)
         self.assertEqual(UserObjectPermission.objects.filter(content_type=entity_ctype, user=self.user).count(), 2)
 
         # Add some permissions and run another process in same entity.
@@ -195,7 +194,7 @@ class TestDataViewSetCase(TestCase):
         self.assertTrue(self.user.has_perm('view_data', data_2))
         self.assertTrue(self.user.has_perm('edit_data', data_2))
         self.assertTrue(self.user.has_perm('share_data', data_2))
-        self.assertEqual(UserObjectPermission.objects.filter(content_type=data_ctype, user=self.user).count(), 4)
+        self.assertEqual(UserObjectPermission.objects.filter(content_type=data_ctype, user=self.user).count(), 5)
         self.assertEqual(UserObjectPermission.objects.filter(content_type=entity_ctype, user=self.user).count(), 3)
 
     def test_handle_entity(self):
@@ -636,8 +635,8 @@ class EntityViewSetTest(TestCase):
         self.entity.collection = self.collection2
         self.entity.save()
 
-        assign_perm('add_collection', self.contributor, self.collection)
-        assign_perm('add_entity', self.contributor, self.entity)
+        assign_perm('edit_collection', self.contributor, self.collection)
+        assign_perm('edit_entity', self.contributor, self.entity)
         assign_perm('view_collection', self.contributor, self.collection)
         assign_perm('view_collection', self.contributor, self.collection2)
         assign_perm('view_entity', self.contributor, self.entity)
@@ -743,7 +742,7 @@ class EntityViewSetTest(TestCase):
 
         source_collection = Collection.objects.create(contributor=self.contributor)
         assign_perm('view_collection', self.contributor, source_collection)
-        assign_perm('add_collection', self.contributor, source_collection)
+        assign_perm('edit_collection', self.contributor, source_collection)
         entity.collection = source_collection
         entity.save()
         data.collection = source_collection
@@ -751,7 +750,7 @@ class EntityViewSetTest(TestCase):
 
         destination_collection = Collection.objects.create(contributor=self.contributor)
         assign_perm('view_collection', self.contributor, destination_collection)
-        assign_perm('add_collection', self.contributor, destination_collection)
+        assign_perm('edit_collection', self.contributor, destination_collection)
 
         request = factory.post(reverse('resolwe-api:entity-move-to-collection'), {
             'ids': [entity.id],
@@ -801,7 +800,7 @@ class EntityViewSetTest(TestCase):
     def test_duplicate(self):
         entity = Entity.objects.first()
         collection = Collection.objects.create(contributor=self.contributor)
-        assign_perm('add_collection', self.contributor, collection)
+        assign_perm('edit_collection', self.contributor, collection)
         collection.entity_set.add(entity)
         data = entity.data.all()
         for datum in data:

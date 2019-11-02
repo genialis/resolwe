@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from resolwe.flow.models import Collection, Entity
 from resolwe.flow.serializers import EntitySerializer
 from resolwe.permissions.shortcuts import get_objects_for_user
-from resolwe.permissions.utils import remove_permission, update_permission
+from resolwe.permissions.utils import update_permission
 
 from ..elastic_indexes import EntityDocument
 from .collection import CollectionViewSet
@@ -21,13 +21,13 @@ class EntityViewSet(CollectionViewSet):
     filtering_fields = CollectionViewSet.filtering_fields + ('collection', 'type')
 
     def _get_collection_for_user(self, collection_id, user):
-        """Check that collection exists and user has `add` permission."""
+        """Check that collection exists and user has `edit` permission."""
         collection_query = Collection.objects.filter(pk=collection_id)
         if not collection_query.exists():
             raise exceptions.ValidationError('Collection id does not exist')
 
         collection = collection_query.first()
-        if not user.has_perm('add_collection', obj=collection):
+        if not user.has_perm('edit_collection', obj=collection):
             if user.is_authenticated:
                 raise exceptions.PermissionDenied()
             else:
@@ -49,9 +49,6 @@ class EntityViewSet(CollectionViewSet):
 
     def set_content_permissions(self, user, obj, payload):
         """Apply permissions to data objects in ``Entity``."""
-        # Data doesn't have "ADD" permission, so it has to be removed
-        payload = remove_permission(payload, 'add')
-
         for data in obj.data.all():
             if user.has_perm('share_data', data):
                 update_permission(data, payload)

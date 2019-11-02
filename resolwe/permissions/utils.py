@@ -7,8 +7,6 @@ Permissions utils
 .. autofunction:: copy_permissions
 
 """
-import copy
-
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser, Group
 from django.contrib.contenttypes.models import ContentType
@@ -139,24 +137,6 @@ def check_user_permissions(payload, user_pk):
         user_pks = payload.get('users', {}).get(perm_type, {}).keys()
         if user_pk in user_pks:
             raise exceptions.PermissionDenied("You cannot change your own permissions")
-
-
-def remove_permission(payload, permission):
-    """Remove all occurrences of ``permission`` from ``payload``."""
-    payload = copy.deepcopy(payload)
-
-    for entity_type in ['users', 'groups']:
-        for perm_type in ['add', 'remove']:
-            for perms in payload.get(entity_type, {}).get(perm_type, {}).values():
-                if permission in perms:
-                    perms.remove(permission)
-
-    for perm_type in ['add', 'remove']:
-        perms = payload.get('public', {}).get(perm_type, [])
-        if permission in perms:
-            perms.remove(permission)
-
-    return payload
 
 
 def update_permission(obj, data):

@@ -65,7 +65,6 @@ class CollectionPermissionsTest(ResolweAPITestCase):
     def test_user_without_share(self):
         """User without ``SHARE`` permission cannot do anything"""
         assign_perm("view_collection", self.user1, self.collection)
-        assign_perm("add_collection", self.user1, self.collection)
         assign_perm("edit_collection", self.user1, self.collection)
 
         # Can not add permissions to users.
@@ -119,7 +118,6 @@ class CollectionPermissionsTest(ResolweAPITestCase):
     def test_protect_owner(self):
         """Only owners can modify `owner` permission"""
         assign_perm("view_collection", self.user1, self.collection)
-        assign_perm("add_collection", self.user1, self.collection)
         assign_perm("edit_collection", self.user1, self.collection)
         assign_perm("share_collection", self.user1, self.collection)
 

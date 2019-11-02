@@ -13,7 +13,7 @@ class EntitySerializer(CollectionSerializer):
         serializer=CollectionSerializer,
         allow_null=True,
         required=False,
-        write_permission='add',
+        write_permission='edit',
     )
 
     class Meta(CollectionSerializer.Meta):

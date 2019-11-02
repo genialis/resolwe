@@ -69,13 +69,6 @@
     permission: [share_collection, flow, collection]
     user: [user1]
 
-- model: guardian.userobjectpermission
-  fields:
-    content_type: [flow, collection]
-    object_pk: 1
-    permission: [add_collection, flow, collection]
-    user: [user1]
-
 # COLLECTION 2
 
 - model: guardian.userobjectpermission
@@ -90,13 +83,6 @@
     content_type: [flow, collection]
     object_pk: 2
     permission: [edit_collection, flow, collection]
-    user: [user1]
-
-- model: guardian.userobjectpermission
-  fields:
-    content_type: [flow, collection]
-    object_pk: 2
-    permission: [add_collection, flow, collection]
     user: [user1]
 
 # COLLECTION 3

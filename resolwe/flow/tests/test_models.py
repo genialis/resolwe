@@ -825,7 +825,7 @@ class DuplicateTestCase(TestCase):
         self.assertEqual(collection_data[1].name, 'Data 2')
 
         # Assert permissions.
-        self.assertEqual(len(get_perms(self.contributor, duplicate)), 5)
+        self.assertEqual(len(get_perms(self.contributor, duplicate)), 4)
 
     def test_entity_duplicate_inherit(self):
         process = Process.objects.create(contributor=self.user)
@@ -837,7 +837,7 @@ class DuplicateTestCase(TestCase):
         # Add to collection.
         collection = Collection.objects.create(contributor=self.user)
         assign_perm('view_collection', self.user, collection)
-        assign_perm('add_collection', self.user, collection)
+        assign_perm('edit_collection', self.user, collection)
         assign_perm('edit_collection', self.contributor, collection)
         collection.entity_set.add(entity)
         collection.data.add(data)
@@ -855,8 +855,8 @@ class DuplicateTestCase(TestCase):
 
         # Assert permissions.
         self.assertEqual(duplicated_entity1.data.count(), 1)
-        self.assertCountEqual(get_perms(self.user, collection), ['view_collection', 'add_collection'])
-        self.assertEqual(len(get_perms(self.user, duplicated_entity1)), 5)
+        self.assertCountEqual(get_perms(self.user, collection), ['view_collection', 'edit_collection'])
+        self.assertEqual(len(get_perms(self.user, duplicated_entity1)), 4)
         self.assertEqual(len(get_perms(self.user, duplicated_entity1.data.first())), 4)
         self.assertListEqual(get_perms(self.contributor, collection), ['edit_collection'])
         self.assertListEqual(get_perms(self.contributor, duplicated_entity1), [])
@@ -876,8 +876,8 @@ class DuplicateTestCase(TestCase):
 
         # Assert permissions.
         self.assertEqual(duplicated_entity2.data.count(), 1)
-        self.assertCountEqual(get_perms(self.user, collection), ['view_collection', 'add_collection'])
-        self.assertEqual(len(get_perms(self.user, duplicated_entity2)), 5)
+        self.assertCountEqual(get_perms(self.user, collection), ['view_collection', 'edit_collection'])
+        self.assertEqual(len(get_perms(self.user, duplicated_entity2)), 4)
         self.assertEqual(len(get_perms(self.user, duplicated_entity2.data.first())), 4)
         self.assertListEqual(get_perms(self.contributor, collection), ['edit_collection'])
         self.assertListEqual(get_perms(self.contributor, duplicated_entity2), ['edit_entity'])
@@ -936,7 +936,7 @@ class DuplicateTestCase(TestCase):
         self.assertEqual(duplicate.entity_set.first().name, 'Copy of Entity')
 
         # Assert permissions.
-        self.assertEqual(len(get_perms(self.contributor, duplicate)), 5)
+        self.assertEqual(len(get_perms(self.contributor, duplicate)), 4)
 
 
 class ProcessModelTest(TestCase):

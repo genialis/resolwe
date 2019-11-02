@@ -48,7 +48,6 @@ class Entity(BaseCollection):
             ("view_entity", "Can view entity"),
             ("edit_entity", "Can edit entity"),
             ("share_entity", "Can share entity"),
-            ("add_entity", "Can add data objects to entity"),
             ("owner_entity", "Is owner of the entity"),
         )
 
@@ -80,8 +79,8 @@ class Entity(BaseCollection):
 
         duplicate.collection = None
         if inherit_collection:
-            if not contributor.has_perm('add_collection', self.collection):
-                raise ValidationError("You do not have add permission on collection {}.".format(self.collection))
+            if not contributor.has_perm('edit_collection', self.collection):
+                raise ValidationError("You do not have edit permission on collection {}.".format(self.collection))
             duplicate.collection = self.collection
 
         duplicate.save(force_insert=True)

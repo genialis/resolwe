@@ -5,9 +5,10 @@ from datetime import timedelta
 
 from django.utils.timezone import now
 
+from guardian.shortcuts import remove_perm
 from rest_framework import exceptions, status
 
-from resolwe.flow.models import Data
+from resolwe.flow.models import Collection, Data
 from resolwe.flow.serializers import ContributorSerializer
 from resolwe.flow.views import DataViewSet
 from resolwe.test import ResolweAPITestCase
@@ -101,6 +102,9 @@ class DataTestCase(ResolweAPITestCase):
         self.assertEqual(Data.objects.count(), data_n)
 
     def test_post_no_perms(self):
+        collection = Collection.objects.get(pk=1)
+        remove_perm('edit_collection', self.user2, collection)
+
         data_count = Data.objects.count()
         resp = self._post(self.data, self.user2)
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)

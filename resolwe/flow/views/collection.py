@@ -12,7 +12,7 @@ from resolwe.flow.serializers import CollectionSerializer
 from resolwe.permissions.loader import get_permissions_class
 from resolwe.permissions.mixins import ResolwePermissionsMixin
 from resolwe.permissions.shortcuts import get_objects_for_user
-from resolwe.permissions.utils import remove_permission, update_permission
+from resolwe.permissions.utils import update_permission
 
 from ..elastic_indexes import CollectionDocument
 from .mixins import ParametersMixin, ResolweCheckSlugMixin, ResolweCreateModelMixin, ResolweUpdateModelMixin
@@ -91,9 +91,6 @@ class CollectionViewSet(ElasticSearchCombinedViewSet,
         for entity in obj.entity_set.all():
             if user.has_perm('share_entity', entity):
                 update_permission(entity, payload)
-
-        # Data doesn't have "ADD" permission, so it has to be removed
-        payload = remove_permission(payload, 'add')
 
         for data in obj.data.all():
             if user.has_perm('share_data', data):

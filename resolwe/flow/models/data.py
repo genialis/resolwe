@@ -587,14 +587,14 @@ class Data(BaseModel):
 
         duplicate.entity = None
         if inherit_entity:
-            if not contributor.has_perm('add_entity', self.entity):
-                raise ValidationError("You do not have add permission on entity {}.".format(self.entity))
+            if not contributor.has_perm('edit_entity', self.entity):
+                raise ValidationError("You do not have edit permission on entity {}.".format(self.entity))
             duplicate.entity = self.entity
 
         duplicate.collection = None
         if inherit_collection:
-            if not contributor.has_perm('add_collection', self.collection):
-                raise ValidationError("You do not have add permission on collection {}.".format(self.collection))
+            if not contributor.has_perm('edit_collection', self.collection):
+                raise ValidationError("You do not have edit permission on collection {}.".format(self.collection))
             duplicate.collection = self.collection
 
         duplicate._perform_save(force_insert=True)  # pylint: disable=protected-access

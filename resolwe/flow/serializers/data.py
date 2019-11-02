@@ -30,14 +30,14 @@ class DataSerializer(ResolweBaseSerializer):
         serializer=CollectionSerializer,
         allow_null=True,
         required=False,
-        write_permission='add',
+        write_permission='edit',
     )
     entity = DictRelatedField(
         queryset=Entity.objects.all(),
         serializer=EntitySerializer,
         allow_null=True,
         required=False,
-        write_permission='add',
+        write_permission='edit',
     )
 
     class Meta:
