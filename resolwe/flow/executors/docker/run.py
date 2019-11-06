@@ -62,9 +62,9 @@ class FlowExecutor(LocalFlowExecutor):
 
         # Set resource limits.
         limits = []
-        # Each core is equivalent to 1024 CPU shares. The default for Docker containers
-        # is 1024 shares (we don't need to explicitly set that).
-        limits.append('--cpu-shares={}'.format(int(self.process['resource_limits']['cores']) * 1024))
+        # Specify CPU limits. Default docker container is unlimited (0.000)
+        # Available in Docker 1.13 and higher.
+        limits.append('--cpus={:.1f}'.format(self.process['resource_limits']['cores']))
 
         # Some SWAP is needed to avoid OOM signal. Swappiness is low to prevent
         # extensive usage of SWAP (this would reduce the performance).
@@ -79,7 +79,11 @@ class FlowExecutor(LocalFlowExecutor):
         # Set ulimits for interactive processes to prevent them from running too long.
         if self.process['scheduling_class'] == PROCESS_META['SCHEDULING_CLASS_INTERACTIVE']:
             # TODO: This is not very good as each child gets the same limit.
-            limits.append('--ulimit cpu={}'.format(limit_defaults.get('cpu_time_interactive', 30)))
+            # Note: Ulimit does not work as expected on multithreaded processes
+            # Limit is increased by factor 1.2 for processes with 2-8 threads.
+            # TODO: This should be changed for processes with over 8 threads.
+            cpu_time_interactive = limit_defaults.get('cpu_time_interactive', 30)
+            limits.append('--ulimit cpu={}'.format(int(cpu_time_interactive * 1.2)))
 
         command_args['limits'] = ' '.join(limits)
 

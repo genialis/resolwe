@@ -18,6 +18,11 @@ Changed
   collections
 - **BACKWARD INCOMPATIBLE:** Remove ``Entity.descriptor_completed`` field
 
+Fixed
+-----
+- Fix docker executor command with ``--cpus`` limit option. This solves the
+  issue where process is killed before the timeout 30s is reached
+
 
 ===================
 19.1.0 - 2019-09-17
