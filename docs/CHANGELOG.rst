@@ -6,21 +6,19 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+===================
+20.0.0 - 2019-11-18
+===================
 
 Changed
 -------
 - **BACKWARD INCOMPATIBLE:** Remove ``download`` permission from Data objects,
-  samples and collections
-- **BACKWARD INCOMPATIBLE:** Remove ``add`` permission from samples and
-  collections
+  samples and collections and ``add`` permission from samples and collections
 - **BACKWARD INCOMPATIBLE:** Remove ``Entity.descriptor_completed`` field
 
 Fixed
 -----
-- Fix docker executor command with ``--cpus`` limit option. This solves the
+- Fix Docker executor command with ``--cpus`` limit option. This solves the
   issue where process is killed before the timeout 30s is reached
 
 
