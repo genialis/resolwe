@@ -123,8 +123,10 @@ class ObjectPermsTestCase(TestCase):
         assign_perm("edit_collection", self.user1, self.collection)
         assign_perm("view_collection", self.user2, self.collection)
         expected_perms = [
-            {'permissions': ['edit', 'view'], 'type': 'user', 'id': self.user1.pk, 'name': 'test_user1'},
-            {'permissions': ['view'], 'type': 'user', 'id': self.user2.pk, 'name': 'test_user2'},
+            {'permissions': ['edit', 'view'], 'type': 'user', 'id': self.user1.pk, 'name': 'test_user1',
+             'username': 'test_user1'},
+            {'permissions': ['view'], 'type': 'user', 'id': self.user2.pk, 'name': 'test_user2',
+             'username': 'test_user2'},
         ]
         perms = get_object_perms(self.collection)
         self.assertCountEqual(self._sort_perms(expected_perms), self._sort_perms(perms))
@@ -156,7 +158,8 @@ class ObjectPermsTestCase(TestCase):
         assign_perm("view_collection", self.group2, self.collection)
 
         expected_perms = [
-            {'permissions': ['edit', 'view'], 'type': 'user', 'id': self.user1.pk, 'name': 'test_user1'},
+            {'permissions': ['edit', 'view'], 'type': 'user', 'id': self.user1.pk, 'name': 'test_user1',
+             'username': 'test_user1'},
             {'permissions': ['edit', 'view'], 'type': 'group', 'id': self.group1.pk, 'name': 'Test group 1'},
         ]
         perms = get_object_perms(self.collection, self.user1)

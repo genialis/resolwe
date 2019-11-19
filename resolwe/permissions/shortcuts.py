@@ -187,6 +187,7 @@ def get_object_perms(obj, user=None):
                 'type': 'user',
                 'id': user.pk,
                 'name': user.get_full_name() or user.username,
+                'username': user.username,
                 'permissions': format_permissions(user_perms),
             })
 
@@ -211,6 +212,7 @@ def get_object_perms(obj, user=None):
                 'type': 'user',
                 'id': user.pk,
                 'name': user.get_full_name() or user.username,
+                'username': user.username,
                 'permissions': format_permissions(perms),
             })
 
