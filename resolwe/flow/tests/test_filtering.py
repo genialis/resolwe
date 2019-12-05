@@ -49,14 +49,52 @@ class CollectionViewSetFiltersTest(BaseViewSetFiltersTest):
         self.viewset_class = CollectionViewSet
         super().setUp()
 
-        self.collection = Collection.objects.create(
-            name='Test collection 1',
-            contributor=self.contributor,
-        )
+        self.collections = []
+        for index in range(2):
+            collection = Collection.objects.create(
+                name='Test collection {}'.format(index),
+                slug='test-collection-{}'.format(index),
+                contributor=self.contributor,
+                description='My description!' if index == 0 else 'Other description'
+            )
+
+            assign_perm('owner_collection', self.admin, collection)
+
+            self.collections.append(collection)
 
     def test_filter_name(self):
-        self._check_filter({'name': 'Test collection 1'}, [self.collection])
+        self._check_filter({'name': 'Test collection 1'}, [self.collections[1]])
         self._check_filter({'name': 'Test collection'}, [])
+
+    def test_filter_text(self):
+        # By slug.
+        self._check_filter({'text': 'test-collection-1'}, [self.collections[1]])
+        self._check_filter({'text': 'test-colle'}, self.collections)
+
+        # By name.
+        self._check_filter({'text': 'Test collection 1'}, [self.collections[1]])
+        self._check_filter({'text': 'Test'}, self.collections)
+        self._check_filter({'text': 'test'}, self.collections)
+        self._check_filter({'text': 'tes'}, self.collections)
+        self._check_filter({'text': 'est'}, [])
+
+        # By contributor.
+        self._check_filter({'text': 'joe'}, self.collections)
+        self._check_filter({'text': 'oe'}, [])
+        self._check_filter({'text': 'Miller'}, self.collections)
+        self._check_filter({'text': 'mill'}, self.collections)
+
+        # By owner.
+        self._check_filter({'text': 'james'}, self.collections)
+        self._check_filter({'text': 'mes'}, [])
+        self._check_filter({'text': 'Smith'}, self.collections)
+        self._check_filter({'text': 'smi'}, self.collections)
+
+        # By description.
+        self._check_filter({'text': 'description'}, self.collections)
+        self._check_filter({'text': 'my'}, [self.collections[0]])
+        self._check_filter({'text': 'my description'}, [self.collections[0]])
+        self._check_filter({'text': 'ription'}, [])
 
 
 class DataViewSetFiltersTest(BaseViewSetFiltersTest):

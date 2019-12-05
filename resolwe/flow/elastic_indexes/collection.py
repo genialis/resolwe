@@ -13,6 +13,7 @@ class CollectionDocument(BaseDocument):
     # Data values extracted from the descriptor.
     descriptor_data = dsl.Text(multi=True)
     tags = dsl.Keyword(multi=True)
+    description = dsl.Text(fielddata=True)
 
     class Index:
         """Meta class for collection search document."""

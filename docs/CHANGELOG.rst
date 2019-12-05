@@ -6,6 +6,15 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Added
+-----
+- Add ``description`` field to Collection full-text search
+
+
 ===================
 20.0.0 - 2019-11-18
 ===================

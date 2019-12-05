@@ -75,6 +75,7 @@ class CollectionViewSet(ElasticSearchCombinedViewSet,
             Q('match', owner_names={'query': value, 'operator': 'and', 'boost': 5.0}),
             Q('match', **{'owner_names.ngrams': {'query': value, 'operator': 'and', 'boost': 2.0}}),
             Q('match', descriptor_data={'query': value, 'operator': 'and'}),
+            Q('match', description={'query': value, 'operator': 'and'}),
         ]
 
         # Add registered text extensions.
