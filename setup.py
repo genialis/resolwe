@@ -62,7 +62,10 @@ setuptools.setup(
         'wrapt~=1.11.1',
    ],
     extras_require={
-        'docs': ['sphinx_rtd_theme'],
+        'docs': [
+            'sphinx_rtd_theme',
+            'pyasn1>=0.4.8',
+        ],
         'package': ['twine', 'wheel'],
         'test': [
             'check-manifest',
