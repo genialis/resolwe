@@ -12,6 +12,45 @@ VERSION_NUMBER_BITS = (8, 10, 14)
 MAX_SLUG_RETRIES = 10
 
 
+# NOTE: This method is used in migrations.
+def delete_chunked(queryset, chunk_size=500):
+    """Chunked delete, which should be used if deleting many objects.
+
+    The reason why this method is needed is that deleting a lot of Data objects
+    requires Django to fetch all of them into memory (fast path is not used) and
+    this causes huge memory usage (and possibly OOM).
+
+    :param chunk_size: Optional chunk size
+    """
+    while True:
+        # Discover primary key to limit the current chunk. This is required because delete
+        # cannot be called on a sliced queryset due to ordering requirement.
+        with transaction.atomic():
+            # Get offset of last item (needed because it may be less than the chunk size).
+            offset = queryset.order_by("pk")[:chunk_size].count()
+            if not offset:
+                break
+
+            # Fetch primary key of last item and use it to delete the chunk.
+            last_instance = queryset.order_by("pk")[offset - 1]
+            queryset.filter(pk__lte=last_instance.pk).delete()
+
+
+class BaseQuerySet(models.QuerySet):
+    """Base query set for Resolwe's ORM objects."""
+
+    def delete_chunked(self, chunk_size=500):
+        """Chunked delete, which should be used if deleting many objects.
+
+        The reason why this method is needed is that deleting a lot of Data objects
+        requires Django to fetch all of them into memory (fast path is not used) and
+        this causes huge memory usage (and possibly OOM).
+
+        :param chunk_size: Optional chunk size
+        """
+        return delete_chunked(self, chunk_size=chunk_size)
+
+
 class BaseModel(models.Model):
     """Abstract model that includes common fields for other models."""
 

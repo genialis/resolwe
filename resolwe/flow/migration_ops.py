@@ -500,11 +500,11 @@ class ResolweDataCleanup(base.Operation):
 
     def database_forwards(self, app_label, schema_editor, from_state, to_state):
         """Perform forward migration."""
-        from resolwe.flow.models.data import DataQuerySet
+        from resolwe.flow.models.base import delete_chunked
 
         Data = from_state.apps.get_model("flow", "Data")
-        DataQuerySet._delete_chunked(Data.objects.filter(process__persistence="TMP"))
-        DataQuerySet._delete_chunked(Data.objects.filter(status="ER"))
+        delete_chunked(Data.objects.filter(process__persistence="TMP"))
+        delete_chunked(Data.objects.filter(status="ER"))
 
     def database_backwards(self, app_label, schema_editor, from_state, to_state):
         """Backward migration not possible."""
@@ -531,10 +531,10 @@ class ResolweProcessDataRemove(base.Operation):
 
     def database_forwards(self, app_label, schema_editor, from_state, to_state):
         """Perform forward migration."""
-        from resolwe.flow.models.data import DataQuerySet
+        from resolwe.flow.models.base import delete_chunked
 
         Data = from_state.apps.get_model("flow", "Data")
-        DataQuerySet._delete_chunked(Data.objects.filter(process__slug=self.process))
+        delete_chunked(Data.objects.filter(process__slug=self.process))
 
         Process = from_state.apps.get_model("flow", "Process")
         Process.objects.filter(slug=self.process).delete()

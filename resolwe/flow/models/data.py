@@ -22,7 +22,7 @@ from resolwe.flow.utils import (
 )
 from resolwe.permissions.utils import assign_contributor_permissions, copy_permissions
 
-from .base import BaseModel
+from .base import BaseModel, BaseQuerySet
 from .descriptor import DescriptorSchema
 from .entity import Entity
 from .secret import Secret
@@ -52,7 +52,7 @@ class HandleEntityOperation(enum.Enum):
     PASS = "PASS"
 
 
-class DataQuerySet(models.QuerySet):
+class DataQuerySet(BaseQuerySet):
     """Query set for Data objects."""
 
     @staticmethod
@@ -201,41 +201,6 @@ class DataQuerySet(models.QuerySet):
         copy_permissions(obj.collection, obj)
 
         return obj
-
-    # NOTE: This is a static method because it is used from migrations.
-    @staticmethod
-    def _delete_chunked(queryset, chunk_size=500):
-        """Chunked delete, which should be used if deleting many objects.
-
-        The reason why this method is needed is that deleting a lot of Data objects
-        requires Django to fetch all of them into memory (fast path is not used) and
-        this causes huge memory usage (and possibly OOM).
-
-        :param chunk_size: Optional chunk size
-        """
-        while True:
-            # Discover primary key to limit the current chunk. This is required because delete
-            # cannot be called on a sliced queryset due to ordering requirement.
-            with transaction.atomic():
-                # Get offset of last item (needed because it may be less than the chunk size).
-                offset = queryset.order_by("pk")[:chunk_size].count()
-                if not offset:
-                    break
-
-                # Fetch primary key of last item and use it to delete the chunk.
-                last_instance = queryset.order_by("pk")[offset - 1]
-                queryset.filter(pk__lte=last_instance.pk).delete()
-
-    def delete_chunked(self, chunk_size=500):
-        """Chunked delete, which should be used if deleting many objects.
-
-        The reason why this method is needed is that deleting a lot of Data objects
-        requires Django to fetch all of them into memory (fast path is not used) and
-        this causes huge memory usage (and possibly OOM).
-
-        :param chunk_size: Optional chunk size
-        """
-        return DataQuerySet._delete_chunked(self, chunk_size=chunk_size)
 
     @transaction.atomic
     def duplicate(
