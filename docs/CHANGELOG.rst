@@ -20,6 +20,11 @@ Added
 - Support workflows as inputs to Python processes
 - Add ``delete_chunked`` method to Collection, Entity and Storage managers
 
+Fixed
+-----
+- Delete orphane Storage objects in chunks in purge command to prevent running
+  out of memory
+
 
 ===================
 20.1.0 - 2019-12-16

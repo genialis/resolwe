@@ -199,7 +199,7 @@ def _storage_purge_all(delete=False, verbosity=0):
             logger.info("No unreferenced storages")
 
     if delete:
-        orphaned_storages.delete()
+        orphaned_storages.delete_chunked()
 
 
 def purge_all(delete=False, verbosity=0):
