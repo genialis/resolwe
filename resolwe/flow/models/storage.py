@@ -2,7 +2,7 @@
 from django.contrib.postgres.fields import JSONField
 from django.db import models
 
-from .base import BaseModel
+from .base import BaseModel, BaseQuerySet
 from .functions import JsonGetPath
 from .utils import json_path_components
 
@@ -46,7 +46,7 @@ class Storage(BaseModel):
     json = JSONField()
 
     #: storage manager
-    objects = StorageManager()
+    objects = StorageManager.from_queryset(BaseQuerySet)()
 
 
 class LazyStorageJSON:

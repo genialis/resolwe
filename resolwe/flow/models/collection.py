@@ -6,7 +6,7 @@ from django.utils.timezone import now
 from resolwe.permissions.shortcuts import get_objects_for_user
 from resolwe.permissions.utils import assign_contributor_permissions
 
-from .base import BaseModel
+from .base import BaseModel, BaseQuerySet
 from .utils import DirtyError, validate_schema
 
 
@@ -53,7 +53,7 @@ class BaseCollection(BaseModel):
         super().save()
 
 
-class CollectionQuerySet(models.QuerySet):
+class CollectionQuerySet(BaseQuerySet):
     """Query set for ``Collection`` objects."""
 
     @transaction.atomic

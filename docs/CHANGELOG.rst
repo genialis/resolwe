@@ -18,6 +18,7 @@ Changed
 Added
 -----
 - Support workflows as inputs to Python processes
+- Add ``delete_chunked`` method to Collection, Entity and Storage managers
 
 
 ===================

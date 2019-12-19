@@ -7,11 +7,11 @@ from django.utils.timezone import now
 from resolwe.permissions.shortcuts import get_objects_for_user
 from resolwe.permissions.utils import assign_contributor_permissions, copy_permissions
 
-from .base import BaseModel
+from .base import BaseModel, BaseQuerySet
 from .collection import BaseCollection
 
 
-class EntityQuerySet(models.QuerySet):
+class EntityQuerySet(BaseQuerySet):
     """Query set for ``Entity`` objects."""
 
     @transaction.atomic
