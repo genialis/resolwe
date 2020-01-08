@@ -1,5 +1,6 @@
 """Resolwe collection model."""
 from django.contrib.postgres.fields import ArrayField, JSONField
+from django.contrib.postgres.indexes import GinIndex
 from django.db import models, transaction
 from django.utils.timezone import now
 
@@ -74,6 +75,17 @@ class Collection(BaseCollection):
             ("share_collection", "Can share collection"),
             ("owner_collection", "Is owner of the collection"),
         )
+
+        indexes = [
+            models.Index(name="idx_collection_name", fields=["name"]),
+            GinIndex(
+                name="idx_collection_name_trgm",
+                fields=["name"],
+                opclasses=["gin_trgm_ops"],
+            ),
+            models.Index(name="idx_collection_slug", fields=["slug"]),
+            GinIndex(name="idx_collection_tags", fields=["tags"]),
+        ]
 
     #: manager
     objects = CollectionQuerySet.as_manager()

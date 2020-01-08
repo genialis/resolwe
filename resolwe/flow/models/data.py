@@ -7,6 +7,7 @@ import os
 
 from django.conf import settings
 from django.contrib.postgres.fields import ArrayField, JSONField
+from django.contrib.postgres.indexes import GinIndex
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.validators import RegexValidator
 from django.db import models, transaction
@@ -240,6 +241,16 @@ class Data(BaseModel):
             ("share_data", "Can share data"),
             ("owner_data", "Is owner of the data"),
         )
+
+        indexes = [
+            models.Index(name="idx_data_name", fields=["name"]),
+            GinIndex(
+                name="idx_data_name_trgm", fields=["name"], opclasses=["gin_trgm_ops"]
+            ),
+            models.Index(name="idx_data_slug", fields=["slug"]),
+            models.Index(name="idx_data_status", fields=["status"]),
+            GinIndex(name="idx_data_tags", fields=["tags"]),
+        ]
 
     #: data object is uploading
     STATUS_UPLOADING = "UP"

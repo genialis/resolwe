@@ -1,6 +1,7 @@
 """Reslowe process model."""
 from django.conf import settings
 from django.contrib.postgres.fields import JSONField
+from django.contrib.postgres.indexes import GinIndex
 from django.core.validators import RegexValidator
 from django.db import models
 
@@ -18,6 +19,17 @@ class Process(BaseModel):
             ("share_process", "Can share process"),
             ("owner_process", "Is owner of the process"),
         )
+
+        indexes = [
+            models.Index(name="idx_process_name", fields=["name"]),
+            models.Index(name="idx_process_slug", fields=["slug"]),
+            models.Index(name="idx_process_type", fields=["type"]),
+            GinIndex(
+                name="idx_process_type_trgm",
+                fields=["type"],
+                opclasses=["gin_trgm_ops"],
+            ),
+        ]
 
     #: raw persistence
     PERSISTENCE_RAW = "RAW"

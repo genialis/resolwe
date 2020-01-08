@@ -1,5 +1,6 @@
 """Resolwe entity model."""
 from django.contrib.postgres.fields import CICharField
+from django.contrib.postgres.indexes import GinIndex
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.utils.timezone import now
@@ -47,6 +48,15 @@ class Entity(BaseCollection):
             ("share_entity", "Can share entity"),
             ("owner_entity", "Is owner of the entity"),
         )
+
+        indexes = [
+            models.Index(name="idx_entity_name", fields=["name"]),
+            GinIndex(
+                name="idx_entity_name_trgm", fields=["name"], opclasses=["gin_trgm_ops"]
+            ),
+            models.Index(name="idx_entity_slug", fields=["slug"]),
+            GinIndex(name="idx_entity_tags", fields=["tags"]),
+        ]
 
     #: manager
     objects = EntityQuerySet.as_manager()

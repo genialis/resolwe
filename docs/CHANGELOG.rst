@@ -14,6 +14,7 @@ Added
 -----
 - Add a custom database connector to optimize queries and enable them to use
   database indexes
+- Add database indexes to improve search performance
 
 
 ===================
