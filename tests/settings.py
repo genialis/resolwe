@@ -74,7 +74,7 @@ pgport = int(os.environ.get('RESOLWE_POSTGRESQL_PORT', 55432))
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'ENGINE': 'resolwe.db.postgresql',
         'NAME': pgname,
         'USER': pguser,
         'HOST': pghost,
