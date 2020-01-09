@@ -8,6 +8,7 @@ import os
 from django.conf import settings
 from django.contrib.postgres.fields import ArrayField, JSONField
 from django.contrib.postgres.indexes import GinIndex
+from django.contrib.postgres.search import SearchVectorField
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.validators import RegexValidator
 from django.db import models, transaction
@@ -250,6 +251,7 @@ class Data(BaseModel):
             models.Index(name="idx_data_slug", fields=["slug"]),
             models.Index(name="idx_data_status", fields=["status"]),
             GinIndex(name="idx_data_tags", fields=["tags"]),
+            GinIndex(name="idx_data_search", fields=["search"]),
         ]
 
     #: data object is uploading
@@ -403,6 +405,9 @@ class Data(BaseModel):
         on_delete=models.CASCADE,
         related_name="data",
     )
+
+    #: field used for full-text search
+    search = SearchVectorField(null=True)
 
     def __init__(self, *args, **kwargs):
         """Initialize attributes."""

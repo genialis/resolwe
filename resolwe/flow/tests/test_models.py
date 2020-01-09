@@ -632,6 +632,7 @@ class DuplicateTestCase(TestCase):
             "name",
             "duplicated",
             "modified",
+            "search",
         )
         for model_dict in (data2_dict, duplicate_dict):
             for field in fields_to_differ:
@@ -879,6 +880,7 @@ class DuplicateTestCase(TestCase):
             "modified",
             "collection_id",
             "entity_id",
+            "search",
         )
         for model_dict in (
             entity_dict,
@@ -1021,6 +1023,7 @@ class DuplicateTestCase(TestCase):
             "duplicated",
             "modified",
             "collection_id",
+            "search",
         )
         for model_dict in (
             collection_dict,

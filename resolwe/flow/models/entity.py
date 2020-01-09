@@ -56,6 +56,7 @@ class Entity(BaseCollection):
             ),
             models.Index(name="idx_entity_slug", fields=["slug"]),
             GinIndex(name="idx_entity_tags", fields=["tags"]),
+            GinIndex(name="idx_entity_search", fields=["search"]),
         ]
 
     #: manager

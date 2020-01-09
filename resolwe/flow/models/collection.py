@@ -1,6 +1,7 @@
 """Resolwe collection model."""
 from django.contrib.postgres.fields import ArrayField, JSONField
 from django.contrib.postgres.indexes import GinIndex
+from django.contrib.postgres.search import SearchVectorField
 from django.db import models, transaction
 from django.utils.timezone import now
 
@@ -37,6 +38,9 @@ class BaseCollection(BaseModel):
 
     #: tags for categorizing objects
     tags = ArrayField(models.CharField(max_length=255), default=list)
+
+    #: field used for full-text search
+    search = SearchVectorField(null=True)
 
     def save(self, *args, **kwargs):
         """Perform descriptor validation and save object."""
@@ -85,6 +89,7 @@ class Collection(BaseCollection):
             ),
             models.Index(name="idx_collection_slug", fields=["slug"]),
             GinIndex(name="idx_collection_tags", fields=["tags"]),
+            GinIndex(name="idx_collection_search", fields=["search"]),
         ]
 
     #: manager

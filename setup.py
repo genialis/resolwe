@@ -28,6 +28,7 @@ setuptools.setup(
     package_data={
         "resolwe": [
             "flow/executors/requirements.txt",
+            "flow/migrations/*.sql",
             "flow/static/flow/*.json",
             "toolkit/processes/**.yml",
             "toolkit/tools/**.py",
