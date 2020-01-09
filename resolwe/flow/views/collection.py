@@ -1,12 +1,9 @@
 """Collection viewset."""
-from elasticsearch_dsl.query import Q
-
 from rest_framework import exceptions, mixins, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from resolwe.elastic.composer import composer
-from resolwe.elastic.viewsets import ElasticSearchCombinedViewSet
+from resolwe.flow.filters import CollectionFilter
 from resolwe.flow.models import Collection
 from resolwe.flow.serializers import CollectionSerializer
 from resolwe.permissions.loader import get_permissions_class
@@ -14,7 +11,6 @@ from resolwe.permissions.mixins import ResolwePermissionsMixin
 from resolwe.permissions.shortcuts import get_objects_for_user
 from resolwe.permissions.utils import update_permission
 
-from ..elastic_indexes import CollectionDocument
 from .mixins import (
     ParametersMixin,
     ResolweCheckSlugMixin,
@@ -24,7 +20,6 @@ from .mixins import (
 
 
 class CollectionViewSet(
-    ElasticSearchCombinedViewSet,
     ResolweCreateModelMixin,
     mixins.RetrieveModelMixin,
     ResolweUpdateModelMixin,
@@ -41,101 +36,17 @@ class CollectionViewSet(
         "descriptor_schema", "contributor"
     )
     serializer_class = CollectionSerializer
+    filter_class = CollectionFilter
     permission_classes = (get_permissions_class(),)
-    document_class = CollectionDocument
 
-    filtering_fields = (
-        "id",
-        "slug",
-        "name",
-        "name_contains",
-        "created",
-        "modified",
+    ordering_fields = (
         "contributor",
-        "contributor_name",
-        "owners",
-        "owners_name",
-        "text",
-        "tags",
+        "created",
+        "id",
+        "modified",
+        "name",
     )
-    filtering_map = {
-        "name": "name.raw",
-        "name_contains": "name.ngrams",
-        "contributor": "contributor_id",
-        "contributor_name": "contributor_name.ngrams",
-        "owners": "owner_ids",
-        "owners_name": "owner_names.ngrams",
-    }
-    ordering_fields = ("id", "created", "modified", "name", "contributor")
-    ordering_map = {
-        "name": "name.raw",
-        "contributor": "contributor_sort",
-    }
     ordering = "id"
-
-    def custom_filter_tags(self, value, search):
-        """Support tags query."""
-        if not isinstance(value, list):
-            value = value.split(",")
-
-        filters = [Q("match", **{"tags": item}) for item in value]
-        search = search.query("bool", must=filters)
-
-        return search
-
-    def custom_filter_text(self, value, search):
-        """Support general query using the 'text' attribute."""
-        if isinstance(value, list):
-            value = " ".join(value)
-
-        should = [
-            Q("match", slug={"query": value, "operator": "and", "boost": 10.0}),
-            Q(
-                "match",
-                **{"slug.ngrams": {"query": value, "operator": "and", "boost": 5.0}},
-            ),
-            Q("match", name={"query": value, "operator": "and", "boost": 10.0}),
-            Q(
-                "match",
-                **{"name.ngrams": {"query": value, "operator": "and", "boost": 5.0}},
-            ),
-            Q(
-                "match",
-                contributor_name={"query": value, "operator": "and", "boost": 5.0},
-            ),
-            Q(
-                "match",
-                **{
-                    "contributor_name.ngrams": {
-                        "query": value,
-                        "operator": "and",
-                        "boost": 2.0,
-                    }
-                },
-            ),
-            Q("match", owner_names={"query": value, "operator": "and", "boost": 5.0}),
-            Q(
-                "match",
-                **{
-                    "owner_names.ngrams": {
-                        "query": value,
-                        "operator": "and",
-                        "boost": 2.0,
-                    }
-                },
-            ),
-            Q("match", descriptor_data={"query": value, "operator": "and"}),
-            Q("match", description={"query": value, "operator": "and"}),
-        ]
-
-        # Add registered text extensions.
-        for extension in composer.get_extensions(self):
-            if hasattr(extension, "text_filter"):
-                should += extension.text_filter(value)
-
-        search = search.query("bool", should=should)
-
-        return search
 
     def set_content_permissions(self, user, obj, payload):
         """Apply permissions to data objects and entities in ``Collection``."""

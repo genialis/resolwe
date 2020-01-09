@@ -89,7 +89,7 @@ class TestDataViewSetCase(TestCase):
         with CaptureQueriesContext(conn) as captured_queries:
             response = self.data_viewset(request)
             self.assertEqual(len(response.data), 10)
-            self.assertLess(len(captured_queries), 90)
+            self.assertLess(len(captured_queries), 95)
 
     def test_descriptor_schema(self):
         # Descriptor schema can be assigned by slug.
@@ -763,11 +763,6 @@ class EntityViewSetTest(TestCase):
         force_authenticate(request, self.contributor)
         resp = self.entity_list_viewset(request)
         self.assertEqual(len(resp.data), 1)
-
-        request = factory.get("/", {"collection": 999999}, format="json")
-        force_authenticate(request, self.contributor)
-        resp = self.entity_list_viewset(request)
-        self.assertEqual(len(resp.data), 0)
 
         request = factory.get("/", {"collection": self.collection.pk}, format="json")
         force_authenticate(request, self.contributor)

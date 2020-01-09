@@ -1,12 +1,9 @@
 """Data viewset."""
-from elasticsearch_dsl.query import Q
-
 from rest_framework import exceptions, mixins, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from resolwe.elastic.composer import composer
-from resolwe.elastic.viewsets import ElasticSearchCombinedViewSet
+from resolwe.flow.filters import DataFilter
 from resolwe.flow.models import Data, Process
 from resolwe.flow.models.utils import fill_with_defaults
 from resolwe.flow.serializers import DataSerializer
@@ -15,7 +12,6 @@ from resolwe.permissions.loader import get_permissions_class
 from resolwe.permissions.mixins import ResolwePermissionsMixin
 from resolwe.permissions.shortcuts import get_objects_for_user
 
-from ..elastic_indexes import DataDocument
 from .mixins import (
     ParametersMixin,
     ResolweCheckSlugMixin,
@@ -25,8 +21,8 @@ from .mixins import (
 
 
 class DataViewSet(
-    ElasticSearchCombinedViewSet,
     ResolweCreateModelMixin,
+    mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
     ResolweUpdateModelMixin,
     mixins.DestroyModelMixin,
@@ -41,138 +37,22 @@ class DataViewSet(
         "process", "descriptor_schema", "contributor", "collection", "entity"
     )
     serializer_class = DataSerializer
+    filter_class = DataFilter
     permission_classes = (get_permissions_class(),)
-    document_class = DataDocument
 
-    filtering_fields = (
-        "id",
-        "slug",
-        "version",
-        "name",
-        "name_contains",
-        "created",
-        "modified",
-        "contributor",
-        "contributor_name",
-        "owners",
-        "owners_name",
-        "status",
-        "process",
-        "process_type",
-        "type",
-        "process_name",
-        "tags",
-        "collection",
-        "entity",
-        "started",
-        "finished",
-        "text",
-        "process_slug",
-    )
-    filtering_map = {
-        "name": "name.raw",
-        "name_contains": "name.ngrams",
-        "contributor": "contributor_id",
-        "contributor_name": "contributor_name.ngrams",
-        "owners": "owner_ids",
-        "owners_name": "owner_names.ngrams",
-        "process_name": "process_name.ngrams",
-    }
     ordering_fields = (
-        "id",
-        "created",
-        "modified",
-        "started",
-        "finished",
-        "name",
         "contributor",
+        "created",
+        "finished",
+        "id",
+        "modified",
+        "name",
         "process_name",
         "process_type",
+        "started",
         "type",
     )
-    ordering_map = {
-        "name": "name.raw",
-        "process_type": "process_type.raw",
-        "type": "type.raw",
-        "process_name": "process_name.raw",
-        "contributor": "contributor_sort",
-    }
     ordering = "-created"
-
-    def custom_filter_tags(self, value, search):
-        """Support tags query."""
-        if not isinstance(value, list):
-            value = value.split(",")
-
-        filters = [Q("match", **{"tags": item}) for item in value]
-        search = search.query("bool", must=filters)
-
-        return search
-
-    def custom_filter_text(self, value, search):
-        """Support general query using the 'text' attribute."""
-        if isinstance(value, list):
-            value = " ".join(value)
-
-        should = [
-            Q("match", slug={"query": value, "operator": "and", "boost": 10.0}),
-            Q(
-                "match",
-                **{"slug.ngrams": {"query": value, "operator": "and", "boost": 5.0}},
-            ),
-            Q("match", name={"query": value, "operator": "and", "boost": 10.0}),
-            Q(
-                "match",
-                **{"name.ngrams": {"query": value, "operator": "and", "boost": 5.0}},
-            ),
-            Q(
-                "match",
-                contributor_name={"query": value, "operator": "and", "boost": 5.0},
-            ),
-            Q(
-                "match",
-                **{
-                    "contributor_name.ngrams": {
-                        "query": value,
-                        "operator": "and",
-                        "boost": 2.0,
-                    }
-                },
-            ),
-            Q("match", owner_names={"query": value, "operator": "and", "boost": 5.0}),
-            Q(
-                "match",
-                **{
-                    "owner_names.ngrams": {
-                        "query": value,
-                        "operator": "and",
-                        "boost": 2.0,
-                    }
-                },
-            ),
-            Q("match", process_name={"query": value, "operator": "and", "boost": 5.0}),
-            Q(
-                "match",
-                **{
-                    "process_name.ngrams": {
-                        "query": value,
-                        "operator": "and",
-                        "boost": 2.0,
-                    }
-                },
-            ),
-            Q("match", status={"query": value, "operator": "and", "boost": 2.0}),
-            Q("match", type={"query": value, "operator": "and", "boost": 2.0}),
-        ]
-
-        # Add registered text extensions.
-        for extension in composer.get_extensions(self):
-            if hasattr(extension, "text_filter"):
-                should += extension.text_filter(value)
-
-        search = search.query("bool", should=should)
-
-        return search
 
     @action(detail=False, methods=["post"])
     def duplicate(self, request, *args, **kwargs):

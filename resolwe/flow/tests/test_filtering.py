@@ -8,12 +8,12 @@ from guardian.shortcuts import assign_perm
 from rest_framework import status
 from rest_framework.test import APIRequestFactory, force_authenticate
 
-from resolwe.flow.filters import CollectionFilter, DataFilter, EntityFilter
 from resolwe.flow.models import Collection, Data, DescriptorSchema, Entity, Process
 from resolwe.flow.views import (
     CollectionViewSet,
     DataViewSet,
     DescriptorSchemaViewSet,
+    EntityViewSet,
     ProcessViewSet,
 )
 from resolwe.test import TestCase
@@ -22,9 +22,30 @@ factory = APIRequestFactory()
 
 
 class BaseViewSetFiltersTest(TestCase):
-    def setUp(self):
-        super().setUp()
+    @classmethod
+    def setUpTestData(cls):
+        user_model = get_user_model()
+        cls.admin = user_model.objects.create_superuser(
+            username="admin",
+            email="admin@test.com",
+            password="admin",
+            first_name="James",
+            last_name="Smith",
+        )
+        cls.contributor = user_model.objects.create_user(
+            username="contributor",
+            email="contributor@test.com",
+            first_name="Joe",
+            last_name="Miller",
+        )
+        cls.user = user_model.objects.create_user(
+            username="normal_user",
+            email="user@test.com",
+            first_name="John",
+            last_name="Williams",
+        )
 
+    def setUp(self):
         self.viewset = self.viewset_class.as_view(actions={"get": "list",})
 
     def _check_filter(
@@ -47,89 +68,183 @@ class BaseViewSetFiltersTest(TestCase):
 
 
 class CollectionViewSetFiltersTest(BaseViewSetFiltersTest):
-    def setUp(self):
-        self.viewset_class = CollectionViewSet
-        super().setUp()
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
 
-        self.collections = []
-        for index in range(2):
-            collection = Collection.objects.create(
-                name="Test collection {}".format(index),
-                slug="test-collection-{}".format(index),
-                contributor=self.contributor,
-                description="My description!" if index == 0 else "Other description",
-            )
-
-            assign_perm("owner_collection", self.admin, collection)
-
-            self.collections.append(collection)
-
-        collection = Collection.objects.create(
-            name="User test collection",
-            slug="user-collection",
-            contributor=self.user,
-            description="User's description",
+        cls.descriptor_schema = DescriptorSchema.objects.create(
+            slug="test-schema", version="1.0.0", contributor=cls.contributor,
         )
 
-        assign_perm("owner_collection", self.user, collection)
+        cls.collections = [
+            Collection.objects.create(
+                name="Test collection 0",
+                slug="test-collection-0",
+                contributor=cls.contributor,
+                description="My description!",
+                descriptor_schema=cls.descriptor_schema,
+                tags=["first-tag"],
+            ),
+            Collection.objects.create(
+                name="Test collection 1",
+                slug="test-collection-1",
+                contributor=cls.contributor,
+                description="Other description",
+                descriptor_schema=cls.descriptor_schema,
+                tags=["first-tag", "second-tag"],
+            ),
+            Collection.objects.create(
+                name="User test collection",
+                slug="user-collection",
+                contributor=cls.user,
+                description="User's description",
+                tags=["second-tag"],
+            ),
+        ]
 
-        self.collections.append(collection)
+        tzone = get_current_timezone()
+        cls.collections[0].created = datetime.datetime(2016, 7, 30, 0, 59, tzinfo=tzone)
+        cls.collections[0].save()
+        cls.collections[1].created = datetime.datetime(2016, 7, 30, 1, 59, tzinfo=tzone)
+        cls.collections[1].save()
+        cls.collections[2].created = datetime.datetime(2016, 7, 30, 2, 59, tzinfo=tzone)
+        cls.collections[2].save()
+
+        assign_perm("owner_collection", cls.admin, cls.collections[0])
+        assign_perm("owner_collection", cls.admin, cls.collections[1])
+        assign_perm("owner_collection", cls.user, cls.collections[2])
+
+        cls.viewset_class = CollectionViewSet
+
+    def test_filter_id(self):
+        self._check_filter({"id": self.collections[0].pk}, [self.collections[0]])
+        self._check_filter({"id": "420"}, [])
+        self._check_filter(
+            {"id__in": "{},{}".format(self.collections[0].pk, self.collections[1].pk)},
+            self.collections[:2],
+        )
+        self._check_filter({"id__gt": self.collections[0].pk}, self.collections[1:])
+
+    def test_filter_slug(self):
+        self._check_filter({"slug": "test-collection-0"}, [self.collections[0]])
+        self._check_filter(
+            {"slug__in": "test-collection-1,user-collection"}, self.collections[1:]
+        )
 
     def test_filter_name(self):
         self._check_filter({"name": "Test collection 1"}, [self.collections[1]])
         self._check_filter({"name": "Test collection"}, [])
 
-    def test_filter_name_contains(self):
-        self._check_filter({"name_contains": "test"}, self.collections)
-        self._check_filter({"name_contains": "xxx"}, [])
+        self._check_filter({"name__iexact": "test collection 1"}, [self.collections[1]])
+
+        self._check_filter(
+            {"name__startswith": "Test collection"}, self.collections[:2]
+        )
+        self._check_filter(
+            {"name__istartswith": "test collection"}, self.collections[:2]
+        )
+
+        self._check_filter({"name__contains": "test"}, [self.collections[2]])
+        self._check_filter({"name__icontains": "test"}, self.collections)
+
+    def test_filter_description(self):
+        self._check_filter({"description__icontains": "other"}, [self.collections[1]])
+        self._check_filter({"description__contains": "other"}, [])
+
+    def test_filter_descriptor_schema(self):
+        self._check_filter(
+            {"descriptor_schema": str(self.descriptor_schema.pk)}, self.collections[:2]
+        )
+        self._check_filter({"description__contains": 420}, [])
+
+    def test_filter_tags(self):
+        self._check_filter({"tags": "first-tag"}, self.collections[:2])
+        self._check_filter({"tags": "first-tag,second-tag"}, [self.collections[1]])
+
+    def test_filter_contributor(self):
+        self._check_filter(
+            {"contributor": str(self.contributor.pk)}, self.collections[:2]
+        )
+        self._check_filter(
+            {"contributor__in": "{},{}".format(self.contributor.pk, self.user.pk)},
+            self.collections,
+        )
+
+    def test_filter_owners(self):
+        self._check_filter({"owners": str(self.admin.pk)}, self.collections[:2])
 
     def test_filter_contributor_name(self):
-        self._check_filter(
-            {"contributor_name": "Joe"}, [self.collections[0], self.collections[1]]
-        )
-        self._check_filter({"contributor_name": "John"}, [self.collections[2]])
-        self._check_filter({"contributor_name": "xxx"}, [])
+        # Filter by first name.
+        self._check_filter({"contributor_name": "Joe"}, self.collections[:2])
+        # Filter by last name.
+        self._check_filter({"contributor_name": "Miller"}, self.collections[:2])
+        # Filter by username.
+        self._check_filter({"contributor_name": "contributor"}, self.collections[:2])
+        # Filter by combination of first and last name.
+        self._check_filter({"contributor_name": "John Williams"}, [self.collections[2]])
 
     def test_filter_owners_name(self):
+        # Filter by first name.
+        self._check_filter({"owners_name": "James"}, self.collections[:2])
+        # Filter by last name.
+        self._check_filter({"owners_name": "Smith"}, self.collections[:2])
+        # Filter by username.
+        self._check_filter({"owners_name": "admin"}, self.collections[:2])
+        # Filter by combination of first and last name.
+        self._check_filter({"owners_name": "John Williams"}, [self.collections[2]])
+
+    def test_filter_created(self):
+        self._check_filter({"created": "2016-07-30T00:59:00"}, self.collections[:1])
+        self._check_filter({"created__gt": "2016-07-30T01:59:00"}, self.collections[2:])
         self._check_filter(
-            {"owners_name": "James"}, [self.collections[0], self.collections[1]]
+            {"created__gte": "2016-07-30T01:59:00"}, self.collections[1:]
         )
-        self._check_filter({"owners_name": "John"}, [self.collections[2]])
-        self._check_filter({"owners_name": "Williams"}, [self.collections[2]])
-        self._check_filter({"owners_name": "xxx"}, [])
+        self._check_filter({"created__lt": "2016-07-30T01:59:00"}, self.collections[:1])
+        self._check_filter(
+            {"created__lte": "2016-07-30T01:59:00"}, self.collections[:2]
+        )
+
+    def test_filter_modified(self):
+        self._check_filter(
+            {"modified": self.collections[0].modified.isoformat()}, self.collections[:1]
+        )
+        self._check_filter(
+            {"modified__gt": self.collections[1].modified.isoformat()},
+            self.collections[2:],
+        )
+        self._check_filter(
+            {"modified__gte": self.collections[1].modified.isoformat()},
+            self.collections[1:],
+        )
+        self._check_filter(
+            {"modified__lt": self.collections[1].modified.isoformat()},
+            self.collections[:1],
+        )
+        self._check_filter(
+            {"modified__lte": self.collections[1].modified.isoformat()},
+            self.collections[:2],
+        )
 
     def test_filter_text(self):
-        # By slug.
-        self._check_filter({"text": "test-collection-1"}, [self.collections[1]])
-        self._check_filter({"text": "test-colle"}, self.collections)
-
         # By name.
         self._check_filter({"text": "Test collection 1"}, [self.collections[1]])
         self._check_filter({"text": "Test"}, self.collections)
         self._check_filter({"text": "test"}, self.collections)
         self._check_filter({"text": "tes"}, self.collections)
-        self._check_filter({"text": "user"}, [self.collections[2]])
         self._check_filter({"text": "est"}, [])
+        self._check_filter({"text": "user"}, [self.collections[2]])
 
         # By contributor.
-        self._check_filter({"text": "joe"}, [self.collections[0], self.collections[1]])
+        self._check_filter({"text": "joe"}, self.collections[:2])
         self._check_filter({"text": "oe"}, [])
-        self._check_filter(
-            {"text": "Miller"}, [self.collections[0], self.collections[1]]
-        )
-        self._check_filter({"text": "mill"}, [self.collections[0], self.collections[1]])
-        self._check_filter({"text": "john"}, [self.collections[2]])
+        self._check_filter({"text": "Miller"}, self.collections[:2])
+        self._check_filter({"text": "mill"}, self.collections[:2])
 
         # By owner.
-        self._check_filter(
-            {"text": "james"}, [self.collections[0], self.collections[1]]
-        )
+        self._check_filter({"text": "james"}, self.collections[:2])
         self._check_filter({"text": "mes"}, [])
-        self._check_filter(
-            {"text": "Smith"}, [self.collections[0], self.collections[1]]
-        )
-        self._check_filter({"text": "smi"}, [self.collections[0], self.collections[1]])
-        self._check_filter({"text": "john"}, [self.collections[2]])
+        self._check_filter({"text": "Smith"}, self.collections[:2])
+        self._check_filter({"text": "smi"}, self.collections[:2])
 
         # By description.
         self._check_filter({"text": "description"}, self.collections)
@@ -139,72 +254,319 @@ class CollectionViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter({"text": "ription"}, [])
 
 
+class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+
+        cls.descriptor_schema = DescriptorSchema.objects.create(
+            slug="test-schema", version="1.0.0", contributor=cls.contributor,
+        )
+
+        cls.collection1 = Collection.objects.create(
+            name="My collection", slug="my-collection", contributor=cls.contributor,
+        )
+
+        cls.collection2 = Collection.objects.create(
+            name="Other collection",
+            slug="other-collection",
+            contributor=cls.contributor,
+        )
+
+        cls.entities = [
+            Entity.objects.create(
+                name="Test entity 0",
+                slug="test-entity-0",
+                contributor=cls.contributor,
+                collection=cls.collection1,
+                description="My description!",
+                descriptor_schema=cls.descriptor_schema,
+                tags=["first-tag"],
+            ),
+            Entity.objects.create(
+                name="Test entity 1",
+                slug="test-entity-1",
+                contributor=cls.contributor,
+                collection=cls.collection2,
+                description="Other description",
+                descriptor_schema=cls.descriptor_schema,
+                tags=["first-tag", "second-tag"],
+            ),
+            Entity.objects.create(
+                name="User test entity",
+                slug="user-entity",
+                contributor=cls.user,
+                description="User's description",
+                tags=["second-tag"],
+            ),
+        ]
+
+        tzone = get_current_timezone()
+        cls.entities[0].created = datetime.datetime(2016, 7, 30, 0, 59, tzinfo=tzone)
+        cls.entities[0].save()
+        cls.entities[1].created = datetime.datetime(2016, 7, 30, 1, 59, tzinfo=tzone)
+        cls.entities[1].save()
+        cls.entities[2].created = datetime.datetime(2016, 7, 30, 2, 59, tzinfo=tzone)
+        cls.entities[2].save()
+
+        assign_perm("owner_entity", cls.admin, cls.entities[0])
+        assign_perm("owner_entity", cls.admin, cls.entities[1])
+        assign_perm("owner_entity", cls.user, cls.entities[2])
+
+        cls.viewset_class = EntityViewSet
+
+    def test_filter_id(self):
+        self._check_filter({"id": self.entities[0].pk}, [self.entities[0]])
+        self._check_filter({"id": "420"}, [])
+        self._check_filter(
+            {"id__in": "{},{}".format(self.entities[0].pk, self.entities[1].pk)},
+            self.entities[:2],
+        )
+        self._check_filter({"id__gt": str(self.entities[0].pk)}, self.entities[1:])
+
+    def test_filter_slug(self):
+        self._check_filter({"slug": "test-entity-0"}, [self.entities[0]])
+        self._check_filter({"slug__in": "test-entity-1,user-entity"}, self.entities[1:])
+
+    def test_filter_name(self):
+        self._check_filter({"name": "Test entity 1"}, [self.entities[1]])
+        self._check_filter({"name": "Test entity"}, [])
+
+        self._check_filter({"name__iexact": "test entity 1"}, [self.entities[1]])
+
+        self._check_filter({"name__startswith": "Test entity"}, self.entities[:2])
+        self._check_filter({"name__istartswith": "test entity"}, self.entities[:2])
+
+        self._check_filter({"name__contains": "test"}, [self.entities[2]])
+        self._check_filter({"name__icontains": "test"}, self.entities)
+
+    def test_filter_description(self):
+        self._check_filter({"description__icontains": "other"}, [self.entities[1]])
+        self._check_filter({"description__contains": "other"}, [])
+
+    def test_filter_descriptor_schema(self):
+        self._check_filter(
+            {"descriptor_schema": str(self.descriptor_schema.pk)}, self.entities[:2]
+        )
+        self._check_filter({"description__contains": "420"}, [])
+
+    def test_filter_tags(self):
+        self._check_filter({"tags": "first-tag"}, self.entities[:2])
+        self._check_filter({"tags": "first-tag,second-tag"}, [self.entities[1]])
+
+    def test_filter_contributor(self):
+        self._check_filter({"contributor": str(self.contributor.pk)}, self.entities[:2])
+        self._check_filter(
+            {"contributor__in": "{},{}".format(self.contributor.pk, self.user.pk)},
+            self.entities,
+        )
+
+    def test_filter_owners(self):
+        self._check_filter({"owners": str(self.admin.pk)}, self.entities[:2])
+
+    def test_filter_contributor_name(self):
+        # Filter by first name.
+        self._check_filter({"contributor_name": "Joe"}, self.entities[:2])
+        # Filter by last name.
+        self._check_filter({"contributor_name": "Miller"}, self.entities[:2])
+        # Filter by username.
+        self._check_filter({"contributor_name": "contributor"}, self.entities[:2])
+        # Filter by combination of first and last name.
+        self._check_filter({"contributor_name": "John Williams"}, [self.entities[2]])
+
+    def test_filter_owners_name(self):
+        # Filter by first name.
+        self._check_filter({"owners_name": "James"}, self.entities[:2])
+        # Filter by last name.
+        self._check_filter({"owners_name": "Smith"}, self.entities[:2])
+        # Filter by username.
+        self._check_filter({"owners_name": "admin"}, self.entities[:2])
+        # Filter by combination of first and last name.
+        self._check_filter({"owners_name": "John Williams"}, [self.entities[2]])
+
+    def test_filter_created(self):
+        self._check_filter({"created": "2016-07-30T00:59:00"}, self.entities[:1])
+        self._check_filter({"created__gt": "2016-07-30T01:59:00"}, self.entities[2:])
+        self._check_filter({"created__gte": "2016-07-30T01:59:00"}, self.entities[1:])
+        self._check_filter({"created__lt": "2016-07-30T01:59:00"}, self.entities[:1])
+        self._check_filter({"created__lte": "2016-07-30T01:59:00"}, self.entities[:2])
+
+    def test_filter_modified(self):
+        self._check_filter(
+            {"modified": self.entities[0].modified.isoformat()}, self.entities[:1]
+        )
+        self._check_filter(
+            {"modified__gt": self.entities[1].modified.isoformat()}, self.entities[2:]
+        )
+        self._check_filter(
+            {"modified__gte": self.entities[1].modified.isoformat()}, self.entities[1:]
+        )
+        self._check_filter(
+            {"modified__lt": self.entities[1].modified.isoformat()}, self.entities[:1]
+        )
+        self._check_filter(
+            {"modified__lte": self.entities[1].modified.isoformat()}, self.entities[:2]
+        )
+
+    def test_filter_collection(self):
+        self._check_filter({"collection": str(self.collection1.pk)}, [self.entities[0]])
+        self._check_filter(
+            {
+                "collection__in": "{},{}".format(
+                    self.collection1.pk, self.collection2.pk
+                )
+            },
+            self.entities[:2],
+        )
+
+    def test_filter_collection_name(self):
+        self._check_filter({"collection__name": "My collection"}, [self.entities[0]])
+        self._check_filter(
+            {"collection__name__icontains": "Collection"}, self.entities[:2]
+        )
+
+    def test_filter_collection_slug(self):
+        self._check_filter({"collection__slug": "my-collection"}, [self.entities[0]])
+        self._check_filter(
+            {"collection__slug__in": "my-collection,other-collection"},
+            self.entities[:2],
+        )
+
+    def test_filter_text(self):
+        # By name.
+        self._check_filter({"text": "Test entity 1"}, [self.entities[1]])
+        self._check_filter({"text": "Test"}, self.entities)
+        self._check_filter({"text": "test"}, self.entities)
+        self._check_filter({"text": "tes"}, self.entities)
+        self._check_filter({"text": "est"}, [])
+        self._check_filter({"text": "user"}, [self.entities[2]])
+
+        # By contributor.
+        self._check_filter({"text": "joe"}, self.entities[:2])
+        self._check_filter({"text": "oe"}, [])
+        self._check_filter({"text": "Miller"}, self.entities[:2])
+        self._check_filter({"text": "mill"}, self.entities[:2])
+
+        # By owner.
+        self._check_filter({"text": "james"}, self.entities[:2])
+        self._check_filter({"text": "mes"}, [])
+        self._check_filter({"text": "Smith"}, self.entities[:2])
+        self._check_filter({"text": "smi"}, self.entities[:2])
+
+        # By description.
+        self._check_filter({"text": "description"}, self.entities)
+        self._check_filter({"text": "my"}, [self.entities[0]])
+        self._check_filter({"text": "my description"}, [self.entities[0]])
+        self._check_filter({"text": "user"}, [self.entities[2]])
+        self._check_filter({"text": "ription"}, [])
+
+
 class DataViewSetFiltersTest(BaseViewSetFiltersTest):
-    def setUp(self):
-        self.viewset_class = DataViewSet
-        super().setUp()
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
 
         tzone = get_current_timezone()
 
-        self.collection = Collection.objects.create(contributor=self.contributor)
+        cls.collection1 = Collection.objects.create(
+            name="My collection", slug="my-collection", contributor=cls.contributor,
+        )
 
-        self.proc1 = Process.objects.create(
+        cls.collection2 = Collection.objects.create(
+            name="Other collection",
+            slug="other-collection",
+            contributor=cls.contributor,
+        )
+
+        cls.entity1 = Entity.objects.create(
+            name="My entity",
+            slug="my-entity",
+            collection=cls.collection1,
+            contributor=cls.contributor,
+        )
+
+        cls.entity2 = Entity.objects.create(
+            name="Other entity",
+            slug="other-entity",
+            collection=cls.collection2,
+            contributor=cls.contributor,
+        )
+
+        cls.proc1 = Process.objects.create(
             type="data:test:process1:",
             name="First process",
             slug="test-process-1",
             version="1.0.0",
-            contributor=self.contributor,
-            entity_type="test-schema",
-            entity_descriptor_schema="test-schema",
+            contributor=cls.contributor,
             input_schema=[
                 {"name": "input_data", "type": "data:test:", "required": False}
             ],
         )
 
-        self.proc2 = Process.objects.create(
+        cls.proc2 = Process.objects.create(
             type="data:test:process2:",
             name="Second process",
             slug="test-process-2",
             version="1.0.0",
-            contributor=self.contributor,
-            entity_type="test-schema",
-            entity_descriptor_schema="test-schema",
+            contributor=cls.contributor,
             input_schema=[
                 {"name": "input_data", "type": "data:test:", "required": False}
             ],
         )
 
-        self.descriptor_schema = DescriptorSchema.objects.create(
-            slug="test-schema", version="1.0.0", contributor=self.contributor,
-        )
+        cls.data = [
+            Data.objects.create(
+                name="Data 0",
+                slug="dataslug-0",
+                contributor=cls.contributor,
+                collection=cls.collection1,
+                entity=cls.entity1,
+                process=cls.proc1,
+                status=Data.STATUS_RESOLVING,
+                started=datetime.datetime(2016, 7, 31, 0, 0, tzinfo=tzone),
+                finished=datetime.datetime(2016, 7, 31, 0, 30, tzinfo=tzone),
+                tags=["first-tag"],
+            ),
+            Data.objects.create(
+                name="Data 1",
+                slug="dataslug-1",
+                contributor=cls.contributor,
+                collection=cls.collection2,
+                entity=cls.entity2,
+                process=cls.proc1,
+                status=Data.STATUS_DONE,
+                started=datetime.datetime(2016, 7, 31, 1, 0, tzinfo=tzone),
+                finished=datetime.datetime(2016, 7, 31, 1, 30, tzinfo=tzone),
+                tags=["first-tag", "second-tag"],
+            ),
+            Data.objects.create(
+                name="User data",
+                slug="dataslug-2",
+                contributor=cls.user,
+                process=cls.proc2,
+                status=Data.STATUS_DONE,
+                started=datetime.datetime(2016, 7, 31, 2, 0, tzinfo=tzone),
+                finished=datetime.datetime(2016, 7, 31, 2, 30, tzinfo=tzone),
+                tags=["second-tag"],
+            ),
+        ]
 
-        self.data = []
-        for index in range(10):
-            data = Data.objects.create(
-                name="Data {}".format(index),
-                slug="dataslug-{}".format(index),
-                contributor=self.contributor if index < 9 else self.user,
-                process=self.proc1 if index < 5 else self.proc2,
-                status=Data.STATUS_DONE if index > 0 else Data.STATUS_RESOLVING,
-                started=datetime.datetime(2016, 7, 31, index, 0, tzinfo=tzone),
-                finished=datetime.datetime(2016, 7, 31, index, 30, tzinfo=tzone),
-                tags=["foo", "index{}".format(index)],
-            )
+        cls.data[0].created = datetime.datetime(2016, 7, 30, 0, 59, tzinfo=tzone)
+        cls.data[0].save()
+        cls.data[1].created = datetime.datetime(2016, 7, 30, 1, 59, tzinfo=tzone)
+        cls.data[1].save()
+        cls.data[2].created = datetime.datetime(2016, 7, 30, 2, 59, tzinfo=tzone)
+        cls.data[2].save()
 
-            data.created = datetime.datetime(2016, 7, 30, index, 59, tzinfo=tzone)
-            data.save()
+        assign_perm("owner_data", cls.admin, cls.data[0])
+        assign_perm("owner_data", cls.admin, cls.data[1])
+        assign_perm("owner_data", cls.user, cls.data[2])
 
-            assign_perm("owner_data", self.admin if index < 9 else self.user, data)
-
-            if index == 0:
-                data.collection = self.collection
-                data.save()
-
-            self.data.append(data)
+        cls.viewset_class = DataViewSet
 
     def test_filter_id(self):
         self._check_filter({"id": str(self.data[0].pk)}, [self.data[0]])
-        self._check_filter({"id": str(self.data[2].pk)}, [self.data[2]])
+        self._check_filter({"id": 420}, [])
         self._check_filter(
             {"id__in": "{},{}".format(self.data[0].pk, self.data[2].pk)},
             [self.data[0], self.data[2]],
@@ -212,105 +574,139 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
 
     def test_filter_slug(self):
         self._check_filter({"slug": "dataslug-1"}, [self.data[1]])
-        self._check_filter({"slug": "dataslug-5"}, [self.data[5]])
-        self._check_filter({"slug__in": "dataslug-1"}, [self.data[1]])
         self._check_filter(
-            {"slug__in": "dataslug-1,dataslug-5"}, [self.data[1], self.data[5]]
+            {"slug__in": "dataslug-1,dataslug-2"}, [self.data[1], self.data[2]]
         )
 
     def test_filter_name(self):
         self._check_filter({"name": "Data 1"}, [self.data[1]])
-        self._check_filter({"name": "data 1"}, [])
-        self._check_filter({"name": "Data 2"}, [self.data[2]])
         self._check_filter({"name": "Data"}, [])
-        self._check_filter({"name": "1"}, [])
 
-    def test_filter_name_contains(self):
-        self._check_filter({"name_contains": "0"}, self.data[:1])
-        self._check_filter({"name_contains": "data"}, self.data)
-        self._check_filter({"name_contains": "xxx"}, [])
+        self._check_filter({"name__iexact": "data 1"}, [self.data[1]])
+
+        self._check_filter({"name__startswith": "Data"}, self.data[:2])
+        self._check_filter({"name__istartswith": "data"}, self.data[:2])
+
+        self._check_filter({"name__contains": "Data"}, self.data[:2])
+        self._check_filter({"name__icontains": "Data"}, self.data)
+
+    def test_filter_tags(self):
+        self._check_filter({"tags": "first-tag"}, self.data[:2])
+        self._check_filter({"tags": "first-tag,second-tag"}, [self.data[1]])
 
     def test_filter_contributor(self):
-        self._check_filter({"contributor": str(self.contributor.pk)}, self.data[:9])
-        self._check_filter({"contributor": "0"}, [])
+        self._check_filter({"contributor": str(self.contributor.pk)}, self.data[:2])
         self._check_filter(
-            {"contributor__in": "0,{}".format(self.contributor.pk)}, self.data[:9]
+            {"contributor__in": "{},{}".format(self.contributor.pk, self.user.pk)},
+            self.data,
         )
-
-    def test_filter_contributor_name(self):
-        self._check_filter({"contributor_name": "Joe"}, self.data[:9])
-        self._check_filter({"contributor_name": "John"}, self.data[9:])
-        self._check_filter({"contributor_name": "xxx"}, [])
 
     def test_filter_owners(self):
-        self._check_filter({"owners": str(self.admin.pk)}, self.data[:9])
-        self._check_filter({"owners": "0"}, [])
-        self._check_filter({"owners__in": "0,{}".format(self.admin.pk)}, self.data[:9])
+        self._check_filter({"owners": str(self.admin.pk)}, self.data[:2])
+
+    def test_filter_contributor_name(self):
+        # Filter by first name.
+        self._check_filter({"contributor_name": "Joe"}, self.data[:2])
+        # Filter by last name.
+        self._check_filter({"contributor_name": "Miller"}, self.data[:2])
+        # Filter by username.
+        self._check_filter({"contributor_name": "contributor"}, self.data[:2])
+        # Filter by combination of first and last name.
+        self._check_filter({"contributor_name": "John Williams"}, [self.data[2]])
 
     def test_filter_owners_name(self):
-        self._check_filter({"owners_name": "Joe"}, self.data[:9])
-        self._check_filter({"owners_name": "John"}, self.data[9:])
-        self._check_filter({"owners_name": "xxx"}, [])
+        # Filter by first name.
+        self._check_filter({"owners_name": "James"}, self.data[:2])
+        # Filter by last name.
+        self._check_filter({"owners_name": "Smith"}, self.data[:2])
+        # Filter by username.
+        self._check_filter({"owners_name": "admin"}, self.data[:2])
+        # Filter by combination of first and last name.
+        self._check_filter({"owners_name": "John Williams"}, [self.data[2]])
 
     def test_filter_created(self):
-        self._check_filter(
-            {"created": self.data[0].created.isoformat()}, [self.data[0]]
-        )
-        self._check_filter({"created__gt": "2016"}, self.data)
-        self._check_filter({"created__gt": "2016-07-30T05:59:00"}, self.data[6:])
-        self._check_filter({"created__gte": "2016-07-30T05:59:00"}, self.data[5:])
-        self._check_filter({"created__lt": "2016"}, [])
-        self._check_filter({"created__lt": "2016-07-30T05:59:00"}, self.data[:5])
-        self._check_filter({"created__lte": "2016-07-30T05:59:00"}, self.data[:6])
+        self._check_filter({"created": "2016-07-30T00:59:00"}, [self.data[0]])
+        self._check_filter({"created__gt": "2016-07-30T01:59:00"}, self.data[2:])
+        self._check_filter({"created__gte": "2016-07-30T01:59:00"}, self.data[1:])
+        self._check_filter({"created__lt": "2016-07-30T01:59:00"}, self.data[:1])
+        self._check_filter({"created__lte": "2016-07-30T01:59:00"}, self.data[:2])
 
     def test_filter_modified(self):
-        now = self.data[0].modified
-        five_offset = self.data[5].modified
-        self._check_filter({"modified": now.isoformat()}, [self.data[0]])
-        self._check_filter({"modified__gt": str(now.year)}, self.data)
-        self._check_filter({"modified__gt": five_offset.isoformat()}, self.data[6:])
-        self._check_filter({"modified__gte": five_offset.isoformat()}, self.data[5:])
-        self._check_filter({"modified__lt": str(now.year)}, [])
-        self._check_filter({"modified__lt": five_offset.isoformat()}, self.data[:5])
-        self._check_filter({"modified__lte": five_offset.isoformat()}, self.data[:6])
+        self._check_filter(
+            {"modified": self.data[0].modified.isoformat()}, [self.data[0]]
+        )
+        self._check_filter(
+            {"modified__gt": self.data[1].modified.isoformat()}, self.data[2:]
+        )
+        self._check_filter(
+            {"modified__gte": self.data[1].modified.isoformat()}, self.data[1:]
+        )
+        self._check_filter(
+            {"modified__lt": self.data[1].modified.isoformat()}, self.data[:1]
+        )
+        self._check_filter(
+            {"modified__lte": self.data[1].modified.isoformat()}, self.data[:2]
+        )
 
     def test_filter_started(self):
-        self._check_filter(
-            {"started": self.data[0].started.isoformat()}, [self.data[0]]
-        )
-        self._check_filter({"started__gt": "2016"}, self.data)
-        self._check_filter({"started__gt": "2016-07-31T05:00:00"}, self.data[6:])
-        self._check_filter({"started__gte": "2016-07-31T05:00:00"}, self.data[5:])
-        self._check_filter({"started__lt": "2016"}, [])
-        self._check_filter({"started__lt": "2016-07-31T05:00:00"}, self.data[:5])
-        self._check_filter({"started__lte": "2016-07-31T05:00:00"}, self.data[:6])
+        self._check_filter({"started": "2016-07-31T00:00:00"}, [self.data[0]])
+        self._check_filter({"started__gt": "2016-07-31T01:00:00"}, self.data[2:])
+        self._check_filter({"started__gte": "2016-07-31T01:00:00"}, self.data[1:])
+        self._check_filter({"started__lt": "2016-07-31T01:00:00"}, self.data[:1])
+        self._check_filter({"started__lte": "2016-07-31T01:00:00"}, self.data[:2])
 
     def test_filter_finished(self):
-        self._check_filter(
-            {"finished": self.data[0].finished.isoformat()}, [self.data[0]]
-        )
-        self._check_filter({"finished__gt": "2016"}, self.data)
-        self._check_filter({"finished__gt": "2016-07-31T05:30:00"}, self.data[6:])
-        self._check_filter({"finished__gte": "2016-07-31T05:30:00"}, self.data[5:])
-        self._check_filter({"finished__lt": "2016"}, [])
-        self._check_filter({"finished__lt": "2016-07-31T05:30:00"}, self.data[:5])
-        self._check_filter({"finished__lte": "2016-07-31T05:30:00"}, self.data[:6])
+        self._check_filter({"finished": "2016-07-31T00:30:00"}, [self.data[0]])
+        self._check_filter({"finished__gt": "2016-07-31T01:30:00"}, self.data[2:])
+        self._check_filter({"finished__gte": "2016-07-31T01:30:00"}, self.data[1:])
+        self._check_filter({"finished__lt": "2016-07-31T01:30:00"}, self.data[:1])
+        self._check_filter({"finished__lte": "2016-07-31T01:30:00"}, self.data[:2])
 
     def test_filter_collection(self):
-        self._check_filter({"collection": str(self.collection.pk)}, [self.data[0]])
+        self._check_filter({"collection": str(self.collection1.pk)}, [self.data[0]])
+        self._check_filter(
+            {
+                "collection__in": "{},{}".format(
+                    self.collection1.pk, self.collection2.pk
+                )
+            },
+            self.data[:2],
+        )
+
+    def test_filter_collection_name(self):
+        self._check_filter({"collection__name": "My collection"}, [self.data[0]])
+        self._check_filter({"collection__name__icontains": "Collection"}, self.data[:2])
+
+    def test_filter_collection_slug(self):
+        self._check_filter({"collection__slug": "my-collection"}, [self.data[0]])
+        self._check_filter(
+            {"collection__slug__in": "my-collection,other-collection"}, self.data[:2]
+        )
+
+    def test_filter_entity(self):
+        self._check_filter({"entity": str(self.entity1.pk)}, [self.data[0]])
+        self._check_filter(
+            {"entity__in": "{},{}".format(self.entity1.pk, self.entity2.pk)},
+            self.data[:2],
+        )
+
+    def test_filter_entity_name(self):
+        self._check_filter({"entity__name": "My entity"}, [self.data[0]])
+        self._check_filter({"entity__name__icontains": "Entity"}, self.data[:2])
+
+    def test_filter_entity_slug(self):
+        self._check_filter({"entity__slug": "my-entity"}, [self.data[0]])
+        self._check_filter(
+            {"entity__slug__in": "my-entity,other-entity"}, self.data[:2]
+        )
 
     def test_filter_type(self):
-        self._check_filter({"type": "data"}, self.data)
-        self._check_filter({"type": "data:test"}, self.data)
-        self._check_filter({"type": "data:test:process1"}, self.data[:5])
-        self._check_filter({"type": "data:test:process2"}, self.data[5:])
-        self._check_filter({"type": "data:"}, [])
-        self._check_filter({"type": "data:test:"}, [])
-        self._check_filter({"type": "data:test:process1:"}, self.data[:5])
-        self._check_filter({"type": "data:test:process2:"}, self.data[5:])
+        self._check_filter({"type": "data:"}, self.data)
+        self._check_filter({"type": "data:test:"}, self.data)
+        self._check_filter({"type": "data:test:process1"}, self.data[:2])
+        self._check_filter({"type": "data:test:process1:"}, self.data[:2])
         self._check_filter({"type__exact": "data:test"}, [])
-        self._check_filter({"type__exact": "data:test:process1:"}, self.data[:5])
-        self._check_filter({"type__exact": "data:test:process2:"}, self.data[5:])
+        self._check_filter({"type__exact": "data:test:process1:"}, self.data[:2])
 
     def test_filter_status(self):
         self._check_filter({"status": "OK"}, self.data[1:])
@@ -318,67 +714,51 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter({"status__in": "OK,RE"}, self.data)
 
     def test_filter_process(self):
-        self._check_filter({"process": str(self.proc1.pk)}, self.data[:5])
-        self._check_filter({"process": str(self.proc2.pk)}, self.data[5:])
+        self._check_filter({"process": str(self.proc1.pk)}, self.data[:2])
+        self._check_filter({"process": str(self.proc2.pk)}, self.data[2:])
 
     def test_filter_process_name(self):
-        self._check_filter({"process_name": "first"}, self.data[:5])
-        self._check_filter({"process_name": "fir"}, self.data[:5])
-        self._check_filter({"process_name": "rst"}, [])
-        self._check_filter({"process_name": "second"}, self.data[5:])
-        self._check_filter({"process_name": "sec"}, self.data[5:])
+        self._check_filter({"process__name": "First process"}, self.data[:2])
+        self._check_filter({"process__name__iexact": "first process"}, self.data[:2])
+        self._check_filter({"process__name__startswith": "First"}, self.data[:2])
+        self._check_filter({"process__name": "first process"}, [])
 
     def test_filter_process_slug(self):
-        self._check_filter({"process_slug": "test-process-1"}, self.data[:5])
-        self._check_filter({"process_slug": "test-process-2"}, self.data[5:])
-        self._check_filter({"process_slug": "test-process"}, [])
-
-    def test_filter_tags(self):
-        self._check_filter({"tags": "foo"}, self.data)
-        self._check_filter({"tags": "foo,index1"}, [self.data[1]])
-        self._check_filter({"tags": "foo,index5"}, [self.data[5]])
-        self._check_filter({"tags": "foo,index10"}, [])
-        self._check_filter({"tags": "bar"}, [])
+        self._check_filter({"process__slug": "test-process-1"}, self.data[:2])
+        self._check_filter({"process__slug": "test-process-2"}, self.data[2:])
+        self._check_filter({"process__slug": "test-process"}, [])
 
     def test_filter_text(self):
-        # By slug.
-        self._check_filter({"text": "dataslug-1"}, [self.data[1]])
-        self._check_filter({"text": "datasl"}, self.data)
-
         # By name.
         self._check_filter({"text": "Data 1"}, [self.data[1]])
-        self._check_filter({"text": "data 2"}, [self.data[2]])
         self._check_filter({"text": "Data"}, self.data)
         self._check_filter({"text": "data"}, self.data)
         self._check_filter({"text": "dat"}, self.data)
         self._check_filter({"text": "ata"}, [])
 
         # By contributor.
-        self._check_filter({"text": "joe"}, self.data[:9])
+        self._check_filter({"text": "joe"}, self.data[:2])
         self._check_filter({"text": "oe"}, [])
-        self._check_filter({"text": "Miller"}, self.data[:9])
-        self._check_filter({"text": "mill"}, self.data[:9])
-        self._check_filter({"text": "john"}, self.data[9:])
+        self._check_filter({"text": "Miller"}, self.data[:2])
+        self._check_filter({"text": "mill"}, self.data[:2])
 
         # By owner.
-        self._check_filter({"text": "james"}, self.data[:9])
+        self._check_filter({"text": "james"}, self.data[:2])
         self._check_filter({"text": "mes"}, [])
-        self._check_filter({"text": "Smith"}, self.data[:9])
-        self._check_filter({"text": "smi"}, self.data[:9])
+        self._check_filter({"text": "Smith"}, self.data[:2])
+        self._check_filter({"text": "smi"}, self.data[:2])
 
         # By process name.
-        self._check_filter({"text": "first"}, self.data[:5])
-        self._check_filter({"text": "fir"}, self.data[:5])
+        self._check_filter({"text": "first"}, self.data[:2])
+        self._check_filter({"text": "fir"}, self.data[:2])
         self._check_filter({"text": "rst"}, [])
         self._check_filter({"text": "process"}, self.data)
 
     def test_nonexisting_parameter(self):
-        response = self._check_filter(
-            {"foo": "bar"}, [self.data[0]], expected_status_code=400
-        )
+        response = self._check_filter({"foo": "bar"}, [], expected_status_code=400)
 
         self.assertRegex(
-            str(response.data["detail"]),
+            str(response.data["__all__"]),
             r"Unsupported parameter\(s\): foo. Please use a combination of: .*",
         )
 
@@ -420,12 +800,8 @@ class DescriptorSchemaViewSetFiltersTest(BaseViewSetFiltersTest):
     def test_slug(self):
         self._check_filter({"slug": "slug1"}, [self.ds1])
         self._check_filter({"slug": "slug2"}, [self.ds2])
-        self._check_filter({"slug__icontains": "LUG"}, [self.ds1, self.ds2, self.ds3])
         self._check_filter({"slug__in": "slug"}, [])
         self._check_filter({"slug__in": "slug2,slug"}, [self.ds2])
-        self._check_filter({"slug__startswith": "slug"}, [self.ds1, self.ds2, self.ds3])
-        self._check_filter({"slug__startswith": "slug2"}, [self.ds2])
-        self._check_filter({"slug__endswith": "g1"}, [self.ds1])
 
     def test_name(self):
         self._check_filter({"name": "ds1"}, [self.ds1])
@@ -455,19 +831,11 @@ class DescriptorSchemaViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter({"created__date": "2016-08-29"}, [self.ds2])
         self._check_filter({"created__time": "12:58:00"}, [self.ds2])
 
-        self._check_filter({"created__year": "2016"}, [self.ds2])
-        self._check_filter({"created__year__gt": "2015"}, [self.ds2, self.ds3])
-        self._check_filter({"created__month__gte": "8"}, [self.ds2, self.ds3])
-        self._check_filter({"created__day__lt": "29"}, [self.ds1])
-        self._check_filter({"created__hour__lte": "12"}, [self.ds1, self.ds2])
-        self._check_filter({"created__minute__gt": "57"}, [self.ds2, self.ds3])
-
     def test_modified(self):
         now = self.ds1.modified
         self._check_filter(
             {"modified": now.strftime("%Y-%m-%dT%H:%M:%S.%f%z")}, [self.ds1]
         )
-        self._check_filter({"modified__year": now.year}, [self.ds1, self.ds2, self.ds3])
 
     def test_nonexisting_parameter(self):
         response = self._check_filter(
@@ -481,23 +849,25 @@ class DescriptorSchemaViewSetFiltersTest(BaseViewSetFiltersTest):
 
 
 class ProcessViewSetFiltersTest(BaseViewSetFiltersTest):
-    def setUp(self):
-        self.viewset_class = ProcessViewSet
-        super().setUp()
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
 
-        self.proc_1 = Process.objects.create(
-            contributor=self.contributor,
+        cls.proc_1 = Process.objects.create(
+            contributor=cls.contributor,
             type="data:alignment:bam:",
             category="analyses:alignment:",
             scheduling_class="BA",
         )
 
-        self.proc_2 = Process.objects.create(
-            contributor=self.contributor,
+        cls.proc_2 = Process.objects.create(
+            contributor=cls.contributor,
             type="data:expression:",
             category="analyses:",
             scheduling_class="IN",
         )
+
+        cls.viewset_class = ProcessViewSet
 
     def test_category(self):
         self._check_filter({"category": "analyses:"}, [self.proc_1, self.proc_2])
@@ -521,287 +891,3 @@ class ProcessViewSetFiltersTest(BaseViewSetFiltersTest):
 
         self._check_filter({"is_active": "true"}, [self.proc_2])
         self._check_filter({"is_active": "false"}, [self.proc_1])
-
-
-class DataFilterTestCase(TestCase):
-    @classmethod
-    def setUpTestData(cls):
-        cls.user_1 = get_user_model().objects.create(username="first_user")
-        cls.user_2 = get_user_model().objects.create(username="second_user")
-
-        tzone = get_current_timezone()
-
-        cls.proc_1 = Process.objects.create(
-            name="Test process 1",
-            slug="test-process-1",
-            contributor=cls.user_1,
-            type="data:test:",
-        )
-
-        cls.proc_2 = Process.objects.create(
-            name="Test process 2",
-            slug="test-process-2",
-            contributor=cls.user_1,
-            type="data:test:second:",
-        )
-
-        cls.proc_3 = Process.objects.create(
-            name="Test process 3",
-            slug="test-process-3",
-            contributor=cls.user_1,
-            type="data:third:",
-        )
-
-        cls.data_1 = Data.objects.create(
-            name="Test data 1",
-            slug="test-data-1",
-            contributor=cls.user_1,
-            process=cls.proc_1,
-            status=Data.STATUS_DONE,
-            started=datetime.datetime(2016, 7, 30, 14, 0, tzinfo=tzone),
-            finished=datetime.datetime(2016, 7, 30, 14, 30, tzinfo=tzone),
-            size=42,
-        )
-        cls.data_1.created = datetime.datetime(2016, 7, 30, 13, 59, tzinfo=tzone)
-        cls.data_1.save()
-
-        cls.data_2 = Data.objects.create(
-            name="Test data 2",
-            slug="test-data-2",
-            contributor=cls.user_1,
-            process=cls.proc_2,
-            status=Data.STATUS_ERROR,
-            started=datetime.datetime(2016, 8, 30, 15, 0, tzinfo=tzone),
-            finished=datetime.datetime(2016, 8, 30, 15, 30, tzinfo=tzone),
-            tags=["foo", "bar", "moo"],
-            size=42,
-        )
-        cls.data_2.created = datetime.datetime(2016, 8, 30, 14, 59, tzinfo=tzone)
-        cls.data_2.save()
-
-        cls.data_3 = Data.objects.create(
-            name="Another data object",
-            slug="another-data-object",
-            contributor=cls.user_2,
-            process=cls.proc_3,
-            status=Data.STATUS_DONE,
-            started=datetime.datetime(2013, 1, 15, 8, 0, tzinfo=tzone),
-            finished=datetime.datetime(2013, 1, 15, 10, 0, tzinfo=tzone),
-            tags=["bar"],
-        )
-        cls.data_3.created = datetime.datetime(2013, 1, 15, 7, 59, tzinfo=tzone)
-        cls.data_3.save()
-
-        cls.collection = Collection.objects.create(
-            name="Test collection", slug="test-collection", contributor=cls.user_1
-        )
-        cls.collection.data.add(cls.data_1)
-
-    def _apply_filter(self, filters, expected):
-        filtered = DataFilter(filters, queryset=Data.objects.all())
-        self.assertCountEqual(filtered.qs, expected)
-
-    def test_filter_id(self):
-        self._apply_filter({"id": self.data_1.pk}, [self.data_1])
-        self._apply_filter(
-            {"id__in": "{},{}".format(self.data_1.pk, self.data_2.pk)},
-            [self.data_1, self.data_2],
-        )
-
-    def test_filter_slug(self):
-        self._apply_filter({"slug": "test-data-2"}, [self.data_2])
-        self._apply_filter({"slug__startswith": "test"}, [self.data_1, self.data_2])
-
-    def test_filter_name(self):
-        self._apply_filter({"name": "Test data 2"}, [self.data_2])
-        self._apply_filter({"name__startswith": "Test"}, [self.data_1, self.data_2])
-
-    def test_filter_contributor(self):
-        self._apply_filter({"contributor": self.user_1.pk}, [self.data_1, self.data_2])
-
-    def test_filter_created(self):
-        self._apply_filter({"created__year": "2016"}, [self.data_1, self.data_2])
-        self._apply_filter({"created__year__gt": "2015"}, [self.data_1, self.data_2])
-        self._apply_filter(
-            {"created__year__gt": "2015", "created__month__gte": "8"}, [self.data_2]
-        )
-
-    def test_filter_modified(self):
-        year = datetime.date.today().strftime("%Y")
-        self._apply_filter(
-            {"modified__year": year}, [self.data_1, self.data_2, self.data_3]
-        )
-        self._apply_filter({"modified__year__gt": year}, [])
-
-    def test_filter_collection(self):
-        self._apply_filter({"collection": self.collection.pk}, [self.data_1])
-        self._apply_filter({"collection__slug": "test-collection"}, [self.data_1])
-
-    def test_filter_type(self):
-        self._apply_filter({"type": "data:test:"}, [self.data_1, self.data_2])
-
-    def test_filter_status(self):
-        self._apply_filter({"status": "ok"}, [self.data_1, self.data_3])
-        self._apply_filter({"status__in": "ER"}, [self.data_2])
-        self._apply_filter(
-            {"status__in": "ER,OK"}, [self.data_1, self.data_2, self.data_3]
-        )
-
-    def test_filter_finished(self):
-        self._apply_filter({"finished__year": "2016"}, [self.data_1, self.data_2])
-        self._apply_filter({"finished__year__gt": "2015"}, [self.data_1, self.data_2])
-        self._apply_filter(
-            {"finished__year__gt": "2015", "finished__month__gte": "8"}, [self.data_2]
-        )
-
-    def test_filter_started(self):
-        self._apply_filter({"started__year": "2016"}, [self.data_1, self.data_2])
-        self._apply_filter({"started__year__gt": "2015"}, [self.data_1, self.data_2])
-        self._apply_filter(
-            {"started__year__gt": "2015", "started__month__gte": "8"}, [self.data_2]
-        )
-
-    def test_filter_process(self):
-        self._apply_filter({"process": self.proc_1.pk}, [self.data_1])
-        self._apply_filter({"process__slug": "test-process-1"}, [self.data_1])
-
-    def test_filter_tags(self):
-        self._apply_filter({"tags": "foo"}, [self.data_2])
-        self._apply_filter({"tags": "bar"}, [self.data_2, self.data_3])
-        self._apply_filter({"tags": "bar,moo"}, [self.data_2])
-
-
-class CollectionFilterTestCase(TestCase):
-    @classmethod
-    def setUpTestData(cls):
-        cls.user_1 = get_user_model().objects.create(username="first_user")
-        cls.user_2 = get_user_model().objects.create(username="second_user")
-
-        tzone = get_current_timezone()
-
-        cls.descriptor_schema_1 = DescriptorSchema.objects.create(
-            contributor=cls.user_1, name="Descriptor schema 1"
-        )
-
-        cls.descriptor_schema_2 = DescriptorSchema.objects.create(
-            contributor=cls.user_2, name="Descriptor schema 2"
-        )
-
-        cls.collection_1 = Collection.objects.create(
-            name="Test collection 1",
-            slug="test-collection-1",
-            descriptor_schema=cls.descriptor_schema_1,
-            contributor=cls.user_1,
-        )
-        cls.collection_1.created = datetime.datetime(2016, 7, 30, 13, 59, tzinfo=tzone)
-        cls.collection_1.save()
-
-        cls.collection_2 = Collection.objects.create(
-            name="Test collection 2",
-            slug="test-collection-2",
-            descriptor_schema=cls.descriptor_schema_1,
-            contributor=cls.user_1,
-        )
-        cls.collection_2.created = datetime.datetime(2016, 8, 30, 14, 59, tzinfo=tzone)
-        cls.collection_2.save()
-
-        cls.collection_3 = Collection.objects.create(
-            name="Another collection",
-            slug="another-collection",
-            descriptor_schema=cls.descriptor_schema_2,
-            contributor=cls.user_2,
-        )
-        cls.collection_3.created = datetime.datetime(2013, 1, 15, 7, 59, tzinfo=tzone)
-        cls.collection_3.save()
-
-        cls.proc = Process.objects.create(
-            name="Test process",
-            slug="test-process",
-            contributor=cls.user_1,
-            type="data:test:",
-        )
-
-        cls.data = Data.objects.create(
-            name="Test data",
-            slug="test-data",
-            contributor=cls.user_1,
-            process=cls.proc,
-            status=Data.STATUS_DONE,
-        )
-        cls.collection_1.data.add(cls.data)
-
-    def _apply_filter(self, filters, expected):
-        filtered = CollectionFilter(filters, queryset=Collection.objects.all())
-        self.assertCountEqual(filtered.qs, expected)
-
-    def test_filter_id(self):
-        self._apply_filter({"id": self.collection_1.pk}, [self.collection_1])
-        self._apply_filter(
-            {"id__in": "{},{}".format(self.collection_1.pk, self.collection_2.pk)},
-            [self.collection_1, self.collection_2],
-        )
-
-    def test_filter_slug(self):
-        self._apply_filter({"slug": "test-collection-2"}, [self.collection_2])
-        self._apply_filter(
-            {"slug__startswith": "test"}, [self.collection_1, self.collection_2]
-        )
-
-    def test_filter_name(self):
-        self._apply_filter({"name": "Test collection 2"}, [self.collection_2])
-        self._apply_filter(
-            {"name__startswith": "Test"}, [self.collection_1, self.collection_2]
-        )
-
-    def test_filter_contributor(self):
-        self._apply_filter(
-            {"contributor": self.user_1.pk}, [self.collection_1, self.collection_2]
-        )
-
-    def test_filter_created(self):
-        self._apply_filter({"created__date": "2016-08-30"}, [self.collection_2])
-        self._apply_filter(
-            {"created__gte": "2016-07-30 00:00"}, [self.collection_1, self.collection_2]
-        )
-
-    def test_filter_modified(self):
-        year = datetime.date.today().strftime("%Y")
-        today = datetime.date.today().strftime("%Y")
-        self._apply_filter(
-            {"modified__date": year},
-            [self.collection_1, self.collection_2, self.collection_3],
-        )
-        self._apply_filter({"modified__gt": today}, [])
-
-    def test_filter_data(self):
-        self._apply_filter({"data": self.data.pk}, [self.collection_1])
-
-    def test_filter_descriptor_schema(self):
-        self._apply_filter(
-            {"descriptor_schema": self.descriptor_schema_1.pk},
-            [self.collection_1, self.collection_2],
-        )
-
-
-class EntityFilterTestCase(TestCase):
-    @classmethod
-    def setUpTestData(cls):
-        cls.user_1 = get_user_model().objects.create(username="first_user")
-
-        cls.collection_1 = Collection.objects.create(contributor=cls.user_1)
-        cls.collection_2 = Collection.objects.create(contributor=cls.user_1)
-
-        cls.entity_1 = Entity.objects.create(
-            contributor=cls.user_1, collection=cls.collection_1
-        )
-        cls.entity_2 = Entity.objects.create(
-            contributor=cls.user_1, collection=cls.collection_2
-        )
-
-    def _apply_filter(self, filters, expected):
-        filtered = EntityFilter(filters, queryset=Entity.objects.all())
-        self.assertCountEqual(filtered.qs, expected)
-
-    def test_collection(self):
-        self._apply_filter({"collection": self.collection_1.id}, [self.entity_1])
-        self._apply_filter({"collection": self.collection_2.id}, [self.entity_2])

@@ -12,6 +12,8 @@ Unreleased
 
 Changed
 -------
+- **BACKWARD INCOMPATIBLE:** Use Postgres filtering instead of Elasticsearch
+  on API endpoints
 - **BACKWARD INCOMPATIBLE:** Remove filtering by ``year``, ``month``, ``day``,
   ``hour``, ``minute`` and ``second`` on API endpoints
 

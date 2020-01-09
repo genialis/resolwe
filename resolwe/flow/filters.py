@@ -5,12 +5,21 @@ Flow Filters
 ============
 
 """
-import django_filters as filters
+from django_filters import rest_framework as filters
+from versionfield import VersionField
 
-from rest_framework.exceptions import ParseError
+from django.contrib.auth import get_user_model
+from django.contrib.postgres.search import SearchQuery
+
+from guardian.shortcuts import get_objects_for_user
+from rest_framework.exceptions import ParseError, ValidationError
 
 from .models import Collection, Data, DescriptorSchema, Entity, Process, Relation
 
+RELATED_LOOKUPS = [
+    "exact",
+    "in",
+]
 NUMBER_LOOKUPS = [
     "exact",
     "in",
@@ -42,6 +51,13 @@ DATETIME_LOOKUPS = DATE_LOOKUPS + [
     "date",
     "time",
 ]
+SLUG_LOOKUPS = [
+    "exact",
+    "in",
+]
+
+
+user_model = get_user_model()
 
 
 class CheckQueryParamsMixin:
@@ -76,19 +92,94 @@ class CheckQueryParamsMixin:
         return super().is_valid()
 
 
+class TextFilterMixin:
+    """Mixin for full-text filtering."""
+
+    def filter_text(self, queryset, name, value):
+        """Full-text search."""
+        return queryset.filter(**{name: SearchQuery(value, config="simple")})
+
+
+class UserFilterMixin:
+    """Mixin for filtering by contributors and owners."""
+
+    @staticmethod
+    def _get_user_subquery(value):
+        user_subquery = user_model.objects.all()
+        for key in value.split():
+            user_subquery = user_subquery.extra(
+                where=["CONCAT_WS(' ', first_name, last_name, username) ILIKE %s"],
+                params=("%{}%".format(key),),
+            )
+
+        return user_subquery
+
+    def filter_owners(self, queryset, name, value):
+        """Filter queryset by owner's id."""
+        try:
+            user = user_model.objects.get(pk=value)
+        except user_model.DoesNotExist:
+            raise ValidationError(
+                {
+                    "owner": [
+                        "Select a valid choice. That choice is not one of the available choices."
+                    ]
+                }
+            )
+
+        return get_objects_for_user(
+            user, self.owner_permission, queryset, with_superuser=False
+        )
+
+    def filter_owners_name(self, queryset, name, value):
+        """Filter queryset by owner's name."""
+        result = queryset.model.objects.none()
+        user_subquery = self._get_user_subquery(value)
+        for user in user_subquery:
+            result = result.union(
+                get_objects_for_user(
+                    user, self.owner_permission, queryset, with_superuser=False
+                )
+            )
+
+        return result
+
+    def filter_contributor_name(self, queryset, name, value):
+        """Filter queryset by owner's name."""
+        return queryset.filter(contributor__in=self._get_user_subquery(value))
+
+
+class TagsFilter(filters.BaseCSVFilter, filters.CharFilter):
+    """Filter for tags."""
+
+    def __init__(self, *args, **kwargs):
+        """Construct tags filter."""
+        kwargs.setdefault("lookup_expr", "contains")
+        super().__init__(*args, **kwargs)
+
+
 class BaseResolweFilter(CheckQueryParamsMixin, filters.FilterSet):
     """Base filter for Resolwe's endpoints."""
+
+    contributor = filters.ModelChoiceFilter(
+        queryset=user_model.objects.all(), validators=[]
+    )
 
     class Meta:
         """Filter configuration."""
 
         fields = {
-            "id": NUMBER_LOOKUPS[:],
-            "slug": TEXT_LOOKUPS[:],
-            "name": TEXT_LOOKUPS[:],
             "contributor": ["exact", "in"],
             "created": DATETIME_LOOKUPS[:],
+            "id": NUMBER_LOOKUPS[:],
+            "name": TEXT_LOOKUPS[:],
             "modified": DATETIME_LOOKUPS[:],
+            "slug": SLUG_LOOKUPS[:],
+            "version": NUMBER_LOOKUPS[:],
+        }
+
+        filter_overrides = {
+            VersionField: {"filter_class": filters.CharFilter,},
         }
 
 
@@ -101,43 +192,53 @@ class DescriptorSchemaFilter(BaseResolweFilter):
         model = DescriptorSchema
 
 
-class CollectionFilter(BaseResolweFilter):
-    """Filter the Collection endpoint."""
+class BaseCollectionFilter(TextFilterMixin, UserFilterMixin, BaseResolweFilter):
+    """Base filter for Collection and Entity endpoints."""
 
-    data = filters.ModelChoiceFilter(queryset=Data.objects.all())
-    entity = filters.ModelChoiceFilter(queryset=Entity.objects.all())
+    contributor_name = filters.CharFilter(method="filter_contributor_name")
+    owners = filters.CharFilter(method="filter_owners")
+    owners_name = filters.CharFilter(method="filter_owners_name")
+    tags = TagsFilter()
+    text = filters.CharFilter(field_name="search", method="filter_text")
 
     class Meta(BaseResolweFilter.Meta):
         """Filter configuration."""
 
-        model = Collection
         fields = {
             **BaseResolweFilter.Meta.fields,
             **{"description": TEXT_LOOKUPS[:], "descriptor_schema": ["exact"],},
         }
 
 
-class TagsFilter(filters.filters.BaseCSVFilter, filters.CharFilter):
-    """Filter for tags."""
+class CollectionFilter(BaseCollectionFilter):
+    """Filter the Collection endpoint."""
 
-    def __init__(self, *args, **kwargs):
-        """Construct tags filter."""
-        kwargs.setdefault("lookup_expr", "contains")
-        super().__init__(*args, **kwargs)
+    owner_permission = "owner_collection"
+
+    class Meta(BaseCollectionFilter.Meta):
+        """Filter configuration."""
+
+        model = Collection
 
 
-class EntityFilter(CollectionFilter):
+class EntityFilter(BaseCollectionFilter):
     """Filter the Entity endpoint."""
 
-    collection = filters.ModelChoiceFilter(
-        field_name="collection", queryset=Collection.objects.all()
-    )
-    tags = TagsFilter()
+    owner_permission = "owner_entity"
 
-    class Meta(CollectionFilter.Meta):
+    class Meta(BaseCollectionFilter.Meta):
         """Filter configuration."""
 
         model = Entity
+        fields = {
+            **BaseCollectionFilter.Meta.fields,
+            **{
+                "collection": RELATED_LOOKUPS[:],
+                "collection__name": TEXT_LOOKUPS[:],
+                "collection__slug": SLUG_LOOKUPS[:],
+                "type": ["exact"],
+            },
+        }
 
 
 class ProcessFilter(BaseResolweFilter):
@@ -145,34 +246,33 @@ class ProcessFilter(BaseResolweFilter):
 
     category = filters.CharFilter(field_name="category", lookup_expr="startswith")
     type = filters.CharFilter(field_name="type", lookup_expr="startswith")
-    is_active = filters.rest_framework.filters.BooleanFilter(field_name="is_active")
 
     class Meta(BaseResolweFilter.Meta):
         """Filter configuration."""
 
         model = Process
-        fields = {**BaseResolweFilter.Meta.fields, **{"scheduling_class": ["exact"],}}
+        fields = {
+            **BaseResolweFilter.Meta.fields,
+            **{"is_active": ["exact"], "scheduling_class": ["exact"],},
+        }
 
 
 class CharInFilter(filters.BaseInFilter, filters.CharFilter):
     """Helper class for creation of CharFilter with "in" lookup."""
 
 
-class DataFilter(BaseResolweFilter):
+class DataFilter(TextFilterMixin, UserFilterMixin, BaseResolweFilter):
     """Filter the Data endpoint."""
 
-    collection = filters.ModelChoiceFilter(queryset=Collection.objects.all())
-    collection__slug = filters.CharFilter(
-        field_name="collection__slug", lookup_expr="exact"
-    )
+    owner_permission = "owner_data"
 
-    entity = filters.ModelChoiceFilter(queryset=Entity.objects.all())
-
-    type = filters.CharFilter(field_name="process__type", lookup_expr="startswith")
-    status = filters.CharFilter(lookup_expr="iexact")
-    status__in = CharInFilter(field_name="status", lookup_expr="in")
-
+    contributor_name = filters.CharFilter(method="filter_contributor_name")
+    owners = filters.CharFilter(method="filter_owners")
+    owners_name = filters.CharFilter(method="filter_owners_name")
     tags = TagsFilter()
+    text = filters.CharFilter(field_name="search", method="filter_text")
+    type = filters.CharFilter(field_name="process__type", lookup_expr="startswith")
+    type__exact = filters.CharFilter(field_name="process__type", lookup_expr="exact")
 
     class Meta(BaseResolweFilter.Meta):
         """Filter configuration."""
@@ -181,10 +281,18 @@ class DataFilter(BaseResolweFilter):
         fields = {
             **BaseResolweFilter.Meta.fields,
             **{
-                "process": ["exact"],
-                "process__slug": ["exact"],
+                "collection": RELATED_LOOKUPS[:],
+                "collection__name": TEXT_LOOKUPS[:],
+                "collection__slug": SLUG_LOOKUPS[:],
+                "entity": RELATED_LOOKUPS[:],
+                "entity__name": TEXT_LOOKUPS[:],
+                "entity__slug": SLUG_LOOKUPS[:],
+                "process": RELATED_LOOKUPS[:],
+                "process__name": TEXT_LOOKUPS[:],
+                "process__slug": SLUG_LOOKUPS[:],
                 "finished": DATETIME_LOOKUPS[:],
                 "started": DATETIME_LOOKUPS[:],
+                "status": ["exact", "in"],
             },
         }
 

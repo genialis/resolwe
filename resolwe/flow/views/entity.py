@@ -3,12 +3,12 @@ from rest_framework import exceptions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from resolwe.flow.filters import EntityFilter
 from resolwe.flow.models import Collection, Entity
 from resolwe.flow.serializers import EntitySerializer
 from resolwe.permissions.shortcuts import get_objects_for_user
 from resolwe.permissions.utils import update_permission
 
-from ..elastic_indexes import EntityDocument
 from .collection import CollectionViewSet
 
 
@@ -16,9 +16,8 @@ class EntityViewSet(CollectionViewSet):
     """API view for entities."""
 
     serializer_class = EntitySerializer
-    document_class = EntityDocument
     queryset = Entity.objects.prefetch_related("descriptor_schema", "contributor")
-    filtering_fields = CollectionViewSet.filtering_fields + ("collection", "type")
+    filter_class = EntityFilter
 
     def _get_collection_for_user(self, collection_id, user):
         """Check that collection exists and user has `edit` permission."""
