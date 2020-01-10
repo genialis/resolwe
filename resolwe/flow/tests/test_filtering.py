@@ -759,24 +759,19 @@ class CollectionFilterTestCase(TestCase):
         )
 
     def test_filter_created(self):
+        self._apply_filter({"created__date": "2016-08-30"}, [self.collection_2])
         self._apply_filter(
-            {"created__year": "2016"}, [self.collection_1, self.collection_2]
-        )
-        self._apply_filter(
-            {"created__year__gt": "2015"}, [self.collection_1, self.collection_2]
-        )
-        self._apply_filter(
-            {"created__year__gt": "2015", "created__month__gte": "8"},
-            [self.collection_2],
+            {"created__gte": "2016-07-30 00:00"}, [self.collection_1, self.collection_2]
         )
 
     def test_filter_modified(self):
         year = datetime.date.today().strftime("%Y")
+        today = datetime.date.today().strftime("%Y")
         self._apply_filter(
-            {"modified__year": year},
+            {"modified__date": year},
             [self.collection_1, self.collection_2, self.collection_3],
         )
-        self._apply_filter({"modified__year__gt": year}, [])
+        self._apply_filter({"modified__gt": today}, [])
 
     def test_filter_data(self):
         self._apply_filter({"data": self.data.pk}, [self.collection_1])

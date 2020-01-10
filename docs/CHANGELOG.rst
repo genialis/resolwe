@@ -10,6 +10,11 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Changed
+-------
+- **BACKWARD INCOMPATIBLE:** Remove filtering by ``year``, ``month``, ``day``,
+  ``hour``, ``minute`` and ``second`` on API endpoints
+
 Added
 -----
 - Add a custom database connector to optimize queries and enable them to use
