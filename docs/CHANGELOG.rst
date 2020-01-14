@@ -13,6 +13,7 @@ Unreleased
 Changed
 -------
 - Add ``username`` to ``current_user_permissions`` field of objects on API
+- Support retrieval of ``Data.name`` in Python process
 
 
 ===================

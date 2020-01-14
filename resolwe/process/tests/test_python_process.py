@@ -108,6 +108,7 @@ class PythonProcessTest(ProcessTestCase):
         del data.output["dir_output"]["total_size"]
 
         self.assertEqual(data.output["dir_output"], {"dir": "test/"})
+        self.assertEqual(data.output["input_data_name"], "bar")
         self.assertEqual(data.output["input_entity_name"], "Data with entity")
         self.assertEqual(data.output["docker_image"], "resolwe/base:ubuntu-18.04")
         self.assertEqual(data.name, "Foo: bar")

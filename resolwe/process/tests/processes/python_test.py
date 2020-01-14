@@ -90,6 +90,7 @@ class PythonProcess(Process):
         file_output = FileField(label="My output")
         list_file_output = ListField(FileField(), label="My list output")
         dir_output = DirField(label="My output")
+        input_data_name = StringField(label="Input data name")
         input_entity_name = StringField(label="Input entity name")
         docker_image = StringField(label="Docker image")
 
@@ -141,6 +142,7 @@ class PythonProcess(Process):
         outputs.file_output = "test/testfile.txt"
         outputs.list_file_output = ["test/testfile.txt", "testfile2.txt"]
         outputs.dir_output = "test/"
+        outputs.input_data_name = inputs.input_data.name
         outputs.input_entity_name = inputs.input_entity_data.entity_name
         outputs.docker_image = self.requirements.executor.docker.image
         outputs.string_output = "OK"

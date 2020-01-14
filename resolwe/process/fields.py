@@ -556,6 +556,11 @@ class DataDescriptor:
         return self._get("__descriptor")
 
     @property
+    def name(self):
+        """Get this data name."""
+        return self._get("__name")
+
+    @property
     def entity_name(self):
         """Entity name."""
         return self._get("__entity_name")
