@@ -23,6 +23,6 @@ For building the index for the first time or manually updating it, run::
 .. automodule:: resolwe.elastic.management.commands
 
 """
-from elasticsearch_dsl.connections import connections
+from elasticsearch_dsl.connections import connections  # noqa: F401
 
 default_app_config = "resolwe.elastic.apps.ElasticConfig"

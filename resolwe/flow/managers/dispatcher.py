@@ -996,7 +996,7 @@ class Manager:
                                     "id": data.pk,
                                 },
                             )
-                    except Exception as error:
+                    except Exception:
                         # If object's state cannot be changed due to some database-related
                         # issue, at least skip the object for this run.
                         logger.exception(

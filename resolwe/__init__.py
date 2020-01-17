@@ -7,7 +7,7 @@ Resolwe
 Open source enterprise dataflow engine in Django.
 
 """
-from resolwe.__about__ import (
+from resolwe.__about__ import (  # noqa: F401
     __author__,
     __copyright__,
     __email__,

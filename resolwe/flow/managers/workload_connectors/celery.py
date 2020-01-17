@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 # not use celery and thus don't have it available.
 if "sphinx" not in sys.modules:
     try:
-        import celery
+        import celery  # noqa: F401
     except ImportError:
         logger.error(
             "Please install Celery using 'pip install celery'", file=sys.stderr

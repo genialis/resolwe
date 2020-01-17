@@ -1,4 +1,4 @@
-from resolwe.process import *
+from resolwe.process import DataField, Process
 
 
 class PythonProcessJson(Process):

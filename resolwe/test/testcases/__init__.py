@@ -19,10 +19,8 @@ Resolwe Test Cases
 
 """
 
-import copy
 import os
 import shutil
-import unittest
 
 from django.conf import settings
 from django.contrib.auth import get_user_model

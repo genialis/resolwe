@@ -13,7 +13,6 @@ the app.
 from elasticsearch_dsl.connections import connections
 
 from django.conf import settings
-from django.test import SimpleTestCase, override_settings
 
 __all__ = ("const", "prepare_connection")
 

@@ -27,7 +27,7 @@ class ElasticConfig(AppConfig):
             return
 
         # Connect all signals
-        from . import signals
+        from . import signals  # noqa: F401
 
         # Register ES indices
-        from .builder import index_builder
+        from .builder import index_builder  # noqa: F401

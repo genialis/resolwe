@@ -4,8 +4,6 @@ import copy
 import shellescape
 import yaml
 
-from django.conf import settings
-
 from resolwe.flow.execution_engines.base import BaseExecutionEngine
 from resolwe.flow.execution_engines.exceptions import ExecutionError
 from resolwe.flow.expression_engines import EvaluationError

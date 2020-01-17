@@ -11,7 +11,7 @@ from django.test import override_settings
 from guardian.shortcuts import assign_perm, remove_perm
 
 # Import signals manually because we ignore them in App ready for tests
-from resolwe.elastic import signals
+from resolwe.elastic import signals  # noqa: F401
 from resolwe.elastic.builder import index_builder
 from resolwe.test import ElasticSearchTestCase
 

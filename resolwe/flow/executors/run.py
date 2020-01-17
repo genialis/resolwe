@@ -260,7 +260,7 @@ class BaseFlowExecutor:
                         json_file.write(line)
                         json_file.flush()
 
-                except ValueError as ex:
+                except ValueError:
                     # Ignore if not JSON
                     log_file.write(line)
                     log_file.flush()

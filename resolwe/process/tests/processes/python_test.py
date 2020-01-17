@@ -1,5 +1,20 @@
 from resolwe import process
-from resolwe.process import *
+from resolwe.process import (
+    Cmd,
+    DataField,
+    DirField,
+    FileField,
+    FloatField,
+    GroupField,
+    IntegerField,
+    JsonField,
+    ListField,
+    Persistence,
+    Process,
+    SchedulingClass,
+    StringField,
+    UrlField,
+)
 
 
 class EntityProcess(Process):
@@ -119,9 +134,9 @@ class PythonProcess(Process):
         bar = Cmd["ls"]["-l", "-a", "/"] | Cmd["grep"]["python"]
         print("hello world:\n", bar())
 
-        cmd = Cmd["mkdir"]["test"]()
-        cmd = (Cmd["echo"]['"Some content"'] > "test/testfile.txt")()
-        cmd = (Cmd["echo"]['"Some more content"'] > "testfile2.txt")()
+        Cmd["mkdir"]["test"]()
+        (Cmd["echo"]['"Some content"'] > "test/testfile.txt")()
+        (Cmd["echo"]['"Some more content"'] > "testfile2.txt")()
 
         outputs.file_output = "test/testfile.txt"
         outputs.list_file_output = ["test/testfile.txt", "testfile2.txt"]

@@ -33,3 +33,13 @@ from .entity import EntityViewSet
 from .process import ProcessViewSet
 from .relation import RelationViewSet
 from .storage import StorageViewSet
+
+__all__ = (
+    "CollectionViewSet",
+    "DataViewSet",
+    "DescriptorSchemaViewSet",
+    "EntityViewSet",
+    "ProcessViewSet",
+    "RelationViewSet",
+    "StorageViewSet",
+)

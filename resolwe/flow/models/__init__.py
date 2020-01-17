@@ -109,3 +109,19 @@ from .migrations import DataMigrationHistory, ProcessMigrationHistory
 from .process import Process
 from .secret import Secret
 from .storage import Storage
+
+__all__ = (
+    "Collection",
+    "Data",
+    "DataDependency",
+    "DataLocation",
+    "DataMigrationHistory",
+    "DescriptorSchema",
+    "Entity",
+    "Process",
+    "ProcessMigrationHistory",
+    "Relation",
+    "RelationType",
+    "Secret",
+    "Storage",
+)

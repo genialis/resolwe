@@ -36,6 +36,7 @@ __all__ = (
     "TestCaseHelpers",
     "TransactionTestCase",
     "ResolweAPITestCase",
+    "TransactionResolweAPITestCase",
     "ElasticSearchTestCase",
     "TransactionElasticSearchTestCase",
     "ProcessTestCase",

@@ -7,7 +7,6 @@ import shlex
 import shutil
 
 from resolwe.flow.execution_engines.base import BaseExecutionEngine
-from resolwe.flow.execution_engines.exceptions import ExecutionError
 from resolwe.flow.models.utils import hydrate_input_references, hydrate_input_uploads
 from resolwe.process.parser import SafeParser
 

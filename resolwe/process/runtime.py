@@ -7,8 +7,8 @@ import urllib
 
 import resolwe_runtime_utils
 
-from .descriptor import *
-from .fields import *
+from .descriptor import ProcessDescriptor
+from .fields import Field
 
 try:
     from plumbum import local as Cmd

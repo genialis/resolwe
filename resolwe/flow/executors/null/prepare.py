@@ -8,4 +8,4 @@ at runtime, properly subclass
 method.
 """
 
-from ..prepare import BaseFlowExecutorPreparer as FlowExecutorPreparer
+from ..prepare import BaseFlowExecutorPreparer as FlowExecutorPreparer  # noqa: F401

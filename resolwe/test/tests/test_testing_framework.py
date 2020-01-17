@@ -8,7 +8,6 @@ import os.path
 import shutil
 import tarfile
 import tempfile
-import unittest
 import unittest.mock as mock
 
 from resolwe.flow.models import Storage

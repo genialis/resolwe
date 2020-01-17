@@ -8,8 +8,7 @@ from django.db import transaction
 from resolwe.flow.execution_engines.base import BaseExecutionEngine
 from resolwe.flow.execution_engines.exceptions import ExecutionError
 from resolwe.flow.expression_engines import EvaluationError
-from resolwe.flow.models import Data, DataDependency, Process
-from resolwe.permissions.utils import copy_permissions
+from resolwe.flow.models import Data, Process
 
 
 class ExecutionEngine(BaseExecutionEngine):

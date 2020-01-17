@@ -6,7 +6,8 @@ import os
 import sys
 from importlib import import_module
 
-from .runtime import Inputs, Process, ValidationError
+from .descriptor import ValidationError
+from .runtime import Inputs, Process
 
 if __name__ == "__main__":
 
