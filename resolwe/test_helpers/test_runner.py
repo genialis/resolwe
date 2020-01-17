@@ -33,7 +33,7 @@ from resolwe.flow.managers import manager, state
 from resolwe.flow.managers.listener import ExecutorListener
 from resolwe.test.utils import generate_process_tag
 
-logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
+logger = logging.getLogger(__name__)
 
 SPAWN_PROCESS_REGEX = re.compile(r'run\s+\{.*?["\']process["\']\s*:\s*["\'](.+?)["\'].*?\}')
 
@@ -134,7 +134,7 @@ def _sequence_paths(paths):
         for path in created:
             try:
                 os.rmdir(path)
-            except Exception:  # pylint: disable=broad-except
+            except Exception:
                 pass
 
 

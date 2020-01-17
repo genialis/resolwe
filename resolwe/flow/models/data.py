@@ -30,7 +30,7 @@ from .utils import (
 if not hasattr(json, 'JSONDecodeError'):
     json.JSONDecodeError = ValueError
 
-logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
+logger = logging.getLogger(__name__)
 
 
 @enum.unique
@@ -409,7 +409,7 @@ class Data(BaseModel):
                     continue
 
                 if isinstance(value, str):
-                    file_path = self.location.get_path(filename=value)  # pylint: disable=no-member
+                    file_path = self.location.get_path(filename=value)
                     if os.path.isfile(file_path):
                         try:
                             with open(file_path) as file_handler:
@@ -422,7 +422,7 @@ class Data(BaseModel):
                                     "Value of '{}' must be a valid JSON, current: {}".format(name, content)
                                 )
 
-                storage = self.storages.create(  # pylint: disable=no-member
+                storage = self.storages.create(
                     name='Storage for data id {}'.format(self.pk),
                     contributor=self.contributor,
                     json=value,
@@ -442,7 +442,7 @@ class Data(BaseModel):
             and value is the secret value.
         """
         secrets = {}
-        for field_schema, fields in iterate_fields(self.input, self.process.input_schema):  # pylint: disable=no-member
+        for field_schema, fields in iterate_fields(self.input, self.process.input_schema):
             if not field_schema.get('type', '').startswith('basic:secret:'):
                 continue
 
@@ -463,11 +463,11 @@ class Data(BaseModel):
 
         # If the process does not not have the right requirements it is not
         # allowed to access any secrets.
-        allowed = self.process.requirements.get('resources', {}).get('secrets', False)  # pylint: disable=no-member
+        allowed = self.process.requirements.get('resources', {}).get('secrets', False)
         if secrets and not allowed:
             raise PermissionDenied(
                 "Process '{}' has secret inputs, but no permission to see secrets".format(
-                    self.process.slug  # pylint: disable=no-member
+                    self.process.slug
                 )
             )
 
@@ -496,14 +496,14 @@ class Data(BaseModel):
                 for data in value:
                     add_dependency(data)
 
-    def save(self, render_name=False, *args, **kwargs):  # pylint: disable=keyword-arg-before-vararg
+    def save(self, render_name=False, *args, **kwargs):
         """Save the data model."""
         if self.name != self._original_name:
             self.named_by_user = True
 
         create = self.pk is None
         if create:
-            fill_with_defaults(self.input, self.process.input_schema)  # pylint: disable=no-member
+            fill_with_defaults(self.input, self.process.input_schema)
 
             if not self.name:
                 self._render_name()
@@ -511,12 +511,12 @@ class Data(BaseModel):
                 self.named_by_user = True
 
             self.checksum = get_data_checksum(
-                self.input, self.process.slug, self.process.version)  # pylint: disable=no-member
+                self.input, self.process.slug, self.process.version)
 
         elif render_name:
             self._render_name()
 
-        self.save_storage(self.output, self.process.output_schema)  # pylint: disable=no-member
+        self.save_storage(self.output, self.process.output_schema)
 
         if self.status != Data.STATUS_ERROR:
             hydrate_size(self)
@@ -527,14 +527,14 @@ class Data(BaseModel):
         # Input Data objects are validated only upon creation as they can be deleted later.
         skip_missing_data = not create
         validate_schema(
-            self.input, self.process.input_schema, skip_missing_data=skip_missing_data  # pylint: disable=no-member
+            self.input, self.process.input_schema, skip_missing_data=skip_missing_data
         )
 
         render_descriptor(self)
 
         if self.descriptor_schema:
             try:
-                validate_schema(self.descriptor, self.descriptor_schema.schema)  # pylint: disable=no-member
+                validate_schema(self.descriptor, self.descriptor_schema.schema)
                 self.descriptor_dirty = False
             except DirtyError:
                 self.descriptor_dirty = True
@@ -542,7 +542,7 @@ class Data(BaseModel):
             raise ValueError("`descriptor_schema` must be defined if `descriptor` is given")
 
         if self.status != Data.STATUS_ERROR:
-            output_schema = self.process.output_schema  # pylint: disable=no-member
+            output_schema = self.process.output_schema
             if self.status == Data.STATUS_DONE:
                 validate_schema(
                     self.output, output_schema, data_location=self.location, skip_missing_data=True
@@ -562,7 +562,7 @@ class Data(BaseModel):
     def delete(self, *args, **kwargs):
         """Delete the data model."""
         # Store ids in memory as relations are also deleted with the Data object.
-        storage_ids = list(self.storages.values_list('pk', flat=True))  # pylint: disable=no-member
+        storage_ids = list(self.storages.values_list('pk', flat=True))
 
         super().delete(*args, **kwargs)
 
@@ -597,18 +597,18 @@ class Data(BaseModel):
                 raise ValidationError("You do not have edit permission on collection {}.".format(self.collection))
             duplicate.collection = self.collection
 
-        duplicate._perform_save(force_insert=True)  # pylint: disable=protected-access
+        duplicate._perform_save(force_insert=True)
 
         # Override fields that are automatically set on create.
         duplicate.created = self.created
-        duplicate._perform_save()  # pylint: disable=protected-access
+        duplicate._perform_save()
 
         if self.location:
-            self.location.data.add(duplicate)  # pylint: disable=no-member
+            self.location.data.add(duplicate)
 
-        duplicate.storages.set(self.storages.all())  # pylint: disable=no-member
+        duplicate.storages.set(self.storages.all())
 
-        for migration in self.migration_history.order_by('created'):  # pylint: disable=no-member
+        for migration in self.migration_history.order_by('created'):
             migration.pk = None
             migration.data = duplicate
             migration.save(force_insert=True)
@@ -638,17 +638,17 @@ class Data(BaseModel):
         input context.
 
         """
-        if not self.process.data_name or self.named_by_user:  # pylint: disable=no-member
+        if not self.process.data_name or self.named_by_user:
             return
 
         inputs = copy.deepcopy(self.input)
-        hydrate_input_references(inputs, self.process.input_schema, hydrate_values=False)  # pylint: disable=no-member
+        hydrate_input_references(inputs, self.process.input_schema, hydrate_values=False)
         template_context = inputs
 
         try:
             name = render_template(
                 self.process,
-                self.process.data_name,  # pylint: disable=no-member
+                self.process.data_name,
                 template_context
             )
         except EvaluationError:

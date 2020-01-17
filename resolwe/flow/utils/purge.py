@@ -15,7 +15,7 @@ from resolwe.flow.models import Data, DataLocation, Storage
 from resolwe.flow.utils import iterate_fields
 from resolwe.utils import BraceMessage as __
 
-logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
+logger = logging.getLogger(__name__)
 
 
 def get_purge_files(root, output, output_schema, descriptor, descriptor_schema):

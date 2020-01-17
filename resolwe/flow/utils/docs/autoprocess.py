@@ -72,7 +72,7 @@ def get_processes(process_dir, base_source_uri):
     :raises: ValueError: if multiple processes with the same slug are found
 
     """
-    global PROCESS_CACHE  # pylint: disable=global-statement
+    global PROCESS_CACHE
     if PROCESS_CACHE is not None:
         return PROCESS_CACHE
 

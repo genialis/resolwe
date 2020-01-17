@@ -57,7 +57,7 @@ class ResolweSlugField(SlugField):
                     '`unique_with` constraint does not support lookups by related models.'
                 )
 
-            field = instance._meta.get_field(field_name)  # pylint: disable=protected-access
+            field = instance._meta.get_field(field_name)
             field_value = getattr(instance, field_name)
 
             # Convert value to the database representation.
@@ -103,7 +103,7 @@ class ResolweSlugField(SlugField):
             slug = None
 
             if not self.blank:
-                slug = instance._meta.model_name  # pylint: disable=protected-access
+                slug = instance._meta.model_name
             elif not self.null:
                 slug = ''
 
@@ -116,14 +116,14 @@ class ResolweSlugField(SlugField):
 
             constraints_placeholder, constraints_values = self._get_unique_constraints(instance)
 
-            instance_pk_name = instance._meta.pk.name  # pylint: disable=protected-access
+            instance_pk_name = instance._meta.pk.name
 
             # Safe values - make sure that there is no chance of SQL injection.
             query_params = {
                 'constraints_placeholder': constraints_placeholder,
                 'slug_column': connection.ops.quote_name(self.column),
                 'slug_len': len(slug),
-                'table_name': connection.ops.quote_name(self.model._meta.db_table),  # pylint: disable=protected-access
+                'table_name': connection.ops.quote_name(self.model._meta.db_table),
                 'pk_neq_placeholder': 'AND {} != %(instance_pk)s'.format(instance_pk_name) if instance.pk else ''
             }
 

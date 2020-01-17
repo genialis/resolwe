@@ -102,7 +102,7 @@ class TestCaseHelpers(DjangoSimpleTestCase):
             "Please use the command line options --keep-data and --no-mock-purge instead.\n"
         )
 
-    def assertAlmostEqualGeneric(self, actual, expected, msg=None):  # pylint: disable=invalid-name
+    def assertAlmostEqualGeneric(self, actual, expected, msg=None):
         """Assert almost equality for common types of objects.
 
         This is the same as :meth:`~unittest.TestCase.assertEqual`, but using

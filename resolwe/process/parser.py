@@ -164,7 +164,7 @@ class ProcessVisitor(ast.NodeVisitor):
 
             return Fields
 
-    def visit_ClassDef(self, node):  # pylint: disable=invalid-name
+    def visit_ClassDef(self, node):
         """Visit top-level classes."""
         # Resolve everything as root scope contains everything from the process module.
         for base in node.bases:

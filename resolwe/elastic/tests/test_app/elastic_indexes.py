@@ -9,7 +9,7 @@ from .models import TestDependency, TestModel, TestModelWithDependency, TestSelf
 
 
 class TestSearchDocument(BaseDocument):
-    id = dsl.Integer()  # pylint: disable=invalid-name
+    id = dsl.Integer()
     name = dsl.Text(fielddata=True)
     num = dsl.Integer()
     date = dsl.Date()
@@ -125,7 +125,7 @@ class TestModelWithReverseDependencySearchIndex(BaseIndex):
 
     def get_dependencies(self):
         return [
-            # pylint: disable=no-member
+
             TestDependency.testmodelwithdependency_set,
             TestDependency.main_dep,
         ]

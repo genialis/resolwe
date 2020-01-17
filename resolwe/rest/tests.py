@@ -7,7 +7,7 @@ from resolwe.flow.models import Data, Entity, Process
 from resolwe.flow.views import DataViewSet
 from resolwe.test import TestCase
 
-factory = APIRequestFactory()  # pylint: disable=invalid-name
+factory = APIRequestFactory()
 
 
 class ProjectionTest(TestCase):

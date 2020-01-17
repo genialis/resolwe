@@ -188,7 +188,7 @@ class Process(BaseModel):
 
         limits = {}
 
-        resources = self.requirements.get('resources', {})  # pylint: disable=no-member
+        resources = self.requirements.get('resources', {})
 
         limits['cores'] = int(resources.get('cores', 1))
 

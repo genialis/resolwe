@@ -42,7 +42,7 @@ def get_full_perm(perm, obj):
 
 def get_all_perms(obj):
     """Return a list of all permissions on ``obj``."""
-    return list(zip(*obj._meta.permissions))[0]  # pylint: disable=protected-access
+    return list(zip(*obj._meta.permissions))[0]
 
 
 def change_perm_ctype(perm, dest_obj):

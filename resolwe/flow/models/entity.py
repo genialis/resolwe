@@ -92,7 +92,7 @@ class Entity(BaseCollection):
         duplicate.save()
 
         # Duplicate entity's data objects.
-        data = get_objects_for_user(contributor, 'view_data', self.data.all())  # pylint: disable=no-member
+        data = get_objects_for_user(contributor, 'view_data', self.data.all())
         duplicated_data = data.duplicate(contributor, inherit_collection=inherit_collection)
         duplicate.data.add(*duplicated_data)
 
@@ -114,7 +114,7 @@ class Entity(BaseCollection):
             copy_permissions(destination_collection, self)
         self.save()
 
-        for datum in self.data.all():  # pylint: disable=no-member
+        for datum in self.data.all():
             datum.collection = destination_collection
             if destination_collection:
                 datum.tags = destination_collection.tags

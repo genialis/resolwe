@@ -44,13 +44,13 @@ class ResolweBaseSerializer(SelectiveFieldMixin, serializers.ModelSerializer):
     def __init__(self, instance=None, data=empty, **kwargs):
         """Initialize attributes."""
         if (instance is not None and data is not empty
-                and hasattr(self.Meta, 'update_protected_fields')):  # pylint: disable=no-member
-            for field in self.Meta.update_protected_fields:  # pylint: disable=no-member
+                and hasattr(self.Meta, 'update_protected_fields')):
+            for field in self.Meta.update_protected_fields:
                 if field in data:
                     data.pop(field)
 
             # prevent modification if there are no updates
-            if set(data.keys()).issubset(set(self.Meta.read_only_fields)):  # pylint: disable=no-member
+            if set(data.keys()).issubset(set(self.Meta.read_only_fields)):
                 raise NoContentError()
 
         super().__init__(instance, data, **kwargs)

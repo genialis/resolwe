@@ -171,7 +171,7 @@ class DataTestCase(ResolweAPITestCase):
             'last_name': self.user1.last_name
         })
 
-    def test_post_contributor_dict_extra_data(self):  # pylint: disable=invalid-name
+    def test_post_contributor_dict_extra_data(self):
         response = ContributorSerializer(ContributorSerializer().to_internal_value({
             'id': self.user1.pk,
             'username': 'ignored',
@@ -185,7 +185,7 @@ class DataTestCase(ResolweAPITestCase):
             'last_name': self.user1.last_name
         })
 
-    def test_post_contributor_dict_invalid(self):  # pylint: disable=invalid-name
+    def test_post_contributor_dict_invalid(self):
         with self.assertRaises(exceptions.ValidationError):
             ContributorSerializer().to_internal_value({
                 'invalid-dictionary': True,

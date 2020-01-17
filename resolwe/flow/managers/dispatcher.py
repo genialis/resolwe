@@ -37,7 +37,7 @@ from resolwe.utils import BraceMessage as __
 from . import consumer, state
 from .protocol import ExecutorFiles, WorkerProtocol
 
-logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
+logger = logging.getLogger(__name__)
 
 DEFAULT_CONNECTOR = 'resolwe.flow.managers.workload_connectors.local'
 
@@ -49,7 +49,7 @@ class SettingsJSONifier(json.JSONEncoder):
     which can't be serialized using the vanilla json encoder.
     """
 
-    def default(self, o):  # pylint: disable=method-hidden
+    def default(self, o):
         """Try default; otherwise, coerce the object into a string."""
         try:
             return super().default(o)
@@ -185,13 +185,13 @@ class Manager:
             self.active = False
             self.value = 0
 
-        async def inc(self, tag):  # pylint: disable=missing-docstring
+        async def inc(self, tag):
             pass
 
-        async def dec(self, tag):  # pylint: disable=missing-docstring
+        async def dec(self, tag):
             pass
 
-        async def reset(self):  # pylint: disable=missing-docstring
+        async def reset(self):
             pass
 
     class _SettingsManager:
@@ -862,7 +862,7 @@ class Manager:
                         # All data objects created by the execution engine are commited after this
                         # point and may be processed by other managers running in parallel. At the
                         # same time, the lock for the current data object is released.
-                except Exception as error:  # pylint: disable=broad-except
+                except Exception as error:
                     logger.exception(__(
                         "Unhandled exception in _data_scan while processing data object {}.",
                         data.pk
@@ -874,7 +874,7 @@ class Manager:
                     # using the Django ORM as using the ORM may be the reason the error
                     # occurred in the first place.
                     error_msg = "Internal error: {}".format(error)
-                    process_error_field = Data._meta.get_field('process_error')  # pylint: disable=protected-access
+                    process_error_field = Data._meta.get_field('process_error')
                     max_length = process_error_field.base_field.max_length
                     if len(error_msg) > max_length:
                         error_msg = error_msg[:max_length - 3] + '...'
@@ -889,7 +889,7 @@ class Manager:
                                         process_error = process_error || (%(error)s)::varchar[]
                                     WHERE id = %(id)s
                                 """.format(
-                                    table=Data._meta.db_table  # pylint: disable=protected-access
+                                    table=Data._meta.db_table
                                 ),
                                 {
                                     'status': Data.STATUS_ERROR,
@@ -897,7 +897,7 @@ class Manager:
                                     'id': data.pk
                                 }
                             )
-                    except Exception as error:  # pylint: disable=broad-except
+                    except Exception as error:
                         # If object's state cannot be changed due to some database-related
                         # issue, at least skip the object for this run.
                         logger.exception(__(

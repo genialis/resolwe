@@ -16,7 +16,7 @@ from resolwe.utils import BraceMessage as __
 
 from .base import BaseConnector
 
-logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
+logger = logging.getLogger(__name__)
 
 # We add this much to the memory limit to account for executor overhead,
 # since the executor is running in the same environment as the process.

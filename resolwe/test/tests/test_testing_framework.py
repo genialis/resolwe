@@ -46,7 +46,7 @@ class TestingFrameworkTestCase(TestCase):
             obj_mock = mock.MagicMock()
             self.assertRaises(
                 AssertionError,
-                ProcessTestCase._assert_file,  # pylint: disable=protected-access
+                ProcessTestCase._assert_file,
                 self.dummy_case, obj_mock, "", "",
             )
 
@@ -62,7 +62,7 @@ class TestingFrameworkTestCase(TestCase):
             def date_in_line(line):
                 return line.startswith(b"date")
 
-            ProcessTestCase._assert_file(  # pylint: disable=protected-access
+            ProcessTestCase._assert_file(
                 self.dummy_case, obj_mock, "", "", file_filter=date_in_line)
 
     @mock.patch("os.path.isfile")
@@ -75,7 +75,7 @@ class TestingFrameworkTestCase(TestCase):
             obj_mock = mock.MagicMock()
             self.assertRaises(
                 AssertionError,
-                ProcessTestCase._assert_file,  # pylint: disable=protected-access
+                ProcessTestCase._assert_file,
                 self.dummy_case, obj_mock, "", "",
             )
 
@@ -87,7 +87,7 @@ class TestingFrameworkTestCase(TestCase):
         open_mock = mock.MagicMock(side_effect=[output1_file, output2_file])
         with mock.patch.object(builtins, 'open', open_mock):
             obj_mock = mock.MagicMock()
-            ProcessTestCase._assert_file(  # pylint: disable=protected-access
+            ProcessTestCase._assert_file(
                 self.dummy_case, obj_mock, "", "", sort=True)
 
     def test_assert_json_storage_object(self):
@@ -192,12 +192,12 @@ class TestingFrameworkTestCase(TestCase):
                 with mock.patch.object(os.path, 'isfile', return_value=True):
 
                     # https://github.com/PyCQA/pylint/issues/1653
-                    self.assertRegex(  # pylint: disable=deprecated-method
-                        ProcessTestCase._debug_info(dummy_case, obj_mock),   # pylint: disable=protected-access
+                    self.assertRegex(
+                        ProcessTestCase._debug_info(dummy_case, obj_mock),
                         non_ascii_text,
                     )
 
-    def test_assert_almost_equal_generic(self):  # pylint: disable=invalid-name
+    def test_assert_almost_equal_generic(self):
         self.assertAlmostEqualGeneric(1.00000001, 1.0)
         self.assertAlmostEqualGeneric([1.00000001], [1.0])
         self.assertAlmostEqualGeneric({'foo': 1.00000001}, {'foo': 1.0})
@@ -261,7 +261,7 @@ class TestingFrameworkTestCase(TestCase):
             ProcessTestCase._assert_dir_structure,
             self.dummy_case, self.temp_dir, wrong_format, False)
 
-    def test_assert_dir_structure_missing(self):  # pylint: disable=invalid-name
+    def test_assert_dir_structure_missing(self):
         obj_mock = mock.MagicMock()
         obj_mock.pk = 'no id'
         obj_mock.output = {
@@ -290,7 +290,7 @@ class TestingFrameworkTestCase(TestCase):
             AssertionError, 'Directory .* does not exist.', ProcessTestCase.assertDir,
             self.dummy_case, obj_mock, 'field_name', 'foo.tar.gz')
 
-    def test_assert_dir_compressed_missing(self):  # pylint: disable=invalid-name
+    def test_assert_dir_compressed_missing(self):
         test_output = io.BytesIO()
         correct_output = io.BytesIO()
         open_mock = mock.MagicMock(return_value=tarfile.open(fileobj=test_output, mode='w:gz'))

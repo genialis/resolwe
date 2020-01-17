@@ -39,8 +39,8 @@ def update_constants():
     of the code needs static values immediately. Updating functions such
     as this one are then needed to fix dummy values.
     """
-    global MANAGER_CONTROL_CHANNEL, MANAGER_EXECUTOR_CHANNELS  # pylint: disable=global-statement
-    global MANAGER_LISTENER_STATS, MANAGER_STATE_PREFIX  # pylint: disable=global-statement
+    global MANAGER_CONTROL_CHANNEL, MANAGER_EXECUTOR_CHANNELS
+    global MANAGER_LISTENER_STATS, MANAGER_STATE_PREFIX
     redis_prefix = getattr(settings, 'FLOW_MANAGER', {}).get('REDIS_PREFIX', '')
 
     MANAGER_CONTROL_CHANNEL = '{}.control'.format(redis_prefix)

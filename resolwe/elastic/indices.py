@@ -39,7 +39,7 @@ from .utils import prepare_connection
 
 __all__ = ('BaseDocument', 'BaseIndex')
 
-logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
+logger = logging.getLogger(__name__)
 
 
 class BaseDocument(dsl.Document):
@@ -127,12 +127,12 @@ class BaseIndex:
             for name in dir(extension):
                 field = getattr(extension, name)
                 if isinstance(field, dsl.Field):
-                    self.document_class._doc_type.mapping.field(name, field)  # pylint: disable=protected-access
+                    self.document_class._doc_type.mapping.field(name, field)
 
         #: list of built documents waiting to be pushed
         self.push_queue = []
 
-        self._index_name = self.document_class()._get_index()  # pylint: disable=protected-access
+        self._index_name = self.document_class()._get_index()
         self._mapping_created = False
 
         #: id of thread id where connection was established
@@ -189,7 +189,7 @@ class BaseIndex:
         """Process current object and push it to the ElasticSearch."""
         document = self.document_class(meta={'id': self.generate_id(obj)})
 
-        for field in document._doc_type.mapping:  # pylint: disable=protected-access
+        for field in document._doc_type.mapping:
             if field in ['users_with_permissions', 'groups_with_permissions', 'public_permission']:
                 continue  # These fields are handled separately
 
@@ -197,7 +197,7 @@ class BaseIndex:
                 # use get_X_value function
                 get_value_function = getattr(self, 'get_{}_value'.format(field), None)
                 if get_value_function:
-                    setattr(document, field, get_value_function(obj))  # pylint: disable=not-callable
+                    setattr(document, field, get_value_function(obj))
                     continue
 
                 # use `mapping` dict
@@ -229,7 +229,7 @@ class BaseIndex:
 
                 raise AttributeError("Cannot determine mapping for field {}".format(field))
 
-            except Exception:  # pylint: disable=broad-except
+            except Exception:
                 logger.exception(
                     "Error occurred while setting value of field '%s' in '%s' Elasticsearch index.",
                     field, self.__class__.__name__,
@@ -269,7 +269,7 @@ class BaseIndex:
             )
 
         if obj is not None:
-            if self.queryset.model != obj._meta.model:  # pylint: disable=protected-access
+            if self.queryset.model != obj._meta.model:
                 logger.debug(
                     "Object type mismatch, skipping build of '%s' Elasticsearch index.",
                     self.__class__.__name__
@@ -291,7 +291,7 @@ class BaseIndex:
                 )
                 return
 
-        FULL_REBUILD = 'full'  # pylint: disable=invalid-name
+        FULL_REBUILD = 'full'
 
         def handler(agg=None):
             """Index build handler."""
@@ -352,7 +352,7 @@ class BaseIndex:
 
             try:
                 obj = self.preprocess_object(obj)
-            except Exception:  # pylint: disable=broad-except
+            except Exception:
                 logger.exception(
                     "Error occurred while preprocessing '%s' Elasticsearch index.",
                     self.__class__.__name__,
@@ -361,7 +361,7 @@ class BaseIndex:
 
             try:
                 self.process_object(obj)
-            except Exception:  # pylint: disable=broad-except
+            except Exception:
                 logger.exception(
                     "Error occurred while processing '%s' Elasticsearch index.",
                     self.__class__.__name__,
@@ -394,7 +394,7 @@ class BaseIndex:
         self._refresh_connection()
 
         self.push_queue = []
-        index_name = self.document_class()._get_index()  # pylint: disable=protected-access
+        index_name = self.document_class()._get_index()
         connections.get_connection().indices.delete(index_name, ignore=404)
 
         self._mapping_created = False

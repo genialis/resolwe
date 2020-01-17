@@ -54,7 +54,7 @@ def check_docker():
     info_command = '{} info'.format(command)
     available, reason = True, ""
     # TODO: Use subprocess.DEVNULL after dropping support for Python 2
-    with open(os.devnull, 'wb') as DEVNULL:  # pylint: disable=invalid-name
+    with open(os.devnull, 'wb') as DEVNULL:
         try:
             subprocess.check_call(shlex.split(info_command), stdout=DEVNULL, stderr=subprocess.STDOUT)
         except OSError:
@@ -97,7 +97,7 @@ def with_custom_executor(wrapped=None, **custom_executor_settings):
             # Re-run engine discovery as the settings have changed.
             manager.discover_engines()
 
-    return wrapper(wrapped)  # pylint: disable=no-value-for-parameter
+    return wrapper(wrapped)
 
 
 def with_docker_executor(wrapped=None):
@@ -113,7 +113,7 @@ def with_docker_executor(wrapped=None):
             )(wrapped_method)
         )(*args, **kwargs)
 
-    return wrapper(wrapped)  # pylint: disable=no-value-for-parameter
+    return wrapper(wrapped)
 
 
 @wrapt.decorator
@@ -191,5 +191,5 @@ def is_testing():
 
     This assumes that the Resolwe test runner is being used.
     """
-    from resolwe.test_helpers.test_runner import is_testing  # pylint: disable=redefined-outer-name
+    from resolwe.test_helpers.test_runner import is_testing
     return is_testing()

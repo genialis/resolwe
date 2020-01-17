@@ -7,13 +7,13 @@ import urllib
 
 import resolwe_runtime_utils
 
-from .descriptor import *  # pylint: disable=wildcard-import,unused-wildcard-import
-from .fields import *  # pylint: disable=wildcard-import,unused-wildcard-import
+from .descriptor import *
+from .fields import *
 
 try:
-    from plumbum import local as Cmd  # pylint: disable=unused-import
+    from plumbum import local as Cmd
     # Log plumbum commands to standard output.
-    # pylint: disable=invalid-name
+
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(name)s[%(process)s]: %(message)s')
 
     handler = logging.StreamHandler(sys.stdout)
@@ -22,7 +22,7 @@ try:
     plumbum_logger = logging.getLogger('plumbum.local')
     plumbum_logger.setLevel(logging.DEBUG)
     plumbum_logger.addHandler(handler)
-    # pylint: enable=invalid-name
+
 
 except ImportError:
     # Generate a dummy class that defers the ImportError to a point where
@@ -159,7 +159,7 @@ class ProcessMeta(type):
         meta.validate()
 
         result = type.__new__(mcs, name, bases, namespace)
-        result._meta = meta  # pylint: disable=protected-access
+        result._meta = meta
         return result
 
 
@@ -244,7 +244,7 @@ class Process(metaclass=ProcessMeta):
     @property
     def requirements(self):
         """Process requirements."""
-        class dotdict(dict):  # pylint: disable=invalid-name
+        class dotdict(dict):
             """Dot notation access to dictionary attributes."""
 
             def __getattr__(self, attr):

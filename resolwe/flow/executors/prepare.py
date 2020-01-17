@@ -21,7 +21,7 @@ from resolwe.flow.models import Data
 from resolwe.flow.utils import get_apps_tools
 from resolwe.test.utils import is_testing
 
-logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
+logger = logging.getLogger(__name__)
 
 
 class BaseFlowExecutorPreparer:

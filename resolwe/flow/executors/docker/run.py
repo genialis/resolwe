@@ -28,7 +28,7 @@ DOCKER_MEMORY_HARD_LIMIT_BUFFER = 100
 DOCKER_MEMORY_SWAP_RATIO = 2
 DOCKER_MEMORY_SWAPPINESS = 1
 
-logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
+logger = logging.getLogger(__name__)
 
 
 class FlowExecutor(LocalFlowExecutor):
@@ -232,7 +232,7 @@ class FlowExecutor(LocalFlowExecutor):
 
         logger.debug("Checking existence of docker image: {}".format(command_args['container_image']))
 
-        check_proc = await subprocess.create_subprocess_exec(  # pylint: disable=no-member
+        check_proc = await subprocess.create_subprocess_exec(
             *shlex.split(check_command),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
@@ -244,7 +244,7 @@ class FlowExecutor(LocalFlowExecutor):
 
             logger.info("Pulling docker image: {}".format(command_args['container_image']))
 
-            pull_proc = await subprocess.create_subprocess_exec(  # pylint: disable=no-member
+            pull_proc = await subprocess.create_subprocess_exec(
                 *shlex.split(pull_command),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE
@@ -267,7 +267,7 @@ class FlowExecutor(LocalFlowExecutor):
 
         # Workaround for pylint issue #1469
         # (https://github.com/PyCQA/pylint/issues/1469).
-        self.proc = await subprocess.create_subprocess_exec(  # pylint: disable=no-member
+        self.proc = await subprocess.create_subprocess_exec(
             *shlex.split(docker_command),
             limit=4 * (2 ** 20),  # 4MB buffer size for line buffering
             stdin=subprocess.PIPE,
@@ -335,7 +335,7 @@ class FlowExecutor(LocalFlowExecutor):
         """Terminate a running script."""
         # Workaround for pylint issue #1469
         # (https://github.com/PyCQA/pylint/issues/1469).
-        cmd = await subprocess.create_subprocess_exec(  # pylint: disable=no-member
+        cmd = await subprocess.create_subprocess_exec(
             *shlex.split('{} rm -f {}'.format(self.command, self._generate_container_name()))
         )
         await cmd.wait()

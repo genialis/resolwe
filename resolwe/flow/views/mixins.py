@@ -81,7 +81,7 @@ class ResolweUpdateModelMixin(mixins.UpdateModelMixin):
         if getattr(instance, '_prefetched_objects_cache', None):
             # If 'prefetch_related' has been applied to a queryset, we need to
             # forcibly invalidate the prefetch cache on the instance.
-            instance._prefetched_objects_cache = {}  # pylint: disable=protected-access
+            instance._prefetched_objects_cache = {}
 
         return Response(serializer.data)
 

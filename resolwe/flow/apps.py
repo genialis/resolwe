@@ -18,4 +18,4 @@ class FlowConfig(AppConfig):
     def ready(self):
         """Application initialization."""
         # Register signals handlers
-        from . import signals  # pylint: disable=unused-import
+        from . import signals

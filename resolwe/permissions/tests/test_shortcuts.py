@@ -15,7 +15,7 @@ from resolwe.flow.views import StorageViewSet
 from resolwe.permissions.shortcuts import get_object_perms, get_objects_for_user, get_user_group_perms
 from resolwe.test import TestCase
 
-factory = APIRequestFactory()  # pylint: disable=invalid-name
+factory = APIRequestFactory()
 
 
 class UserGroupTestCase(TestCase):

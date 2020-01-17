@@ -87,14 +87,14 @@ echo "{\"collection-list\": $(curl --silent --show-error $RESOLWE_HOST_URL/api/c
     @unittest.skipUnless(*check_installed('curl'))
     @with_resolwe_host
     @tag_process('test-accessing-api-from-process')
-    def test_access_api_from_local_executor_process(self):  # pylint: disable=invalid-name
+    def test_access_api_from_local_executor_process(self):
         """Test if a process running via local executor can access API."""
         data = self.run_process(self.process.slug)
         self.check_results(data)
 
     @unittest.skipUnless(*check_installed('curl'))
     @tag_process('test-accessing-api-from-process')
-    def test_access_api_from_local_executor_process_without_decorator(self):  # pylint: disable=invalid-name
+    def test_access_api_from_local_executor_process_without_decorator(self):
         """Test if a process running via local executor cannot access API."""
         data = self.run_process(self.process.slug)
         with self.assertRaises(AssertionError):
@@ -109,7 +109,7 @@ echo "{\"collection-list\": $(curl --silent --show-error $RESOLWE_HOST_URL/api/c
     @tag_process('test-accessing-api-from-process')
     def test_access_api_from_docker_executor_process(self):
         """Test if a process running via Docker executor can access API."""
-        # pylint: disable=invalid-name
+
         # NOTE: pylint gets confused if the above string is inline with the method name
         data = self.run_process(self.process.slug)
         self.check_results(data)
@@ -123,7 +123,7 @@ echo "{\"collection-list\": $(curl --silent --show-error $RESOLWE_HOST_URL/api/c
     @tag_process('test-accessing-api-from-process')
     def test_access_api_from_docker_executor_process_reverse_decorators(self):
         """Test if a process running via Docker executor can access API."""
-        # pylint: disable=invalid-name
+
         # NOTE: pylint gets confused if the above string is inline with the method name
         data = self.run_process(self.process.slug)
         self.check_results(data)

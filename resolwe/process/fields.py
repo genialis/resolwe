@@ -528,7 +528,7 @@ class DataDescriptor:
         return self._cache[key]
 
     @property
-    def id(self):  # pylint: disable=invalid-name
+    def id(self):
         """Primary key of this data object."""
         return self._data_id
 
@@ -650,7 +650,7 @@ class GroupField(Field):
     def to_python(self, value):
         """Convert value if needed."""
         if isinstance(value, GroupDescriptor):
-            value = value._value  # pylint: disable=protected-access
+            value = value._value
 
         result = {}
         for name, field in self.fields.items():

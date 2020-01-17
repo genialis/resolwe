@@ -224,7 +224,7 @@ class ElasticSearchBaseViewSet(PaginationMixin, ElasticSearchMixin, GenericViewS
 
     def search(self):
         """Handle the search request."""
-        search = self.document_class().search()  # pylint: disable=not-callable
+        search = self.document_class().search()
 
         search = self.custom_filter(search)
 

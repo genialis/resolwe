@@ -15,7 +15,7 @@ from resolwe.flow.models import Collection, Data, DataDependency, DataLocation, 
 from resolwe.flow.views import CollectionViewSet, DataViewSet, EntityViewSet, ProcessViewSet
 from resolwe.test import ResolweAPITestCase, TestCase
 
-factory = APIRequestFactory()  # pylint: disable=invalid-name
+factory = APIRequestFactory()
 
 
 MESSAGES = {

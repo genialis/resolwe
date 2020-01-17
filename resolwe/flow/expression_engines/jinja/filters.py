@@ -146,7 +146,7 @@ def any_(obj):
 
 
 # A dictionary of filters that will be registered.
-filters = {  # pylint: disable=invalid-name
+filters = {
     'name': name,
     'slug': slug,
     'input': input_,

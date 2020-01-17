@@ -13,6 +13,6 @@ def increase(value):
 
 
 # A dictionary of filters that will be registered.
-filters = {  # pylint: disable=invalid-name
+filters = {
     'increase': increase,
 }

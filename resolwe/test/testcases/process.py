@@ -181,7 +181,7 @@ class ProcessTestCase(TransactionTestCase):
             schemas['model'].objects.all().delete()
 
         cache_key = str('processes_paths={};descriptors_paths={}'.format(processes_paths, descriptors_paths))
-        global SCHEMAS_FIXTURE_CACHE  # pylint: disable=global-statement
+        global SCHEMAS_FIXTURE_CACHE
         if not SCHEMAS_FIXTURE_CACHE:
             SCHEMAS_FIXTURE_CACHE = {}
 
@@ -525,7 +525,7 @@ class ProcessTestCase(TransactionTestCase):
         with gzip.open(file_path, mode='rt') as f:
             return json.load(f), json_dict
 
-    def assertStatus(self, obj, status):  # pylint: disable=invalid-name
+    def assertStatus(self, obj, status):
         """Check if object's status is equal to the given status.
 
         :param obj: object for which to check the status
@@ -555,7 +555,7 @@ class ProcessTestCase(TransactionTestCase):
 
         self.fail("Field not found in path {}.".format(path))
 
-    def assertFields(self, obj, path, value):  # pylint: disable=invalid-name
+    def assertFields(self, obj, path, value):
         """Compare object's field to the given value.
 
         The file size is ignored. Use assertFile to validate
@@ -641,7 +641,7 @@ class ProcessTestCase(TransactionTestCase):
         self.assertEqual(correct_hash, output_hash, msg="File contents hash mismatch: {} != {}".format(
             correct_hash, output_hash) + self._debug_info(obj))
 
-    def assertFile(self, obj, field_path, fn, **kwargs):  # pylint: disable=invalid-name
+    def assertFile(self, obj, field_path, fn, **kwargs):
         """Compare a process's output file to the given correct file.
 
         :param obj: object that includes the file to compare
@@ -675,7 +675,7 @@ class ProcessTestCase(TransactionTestCase):
         field = dict_dot(obj.output, field_path)
         self._assert_file(obj, field['file'], fn, **kwargs)
 
-    def assertFiles(self, obj, field_path, fn_list, **kwargs):  # pylint: disable=invalid-name
+    def assertFiles(self, obj, field_path, fn_list, **kwargs):
         """Compare a process's output file to the given correct file.
 
         :param obj: object which includes the files to compare
@@ -714,7 +714,7 @@ class ProcessTestCase(TransactionTestCase):
         for fn_tested, fn_correct in zip(field, fn_list):
             self._assert_file(obj, fn_tested['file'], fn_correct, **kwargs)
 
-    def assertFileExists(self, obj, field_path):  # pylint: disable=invalid-name
+    def assertFileExists(self, obj, field_path):
         """Ensure a file in the given object's field exists.
 
         :param obj: object that includes the file for which to check if
@@ -731,7 +731,7 @@ class ProcessTestCase(TransactionTestCase):
         if not os.path.isfile(output):
             self.fail(msg="File {} does not exist.".format(field_path))
 
-    def assertFilesExist(self, obj, field_path):  # pylint: disable=invalid-name
+    def assertFilesExist(self, obj, field_path):
         """Ensure files in the given object's field exists.
 
         :param obj: object that includes list of files for which to check
@@ -749,7 +749,7 @@ class ProcessTestCase(TransactionTestCase):
             if not os.path.isfile(output_file):
                 self.fail(msg="File {} in output field {} does not exist.".format(item['file'], field_path))
 
-    def assertDirExists(self, obj, field_path):  # pylint: disable=invalid-name
+    def assertDirExists(self, obj, field_path):
         """Assert that a directory in the output field of the given object exists.
 
         :param obj: object that includes the file for which to check if
@@ -802,7 +802,7 @@ class ProcessTestCase(TransactionTestCase):
         if not exact and (correct_dirs - test_dirs or correct_files - test_files):
             self.fail(msg='Directory structure mismatch (partial structure check).')
 
-    def assertDirStructure(self, obj, field_path, dir_struct, exact=True):  # pylint: disable=invalid-name
+    def assertDirStructure(self, obj, field_path, dir_struct, exact=True):
         """Assert correct tree structure in output field of given object.
 
         Only names of directories and files are asserted. Content of files is
@@ -848,7 +848,7 @@ class ProcessTestCase(TransactionTestCase):
             if cmp.left_only or cmp.right_only or cmp.diff_files or (fail_on_funny and cmp.funny_files):
                 self.fail(msg='Directory {} content mismatch: {}.'.format(fn_correct, cmp.report()))
 
-    def assertDir(self, obj, field_path, fn):  # pylint: disable=invalid-name
+    def assertDir(self, obj, field_path, fn):
         """Compare process output directory to correct compressed directory.
 
         :param obj: object that includes the directory to compare
@@ -869,7 +869,7 @@ class ProcessTestCase(TransactionTestCase):
         dir_path = obj.location.get_path(filename=field['dir'])
         self._assert_dir(dir_path, fn)
 
-    def assertJSON(self, obj, storage, field_path, file_name):  # pylint: disable=invalid-name
+    def assertJSON(self, obj, storage, field_path, file_name):
         """Compare JSON in Storage object to the given correct JSON.
 
         :param obj: object to which the

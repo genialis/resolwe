@@ -7,7 +7,7 @@ from .elastic_indexes import TestSearchDocument
 from .models import TestModel
 
 
-class TestSerializer(serializers.Serializer):  # pylint: disable=abstract-method
+class TestSerializer(serializers.Serializer):
     name = serializers.CharField()
     num = serializers.IntegerField()
     json = serializers.JSONField(source='json.to_dict')

@@ -16,7 +16,7 @@ from rest_framework.test import APIRequestFactory, APITestCase, force_authentica
 from resolwe.elastic.builder import index_builder
 from resolwe.test import TestCase
 
-factory = APIRequestFactory()  # pylint: disable=invalid-name
+factory = APIRequestFactory()
 
 
 CUSTOM_SETTINGS = {
@@ -130,7 +130,7 @@ class IndexViewsetTest(APITestCase, TestCase):
         self.assertEqual(response.data['results'][0]['name'], 'Object name 3')
 
     @mock.patch('resolwe.elastic.viewsets.ELASTICSEARCH_SIZE', 1)
-    def test_pagination_elasticsearch_size_limit(self):  # pylint: disable=invalid-name
+    def test_pagination_elasticsearch_size_limit(self):
         request = factory.post('', {'offset': '0', 'limit': '1'}, format='json')
         force_authenticate(request, self.user_1)
         response = self.test_viewset(request)

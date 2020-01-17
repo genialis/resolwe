@@ -88,26 +88,26 @@ class TransactionResolweAPITestCase(TestCaseHelpers, APITransactionTestCase):
         self.factory = APIRequestFactory()
 
         list_url_mapping = {}
-        if hasattr(self.viewset, 'list'):  # pylint: disable=no-member
+        if hasattr(self.viewset, 'list'):
             list_url_mapping['get'] = 'list'
-        if hasattr(self.viewset, 'create'):  # pylint: disable=no-member
+        if hasattr(self.viewset, 'create'):
             list_url_mapping['post'] = 'create'
 
-        self.list_view = self.viewset.as_view(list_url_mapping)  # pylint: disable=no-member
+        self.list_view = self.viewset.as_view(list_url_mapping)
 
         detail_url_mapping = {}
-        if hasattr(self.viewset, 'retrieve'):  # pylint: disable=no-member
+        if hasattr(self.viewset, 'retrieve'):
             detail_url_mapping['get'] = 'retrieve'
-        if hasattr(self.viewset, 'update'):  # pylint: disable=no-member
+        if hasattr(self.viewset, 'update'):
             detail_url_mapping['put'] = 'update'
-        if hasattr(self.viewset, 'partial_update'):  # pylint: disable=no-member
+        if hasattr(self.viewset, 'partial_update'):
             detail_url_mapping['patch'] = 'partial_update'
-        if hasattr(self.viewset, 'destroy'):  # pylint: disable=no-member
+        if hasattr(self.viewset, 'destroy'):
             detail_url_mapping['delete'] = 'destroy'
-        if hasattr(self.viewset, 'detail_permissions'):  # pylint: disable=no-member
+        if hasattr(self.viewset, 'detail_permissions'):
             detail_url_mapping['post'] = 'detail_permissions'
 
-        self.detail_view = self.viewset.as_view(detail_url_mapping)  # pylint: disable=no-member
+        self.detail_view = self.viewset.as_view(detail_url_mapping)
 
     def detail_url(self, pk):
         """Get detail url."""
@@ -120,7 +120,7 @@ class TransactionResolweAPITestCase(TestCaseHelpers, APITransactionTestCase):
     @property
     def list_url(self):
         """Get list url."""
-        return reverse('resolwe-api:{}-list'.format(self.resource_name))  # pylint: disable=no-member
+        return reverse('resolwe-api:{}-list'.format(self.resource_name))
 
     def _render_query_params(self, params):
         """Generate query parameters from given dict."""
@@ -237,7 +237,7 @@ class TransactionResolweAPITestCase(TestCaseHelpers, APITransactionTestCase):
         force_authenticate(request, user)
         return self.detail_view(request, pk=pk)
 
-    def assertKeys(self, data, wanted):  # pylint: disable=invalid-name
+    def assertKeys(self, data, wanted):
         """Assert dictionary keys."""
         self.assertEqual(sorted(data.keys()), sorted(wanted))
 

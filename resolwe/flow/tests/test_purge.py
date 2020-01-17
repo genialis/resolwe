@@ -108,12 +108,12 @@ class PurgeE2ETest(PurgeTestFieldsMixin, ProcessTestCase):
 
         return data
 
-    def assertFilesRemoved(self, data, *files):  # pylint: disable=invalid-name
+    def assertFilesRemoved(self, data, *files):
         for name in files:
             path = data.location.get_path(filename=name)
             self.assertFalse(os.path.isfile(path), msg=path)
 
-    def assertFilesNotRemoved(self, data, *files):  # pylint: disable=invalid-name
+    def assertFilesNotRemoved(self, data, *files):
         for name in files:
             path = data.location.get_path(filename=name)
             self.assertTrue(os.path.isfile(path), msg=path)
@@ -179,7 +179,7 @@ re-save-dir-list sample_dir_list dir1:ref2 dir2 dir3
         data.location.refresh_from_db()
         self.assertEqual(data.location.purged, True)
 
-    def assertFieldWorks(self, field_type, field_value, script_setup,  # pylint: disable=invalid-name
+    def assertFieldWorks(self, field_type, field_value, script_setup,
                          script_save, removed, not_removed):
         """
         Checks that a field is handled correctly when running a processor, which
@@ -265,7 +265,7 @@ re-save-dir-list sample_dir_list dir1:ref2 dir2 dir3
 
 class PurgeUnitTest(PurgeTestFieldsMixin, ProcessTestCase):
 
-    def assertFieldWorks(self, field_type, field_value, script_setup,  # pylint: disable=invalid-name
+    def assertFieldWorks(self, field_type, field_value, script_setup,
                          script_save, removed, not_removed):
         """
         Checks that a field is handled correctly by `get_purge_files` under a
@@ -410,10 +410,10 @@ class PurgeUnitTest(PurgeTestFieldsMixin, ProcessTestCase):
         # Check that only the 'removeme' file from the completed Data objects is removed
         # together with directories not belonging to any data objects.
         with contextlib.ExitStack() as stack:
-            # pylint: disable=no-member
+
             os_mock = stack.enter_context(patch('resolwe.flow.utils.purge.os', wraps=os))
             shutil_mock = stack.enter_context(patch('resolwe.flow.utils.purge.shutil', wraps=shutil))
-            # pylint: enable=no-member
+
 
             os_mock.remove = MagicMock()
             shutil_mock.rmtree = MagicMock()
@@ -444,10 +444,10 @@ class PurgeUnitTest(PurgeTestFieldsMixin, ProcessTestCase):
         another_data.save()
 
         with contextlib.ExitStack() as stack:
-            # pylint: disable=no-member
+
             os_mock = stack.enter_context(patch('resolwe.flow.utils.purge.os', wraps=os))
             shutil_mock = stack.enter_context(patch('resolwe.flow.utils.purge.shutil', wraps=shutil))
-            # pylint: enable=no-member
+
 
             os_mock.remove = MagicMock()
             purge.location_purge(location_id=another_data.location.id, delete=True)
@@ -518,8 +518,8 @@ class PurgeUnitTest(PurgeTestFieldsMixin, ProcessTestCase):
         data = Data.objects.create(**self.data)
         data.storages.add(Storage.objects.create(contributor=self.user, json={}))
 
-        purge._storage_purge_all()  # pylint: disable=protected-access
+        purge._storage_purge_all()
         self.assertEqual(Storage.objects.count(), 3)
 
-        purge._storage_purge_all(delete=True)  # pylint: disable=protected-access
+        purge._storage_purge_all(delete=True)
         self.assertEqual(Storage.objects.count(), 1)

@@ -12,7 +12,7 @@ from resolwe.utils import BraceMessage as __
 
 from .base import BaseConnector
 
-logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
+logger = logging.getLogger(__name__)
 
 
 class Connector(BaseConnector):

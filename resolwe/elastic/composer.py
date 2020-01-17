@@ -72,4 +72,4 @@ class Composer:
         return self._extensions.get(self._get_class_path(klass), [])
 
 
-composer = Composer()  # pylint: disable=invalid-name
+composer = Composer()

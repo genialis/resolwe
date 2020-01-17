@@ -49,7 +49,7 @@ class FieldsTest(TestCase):
     def test_predefined_long_slugs(self):
         from .fields_test_app.models import TestModel
 
-        slug_max_length = TestModel._meta.get_field('slug').max_length  # pylint: disable=protected-access
+        slug_max_length = TestModel._meta.get_field('slug').max_length
         max_slug = 'x' * slug_max_length
 
         # Predefined slug shouldn't be trimmed

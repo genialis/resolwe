@@ -11,7 +11,7 @@ from asyncio import subprocess
 
 from ..run import BaseFlowExecutor
 
-logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
+logger = logging.getLogger(__name__)
 
 
 class FlowExecutor(BaseFlowExecutor):
@@ -32,7 +32,7 @@ class FlowExecutor(BaseFlowExecutor):
         """Start process execution."""
         # Workaround for pylint issue #1469
         # (https://github.com/PyCQA/pylint/issues/1469).
-        self.proc = await subprocess.create_subprocess_exec(  # pylint: disable=no-member
+        self.proc = await subprocess.create_subprocess_exec(
             *shlex.split(self.command),
             stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT

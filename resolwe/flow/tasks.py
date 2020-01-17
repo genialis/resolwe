@@ -12,7 +12,7 @@ import sys
 # guard from importing celery on installations which are configured to
 # not use celery and thus don't have it available.
 if 'sphinx' not in sys.modules:
-    from celery import shared_task  # pylint: disable=import-error
+    from celery import shared_task
 else:
     def shared_task(task):  # noqa: D103, pylint: disable=missing-docstring
         return task

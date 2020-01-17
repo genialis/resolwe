@@ -39,7 +39,7 @@ class BaseCollection(BaseModel):
         """Perform descriptor validation and save object."""
         if self.descriptor_schema:
             try:
-                validate_schema(self.descriptor, self.descriptor_schema.schema)  # pylint: disable=no-member
+                validate_schema(self.descriptor, self.descriptor_schema.schema)
                 self.descriptor_dirty = False
             except DirtyError:
                 self.descriptor_dirty = True
@@ -103,7 +103,7 @@ class Collection(BaseCollection):
         duplicate.save()
 
         # Duplicate collection's entities.
-        entities = get_objects_for_user(contributor, 'view_entity', self.entity_set.all())  # pylint: disable=no-member
+        entities = get_objects_for_user(contributor, 'view_entity', self.entity_set.all())
         duplicated_entities = entities.duplicate(contributor=contributor)
         duplicate.entity_set.add(*duplicated_entities)
 

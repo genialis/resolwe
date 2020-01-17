@@ -164,10 +164,10 @@ class ResolweProcessOperation(base.Operation):
 
     def database_forwards(self, app_label, schema_editor, from_state, to_state):
         """Perform forward migration."""
-        Process = from_state.apps.get_model('flow', 'Process')  # pylint: disable=invalid-name
-        Data = from_state.apps.get_model('flow', 'Data')  # pylint: disable=invalid-name
+        Process = from_state.apps.get_model('flow', 'Process')
+        Data = from_state.apps.get_model('flow', 'Data')
         try:
-            # pylint: disable=invalid-name
+
             ProcessMigrationHistory = from_state.apps.get_model('flow', 'ProcessMigrationHistory')
             DataMigrationHistory = from_state.apps.get_model('flow', 'DataMigrationHistory')
         except LookupError:
@@ -220,7 +220,7 @@ class ResolweProcessOperation(base.Operation):
         raise NotImplementedError
 
 
-class ResolweProcessAddField(ResolweProcessOperation):  # pylint: disable=abstract-method
+class ResolweProcessAddField(ResolweProcessOperation):
     """Operation, which adds a new field to existing process schema."""
 
     def __init__(self, process, field, schema, default=None):
@@ -362,7 +362,7 @@ class ResolweProcessAddField(ResolweProcessOperation):  # pylint: disable=abstra
         }
 
 
-class ResolweProcessRenameField(ResolweProcessOperation):  # pylint: disable=abstract-method
+class ResolweProcessRenameField(ResolweProcessOperation):
     """Operation, which renames an existing field in existing process schema."""
 
     def __init__(self, process, field, new_field, skip_no_field=False):
@@ -503,9 +503,9 @@ class ResolweDataCleanup(base.Operation):
     def database_forwards(self, app_label, schema_editor, from_state, to_state):
         """Perform forward migration."""
         from resolwe.flow.models.data import DataQuerySet
-        # pylint: disable=protected-access
 
-        Data = from_state.apps.get_model('flow', 'Data')  # pylint: disable=invalid-name
+
+        Data = from_state.apps.get_model('flow', 'Data')
         DataQuerySet._delete_chunked(Data.objects.filter(process__persistence='TMP'))
         DataQuerySet._delete_chunked(Data.objects.filter(status='ER'))
 
@@ -535,12 +535,12 @@ class ResolweProcessDataRemove(base.Operation):
     def database_forwards(self, app_label, schema_editor, from_state, to_state):
         """Perform forward migration."""
         from resolwe.flow.models.data import DataQuerySet
-        # pylint: disable=protected-access
 
-        Data = from_state.apps.get_model('flow', 'Data')  # pylint: disable=invalid-name
+
+        Data = from_state.apps.get_model('flow', 'Data')
         DataQuerySet._delete_chunked(Data.objects.filter(process__slug=self.process))
 
-        Process = from_state.apps.get_model('flow', 'Process')  # pylint: disable=invalid-name
+        Process = from_state.apps.get_model('flow', 'Process')
         Process.objects.filter(slug=self.process).delete()
 
     def database_backwards(self, app_label, schema_editor, from_state, to_state):
@@ -548,7 +548,7 @@ class ResolweProcessDataRemove(base.Operation):
         raise NotImplementedError
 
 
-class ResolweProcessChangeType(ResolweProcessOperation):  # pylint: disable=abstract-method
+class ResolweProcessChangeType(ResolweProcessOperation):
     """Operation, changes a process' type."""
 
     def __init__(self, process, new_type):
@@ -643,7 +643,7 @@ class ResolweValidateProcessSchema(base.Operation):
 
     def database_forwards(self, app_label, schema_editor, from_state, to_state):
         """Perform forward migration."""
-        Process = from_state.apps.get_model('flow', 'Process')  # pylint: disable=invalid-name
+        Process = from_state.apps.get_model('flow', 'Process')
 
         # Validate process types to ensure consistency.
         errors = validate_process_types(Process.objects.all())

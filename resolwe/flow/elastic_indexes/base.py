@@ -10,7 +10,7 @@ from resolwe.permissions.utils import get_full_perm
 class BaseDocument(indices.BaseDocument):
     """Base search document."""
 
-    id = dsl.Integer()  # pylint: disable=invalid-name
+    id = dsl.Integer()
     slug = Slug()
     version = dsl.Keyword()
     name = Name()

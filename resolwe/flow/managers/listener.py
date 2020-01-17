@@ -43,7 +43,7 @@ from resolwe.utils import BraceMessage as __
 from . import consumer, state
 from .protocol import ExecutorProtocol, WorkerProtocol
 
-logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
+logger = logging.getLogger(__name__)
 
 
 class ExecutorListener:
@@ -275,7 +275,7 @@ class ExecutorListener:
             if key in ['process_error', 'process_warning', 'process_info']:
                 # Trim process_* fields to not exceed max length of the database field.
                 for i, entry in enumerate(val):
-                    max_length = Data._meta.get_field(key).base_field.max_length  # pylint: disable=protected-access
+                    max_length = Data._meta.get_field(key).base_field.max_length
                     if len(entry) > max_length:
                         val[i] = entry[:max_length - 3] + '...'
 
@@ -311,9 +311,9 @@ class ExecutorListener:
 
             try:
                 d.save(update_fields=['process_error', 'status'])
-            except Exception:  # pylint: disable=broad-except
+            except Exception:
                 pass
-        except Exception:  # pylint: disable=broad-except
+        except Exception:
             logger.error(
                 __(
                     "Error when saving Data object of process '{}' (handle_update):\n\n{}",
@@ -403,7 +403,7 @@ class ExecutorListener:
 
                             d = Data.objects.create(**d)
 
-                except Exception:  # pylint: disable=broad-except
+                except Exception:
                     logger.error(
                         __(
                             "Error while preparing spawned Data objects of process '{}' (handle_finish):\n\n{}",
@@ -627,7 +627,7 @@ class ExecutorListener:
                 try:
                     with PrioritizedBatcher.global_instance():
                         await database_sync_to_async(handler)(obj)
-                except Exception:  # pylint: disable=broad-except
+                except Exception:
                     logger.error(__(
                         "Executor command handling error:\n\n{}",
                         traceback.format_exc()

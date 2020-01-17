@@ -39,7 +39,7 @@ class DictRelatedField(relations.RelatedField):
     @property
     def model_name(self):
         """Get name of queryset model."""
-        return self.get_queryset().model._meta.model_name  # pylint: disable=protected-access
+        return self.get_queryset().model._meta.model_name
 
     def to_internal_value(self, data):
         """Convert to internal value."""

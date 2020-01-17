@@ -14,10 +14,10 @@ from resolwe.permissions.shortcuts import get_object_perms
 from .utils import check_owner_permission, check_public_permissions, check_user_permissions, update_permission
 
 
-class CurrentUserPermissionsSerializer(serializers.Serializer):  # pylint: disable=abstract-method
+class CurrentUserPermissionsSerializer(serializers.Serializer):
     """Current user permissions serializer."""
 
-    id = serializers.IntegerField()  # pylint: disable=invalid-name
+    id = serializers.IntegerField()
     type = serializers.CharField(max_length=50)
     name = serializers.CharField(max_length=100)
     permissions = serializers.ListField(
@@ -39,13 +39,13 @@ class ResolwePermissionsMixin:
         class SerializerWithPermissions(base_class):
             """Augment serializer class."""
 
-            def get_fields(serializer_self):  # pylint: disable=no-self-argument
+            def get_fields(serializer_self):
                 """Return serializer's fields."""
                 fields = super().get_fields()
                 fields['current_user_permissions'] = CurrentUserPermissionsSerializer(read_only=True)
                 return fields
 
-            def to_representation(serializer_self, instance):  # pylint: disable=no-self-argument
+            def to_representation(serializer_self, instance):
                 """Object serializer."""
                 data = super().to_representation(instance)
 

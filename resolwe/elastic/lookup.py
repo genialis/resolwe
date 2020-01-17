@@ -29,12 +29,12 @@ class Lookup:
         if self.value_type is None:
             return value
 
-        return self.value_type(value)  # pylint: disable=not-callable
+        return self.value_type(value)
 
     def apply(self, search, field, value):
         """Apply lookup expression to search query."""
         return search.query(
-            self.query_type(  # pylint: disable=not-callable
+            self.query_type(
                 **{
                     field: {
                         self.operator: self.get_value_query(value)

@@ -9,7 +9,7 @@ from importlib import import_module
 from .runtime import Inputs, Process, ValidationError
 
 if __name__ == '__main__':
-    # pylint: disable=invalid-name
+
     parser = argparse.ArgumentParser(description="Run a Resolwe Python proces")
     parser.add_argument('filename', type=str,
                         help="Python process filename to run")
@@ -39,7 +39,7 @@ if __name__ == '__main__':
         if value == Process or not inspect.isclass(value) or not issubclass(value, Process):
             continue
 
-        processes[value._meta.metadata.slug] = value  # pylint: disable=protected-access
+        processes[value._meta.metadata.slug] = value
 
     if args.slug:
         try:
@@ -48,7 +48,7 @@ if __name__ == '__main__':
             print("Found the following processes in module '{}':".format(args.module))
             print("")
             for slug, process in processes.items():
-                print("  {} ({})".format(slug, process._meta.metadata.name))  # pylint: disable=protected-access
+                print("  {} ({})".format(slug, process._meta.metadata.name))
             print("")
 
             print("ERROR: Unable to find process '{}'.".format(args.slug))
@@ -59,7 +59,7 @@ if __name__ == '__main__':
         print("Found the following processes in module '{}':".format(args.module))
         print("")
         for slug, process in processes.items():
-            print("  {} ({})".format(slug, process._meta.metadata.name))  # pylint: disable=protected-access
+            print("  {} ({})".format(slug, process._meta.metadata.name))
         print("")
 
         print("ERROR: Unable to determine which process to run. Pass --slug option.")
@@ -67,7 +67,7 @@ if __name__ == '__main__':
 
     # Prepare process inputs.
     try:
-        inputs = Inputs(process._meta.inputs)  # pylint: disable=protected-access
+        inputs = Inputs(process._meta.inputs)
         if args.inputs:
             with open(args.inputs) as inputs_file:
                 data = json.load(inputs_file)
@@ -84,7 +84,7 @@ if __name__ == '__main__':
         if args.requirements:
             with open(args.requirements) as requirements_file:
                 requirements = json.load(requirements_file)
-    except Exception as error:  # pylint: disable=broad-except
+    except Exception as error:
         print("ERROR: Requirements failed to load: {}".format(str(error)))
         sys.exit(1)
 
@@ -94,7 +94,7 @@ if __name__ == '__main__':
     instance = process()
     try:
         if requirements is not None:
-            instance._meta.metadata.requirements = requirements  # pylint: disable=protected-access
+            instance._meta.metadata.requirements = requirements
 
         instance.start(inputs)
     except ValidationError as error:

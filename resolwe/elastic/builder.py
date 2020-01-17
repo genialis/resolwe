@@ -202,7 +202,7 @@ class Dependency:
 
     def process_predelete(self, obj, **kwargs):
         """Render the queryset of influenced objects and cache it."""
-        build_kwargs = self._get_build_kwargs(obj, **kwargs)  # pylint: disable=too-many-function-args
+        build_kwargs = self._get_build_kwargs(obj, **kwargs)
         self.delete_cache.set(obj, build_kwargs)
 
     def process_delete(self, obj, **kwargs):
@@ -214,7 +214,7 @@ class Dependency:
 
     def process(self, obj, **kwargs):
         """Process signals from dependencies."""
-        build_kwargs = self._get_build_kwargs(obj, **kwargs)  # pylint: disable=too-many-function-args
+        build_kwargs = self._get_build_kwargs(obj, **kwargs)
 
         if build_kwargs:
             self.index.build(**build_kwargs)
@@ -261,7 +261,7 @@ class ManyToManyDependency(Dependency):
         signals.append(m2m_signal)
 
         # If the relation has a custom through model, we need to subscribe to it.
-        if not self.field.rel.through._meta.auto_created:  # pylint: disable=protected-access
+        if not self.field.rel.through._meta.auto_created:
             signal = ElasticSignal(self, 'process_m2m_through_save', pass_kwargs=True)
             signal.connect(post_save, sender=self.field.rel.through)
             signals.append(signal)
@@ -477,7 +477,7 @@ class IndexBuilder:
                     if inspect.isclass(attr) and issubclass(attr, BaseIndex) and attr is not BaseIndex:
                         # Make sure that parallel tests have different indices.
                         if is_testing():
-                            index = attr.document_class._index._name  # pylint: disable=protected-access
+                            index = attr.document_class._index._name
                             testing_postfix = '_test_{}_{}'.format(TESTING_UUID, os.getpid())
 
                             if not index.endswith(testing_postfix):
@@ -487,7 +487,7 @@ class IndexBuilder:
                                 index = index + testing_postfix
                                 attr.testing_postfix = testing_postfix
 
-                            attr.document_class._index._name = index  # pylint: disable=protected-access
+                            attr.document_class._index._name = index
 
                         index = attr()
 
@@ -541,4 +541,4 @@ class IndexBuilder:
         self.indexes = []
 
 
-index_builder = IndexBuilder()  # pylint: disable=invalid-name
+index_builder = IndexBuilder()

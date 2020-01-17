@@ -4,7 +4,7 @@ from django.db.models.aggregates import Func
 from .utils import json_path_components
 
 
-class JsonGetPath(Func):  # pylint: disable=abstract-method
+class JsonGetPath(Func):
     """PostgreSQL JSON path (#>) operator."""
 
     function = '#>'
@@ -23,14 +23,14 @@ class JsonGetPath(Func):  # pylint: disable=abstract-method
 
         super().__init__(expression)
 
-    def as_sql(self, compiler, connection):  # pylint: disable=arguments-differ
+    def as_sql(self, compiler, connection):
         """Compile SQL for this function."""
         sql, params = super().as_sql(compiler, connection)
         params.append(self.path)
         return sql, params
 
 
-class JsonbArrayElements(Func):  # pylint: disable=abstract-method
+class JsonbArrayElements(Func):
     """PostgreSQL jsonb_array_elements function."""
 
     function = 'jsonb_array_elements'

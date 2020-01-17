@@ -16,14 +16,14 @@ from resolwe.utils import BraceMessage as __
 
 from .base import BaseConnector
 
-logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
+logger = logging.getLogger(__name__)
 
 # Sphinx directly imports the modules it's documenting, so we need to
 # guard from importing celery on installations which are configured to
 # not use celery and thus don't have it available.
 if 'sphinx' not in sys.modules:
     try:
-        import celery  # pylint: disable=unused-import
+        import celery
     except ImportError:
         logger.error("Please install Celery using 'pip install celery'", file=sys.stderr)
         sys.exit(1)

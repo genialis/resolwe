@@ -11,20 +11,20 @@ import aioredis
 from .global_settings import DATA, EXECUTOR_SETTINGS, SETTINGS
 from .protocol import ExecutorProtocol
 
-logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
+logger = logging.getLogger(__name__)
 
 _REDIS_RETRIES = 60
 # This channel name will be used for all listener communication; Data object-specific.
-_response_channel = EXECUTOR_SETTINGS.get('REDIS_CHANNEL_PAIR', ('', ''))[1]  # pylint: disable=invalid-name
+_response_channel = EXECUTOR_SETTINGS.get('REDIS_CHANNEL_PAIR', ('', ''))[1]
 QUEUE_RESPONSE_CHANNEL = '{}.{}'.format(_response_channel, DATA.get('id', 0))
 
 # The Redis connection instance used to communicate with the manager listener.
-redis_conn = None  # pylint: disable=invalid-name
+redis_conn = None
 
 
 async def init():
     """Create a connection to the Redis server."""
-    global redis_conn  # pylint: disable=global-statement,invalid-name
+    global redis_conn
     conn = await aioredis.create_connection(
         'redis://{}:{}'.format(
             SETTINGS.get('FLOW_EXECUTOR', {}).get('REDIS_CONNECTION', {}).get('host', 'localhost'),

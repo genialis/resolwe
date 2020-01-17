@@ -13,7 +13,7 @@ from resolwe.flow.models import Collection, Data, DescriptorSchema, Entity, Proc
 from resolwe.flow.views import CollectionViewSet, DataViewSet, DescriptorSchemaViewSet, ProcessViewSet
 from resolwe.test import TestCase
 
-factory = APIRequestFactory()  # pylint: disable=invalid-name
+factory = APIRequestFactory()
 
 
 class BaseViewSetFiltersTest(TestCase):
@@ -21,7 +21,7 @@ class BaseViewSetFiltersTest(TestCase):
     def setUp(self):
         super().setUp()
 
-        self.viewset = self.viewset_class.as_view(actions={  # pylint: disable=no-member
+        self.viewset = self.viewset_class.as_view(actions={
             'get': 'list',
         })
 

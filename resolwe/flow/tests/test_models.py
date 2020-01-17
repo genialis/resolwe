@@ -739,7 +739,7 @@ class DuplicateTestCase(TestCase):
     def test_data_long_name(self):
         process = Process.objects.create(contributor=self.user)
 
-        long_name = 'a' * (Data._meta.get_field('name').max_length - 1)  # pylint: disable=protected-access
+        long_name = 'a' * (Data._meta.get_field('name').max_length - 1)
         data = Data.objects.create(name=long_name, contributor=self.user, process=process, status=Data.STATUS_DONE)
 
         duplicate = Data.objects.filter(id=data.id).duplicate(self.contributor)[0]
@@ -747,7 +747,7 @@ class DuplicateTestCase(TestCase):
         self.assertTrue(duplicate.name.startswith('Copy of '))
         self.assertTrue(duplicate.name.endswith('...'))
         self.assertEqual(
-            len(duplicate.name), Data._meta.get_field('name').max_length  # pylint: disable=protected-access
+            len(duplicate.name), Data._meta.get_field('name').max_length
         )
 
     def test_entity_duplicate(self):

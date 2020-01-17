@@ -52,14 +52,14 @@ async def run_executor():
 
 
 if __name__ == '__main__':
-    logging_future_list = []  # pylint: disable=invalid-name
+    logging_future_list = []
     configure_logging(logging_future_list)
 
     async def _sequential():
         """Run some things sequentially but asynchronously."""
         await manager_commands.init()
         await run_executor()
-    loop = asyncio.get_event_loop()  # pylint: disable=invalid-name
+    loop = asyncio.get_event_loop()
     loop.run_until_complete(_sequential())
 
     # Wait for any pending logging emits now there's
@@ -70,7 +70,7 @@ if __name__ == '__main__':
     loop.run_until_complete(manager_commands.deinit())
 
     # Any stragglers?
-    pending = asyncio.Task.all_tasks()  # pylint: disable=invalid-name
+    pending = asyncio.Task.all_tasks()
     loop.run_until_complete(asyncio.gather(*pending))
 
     loop.close()

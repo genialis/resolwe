@@ -25,4 +25,4 @@ For building the index for the first time or manually updating it, run::
 """
 from elasticsearch_dsl.connections import connections
 
-default_app_config = 'resolwe.elastic.apps.ElasticConfig'  # pylint: disable=invalid-name
+default_app_config = 'resolwe.elastic.apps.ElasticConfig'

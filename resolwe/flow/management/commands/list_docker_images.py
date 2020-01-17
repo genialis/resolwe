@@ -21,7 +21,7 @@ from django.core.management.base import BaseCommand, CommandError
 from resolwe.flow.executors.docker.constants import DEFAULT_CONTAINER_IMAGE
 from resolwe.flow.models import Process
 
-logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
+logger = logging.getLogger(__name__)
 
 # Global list of images already pulled when running in the same process. This
 # is used to avoid pulling images more than once when executed from tests.

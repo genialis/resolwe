@@ -81,7 +81,7 @@ class ValidationTest(TestCase):
         with self.assertRaisesRegex(ValidationError, 'is not valid'):
             data.save()
 
-    def test_validate_collection_descriptor(self):  # pylint: disable=invalid-name
+    def test_validate_collection_descriptor(self):
         descriptor_schema = DescriptorSchema.objects.create(
             name='Test descriptor schema',
             contributor=self.user,

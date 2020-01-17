@@ -64,17 +64,17 @@ class Environment(jinja2.Environment):
 
         super().__init__(
             undefined=NestedUndefined,
-            autoescape=lambda _: self._engine._escape is not None  # pylint: disable=protected-access
+            autoescape=lambda _: self._engine._escape is not None
         )
 
     def escape(self, value):
         """Escape given value."""
         value = soft_unicode(value)
 
-        if self._engine._escape is None:  # pylint: disable=protected-access
+        if self._engine._escape is None:
             return value
 
-        return self._engine._escape(value)  # pylint: disable=protected-access
+        return self._engine._escape(value)
 
 
 class ExpressionEngine(BaseExpressionEngine):
@@ -118,7 +118,7 @@ class ExpressionEngine(BaseExpressionEngine):
             """Filter wrapper."""
             try:
                 return function(*args, **kwargs)
-            except Exception:  # pylint: disable=broad-except
+            except Exception:
                 return NestedUndefined()
 
         # Copy over Jinja filter decoration attributes.

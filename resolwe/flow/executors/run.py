@@ -26,7 +26,7 @@ from .protocol import ExecutorProtocol
 # NOTE: If the imports here are changed, the executors' requirements.txt
 # file must also be updated accordingly.
 
-logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
+logger = logging.getLogger(__name__)
 
 
 def iterjson(text):
@@ -91,7 +91,7 @@ class BaseFlowExecutor:
 
     def get_stdout(self):
         """Get process' standard output."""
-        return self.stdout  # pylint: disable=no-member
+        return self.stdout
 
     async def update_data_status(self, **kwargs):
         """Update (PATCH) Data object.
@@ -110,7 +110,7 @@ class BaseFlowExecutor:
             finish_fields = await self._run(data_id, script)
         except SystemExit as ex:
             raise ex
-        except Exception as error:  # pylint: disable=broad-except
+        except Exception as error:
             logger.exception("Unhandled exception in executor")
 
             # Send error report.
@@ -138,7 +138,7 @@ class BaseFlowExecutor:
         # Fetch data instance to get any executor requirements.
         self.process = PROCESS
         requirements = self.process['requirements']
-        self.requirements = requirements.get('executor', {}).get(self.name, {})  # pylint: disable=no-member
+        self.requirements = requirements.get('executor', {}).get(self.name, {})
         self.resources = requirements.get('resources', {})
 
         logger.debug("Preparing output files for Data with id {}".format(data_id))

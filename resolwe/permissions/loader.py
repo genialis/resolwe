@@ -15,7 +15,7 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.utils._os import upath
 
-permissions_classes = {}  # pylint: disable=invalid-name
+permissions_classes = {}
 
 
 def get_permissions_class(permissions_name=None):

@@ -9,10 +9,10 @@ from ..manager_commands import send_manager_command
 from ..protocol import ExecutorProtocol
 from ..run import BaseFlowExecutor
 
-logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
+logger = logging.getLogger(__name__)
 
 
-class FlowExecutor(BaseFlowExecutor):  # pylint: disable=abstract-method
+class FlowExecutor(BaseFlowExecutor):
     """Null dataflow executor proxy.
 
     This executor is intended to be used in tests where you want to save

@@ -17,8 +17,8 @@ class ResolwePermissionsFilter(BaseFilterBackend):
         """Filter permissions queryset."""
         user = request.user
 
-        app_label = queryset.model._meta.app_label  # pylint: disable=protected-access
-        model_name = queryset.model._meta.model_name  # pylint: disable=protected-access
+        app_label = queryset.model._meta.app_label
+        model_name = queryset.model._meta.model_name
 
         kwargs = {}
         if model_name == 'storage':

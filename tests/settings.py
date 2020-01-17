@@ -3,7 +3,7 @@ Django settings for running tests for Resolwe package.
 
 """
 import os
-from distutils.util import strtobool  # pylint: disable=import-error,no-name-in-module
+from distutils.util import strtobool
 
 PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
 
@@ -235,7 +235,7 @@ TEST_PROCESS_PROFILE = False
 
 # Set RESOLWE_LOG_FILE environment variable to a file path to enable
 # logging debugging messages to to a file.
-debug_file_path = os.environ.get('RESOLWE_LOG_FILE', os.devnull)  # pylint: disable=invalid-name
+debug_file_path = os.environ.get('RESOLWE_LOG_FILE', os.devnull)
 
 LOGGING = {
     'version': 1,
