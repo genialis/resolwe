@@ -39,19 +39,21 @@ from .protocol import ExecutorFiles
 async def run_executor():
     """Start the actual execution; instantiate the executor and run."""
     parser = argparse.ArgumentParser(description="Run the specified executor.")
-    parser.add_argument('module', help="The module from which to instantiate the concrete executor.")
+    parser.add_argument(
+        "module", help="The module from which to instantiate the concrete executor."
+    )
     args = parser.parse_args()
 
-    module_name = '{}.run'.format(args.module)
-    class_name = 'FlowExecutor'
+    module_name = "{}.run".format(args.module)
+    class_name = "FlowExecutor"
 
     module = import_module(module_name, __package__)
     executor = getattr(module, class_name)()
-    with open(ExecutorFiles.PROCESS_SCRIPT, 'rt') as script_file:
-        await executor.run(DATA['id'], script_file.read())
+    with open(ExecutorFiles.PROCESS_SCRIPT, "rt") as script_file:
+        await executor.run(DATA["id"], script_file.read())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     logging_future_list = []
     configure_logging(logging_future_list)
 
@@ -59,6 +61,7 @@ if __name__ == '__main__':
         """Run some things sequentially but asynchronously."""
         await manager_commands.init()
         await run_executor()
+
     loop = asyncio.get_event_loop()
     loop.run_until_complete(_sequential())
 

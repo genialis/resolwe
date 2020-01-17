@@ -19,15 +19,15 @@ class BaseModel(models.Model):
         """BaseModel Meta options."""
 
         abstract = True
-        unique_together = ('slug', 'version')
+        unique_together = ("slug", "version")
         default_permissions = ()
-        get_latest_by = 'version'
+        get_latest_by = "version"
 
     #: URL slug
-    slug = ResolweSlugField(populate_from='name', unique_with='version', max_length=100)
+    slug = ResolweSlugField(populate_from="name", unique_with="version", max_length=100)
 
     #: process version
-    version = VersionField(number_bits=VERSION_NUMBER_BITS, default='0.0.0')
+    version = VersionField(number_bits=VERSION_NUMBER_BITS, default="0.0.0")
 
     #: object name
     name = models.CharField(max_length=100)
@@ -47,9 +47,9 @@ class BaseModel(models.Model):
 
     def save(self, *args, **kwargs):
         """Save the model."""
-        name_max_len = self._meta.get_field('name').max_length
+        name_max_len = self._meta.get_field("name").max_length
         if len(self.name) > name_max_len:
-            self.name = self.name[:(name_max_len - 3)] + '...'
+            self.name = self.name[: (name_max_len - 3)] + "..."
 
         for _ in range(MAX_SLUG_RETRIES):
             try:
@@ -59,10 +59,12 @@ class BaseModel(models.Model):
                     break
             except IntegrityError as error:
                 # Retry in case of slug conflicts.
-                if '{}_slug'.format(self._meta.db_table) in error.args[0]:
+                if "{}_slug".format(self._meta.db_table) in error.args[0]:
                     self.slug = None
                     continue
 
                 raise
         else:
-            raise IntegrityError("Maximum number of retries exceeded during slug generation")
+            raise IntegrityError(
+                "Maximum number of retries exceeded during slug generation"
+            )

@@ -10,7 +10,9 @@ class BaseExpressionEngine(BaseEngine):
     def get_inline_expression(self, text):
         """Extract an inline expression from the given text."""
         text = text.strip()
-        if not text.startswith(self.inline_tags[0]) or not text.endswith(self.inline_tags[1]):
+        if not text.startswith(self.inline_tags[0]) or not text.endswith(
+            self.inline_tags[1]
+        ):
             return
 
         return text[2:-2]

@@ -8,17 +8,19 @@ from importlib import import_module
 
 from .runtime import Inputs, Process, ValidationError
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Run a Resolwe Python proces")
-    parser.add_argument('filename', type=str,
-                        help="Python process filename to run")
-    parser.add_argument('--slug', type=str,
-                        help="Slug of the process to run (required if multiple processes are defined)")
-    parser.add_argument('--inputs', type=str,
-                        help="Path to input JSON file")
-    parser.add_argument('--requirements', type=str,
-                        help="Path to requirements JSON file")
+    parser.add_argument("filename", type=str, help="Python process filename to run")
+    parser.add_argument(
+        "--slug",
+        type=str,
+        help="Slug of the process to run (required if multiple processes are defined)",
+    )
+    parser.add_argument("--inputs", type=str, help="Path to input JSON file")
+    parser.add_argument(
+        "--requirements", type=str, help="Path to requirements JSON file"
+    )
     args = parser.parse_args()
 
     # Switch to target directory to import the module.
@@ -36,7 +38,11 @@ if __name__ == '__main__':
     processes = {}
     for variable in dir(module):
         value = getattr(module, variable)
-        if value == Process or not inspect.isclass(value) or not issubclass(value, Process):
+        if (
+            value == Process
+            or not inspect.isclass(value)
+            or not issubclass(value, Process)
+        ):
             continue
 
         processes[value._meta.metadata.slug] = value

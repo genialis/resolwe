@@ -29,15 +29,15 @@ from .iterators import iterate_dict, iterate_fields, iterate_schema
 def get_data_checksum(proc_input, proc_slug, proc_version):
     """Compute checksum of processor inputs, name and version."""
     checksum = hashlib.sha256()
-    checksum.update(json.dumps(proc_input, sort_keys=True).encode('utf-8'))
-    checksum.update(proc_slug.encode('utf-8'))
-    checksum.update(str(proc_version).encode('utf-8'))
+    checksum.update(json.dumps(proc_input, sort_keys=True).encode("utf-8"))
+    checksum.update(proc_slug.encode("utf-8"))
+    checksum.update(str(proc_version).encode("utf-8"))
     return checksum.hexdigest()
 
 
 def dict_dot(d, k, val=None, default=None):
     """Get or set value using a dot-notation key in a multilevel dict."""
-    if val is None and k == '':
+    if val is None and k == "":
         return d
 
     def set_default(dict_or_model, key, default_value):
@@ -66,16 +66,18 @@ def dict_dot(d, k, val=None, default=None):
 
     if val is None and callable(default):
         # Get value, default for missing
-        return functools.reduce(lambda a, b: set_default(a, b, default()), k.split('.'), d)
+        return functools.reduce(
+            lambda a, b: set_default(a, b, default()), k.split("."), d
+        )
 
     elif val is None:
         # Get value, error on missing
-        return functools.reduce(get_item, k.split('.'), d)
+        return functools.reduce(get_item, k.split("."), d)
 
     else:
         # Set value
         try:
-            k, k_last = k.rsplit('.', 1)
+            k, k_last = k.rsplit(".", 1)
             set_item(dict_dot(d, k, default=dict), k_last, val)
         except ValueError:
             set_item(d, k, val)
@@ -91,16 +93,16 @@ def get_apps_tools():
     tools_paths = {}
 
     for app_config in apps.get_app_configs():
-        proc_path = os.path.join(app_config.path, 'tools')
+        proc_path = os.path.join(app_config.path, "tools")
         if os.path.isdir(proc_path):
             tools_paths[app_config.name] = proc_path
 
-    custom_tools_paths = getattr(settings, 'RESOLWE_CUSTOM_TOOLS_PATHS', [])
+    custom_tools_paths = getattr(settings, "RESOLWE_CUSTOM_TOOLS_PATHS", [])
     if not isinstance(custom_tools_paths, list):
         raise KeyError("`RESOLWE_CUSTOM_TOOLS_PATHS` setting must be a list.")
 
     for seq, custom_path in enumerate(custom_tools_paths):
-        custom_key = '_custom_{}'.format(seq)
+        custom_key = "_custom_{}".format(seq)
         tools_paths[custom_key] = custom_path
 
     return tools_paths
@@ -119,22 +121,28 @@ def rewire_inputs(data_list):
     if len(data_list) < 2:
         return data_list
 
-    mapped_ids = {bundle['original'].id: bundle['copy'].id for bundle in data_list}
+    mapped_ids = {bundle["original"].id: bundle["copy"].id for bundle in data_list}
 
     for bundle in data_list:
         updated = False
-        copy = bundle['copy']
+        copy = bundle["copy"]
 
-        for field_schema, fields in iterate_fields(copy.input, copy.process.input_schema):
-            name = field_schema['name']
+        for field_schema, fields in iterate_fields(
+            copy.input, copy.process.input_schema
+        ):
+            name = field_schema["name"]
             value = fields[name]
 
-            if field_schema['type'].startswith('data:') and value in mapped_ids:
+            if field_schema["type"].startswith("data:") and value in mapped_ids:
                 fields[name] = mapped_ids[value]
                 updated = True
 
-            elif field_schema['type'].startswith('list:data:') and any([id_ in mapped_ids for id_ in value]):
-                fields[name] = [mapped_ids[id_] if id_ in mapped_ids else id_ for id_ in value]
+            elif field_schema["type"].startswith("list:data:") and any(
+                [id_ in mapped_ids for id_ in value]
+            ):
+                fields[name] = [
+                    mapped_ids[id_] if id_ in mapped_ids else id_ for id_ in value
+                ]
                 updated = True
 
         if updated:

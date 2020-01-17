@@ -8,13 +8,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('flow', '0025_entity_type'),
+        ("flow", "0025_entity_type"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='data',
-            name='scheduled',
+            model_name="data",
+            name="scheduled",
             field=models.DateTimeField(blank=True, db_index=True, null=True),
         ),
     ]

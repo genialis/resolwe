@@ -19,10 +19,10 @@ class StorageManager(models.Manager):
         :param field: Optional output field name
         """
         if field is None:
-            field = '_'.join(['json'] + json_path_components(path))
+            field = "_".join(["json"] + json_path_components(path))
 
-        kwargs = {field: JsonGetPath('json', path)}
-        return self.defer('json').annotate(**kwargs)
+        kwargs = {field: JsonGetPath("json", path)}
+        return self.defer("json").annotate(**kwargs)
 
     def get_json_path(self, path):
         """Return only a specific JSON path of Storage objects.
@@ -31,14 +31,16 @@ class StorageManager(models.Manager):
             either a list of path components or a comma-separated
             string
         """
-        return self.with_json_path(path, field='result').values_list('result', flat=True)
+        return self.with_json_path(path, field="result").values_list(
+            "result", flat=True
+        )
 
 
 class Storage(BaseModel):
     """Postgres model for storing storages."""
 
     #: corresponding data objects
-    data = models.ManyToManyField('Data', related_name='storages')
+    data = models.ManyToManyField("Data", related_name="storages")
 
     #: actual JSON stored
     json = JSONField()

@@ -19,11 +19,11 @@ class NestedUndefined(jinja2.Undefined):
 
     def __unicode__(self):
         """Override."""
-        return ''
+        return ""
 
     def __str__(self):
         """Override."""
-        return ''
+        return ""
 
     def __call__(self, *args, **kwargs):
         """Override."""
@@ -45,8 +45,8 @@ class SafeCodeGenerator(compiler.CodeGenerator):
         """Override common preamble to inject our own escape wrappers."""
         super().write_commons()
 
-        self.writeline('escape = environment.escape')
-        self.writeline('Markup = environment.markup_class')
+        self.writeline("escape = environment.escape")
+        self.writeline("Markup = environment.markup_class")
 
 
 class Environment(jinja2.Environment):
@@ -64,7 +64,7 @@ class Environment(jinja2.Environment):
 
         super().__init__(
             undefined=NestedUndefined,
-            autoescape=lambda _: self._engine._escape is not None
+            autoescape=lambda _: self._engine._escape is not None,
         )
 
     def escape(self, value):
@@ -80,8 +80,8 @@ class Environment(jinja2.Environment):
 class ExpressionEngine(BaseExpressionEngine):
     """Jinja2-based expression engine."""
 
-    name = 'jinja'
-    inline_tags = ('{{', '}}')
+    name = "jinja"
+    inline_tags = ("{{", "}}")
 
     def __init__(self, *args, **kwargs):
         """Construct the expression engine."""
@@ -95,7 +95,7 @@ class ExpressionEngine(BaseExpressionEngine):
         # Register custom filters.
         self._register_custom_filters()
         # Override the safe filter.
-        self._environment.filters['safe'] = self._filter_mark_safe
+        self._environment.filters["safe"] = self._filter_mark_safe
 
         # Decorate all filters with our wrapper.
         for name, function in self._environment.filters.items():
@@ -114,6 +114,7 @@ class ExpressionEngine(BaseExpressionEngine):
 
     def _wrap_jinja_filter(self, function):
         """Propagate exceptions as undefined values filter."""
+
         def wrapper(*args, **kwargs):
             """Filter wrapper."""
             try:
@@ -123,14 +124,14 @@ class ExpressionEngine(BaseExpressionEngine):
 
         # Copy over Jinja filter decoration attributes.
         for attribute in dir(function):
-            if attribute.endswith('filter'):
+            if attribute.endswith("filter"):
                 setattr(wrapper, attribute, getattr(function, attribute))
 
         return wrapper
 
     def _register_custom_filters(self):
         """Register any custom filter modules."""
-        custom_filters = self.settings.get('CUSTOM_FILTERS', [])
+        custom_filters = self.settings.get("CUSTOM_FILTERS", [])
         if not isinstance(custom_filters, list):
             raise KeyError("`CUSTOM_FILTERS` setting must be a list.")
 
@@ -144,12 +145,14 @@ class ExpressionEngine(BaseExpressionEngine):
                 )
 
             try:
-                filter_map = getattr(filter_module, 'filters')
+                filter_map = getattr(filter_module, "filters")
                 if not isinstance(filter_map, dict):
                     raise TypeError
             except (AttributeError, TypeError):
                 raise ImproperlyConfigured(
-                    "Filter module '{}' does not define a 'filters' dictionary".format(filter_module_name)
+                    "Filter module '{}' does not define a 'filters' dictionary".format(
+                        filter_module_name
+                    )
                 )
             self._environment.filters.update(filter_map)
 

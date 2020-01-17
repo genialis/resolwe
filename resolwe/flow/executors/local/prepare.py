@@ -22,7 +22,7 @@ class FlowExecutorPreparer(BaseFlowExecutorPreparer):
     def extend_settings(self, data_id, files, secrets):
         """Prevent processes requiring access to secrets from being run."""
         process = Data.objects.get(pk=data_id).process
-        if process.requirements.get('resources', {}).get('secrets', False):
+        if process.requirements.get("resources", {}).get("secrets", False):
             raise PermissionDenied(
                 "Process which requires access to secrets cannot be run using the local executor"
             )

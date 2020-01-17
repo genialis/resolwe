@@ -34,7 +34,7 @@ def set_descriptor_owner(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('flow', '0001_squashed_0030_change_slug_field'),
+        ("flow", "0001_squashed_0030_change_slug_field"),
     ]
 
     operations = [

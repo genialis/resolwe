@@ -8,28 +8,30 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('flow', '0021_collection_tags'),
+        ("flow", "0021_collection_tags"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='process',
-            name='entity_descriptor_schema',
+            model_name="process",
+            name="entity_descriptor_schema",
             field=models.CharField(blank=True, max_length=100, null=True),
         ),
         migrations.AddField(
-            model_name='process',
-            name='entity_input',
+            model_name="process",
+            name="entity_input",
             field=models.CharField(blank=True, max_length=100, null=True),
         ),
         migrations.AddField(
-            model_name='process',
-            name='entity_type',
+            model_name="process",
+            name="entity_type",
             field=models.CharField(blank=True, max_length=100, null=True),
         ),
         migrations.AddField(
-            model_name='entity',
-            name='type',
-            field=models.CharField(blank=True, db_index=True, max_length=100, null=True),
+            model_name="entity",
+            name="type",
+            field=models.CharField(
+                blank=True, db_index=True, max_length=100, null=True
+            ),
         ),
     ]

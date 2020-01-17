@@ -7,15 +7,19 @@ from django.db import migrations
 
 def migrate_flow_collection(apps, schema_editor):
     """Migrate 'flow_collection' field to 'entity_type'."""
-    Process = apps.get_model('flow', 'Process')
-    DescriptorSchema = apps.get_model('flow', 'DescriptorSchema')
+    Process = apps.get_model("flow", "Process")
+    DescriptorSchema = apps.get_model("flow", "DescriptorSchema")
 
     for process in Process.objects.all():
         process.entity_type = process.flow_collection
         process.entity_descriptor_schema = process.flow_collection
 
-        if (process.entity_descriptor_schema is not None and
-                not DescriptorSchema.objects.filter(slug=process.entity_descriptor_schema).exists()):
+        if (
+            process.entity_descriptor_schema is not None
+            and not DescriptorSchema.objects.filter(
+                slug=process.entity_descriptor_schema
+            ).exists()
+        ):
             raise LookupError(
                 "Descriptow schema '{}' referenced in 'entity_descriptor_schema' not "
                 "found.".format(process.entity_descriptor_schema)
@@ -27,9 +31,7 @@ def migrate_flow_collection(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('flow', '0022_process_entity_1'),
+        ("flow", "0022_process_entity_1"),
     ]
 
-    operations = [
-        migrations.RunPython(migrate_flow_collection)
-    ]
+    operations = [migrations.RunPython(migrate_flow_collection)]

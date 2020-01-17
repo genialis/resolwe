@@ -14,11 +14,13 @@ class PurgeConsumer(SyncConsumer):
 
     def purge_run(self, event):
         """Run purge for the object with ``location_id`` specified in ``event`` argument."""
-        location_id = event['location_id']
-        verbosity = event['verbosity']
+        location_id = event["location_id"]
+        verbosity = event["verbosity"]
 
         try:
             logger.info(__("Running purge for location id {}.", location_id))
             location_purge(location_id=location_id, delete=True, verbosity=verbosity)
         except Exception:
-            logger.exception("Error while purging location.", extra={'location_id': location_id})
+            logger.exception(
+                "Error while purging location.", extra={"location_id": location_id}
+            )

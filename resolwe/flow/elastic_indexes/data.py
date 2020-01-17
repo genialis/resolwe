@@ -28,25 +28,22 @@ class DataDocument(BaseDocument):
     class Index:
         """Meta class for data search document."""
 
-        name = 'data'
+        name = "data"
 
 
 class DataIndex(BaseIndexMixin, BaseIndex):
     """Index for data objects used in ``DataDocument``."""
 
-    queryset = Data.objects.all().prefetch_related(
-        'process',
-        'contributor'
-    )
+    queryset = Data.objects.all().prefetch_related("process", "contributor")
     object_type = Data
     document_class = DataDocument
 
     mapping = {
-        'process': 'process.id',
-        'process_name': 'process.name',
-        'process_type': 'process.type',
-        'process_slug': 'process.slug',
-        'type': 'process.type',
-        'entity': 'entity_id',
-        'collection': 'collection_id',
+        "process": "process.id",
+        "process_name": "process.name",
+        "process_type": "process.type",
+        "process_slug": "process.slug",
+        "type": "process.type",
+        "entity": "entity_id",
+        "collection": "collection_id",
     }

@@ -8,13 +8,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('flow', '0031_add_entity_duplicate'),
+        ("flow", "0031_add_entity_duplicate"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='collection',
-            name='duplicated',
+            model_name="collection",
+            name="duplicated",
             field=models.DateTimeField(blank=True, null=True),
         ),
     ]

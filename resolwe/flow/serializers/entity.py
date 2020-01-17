@@ -13,7 +13,7 @@ class EntitySerializer(CollectionSerializer):
         serializer=CollectionSerializer,
         allow_null=True,
         required=False,
-        write_permission='edit',
+        write_permission="edit",
     )
 
     class Meta(CollectionSerializer.Meta):
@@ -21,9 +21,9 @@ class EntitySerializer(CollectionSerializer):
 
         model = Entity
         fields = CollectionSerializer.Meta.fields + (
-            'collection',
-            'duplicated',
-            'type',
+            "collection",
+            "duplicated",
+            "type",
         )
 
     def update(self, instance, validated_data):

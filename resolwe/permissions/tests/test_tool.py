@@ -7,20 +7,26 @@ from resolwe.test import ResolweAPITestCase
 
 
 class ProcessTestCase(ResolweAPITestCase):
-    fixtures = ['users.yaml', 'processes.yaml', 'data.yaml', 'collections.yaml', 'permissions.yaml']
+    fixtures = [
+        "users.yaml",
+        "processes.yaml",
+        "data.yaml",
+        "collections.yaml",
+        "permissions.yaml",
+    ]
 
     def setUp(self):
         self.process1 = Process.objects.get(pk=1)
 
         self.post_data = {
-            'slug': 'new-process',
-            'name': 'New process',
-            'type': 'data:test:process:',
-            'input_schema': [{'name': 'test_field'}],
-            'run': {'bash': 'echo $PATH'},
+            "slug": "new-process",
+            "name": "New process",
+            "type": "data:test:process:",
+            "input_schema": [{"name": "test_field"}],
+            "run": {"bash": "echo $PATH"},
         }
 
-        self.resource_name = 'process'
+        self.resource_name = "process"
         self.viewset = ProcessViewSet
 
         super().setUp()
@@ -45,7 +51,7 @@ class ProcessTestCase(ResolweAPITestCase):
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
 
     def test_patch(self):
-        resp = self._patch(1, {'name': 'Hacked process'}, self.admin)
+        resp = self._patch(1, {"name": "Hacked process"}, self.admin)
         self.assertEqual(resp.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
 
     def test_delete(self):

@@ -37,7 +37,7 @@ from resolwe.flow.utils import dict_dot
 from .composer import composer
 from .utils import prepare_connection
 
-__all__ = ('BaseDocument', 'BaseIndex')
+__all__ = ("BaseDocument", "BaseIndex")
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +103,7 @@ class BaseIndex:
     document_class = None
 
     #: auto generated ES index postfix used in tests
-    testing_postfix = ''
+    testing_postfix = ""
 
     #: mapping used for building document
     mapping = {}
@@ -112,13 +112,15 @@ class BaseIndex:
         """Perform initial checks and save given object."""
         class_name = type(self).__name__
         if not self.object_type:
-            raise RuntimeError('`object_type` must be defined in {}'.format(class_name))
+            raise RuntimeError("`object_type` must be defined in {}".format(class_name))
 
         if not self.document_class:
-            raise RuntimeError('`document_class` must be defined in {}'.format(class_name))
+            raise RuntimeError(
+                "`document_class` must be defined in {}".format(class_name)
+            )
 
         if self.queryset is None:
-            raise RuntimeError('`queryset` must be defined in {}'.format(class_name))
+            raise RuntimeError("`queryset` must be defined in {}".format(class_name))
 
         # Apply any extensions defined for the given document class. Document class extensions
         # come in the form of field definitions.
@@ -183,19 +185,23 @@ class BaseIndex:
     def generate_id(self, obj):
         """Generate unique document id for ElasticSearch."""
         object_type = type(obj).__name__.lower()
-        return '{}_{}'.format(object_type, self.get_object_id(obj))
+        return "{}_{}".format(object_type, self.get_object_id(obj))
 
     def process_object(self, obj):
         """Process current object and push it to the ElasticSearch."""
-        document = self.document_class(meta={'id': self.generate_id(obj)})
+        document = self.document_class(meta={"id": self.generate_id(obj)})
 
         for field in document._doc_type.mapping:
-            if field in ['users_with_permissions', 'groups_with_permissions', 'public_permission']:
+            if field in [
+                "users_with_permissions",
+                "groups_with_permissions",
+                "public_permission",
+            ]:
                 continue  # These fields are handled separately
 
             try:
                 # use get_X_value function
-                get_value_function = getattr(self, 'get_{}_value'.format(field), None)
+                get_value_function = getattr(self, "get_{}_value".format(field), None)
                 if get_value_function:
                     setattr(document, field, get_value_function(obj))
                     continue
@@ -227,19 +233,22 @@ class BaseIndex:
                 except KeyError:
                     pass
 
-                raise AttributeError("Cannot determine mapping for field {}".format(field))
+                raise AttributeError(
+                    "Cannot determine mapping for field {}".format(field)
+                )
 
             except Exception:
                 logger.exception(
                     "Error occurred while setting value of field '%s' in '%s' Elasticsearch index.",
-                    field, self.__class__.__name__,
-                    extra={'object_type': self.object_type, 'obj_id': obj.pk}
+                    field,
+                    self.__class__.__name__,
+                    extra={"object_type": self.object_type, "obj_id": obj.pk},
                 )
 
         permissions = self.get_permissions(obj)
-        document.users_with_permissions = permissions['users']
-        document.groups_with_permissions = permissions['groups']
-        document.public_permission = permissions['public']
+        document.users_with_permissions = permissions["users"]
+        document.groups_with_permissions = permissions["groups"]
+        document.public_permission = permissions["public"]
 
         self.push_queue.append(document)
 
@@ -248,12 +257,14 @@ class BaseIndex:
         if self._mapping_created:
             return
 
-        logger.debug("Pushing mapping for Elasticsearch index '%s'.", self.__class__.__name__)
+        logger.debug(
+            "Pushing mapping for Elasticsearch index '%s'.", self.__class__.__name__
+        )
         try:
             self.document_class.init()
             self._mapping_created = True
         except IllegalOperation as error:
-            if error.args[0].startswith('You cannot update analysis configuration'):
+            if error.args[0].startswith("You cannot update analysis configuration"):
                 # Ignore mapping update errors, which are thrown even when the analysis
                 # configuration stays the same.
                 # TODO: Remove this when https://github.com/elastic/elasticsearch-dsl-py/pull/272 is merged.
@@ -272,14 +283,14 @@ class BaseIndex:
             if self.queryset.model != obj._meta.model:
                 logger.debug(
                     "Object type mismatch, skipping build of '%s' Elasticsearch index.",
-                    self.__class__.__name__
+                    self.__class__.__name__,
                 )
                 return
 
             if not self.queryset.filter(pk=self.get_object_id(obj)).exists():
                 logger.debug(
                     "Object not in predefined queryset, skipping build of '%s' Elasticsearch index.",
-                    self.__class__.__name__
+                    self.__class__.__name__,
                 )
                 return
 
@@ -287,11 +298,11 @@ class BaseIndex:
             if self.queryset.model != queryset.model:
                 logger.debug(
                     "Queryset type mismatch, skipping build of '%s' Elasticsearch index.",
-                    self.__class__.__name__
+                    self.__class__.__name__,
                 )
                 return
 
-        FULL_REBUILD = 'full'
+        FULL_REBUILD = "full"
 
         def handler(agg=None):
             """Index build handler."""
@@ -325,7 +336,12 @@ class BaseIndex:
 
         batcher = PrioritizedBatcher.global_instance()
         if batcher.is_started:
-            batcher.add('resolwe.elastic', handler, group_by=(self._index_name, push), aggregator=aggregator)
+            batcher.add(
+                "resolwe.elastic",
+                handler,
+                group_by=(self._index_name, push),
+                aggregator=aggregator,
+            )
         else:
             self._build(obj=obj, queryset=queryset, push=push)
 
@@ -356,7 +372,7 @@ class BaseIndex:
                 logger.exception(
                     "Error occurred while preprocessing '%s' Elasticsearch index.",
                     self.__class__.__name__,
-                    extra={'object_type': self.object_type, 'obj_id': obj.pk}
+                    extra={"object_type": self.object_type, "obj_id": obj.pk},
                 )
 
             try:
@@ -365,10 +381,12 @@ class BaseIndex:
                 logger.exception(
                     "Error occurred while processing '%s' Elasticsearch index.",
                     self.__class__.__name__,
-                    extra={'object_type': self.object_type, 'obj_id': obj.pk}
+                    extra={"object_type": self.object_type, "obj_id": obj.pk},
                 )
 
-        logger.debug("Finished building '%s' Elasticsearch index.", self.__class__.__name__)
+        logger.debug(
+            "Finished building '%s' Elasticsearch index.", self.__class__.__name__
+        )
 
         if push:
             self.push()
@@ -382,9 +400,15 @@ class BaseIndex:
             logger.debug("No documents to push, skipping push.")
             return
 
-        logger.debug("Found %s documents to push to Elasticsearch.", len(self.push_queue))
+        logger.debug(
+            "Found %s documents to push to Elasticsearch.", len(self.push_queue)
+        )
 
-        bulk(connections.get_connection(), (doc.to_dict(True) for doc in self.push_queue), refresh=True)
+        bulk(
+            connections.get_connection(),
+            (doc.to_dict(True) for doc in self.push_queue),
+            refresh=True,
+        )
         self.push_queue = []
 
         logger.debug("Finished pushing builded documents to Elasticsearch server.")
@@ -410,30 +434,37 @@ class BaseIndex:
         permissions_subquery = Subquery(
             # Override the default ordering to simplify the query.
             Permission.objects.filter(
-                content_type=content_type,
-                codename__startswith='view',
-            ).order_by().values('pk')
+                content_type=content_type, codename__startswith="view",
+            )
+            .order_by()
+            .values("pk")
         )
         public_user_subquery = Subquery(
-            get_user_model().objects.filter(username=ANONYMOUS_USER_NAME).values('pk')
+            get_user_model().objects.filter(username=ANONYMOUS_USER_NAME).values("pk")
         )
 
         # NOTE: Django-guardian has a combined database index on
         # (object_pk, content_type), so we have to filter by both to
         # take the advantage of it.
         filters = {
-            'object_pk': obj.id,
-            'permission': permissions_subquery,
-            'content_type': content_type,
+            "object_pk": obj.id,
+            "permission": permissions_subquery,
+            "content_type": content_type,
         }
         return {
-            'users': list(
-                UserObjectPermission.objects.filter(**filters).values_list('user_id', flat=True)
+            "users": list(
+                UserObjectPermission.objects.filter(**filters).values_list(
+                    "user_id", flat=True
+                )
             ),
-            'groups': list(
-                GroupObjectPermission.objects.filter(**filters).values_list('group', flat=True)
+            "groups": list(
+                GroupObjectPermission.objects.filter(**filters).values_list(
+                    "group", flat=True
+                )
             ),
-            'public': UserObjectPermission.objects.filter(user=public_user_subquery, **filters).exists(),
+            "public": UserObjectPermission.objects.filter(
+                user=public_user_subquery, **filters
+            ).exists(),
         }
 
     def get_dependencies(self):

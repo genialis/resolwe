@@ -14,7 +14,7 @@ class NoContentError(APIException):
     """Content has not changed exception."""
 
     status_code = status.HTTP_204_NO_CONTENT
-    detail = 'The content has not changed'
+    detail = "The content has not changed"
 
 
 class ResolweBaseSerializer(SelectiveFieldMixin, serializers.ModelSerializer):
@@ -43,8 +43,11 @@ class ResolweBaseSerializer(SelectiveFieldMixin, serializers.ModelSerializer):
 
     def __init__(self, instance=None, data=empty, **kwargs):
         """Initialize attributes."""
-        if (instance is not None and data is not empty
-                and hasattr(self.Meta, 'update_protected_fields')):
+        if (
+            instance is not None
+            and data is not empty
+            and hasattr(self.Meta, "update_protected_fields")
+        ):
             for field in self.Meta.update_protected_fields:
                 if field in data:
                     data.pop(field)
@@ -58,7 +61,7 @@ class ResolweBaseSerializer(SelectiveFieldMixin, serializers.ModelSerializer):
     @property
     def request(self):
         """Extract request object from serializer context."""
-        return self.context.get('request', None)
+        return self.context.get("request", None)
 
     def save(self, **kwargs):
         """Override save method to catch handled errors and repackage them as 400 errors."""

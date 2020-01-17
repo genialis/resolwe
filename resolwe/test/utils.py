@@ -19,11 +19,16 @@ from django.conf import settings
 from django.test import override_settings, tag
 
 __all__ = (
-    'check_installed', 'check_docker', 'with_custom_executor', 'with_docker_executor',
-    'with_null_executor', 'with_resolwe_host', 'is_testing',
+    "check_installed",
+    "check_docker",
+    "with_custom_executor",
+    "with_docker_executor",
+    "with_null_executor",
+    "with_resolwe_host",
+    "is_testing",
 )
 
-TAG_PROCESS = 'resolwe.process'
+TAG_PROCESS = "resolwe.process"
 
 
 def check_installed(command):
@@ -50,18 +55,23 @@ def check_docker():
     :rtype: tuple(bool, str)
 
     """
-    command = getattr(settings, 'FLOW_DOCKER_COMMAND', 'docker')
-    info_command = '{} info'.format(command)
+    command = getattr(settings, "FLOW_DOCKER_COMMAND", "docker")
+    info_command = "{} info".format(command)
     available, reason = True, ""
     # TODO: Use subprocess.DEVNULL after dropping support for Python 2
-    with open(os.devnull, 'wb') as DEVNULL:
+    with open(os.devnull, "wb") as DEVNULL:
         try:
-            subprocess.check_call(shlex.split(info_command), stdout=DEVNULL, stderr=subprocess.STDOUT)
+            subprocess.check_call(
+                shlex.split(info_command), stdout=DEVNULL, stderr=subprocess.STDOUT
+            )
         except OSError:
             available, reason = False, "Docker command '{}' not found".format(command)
         except subprocess.CalledProcessError:
-            available, reason = (False, "Docker command '{}' returned non-zero "
-                                        "exit status".format(info_command))
+            available, reason = (
+                False,
+                "Docker command '{}' returned non-zero "
+                "exit status".format(info_command),
+            )
     return available, reason
 
 
@@ -108,9 +118,7 @@ def with_docker_executor(wrapped=None):
     @wrapt.decorator
     def wrapper(wrapped_method, instance, args, kwargs):
         return unittest.skipUnless(*check_docker())(
-            with_custom_executor(
-                NAME='resolwe.flow.executors.docker',
-            )(wrapped_method)
+            with_custom_executor(NAME="resolwe.flow.executors.docker",)(wrapped_method)
         )(*args, **kwargs)
 
     return wrapper(wrapped)
@@ -119,7 +127,9 @@ def with_docker_executor(wrapped=None):
 @wrapt.decorator
 def with_null_executor(wrapped_method, instance, args, kwargs):
     """Decorate unit test to run processes with the Null executor."""
-    return with_custom_executor(NAME='resolwe.flow.executors.null')(wrapped_method)(*args, **kwargs)
+    return with_custom_executor(NAME="resolwe.flow.executors.null")(wrapped_method)(
+        *args, **kwargs
+    )
 
 
 @wrapt.decorator
@@ -138,7 +148,7 @@ def with_resolwe_host(wrapped_method, instance, args, kwargs):
     """
     from resolwe.flow.managers import manager  # To prevent circular imports.
 
-    if not hasattr(instance, 'server_thread'):
+    if not hasattr(instance, "server_thread"):
         raise AttributeError(
             "with_resolwe_host decorator must be used with a "
             "(sub)class of LiveServerTestCase that has the "
@@ -146,17 +156,19 @@ def with_resolwe_host(wrapped_method, instance, args, kwargs):
         )
     host = instance.server_thread.host
     if platform not in ["linux", "linux2"]:
-        host = 'host.docker.internal'
-    resolwe_host_url = 'http://{host}:{port}'.format(host=host, port=instance.server_thread.port)
+        host = "host.docker.internal"
+    resolwe_host_url = "http://{host}:{port}".format(
+        host=host, port=instance.server_thread.port
+    )
     with override_settings(RESOLWE_HOST_URL=resolwe_host_url):
         with manager.override_settings(RESOLWE_HOST_URL=resolwe_host_url):
             # Run the actual unit test method.
-            return with_custom_executor(NETWORK='host')(wrapped_method)(*args, **kwargs)
+            return with_custom_executor(NETWORK="host")(wrapped_method)(*args, **kwargs)
 
 
 def generate_process_tag(slug):
     """Generate test tag for a given process."""
-    return '{}.{}'.format(TAG_PROCESS, slug)
+    return "{}.{}".format(TAG_PROCESS, slug)
 
 
 def tag_process(*slugs):
@@ -168,20 +180,20 @@ def tag_process(*slugs):
 
 def has_process_tag(test, slug):
     """Check if a given test method/class is tagged for a specific process."""
-    tags = getattr(test, 'tags', set())
+    tags = getattr(test, "tags", set())
     return generate_process_tag(slug) in tags
 
 
 def get_processes_from_tags(test):
     """Extract process slugs from tags."""
-    tags = getattr(test, 'tags', set())
+    tags = getattr(test, "tags", set())
     slugs = set()
 
     for tag_name in tags:
-        if not tag_name.startswith('{}.'.format(TAG_PROCESS)):
+        if not tag_name.startswith("{}.".format(TAG_PROCESS)):
             continue
 
-        slugs.add(tag_name[len(TAG_PROCESS) + 1:])
+        slugs.add(tag_name[len(TAG_PROCESS) + 1 :])
 
     return slugs
 
@@ -192,4 +204,5 @@ def is_testing():
     This assumes that the Resolwe test runner is being used.
     """
     from resolwe.test_helpers.test_runner import is_testing
+
     return is_testing()

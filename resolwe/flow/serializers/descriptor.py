@@ -15,17 +15,16 @@ class DescriptorSchemaSerializer(ResolweBaseSerializer):
 
         model = DescriptorSchema
         read_only_fields = (
-            'created',
-            'id',
-            'modified',
+            "created",
+            "id",
+            "modified",
         )
         update_protected_fields = (
-            'contributor',
-            'version',
+            "contributor",
+            "version",
         )
-        fields = read_only_fields + update_protected_fields + (
-            'description',
-            'name',
-            'schema',
-            'slug',
+        fields = (
+            read_only_fields
+            + update_protected_fields
+            + ("description", "name", "schema", "slug",)
         )

@@ -18,10 +18,10 @@ class ContributorSerializer(SelectiveFieldMixin, serializers.ModelSerializer):
         # class as the applications may not yet be ready at this point.
         model = None
         fields = (
-            'first_name',
-            'id',
-            'last_name',
-            'username',
+            "first_name",
+            "id",
+            "last_name",
+            "username",
         )
 
     def __init__(self, instance=None, data=empty, **kwargs):
@@ -35,11 +35,13 @@ class ContributorSerializer(SelectiveFieldMixin, serializers.ModelSerializer):
     def to_internal_value(self, data):
         """Format the internal value."""
         # When setting the contributor, it may be passed as an integer.
-        if isinstance(data, dict) and isinstance(data.get('id', None), int):
-            data = data['id']
+        if isinstance(data, dict) and isinstance(data.get("id", None), int):
+            data = data["id"]
         elif isinstance(data, int):
             pass
         else:
-            raise ValidationError("Contributor must be an integer or a dictionary with key 'id'")
+            raise ValidationError(
+                "Contributor must be an integer or a dictionary with key 'id'"
+            )
 
         return self.Meta.model.objects.get(pk=data)

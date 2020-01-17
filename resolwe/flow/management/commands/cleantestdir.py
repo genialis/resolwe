@@ -18,7 +18,7 @@ from django.core.management.base import BaseCommand
 from resolwe.flow.managers.protocol import ExecutorFiles
 from resolwe.test.testcases.setting_overrides import FLOW_EXECUTOR_SETTINGS
 
-TEST_DIR_REGEX = r'^test_\d+$'
+TEST_DIR_REGEX = r"^test_\d+$"
 
 
 class Command(BaseCommand):
@@ -28,7 +28,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
         """Cleanup files created during testing."""
-        for name in ['DATA_DIR', 'UPLOAD_DIR', 'RUNTIME_DIR']:
+        for name in ["DATA_DIR", "UPLOAD_DIR", "RUNTIME_DIR"]:
             directory = os.path.abspath(FLOW_EXECUTOR_SETTINGS[name])
 
             for basename in os.listdir(directory):

@@ -18,7 +18,7 @@ class EntityDocument(CollectionDocument):
     class Index:
         """Meta class for entity search document."""
 
-        name = 'entity'
+        name = "entity"
 
 
 class DataDescriptorDependency(ManyToManyDependency):
@@ -31,19 +31,18 @@ class DataDescriptorDependency(ManyToManyDependency):
             return True
 
         # Otherwise, the parent should only be updated on descriptor changes.
-        return 'descriptor' in update_fields
+        return "descriptor" in update_fields
 
 
 class EntityIndex(BaseIndexMixin, CollectionIndexMixin, BaseIndex):
     """Index for entity objects used in ``EntityDocument``."""
 
     queryset = Entity.objects.all().prefetch_related(
-        'descriptor_schema',
-        'contributor',
+        "descriptor_schema", "contributor",
     )
     object_type = Entity
     document_class = EntityDocument
 
     mapping = {
-        'collection': 'collection_id',
+        "collection": "collection_id",
     }

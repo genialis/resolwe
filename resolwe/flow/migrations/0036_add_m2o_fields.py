@@ -9,23 +9,41 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('flow', '0035_process_entity_new'),
+        ("flow", "0035_process_entity_new"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='data',
-            name='collection',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='data2', to='flow.Collection'),
+            model_name="data",
+            name="collection",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="data2",
+                to="flow.Collection",
+            ),
         ),
         migrations.AddField(
-            model_name='data',
-            name='entity2',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='data2', to='flow.Entity'),
+            model_name="data",
+            name="entity2",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="data2",
+                to="flow.Entity",
+            ),
         ),
         migrations.AddField(
-            model_name='entity',
-            name='collection',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='entities2', to='flow.Collection'),
+            model_name="entity",
+            name="collection",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="entities2",
+                to="flow.Collection",
+            ),
         ),
     ]

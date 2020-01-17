@@ -48,8 +48,10 @@ class TestProfiler:
         self._test = test
         self._start = time.time()
 
-        if getattr(settings, 'TEST_PROCESS_PROFILE', False):
-            self._file = open('profile-resolwe-process-tests-{}.json'.format(os.getpid()), 'a')
+        if getattr(settings, "TEST_PROCESS_PROFILE", False):
+            self._file = open(
+                "profile-resolwe-process-tests-{}.json".format(os.getpid()), "a"
+            )
         else:
             self._file = None
 
@@ -64,12 +66,12 @@ class TestProfiler:
         if not self._file:
             return
 
-        data.update({
-            'test': self._test.id(),
-        })
+        data.update(
+            {"test": self._test.id(),}
+        )
 
         self._file.write(json.dumps(data))
-        self._file.write('\n')
+        self._file.write("\n")
 
     @contextlib.contextmanager
     def add_block(self, name):
@@ -89,7 +91,7 @@ class TestProfiler:
         if not self._file:
             return
 
-        self.add({'total': time.time() - self._start})
+        self.add({"total": time.time() - self._start})
         self._file.close()
 
 
@@ -137,7 +139,9 @@ class ProcessTestCase(TransactionTestCase):
         for schema in schemas:
             schema.contributor = self.admin
 
-    def _register_schemas(self, path=None, processes_paths=None, descriptors_paths=None):
+    def _register_schemas(
+        self, path=None, processes_paths=None, descriptors_paths=None
+    ):
         """Register process and descriptor schemas.
 
         If ``processes_paths`` or ``descriptor_path`` arguments are
@@ -151,6 +155,7 @@ class ProcessTestCase(TransactionTestCase):
         ``descriptors_paths`` keys in ``kwargs``.
 
         """
+
         def remove_pks(schemas):
             """Remove primary keys from the given schemas."""
             for s in schemas:
@@ -166,21 +171,21 @@ class ProcessTestCase(TransactionTestCase):
 
         schemas_types = [
             {
-                'name': 'descriptor_schemas',
-                'model': DescriptorSchema,
-                'cache_key': descriptors_paths,
+                "name": "descriptor_schemas",
+                "model": DescriptorSchema,
+                "cache_key": descriptors_paths,
             },
-            {
-                'name': 'processes',
-                'model': Process,
-                'cache_key': processes_paths,
-            },
+            {"name": "processes", "model": Process, "cache_key": processes_paths,},
         ]
 
         for schemas in schemas_types:
-            schemas['model'].objects.all().delete()
+            schemas["model"].objects.all().delete()
 
-        cache_key = str('processes_paths={};descriptors_paths={}'.format(processes_paths, descriptors_paths))
+        cache_key = str(
+            "processes_paths={};descriptors_paths={}".format(
+                processes_paths, descriptors_paths
+            )
+        )
         global SCHEMAS_FIXTURE_CACHE
         if not SCHEMAS_FIXTURE_CACHE:
             SCHEMAS_FIXTURE_CACHE = {}
@@ -196,30 +201,40 @@ class ProcessTestCase(TransactionTestCase):
                 # therefore we need to remove them and let the DB re-create them every time. For
                 # more details, see:
                 # https://github.com/django/django/blob/1.10.7/django/db/models/query.py#L455-L456
-                schemas_cache = remove_pks(SCHEMAS_FIXTURE_CACHE[cache_key][schemas['name']])
+                schemas_cache = remove_pks(
+                    SCHEMAS_FIXTURE_CACHE[cache_key][schemas["name"]]
+                )
                 self._update_schema_relations(schemas_cache)
-                schemas['model'].objects.bulk_create(schemas_cache)
+                schemas["model"].objects.bulk_create(schemas_cache)
         else:
             if processes_paths is None and descriptors_paths is None:
-                management.call_command('register', force=True, stdout=stdout, stderr=stderr)
+                management.call_command(
+                    "register", force=True, stdout=stdout, stderr=stderr
+                )
             else:
                 settings_overrides = {
-                    'FLOW_PROCESSES_FINDERS': ['resolwe.flow.finders.FileSystemProcessesFinder']
+                    "FLOW_PROCESSES_FINDERS": [
+                        "resolwe.flow.finders.FileSystemProcessesFinder"
+                    ]
                 }
                 if processes_paths is not None:
-                    settings_overrides['FLOW_PROCESSES_DIRS'] = processes_paths
+                    settings_overrides["FLOW_PROCESSES_DIRS"] = processes_paths
                 if descriptors_paths is not None:
-                    settings_overrides['FLOW_DESCRIPTORS_DIRS'] = descriptors_paths
+                    settings_overrides["FLOW_DESCRIPTORS_DIRS"] = descriptors_paths
 
                 with self.settings(**settings_overrides):
-                    management.call_command('register', force=True, stdout=stdout, stderr=stderr)
+                    management.call_command(
+                        "register", force=True, stdout=stdout, stderr=stderr
+                    )
 
             if cache_key not in SCHEMAS_FIXTURE_CACHE:
                 SCHEMAS_FIXTURE_CACHE[cache_key] = {}
 
             # NOTE: list() forces DB query execution
             for schemas in schemas_types:
-                SCHEMAS_FIXTURE_CACHE[cache_key][schemas['name']] = list(schemas['model'].objects.all())
+                SCHEMAS_FIXTURE_CACHE[cache_key][schemas["name"]] = list(
+                    schemas["model"].objects.all()
+                )
 
         return stdout, stderr
 
@@ -231,8 +246,7 @@ class ProcessTestCase(TransactionTestCase):
 
         """
         return Collection.objects.create(
-            name="Test collection",
-            contributor=self.admin,
+            name="Test collection", contributor=self.admin,
         )
 
     def setUp(self):
@@ -242,7 +256,7 @@ class ProcessTestCase(TransactionTestCase):
         self._register_schemas()
 
         self.collection = self._create_collection()
-        self.upload_dir = settings.FLOW_EXECUTOR['UPLOAD_DIR']
+        self.upload_dir = settings.FLOW_EXECUTOR["UPLOAD_DIR"]
 
         self._profiler = TestProfiler(self)
         self._preparation_stage = 0
@@ -262,7 +276,9 @@ class ProcessTestCase(TransactionTestCase):
                 print("KEEPING DATA: {}".format(d.pk))
             elif d.location:
                 data_dir = d.location.get_path()
-                export_dir = os.path.join(settings.FLOW_EXECUTOR['UPLOAD_DIR'], str(d.pk))
+                export_dir = os.path.join(
+                    settings.FLOW_EXECUTOR["UPLOAD_DIR"], str(d.pk)
+                )
                 d.delete()
                 shutil.rmtree(data_dir, ignore_errors=True)
                 shutil.rmtree(export_dir, ignore_errors=True)
@@ -287,19 +303,25 @@ class ProcessTestCase(TransactionTestCase):
         failure = list2reason(result.failures)
 
         # Ensure all tagged processes were tested.
-        if not error and not failure and getattr(settings, 'TEST_PROCESS_REQUIRE_TAGS', False):
+        if (
+            not error
+            and not failure
+            and getattr(settings, "TEST_PROCESS_REQUIRE_TAGS", False)
+        ):
             test = getattr(self, self._testMethodName)
             for slug in get_processes_from_tags(test):
                 if slug not in self._executed_processes:
                     self.fail(
                         'Test was tagged with process "{}", but this process was not '
-                        'executed during test. Remove the tag or test the process.'.format(slug)
+                        "executed during test. Remove the tag or test the process.".format(
+                            slug
+                        )
                     )
 
     @contextlib.contextmanager
     def preparation_stage(self):
         """Context manager to mark input preparation stage."""
-        with self._profiler.add_block('preparation'):
+        with self._profiler.add_block("preparation"):
             self._preparation_stage += 1
             try:
                 yield
@@ -329,8 +351,16 @@ class ProcessTestCase(TransactionTestCase):
         return self.run_process(*args, **kwargs)
         # TODO: warning
 
-    def run_process(self, process_slug, input_={}, assert_status=Data.STATUS_DONE,
-                    descriptor=None, descriptor_schema=None, verbosity=0, tags=None):
+    def run_process(
+        self,
+        process_slug,
+        input_={},
+        assert_status=Data.STATUS_DONE,
+        descriptor=None,
+        descriptor_schema=None,
+        verbosity=0,
+        tags=None,
+    ):
         """Run the specified process with the given inputs.
 
         If input is a file, file path should be given relative to the
@@ -376,32 +406,36 @@ class ProcessTestCase(TransactionTestCase):
         input_ = input_.copy()
 
         # backward compatibility
-        process_slug = slugify(process_slug.replace(':', '-'))
+        process_slug = slugify(process_slug.replace(":", "-"))
 
         # Enforce correct process tags.
-        if getattr(settings, 'TEST_PROCESS_REQUIRE_TAGS', False) and not self._preparation_stage:
+        if (
+            getattr(settings, "TEST_PROCESS_REQUIRE_TAGS", False)
+            and not self._preparation_stage
+        ):
             test = getattr(self, self._testMethodName)
             if not has_process_tag(test, process_slug):
                 self.fail(
                     'Tried to run process with slug "{0}" outside of preparation_stage\n'
-                    'block while test is not tagged for this process. Either tag the\n'
-                    'test using tag_process decorator or move this under the preparation\n'
-                    'stage block if this process is only used to prepare upstream inputs.\n'
-                    '\n'
-                    'To tag the test you can add the following decorator:\n'
-                    '    @tag_process(\'{0}\')\n'
-                    ''.format(process_slug)
+                    "block while test is not tagged for this process. Either tag the\n"
+                    "test using tag_process decorator or move this under the preparation\n"
+                    "stage block if this process is only used to prepare upstream inputs.\n"
+                    "\n"
+                    "To tag the test you can add the following decorator:\n"
+                    "    @tag_process('{0}')\n"
+                    "".format(process_slug)
                 )
 
         self._executed_processes.add(process_slug)
 
-        process = Process.objects.filter(slug=process_slug).order_by('-version').first()
+        process = Process.objects.filter(slug=process_slug).order_by("-version").first()
 
         if process is None:
             self.fail('No process with slug "{}"'.format(process_slug))
 
         def mock_upload(file_path):
             """Mock file upload."""
+
             def is_url(path):
                 """Check if path is a URL."""
                 validate = URLValidator()
@@ -413,18 +447,18 @@ class ProcessTestCase(TransactionTestCase):
 
             if is_url(file_path):
                 return {
-                    'file': file_path,
-                    'file_temp': file_path,
-                    'is_remote': True,
+                    "file": file_path,
+                    "file_temp": file_path,
+                    "is_remote": True,
                 }
             else:
                 old_path = os.path.join(self.files_path, file_path)
                 if not os.path.isfile(old_path):
-                    raise RuntimeError('Missing file: {}'.format(old_path))
+                    raise RuntimeError("Missing file: {}".format(old_path))
 
                 file_basename = os.path.basename(file_path)
 
-                file_temp = '{}_{}'.format(file_basename, uuid.uuid4())
+                file_temp = "{}_{}".format(file_basename, uuid.uuid4())
                 upload_file_path = os.path.join(self.upload_dir, file_temp)
                 # create directories needed by new_path
                 upload_file_dir = os.path.dirname(upload_file_path)
@@ -434,23 +468,27 @@ class ProcessTestCase(TransactionTestCase):
                 shutil.copy2(old_path, upload_file_path)
                 self._upload_files.append(upload_file_path)
                 return {
-                    'file': file_basename,
-                    'file_temp': file_temp,
+                    "file": file_basename,
+                    "file_temp": file_temp,
                 }
 
         for field_schema, fields in iterate_fields(input_, process.input_schema):
             # copy referenced files to upload dir
-            if field_schema['type'] == "basic:file:":
-                fields[field_schema['name']] = mock_upload(fields[field_schema['name']])
-            elif field_schema['type'] == "list:basic:file:":
-                file_list = [mock_upload(file_path) for file_path in fields[field_schema['name']]]
-                fields[field_schema['name']] = file_list
+            if field_schema["type"] == "basic:file:":
+                fields[field_schema["name"]] = mock_upload(fields[field_schema["name"]])
+            elif field_schema["type"] == "list:basic:file:":
+                file_list = [
+                    mock_upload(file_path) for file_path in fields[field_schema["name"]]
+                ]
+                fields[field_schema["name"]] = file_list
 
             # convert primary keys to strings
-            if field_schema['type'].startswith('data:'):
-                fields[field_schema['name']] = fields[field_schema['name']]
-            if field_schema['type'].startswith('list:data:'):
-                fields[field_schema['name']] = [obj for obj in fields[field_schema['name']]]
+            if field_schema["type"].startswith("data:"):
+                fields[field_schema["name"]] = fields[field_schema["name"]]
+            if field_schema["type"].startswith("list:data:"):
+                fields[field_schema["name"]] = [
+                    obj for obj in fields[field_schema["name"]]
+                ]
 
         data = Data.objects.create(
             input=input_,
@@ -504,7 +542,9 @@ class ProcessTestCase(TransactionTestCase):
         :rtype: tuple
 
         """
-        self.assertEqual(os.path.splitext(file_name)[1], '.gz', msg='File extension must be .gz')
+        self.assertEqual(
+            os.path.splitext(file_name)[1], ".gz", msg="File extension must be .gz"
+        )
 
         if isinstance(storage, Storage):
             json_dict = storage.json
@@ -513,16 +553,16 @@ class ProcessTestCase(TransactionTestCase):
         elif isinstance(storage, dict):
             json_dict = storage
         else:
-            raise ValueError('Argument storage should be of type Storage, int or dict.')
+            raise ValueError("Argument storage should be of type Storage, int or dict.")
 
         file_path = os.path.join(self.files_path, file_name)
         if not os.path.isfile(file_path):
-            with gzip.open(file_path, mode='wt') as f:
+            with gzip.open(file_path, mode="wt") as f:
                 json.dump(json_dict, f)
 
             self.fail(msg="Output file {} missing so it was created.".format(file_name))
 
-        with gzip.open(file_path, mode='rt') as f:
+        with gzip.open(file_path, mode="rt") as f:
             return json.load(f), json_dict
 
     def assertStatus(self, obj, status):
@@ -535,8 +575,10 @@ class ProcessTestCase(TransactionTestCase):
 
         """
         self.assertEqual(
-            obj.status, status,
-            msg="Data status is '{}', not '{}'".format(obj.status, status) + self._debug_info(obj)
+            obj.status,
+            status,
+            msg="Data status is '{}', not '{}'".format(obj.status, status)
+            + self._debug_info(obj),
         )
 
     def _get_output_field(self, obj, path):
@@ -549,7 +591,9 @@ class ProcessTestCase(TransactionTestCase):
             object's output field
 
         """
-        for field_schema, field, field_path in iterate_fields(obj.output, obj.process.output_schema, ''):
+        for field_schema, field, field_path in iterate_fields(
+            obj.output, obj.process.output_schema, ""
+        ):
             if path == field_path:
                 return field_schema, field
 
@@ -572,49 +616,63 @@ class ProcessTestCase(TransactionTestCase):
 
         """
         field_schema, field = None, None
-        for field_schema, field, field_path in iterate_schema(obj.output, obj.process.output_schema, ''):
+        for field_schema, field, field_path in iterate_schema(
+            obj.output, obj.process.output_schema, ""
+        ):
             if path == field_path:
                 break
         else:
             self.fail("Field not found in path {}".format(path))
 
-        field_name = field_schema['name']
+        field_name = field_schema["name"]
         field_value = field[field_name]
 
         def remove_file_size(field_value):
             """Remove size value from file field."""
-            if 'size' in field_value:
-                del field_value['size']
+            if "size" in field_value:
+                del field_value["size"]
 
         # Ignore size in file and dir fields
-        if (field_schema['type'].startswith('basic:file:')
-                or field_schema['type'].startswith('basic:dir:')):
+        if field_schema["type"].startswith("basic:file:") or field_schema[
+            "type"
+        ].startswith("basic:dir:"):
             remove_file_size(field_value)
             remove_file_size(value)
 
-        elif (field_schema['type'].startswith('list:basic:file:')
-              or field_schema['type'].startswith('list:basic:dir:')):
+        elif field_schema["type"].startswith("list:basic:file:") or field_schema[
+            "type"
+        ].startswith("list:basic:dir:"):
             for val in field_value:
                 remove_file_size(val)
             for val in value:
                 remove_file_size(val)
 
         self.assertEqual(
-            field_value, value,
-            msg="Field 'output.{}' mismatch: {} != {}".format(path, field_value, value) + self._debug_info(obj)
+            field_value,
+            value,
+            msg="Field 'output.{}' mismatch: {} != {}".format(path, field_value, value)
+            + self._debug_info(obj),
         )
 
-    def _assert_file(self, obj, fn_tested, fn_correct, compression=None, file_filter=lambda _: False, sort=False):
+    def _assert_file(
+        self,
+        obj,
+        fn_tested,
+        fn_correct,
+        compression=None,
+        file_filter=lambda _: False,
+        sort=False,
+    ):
         """Compare files."""
         open_kwargs = {}
         if compression is None:
             open_fn = open
             # by default, open() will open files as text and return str
             # objects, but we need bytes objects
-            open_kwargs['mode'] = 'rb'
-        elif compression == 'gzip':
+            open_kwargs["mode"] = "rb"
+        elif compression == "gzip":
             open_fn = gzip.open
-        elif compression == 'zip':
+        elif compression == "zip":
             open_fn = zipfile.ZipFile.open
         else:
             raise ValueError("Unsupported compression format.")
@@ -635,11 +693,19 @@ class ProcessTestCase(TransactionTestCase):
 
         if not os.path.isfile(correct_path):
             shutil.copyfile(output, correct_path)
-            self.fail(msg="Output file {} missing so it was created.".format(fn_correct))
+            self.fail(
+                msg="Output file {} missing so it was created.".format(fn_correct)
+            )
 
         correct_hash = get_sha256(correct_path, **open_kwargs)
-        self.assertEqual(correct_hash, output_hash, msg="File contents hash mismatch: {} != {}".format(
-            correct_hash, output_hash) + self._debug_info(obj))
+        self.assertEqual(
+            correct_hash,
+            output_hash,
+            msg="File contents hash mismatch: {} != {}".format(
+                correct_hash, output_hash
+            )
+            + self._debug_info(obj),
+        )
 
     def assertFile(self, obj, field_path, fn, **kwargs):
         """Compare a process's output file to the given correct file.
@@ -673,7 +739,7 @@ class ProcessTestCase(TransactionTestCase):
 
         """
         field = dict_dot(obj.output, field_path)
-        self._assert_file(obj, field['file'], fn, **kwargs)
+        self._assert_file(obj, field["file"], fn, **kwargs)
 
     def assertFiles(self, obj, field_path, fn_list, **kwargs):
         """Compare a process's output file to the given correct file.
@@ -709,10 +775,12 @@ class ProcessTestCase(TransactionTestCase):
         field = dict_dot(obj.output, field_path)
 
         if len(field) != len(fn_list):
-            self.fail(msg="Lengths of list:basic:file field and files list are not equal.")
+            self.fail(
+                msg="Lengths of list:basic:file field and files list are not equal."
+            )
 
         for fn_tested, fn_correct in zip(field, fn_list):
-            self._assert_file(obj, fn_tested['file'], fn_correct, **kwargs)
+            self._assert_file(obj, fn_tested["file"], fn_correct, **kwargs)
 
     def assertFileExists(self, obj, field_path):
         """Ensure a file in the given object's field exists.
@@ -726,7 +794,7 @@ class ProcessTestCase(TransactionTestCase):
             file name/path
         """
         field = dict_dot(obj.output, field_path)
-        output = obj.location.get_path(filename=field['file'])
+        output = obj.location.get_path(filename=field["file"])
 
         if not os.path.isfile(output):
             self.fail(msg="File {} does not exist.".format(field_path))
@@ -745,9 +813,13 @@ class ProcessTestCase(TransactionTestCase):
         field = dict_dot(obj.output, field_path)
 
         for item in field:
-            output_file = obj.location.get_path(filename=item['file'])
+            output_file = obj.location.get_path(filename=item["file"])
             if not os.path.isfile(output_file):
-                self.fail(msg="File {} in output field {} does not exist.".format(item['file'], field_path))
+                self.fail(
+                    msg="File {} in output field {} does not exist.".format(
+                        item["file"], field_path
+                    )
+                )
 
     def assertDirExists(self, obj, field_path):
         """Assert that a directory in the output field of the given object exists.
@@ -758,12 +830,16 @@ class ProcessTestCase(TransactionTestCase):
         :param field_path: directory name/path
         """
         schema, field = self._get_output_field(obj, field_path)
-        if not schema['type'].startswith('basic:dir:'):
-            self.fail(msg='Field {} is not of type basic:dir:'.format(field_path))
+        if not schema["type"].startswith("basic:dir:"):
+            self.fail(msg="Field {} is not of type basic:dir:".format(field_path))
 
-        dir_path = obj.location.get_path(filename=field[field_path]['dir'])
+        dir_path = obj.location.get_path(filename=field[field_path]["dir"])
         if not os.path.isdir(dir_path):
-            self.fail(msg="Directory {} in output field {} does not exist.".format(dir_path, field_path))
+            self.fail(
+                msg="Directory {} in output field {} does not exist.".format(
+                    dir_path, field_path
+                )
+            )
 
     def _assert_dir_structure(self, dir_path, dir_struct, exact=True):
         """Compare tree structure of directory `dir_path` to `dir_struct`."""
@@ -775,16 +851,16 @@ class ProcessTestCase(TransactionTestCase):
             for test_file in files:
                 test_files.add(os.path.relpath(os.path.join(root, test_file), dir_path))
 
-        def get_dirs(indict, root=''):
+        def get_dirs(indict, root=""):
             """Generate directory names from dict."""
             for key, value in indict.items():
                 if isinstance(value, dict):
                     yield os.path.join(root, key)
                     yield from get_dirs(value, os.path.join(root, key))
                 elif value is not None:
-                    self.fail(msg='Directory structure specification is incorrect')
+                    self.fail(msg="Directory structure specification is incorrect")
 
-        def get_files(indict, root=''):
+        def get_files(indict, root=""):
             """Generate file names from dict."""
             for key, value in indict.items():
                 if value is None:
@@ -792,15 +868,15 @@ class ProcessTestCase(TransactionTestCase):
                 elif isinstance(value, dict) and value:
                     yield from get_files(value, os.path.join(root, key))
                 elif not isinstance(value, dict):
-                    self.fail(msg='Directory structure specification is incorrect.')
+                    self.fail(msg="Directory structure specification is incorrect.")
 
         correct_files = {file for file in get_files(dir_struct)}
         correct_dirs = {correct_dir for correct_dir in get_dirs(dir_struct)}
 
         if exact and (test_dirs != correct_dirs or test_files != correct_files):
-            self.fail(msg='Directory structure mismatch (exact check).')
+            self.fail(msg="Directory structure mismatch (exact check).")
         if not exact and (correct_dirs - test_dirs or correct_files - test_files):
-            self.fail(msg='Directory structure mismatch (partial structure check).')
+            self.fail(msg="Directory structure mismatch (partial structure check).")
 
     def assertDirStructure(self, obj, field_path, dir_struct, exact=True):
         """Assert correct tree structure in output field of given object.
@@ -826,17 +902,21 @@ class ProcessTestCase(TransactionTestCase):
         """
         self.assertDirExists(obj, field_path)
         field = dict_dot(obj.output, field_path)
-        dir_path = obj.location.get_path(filename=field['dir'])
+        dir_path = obj.location.get_path(filename=field["dir"])
         self._assert_dir_structure(dir_path, dir_struct, exact)
 
     def _assert_dir(self, dir_path, fn_correct, fail_on_funny=True):
         """Compare directory `dir_path` to compressed directory `fn_correct`."""
         correct_path = os.path.join(self.files_path, fn_correct)
         if not os.path.isfile(correct_path):
-            with tarfile.open(correct_path, 'w:gz') as f:
+            with tarfile.open(correct_path, "w:gz") as f:
                 for content in os.listdir(dir_path):
                     f.add(os.path.join(dir_path, content), arcname=content)
-            self.fail(msg="Compressed output directory {} missing so it was created.".format(fn_correct))
+            self.fail(
+                msg="Compressed output directory {} missing so it was created.".format(
+                    fn_correct
+                )
+            )
 
         if not tarfile.is_tarfile(correct_path):
             self.fail(msg="{} is not a tar file.".format(fn_correct))
@@ -845,8 +925,17 @@ class ProcessTestCase(TransactionTestCase):
             with tarfile.open(correct_path) as tar:
                 tar.extractall(temp_dir)
             cmp = filecmp.dircmp(dir_path, temp_dir)
-            if cmp.left_only or cmp.right_only or cmp.diff_files or (fail_on_funny and cmp.funny_files):
-                self.fail(msg='Directory {} content mismatch: {}.'.format(fn_correct, cmp.report()))
+            if (
+                cmp.left_only
+                or cmp.right_only
+                or cmp.diff_files
+                or (fail_on_funny and cmp.funny_files)
+            ):
+                self.fail(
+                    msg="Directory {} content mismatch: {}.".format(
+                        fn_correct, cmp.report()
+                    )
+                )
 
     def assertDir(self, obj, field_path, fn):
         """Compare process output directory to correct compressed directory.
@@ -866,7 +955,7 @@ class ProcessTestCase(TransactionTestCase):
         """
         self.assertDirExists(obj, field_path)
         field = dict_dot(obj.output, field_path)
-        dir_path = obj.location.get_path(filename=field['dir'])
+        dir_path = obj.location.get_path(filename=field["dir"])
         self._assert_dir(dir_path, fn)
 
     def assertJSON(self, obj, storage, field_path, file_name):
@@ -896,7 +985,9 @@ class ProcessTestCase(TransactionTestCase):
                 have the ``.gz`` extension.
 
         """
-        self.assertEqual(os.path.splitext(file_name)[1], '.gz', msg='File extension must be .gz')
+        self.assertEqual(
+            os.path.splitext(file_name)[1], ".gz", msg="File extension must be .gz"
+        )
 
         if not isinstance(storage, Storage):
             storage = Storage.objects.get(pk=storage)
@@ -905,26 +996,39 @@ class ProcessTestCase(TransactionTestCase):
 
         file_path = os.path.join(self.files_path, file_name)
         if not os.path.isfile(file_path):
-            with gzip.open(file_path, mode='wt') as f:
+            with gzip.open(file_path, mode="wt") as f:
                 json.dump(storage_obj, f)
 
             self.fail(msg="Output file {} missing so it was created.".format(file_name))
 
-        with gzip.open(file_path, mode='rt') as f:
+        with gzip.open(file_path, mode="rt") as f:
             file_obj = json.load(f)
 
-        self.assertAlmostEqualGeneric(storage_obj, file_obj,
-                                      msg="Storage {} field '{}' does not match file {}".format(
-                                          storage.id, field_path, file_name) + self._debug_info(obj))
+        self.assertAlmostEqualGeneric(
+            storage_obj,
+            file_obj,
+            msg="Storage {} field '{}' does not match file {}".format(
+                storage.id, field_path, file_name
+            )
+            + self._debug_info(obj),
+        )
 
     def _debug_info(self, data):
         """Return data's debugging information."""
         msg_header = "Debugging information for data object {}".format(data.pk)
-        msg = "\n\n" + len(msg_header) * "=" + "\n" + msg_header + "\n" + len(msg_header) * "=" + "\n"
-        path = data.location.get_path(filename='stdout.txt') if data.location else None
+        msg = (
+            "\n\n"
+            + len(msg_header) * "="
+            + "\n"
+            + msg_header
+            + "\n"
+            + len(msg_header) * "="
+            + "\n"
+        )
+        path = data.location.get_path(filename="stdout.txt") if data.location else None
         if path and os.path.isfile(path):
             msg += "\nstdout.txt:\n" + 11 * "-" + "\n"
-            with io.open(path, mode='rt') as fn:
+            with io.open(path, mode="rt") as fn:
                 msg += fn.read()
 
         if data.process_error:

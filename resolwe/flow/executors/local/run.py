@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class FlowExecutor(BaseFlowExecutor):
     """Local dataflow executor proxy."""
 
-    name = 'local'
+    name = "local"
 
     def __init__(self, *args, **kwargs):
         """Initialize attributes."""
@@ -26,7 +26,7 @@ class FlowExecutor(BaseFlowExecutor):
         self.kill_delay = 5
         self.proc = None
         self.stdout = None
-        self.command = '/bin/bash'
+        self.command = "/bin/bash"
 
     async def start(self):
         """Start process execution."""
@@ -34,8 +34,9 @@ class FlowExecutor(BaseFlowExecutor):
         # (https://github.com/PyCQA/pylint/issues/1469).
         self.proc = await subprocess.create_subprocess_exec(
             *shlex.split(self.command),
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
         )
 
         self.stdout = self.proc.stdout
@@ -44,8 +45,8 @@ class FlowExecutor(BaseFlowExecutor):
 
     async def run_script(self, script):
         """Execute the script and save results."""
-        script = os.linesep.join(['set -x', 'set +B', script, 'exit']) + os.linesep
-        self.proc.stdin.write(script.encode('utf-8'))
+        script = os.linesep.join(["set -x", "set +B", script, "exit"]) + os.linesep
+        self.proc.stdin.write(script.encode("utf-8"))
         await self.proc.stdin.drain()
         self.proc.stdin.close()
 

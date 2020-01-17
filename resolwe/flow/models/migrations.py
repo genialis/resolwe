@@ -28,10 +28,14 @@ class MigrationHistoryBase(models.Model):
 class ProcessMigrationHistory(MigrationHistoryBase):
     """Model for storing process migration history."""
 
-    process = models.ForeignKey('Process', related_name='migration_history', on_delete=models.CASCADE)
+    process = models.ForeignKey(
+        "Process", related_name="migration_history", on_delete=models.CASCADE
+    )
 
 
 class DataMigrationHistory(MigrationHistoryBase):
     """Model for storing data migration history."""
 
-    data = models.ForeignKey('Data', related_name='migration_history', on_delete=models.CASCADE)
+    data = models.ForeignKey(
+        "Data", related_name="migration_history", on_delete=models.CASCADE
+    )

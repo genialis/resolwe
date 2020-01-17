@@ -20,43 +20,52 @@ class Process(BaseModel):
         )
 
     #: raw persistence
-    PERSISTENCE_RAW = 'RAW'
+    PERSISTENCE_RAW = "RAW"
     #: cached persistence
-    PERSISTENCE_CACHED = 'CAC'
+    PERSISTENCE_CACHED = "CAC"
     #: temp persistence
-    PERSISTENCE_TEMP = 'TMP'
+    PERSISTENCE_TEMP = "TMP"
     PERSISTENCE_CHOICES = (
-        (PERSISTENCE_RAW, 'Raw'),
-        (PERSISTENCE_CACHED, 'Cached'),
-        (PERSISTENCE_TEMP, 'Temp'),
+        (PERSISTENCE_RAW, "Raw"),
+        (PERSISTENCE_CACHED, "Cached"),
+        (PERSISTENCE_TEMP, "Temp"),
     )
 
-    SCHEDULING_CLASS_INTERACTIVE = 'IN'
-    SCHEDULING_CLASS_BATCH = 'BA'
+    SCHEDULING_CLASS_INTERACTIVE = "IN"
+    SCHEDULING_CLASS_BATCH = "BA"
     SCHEDULING_CLASS_CHOICES = (
         (SCHEDULING_CLASS_INTERACTIVE, "Interactive"),
         (SCHEDULING_CLASS_BATCH, "Batch"),
     )
 
     #: data type
-    type = models.CharField(max_length=100, validators=[
-        RegexValidator(
-            regex=r'^data:[a-z0-9:]+:$',
-            message='Type may be alphanumerics separated by colon',
-            code='invalid_type'
-        )
-    ])
+    type = models.CharField(
+        max_length=100,
+        validators=[
+            RegexValidator(
+                regex=r"^data:[a-z0-9:]+:$",
+                message="Type may be alphanumerics separated by colon",
+                code="invalid_type",
+            )
+        ],
+    )
 
     #: category
-    category = models.CharField(max_length=200, default='Other:', validators=[
-        RegexValidator(
-            regex=r'^([a-zA-Z0-9]+[:\-])*[a-zA-Z0-9]+:$',
-            message='Category may be alphanumerics separated by colon',
-            code='invalid_category'
-        )
-    ])
+    category = models.CharField(
+        max_length=200,
+        default="Other:",
+        validators=[
+            RegexValidator(
+                regex=r"^([a-zA-Z0-9]+[:\-])*[a-zA-Z0-9]+:$",
+                message="Category may be alphanumerics separated by colon",
+                code="invalid_category",
+            )
+        ],
+    )
 
-    persistence = models.CharField(max_length=3, choices=PERSISTENCE_CHOICES, default=PERSISTENCE_RAW)
+    persistence = models.CharField(
+        max_length=3, choices=PERSISTENCE_CHOICES, default=PERSISTENCE_RAW
+    )
     """
     Persistence of :class:`~resolwe.flow.models.Data` objects created
     with this process. It can be one of the following:
@@ -73,10 +82,10 @@ class Process(BaseModel):
     """
 
     #: designates whether this process should be treated as active
-    is_active = models.BooleanField('active', default=True)
+    is_active = models.BooleanField("active", default=True)
 
     #: detailed description
-    description = models.TextField(default='')
+    description = models.TextField(default="")
 
     #: template for name of Data object created with Process
     data_name = models.CharField(max_length=200, null=True, blank=True)
@@ -164,8 +173,9 @@ class Process(BaseModel):
     process requirements
     """
 
-    scheduling_class = models.CharField(max_length=2, choices=SCHEDULING_CLASS_CHOICES,
-                                        default=SCHEDULING_CLASS_BATCH)
+    scheduling_class = models.CharField(
+        max_length=2, choices=SCHEDULING_CLASS_CHOICES, default=SCHEDULING_CLASS_BATCH
+    )
     """
     process scheduling class
     """
@@ -183,26 +193,28 @@ class Process(BaseModel):
         :rtype: dict
         """
         # Get limit defaults and overrides.
-        limit_defaults = getattr(settings, 'FLOW_PROCESS_RESOURCE_DEFAULTS', {})
-        limit_overrides = getattr(settings, 'FLOW_PROCESS_RESOURCE_OVERRIDES', {})
+        limit_defaults = getattr(settings, "FLOW_PROCESS_RESOURCE_DEFAULTS", {})
+        limit_overrides = getattr(settings, "FLOW_PROCESS_RESOURCE_OVERRIDES", {})
 
         limits = {}
 
-        resources = self.requirements.get('resources', {})
+        resources = self.requirements.get("resources", {})
 
-        limits['cores'] = int(resources.get('cores', 1))
+        limits["cores"] = int(resources.get("cores", 1))
 
-        max_cores = getattr(settings, 'FLOW_PROCESS_MAX_CORES', None)
+        max_cores = getattr(settings, "FLOW_PROCESS_MAX_CORES", None)
         if max_cores:
-            limits['cores'] = min(limits['cores'], max_cores)
+            limits["cores"] = min(limits["cores"], max_cores)
 
-        memory = limit_overrides.get('memory', {}).get(self.slug, None)
+        memory = limit_overrides.get("memory", {}).get(self.slug, None)
         if memory is None:
-            memory = int(resources.get(
-                'memory',
-                # If no memory resource is configured, check settings.
-                limit_defaults.get('memory', 4096)
-            ))
-        limits['memory'] = memory
+            memory = int(
+                resources.get(
+                    "memory",
+                    # If no memory resource is configured, check settings.
+                    limit_defaults.get("memory", 4096),
+                )
+            )
+        limits["memory"] = memory
 
         return limits

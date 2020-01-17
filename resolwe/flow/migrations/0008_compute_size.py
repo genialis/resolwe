@@ -9,7 +9,7 @@ from resolwe.flow.models.utils import hydrate_size
 
 def calculate_size(apps, schema_editor):
     """Compute ``size`` attribute in Data model."""
-    Data = apps.get_model('flow', 'Data')
+    Data = apps.get_model("flow", "Data")
     for data in Data.objects.all():
         hydrate_size(data, force=True)
         data.save()
@@ -28,7 +28,7 @@ def reverse_migration(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('flow', '0007_data_size'),
+        ("flow", "0007_data_size"),
     ]
 
     operations = [

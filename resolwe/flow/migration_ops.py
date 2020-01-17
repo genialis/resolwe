@@ -8,7 +8,7 @@ from django.db.migrations.operations import base
 from resolwe.flow.models.utils import validate_process_types, validation_schema
 from resolwe.flow.utils import dict_dot
 
-FIELD_SCHEMA = validation_schema('field')
+FIELD_SCHEMA = validation_schema("field")
 
 
 class DataDefaultOperation:
@@ -84,7 +84,7 @@ class ResolweProcessOperation(base.Operation):
         """
         self.process = process
         self.schema_type = schema_type
-        if self.schema_type not in ('input', 'output'):
+        if self.schema_type not in ("input", "output"):
             raise ValueError("Schema type must be either input or output")
 
         # Unfortunately, we can't easily get the identifier of the current
@@ -95,11 +95,11 @@ class ResolweProcessOperation(base.Operation):
         current_frame = inspect.currentframe().f_back
         while current_frame:
             info = inspect.getframeinfo(current_frame)
-            if info.function != 'Migration':
+            if info.function != "Migration":
                 current_frame = current_frame.f_back
                 continue
 
-            migration_id = current_frame.f_locals['__module__']
+            migration_id = current_frame.f_locals["__module__"]
             break
 
         if not migration_id:
@@ -112,10 +112,7 @@ class ResolweProcessOperation(base.Operation):
         return (
             self.__class__.__name__,
             [],
-            {
-                'process': self.process,
-                'schema_type': self.schema_type,
-            }
+            {"process": self.process, "schema_type": self.schema_type,},
         )
 
     def state_forwards(self, app_label, state):
@@ -164,12 +161,16 @@ class ResolweProcessOperation(base.Operation):
 
     def database_forwards(self, app_label, schema_editor, from_state, to_state):
         """Perform forward migration."""
-        Process = from_state.apps.get_model('flow', 'Process')
-        Data = from_state.apps.get_model('flow', 'Data')
+        Process = from_state.apps.get_model("flow", "Process")
+        Data = from_state.apps.get_model("flow", "Data")
         try:
 
-            ProcessMigrationHistory = from_state.apps.get_model('flow', 'ProcessMigrationHistory')
-            DataMigrationHistory = from_state.apps.get_model('flow', 'DataMigrationHistory')
+            ProcessMigrationHistory = from_state.apps.get_model(
+                "flow", "ProcessMigrationHistory"
+            )
+            DataMigrationHistory = from_state.apps.get_model(
+                "flow", "DataMigrationHistory"
+            )
         except LookupError:
             raise LookupError(
                 "Unable to retrieve migration history models. Perhaps you need "
@@ -183,7 +184,7 @@ class ResolweProcessOperation(base.Operation):
             return
 
         migrated_processes = set()
-        schema_field = '{}_schema'.format(self.schema_type)
+        schema_field = "{}_schema".format(self.schema_type)
         for process in processes:
             current_schema = getattr(process, schema_field)
             if not self.migrate_process_schema(process, current_schema, from_state):
@@ -212,7 +213,7 @@ class ResolweProcessOperation(base.Operation):
             DataMigrationHistory.objects.create(
                 migration=self.migration_id,
                 data=datum,
-                metadata=self.describe_data_migration(datum)
+                metadata=self.describe_data_migration(datum),
             )
 
     def database_backwards(self, app_label, schema_editor, from_state, to_state):
@@ -235,8 +236,8 @@ class ResolweProcessAddField(ResolweProcessOperation):
             subclass
         """
         self._raw_field = field
-        self.field = field.split('.')
-        if self.field[0] not in ('input', 'output'):
+        self.field = field.split(".")
+        if self.field[0] not in ("input", "output"):
             raise ValueError("Field path must start with either input or output")
         if len(self.field) < 2:
             raise ValueError("Field path must contain at least two levels")
@@ -248,10 +249,10 @@ class ResolweProcessAddField(ResolweProcessOperation):
         self.schema = schema
         jsonschema.validate([schema], FIELD_SCHEMA)
 
-        if schema['name'] != self.field[-1]:
+        if schema["name"] != self.field[-1]:
             raise ValueError("Field name in schema differs from field path")
 
-        if not default and schema.get('required', True):
+        if not default and schema.get("required", True):
             raise ValueError("A required field must have a default")
         if default and not isinstance(default, DataDefaultOperation):
             raise TypeError("Default must be an instance of DataDefaultOperation")
@@ -262,7 +263,7 @@ class ResolweProcessAddField(ResolweProcessOperation):
             schema_type=schema_type,
             field=field,
             schema=schema,
-            default=default
+            default=default,
         )
 
     def deconstruct(self):
@@ -271,11 +272,11 @@ class ResolweProcessAddField(ResolweProcessOperation):
             self.__class__.__name__,
             [],
             {
-                'process': self.process,
-                'field': self._raw_field,
-                'schema': self.schema,
-                'default': self.default,
-            }
+                "process": self.process,
+                "field": self._raw_field,
+                "schema": self.schema,
+                "default": self.default,
+            },
         )
 
     def migrate_process_schema(self, process, schema, from_state):
@@ -286,20 +287,19 @@ class ResolweProcessAddField(ResolweProcessOperation):
         :param from_state: Database model state
         :return: True if the process was migrated, False otherwise
         """
-        container = dict_dot(schema, '.'.join(self.field[:-1]), default=list)
+        container = dict_dot(schema, ".".join(self.field[:-1]), default=list)
 
         # Ignore processes, which already contain the target field with the
         # target schema.
         for field in container:
-            if field['name'] == self.field[-1]:
+            if field["name"] == self.field[-1]:
                 if field == self.schema:
                     return False
                 else:
                     raise ValueError(
                         "Failed to migrate schema for process '{process}' as the field '{field}' "
                         "already exists and has an incompatible schema".format(
-                            process=process.slug,
-                            field=self.field[-1]
+                            process=process.slug, field=self.field[-1]
                         )
                     )
 
@@ -320,12 +320,12 @@ class ResolweProcessAddField(ResolweProcessOperation):
         self.default.prepare(data, from_state)
         for instance in data:
             value = self.default.get_default_for(instance, from_state)
-            if not value and not self.schema.get('required', True):
+            if not value and not self.schema.get("required", True):
                 continue
 
             # Set default value.
             container = getattr(instance, self.schema_type, {})
-            dict_dot(container, '.'.join(self.field), value)
+            dict_dot(container, ".".join(self.field), value)
             setattr(instance, self.schema_type, container)
             instance.save()
 
@@ -343,8 +343,8 @@ class ResolweProcessAddField(ResolweProcessOperation):
         :param process: Migrated Process object instance
         """
         return {
-            'operation': 'add_field',
-            'field': self._raw_field,
+            "operation": "add_field",
+            "field": self._raw_field,
         }
 
     def describe_data_migration(self, data):
@@ -357,8 +357,8 @@ class ResolweProcessAddField(ResolweProcessOperation):
         :param data: Migrated Data object instance
         """
         return {
-            'operation': 'add_field',
-            'field': self._raw_field,
+            "operation": "add_field",
+            "field": self._raw_field,
         }
 
 
@@ -374,8 +374,8 @@ class ResolweProcessRenameField(ResolweProcessOperation):
         :param new_field: New field name
         """
         self._raw_field = field
-        self.field = field.split('.')
-        if self.field[0] not in ('input', 'output'):
+        self.field = field.split(".")
+        if self.field[0] not in ("input", "output"):
             raise ValueError("Field path must start with either input or output")
         if len(self.field) < 2:
             raise ValueError("Field path must contain at least two levels")
@@ -389,8 +389,7 @@ class ResolweProcessRenameField(ResolweProcessOperation):
         self.skip_no_field = skip_no_field
 
         super().__init__(
-            process=process,
-            schema_type=schema_type,
+            process=process, schema_type=schema_type,
         )
 
     def deconstruct(self):
@@ -399,10 +398,10 @@ class ResolweProcessRenameField(ResolweProcessOperation):
             self.__class__.__name__,
             [],
             {
-                'process': self.process,
-                'field': self._raw_field,
-                'new_field': self.new_field,
-            }
+                "process": self.process,
+                "field": self._raw_field,
+                "new_field": self.new_field,
+            },
         )
 
     def migrate_process_schema(self, process, schema, from_state):
@@ -413,16 +412,16 @@ class ResolweProcessRenameField(ResolweProcessOperation):
         :param from_state: Database model state
         :return: True if the process was migrated, False otherwise
         """
-        container = dict_dot(schema, '.'.join(self.field[:-1]), default=list)
+        container = dict_dot(schema, ".".join(self.field[:-1]), default=list)
 
         # Ignore processes, which already contain the target field.
         migrate = False
         for field in container:
-            if field['name'] == self.field[-1]:
-                field['name'] = self.new_field
+            if field["name"] == self.field[-1]:
+                field["name"] = self.new_field
                 migrate = True
                 break
-            elif field['name'] == self.new_field:
+            elif field["name"] == self.new_field:
                 # Already has target field.
                 migrate = False
                 break
@@ -430,8 +429,7 @@ class ResolweProcessRenameField(ResolweProcessOperation):
             if not self.skip_no_field:
                 raise ValueError(
                     "Unable to rename: there is no field with name '{field}' or '{new_field}'.".format(
-                        field=self.field[-1],
-                        new_field=self.new_field,
+                        field=self.field[-1], new_field=self.new_field,
                     )
                 )
 
@@ -445,7 +443,7 @@ class ResolweProcessRenameField(ResolweProcessOperation):
         :param from_state: Database model state
         """
         for instance in data:
-            if instance.status == 'ER':
+            if instance.status == "ER":
                 continue
 
             container = getattr(instance, self.schema_type, {})
@@ -469,9 +467,9 @@ class ResolweProcessRenameField(ResolweProcessOperation):
         :param process: Migrated Process object instance
         """
         return {
-            'operation': 'rename_field',
-            'field': self._raw_field,
-            'new_field': self.new_field,
+            "operation": "rename_field",
+            "field": self._raw_field,
+            "new_field": self.new_field,
         }
 
     def describe_data_migration(self, data):
@@ -484,9 +482,9 @@ class ResolweProcessRenameField(ResolweProcessOperation):
         :param data: Migrated Data object instance
         """
         return {
-            'operation': 'rename_field',
-            'field': self._raw_field,
-            'new_field': self.new_field,
+            "operation": "rename_field",
+            "field": self._raw_field,
+            "new_field": self.new_field,
         }
 
 
@@ -504,10 +502,9 @@ class ResolweDataCleanup(base.Operation):
         """Perform forward migration."""
         from resolwe.flow.models.data import DataQuerySet
 
-
-        Data = from_state.apps.get_model('flow', 'Data')
-        DataQuerySet._delete_chunked(Data.objects.filter(process__persistence='TMP'))
-        DataQuerySet._delete_chunked(Data.objects.filter(status='ER'))
+        Data = from_state.apps.get_model("flow", "Data")
+        DataQuerySet._delete_chunked(Data.objects.filter(process__persistence="TMP"))
+        DataQuerySet._delete_chunked(Data.objects.filter(status="ER"))
 
     def database_backwards(self, app_label, schema_editor, from_state, to_state):
         """Backward migration not possible."""
@@ -536,11 +533,10 @@ class ResolweProcessDataRemove(base.Operation):
         """Perform forward migration."""
         from resolwe.flow.models.data import DataQuerySet
 
-
-        Data = from_state.apps.get_model('flow', 'Data')
+        Data = from_state.apps.get_model("flow", "Data")
         DataQuerySet._delete_chunked(Data.objects.filter(process__slug=self.process))
 
-        Process = from_state.apps.get_model('flow', 'Process')
+        Process = from_state.apps.get_model("flow", "Process")
         Process.objects.filter(slug=self.process).delete()
 
     def database_backwards(self, app_label, schema_editor, from_state, to_state):
@@ -561,8 +557,7 @@ class ResolweProcessChangeType(ResolweProcessOperation):
         # TODO: Validate type.
 
         super().__init__(
-            process=process,
-            schema_type='output',
+            process=process, schema_type="output",
         )
 
     def deconstruct(self):
@@ -570,10 +565,7 @@ class ResolweProcessChangeType(ResolweProcessOperation):
         return (
             self.__class__.__name__,
             [],
-            {
-                'process': self.process,
-                'new_type': self.new_type,
-            }
+            {"process": self.process, "new_type": self.new_type,},
         )
 
     def migrate_process_schema(self, process, schema, from_state):
@@ -612,8 +604,8 @@ class ResolweProcessChangeType(ResolweProcessOperation):
         :param process: Migrated Process object instance
         """
         return {
-            'operation': 'change_type',
-            'new_type': self.new_type,
+            "operation": "change_type",
+            "new_type": self.new_type,
         }
 
     def describe_data_migration(self, data):
@@ -626,8 +618,8 @@ class ResolweProcessChangeType(ResolweProcessOperation):
         :param data: Migrated Data object instance
         """
         return {
-            'operation': 'change_type',
-            'new_type': self.new_type,
+            "operation": "change_type",
+            "new_type": self.new_type,
         }
 
 
@@ -643,12 +635,16 @@ class ResolweValidateProcessSchema(base.Operation):
 
     def database_forwards(self, app_label, schema_editor, from_state, to_state):
         """Perform forward migration."""
-        Process = from_state.apps.get_model('flow', 'Process')
+        Process = from_state.apps.get_model("flow", "Process")
 
         # Validate process types to ensure consistency.
         errors = validate_process_types(Process.objects.all())
         if errors:
-            raise ValueError("Process type consistency check failed after migration: {}".format(errors))
+            raise ValueError(
+                "Process type consistency check failed after migration: {}".format(
+                    errors
+                )
+            )
 
     def database_backwards(self, app_label, schema_editor, from_state, to_state):
         """Backward migration not possible."""

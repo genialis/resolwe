@@ -7,7 +7,7 @@ from .utils import json_path_components
 class JsonGetPath(Func):
     """PostgreSQL JSON path (#>) operator."""
 
-    function = '#>'
+    function = "#>"
     template = "%(expressions)s%(function)s%%s"
     arity = 1
 
@@ -33,6 +33,6 @@ class JsonGetPath(Func):
 class JsonbArrayElements(Func):
     """PostgreSQL jsonb_array_elements function."""
 
-    function = 'jsonb_array_elements'
-    template = '%(function)s(%(expressions)s)'
+    function = "jsonb_array_elements"
+    template = "%(function)s(%(expressions)s)"
     arity = 1

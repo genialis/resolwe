@@ -26,4 +26,6 @@ class BaseConnector:
         :param runtime_dir: The directory the executor is run from.
         :param argv: The argument vector used to spawn the executor.
         """
-        raise NotImplementedError("Subclasses of BaseConnector must implement a submit() method.")
+        raise NotImplementedError(
+            "Subclasses of BaseConnector must implement a submit() method."
+        )

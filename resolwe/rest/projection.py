@@ -1,8 +1,8 @@
 """Implementation of field projection."""
 from collections import Mapping, Sequence
 
-FIELD_SEPARATOR = ','
-FIELD_DEREFERENCE = '__'
+FIELD_SEPARATOR = ","
+FIELD_DEREFERENCE = "__"
 
 
 def apply_subfield_projection(field, value, deep=False):
@@ -28,15 +28,15 @@ def apply_subfield_projection(field, value, deep=False):
         root = root.parent
     prefix = prefix[::-1]
 
-    context = getattr(root, '_context', {})
+    context = getattr(root, "_context", {})
 
     # If there is no request, we cannot perform filtering.
-    request = context.get('request')
+    request = context.get("request")
     if request is None:
         return value
 
-    filtered = set(request.query_params.get('fields', '').split(FIELD_SEPARATOR))
-    filtered.discard('')
+    filtered = set(request.query_params.get("fields", "").split(FIELD_SEPARATOR))
+    filtered.discard("")
     if not filtered:
         # If there are no fields specified in the filter, return all fields.
         return value
@@ -68,10 +68,7 @@ def apply_projection(projection, value):
     """Apply projection."""
     if isinstance(value, Sequence):
         # Apply projection to each item in the list.
-        return [
-            apply_projection(projection, item)
-            for item in value
-        ]
+        return [apply_projection(projection, item) for item in value]
     elif not isinstance(value, Mapping):
         # Non-dictionary values are simply ignored.
         return value
@@ -89,8 +86,7 @@ def apply_projection(projection, value):
         elif isinstance(value[name], dict):
             # Apply projection recursively.
             value[name] = apply_projection(
-                [p[1:] for p in projection if p[0] == name],
-                value[name]
+                [p[1:] for p in projection if p[0] == name], value[name]
             )
 
     return value

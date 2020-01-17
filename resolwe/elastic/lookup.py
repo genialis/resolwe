@@ -2,7 +2,7 @@
 from elasticsearch_dsl.query import Q, Range
 
 # Token separator for parsing lookup expressions.
-TOKEN_SEPARATOR = '__'
+TOKEN_SEPARATOR = "__"
 
 
 @staticmethod
@@ -34,20 +34,14 @@ class Lookup:
     def apply(self, search, field, value):
         """Apply lookup expression to search query."""
         return search.query(
-            self.query_type(
-                **{
-                    field: {
-                        self.operator: self.get_value_query(value)
-                    }
-                }
-            )
+            self.query_type(**{field: {self.operator: self.get_value_query(value)}})
         )
 
 
 class LessThan(Lookup):
     """Less than lookup."""
 
-    operator = 'lt'
+    operator = "lt"
     query_type = Range
     value_type = maybe_number
 
@@ -55,7 +49,7 @@ class LessThan(Lookup):
 class LessThanOrEqual(Lookup):
     """Less than or equal lookup."""
 
-    operator = 'lte'
+    operator = "lte"
     query_type = Range
     value_type = maybe_number
 
@@ -63,7 +57,7 @@ class LessThanOrEqual(Lookup):
 class GreaterThan(Lookup):
     """Greater than lookup."""
 
-    operator = 'gt'
+    operator = "gt"
     query_type = Range
     value_type = maybe_number
 
@@ -71,7 +65,7 @@ class GreaterThan(Lookup):
 class GreaterThanOrEqual(Lookup):
     """Greater than or equal lookup."""
 
-    operator = 'gte'
+    operator = "gte"
     query_type = Range
     value_type = maybe_number
 
@@ -79,26 +73,26 @@ class GreaterThanOrEqual(Lookup):
 class In(Lookup):
     """In lookup."""
 
-    operator = 'in'
+    operator = "in"
 
     def apply(self, search, field, value):
         """Apply lookup expression to search query."""
         if not isinstance(value, list):
-            value = [x for x in value.strip().split(',') if x]
+            value = [x for x in value.strip().split(",") if x]
 
-        filters = [Q('match', **{field: item}) for item in value]
-        return search.query('bool', should=filters)
+        filters = [Q("match", **{field: item}) for item in value]
+        return search.query("bool", should=filters)
 
 
 class Exact(Lookup):
     """Exact lookup."""
 
-    operator = 'exact'
+    operator = "exact"
 
     def apply(self, search, field, value):
         """Apply lookup expression to search query."""
         # We assume that the field in question has a "raw" counterpart.
-        return search.query('match', **{'{}.raw'.format(field): value})
+        return search.query("match", **{"{}.raw".format(field): value})
 
 
 class QueryBuilder:
@@ -127,7 +121,9 @@ class QueryBuilder:
     def register_lookup(self, lookup):
         """Register lookup."""
         if lookup.operator in self._lookups:
-            raise KeyError("Lookup for operator '{}' is already registered".format(lookup.operator))
+            raise KeyError(
+                "Lookup for operator '{}' is already registered".format(lookup.operator)
+            )
 
         self._lookups[lookup.operator] = lookup()
 
@@ -139,7 +135,9 @@ class QueryBuilder:
         try:
             return self._lookups[operator]
         except KeyError:
-            raise NotImplementedError("Lookup operator '{}' is not supported".format(operator))
+            raise NotImplementedError(
+                "Lookup operator '{}' is not supported".format(operator)
+            )
 
     def build(self, search, raw_query):
         """Build query.
@@ -165,21 +163,27 @@ class QueryBuilder:
             # Parse lookup expression. Currently only no token or a single token is allowed.
             if tail:
                 if len(tail) > 1:
-                    raise NotImplementedError("Nested lookup expressions are not supported")
+                    raise NotImplementedError(
+                        "Nested lookup expressions are not supported"
+                    )
 
                 lookup = self.get_lookup(tail[0])
                 search = lookup.apply(search, field, value)
             else:
                 # Default lookup.
-                custom_filter = getattr(self.custom_filter_object, 'custom_filter_{}'.format(field), None)
+                custom_filter = getattr(
+                    self.custom_filter_object, "custom_filter_{}".format(field), None
+                )
                 if custom_filter is not None:
                     search = custom_filter(value, search)
                 elif isinstance(value, list):
                     # Default is 'should' between matches. If you need anything else,
                     # a custom filter for this field should be implemented.
-                    filters = [Q('match', **{field: item}) for item in value]
-                    search = search.query('bool', should=filters)
+                    filters = [Q("match", **{field: item}) for item in value]
+                    search = search.query("bool", should=filters)
                 else:
-                    search = search.query('match', **{field: {'query': value, 'operator': 'and'}})
+                    search = search.query(
+                        "match", **{field: {"query": value, "operator": "and"}}
+                    )
 
         return (search, unmatched_items)

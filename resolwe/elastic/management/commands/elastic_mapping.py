@@ -22,7 +22,7 @@ class Command(ElasticIndexFilterMixin, BaseCommand):
 
     def handle(self, *args, **options):
         """Command handle."""
-        verbosity = int(options['verbosity'])
+        verbosity = int(options["verbosity"])
 
         if self.has_filter(options):
             self.filter_indices(options, verbosity)

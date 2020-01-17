@@ -19,18 +19,18 @@ class JSONFormatter(logging.Formatter):
         """Dump the record to JSON."""
         data = record.__dict__.copy()
 
-        data['data_id'] = DATA['id']
-        data['data_location_id'] = DATA_LOCATION['id']
-        data['hostname'] = socket.gethostname()
+        data["data_id"] = DATA["id"]
+        data["data_location_id"] = DATA_LOCATION["id"]
+        data["hostname"] = socket.gethostname()
 
         # Get relative path, so listener can reconstruct the path to the actual code.
-        data['pathname'] = os.path.relpath(data['pathname'], os.path.dirname(__file__))
+        data["pathname"] = os.path.relpath(data["pathname"], os.path.dirname(__file__))
 
         # Exception and Traceback cannot be serialized.
-        data['exc_info'] = None
+        data["exc_info"] = None
 
         # Ensure logging message is instantiated to a string.
-        data['msg'] = str(data['msg'])
+        data["msg"] = str(data["msg"])
 
         return json.dumps(data)
 
@@ -49,52 +49,42 @@ class RedisHandler(logging.Handler):
 
     def emit(self, record):
         """Send log message to the listener."""
-        future = asyncio.ensure_future(send_manager_command(
-            ExecutorProtocol.LOG,
-            extra_fields={
-                ExecutorProtocol.LOG_MESSAGE: self.format(record),
-            },
-            expect_reply=False
-        ))
+        future = asyncio.ensure_future(
+            send_manager_command(
+                ExecutorProtocol.LOG,
+                extra_fields={ExecutorProtocol.LOG_MESSAGE: self.format(record),},
+                expect_reply=False,
+            )
+        )
         self.emit_list.append(future)
 
 
 def configure_logging(emit_list):
     """Configure logging to send log records to the master."""
-    if 'sphinx' in sys.modules:
-        module_base = 'resolwe.flow.executors'
+    if "sphinx" in sys.modules:
+        module_base = "resolwe.flow.executors"
     else:
-        module_base = 'executors'
+        module_base = "executors"
     logging_config = dict(
         version=1,
-        formatters={
-            'json_formatter': {
-                '()': JSONFormatter
-            },
-        },
+        formatters={"json_formatter": {"()": JSONFormatter},},
         handlers={
-            'redis': {
-                'class': module_base + '.logger.RedisHandler',
-                'formatter': 'json_formatter',
-                'level': logging.INFO,
-                'emit_list': emit_list
+            "redis": {
+                "class": module_base + ".logger.RedisHandler",
+                "formatter": "json_formatter",
+                "level": logging.INFO,
+                "emit_list": emit_list,
             },
-            'console': {
-                'class': 'logging.StreamHandler',
-                'level': logging.WARNING
-            },
-
+            "console": {"class": "logging.StreamHandler", "level": logging.WARNING},
         },
-        root={
-            'handlers': ['redis', 'console'],
-            'level': logging.DEBUG,
-        },
+        root={"handlers": ["redis", "console"], "level": logging.DEBUG,},
         loggers={
             # Don't use redis logger to prevent circular dependency.
-            module_base + '.manager_comm': {
-                'level': 'INFO',
-                'handlers': ['console'],
-                'propagate': False,
+            module_base
+            + ".manager_comm": {
+                "level": "INFO",
+                "handlers": ["console"],
+                "propagate": False,
             },
         },
     )

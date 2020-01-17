@@ -11,7 +11,12 @@ from rest_framework.response import Response
 
 from resolwe.permissions.shortcuts import get_object_perms
 
-from .utils import check_owner_permission, check_public_permissions, check_user_permissions, update_permission
+from .utils import (
+    check_owner_permission,
+    check_public_permissions,
+    check_user_permissions,
+    update_permission,
+)
 
 
 class CurrentUserPermissionsSerializer(serializers.Serializer):
@@ -20,9 +25,7 @@ class CurrentUserPermissionsSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     type = serializers.CharField(max_length=50)
     name = serializers.CharField(max_length=100)
-    permissions = serializers.ListField(
-        child=serializers.CharField(max_length=30)
-    )
+    permissions = serializers.ListField(child=serializers.CharField(max_length=30))
 
 
 class ResolwePermissionsMixin:
@@ -42,16 +45,22 @@ class ResolwePermissionsMixin:
             def get_fields(serializer_self):
                 """Return serializer's fields."""
                 fields = super().get_fields()
-                fields['current_user_permissions'] = CurrentUserPermissionsSerializer(read_only=True)
+                fields["current_user_permissions"] = CurrentUserPermissionsSerializer(
+                    read_only=True
+                )
                 return fields
 
             def to_representation(serializer_self, instance):
                 """Object serializer."""
                 data = super().to_representation(instance)
 
-                if ('fields' not in self.request.query_params
-                        or 'current_user_permissions' in self.request.query_params['fields']):
-                    data['current_user_permissions'] = get_object_perms(instance, self.request.user)
+                if (
+                    "fields" not in self.request.query_params
+                    or "current_user_permissions" in self.request.query_params["fields"]
+                ):
+                    data["current_user_permissions"] = get_object_perms(
+                        instance, self.request.user
+                    )
 
                 return data
 
@@ -66,17 +75,22 @@ class ResolwePermissionsMixin:
         attached to a collection.
         """
 
-    @action(detail=True, methods=['get', 'post'], url_path='permissions', url_name='permissions')
+    @action(
+        detail=True,
+        methods=["get", "post"],
+        url_path="permissions",
+        url_name="permissions",
+    )
     def detail_permissions(self, request, pk=None):
         """Get or set permissions API endpoint."""
         obj = self.get_object()
 
-        if request.method == 'POST':
+        if request.method == "POST":
             content_type = ContentType.objects.get_for_model(obj)
             payload = request.data
-            share_content = strtobool(payload.pop('share_content', 'false'))
+            share_content = strtobool(payload.pop("share_content", "false"))
             user = request.user
-            is_owner = user.has_perm('owner_{}'.format(content_type), obj=obj)
+            is_owner = user.has_perm("owner_{}".format(content_type), obj=obj)
 
             allow_owner = is_owner or user.is_superuser
             check_owner_permission(payload, allow_owner)
@@ -89,18 +103,23 @@ class ResolwePermissionsMixin:
                 owner_count = UserObjectPermission.objects.filter(
                     object_pk=obj.id,
                     content_type=content_type,
-                    permission__codename__startswith='owner_'
+                    permission__codename__startswith="owner_",
                 ).count()
 
                 if not owner_count:
-                    raise exceptions.ParseError('Object must have at least one owner.')
+                    raise exceptions.ParseError("Object must have at least one owner.")
 
             if share_content:
                 self.set_content_permissions(user, obj, payload)
 
         return Response(get_object_perms(obj))
 
-    @action(detail=False, methods=['get', 'post'], url_path='permissions', url_name='permissions')
+    @action(
+        detail=False,
+        methods=["get", "post"],
+        url_path="permissions",
+        url_name="permissions",
+    )
     def list_permissions(self, request):
         """Batch get or set permissions API endpoint."""
         # TODO: Implement batch get/set permissions

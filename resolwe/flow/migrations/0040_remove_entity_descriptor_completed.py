@@ -6,12 +6,9 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('flow', '0039_entity_collection_cascade'),
+        ("flow", "0039_entity_collection_cascade"),
     ]
 
     operations = [
-        migrations.RemoveField(
-            model_name='entity',
-            name='descriptor_completed',
-        ),
+        migrations.RemoveField(model_name="entity", name="descriptor_completed",),
     ]

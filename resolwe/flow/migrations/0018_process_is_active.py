@@ -8,13 +8,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('flow', '0017_refactor_relations_3'),
+        ("flow", "0017_refactor_relations_3"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='process',
-            name='is_active',
-            field=models.BooleanField(default=True, verbose_name='active'),
+            model_name="process",
+            name="is_active",
+            field=models.BooleanField(default=True, verbose_name="active"),
         ),
     ]

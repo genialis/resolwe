@@ -12,7 +12,7 @@ from django.utils.translation import ugettext_lazy as _
 class FlowConfig(AppConfig):
     """Flow AppConfig."""
 
-    name = 'resolwe.flow'
+    name = "resolwe.flow"
     verbose_name = _("Resolwe Dataflow")
 
     def ready(self):

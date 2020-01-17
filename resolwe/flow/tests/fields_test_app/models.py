@@ -10,6 +10,6 @@ class TestModel(models.Model):
 
     name = models.CharField(max_length=30)
 
-    slug = ResolweSlugField(populate_from='name', unique_with='version')
+    slug = ResolweSlugField(populate_from="name", unique_with="version")
 
-    version = VersionField(default='0.0.0')
+    version = VersionField(default="0.0.0")

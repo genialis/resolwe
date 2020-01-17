@@ -26,10 +26,7 @@ class EntityQuerySet(models.QuerySet):
             collection
         :return: A list of duplicated entities
         """
-        return [
-            entity.duplicate(contributor, inherit_collection)
-            for entity in self
-        ]
+        return [entity.duplicate(contributor, inherit_collection) for entity in self]
 
     @transaction.atomic
     def move_to_collection(self, source_collection, destination_collection):
@@ -55,7 +52,9 @@ class Entity(BaseCollection):
     objects = EntityQuerySet.as_manager()
 
     #: collection to which entity belongs
-    collection = models.ForeignKey('Collection', blank=True, null=True, on_delete=models.CASCADE)
+    collection = models.ForeignKey(
+        "Collection", blank=True, null=True, on_delete=models.CASCADE
+    )
 
     #: entity type
     type = models.CharField(max_length=100, db_index=True, null=True, blank=True)
@@ -72,15 +71,19 @@ class Entity(BaseCollection):
         duplicate = Entity.objects.get(id=self.id)
         duplicate.pk = None
         duplicate.slug = None
-        duplicate.name = 'Copy of {}'.format(self.name)
+        duplicate.name = "Copy of {}".format(self.name)
         duplicate.duplicated = now()
         if contributor:
             duplicate.contributor = contributor
 
         duplicate.collection = None
         if inherit_collection:
-            if not contributor.has_perm('edit_collection', self.collection):
-                raise ValidationError("You do not have edit permission on collection {}.".format(self.collection))
+            if not contributor.has_perm("edit_collection", self.collection):
+                raise ValidationError(
+                    "You do not have edit permission on collection {}.".format(
+                        self.collection
+                    )
+                )
             duplicate.collection = self.collection
 
         duplicate.save(force_insert=True)
@@ -92,8 +95,10 @@ class Entity(BaseCollection):
         duplicate.save()
 
         # Duplicate entity's data objects.
-        data = get_objects_for_user(contributor, 'view_data', self.data.all())
-        duplicated_data = data.duplicate(contributor, inherit_collection=inherit_collection)
+        data = get_objects_for_user(contributor, "view_data", self.data.all())
+        duplicated_data = data.duplicate(
+            contributor, inherit_collection=inherit_collection
+        )
         duplicate.data.add(*duplicated_data)
 
         # Permissions
@@ -178,11 +183,11 @@ class Relation(BaseModel):
 
     """
 
-    UNIT_SECOND = 's'
-    UNIT_MINUTE = 'min'
-    UNIT_HOUR = 'hr'
-    UNIT_DAY = 'd'
-    UNIT_WEEK = 'wk'
+    UNIT_SECOND = "s"
+    UNIT_MINUTE = "min"
+    UNIT_HOUR = "hr"
+    UNIT_DAY = "d"
+    UNIT_WEEK = "wk"
     UNIT_CHOICES = (
         (UNIT_SECOND, "Second"),
         (UNIT_MINUTE, "Minute"),
@@ -192,13 +197,13 @@ class Relation(BaseModel):
     )
 
     #: type of the relation
-    type = models.ForeignKey('RelationType', on_delete=models.PROTECT)
+    type = models.ForeignKey("RelationType", on_delete=models.PROTECT)
 
     #: collection to which relation belongs
-    collection = models.ForeignKey('Collection', on_delete=models.CASCADE)
+    collection = models.ForeignKey("Collection", on_delete=models.CASCADE)
 
     #: partitions of entities in the relation
-    entities = models.ManyToManyField(Entity, through='RelationPartition')
+    entities = models.ManyToManyField(Entity, through="RelationPartition")
 
     #: category of the relation
     category = CICharField(max_length=100)

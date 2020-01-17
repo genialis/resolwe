@@ -3,6 +3,6 @@ from .base import BaseExpressionEngine
 from .exceptions import EvaluationError
 
 __all__ = (
-    'BaseExpressionEngine',
-    'EvaluationError',
+    "BaseExpressionEngine",
+    "EvaluationError",
 )

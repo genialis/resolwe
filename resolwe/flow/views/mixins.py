@@ -29,7 +29,7 @@ class ResolweCreateModelMixin(mixins.CreateModelMixin):
 
     def define_contributor(self, request):
         """Define contributor by adding it to request.data."""
-        request.data['contributor'] = self.resolve_user(request.user).pk
+        request.data["contributor"] = self.resolve_user(request.user).pk
 
     def create(self, request, *args, **kwargs):
         """Create a resource."""
@@ -39,7 +39,7 @@ class ResolweCreateModelMixin(mixins.CreateModelMixin):
             return super().create(request, *args, **kwargs)
 
         except IntegrityError as ex:
-            return Response({'error': str(ex)}, status=status.HTTP_409_CONFLICT)
+            return Response({"error": str(ex)}, status=status.HTTP_409_CONFLICT)
 
     def perform_create(self, serializer):
         """Create a resource."""
@@ -71,14 +71,14 @@ class ResolweUpdateModelMixin(mixins.UpdateModelMixin):
     #       https://github.com/encode/django-rest-framework/issues/4675
     def _update(self, request, *args, **kwargs):
         """Update a resource."""
-        partial = kwargs.pop('partial', False)
+        partial = kwargs.pop("partial", False)
         # NOTE: The line below was changed.
         instance = self.get_object_with_lock()
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
 
-        if getattr(instance, '_prefetched_objects_cache', None):
+        if getattr(instance, "_prefetched_objects_cache", None):
             # If 'prefetch_related' has been applied to a queryset, we need to
             # forcibly invalidate the prefetch cache on the instance.
             instance._prefetched_objects_cache = {}
@@ -98,10 +98,10 @@ class ResolweUpdateModelMixin(mixins.UpdateModelMixin):
         lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
 
         assert lookup_url_kwarg in self.kwargs, (
-            'Expected view %s to be called with a URL keyword argument '
+            "Expected view %s to be called with a URL keyword argument "
             'named "%s". Fix your URL conf, or set the `.lookup_field` '
-            'attribute on the view correctly.' %
-            (self.__class__.__name__, lookup_url_kwarg)
+            "attribute on the view correctly."
+            % (self.__class__.__name__, lookup_url_kwarg)
         )
 
         filter_kwargs = {self.lookup_field: self.kwargs[lookup_url_kwarg]}
@@ -117,7 +117,7 @@ class ResolweUpdateModelMixin(mixins.UpdateModelMixin):
 class ResolweCheckSlugMixin:
     """Slug validation."""
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=["get"])
     def slug_exists(self, request):
         """Check if given url slug exists.
 
@@ -128,19 +128,21 @@ class ResolweCheckSlugMixin:
         if not request.user.is_authenticated:
             return Response(status=status.HTTP_401_UNAUTHORIZED)
 
-        if 'name' not in request.query_params:
-            return Response({'error': 'Query parameter `name` must be given.'},
-                            status=status.HTTP_400_BAD_REQUEST)
+        if "name" not in request.query_params:
+            return Response(
+                {"error": "Query parameter `name` must be given."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         queryset = self.get_queryset()
-        slug_name = request.query_params['name']
+        slug_name = request.query_params["name"]
         return Response(queryset.filter(slug__iexact=slug_name).exists())
 
 
 class ParametersMixin:
     """Mixin for viewsets for handling various parameters."""
 
-    def get_ids(self, request_data, parameter_name='ids'):
+    def get_ids(self, request_data, parameter_name="ids"):
         """Extract a list of integers from request data."""
         if parameter_name not in request_data:
             raise ParseError("`{}` parameter is required".format(parameter_name))
@@ -153,11 +155,13 @@ class ParametersMixin:
             raise ParseError("`{}` parameter is empty".format(parameter_name))
 
         if any(map(lambda id: not isinstance(id, int), ids)):
-            raise ParseError("`{}` parameter contains non-integers".format(parameter_name))
+            raise ParseError(
+                "`{}` parameter contains non-integers".format(parameter_name)
+            )
 
         return ids
 
-    def get_id(self, request_data, parameter_name='id'):
+    def get_id(self, request_data, parameter_name="id"):
         """Extract an integer from request data."""
         if parameter_name not in request_data:
             raise ParseError("`{}` parameter is required".format(parameter_name))

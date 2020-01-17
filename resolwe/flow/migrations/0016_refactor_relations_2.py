@@ -6,7 +6,7 @@ from django.db import migrations
 
 
 def position_to_label(apps, schema_editor):
-    RelationPartition = apps.get_model('flow', 'RelationPartition')
+    RelationPartition = apps.get_model("flow", "RelationPartition")
     for partition in RelationPartition.objects.all():
         if partition.position:
             partition.label = partition.position
@@ -16,7 +16,7 @@ def position_to_label(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('flow', '0015_refactor_relations_1'),
+        ("flow", "0015_refactor_relations_1"),
     ]
 
     operations = [

@@ -59,7 +59,7 @@ class ExecutorListener:
 
         # The Redis connection object.
         self._redis = None
-        self._redis_params = kwargs.get('redis_params', {})
+        self._redis_params = kwargs.get("redis_params", {})
 
         # Running coordination.
         self._should_stop = False
@@ -67,7 +67,7 @@ class ExecutorListener:
 
         # The verbosity level to pass around to Resolwe utilities
         # such as location_purge.
-        self._verbosity = kwargs.get('verbosity', 1)
+        self._verbosity = kwargs.get("verbosity", 1)
 
         # Statistics about how much time each event needed for handling.
         self.service_time = stats.NumberSeriesShape()
@@ -82,11 +82,11 @@ class ExecutorListener:
     async def _make_connection(self):
         """Construct a connection to Redis."""
         return await aioredis.create_redis(
-            'redis://{}:{}'.format(
-                self._redis_params.get('host', 'localhost'),
-                self._redis_params.get('port', 6379)
+            "redis://{}:{}".format(
+                self._redis_params.get("host", "localhost"),
+                self._redis_params.get("port", 6379),
             ),
-            db=int(self._redis_params.get('db', 1))
+            db=int(self._redis_params.get("db", 1)),
         )
 
     async def _call_redis(self, meth, *args, **kwargs):
@@ -115,7 +115,7 @@ class ExecutorListener:
             await conn.eval(
                 script,
                 keys=[],
-                args=['*{}*'.format(settings.FLOW_MANAGER['REDIS_PREFIX'])],
+                args=["*{}*".format(settings.FLOW_MANAGER["REDIS_PREFIX"])],
             )
         finally:
             conn.close()
@@ -142,10 +142,12 @@ class ExecutorListener:
 
     def terminate(self):
         """Stop the standalone manager."""
-        logger.info(__(
-            "Terminating Resolwe listener on channel '{}'.",
-            state.MANAGER_EXECUTOR_CHANNELS.queue
-        ))
+        logger.info(
+            __(
+                "Terminating Resolwe listener on channel '{}'.",
+                state.MANAGER_EXECUTOR_CHANNELS.queue,
+            )
+        )
         self._should_stop = True
 
     def _queue_response_channel(self, obj):
@@ -153,7 +155,10 @@ class ExecutorListener:
 
         :param obj: The Channels message object.
         """
-        return '{}.{}'.format(state.MANAGER_EXECUTOR_CHANNELS.queue_response, obj[ExecutorProtocol.DATA_ID])
+        return "{}.{}".format(
+            state.MANAGER_EXECUTOR_CHANNELS.queue_response,
+            obj[ExecutorProtocol.DATA_ID],
+        )
 
     # The handle_* methods are all Django synchronized, meaning they're run
     # in separate threads. Having this method be sync and calling async_to_sync
@@ -168,10 +173,12 @@ class ExecutorListener:
         :param reply: The message contents dictionary. The data id is
             added automatically (``reply`` is modified in place).
         """
-        reply.update({
-            ExecutorProtocol.DATA_ID: obj[ExecutorProtocol.DATA_ID],
-        })
-        await self._call_redis(aioredis.Redis.rpush, self._queue_response_channel(obj), json.dumps(reply))
+        reply.update(
+            {ExecutorProtocol.DATA_ID: obj[ExecutorProtocol.DATA_ID],}
+        )
+        await self._call_redis(
+            aioredis.Redis.rpush, self._queue_response_channel(obj), json.dumps(reply)
+        )
 
     def hydrate_spawned_files(self, exported_files_mapper, filename, data_id):
         """Pop the given file's map from the exported files mapping.
@@ -191,14 +198,18 @@ class ExecutorListener:
         data_id = str(data_id)
 
         if filename not in exported_files_mapper[data_id]:
-            raise KeyError("Use 're-export' to prepare the file for spawned process: {}".format(filename))
+            raise KeyError(
+                "Use 're-export' to prepare the file for spawned process: {}".format(
+                    filename
+                )
+            )
 
         export_fn = exported_files_mapper[data_id].pop(filename)
 
         if exported_files_mapper[data_id] == {}:
             exported_files_mapper.pop(data_id)
 
-        return {'file_temp': export_fn, 'file': filename}
+        return {"file_temp": export_fn, "file": filename}
 
     def handle_update(self, obj, internal_call=False):
         """Handle an incoming ``Data`` object update request.
@@ -224,70 +235,74 @@ class ExecutorListener:
         if not internal_call:
             logger.debug(
                 __("Handling update for Data with id {} (handle_update).", data_id),
-                extra={
-                    'data_id': data_id,
-                    'packet': obj
-                }
+                extra={"data_id": data_id, "packet": obj},
             )
         try:
             d = Data.objects.get(pk=data_id)
         except Data.DoesNotExist:
             logger.warning(
                 "Data object does not exist (handle_update).",
-                extra={
-                    'data_id': data_id,
-                }
+                extra={"data_id": data_id,},
             )
 
             if not internal_call:
-                async_to_sync(self._send_reply)(obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_ERROR})
+                async_to_sync(self._send_reply)(
+                    obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_ERROR}
+                )
 
-            async_to_sync(consumer.send_event)({
-                WorkerProtocol.COMMAND: WorkerProtocol.ABORT,
-                WorkerProtocol.DATA_ID: obj[ExecutorProtocol.DATA_ID],
-                WorkerProtocol.FINISH_COMMUNICATE_EXTRA: {
-                    'executor': getattr(settings, 'FLOW_EXECUTOR', {}).get('NAME', 'resolwe.flow.executors.local'),
-                },
-            })
-
-            return
-
-        if changeset.get('status', None) == Data.STATUS_ERROR:
-            logger.error(
-                __("Error occured while running process '{}' (handle_update).", d.process.slug),
-                extra={
-                    'data_id': data_id,
-                    'api_url': '{}{}'.format(
-                        getattr(settings, 'RESOLWE_HOST_URL', ''),
-                        reverse('resolwe-api:data-detail', kwargs={'pk': data_id})
-                    ),
+            async_to_sync(consumer.send_event)(
+                {
+                    WorkerProtocol.COMMAND: WorkerProtocol.ABORT,
+                    WorkerProtocol.DATA_ID: obj[ExecutorProtocol.DATA_ID],
+                    WorkerProtocol.FINISH_COMMUNICATE_EXTRA: {
+                        "executor": getattr(settings, "FLOW_EXECUTOR", {}).get(
+                            "NAME", "resolwe.flow.executors.local"
+                        ),
+                    },
                 }
             )
 
+            return
+
+        if changeset.get("status", None) == Data.STATUS_ERROR:
+            logger.error(
+                __(
+                    "Error occured while running process '{}' (handle_update).",
+                    d.process.slug,
+                ),
+                extra={
+                    "data_id": data_id,
+                    "api_url": "{}{}".format(
+                        getattr(settings, "RESOLWE_HOST_URL", ""),
+                        reverse("resolwe-api:data-detail", kwargs={"pk": data_id}),
+                    ),
+                },
+            )
+
         if d.status == Data.STATUS_ERROR:
-            changeset['status'] = Data.STATUS_ERROR
+            changeset["status"] = Data.STATUS_ERROR
 
         if not d.started:
-            changeset['started'] = now()
-        changeset['modified'] = now()
+            changeset["started"] = now()
+        changeset["modified"] = now()
 
         for key, val in changeset.items():
-            if key in ['process_error', 'process_warning', 'process_info']:
+            if key in ["process_error", "process_warning", "process_info"]:
                 # Trim process_* fields to not exceed max length of the database field.
                 for i, entry in enumerate(val):
                     max_length = Data._meta.get_field(key).base_field.max_length
                     if len(entry) > max_length:
-                        val[i] = entry[:max_length - 3] + '...'
+                        val[i] = entry[: max_length - 3] + "..."
 
                 getattr(d, key).extend(val)
 
-            elif key != 'output':
+            elif key != "output":
                 setattr(d, key, val)
 
-        if 'output' in changeset:
+        if "output" in changeset:
             if not isinstance(d.output, dict):
                 d.output = {}
-            for key, val in changeset['output'].items():
+            for key, val in changeset["output"].items():
                 dict_dot(d.output, key, val)
 
         try:
@@ -297,11 +312,9 @@ class ExecutorListener:
                 __(
                     "Validation error when saving Data object of process '{}' (handle_update):\n\n{}",
                     d.process.slug,
-                    traceback.format_exc()
+                    traceback.format_exc(),
                 ),
-                extra={
-                    'data_id': data_id
-                }
+                extra={"data_id": data_id},
             )
 
             d.refresh_from_db()
@@ -310,7 +323,7 @@ class ExecutorListener:
             d.status = Data.STATUS_ERROR
 
             try:
-                d.save(update_fields=['process_error', 'status'])
+                d.save(update_fields=["process_error", "status"])
             except Exception:
                 pass
         except Exception:
@@ -318,15 +331,15 @@ class ExecutorListener:
                 __(
                     "Error when saving Data object of process '{}' (handle_update):\n\n{}",
                     d.process.slug,
-                    traceback.format_exc()
+                    traceback.format_exc(),
                 ),
-                extra={
-                    'data_id': data_id
-                }
+                extra={"data_id": data_id},
             )
 
         if not internal_call:
-            async_to_sync(self._send_reply)(obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK})
+            async_to_sync(self._send_reply)(
+                obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK}
+            )
 
     def handle_finish(self, obj):
         """Handle an incoming ``Data`` finished processing request.
@@ -347,10 +360,7 @@ class ExecutorListener:
         data_id = obj[ExecutorProtocol.DATA_ID]
         logger.debug(
             __("Finishing Data with id {} (handle_finish).", data_id),
-            extra={
-                'data_id': data_id,
-                'packet': obj
-            }
+            extra={"data_id": data_id, "packet": obj},
         )
         spawning_failed = False
         with transaction.atomic():
@@ -367,10 +377,11 @@ class ExecutorListener:
                 spawned = True
                 exported_files_mapper = obj[ExecutorProtocol.FINISH_EXPORTED_FILES]
                 logger.debug(
-                    __("Spawning new Data objects for Data with id {} (handle_finish).", data_id),
-                    extra={
-                        'data_id': data_id
-                    }
+                    __(
+                        "Spawning new Data objects for Data with id {} (handle_finish).",
+                        data_id,
+                    ),
+                    extra={"data_id": data_id},
                 )
 
                 try:
@@ -382,24 +393,32 @@ class ExecutorListener:
 
                         # Spawn processes.
                         for d in obj[ExecutorProtocol.FINISH_SPAWN_PROCESSES]:
-                            d['contributor'] = parent_data.contributor
-                            d['process'] = Process.objects.filter(slug=d['process']).latest()
-                            d['tags'] = parent_data.tags
-                            d['collection'] = parent_data.collection
-                            d['subprocess_parent'] = parent_data
+                            d["contributor"] = parent_data.contributor
+                            d["process"] = Process.objects.filter(
+                                slug=d["process"]
+                            ).latest()
+                            d["tags"] = parent_data.tags
+                            d["collection"] = parent_data.collection
+                            d["subprocess_parent"] = parent_data
 
-                            for field_schema, fields in iterate_fields(d.get('input', {}), d['process'].input_schema):
-                                type_ = field_schema['type']
-                                name = field_schema['name']
+                            for field_schema, fields in iterate_fields(
+                                d.get("input", {}), d["process"].input_schema
+                            ):
+                                type_ = field_schema["type"]
+                                name = field_schema["name"]
                                 value = fields[name]
 
-                                if type_ == 'basic:file:':
+                                if type_ == "basic:file:":
                                     fields[name] = self.hydrate_spawned_files(
                                         exported_files_mapper, value, data_id
                                     )
-                                elif type_ == 'list:basic:file:':
-                                    fields[name] = [self.hydrate_spawned_files(exported_files_mapper, fn, data_id)
-                                                    for fn in value]
+                                elif type_ == "list:basic:file:":
+                                    fields[name] = [
+                                        self.hydrate_spawned_files(
+                                            exported_files_mapper, fn, data_id
+                                        )
+                                        for fn in value
+                                    ]
 
                             d = Data.objects.create(**d)
 
@@ -408,11 +427,9 @@ class ExecutorListener:
                         __(
                             "Error while preparing spawned Data objects of process '{}' (handle_finish):\n\n{}",
                             parent_data.process.slug,
-                            traceback.format_exc()
+                            traceback.format_exc(),
                         ),
-                        extra={
-                            'data_id': data_id
-                        }
+                        extra={"data_id": data_id},
                     )
                     spawning_failed = True
 
@@ -427,33 +444,35 @@ class ExecutorListener:
                 except Data.DoesNotExist:
                     logger.warning(
                         "Data object does not exist (handle_finish).",
-                        extra={
-                            'data_id': data_id,
-                        }
+                        extra={"data_id": data_id,},
                     )
-                    async_to_sync(self._send_reply)(obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_ERROR})
+                    async_to_sync(self._send_reply)(
+                        obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_ERROR}
+                    )
                     return
 
                 changeset = {
-                    'process_progress': 100,
-                    'finished': now(),
+                    "process_progress": 100,
+                    "finished": now(),
                 }
 
                 if spawning_failed:
-                    changeset['status'] = Data.STATUS_ERROR
-                    changeset['process_error'] = ["Error while preparing spawned Data objects"]
+                    changeset["status"] = Data.STATUS_ERROR
+                    changeset["process_error"] = [
+                        "Error while preparing spawned Data objects"
+                    ]
 
                 elif process_rc == 0 and not d.status == Data.STATUS_ERROR:
-                    changeset['status'] = Data.STATUS_DONE
+                    changeset["status"] = Data.STATUS_DONE
 
                 else:
-                    changeset['status'] = Data.STATUS_ERROR
-                    changeset['process_rc'] = process_rc
+                    changeset["status"] = Data.STATUS_ERROR
+                    changeset["process_rc"] = process_rc
 
                 obj[ExecutorProtocol.UPDATE_CHANGESET] = changeset
                 self.handle_update(obj, internal_call=True)
 
-        if not getattr(settings, 'FLOW_MANAGER_KEEP_DATA', False):
+        if not getattr(settings, "FLOW_MANAGER_KEEP_DATA", False):
             # Purge worker is not running in test runner, so we should skip triggering it.
             if not is_testing():
                 channel_layer = get_channel_layer()
@@ -461,32 +480,38 @@ class ExecutorListener:
                     async_to_sync(channel_layer.send)(
                         CHANNEL_PURGE_WORKER,
                         {
-                            'type': TYPE_PURGE_RUN,
-                            'location_id': d.location.id,
-                            'verbosity': self._verbosity,
-                        }
+                            "type": TYPE_PURGE_RUN,
+                            "location_id": d.location.id,
+                            "verbosity": self._verbosity,
+                        },
                     )
                 except ChannelFull:
                     logger.warning(
                         "Cannot trigger purge because channel is full.",
-                        extra={'data_id': data_id}
+                        extra={"data_id": data_id},
                     )
 
         # Notify the executor that we're done.
-        async_to_sync(self._send_reply)(obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK})
+        async_to_sync(self._send_reply)(
+            obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK}
+        )
 
         # Now nudge the main manager to perform final cleanup. This is
         # needed even if there was no spawn baggage, since the manager
         # may need to know when executors have finished, to keep count
         # of them and manage synchronization.
-        async_to_sync(consumer.send_event)({
-            WorkerProtocol.COMMAND: WorkerProtocol.FINISH,
-            WorkerProtocol.DATA_ID: data_id,
-            WorkerProtocol.FINISH_SPAWNED: spawned,
-            WorkerProtocol.FINISH_COMMUNICATE_EXTRA: {
-                'executor': getattr(settings, 'FLOW_EXECUTOR', {}).get('NAME', 'resolwe.flow.executors.local'),
-            },
-        })
+        async_to_sync(consumer.send_event)(
+            {
+                WorkerProtocol.COMMAND: WorkerProtocol.FINISH,
+                WorkerProtocol.DATA_ID: data_id,
+                WorkerProtocol.FINISH_SPAWNED: spawned,
+                WorkerProtocol.FINISH_COMMUNICATE_EXTRA: {
+                    "executor": getattr(settings, "FLOW_EXECUTOR", {}).get(
+                        "NAME", "resolwe.flow.executors.local"
+                    ),
+                },
+            }
+        )
 
     def handle_abort(self, obj):
         """Handle an incoming ``Data`` abort processing request.
@@ -507,13 +532,17 @@ class ExecutorListener:
                                this command was triggered by],
                 }
         """
-        async_to_sync(consumer.send_event)({
-            WorkerProtocol.COMMAND: WorkerProtocol.ABORT,
-            WorkerProtocol.DATA_ID: obj[ExecutorProtocol.DATA_ID],
-            WorkerProtocol.FINISH_COMMUNICATE_EXTRA: {
-                'executor': getattr(settings, 'FLOW_EXECUTOR', {}).get('NAME', 'resolwe.flow.executors.local'),
-            },
-        })
+        async_to_sync(consumer.send_event)(
+            {
+                WorkerProtocol.COMMAND: WorkerProtocol.ABORT,
+                WorkerProtocol.DATA_ID: obj[ExecutorProtocol.DATA_ID],
+                WorkerProtocol.FINISH_COMMUNICATE_EXTRA: {
+                    "executor": getattr(settings, "FLOW_EXECUTOR", {}).get(
+                        "NAME", "resolwe.flow.executors.local"
+                    ),
+                },
+            }
+        )
 
     def handle_log(self, obj):
         """Handle an incoming log processing request.
@@ -528,18 +557,20 @@ class ExecutorListener:
                 }
         """
         record_dict = json.loads(obj[ExecutorProtocol.LOG_MESSAGE])
-        record_dict['msg'] = record_dict['msg']
+        record_dict["msg"] = record_dict["msg"]
 
-        executors_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'executors')
-        record_dict['pathname'] = os.path.join(executors_dir, record_dict['pathname'])
+        executors_dir = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), "executors"
+        )
+        record_dict["pathname"] = os.path.join(executors_dir, record_dict["pathname"])
 
         logger.handle(logging.makeLogRecord(record_dict))
 
     def _make_stats(self):
         """Create a stats snapshot."""
         return {
-            'load_avg': self.load_avg.to_dict(),
-            'service_time': self.service_time.to_dict(),
+            "load_avg": self.load_avg.to_dict(),
+            "service_time": self.service_time.to_dict(),
         }
 
     async def push_stats(self):
@@ -547,39 +578,43 @@ class ExecutorListener:
         snapshot = self._make_stats()
         try:
             serialized = json.dumps(snapshot)
-            await self._call_redis(aioredis.Redis.set, state.MANAGER_LISTENER_STATS, serialized)
-            await self._call_redis(aioredis.Redis.expire, state.MANAGER_LISTENER_STATS, 3600)
+            await self._call_redis(
+                aioredis.Redis.set, state.MANAGER_LISTENER_STATS, serialized
+            )
+            await self._call_redis(
+                aioredis.Redis.expire, state.MANAGER_LISTENER_STATS, 3600
+            )
         except TypeError:
-            logger.error(__(
-                "Listener can't serialize statistics:\n\n{}",
-                traceback.format_exc()
-            ))
+            logger.error(
+                __("Listener can't serialize statistics:\n\n{}", traceback.format_exc())
+            )
         except aioredis.RedisError:
-            logger.error(__(
-                "Listener can't store updated statistics:\n\n{}",
-                traceback.format_exc()
-            ))
+            logger.error(
+                __(
+                    "Listener can't store updated statistics:\n\n{}",
+                    traceback.format_exc(),
+                )
+            )
 
     def check_critical_load(self):
         """Check for critical load and log an error if necessary."""
-        if self.load_avg.intervals['1m'].value > 1:
+        if self.load_avg.intervals["1m"].value > 1:
             if self.last_load_level == 1 and time.time() - self.last_load_log < 30:
                 return
             self.last_load_log = time.time()
             self.last_load_level = 1
             logger.error(
                 "Listener load limit exceeded, the system can't handle this!",
-                extra=self._make_stats()
+                extra=self._make_stats(),
             )
 
-        elif self.load_avg.intervals['1m'].value > 0.8:
+        elif self.load_avg.intervals["1m"].value > 0.8:
             if self.last_load_level == 0.8 and time.time() - self.last_load_log < 30:
                 return
             self.last_load_log = time.time()
             self.last_load_level = 0.8
             logger.warning(
-                "Listener load approaching critical!",
-                extra=self._make_stats()
+                "Listener load approaching critical!", extra=self._make_stats()
             )
 
         else:
@@ -591,28 +626,33 @@ class ExecutorListener:
 
         Doesn't return until :meth:`terminate` is called.
         """
-        logger.info(__(
-            "Starting Resolwe listener on channel '{}'.",
-            state.MANAGER_EXECUTOR_CHANNELS.queue
-        ))
+        logger.info(
+            __(
+                "Starting Resolwe listener on channel '{}'.",
+                state.MANAGER_EXECUTOR_CHANNELS.queue,
+            )
+        )
         while not self._should_stop:
             await self.push_stats()
-            ret = await self._call_redis(aioredis.Redis.blpop, state.MANAGER_EXECUTOR_CHANNELS.queue, timeout=1)
+            ret = await self._call_redis(
+                aioredis.Redis.blpop, state.MANAGER_EXECUTOR_CHANNELS.queue, timeout=1
+            )
             if ret is None:
                 self.load_avg.add(0)
                 continue
-            remaining = await self._call_redis(aioredis.Redis.llen, state.MANAGER_EXECUTOR_CHANNELS.queue)
+            remaining = await self._call_redis(
+                aioredis.Redis.llen, state.MANAGER_EXECUTOR_CHANNELS.queue
+            )
             self.load_avg.add(remaining + 1)
             self.check_critical_load()
             _, item = ret
             try:
-                item = item.decode('utf-8')
+                item = item.decode("utf-8")
                 logger.debug(__("Got command from executor: {}", item))
                 obj = json.loads(item)
             except json.JSONDecodeError:
                 logger.error(
-                    __("Undecodable command packet:\n\n{}"),
-                    traceback.format_exc()
+                    __("Undecodable command packet:\n\n{}"), traceback.format_exc()
                 )
                 continue
 
@@ -622,20 +662,22 @@ class ExecutorListener:
 
             service_start = time.perf_counter()
 
-            handler = getattr(self, 'handle_' + command, None)
+            handler = getattr(self, "handle_" + command, None)
             if handler:
                 try:
                     with PrioritizedBatcher.global_instance():
                         await database_sync_to_async(handler)(obj)
                 except Exception:
-                    logger.error(__(
-                        "Executor command handling error:\n\n{}",
-                        traceback.format_exc()
-                    ))
+                    logger.error(
+                        __(
+                            "Executor command handling error:\n\n{}",
+                            traceback.format_exc(),
+                        )
+                    )
             else:
                 logger.error(
                     __("Unknown executor command '{}'.", command),
-                    extra={'decoded_packet': obj}
+                    extra={"decoded_packet": obj},
                 )
 
             # We do want to measure wall-clock time elapsed, because
@@ -643,7 +685,9 @@ class ExecutorListener:
             # a lagging system, good internal performance is meaningless.
             service_end = time.perf_counter()
             self.service_time.update(service_end - service_start)
-        logger.info(__(
-            "Stopping Resolwe listener on channel '{}'.",
-            state.MANAGER_EXECUTOR_CHANNELS.queue
-        ))
+        logger.info(
+            __(
+                "Stopping Resolwe listener on channel '{}'.",
+                state.MANAGER_EXECUTOR_CHANNELS.queue,
+            )
+        )

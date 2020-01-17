@@ -24,9 +24,9 @@ from .lookup import QueryBuilder
 from .pagination import LimitOffsetPostPagination
 
 __all__ = (
-    'ElasticSearchMixin',
-    'PaginationMixin',
-    'ElasticSearchBaseViewSet',
+    "ElasticSearchMixin",
+    "PaginationMixin",
+    "ElasticSearchBaseViewSet",
 )
 
 ELASTICSEARCH_SIZE = 10000  # maximum number of results returned by ElasticSearch
@@ -36,8 +36,10 @@ class TooManyResults(APIException):
     """Exception when elastic query returns more than ``ELASTICSEARCH_SIZE`` results."""
 
     status_code = 400
-    default_detail = 'Query returned too many results. Please, add more filters or use pagination.'
-    default_code = 'bad_request'
+    default_detail = (
+        "Query returned too many results. Please, add more filters or use pagination."
+    )
+    default_code = "bad_request"
 
 
 class ElasticSearchMixin:
@@ -63,10 +65,10 @@ class ElasticSearchMixin:
         self.ordering_map = self.ordering_map.copy()
 
         for extension in composer.get_extensions(self):
-            filtering_fields = getattr(extension, 'filtering_fields', [])
-            filtering_map = getattr(extension, 'filtering_map', {})
-            ordering_fields = getattr(extension, 'ordering_fields', [])
-            ordering_map = getattr(extension, 'ordering_map', {})
+            filtering_fields = getattr(extension, "filtering_fields", [])
+            filtering_map = getattr(extension, "filtering_map", {})
+            ordering_fields = getattr(extension, "ordering_fields", [])
+            ordering_map = getattr(extension, "ordering_map", {})
 
             self.filtering_fields = self.filtering_fields + tuple(filtering_fields)
             self.filtering_map.update(filtering_map)
@@ -74,7 +76,7 @@ class ElasticSearchMixin:
             self.ordering_map.update(ordering_map)
 
             for field_name in filtering_fields:
-                custom_filter_name = 'custom_filter_{}'.format(field_name)
+                custom_filter_name = "custom_filter_{}".format(field_name)
                 custom_filter = getattr(extension, custom_filter_name, None)
                 if custom_filter:
                     setattr(self, custom_filter_name, MethodType(custom_filter, self))
@@ -102,30 +104,32 @@ class ElasticSearchMixin:
         :param search: ElasticSearch query object
 
         """
-        ordering = self.get_query_param('ordering', self.ordering)
+        ordering = self.get_query_param("ordering", self.ordering)
         if not ordering:
             return search
 
         sort_fields = []
-        for raw_ordering in ordering.split(','):
-            ordering_field = raw_ordering.lstrip('-')
+        for raw_ordering in ordering.split(","):
+            ordering_field = raw_ordering.lstrip("-")
             if ordering_field not in self.ordering_fields:
-                raise ParseError('Ordering by `{}` is not supported.'.format(ordering_field))
+                raise ParseError(
+                    "Ordering by `{}` is not supported.".format(ordering_field)
+                )
 
             ordering_field = self.ordering_map.get(ordering_field, ordering_field)
-            direction = '-' if raw_ordering[0] == '-' else ''
-            sort_fields.append('{}{}'.format(direction, ordering_field))
+            direction = "-" if raw_ordering[0] == "-" else ""
+            sort_fields.append("{}{}".format(direction, ordering_field))
 
         return search.sort(*sort_fields)
 
     def get_always_allowed_arguments(self):
         """Return query arguments which are always allowed."""
         return [
-            'ordering',
-            'offset',
-            'limit',
-            'format',
-            'fields',
+            "ordering",
+            "offset",
+            "limit",
+            "format",
+            "fields",
         ]
 
     def filter_search(self, search):
@@ -134,11 +138,7 @@ class ElasticSearchMixin:
         :param search: ElasticSearch query object
 
         """
-        builder = QueryBuilder(
-            self.filtering_fields,
-            self.filtering_map,
-            self
-        )
+        builder = QueryBuilder(self.filtering_fields, self.filtering_map, self)
         search, unmatched = builder.build(search, self.get_query_params())
 
         # Ensure that no unsupported arguments were used.
@@ -146,9 +146,8 @@ class ElasticSearchMixin:
             unmatched.pop(argument, None)
 
         if unmatched:
-            msg = 'Unsupported parameter(s): {}. Please use a combination of: {}.'.format(
-                ', '.join(unmatched),
-                ', '.join(self.filtering_fields),
+            msg = "Unsupported parameter(s): {}. Please use a combination of: {}.".format(
+                ", ".join(unmatched), ", ".join(self.filtering_fields),
             )
             raise ParseError(msg)
 
@@ -166,14 +165,17 @@ class ElasticSearchMixin:
         if user.is_anonymous:
             user = get_anonymous_user()
 
-        filters = [Q('match', users_with_permissions=user.pk)]
-        filters.extend([
-            Q('match', groups_with_permissions=group.pk) for group in user.groups.all()
-        ])
-        filters.append(Q('match', public_permission=True))
+        filters = [Q("match", users_with_permissions=user.pk)]
+        filters.extend(
+            [
+                Q("match", groups_with_permissions=group.pk)
+                for group in user.groups.all()
+            ]
+        )
+        filters.append(Q("match", public_permission=True))
 
         # `minimum_should_match` is set to 1 by default
-        return search.query('bool', should=filters)
+        return search.query("bool", should=filters)
 
 
 class PaginationMixin:
@@ -272,7 +274,7 @@ class ElasticSearchCombinedViewSet(ElasticSearchBaseViewSet):
     this by setting ``primary_key_field``.
     """
 
-    primary_key_field = 'id'
+    primary_key_field = "id"
 
     def is_search_request(self):
         """Check if current request is a search request."""
@@ -297,15 +299,17 @@ class ElasticSearchCombinedViewSet(ElasticSearchBaseViewSet):
                     primary_keys.append(pk)
                     order_map_cases.append(When(pk=pk, then=Value(order)))
 
-                queryset = self.get_queryset().filter(
-                    pk__in=primary_keys
-                ).order_by(
-                    Case(*order_map_cases, output_field=IntegerField()).asc()
+                queryset = (
+                    self.get_queryset()
+                    .filter(pk__in=primary_keys)
+                    .order_by(Case(*order_map_cases, output_field=IntegerField()).asc())
                 )
             except KeyError:
-                raise KeyError("Combined viewset requires that your index contains a field with "
-                               "the primary key. By default this field is called 'id', but you "
-                               "can change it by setting primary_key_field.")
+                raise KeyError(
+                    "Combined viewset requires that your index contains a field with "
+                    "the primary key. By default this field is called 'id', but you "
+                    "can change it by setting primary_key_field."
+                )
 
             # Pagination must be handled differently.
             serializer = self.get_serializer(queryset, many=True)

@@ -39,7 +39,7 @@ from .protocol import ExecutorFiles, WorkerProtocol
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_CONNECTOR = 'resolwe.flow.managers.workload_connectors.local'
+DEFAULT_CONNECTOR = "resolwe.flow.managers.workload_connectors.local"
 
 
 class SettingsJSONifier(json.JSONEncoder):
@@ -66,9 +66,9 @@ def dependency_status(data):
 
     """
     parents_statuses = set(
-        DataDependency.objects.filter(
-            child=data, kind=DataDependency.KIND_IO
-        ).distinct('parent__status').values_list('parent__status', flat=True)
+        DataDependency.objects.filter(child=data, kind=DataDependency.KIND_IO)
+        .distinct("parent__status")
+        .values_list("parent__status", flat=True)
     )
 
     if not parents_statuses:
@@ -123,17 +123,21 @@ class Manager:
 
         async def __aexit__(self, exc_type, exc_val, exc_tb):
             """Wait for executors to finish, then return."""
-            logger.info(__("Waiting for executor count to drop to 0, now it is {}", self.value))
+            logger.info(
+                __("Waiting for executor count to drop to 0, now it is {}", self.value)
+            )
 
             await self.condition.acquire()
             try:
                 await self.condition.wait()
             finally:
                 self.condition.release()
-            logger.debug(__(
-                "Sync semaphore dropped to 0, tag sequence was {}.",
-                self.tag_sequence
-            ))
+            logger.debug(
+                __(
+                    "Sync semaphore dropped to 0, tag sequence was {}.",
+                    self.tag_sequence,
+                )
+            )
 
             self.active = False
             return False
@@ -150,7 +154,7 @@ class Manager:
             await self.condition.acquire()
             self.value += 1
             logger.debug(__("Sync semaphore increased to {}, tag {}.", self.value, tag))
-            self.tag_sequence.append(tag + '-up')
+            self.tag_sequence.append(tag + "-up")
             self.condition.release()
 
         async def dec(self, tag):
@@ -162,8 +166,10 @@ class Manager:
             await self.condition.acquire()
             try:
                 self.value -= 1
-                logger.debug(__("Sync semaphore decreased to {}, tag {}.", self.value, tag))
-                self.tag_sequence.append(tag + '-down')
+                logger.debug(
+                    __("Sync semaphore decreased to {}, tag {}.", self.value, tag)
+                )
+                self.tag_sequence.append(tag + "-down")
                 ret = self.value == 0
                 if self.active and self.value == 0:
                     self.condition.notify_all()
@@ -233,23 +239,42 @@ class Manager:
         :param executor: Optional executor module override
         """
         if executor is None:
-            executor = getattr(settings, 'FLOW_EXECUTOR', {}).get('NAME', 'resolwe.flow.executors.local')
+            executor = getattr(settings, "FLOW_EXECUTOR", {}).get(
+                "NAME", "resolwe.flow.executors.local"
+            )
         self.executor = self.load_executor(executor)
         logger.info(
-            __("Loaded '{}' executor.", str(self.executor.__class__.__module__).replace('.prepare', ''))
+            __(
+                "Loaded '{}' executor.",
+                str(self.executor.__class__.__module__).replace(".prepare", ""),
+            )
         )
 
-        expression_engines = getattr(settings, 'FLOW_EXPRESSION_ENGINES', ['resolwe.flow.expression_engines.jinja'])
+        expression_engines = getattr(
+            settings,
+            "FLOW_EXPRESSION_ENGINES",
+            ["resolwe.flow.expression_engines.jinja"],
+        )
         self.expression_engines = self.load_expression_engines(expression_engines)
-        logger.info(__(
-            "Found {} expression engines: {}", len(self.expression_engines), ', '.join(self.expression_engines.keys())
-        ))
+        logger.info(
+            __(
+                "Found {} expression engines: {}",
+                len(self.expression_engines),
+                ", ".join(self.expression_engines.keys()),
+            )
+        )
 
-        execution_engines = getattr(settings, 'FLOW_EXECUTION_ENGINES', ['resolwe.flow.execution_engines.bash'])
+        execution_engines = getattr(
+            settings, "FLOW_EXECUTION_ENGINES", ["resolwe.flow.execution_engines.bash"]
+        )
         self.execution_engines = self.load_execution_engines(execution_engines)
-        logger.info(__(
-            "Found {} execution engines: {}", len(self.execution_engines), ', '.join(self.execution_engines.keys())
-        ))
+        logger.info(
+            __(
+                "Found {} execution engines: {}",
+                len(self.execution_engines),
+                ", ".join(self.execution_engines.keys()),
+            )
+        )
 
     def reset(self, keep_state=False):
         """Reset the shared state and drain Django Channels.
@@ -305,28 +330,33 @@ class Manager:
         # manager instance.
         with suppress(ImportError):
             from resolwe.flow import managers
-            assert not hasattr(managers, 'manager')
+
+            assert not hasattr(managers, "manager")
 
         self.scheduling_class_map = dict(Process.SCHEDULING_CLASS_CHOICES)
 
         # Check settings for consistency.
-        flow_manager = getattr(settings, 'FLOW_MANAGER', {})
-        if 'DISPATCHER_MAPPING' in flow_manager and 'NAME' in flow_manager:
-            raise ImproperlyConfigured("Key 'DISPATCHER_MAPPING' conflicts with key 'NAME' in FLOW_MANAGER settings.")
+        flow_manager = getattr(settings, "FLOW_MANAGER", {})
+        if "DISPATCHER_MAPPING" in flow_manager and "NAME" in flow_manager:
+            raise ImproperlyConfigured(
+                "Key 'DISPATCHER_MAPPING' conflicts with key 'NAME' in FLOW_MANAGER settings."
+            )
 
-        if 'DISPATCHER_MAPPING' in flow_manager:
-            mapping = flow_manager['DISPATCHER_MAPPING']
+        if "DISPATCHER_MAPPING" in flow_manager:
+            mapping = flow_manager["DISPATCHER_MAPPING"]
 
             scheduling_classes = set(self.scheduling_class_map.values())
             map_keys = set(mapping.keys())
             class_difference = scheduling_classes - map_keys
             if class_difference:
                 raise ImproperlyConfigured(
-                    "Dispatcher manager mapping settings incomplete, missing {}.".format(class_difference)
+                    "Dispatcher manager mapping settings incomplete, missing {}.".format(
+                        class_difference
+                    )
                 )
             connector_list = [mapping[klass] for klass in scheduling_classes]
         else:
-            connector_list = [flow_manager.get('NAME', DEFAULT_CONNECTOR)]
+            connector_list = [flow_manager.get("NAME", DEFAULT_CONNECTOR)]
 
         # Pre-load all needed connectors.
         self.connectors = {}
@@ -334,9 +364,13 @@ class Manager:
             connector_module = import_module(module_name)
             self.connectors[module_name] = connector_module.Connector()
 
-        logger.info(__(
-            "Found {} workload connectors: {}", len(self.connectors), ', '.join(self.connectors.keys())
-        ))
+        logger.info(
+            __(
+                "Found {} workload connectors: {}",
+                len(self.connectors),
+                ", ".join(self.connectors.keys()),
+            )
+        )
 
         super().__init__(*args, **kwargs)
 
@@ -348,21 +382,26 @@ class Manager:
         """
         result = {}
         for key in dir(settings):
-            if any(map(key.startswith, ['FLOW_', 'RESOLWE_', 'CELERY_'])):
+            if any(map(key.startswith, ["FLOW_", "RESOLWE_", "CELERY_"])):
                 result[key] = getattr(settings, key)
         return result
 
     def _include_environment_variables(self, program, executor_vars):
         """Define environment variables."""
         env_vars = {
-            'RESOLWE_HOST_URL': self.settings_actual.get('RESOLWE_HOST_URL', 'localhost'),
+            "RESOLWE_HOST_URL": self.settings_actual.get(
+                "RESOLWE_HOST_URL", "localhost"
+            ),
         }
 
-        set_env = self.settings_actual.get('FLOW_EXECUTOR', {}).get('SET_ENV', {})
+        set_env = self.settings_actual.get("FLOW_EXECUTOR", {}).get("SET_ENV", {})
         env_vars.update(executor_vars)
         env_vars.update(set_env)
 
-        export_commands = ['export {}={}'.format(key, shlex.quote(value)) for key, value in env_vars.items()]
+        export_commands = [
+            "export {}={}".format(key, shlex.quote(value))
+            for key, value in env_vars.items()
+        ]
         return os.linesep.join(export_commands) + os.linesep + program
 
     def run(self, data, runtime_dir, argv):
@@ -374,15 +413,17 @@ class Manager:
         :param argv: The argument vector used to spawn the executor.
         """
         process_scheduling = self.scheduling_class_map[data.process.scheduling_class]
-        if 'DISPATCHER_MAPPING' in getattr(settings, 'FLOW_MANAGER', {}):
-            class_name = settings.FLOW_MANAGER['DISPATCHER_MAPPING'][process_scheduling]
+        if "DISPATCHER_MAPPING" in getattr(settings, "FLOW_MANAGER", {}):
+            class_name = settings.FLOW_MANAGER["DISPATCHER_MAPPING"][process_scheduling]
         else:
-            class_name = getattr(settings, 'FLOW_MANAGER', {}).get('NAME', DEFAULT_CONNECTOR)
+            class_name = getattr(settings, "FLOW_MANAGER", {}).get(
+                "NAME", DEFAULT_CONNECTOR
+            )
 
         data.scheduled = now()
-        data.save(update_fields=['scheduled'])
+        data.save(update_fields=["scheduled"])
 
-        async_to_sync(self.sync_counter.inc)('executor')
+        async_to_sync(self.sync_counter.inc)("executor")
         return self.connectors[class_name].submit(data, runtime_dir, argv)
 
     def _get_per_data_dir(self, dir_base, subpath):
@@ -407,7 +448,7 @@ class Manager:
         # across events. This also implies the directory settings can't
         # be patched outside the manager and then just sent along in the
         # command packets.
-        result = self.settings_actual.get('FLOW_EXECUTOR', {}).get(dir_base, '')
+        result = self.settings_actual.get("FLOW_EXECUTOR", {}).get(dir_base, "")
         return os.path.join(result, subpath)
 
     def _prepare_data_dir(self, data):
@@ -425,13 +466,17 @@ class Manager:
             # location id since object has to be created first.
             # TODO Find a better solution, e.g. defer the database constraint.
             temporary_location_string = uuid.uuid4().hex[:10]
-            data_location = DataLocation.objects.create(subpath=temporary_location_string)
+            data_location = DataLocation.objects.create(
+                subpath=temporary_location_string
+            )
             data_location.subpath = str(data_location.id)
             data_location.save()
             data_location.data.add(data)
 
-        output_path = self._get_per_data_dir('DATA_DIR', data_location.subpath)
-        dir_mode = self.settings_actual.get('FLOW_EXECUTOR', {}).get('DATA_DIR_MODE', 0o755)
+        output_path = self._get_per_data_dir("DATA_DIR", data_location.subpath)
+        dir_mode = self.settings_actual.get("FLOW_EXECUTOR", {}).get(
+            "DATA_DIR_MODE", 0o755
+        )
         os.mkdir(output_path, mode=dir_mode)
         # os.mkdir is not guaranteed to set the given mode
         os.chmod(output_path, dir_mode)
@@ -459,8 +504,8 @@ class Manager:
         secrets = {}
 
         settings_dict = {}
-        settings_dict['DATA_DIR'] = data_dir
-        settings_dict['REDIS_CHANNEL_PAIR'] = state.MANAGER_EXECUTOR_CHANNELS
+        settings_dict["DATA_DIR"] = data_dir
+        settings_dict["REDIS_CHANNEL_PAIR"] = state.MANAGER_EXECUTOR_CHANNELS
         files[ExecutorFiles.EXECUTOR_SETTINGS] = settings_dict
 
         django_settings = {}
@@ -470,14 +515,17 @@ class Manager:
 
         # Add scheduling classes.
         files[ExecutorFiles.PROCESS_META] = {
-            k: getattr(Process, k) for k in dir(Process)
-            if k.startswith('SCHEDULING_CLASS_') and isinstance(getattr(Process, k), str)
+            k: getattr(Process, k)
+            for k in dir(Process)
+            if k.startswith("SCHEDULING_CLASS_")
+            and isinstance(getattr(Process, k), str)
         }
 
         # Add Data status constants.
         files[ExecutorFiles.DATA_META] = {
-            k: getattr(Data, k) for k in dir(Data)
-            if k.startswith('STATUS_') and isinstance(getattr(Data, k), str)
+            k: getattr(Data, k)
+            for k in dir(Data)
+            if k.startswith("STATUS_") and isinstance(getattr(Data, k), str)
         }
 
         # Extend the settings with whatever the executor wants.
@@ -487,7 +535,7 @@ class Manager:
         settings_dict[ExecutorFiles.FILE_LIST_KEY] = list(files.keys())
         for file_name in files:
             file_path = os.path.join(runtime_dir, file_name)
-            with open(file_path, 'wt') as json_file:
+            with open(file_path, "wt") as json_file:
                 json.dump(files[file_name], json_file, cls=SettingsJSONifier)
 
         # Save the secrets in the runtime dir, with permissions to prevent listing the given
@@ -503,8 +551,10 @@ class Manager:
                 # We need to use os.open in order to correctly enforce file creation. Otherwise,
                 # there is a race condition which can be used to create the file with different
                 # ownership/permissions.
-                file_descriptor = os.open(file_path, os.O_WRONLY | os.O_CREAT, mode=0o600)
-                with os.fdopen(file_descriptor, 'w') as raw_file:
+                file_descriptor = os.open(
+                    file_path, os.O_WRONLY | os.O_CREAT, mode=0o600
+                )
+                with os.fdopen(file_descriptor, "w") as raw_file:
                     raw_file.write(value)
             finally:
                 os.umask(old_umask)
@@ -528,14 +578,16 @@ class Manager:
         import resolwe.flow.executors as executor_package
 
         exec_dir = os.path.dirname(inspect.getsourcefile(executor_package))
-        dest_dir = self._get_per_data_dir('RUNTIME_DIR', data.location.subpath)
-        dest_package_dir = os.path.join(dest_dir, 'executors')
+        dest_dir = self._get_per_data_dir("RUNTIME_DIR", data.location.subpath)
+        dest_package_dir = os.path.join(dest_dir, "executors")
         shutil.copytree(exec_dir, dest_package_dir)
-        dir_mode = self.settings_actual.get('FLOW_EXECUTOR', {}).get('RUNTIME_DIR_MODE', 0o755)
+        dir_mode = self.settings_actual.get("FLOW_EXECUTOR", {}).get(
+            "RUNTIME_DIR_MODE", 0o755
+        )
         os.chmod(dest_dir, dir_mode)
 
-        class_name = executor.rpartition('.executors.')[-1]
-        return '.{}'.format(class_name), dest_dir
+        class_name = executor.rpartition(".executors.")[-1]
+        return ".{}".format(class_name), dest_dir
 
     def _prepare_script(self, dest_dir, program):
         """Copy the script into the destination directory.
@@ -548,7 +600,7 @@ class Manager:
         """
         script_name = ExecutorFiles.PROCESS_SCRIPT
         dest_file = os.path.join(dest_dir, script_name)
-        with open(dest_file, 'wt') as dest_file_obj:
+        with open(dest_file, "wt") as dest_file_obj:
             dest_file_obj.write(program)
         os.chmod(dest_file, 0o700)
         return script_name
@@ -581,19 +633,24 @@ class Manager:
 
         if cmd == WorkerProtocol.COMMUNICATE:
             try:
-                await database_sync_to_async(self._data_scan)(**message[WorkerProtocol.COMMUNICATE_EXTRA])
+                await database_sync_to_async(self._data_scan)(
+                    **message[WorkerProtocol.COMMUNICATE_EXTRA]
+                )
             except Exception:
-                logger.exception("Unknown error occured while processing communicate control command.")
+                logger.exception(
+                    "Unknown error occured while processing communicate control command."
+                )
                 raise
             finally:
-                await self.sync_counter.dec('communicate')
+                await self.sync_counter.dec("communicate")
 
         elif cmd == WorkerProtocol.FINISH:
             try:
                 data_id = message[WorkerProtocol.DATA_ID]
                 data_location = DataLocation.objects.get(data__id=data_id)
-                if not getattr(settings, 'FLOW_MANAGER_KEEP_DATA', False):
+                if not getattr(settings, "FLOW_MANAGER_KEEP_DATA", False):
                     try:
+
                         def handle_error(func, path, exc_info):
                             """Handle permission errors while removing data directories."""
                             if isinstance(exc_info[1], PermissionError):
@@ -604,26 +661,32 @@ class Manager:
                         # intact. Runtime directory will be removed during data purge, when the
                         # data object is removed.
                         secrets_dir = os.path.join(
-                            self._get_per_data_dir('RUNTIME_DIR', data_location.subpath),
-                            ExecutorFiles.SECRETS_DIR
+                            self._get_per_data_dir(
+                                "RUNTIME_DIR", data_location.subpath
+                            ),
+                            ExecutorFiles.SECRETS_DIR,
                         )
                         shutil.rmtree(secrets_dir, onerror=handle_error)
                     except OSError:
-                        logger.exception("Manager exception while removing data runtime directory.")
+                        logger.exception(
+                            "Manager exception while removing data runtime directory."
+                        )
 
                 if message[WorkerProtocol.FINISH_SPAWNED]:
-                    await database_sync_to_async(self._data_scan)(**message[WorkerProtocol.FINISH_COMMUNICATE_EXTRA])
+                    await database_sync_to_async(self._data_scan)(
+                        **message[WorkerProtocol.FINISH_COMMUNICATE_EXTRA]
+                    )
             except Exception:
                 logger.exception(
                     "Unknown error occured while processing finish control command.",
-                    extra={'data_id': data_id}
+                    extra={"data_id": data_id},
                 )
                 raise
             finally:
-                await self.sync_counter.dec('executor')
+                await self.sync_counter.dec("executor")
 
         elif cmd == WorkerProtocol.ABORT:
-            await self.sync_counter.dec('executor')
+            await self.sync_counter.dec("executor")
 
         else:
             logger.error(__("Ignoring unknown manager control command '{}'.", cmd))
@@ -638,6 +701,7 @@ class Manager:
 
         At least one must finish after this point to avoid a deadlock.
         """
+
         async def _barrier():
             """Enter the sync block and exit the app afterwards."""
             async with self.sync_counter:
@@ -645,10 +709,9 @@ class Manager:
             await consumer.exit_consumer()
 
         self._ensure_counter()
-        await asyncio.wait([
-            _barrier(),
-            consumer.run_consumer(),
-        ])
+        await asyncio.wait(
+            [_barrier(), consumer.run_consumer(),]
+        )
         self.sync_counter = self._SynchronizationManagerDummy()
 
     async def communicate(self, data_id=None, run_sync=False, save_settings=True):
@@ -671,12 +734,16 @@ class Manager:
             default value. The saved settings are in effect until the
             next such call.
         """
-        executor = getattr(settings, 'FLOW_EXECUTOR', {}).get('NAME', 'resolwe.flow.executors.local')
-        logger.debug(__(
-            "Manager sending communicate command on '{}' triggered by Data with id {}.",
-            state.MANAGER_CONTROL_CHANNEL,
-            data_id,
-        ))
+        executor = getattr(settings, "FLOW_EXECUTOR", {}).get(
+            "NAME", "resolwe.flow.executors.local"
+        )
+        logger.debug(
+            __(
+                "Manager sending communicate command on '{}' triggered by Data with id {}.",
+                state.MANAGER_CONTROL_CHANNEL,
+                data_id,
+            )
+        )
 
         saved_settings = self.state.settings_override
         if save_settings:
@@ -685,30 +752,38 @@ class Manager:
 
         if run_sync:
             self._ensure_counter()
-        await self.sync_counter.inc('communicate')
+        await self.sync_counter.inc("communicate")
         try:
-            await consumer.send_event({
-                WorkerProtocol.COMMAND: WorkerProtocol.COMMUNICATE,
-                WorkerProtocol.COMMUNICATE_SETTINGS: saved_settings,
-                WorkerProtocol.COMMUNICATE_EXTRA: {
-                    'data_id': data_id,
-                    'executor': executor,
-                },
-            })
+            await consumer.send_event(
+                {
+                    WorkerProtocol.COMMAND: WorkerProtocol.COMMUNICATE,
+                    WorkerProtocol.COMMUNICATE_SETTINGS: saved_settings,
+                    WorkerProtocol.COMMUNICATE_EXTRA: {
+                        "data_id": data_id,
+                        "executor": executor,
+                    },
+                }
+            )
         except ChannelFull:
-            logger.exception("ChannelFull error occurred while sending communicate message.")
-            await self.sync_counter.dec('communicate')
+            logger.exception(
+                "ChannelFull error occurred while sending communicate message."
+            )
+            await self.sync_counter.dec("communicate")
 
         if run_sync and not self.sync_counter.active:
-            logger.debug(__(
-                "Manager on channel '{}' entering synchronization block.",
-                state.MANAGER_CONTROL_CHANNEL
-            ))
+            logger.debug(
+                __(
+                    "Manager on channel '{}' entering synchronization block.",
+                    state.MANAGER_CONTROL_CHANNEL,
+                )
+            )
             await self.execution_barrier()
-            logger.debug(__(
-                "Manager on channel '{}' exiting synchronization block.",
-                state.MANAGER_CONTROL_CHANNEL
-            ))
+            logger.debug(
+                __(
+                    "Manager on channel '{}' exiting synchronization block.",
+                    state.MANAGER_CONTROL_CHANNEL,
+                )
+            )
 
     def _data_execute(self, data, program, executor):
         """Execute the Data object.
@@ -736,17 +811,24 @@ class Manager:
             executor_module, runtime_dir = self._prepare_executor(data, executor)
 
             # Execute execution engine specific runtime preparation.
-            execution_engine = data.process.run.get('language', None)
-            volume_maps = self.get_execution_engine(execution_engine).prepare_runtime(runtime_dir, data)
+            execution_engine = data.process.run.get("language", None)
+            volume_maps = self.get_execution_engine(execution_engine).prepare_runtime(
+                runtime_dir, data
+            )
 
-            self._prepare_context(data.id, data_dir, runtime_dir, RUNTIME_VOLUME_MAPS=volume_maps)
+            self._prepare_context(
+                data.id, data_dir, runtime_dir, RUNTIME_VOLUME_MAPS=volume_maps
+            )
             self._prepare_script(runtime_dir, program)
 
             argv = [
-                '/bin/bash',
-                '-c',
-                self.settings_actual.get('FLOW_EXECUTOR', {}).get('PYTHON', '/usr/bin/env python')
-                + ' -m executors ' + executor_module
+                "/bin/bash",
+                "-c",
+                self.settings_actual.get("FLOW_EXECUTOR", {}).get(
+                    "PYTHON", "/usr/bin/env python"
+                )
+                + " -m executors "
+                + executor_module,
             ]
         except PermissionDenied as error:
             data.status = Data.STATUS_ERROR
@@ -754,17 +836,22 @@ class Manager:
             data.save()
             return
         except OSError as err:
-            logger.error(__(
-                "OSError occurred while preparing data {} (will skip): {}",
-                data.id, err
-            ))
+            logger.error(
+                __(
+                    "OSError occurred while preparing data {} (will skip): {}",
+                    data.id,
+                    err,
+                )
+            )
             return
 
         # Hand off to the run() method for execution.
         logger.info(__("Running {}", runtime_dir))
         self.run(data, runtime_dir, argv)
 
-    def _data_scan(self, data_id=None, executor='resolwe.flow.executors.local', **kwargs):
+    def _data_scan(
+        self, data_id=None, executor="resolwe.flow.executors.local", **kwargs
+    ):
         """Scan for new Data objects and execute them.
 
         :param data_id: Optional id of Data object which (+ its
@@ -774,6 +861,7 @@ class Manager:
             for all :class:`~resolwe.flow.models.Data` objects
             discovered in this pass.
         """
+
         def process_data_object(data):
             """Process a single data object."""
             # Lock for update. Note that we want this transaction to be as short as possible in
@@ -800,7 +888,7 @@ class Manager:
 
             if data.process.run:
                 try:
-                    execution_engine = data.process.run.get('language', None)
+                    execution_engine = data.process.run.get("language", None)
                     # Evaluation by the execution engine may spawn additional data objects and
                     # perform other queries on the database. Queries of all possible execution
                     # engines need to be audited for possibilities of deadlocks in case any
@@ -809,19 +897,21 @@ class Manager:
                     program = self.get_execution_engine(execution_engine).evaluate(data)
                 except (ExecutionError, InvalidEngineError) as error:
                     data.status = Data.STATUS_ERROR
-                    data.process_error.append("Error in process script: {}".format(error))
+                    data.process_error.append(
+                        "Error in process script: {}".format(error)
+                    )
                     data.save()
                     return
 
                 # Set allocated resources:
                 resource_limits = data.process.get_resource_limits()
-                data.process_memory = resource_limits['memory']
-                data.process_cores = resource_limits['cores']
+                data.process_memory = resource_limits["memory"]
+                data.process_cores = resource_limits["cores"]
             else:
                 # If there is no run section, then we should not try to run anything. But the
                 # program must not be set to None as then the process will be stuck in waiting
                 # state.
-                program = ''
+                program = ""
 
             if data.status != Data.STATUS_DONE:
                 # The data object may already be marked as done by the execution engine. In this
@@ -836,7 +926,12 @@ class Manager:
                 lambda d=data, p=program: self._data_execute(d, p, executor)
             )
 
-        logger.debug(__("Manager processing communicate command triggered by Data with id {}.", data_id))
+        logger.debug(
+            __(
+                "Manager processing communicate command triggered by Data with id {}.",
+                data_id,
+            )
+        )
 
         if is_testing():
             # NOTE: This is a work-around for Django issue #10827
@@ -852,7 +947,9 @@ class Manager:
             queryset = Data.objects.filter(status=Data.STATUS_RESOLVING)
             if data_id is not None:
                 # Scan only given data object and its children.
-                queryset = queryset.filter(Q(parents=data_id) | Q(id=data_id)).distinct()
+                queryset = queryset.filter(
+                    Q(parents=data_id) | Q(id=data_id)
+                ).distinct()
 
             for data in queryset:
                 try:
@@ -863,10 +960,12 @@ class Manager:
                         # point and may be processed by other managers running in parallel. At the
                         # same time, the lock for the current data object is released.
                 except Exception as error:
-                    logger.exception(__(
-                        "Unhandled exception in _data_scan while processing data object {}.",
-                        data.pk
-                    ))
+                    logger.exception(
+                        __(
+                            "Unhandled exception in _data_scan while processing data object {}.",
+                            data.pk,
+                        )
+                    )
 
                     # Unhandled error while processing a data object. We must set its
                     # status to STATUS_ERROR to prevent the object from being retried
@@ -874,10 +973,10 @@ class Manager:
                     # using the Django ORM as using the ORM may be the reason the error
                     # occurred in the first place.
                     error_msg = "Internal error: {}".format(error)
-                    process_error_field = Data._meta.get_field('process_error')
+                    process_error_field = Data._meta.get_field("process_error")
                     max_length = process_error_field.base_field.max_length
                     if len(error_msg) > max_length:
-                        error_msg = error_msg[:max_length - 3] + '...'
+                        error_msg = error_msg[: max_length - 3] + "..."
 
                     try:
                         with connection.cursor() as cursor:
@@ -892,18 +991,20 @@ class Manager:
                                     table=Data._meta.db_table
                                 ),
                                 {
-                                    'status': Data.STATUS_ERROR,
-                                    'error': [error_msg],
-                                    'id': data.pk
-                                }
+                                    "status": Data.STATUS_ERROR,
+                                    "error": [error_msg],
+                                    "id": data.pk,
+                                },
                             )
                     except Exception as error:
                         # If object's state cannot be changed due to some database-related
                         # issue, at least skip the object for this run.
-                        logger.exception(__(
-                            "Unhandled exception in _data_scan while trying to emit error for {}.",
-                            data.pk
-                        ))
+                        logger.exception(
+                            __(
+                                "Unhandled exception in _data_scan while trying to emit error for {}.",
+                                data.pk,
+                            )
+                        )
 
         except IntegrityError as exp:
             logger.error(__("IntegrityError in manager {}", exp))
@@ -929,14 +1030,14 @@ class Manager:
 
     def load_executor(self, executor_name):
         """Load process executor."""
-        executor_name = executor_name + '.prepare'
+        executor_name = executor_name + ".prepare"
         module = import_module(executor_name)
         return module.FlowExecutorPreparer()
 
     def load_expression_engines(self, engines):
         """Load expression engines."""
-        return load_engines(self, 'ExpressionEngine', 'expression_engines', engines)
+        return load_engines(self, "ExpressionEngine", "expression_engines", engines)
 
     def load_execution_engines(self, engines):
         """Load execution engines."""
-        return load_engines(self, 'ExecutionEngine', 'execution_engines', engines)
+        return load_engines(self, "ExecutionEngine", "execution_engines", engines)

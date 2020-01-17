@@ -48,11 +48,11 @@ class NumberSeriesShape:
     def to_dict(self):
         """Pack the stats computed into a dictionary."""
         return {
-            'high': self.high,
-            'low': self.low,
-            'mean': self.mean,
-            'count': self.count,
-            'deviation': self.deviation,
+            "high": self.high,
+            "low": self.low,
+            "mean": self.mean,
+            "count": self.count,
+            "deviation": self.deviation,
         }
 
 
@@ -89,7 +89,7 @@ class SimpleLoadAvg:
     class _Interval:
         """Convenience class containing bookkeeping for an interval."""
 
-        Point = namedtuple('Point', ['time', 'count'])
+        Point = namedtuple("Point", ["time", "count"])
 
         def __init__(self, interval):
             """Construct an instance of the class.
@@ -155,7 +155,11 @@ class SimpleLoadAvg:
         if timestamp is None:
             timestamp = time.time()
         if self.last_data >= timestamp:
-            raise ValueError("Time {} >= {} in load average calculation".format(self.last_data, timestamp))
+            raise ValueError(
+                "Time {} >= {} in load average calculation".format(
+                    self.last_data, timestamp
+                )
+            )
         self.last_data = timestamp
 
         for meta in self.intervals.values():

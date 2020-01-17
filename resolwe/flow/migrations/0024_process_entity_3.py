@@ -8,12 +8,9 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('flow', '0023_process_entity_2'),
+        ("flow", "0023_process_entity_2"),
     ]
 
     operations = [
-        migrations.RemoveField(
-            model_name='process',
-            name='flow_collection',
-        ),
+        migrations.RemoveField(model_name="process", name="flow_collection",),
     ]

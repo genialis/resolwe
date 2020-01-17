@@ -17,34 +17,35 @@ class RelationPartitionSerializer(SelectiveFieldMixin, serializers.ModelSerializ
         """RelationPartitionSerializer Meta options."""
 
         model = RelationPartition
-        fields = ('id', 'entity', 'position', 'label')
+        fields = ("id", "entity", "position", "label")
 
 
 class RelationSerializer(ResolweBaseSerializer):
     """Serializer for Relation objects."""
 
-    partitions = RelationPartitionSerializer(source='relationpartition_set', many=True)
+    partitions = RelationPartitionSerializer(source="relationpartition_set", many=True)
     collection = serializers.PrimaryKeyRelatedField(queryset=Collection.objects.all())
-    type = serializers.SlugRelatedField(queryset=RelationType.objects.all(), slug_field='name')
+    type = serializers.SlugRelatedField(
+        queryset=RelationType.objects.all(), slug_field="name"
+    )
 
     class Meta:
         """RelationSerializer Meta options."""
 
         model = Relation
         read_only_fields = (
-            'created',
-            'id',
-            'modified',
+            "created",
+            "id",
+            "modified",
         )
         update_protected_fields = (
-            'contributor',
-            'type',
+            "contributor",
+            "type",
         )
-        fields = read_only_fields + update_protected_fields + (
-            'collection',
-            'category',
-            'partitions',
-            'unit',
+        fields = (
+            read_only_fields
+            + update_protected_fields
+            + ("collection", "category", "partitions", "unit",)
         )
 
     def validate_partitions(self, partitions):
@@ -59,15 +60,15 @@ class RelationSerializer(ResolweBaseSerializer):
         for partition in partitions:
             RelationPartition.objects.create(
                 relation=instance,
-                entity=partition['entity'],
-                label=partition.get('label', None),
-                position=partition.get('position', None),
+                entity=partition["entity"],
+                label=partition.get("label", None),
+                position=partition.get("position", None),
             )
 
     def create(self, validated_data):
         """Create ``Relation`` object and add partitions of ``Entities``."""
         # `partitions` field is renamed to `relationpartition_set` based on source of nested serializer
-        partitions = validated_data.pop('relationpartition_set')
+        partitions = validated_data.pop("relationpartition_set")
 
         with transaction.atomic():
             instance = Relation.objects.create(**validated_data)
@@ -78,7 +79,7 @@ class RelationSerializer(ResolweBaseSerializer):
     def update(self, instance, validated_data):
         """Update ``Relation``."""
         # `partitions` field is renamed to `relationpartition_set` based on source of nested serializer
-        partitions = validated_data.pop('relationpartition_set', None)
+        partitions = validated_data.pop("relationpartition_set", None)
 
         with transaction.atomic():
             instance = super().update(instance, validated_data)

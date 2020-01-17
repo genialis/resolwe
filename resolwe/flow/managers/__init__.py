@@ -25,6 +25,6 @@ Workflow workload managers.
 """
 from .dispatcher import Manager
 
-__all__ = ('manager', )
+__all__ = ("manager",)
 
 manager = Manager()

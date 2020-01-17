@@ -6,23 +6,29 @@ from resolwe.flow.views import CollectionViewSet
 from resolwe.test import ResolweAPITestCase
 
 MESSAGES = {
-    'NOT_FOUND': 'Not found.',
-    'NO_PERMISSION': 'You do not have permission to perform this action.',
+    "NOT_FOUND": "Not found.",
+    "NO_PERMISSION": "You do not have permission to perform this action.",
 }
 
 
 class CollectionTestCase(ResolweAPITestCase):
-    fixtures = ['users.yaml', 'data.yaml', 'collections.yaml', 'processes.yaml', 'permissions.yaml']
+    fixtures = [
+        "users.yaml",
+        "data.yaml",
+        "collections.yaml",
+        "processes.yaml",
+        "permissions.yaml",
+    ]
 
     def setUp(self):
         self.collection1 = Collection.objects.get(pk=1)
 
-        self.resource_name = 'collection'
+        self.resource_name = "collection"
         self.viewset = CollectionViewSet
 
         self.post_data = {
-            'name': 'Test collection',
-            'slug': 'test_collection',
+            "name": "Test collection",
+            "slug": "test_collection",
         }
 
         super().setUp()
@@ -30,6 +36,7 @@ class CollectionTestCase(ResolweAPITestCase):
         # Reindex data objects as they are loaded in fixtures.
         # TODO: Remove this when we get rid of fixtures.
         from resolwe.elastic.builder import index_builder
+
         index_builder.build()
 
     def test_get_list(self):
@@ -41,11 +48,27 @@ class CollectionTestCase(ResolweAPITestCase):
         resp = self._get_list()
         self.assertEqual(len(resp.data), 2)
         # check that you get right two objects
-        self.assertEqual([p['id'] for p in resp.data], [1, 3])
+        self.assertEqual([p["id"] for p in resp.data], [1, 3])
         # check that (one of the) objects have expected keys
-        self.assertKeys(resp.data[0], ['slug', 'name', 'created', 'modified', 'contributor', 'description', 'id',
-                                       'settings', 'current_user_permissions', 'descriptor_schema', 'descriptor',
-                                       'descriptor_dirty', 'tags', 'duplicated'])
+        self.assertKeys(
+            resp.data[0],
+            [
+                "slug",
+                "name",
+                "created",
+                "modified",
+                "contributor",
+                "description",
+                "id",
+                "settings",
+                "current_user_permissions",
+                "descriptor_schema",
+                "descriptor",
+                "descriptor_dirty",
+                "tags",
+                "duplicated",
+            ],
+        )
 
     def test_get_list_admin(self):
         resp = self._get_list(self.admin)
@@ -72,59 +95,91 @@ class CollectionTestCase(ResolweAPITestCase):
         # public user w/ perm
         resp = self._get_detail(1)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(resp.data['id'], 1)
+        self.assertEqual(resp.data["id"], 1)
 
         # public user w/o perm
         resp = self._get_detail(2)
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertEqual(resp.data['detail'], MESSAGES['NOT_FOUND'])
+        self.assertEqual(resp.data["detail"], MESSAGES["NOT_FOUND"])
 
         # user w/ permissions
         resp = self._get_detail(1, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertKeys(resp.data, ['slug', 'name', 'created', 'modified', 'contributor', 'description', 'settings',
-                                    'id', 'current_user_permissions', 'descriptor_schema', 'descriptor',
-                                    'descriptor_dirty', 'tags', 'duplicated'])
+        self.assertKeys(
+            resp.data,
+            [
+                "slug",
+                "name",
+                "created",
+                "modified",
+                "contributor",
+                "description",
+                "settings",
+                "id",
+                "current_user_permissions",
+                "descriptor_schema",
+                "descriptor",
+                "descriptor_dirty",
+                "tags",
+                "duplicated",
+            ],
+        )
 
         # user w/o permissions
         resp = self._get_detail(2, self.user2)
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertEqual(resp.data['detail'], MESSAGES['NOT_FOUND'])
+        self.assertEqual(resp.data["detail"], MESSAGES["NOT_FOUND"])
 
         # user w/ public permissions
         resp = self._get_detail(1, self.user2)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertKeys(resp.data, ['slug', 'name', 'created', 'modified', 'contributor', 'description', 'settings',
-                                    'id', 'current_user_permissions', 'descriptor_schema', 'descriptor',
-                                    'descriptor_dirty', 'tags', 'duplicated'])
+        self.assertKeys(
+            resp.data,
+            [
+                "slug",
+                "name",
+                "created",
+                "modified",
+                "contributor",
+                "description",
+                "settings",
+                "id",
+                "current_user_permissions",
+                "descriptor_schema",
+                "descriptor",
+                "descriptor_dirty",
+                "tags",
+                "duplicated",
+            ],
+        )
 
     def test_patch(self):
-        data = {'name': 'New collection'}
+        data = {"name": "New collection"}
         resp = self._patch(1, data, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         p = Collection.objects.get(pk=1)
-        self.assertEqual(p.name, 'New collection')
+        self.assertEqual(p.name, "New collection")
 
         # protected field
-        data = {'created': '3042-01-01T09:00:00'}
+        data = {"created": "3042-01-01T09:00:00"}
         resp = self._patch(1, data, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
         p = Collection.objects.get(pk=1)
         self.assertEqual(p.created.isoformat(), self.collection1.created.isoformat())
 
     def test_patch_no_perm(self):
-        data = {'name': 'New collection'}
+        data = {"name": "New collection"}
         resp = self._patch(2, data, self.user2)
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
         p = Collection.objects.get(pk=2)
-        self.assertEqual(p.name, 'Test collection 2')
+        self.assertEqual(p.name, "Test collection 2")
 
     def test_patch_public_user(self):
-        data = {'name': 'New collection'}
+        data = {"name": "New collection"}
         resp = self._patch(3, data)
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
         p = Collection.objects.get(pk=3)
-        self.assertEqual(p.name, 'Test collection 3')
+        self.assertEqual(p.name, "Test collection 3")
 
     def test_delete(self):
         resp = self._delete(1, self.user1)

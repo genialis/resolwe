@@ -11,7 +11,11 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase as DjangoTestCase
 from django.urls import reverse
 
-from rest_framework.test import APIRequestFactory, APITransactionTestCase, force_authenticate
+from rest_framework.test import (
+    APIRequestFactory,
+    APITransactionTestCase,
+    force_authenticate,
+)
 
 from resolwe.test import TestCaseHelpers
 
@@ -75,59 +79,67 @@ class TransactionResolweAPITestCase(TestCaseHelpers, APITransactionTestCase):
 
         user_model = get_user_model()
         # TODO: Change username to `admin` when fixtures are removed
-        self.admin = user_model.objects.create_superuser(username='admin2', email='admin@test.com', password='admin')
-        self.contributor = user_model.objects.create_user(username='contributor')
-        self.user = user_model.objects.create_user(username='user')
+        self.admin = user_model.objects.create_superuser(
+            username="admin2", email="admin@test.com", password="admin"
+        )
+        self.contributor = user_model.objects.create_user(username="contributor")
+        self.user = user_model.objects.create_user(username="user")
 
-        if not hasattr(self, 'viewset'):
+        if not hasattr(self, "viewset"):
             raise KeyError("`self.viewset` must be defined in child class")
 
-        if not hasattr(self, 'resource_name'):
+        if not hasattr(self, "resource_name"):
             raise KeyError("`self.resource_name` must be defined in child class")
 
         self.factory = APIRequestFactory()
 
         list_url_mapping = {}
-        if hasattr(self.viewset, 'list'):
-            list_url_mapping['get'] = 'list'
-        if hasattr(self.viewset, 'create'):
-            list_url_mapping['post'] = 'create'
+        if hasattr(self.viewset, "list"):
+            list_url_mapping["get"] = "list"
+        if hasattr(self.viewset, "create"):
+            list_url_mapping["post"] = "create"
 
         self.list_view = self.viewset.as_view(list_url_mapping)
 
         detail_url_mapping = {}
-        if hasattr(self.viewset, 'retrieve'):
-            detail_url_mapping['get'] = 'retrieve'
-        if hasattr(self.viewset, 'update'):
-            detail_url_mapping['put'] = 'update'
-        if hasattr(self.viewset, 'partial_update'):
-            detail_url_mapping['patch'] = 'partial_update'
-        if hasattr(self.viewset, 'destroy'):
-            detail_url_mapping['delete'] = 'destroy'
-        if hasattr(self.viewset, 'detail_permissions'):
-            detail_url_mapping['post'] = 'detail_permissions'
+        if hasattr(self.viewset, "retrieve"):
+            detail_url_mapping["get"] = "retrieve"
+        if hasattr(self.viewset, "update"):
+            detail_url_mapping["put"] = "update"
+        if hasattr(self.viewset, "partial_update"):
+            detail_url_mapping["patch"] = "partial_update"
+        if hasattr(self.viewset, "destroy"):
+            detail_url_mapping["delete"] = "destroy"
+        if hasattr(self.viewset, "detail_permissions"):
+            detail_url_mapping["post"] = "detail_permissions"
 
         self.detail_view = self.viewset.as_view(detail_url_mapping)
 
     def detail_url(self, pk):
         """Get detail url."""
-        return reverse('resolwe-api:{}-detail'.format(self.resource_name), kwargs={'pk': pk})  # noqa pylint: disable=no-member
+        return reverse(
+            "resolwe-api:{}-detail".format(self.resource_name), kwargs={"pk": pk}
+        )  # noqa pylint: disable=no-member
 
     def detail_permissions(self, pk):
         """Get detail permissions url."""
-        return reverse('resolwe-api:{}-permissions'.format(self.resource_name), kwargs={'pk': pk})  # noqa pylint: disable=no-member
+        return reverse(
+            "resolwe-api:{}-permissions".format(self.resource_name), kwargs={"pk": pk}
+        )  # noqa pylint: disable=no-member
 
     @property
     def list_url(self):
         """Get list url."""
-        return reverse('resolwe-api:{}-list'.format(self.resource_name))
+        return reverse("resolwe-api:{}-list".format(self.resource_name))
 
     def _render_query_params(self, params):
         """Generate query parameters from given dict."""
         if not params:
-            return ''
+            return ""
 
-        return '?' + '&'.join('{}={}'.format(key, value) for key, value in params.items())
+        return "?" + "&".join(
+            "{}={}".format(key, value) for key, value in params.items()
+        )
 
     def _get_list(self, user=None, query_params={}):
         """Make ``GET`` request to ``self.list_view`` view.
@@ -142,7 +154,7 @@ class TransactionResolweAPITestCase(TestCaseHelpers, APITransactionTestCase):
 
         """
         url = self.list_url + self._render_query_params(query_params)
-        request = self.factory.get(url, format='json')
+        request = self.factory.get(url, format="json")
         force_authenticate(request, user)
         return self.list_view(request)
 
@@ -160,7 +172,7 @@ class TransactionResolweAPITestCase(TestCaseHelpers, APITransactionTestCase):
 
         """
         url = self.detail_url(pk) + self._render_query_params(query_params)
-        request = self.factory.get(url, format='json')
+        request = self.factory.get(url, format="json")
         force_authenticate(request, user)
         return self.detail_view(request, pk=pk)
 
@@ -178,7 +190,7 @@ class TransactionResolweAPITestCase(TestCaseHelpers, APITransactionTestCase):
 
         """
         url = self.list_url + self._render_query_params(query_params)
-        request = self.factory.post(url, data=data, format='json')
+        request = self.factory.post(url, data=data, format="json")
         force_authenticate(request, user)
         return self.list_view(request)
 
@@ -197,7 +209,7 @@ class TransactionResolweAPITestCase(TestCaseHelpers, APITransactionTestCase):
 
         """
         url = self.detail_url(pk) + self._render_query_params(query_params)
-        request = self.factory.patch(url, data=data, format='json')
+        request = self.factory.patch(url, data=data, format="json")
         force_authenticate(request, user)
         return self.detail_view(request, pk=pk)
 
@@ -215,7 +227,7 @@ class TransactionResolweAPITestCase(TestCaseHelpers, APITransactionTestCase):
 
         """
         url = self.detail_url(pk) + self._render_query_params(query_params)
-        request = self.factory.delete(url, format='json')
+        request = self.factory.delete(url, format="json")
         force_authenticate(request, user)
         return self.detail_view(request, pk=pk)
 
@@ -233,7 +245,9 @@ class TransactionResolweAPITestCase(TestCaseHelpers, APITransactionTestCase):
         :rtype: :drf:`Response <responses/#response>`
 
         """
-        request = self.factory.post(self.detail_permissions(pk), data=data, format='json')
+        request = self.factory.post(
+            self.detail_permissions(pk), data=data, format="json"
+        )
         force_authenticate(request, user)
         return self.detail_view(request, pk=pk)
 

@@ -24,14 +24,12 @@ class Connector(BaseConnector):
         For details, see
         :meth:`~resolwe.flow.managers.workload_connectors.base.BaseConnector.submit`.
         """
-        logger.debug(__(
-            "Connector '{}' running for Data with id {} ({}).",
-            self.__class__.__module__,
-            data.id,
-            repr(argv)
-        ))
-        subprocess.Popen(
-            argv,
-            cwd=runtime_dir,
-            stdin=subprocess.DEVNULL
-        ).wait()
+        logger.debug(
+            __(
+                "Connector '{}' running for Data with id {} ({}).",
+                self.__class__.__module__,
+                data.id,
+                repr(argv),
+            )
+        )
+        subprocess.Popen(argv, cwd=runtime_dir, stdin=subprocess.DEVNULL).wait()

@@ -24,7 +24,7 @@ def get_perm_action(perm):
     Input permission can be in the form of '<action>_<object_type>'
     or '<action>'.
     """
-    return perm.split('_', 1)[0]
+    return perm.split("_", 1)[0]
 
 
 def get_full_perm(perm, obj):
@@ -35,9 +35,9 @@ def get_full_perm(perm, obj):
     ctype = ContentType.objects.get_for_model(obj)
     # Camel case class names are converted into a space-separated
     # content types, so spaces have to be removed.
-    ctype = str(ctype).replace(' ', '')
+    ctype = str(ctype).replace(" ", "")
 
-    return '{}_{}'.format(perm.lower(), ctype)
+    return "{}_{}".format(perm.lower(), ctype)
 
 
 def get_all_perms(obj):
@@ -53,6 +53,7 @@ def change_perm_ctype(perm, dest_obj):
 
 def copy_permissions(src_obj, dest_obj):
     """Copy permissions form ``src_obj`` to ``dest_obj``."""
+
     def _process_permission(codename, user_or_group, dest_obj, relabel):
         """Process single permission."""
         if relabel:
@@ -69,12 +70,16 @@ def copy_permissions(src_obj, dest_obj):
     dest_obj_ctype = ContentType.objects.get_for_model(dest_obj)
     dest_all_perms = get_all_perms(dest_obj)
 
-    relabel = (src_obj_ctype != dest_obj_ctype)
+    relabel = src_obj_ctype != dest_obj_ctype
 
-    for perm in UserObjectPermission.objects.filter(object_pk=src_obj.pk, content_type=src_obj_ctype):
+    for perm in UserObjectPermission.objects.filter(
+        object_pk=src_obj.pk, content_type=src_obj_ctype
+    ):
         _process_permission(perm.permission.codename, perm.user, dest_obj, relabel)
 
-    for perm in GroupObjectPermission.objects.filter(object_pk=src_obj.pk, content_type=src_obj_ctype):
+    for perm in GroupObjectPermission.objects.filter(
+        object_pk=src_obj.pk, content_type=src_obj_ctype
+    ):
         _process_permission(perm.permission.codename, perm.group, dest_obj, relabel)
 
 
@@ -99,7 +104,7 @@ def fetch_user(query):
 
 def fetch_group(query):
     """Get group by ``pk`` or ``name``. Raise error if it doesn't exist."""
-    group_filter = {'pk': query} if query.isdigit() else {'name': query}
+    group_filter = {"pk": query} if query.isdigit() else {"name": query}
 
     try:
         return Group.objects.get(**group_filter)
@@ -109,32 +114,38 @@ def fetch_group(query):
 
 def check_owner_permission(payload, allow_user_owner):
     """Raise ``PermissionDenied``if ``owner`` found in ``data``."""
-    for entity_type in ['users', 'groups']:
-        for perm_type in ['add', 'remove']:
+    for entity_type in ["users", "groups"]:
+        for perm_type in ["add", "remove"]:
             for perms in payload.get(entity_type, {}).get(perm_type, {}).values():
-                if 'owner' in perms:
-                    if entity_type == 'users' and allow_user_owner:
+                if "owner" in perms:
+                    if entity_type == "users" and allow_user_owner:
                         continue
 
-                    if entity_type == 'groups':
-                        raise exceptions.ParseError("Owner permission cannot be assigned to a group")
+                    if entity_type == "groups":
+                        raise exceptions.ParseError(
+                            "Owner permission cannot be assigned to a group"
+                        )
 
-                    raise exceptions.PermissionDenied("Only owners can grant/revoke owner permission")
+                    raise exceptions.PermissionDenied(
+                        "Only owners can grant/revoke owner permission"
+                    )
 
 
 def check_public_permissions(payload):
     """Raise ``PermissionDenied`` if public permissions are too open."""
-    allowed_public_permissions = ['view', 'add', 'download']
-    for perm_type in ['add', 'remove']:
-        for perm in payload.get('public', {}).get(perm_type, []):
+    allowed_public_permissions = ["view", "add", "download"]
+    for perm_type in ["add", "remove"]:
+        for perm in payload.get("public", {}).get(perm_type, []):
             if perm not in allowed_public_permissions:
-                raise exceptions.PermissionDenied("Permissions for public users are too open")
+                raise exceptions.PermissionDenied(
+                    "Permissions for public users are too open"
+                )
 
 
 def check_user_permissions(payload, user_pk):
     """Raise ``PermissionDenied`` if ``payload`` includes ``user_pk``."""
-    for perm_type in ['add', 'remove']:
-        user_pks = payload.get('users', {}).get(perm_type, {}).keys()
+    for perm_type in ["add", "remove"]:
+        user_pks = payload.get("users", {}).get(perm_type, {}).keys()
         if user_pk in user_pks:
             raise exceptions.PermissionDenied("You cannot change your own permissions")
 
@@ -164,7 +175,7 @@ def update_permission(obj, data):
             `~django.contrib.auth.models.Group`
 
         """
-        if perms == 'ALL':
+        if perms == "ALL":
             perms = full_permissions
         for perm in perms:
             perm_codename = get_full_perm(perm, obj)
@@ -174,8 +185,8 @@ def update_permission(obj, data):
 
     def set_permissions(entity_type, perm_type):
         """Set object permissions."""
-        perm_func = assign_perm if perm_type == 'add' else remove_perm
-        fetch_fn = fetch_user if entity_type == 'users' else fetch_group
+        perm_func = assign_perm if perm_type == "add" else remove_perm
+        fetch_fn = fetch_user if entity_type == "users" else fetch_group
 
         for entity_id in data.get(entity_type, {}).get(perm_type, []):
             entity = fetch_fn(entity_id)
@@ -185,18 +196,18 @@ def update_permission(obj, data):
 
     def set_public_permissions(perm_type):
         """Set public permissions."""
-        perm_func = assign_perm if perm_type == 'add' else remove_perm
+        perm_func = assign_perm if perm_type == "add" else remove_perm
         user = AnonymousUser()
-        perms = data.get('public', {}).get(perm_type, [])
+        perms = data.get("public", {}).get(perm_type, [])
         apply_perm(perm_func, perms, user)
 
     with transaction.atomic():
-        set_permissions('users', 'add')
-        set_permissions('users', 'remove')
-        set_permissions('groups', 'add')
-        set_permissions('groups', 'remove')
-        set_public_permissions('add')
-        set_public_permissions('remove')
+        set_permissions("users", "add")
+        set_permissions("users", "remove")
+        set_permissions("groups", "add")
+        set_permissions("groups", "remove")
+        set_public_permissions("add")
+        set_public_permissions("remove")
 
 
 def assign_contributor_permissions(obj, contributor=None):

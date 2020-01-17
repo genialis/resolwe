@@ -14,20 +14,37 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('flow', '0009_make_size_mandatory'),
+        ("flow", "0009_make_size_mandatory"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Secret',
+            name="Secret",
             fields=[
-                ('created', models.DateTimeField(auto_now_add=True, db_index=True)),
-                ('modified', models.DateTimeField(auto_now=True, db_index=True)),
-                ('handle', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('value', fernet_fields.fields.EncryptedTextField()),
-                ('metadata', django.contrib.postgres.fields.jsonb.JSONField(default=dict)),
-                ('expires', models.DateTimeField(db_index=True, null=True)),
-                ('contributor', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to=settings.AUTH_USER_MODEL)),
+                ("created", models.DateTimeField(auto_now_add=True, db_index=True)),
+                ("modified", models.DateTimeField(auto_now=True, db_index=True)),
+                (
+                    "handle",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
+                ("value", fernet_fields.fields.EncryptedTextField()),
+                (
+                    "metadata",
+                    django.contrib.postgres.fields.jsonb.JSONField(default=dict),
+                ),
+                ("expires", models.DateTimeField(db_index=True, null=True)),
+                (
+                    "contributor",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.PROTECT,
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
         ),
     ]

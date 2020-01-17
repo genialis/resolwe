@@ -10,20 +10,22 @@ from resolwe.permissions.mixins import ResolwePermissionsMixin
 from .mixins import ResolweCheckSlugMixin, ResolweCreateModelMixin
 
 
-class ProcessViewSet(ResolweCreateModelMixin,
-                     mixins.RetrieveModelMixin,
-                     mixins.ListModelMixin,
-                     ResolwePermissionsMixin,
-                     ResolweCheckSlugMixin,
-                     viewsets.GenericViewSet):
+class ProcessViewSet(
+    ResolweCreateModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.ListModelMixin,
+    ResolwePermissionsMixin,
+    ResolweCheckSlugMixin,
+    viewsets.GenericViewSet,
+):
     """API view for :class:`Process` objects."""
 
-    queryset = Process.objects.all().prefetch_related('contributor')
+    queryset = Process.objects.all().prefetch_related("contributor")
     serializer_class = ProcessSerializer
     permission_classes = (get_permissions_class(),)
     filterset_class = ProcessFilter
-    ordering_fields = ('id', 'created', 'modified', 'name', 'version')
-    ordering = ('id',)
+    ordering_fields = ("id", "created", "modified", "name", "version")
+    ordering = ("id",)
 
     def create(self, request, *args, **kwargs):
         """Only superusers can create new processes."""

@@ -18,7 +18,7 @@ class CollectionDocument(BaseDocument):
     class Index:
         """Meta class for collection search document."""
 
-        name = 'collection'
+        name = "collection"
 
 
 class CollectionIndexMixin:
@@ -52,8 +52,7 @@ class CollectionIndex(BaseIndexMixin, CollectionIndexMixin, BaseIndex):
     """Index for collection objects used in ``CollectionDocument``."""
 
     queryset = Collection.objects.all().prefetch_related(
-        'descriptor_schema',
-        'contributor'
+        "descriptor_schema", "contributor"
     )
     object_type = Collection
     document_class = CollectionDocument

@@ -6,14 +6,18 @@ from .protocol import ExecutorFiles
 
 DESERIALIZED_FILES = {}
 
-if 'sphinx' not in sys.modules:
-    with open(ExecutorFiles.EXECUTOR_SETTINGS, 'rt') as _settings_file:
+if "sphinx" not in sys.modules:
+    with open(ExecutorFiles.EXECUTOR_SETTINGS, "rt") as _settings_file:
         DESERIALIZED_FILES[ExecutorFiles.EXECUTOR_SETTINGS] = json.load(_settings_file)
-        for _file_name in DESERIALIZED_FILES[ExecutorFiles.EXECUTOR_SETTINGS][ExecutorFiles.FILE_LIST_KEY]:
-            with open(_file_name, 'rt') as _json_file:
+        for _file_name in DESERIALIZED_FILES[ExecutorFiles.EXECUTOR_SETTINGS][
+            ExecutorFiles.FILE_LIST_KEY
+        ]:
+            with open(_file_name, "rt") as _json_file:
                 DESERIALIZED_FILES[_file_name] = json.load(_json_file)
 else:
-    DESERIALIZED_FILES = {getattr(ExecutorFiles, f): {} for f in dir(ExecutorFiles) if f == f.upper()}
+    DESERIALIZED_FILES = {
+        getattr(ExecutorFiles, f): {} for f in dir(ExecutorFiles) if f == f.upper()
+    }
 
 EXECUTOR_SETTINGS = DESERIALIZED_FILES[ExecutorFiles.EXECUTOR_SETTINGS]
 SETTINGS = DESERIALIZED_FILES[ExecutorFiles.DJANGO_SETTINGS]

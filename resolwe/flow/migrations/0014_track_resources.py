@@ -8,18 +8,18 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('flow', '0013_migration_history'),
+        ("flow", "0013_migration_history"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='data',
-            name='process_cores',
+            model_name="data",
+            name="process_cores",
             field=models.PositiveSmallIntegerField(default=0),
         ),
         migrations.AddField(
-            model_name='data',
-            name='process_memory',
+            model_name="data",
+            name="process_memory",
             field=models.PositiveIntegerField(default=0),
         ),
     ]

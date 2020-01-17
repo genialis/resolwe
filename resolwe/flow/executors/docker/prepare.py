@@ -23,8 +23,8 @@ class FlowExecutorPreparer(BaseFlowExecutorPreparer):
 
     def post_register_hook(self, verbosity=1):
         """Pull Docker images needed by processes after registering."""
-        if not getattr(settings, 'FLOW_DOCKER_DONT_PULL', False):
-            call_command('list_docker_images', pull=True, verbosity=verbosity)
+        if not getattr(settings, "FLOW_DOCKER_DONT_PULL", False):
+            call_command("list_docker_images", pull=True, verbosity=verbosity)
 
     def resolve_data_path(self, data=None, filename=None):
         """Resolve data path for use with the executor.
@@ -41,7 +41,9 @@ class FlowExecutorPreparer(BaseFlowExecutorPreparer):
         # if prefix is not set, to get path prefix. But the executor
         # shouldn't use Django's settings directly, so prefix is set
         # via a constant.
-        return data.location.get_path(prefix=constants.DATA_ALL_VOLUME, filename=filename)
+        return data.location.get_path(
+            prefix=constants.DATA_ALL_VOLUME, filename=filename
+        )
 
     def resolve_upload_path(self, filename=None):
         """Resolve upload path for use with the executor.
@@ -58,6 +60,4 @@ class FlowExecutorPreparer(BaseFlowExecutorPreparer):
 
     def get_environment_variables(self):
         """Return dict of environment variables that will be added to executor."""
-        return {
-            'TMPDIR': os.path.join(constants.DATA_VOLUME, constants.TMPDIR)
-        }
+        return {"TMPDIR": os.path.join(constants.DATA_VOLUME, constants.TMPDIR)}

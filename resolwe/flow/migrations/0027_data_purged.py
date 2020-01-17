@@ -8,13 +8,11 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('flow', '0026_data_scheduled'),
+        ("flow", "0026_data_scheduled"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='data',
-            name='purged',
-            field=models.BooleanField(default=False),
+            model_name="data", name="purged", field=models.BooleanField(default=False),
         ),
     ]

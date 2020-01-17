@@ -25,10 +25,7 @@ class SecretManager(models.Manager):
             metadata = {}
 
         secret = self.create(
-            value=value,
-            contributor=contributor,
-            metadata=metadata,
-            expires=expires,
+            value=value, contributor=contributor, metadata=metadata, expires=expires,
         )
         return str(secret.handle)
 

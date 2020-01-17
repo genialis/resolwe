@@ -16,23 +16,25 @@ def iterate_fields(fields, schema, path_prefix=None):
     :rtype: tuple
 
     """
-    if path_prefix is not None and path_prefix != '' and path_prefix[-1] != '.':
-        path_prefix += '.'
+    if path_prefix is not None and path_prefix != "" and path_prefix[-1] != ".":
+        path_prefix += "."
 
-    schema_dict = {val['name']: val for val in schema}
+    schema_dict = {val["name"]: val for val in schema}
     for field_id, properties in fields.items():
-        path = '{}{}'.format(path_prefix, field_id) if path_prefix is not None else None
+        path = "{}{}".format(path_prefix, field_id) if path_prefix is not None else None
         if field_id not in schema_dict:
             raise KeyError("Field definition ({}) missing in schema".format(field_id))
-        if 'group' in schema_dict[field_id]:
-            for rvals in iterate_fields(properties, schema_dict[field_id]['group'], path):
+        if "group" in schema_dict[field_id]:
+            for rvals in iterate_fields(
+                properties, schema_dict[field_id]["group"], path
+            ):
                 yield rvals if path_prefix is not None else rvals[:2]
         else:
             rvals = (schema_dict[field_id], fields, path)
             yield rvals if path_prefix is not None else rvals[:2]
 
 
-def iterate_schema(fields, schema, path_prefix='', include_groups=False):
+def iterate_schema(fields, schema, path_prefix="", include_groups=False):
     """Iterate over all schema sub-fields.
 
     This will iterate over all field definitions in the schema. Some field v
@@ -48,19 +50,22 @@ def iterate_schema(fields, schema, path_prefix='', include_groups=False):
     :rtype: tuple
 
     """
-    if path_prefix and path_prefix[-1] != '.':
-        path_prefix += '.'
+    if path_prefix and path_prefix[-1] != ".":
+        path_prefix += "."
 
     for field_schema in schema:
-        name = field_schema['name']
-        if 'group' in field_schema:
+        name = field_schema["name"]
+        if "group" in field_schema:
             if include_groups:
-                yield (field_schema, fields, '{}{}'.format(path_prefix, name))
-            for rvals in iterate_schema(fields[name] if name in fields else {},
-                                        field_schema['group'], '{}{}'.format(path_prefix, name)):
+                yield (field_schema, fields, "{}{}".format(path_prefix, name))
+            for rvals in iterate_schema(
+                fields[name] if name in fields else {},
+                field_schema["group"],
+                "{}{}".format(path_prefix, name),
+            ):
                 yield rvals
         else:
-            yield (field_schema, fields, '{}{}'.format(path_prefix, name))
+            yield (field_schema, fields, "{}{}".format(path_prefix, name))
 
 
 def iterate_dict(container, exclude=None, path=None):
@@ -81,7 +86,9 @@ def iterate_dict(container, exclude=None, path=None):
             continue
 
         if isinstance(value, collections.Mapping):
-            for inner_path, inner_key, inner_value in iterate_dict(value, exclude=exclude, path=path + [key]):
+            for inner_path, inner_key, inner_value in iterate_dict(
+                value, exclude=exclude, path=path + [key]
+            ):
                 yield inner_path, inner_key, inner_value
 
         yield path, key, value

@@ -19,7 +19,7 @@ class FlowExecutor(BaseFlowExecutor):
     the object to the database but don't need to run it.
     """
 
-    name = 'null'
+    name = "null"
 
     async def run(self, data_id, script):
         """Do nothing :)."""

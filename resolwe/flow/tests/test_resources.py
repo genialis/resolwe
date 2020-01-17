@@ -11,7 +11,7 @@ class CollectionResourceTest(TestCase):
         super().setUp()
 
         self.api_client = APIRequestFactory()
-        self.list_url = reverse('resolwe-api:collection-list')
+        self.list_url = reverse("resolwe-api:collection-list")
         # TODO: add object's id
         # self.detail_url = reverse('resolwe-api:collection-detail')
 

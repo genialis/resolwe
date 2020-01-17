@@ -12,12 +12,9 @@ class SearchRouter(DefaultRouter):
 
     routes = [
         Route(
-            url=r'^{prefix}{trailing_slash}$',
-            mapping={
-                'get': 'list',
-                'post': 'list_with_post'
-            },
-            name='{basename}',
+            url=r"^{prefix}{trailing_slash}$",
+            mapping={"get": "list", "post": "list_with_post"},
+            name="{basename}",
             initkwargs={},
             detail=False,
         )

@@ -55,7 +55,7 @@ def get_process_definition_start(fname, slug):
     """
     with open(fname) as file_:
         for i, line in enumerate(file_):
-            if re.search(r'slug:\s*{}'.format(slug), line):
+            if re.search(r"slug:\s*{}".format(slug), line):
                 return i + 1
     # In case starting line is not found just return first line
     return 1
@@ -77,7 +77,7 @@ def get_processes(process_dir, base_source_uri):
         return PROCESS_CACHE
 
     all_process_files = []
-    process_file_extensions = ['*.yaml', '*.yml']
+    process_file_extensions = ["*.yaml", "*.yml"]
     for root, _, filenames in os.walk(process_dir):
         for extension in process_file_extensions:
             for filename in fnmatch.filter(filenames, extension):
@@ -95,13 +95,18 @@ def get_processes(process_dir, base_source_uri):
             # This section finds the line in file where the
             # defintion of the process starts. (there are
             # multiple process definition in some files).
-            startline = get_process_definition_start(process_file, process['slug'])
+            startline = get_process_definition_start(process_file, process["slug"])
 
             # Put together URL to starting line of process definition.
-            process['source_uri'] = base_source_uri + process_file[len(process_dir) + 1:] + '#L' + str(startline)
+            process["source_uri"] = (
+                base_source_uri
+                + process_file[len(process_dir) + 1 :]
+                + "#L"
+                + str(startline)
+            )
 
-            if 'category' not in process:
-                process['category'] = 'uncategorized'
+            if "category" not in process:
+                process["category"] = "uncategorized"
 
             processes.append(process)
 
@@ -159,9 +164,20 @@ class AutoProcessDirective(Directive):
 
         # changing the order of elements in this list affects
         # the order in which they are displayed
-        property_names = ['label', 'type', 'description', 'required',
-                          'disabled', 'hidden', 'default', 'placeholder',
-                          'validate_regex', 'choices', 'collapse', 'group']
+        property_names = [
+            "label",
+            "type",
+            "description",
+            "required",
+            "disabled",
+            "hidden",
+            "default",
+            "placeholder",
+            "validate_regex",
+            "choices",
+            "collapse",
+            "group",
+        ]
 
         for name in property_names:
             if name not in field:
@@ -170,16 +186,16 @@ class AutoProcessDirective(Directive):
             value = field[name]
 
             # Value should be formatted in code-style (=literal) mode
-            if name in ['type', 'default', 'placeholder', 'validate_regex']:
+            if name in ["type", "default", "placeholder", "validate_regex"]:
                 literal_node = nodes.literal(str(value), str(value))
                 properties_list += self.make_field(name, literal_node)
 
             # Special formating of ``value`` is needed if name == 'choices'
-            elif name == 'choices':
+            elif name == "choices":
                 bullet_list = nodes.bullet_list()
                 for choice in value:
-                    label = nodes.Text(choice['label'] + ': ')
-                    val = nodes.literal(choice['value'], choice['value'])
+                    label = nodes.Text(choice["label"] + ": ")
+                    val = nodes.literal(choice["value"], choice["value"])
 
                     paragraph = nodes.paragraph()
                     paragraph += label
@@ -207,34 +223,38 @@ class AutoProcessDirective(Directive):
 
         """
         node = addnodes.desc()
-        signode = addnodes.desc_signature(slug, '')
+        signode = addnodes.desc_signature(slug, "")
         node.append(signode)
 
-        node['objtype'] = node['desctype'] = typ
+        node["objtype"] = node["desctype"] = typ
 
-        signode += addnodes.desc_annotation(typ, typ, classes=['process-type'])
-        signode += addnodes.desc_addname('', '')
-        signode += addnodes.desc_name(slug + ' ', slug + ' ')
+        signode += addnodes.desc_annotation(typ, typ, classes=["process-type"])
+        signode += addnodes.desc_addname("", "")
+        signode += addnodes.desc_name(slug + " ", slug + " ")
 
         paramlist = addnodes.desc_parameterlist()
 
-        for field_schema, _, _ in iterate_schema({}, inputs, ''):
-            field_type = field_schema['type']
-            field_name = field_schema['name']
+        for field_schema, _, _ in iterate_schema({}, inputs, ""):
+            field_type = field_schema["type"]
+            field_name = field_schema["name"]
 
-            field_default = field_schema.get('default', None)
-            field_default = '' if field_default is None else '={}'.format(field_default)
+            field_default = field_schema.get("default", None)
+            field_default = "" if field_default is None else "={}".format(field_default)
 
-            param = addnodes.desc_parameter('', '', noemph=True)
-            param += nodes.emphasis(field_type, field_type, classes=['process-type'])
+            param = addnodes.desc_parameter("", "", noemph=True)
+            param += nodes.emphasis(field_type, field_type, classes=["process-type"])
             # separate by non-breaking space in the output
-            param += nodes.strong(text='\xa0\xa0' + field_name)
+            param += nodes.strong(text="\xa0\xa0" + field_name)
 
             paramlist += param
 
         signode += paramlist
-        signode += nodes.reference('', nodes.Text('[Source: v{}]'.format(version)),
-                                   refuri=source_uri, classes=['viewcode-link'])
+        signode += nodes.reference(
+            "",
+            nodes.Text("[Source: v{}]".format(version)),
+            refuri=source_uri,
+            classes=["viewcode-link"],
+        )
 
         desc = nodes.paragraph()
         desc += nodes.Text(description, description)
@@ -248,30 +268,32 @@ class AutoProcessDirective(Directive):
         :return: process node
 
         """
-        name = process['name']
-        slug = process['slug']
-        typ = process['type']
-        version = process['version']
-        description = process.get('description', '')
-        source_uri = process['source_uri']
-        inputs = process.get('input', [])
-        outputs = process.get('output', [])
+        name = process["name"]
+        slug = process["slug"]
+        typ = process["type"]
+        version = process["version"]
+        description = process.get("description", "")
+        source_uri = process["source_uri"]
+        inputs = process.get("input", [])
+        outputs = process.get("output", [])
 
         # Make process name a section title:
-        section = nodes.section(ids=['process-' + slug])
+        section = nodes.section(ids=["process-" + slug])
         section += nodes.title(name, name)
 
         # Make process header:
-        section += self.make_process_header(slug, typ, version, source_uri, description, inputs)
+        section += self.make_process_header(
+            slug, typ, version, source_uri, description, inputs
+        )
 
         # Make inputs section:
-        container_node = nodes.container(classes=['toggle'])
-        container_header = nodes.paragraph(classes=['header'])
-        container_header += nodes.strong(text='Input arguments')
+        container_node = nodes.container(classes=["toggle"])
+        container_header = nodes.paragraph(classes=["header"])
+        container_header += nodes.strong(text="Input arguments")
         container_node += container_header
 
         container_body = nodes.container()
-        for field_schema, _, path in iterate_schema({}, inputs, ''):
+        for field_schema, _, path in iterate_schema({}, inputs, ""):
             container_body += nodes.strong(text=path)
             container_body += self.make_properties_list(field_schema)
 
@@ -279,30 +301,35 @@ class AutoProcessDirective(Directive):
         section += container_node
 
         # Make outputs section:
-        container_node = nodes.container(classes=['toggle'])
-        container_header = nodes.paragraph(classes=['header'])
-        container_header += nodes.strong(text='Output results')
+        container_node = nodes.container(classes=["toggle"])
+        container_header = nodes.paragraph(classes=["header"])
+        container_header += nodes.strong(text="Output results")
         container_node += container_header
 
         container_body = nodes.container()
-        for field_schema, _, path in iterate_schema({}, outputs, ''):
+        for field_schema, _, path in iterate_schema({}, outputs, ""):
             container_body += nodes.strong(text=path)
             container_body += self.make_properties_list(field_schema)
 
         container_node += container_body
         section += container_node
 
-        return [section, addnodes.index(entries=[('single', name, 'process-' + slug, '', None)])]
+        return [
+            section,
+            addnodes.index(entries=[("single", name, "process-" + slug, "", None)]),
+        ]
 
     def run(self):
         """Create a list of process definitions."""
         config = self.state.document.settings.env.config
 
         # Get all processes:
-        processes = get_processes(config.autoprocess_process_dir, config.autoprocess_source_base_url)
+        processes = get_processes(
+            config.autoprocess_process_dir, config.autoprocess_source_base_url
+        )
         process_nodes = []
 
-        for process in sorted(processes, key=itemgetter('name')):
+        for process in sorted(processes, key=itemgetter("name")):
             process_nodes.extend(self.make_process_node(process))
 
         return process_nodes
@@ -322,27 +349,31 @@ class AutoProcessCategoryDirective(Directive):
         config = self.state.document.settings.env.config
 
         # Group processes by category
-        processes = get_processes(config.autoprocess_process_dir, config.autoprocess_source_base_url)
-        processes.sort(key=itemgetter('category'))
-        categorized_processes = {k: list(g) for k, g in groupby(processes, itemgetter('category'))}
+        processes = get_processes(
+            config.autoprocess_process_dir, config.autoprocess_source_base_url
+        )
+        processes.sort(key=itemgetter("category"))
+        categorized_processes = {
+            k: list(g) for k, g in groupby(processes, itemgetter("category"))
+        }
 
         # Build category tree
-        category_sections = {'': nodes.container(ids=['categories'])}
+        category_sections = {"": nodes.container(ids=["categories"])}
         top_categories = []
 
         for category in sorted(categorized_processes.keys()):
-            category_path = ''
+            category_path = ""
 
-            for category_node in category.split(':'):
+            for category_node in category.split(":"):
                 parent_category_path = category_path
-                category_path += '{}:'.format(category_node)
+                category_path += "{}:".format(category_node)
 
                 if category_path in category_sections:
                     continue
 
                 category_name = category_node.capitalize()
 
-                section = nodes.section(ids=['category-' + category_node])
+                section = nodes.section(ids=["category-" + category_node])
                 section += nodes.title(category_name, category_name)
 
                 # Add process list
@@ -354,17 +385,21 @@ class AutoProcessCategoryDirective(Directive):
                     for process in categorized_processes[category_key]:
                         par = nodes.paragraph()
 
-                        node = nodes.reference('', process['name'], internal=True)
-                        node['refuri'] = config.autoprocess_definitions_uri + '#process-' + process['slug']
-                        node['reftitle'] = process['name']
+                        node = nodes.reference("", process["name"], internal=True)
+                        node["refuri"] = (
+                            config.autoprocess_definitions_uri
+                            + "#process-"
+                            + process["slug"]
+                        )
+                        node["reftitle"] = process["name"]
 
                         par += node
-                        listnode += nodes.list_item('', par)
+                        listnode += nodes.list_item("", par)
 
                 category_sections[parent_category_path] += section
                 category_sections[category_path] = section
 
-                if parent_category_path == '':
+                if parent_category_path == "":
                     top_categories.append(section)
 
         # Return top sections only
@@ -385,28 +420,34 @@ class AutoProcessTypesDirective(Directive):
         config = self.state.document.settings.env.config
 
         # Group processes by category
-        processes = get_processes(config.autoprocess_process_dir, config.autoprocess_source_base_url)
-        processes.sort(key=itemgetter('type'))
-        processes_by_types = {k: list(g) for k, g in groupby(processes, itemgetter('type'))}
+        processes = get_processes(
+            config.autoprocess_process_dir, config.autoprocess_source_base_url
+        )
+        processes.sort(key=itemgetter("type"))
+        processes_by_types = {
+            k: list(g) for k, g in groupby(processes, itemgetter("type"))
+        }
 
         listnode = nodes.bullet_list()
 
         for typ in sorted(processes_by_types.keys()):
             par = nodes.paragraph()
             par += nodes.literal(typ, typ)
-            par += nodes.Text(' - ')
+            par += nodes.Text(" - ")
 
-            processes = sorted(processes_by_types[typ], key=itemgetter('name'))
+            processes = sorted(processes_by_types[typ], key=itemgetter("name"))
             last_process = processes[-1]
             for process in processes:
-                node = nodes.reference('', process['name'], internal=True)
-                node['refuri'] = config.autoprocess_definitions_uri + '#process-' + process['slug']
-                node['reftitle'] = process['name']
+                node = nodes.reference("", process["name"], internal=True)
+                node["refuri"] = (
+                    config.autoprocess_definitions_uri + "#process-" + process["slug"]
+                )
+                node["reftitle"] = process["name"]
                 par += node
                 if process != last_process:
-                    par += nodes.Text(', ')
+                    par += nodes.Text(", ")
 
-            listnode += nodes.list_item('', par)
+            listnode += nodes.list_item("", par)
 
         return [listnode]
 
@@ -424,14 +465,14 @@ def setup(app):
     constructed from already existing nodes in docutils.nodes package.
 
     """
-    app.add_config_value('autoprocess_process_dir', '', 'env')
-    app.add_config_value('autoprocess_source_base_url', '', 'env')
-    app.add_config_value('autoprocess_definitions_uri', '', 'env')
+    app.add_config_value("autoprocess_process_dir", "", "env")
+    app.add_config_value("autoprocess_source_base_url", "", "env")
+    app.add_config_value("autoprocess_definitions_uri", "", "env")
 
-    app.add_directive('autoprocess', AutoProcessDirective)
-    app.add_directive('autoprocesscategory', AutoProcessCategoryDirective)
-    app.add_directive('autoprocesstype', AutoProcessTypesDirective)
+    app.add_directive("autoprocess", AutoProcessDirective)
+    app.add_directive("autoprocesscategory", AutoProcessCategoryDirective)
+    app.add_directive("autoprocesstype", AutoProcessTypesDirective)
 
     # The setup() function can return a dictionary. This is treated by
     # Sphinx as metadata of the extension:
-    return {'version': '0.2'}
+    return {"version": "0.2"}

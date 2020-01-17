@@ -14,5 +14,5 @@ def increase(value):
 
 # A dictionary of filters that will be registered.
 filters = {
-    'increase': increase,
+    "increase": increase,
 }

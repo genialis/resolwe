@@ -41,7 +41,7 @@ class BaseIndexMixin:
 
     def _get_user(self, user):
         """Generate user filtering tokens."""
-        return ' '.join([user.username, user.first_name, user.last_name])
+        return " ".join([user.username, user.first_name, user.last_name])
 
     def get_contributor_id_value(self, obj):
         """Extract contributor identifier."""
@@ -55,14 +55,14 @@ class BaseIndexMixin:
         """Extract owners' ids."""
         return [
             user.pk
-            for user in get_users_with_permission(obj, get_full_perm('owner', obj))
+            for user in get_users_with_permission(obj, get_full_perm("owner", obj))
         ]
 
     def get_owner_names_value(self, obj):
         """Extract owners' names."""
         return [
             self._get_user(user)
-            for user in get_users_with_permission(obj, get_full_perm('owner', obj))
+            for user in get_users_with_permission(obj, get_full_perm("owner", obj))
         ]
 
     def get_version_value(self, obj):

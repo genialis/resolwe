@@ -35,10 +35,12 @@ from resolwe.test.utils import generate_process_tag
 
 logger = logging.getLogger(__name__)
 
-SPAWN_PROCESS_REGEX = re.compile(r'run\s+\{.*?["\']process["\']\s*:\s*["\'](.+?)["\'].*?\}')
+SPAWN_PROCESS_REGEX = re.compile(
+    r'run\s+\{.*?["\']process["\']\s*:\s*["\'](.+?)["\'].*?\}'
+)
 
 TESTING_CONTEXT = {
-    'is_testing': False,
+    "is_testing": False,
 }
 
 
@@ -47,11 +49,11 @@ class TestingContext:
 
     def __enter__(self):
         """Enter testing context."""
-        TESTING_CONTEXT['is_testing'] = True
+        TESTING_CONTEXT["is_testing"] = True
 
     def __exit__(self, *args, **kwargs):
         """Exit testing context."""
-        TESTING_CONTEXT['is_testing'] = False
+        TESTING_CONTEXT["is_testing"] = False
 
         # Propagate exceptions.
         return False
@@ -87,9 +89,9 @@ def _manager_setup():
     This mostly means state cleanup, such as resetting database
     connections and clearing the shared state.
     """
-    if TESTING_CONTEXT.get('manager_reset', False):
+    if TESTING_CONTEXT.get("manager_reset", False):
         return
-    TESTING_CONTEXT['manager_reset'] = True
+    TESTING_CONTEXT["manager_reset"] = True
     state.update_constants()
     manager.reset()
 
@@ -118,7 +120,7 @@ def _sequence_paths(paths):
         created = []
 
         for base_path in paths:
-            path = os.path.join(base_path, 'test_{}'.format(seq))
+            path = os.path.join(base_path, "test_{}".format(seq))
             try:
                 os.makedirs(path)
                 created.append(path)
@@ -140,25 +142,27 @@ def _sequence_paths(paths):
 
 def _create_test_dirs():
     """Create all the testing directories."""
-    if 'test_paths' in TESTING_CONTEXT:
-        return TESTING_CONTEXT['test_paths']
-    items = ['DATA_DIR', 'UPLOAD_DIR', 'RUNTIME_DIR']
+    if "test_paths" in TESTING_CONTEXT:
+        return TESTING_CONTEXT["test_paths"]
+    items = ["DATA_DIR", "UPLOAD_DIR", "RUNTIME_DIR"]
     paths = _sequence_paths([resolwe_settings.FLOW_EXECUTOR_SETTINGS[i] for i in items])
     for item, path in zip(items, paths):
         resolwe_settings.FLOW_EXECUTOR_SETTINGS[item] = path
-    TESTING_CONTEXT['test_paths'] = paths
+    TESTING_CONTEXT["test_paths"] = paths
     return paths
 
 
 def _prepare_settings():
     """Prepare and apply settings overrides needed for testing."""
     # Override container name prefix setting.
-    resolwe_settings.FLOW_EXECUTOR_SETTINGS['CONTAINER_NAME_PREFIX'] = '{}_{}_{}'.format(
-        resolwe_settings.FLOW_EXECUTOR_SETTINGS.get('CONTAINER_NAME_PREFIX', 'resolwe'),
+    resolwe_settings.FLOW_EXECUTOR_SETTINGS[
+        "CONTAINER_NAME_PREFIX"
+    ] = "{}_{}_{}".format(
+        resolwe_settings.FLOW_EXECUTOR_SETTINGS.get("CONTAINER_NAME_PREFIX", "resolwe"),
         # NOTE: This is necessary to avoid container name clashes when tests are run from
         # different Resolwe code bases on the same system (e.g. on a CI server).
         get_random_string(length=6),
-        os.path.basename(resolwe_settings.FLOW_EXECUTOR_SETTINGS['DATA_DIR'])
+        os.path.basename(resolwe_settings.FLOW_EXECUTOR_SETTINGS["DATA_DIR"]),
     )
 
     return override_settings(
@@ -170,6 +174,7 @@ def _prepare_settings():
 
 def _custom_worker_init(django_init_worker):
     """Wrap the original worker init to also start the manager."""
+
     def _init_worker(*args, **kwargs):
         """Initialize a :class:`multiprocessing.Pool` worker.
 
@@ -181,9 +186,12 @@ def _custom_worker_init(django_init_worker):
         # Further patch channel names and the like with our current pid,
         # so that parallel managers and executors don't clash on the
         # same channels and directories.
-        resolwe_settings.FLOW_MANAGER_SETTINGS['REDIS_PREFIX'] += '-parallel-pid{}'.format(os.getpid())
+        resolwe_settings.FLOW_MANAGER_SETTINGS[
+            "REDIS_PREFIX"
+        ] += "-parallel-pid{}".format(os.getpid())
 
         return result
+
     return _init_worker
 
 
@@ -220,7 +228,9 @@ async def _run_on_infrastructure(meth, *args, **kwargs):
         with _prepare_settings():
             await database_sync_to_async(_manager_setup)()
             with AtScopeExit(manager.state.destroy_channels):
-                redis_params = getattr(settings, 'FLOW_MANAGER', {}).get('REDIS_CONNECTION', {})
+                redis_params = getattr(settings, "FLOW_MANAGER", {}).get(
+                    "REDIS_CONNECTION", {}
+                )
                 listener = ExecutorListener(redis_params=redis_params)
                 await listener.clear_queue()
                 async with listener:
@@ -267,20 +277,20 @@ class ResolweRunner(DiscoverRunner):
 
     def __init__(self, *args, **kwargs):
         """Initialize test runner."""
-        self.only_changes_to = kwargs.pop('only_changes_to', None)
-        self.changes_file_types = kwargs.pop('changes_file_types', None)
+        self.only_changes_to = kwargs.pop("only_changes_to", None)
+        self.changes_file_types = kwargs.pop("changes_file_types", None)
 
         # Handle implication first, meanings get inverted later.
         self.keep_data = False
-        if 'no_mock_purge' in kwargs:
+        if "no_mock_purge" in kwargs:
             self.keep_data = True
 
         # mock_purge used to be the default, so keep it that way;
         # this means the command line option does the opposite
         # (disables it), so the boolean must be inverted here.
-        self.mock_purge = not kwargs.pop('no_mock_purge', False)
+        self.mock_purge = not kwargs.pop("no_mock_purge", False)
 
-        self.keep_data = kwargs.pop('keep_data', self.keep_data)
+        self.keep_data = kwargs.pop("keep_data", self.keep_data)
 
         super().__init__(*args, **kwargs)
 
@@ -293,23 +303,29 @@ class ResolweRunner(DiscoverRunner):
         super().add_arguments(parser)
 
         parser.add_argument(
-            '--only-changes-to', dest='only_changes_to',
-            help="Only test changes against given Git commit reference"
+            "--only-changes-to",
+            dest="only_changes_to",
+            help="Only test changes against given Git commit reference",
         )
 
         parser.add_argument(
-            '--changes-file-types', dest='changes_file_types',
-            help="File which describes what kind of changes are available"
+            "--changes-file-types",
+            dest="changes_file_types",
+            help="File which describes what kind of changes are available",
         )
 
         parser.add_argument(
-            '--keep-data', dest='keep_data', action='store_true',
-            help="Prevent test cases from cleaning up after execution"
+            "--keep-data",
+            dest="keep_data",
+            action="store_true",
+            help="Prevent test cases from cleaning up after execution",
         )
 
         parser.add_argument(
-            '--no-mock-purge', dest='no_mock_purge', action='store_true',
-            help="Do not mock purging functions (implies --keep-data)"
+            "--no-mock-purge",
+            dest="no_mock_purge",
+            action="store_true",
+            help="Do not mock purging functions (implies --keep-data)",
         )
 
     def build_suite(self, *args, **kwargs):
@@ -323,18 +339,17 @@ class ResolweRunner(DiscoverRunner):
         # Augment all test cases with manager state validation logic.
         def validate_manager_state(case, teardown):
             """Decorate test case with manager state validation."""
+
             def wrapper(*args, **kwargs):
                 """Validate manager state on teardown."""
                 if manager.sync_counter.value != 0:
                     case.fail(
-                        'Test has outstanding manager processes. Ensure that all processes have '
-                        'completed or that you have reset the state manually in case you have '
-                        'bypassed the regular manager flow in any way.\n'
-                        '\n'
-                        'Synchronization count: {value} (should be 0)\n'
-                        ''.format(
-                            value=manager.sync_counter.value,
-                        )
+                        "Test has outstanding manager processes. Ensure that all processes have "
+                        "completed or that you have reset the state manually in case you have "
+                        "bypassed the regular manager flow in any way.\n"
+                        "\n"
+                        "Synchronization count: {value} (should be 0)\n"
+                        "".format(value=manager.sync_counter.value,)
                     )
 
                 teardown(*args, **kwargs)
@@ -365,10 +380,12 @@ class ResolweRunner(DiscoverRunner):
         keep_data_override.__enter__()
 
         if self.keep_data and self.mock_purge:
-            purge_mock_os = mock.patch('resolwe.flow.utils.purge.os', wraps=os).start()
+            purge_mock_os = mock.patch("resolwe.flow.utils.purge.os", wraps=os).start()
             purge_mock_os.remove = mock.MagicMock()
 
-            purge_mock_shutil = mock.patch('resolwe.flow.utils.purge.shutil', wraps=shutil).start()
+            purge_mock_shutil = mock.patch(
+                "resolwe.flow.utils.purge.shutil", wraps=shutil
+            ).start()
             purge_mock_shutil.rmtree = mock.MagicMock()
 
         if self.parallel > 1:
@@ -384,35 +401,55 @@ class ResolweRunner(DiscoverRunner):
         if self.only_changes_to:
             # Check if there are changed files. We need to be able to switch between branches so we
             # can correctly detect changes.
-            repo_status = self._git('status', '--porcelain', '--untracked-files=no')
+            repo_status = self._git("status", "--porcelain", "--untracked-files=no")
             if repo_status:
-                print("ERROR: Git repository is not clean. Running tests with --only-changes-to", file=sys.stderr)
-                print("       requires that the current Git repository is clean.", file=sys.stderr)
+                print(
+                    "ERROR: Git repository is not clean. Running tests with --only-changes-to",
+                    file=sys.stderr,
+                )
+                print(
+                    "       requires that the current Git repository is clean.",
+                    file=sys.stderr,
+                )
                 return False
 
-            print("Detecting changed files between {} and HEAD.".format(self.only_changes_to))
-            changed_files = self._git('diff', '--name-only', self.only_changes_to, 'HEAD')
-            changed_files = changed_files.strip().split('\n')
+            print(
+                "Detecting changed files between {} and HEAD.".format(
+                    self.only_changes_to
+                )
+            )
+            changed_files = self._git(
+                "diff", "--name-only", self.only_changes_to, "HEAD"
+            )
+            changed_files = changed_files.strip().split("\n")
             changed_files = [file for file in changed_files if file.strip()]
 
-            top_level_path = self._git('rev-parse', '--show-toplevel')
+            top_level_path = self._git("rev-parse", "--show-toplevel")
             top_level_path = top_level_path.strip()
 
             # Process changed files to discover what they are.
-            changed_files, tags, tests, full_suite = self.process_changed_files(changed_files, top_level_path)
+            changed_files, tags, tests, full_suite = self.process_changed_files(
+                changed_files, top_level_path
+            )
             print("Changed files:")
             for filename, file_type in changed_files:
                 print("  {} ({})".format(filename, file_type))
 
             if not changed_files:
                 print("  none")
-                print("No files have been changed, assuming target is HEAD, running full suite.")
+                print(
+                    "No files have been changed, assuming target is HEAD, running full suite."
+                )
             elif full_suite:
-                print("Non-test code or unknown files have been modified, running full test suite.")
+                print(
+                    "Non-test code or unknown files have been modified, running full test suite."
+                )
             else:
                 # Run specific tests/tags.
-                print("Running with following partial tags: {}".format(', '.join(tags)))
-                print("Running with following partial tests: {}".format(', '.join(tests)))
+                print("Running with following partial tags: {}".format(", ".join(tags)))
+                print(
+                    "Running with following partial tests: {}".format(", ".join(tests))
+                )
 
                 failed_tests = 0
 
@@ -436,26 +473,26 @@ class ResolweRunner(DiscoverRunner):
     def _git(self, *args):
         """Helper to run Git command."""
         try:
-            return subprocess.check_output(['git'] + list(args)).decode('utf8').strip()
+            return subprocess.check_output(["git"] + list(args)).decode("utf8").strip()
         except subprocess.CalledProcessError:
             raise CommandError("Git command failed.")
 
     @contextlib.contextmanager
     def git_branch(self, branch):
         """Temporarily switch to a different Git branch."""
-        current_branch = self._git('rev-parse', '--abbrev-ref', 'HEAD')
-        if current_branch == 'HEAD':
+        current_branch = self._git("rev-parse", "--abbrev-ref", "HEAD")
+        if current_branch == "HEAD":
             # Detached HEAD state, we need to get the actual commit.
-            current_branch = self._git('rev-parse', 'HEAD')
+            current_branch = self._git("rev-parse", "HEAD")
 
         if current_branch != branch:
-            self._git('checkout', branch)
+            self._git("checkout", branch)
 
         try:
             yield
         finally:
             if current_branch != branch:
-                self._git('checkout', current_branch)
+                self._git("checkout", current_branch)
 
     def process_changed_files(self, changed_files, top_level_path):
         """Process changed files based on specified patterns.
@@ -473,37 +510,39 @@ class ResolweRunner(DiscoverRunner):
         if self.changes_file_types:
             # Parse file types metadata.
             try:
-                with open(self.changes_file_types, 'r') as definition_file:
+                with open(self.changes_file_types, "r") as definition_file:
                     types = yaml.load(definition_file, Loader=yaml.FullLoader)
             except (OSError, ValueError):
                 raise CommandError("Failed loading or parsing file types metadata.")
         else:
-            print("WARNING: Treating all files as unknown because --changes-file-types option not specified.",
-                  file=sys.stderr)
+            print(
+                "WARNING: Treating all files as unknown because --changes-file-types option not specified.",
+                file=sys.stderr,
+            )
 
         for filename in changed_files:
             # Match file type.
-            file_type = 'unknown'
-            file_type_name = 'unknown'
+            file_type = "unknown"
+            file_type_name = "unknown"
 
             for definition in types:
-                if re.search(definition['match'], filename):
-                    file_type = definition['type']
-                    file_type_name = definition.get('name', file_type)
+                if re.search(definition["match"], filename):
+                    file_type = definition["type"]
+                    file_type_name = definition.get("name", file_type)
                     break
 
             result.append((filename, file_type_name))
-            if file_type in ('unknown', 'force_run'):
+            if file_type in ("unknown", "force_run"):
                 full_suite = True
-            elif file_type == 'ignore':
+            elif file_type == "ignore":
                 # Ignore
                 pass
-            elif file_type == 'process':
+            elif file_type == "process":
                 # Resolve process tag.
                 processes.append(os.path.join(top_level_path, filename))
-            elif file_type == 'test':
+            elif file_type == "test":
                 # Generate test name.
-                tests.append(re.sub(r'\.py$', '', filename).replace(os.path.sep, '.'))
+                tests.append(re.sub(r"\.py$", "", filename).replace(os.path.sep, "."))
             else:
                 raise CommandError("Unsupported file type: {}".format(file_type))
 
@@ -523,14 +562,17 @@ class ResolweRunner(DiscoverRunner):
         for root, _, files in os.walk(schema_path):
             for schema_file in [os.path.join(root, fn) for fn in files]:
 
-                if not schema_file.lower().endswith(('.yml', '.yaml')):
+                if not schema_file.lower().endswith((".yml", ".yaml")):
                     continue
 
                 with open(schema_file) as fn:
                     schemas = yaml.load(fn, Loader=yaml.FullLoader)
 
                 if not schemas:
-                    print("WARNING: Could not read YAML file {}".format(schema_file), file=sys.stderr)
+                    print(
+                        "WARNING: Could not read YAML file {}".format(schema_file),
+                        file=sys.stderr,
+                    )
                     continue
 
                 for schema in schemas:
@@ -547,15 +589,15 @@ class ResolweRunner(DiscoverRunner):
         dependencies = {}
 
         for schema in schemas:
-            slug = schema['slug']
-            run = schema.get('run', {})
-            program = run.get('program', None)
-            language = run.get('language', None)
+            slug = schema["slug"]
+            run = schema.get("run", {})
+            program = run.get("program", None)
+            language = run.get("language", None)
 
-            if language == 'workflow':
+            if language == "workflow":
                 for step in program:
-                    dependencies.setdefault(step['run'], set()).add(slug)
-            elif language == 'bash':
+                    dependencies.setdefault(step["run"], set()).add(slug)
+            elif language == "bash":
                 # Process re-spawn instructions to discover dependencies.
                 matches = SPAWN_PROCESS_REGEX.findall(program)
                 if matches:
@@ -589,12 +631,12 @@ class ResolweRunner(DiscoverRunner):
 
         def load_process_slugs(filename):
             """Add all process slugs from specified file."""
-            with open(filename, 'r') as process_file:
+            with open(filename, "r") as process_file:
                 data = yaml.load(process_file, Loader=yaml.FullLoader)
 
                 for process in data:
                     # Add all process slugs.
-                    processes.add(process['slug'])
+                    processes.add(process["slug"])
 
         for filename in files:
             try:
@@ -631,4 +673,4 @@ class ResolweRunner(DiscoverRunner):
 
 def is_testing():
     """Return current testing status."""
-    return TESTING_CONTEXT['is_testing']
+    return TESTING_CONTEXT["is_testing"]

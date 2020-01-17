@@ -24,21 +24,23 @@ class CollectionSerializer(ResolweBaseSerializer):
 
         model = Collection
         read_only_fields = (
-            'created',
-            'descriptor_dirty',
-            'duplicated',
-            'id',
-            'modified',
+            "created",
+            "descriptor_dirty",
+            "duplicated",
+            "id",
+            "modified",
         )
-        update_protected_fields = (
-            'contributor',
-        )
-        fields = read_only_fields + update_protected_fields + (
-            'description',
-            'descriptor',
-            'descriptor_schema',
-            'name',
-            'settings',
-            'slug',
-            'tags',
+        update_protected_fields = ("contributor",)
+        fields = (
+            read_only_fields
+            + update_protected_fields
+            + (
+                "description",
+                "descriptor",
+                "descriptor_schema",
+                "name",
+                "settings",
+                "slug",
+                "tags",
+            )
         )

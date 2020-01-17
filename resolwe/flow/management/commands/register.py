@@ -27,29 +27,43 @@ from resolwe.flow.models.utils import validate_schema, validation_schema
 from resolwe.flow.utils import dict_dot, iterate_schema
 from resolwe.permissions.utils import assign_contributor_permissions, copy_permissions
 
-PROCESSOR_SCHEMA = validation_schema('processor')
-DESCRIPTOR_SCHEMA = validation_schema('descriptor')
+PROCESSOR_SCHEMA = validation_schema("processor")
+DESCRIPTOR_SCHEMA = validation_schema("descriptor")
 
-SCHEMA_TYPE_DESCRIPTOR = 'descriptor'
-SCHEMA_TYPE_PROCESS = 'process'
+SCHEMA_TYPE_DESCRIPTOR = "descriptor"
+SCHEMA_TYPE_PROCESS = "process"
 
 
 class Command(BaseCommand):
     """Register processes."""
 
-    help = 'Register processes'
+    help = "Register processes"
 
     def add_arguments(self, parser):
         """Command arguments."""
-        parser.add_argument('-f', '--force', action='store_true', help="register also if version mismatch")
-        parser.add_argument('--retire', default=False, action='store_true', help="retire obsolete processes")
+        parser.add_argument(
+            "-f",
+            "--force",
+            action="store_true",
+            help="register also if version mismatch",
+        )
+        parser.add_argument(
+            "--retire",
+            default=False,
+            action="store_true",
+            help="retire obsolete processes",
+        )
 
     def valid(self, instance, schema):
         """Validate schema."""
         try:
             jsonschema.validate(instance, schema)
         except jsonschema.exceptions.ValidationError as ex:
-            self.stderr.write("    VALIDATION ERROR: {}".format(instance['name'] if 'name' in instance else ''))
+            self.stderr.write(
+                "    VALIDATION ERROR: {}".format(
+                    instance["name"] if "name" in instance else ""
+                )
+            )
             self.stderr.write("        path:       {}".format(ex.path))
             self.stderr.write("        message:    {}".format(ex.message))
             self.stderr.write("        validator:  {}".format(ex.validator))
@@ -58,20 +72,22 @@ class Command(BaseCommand):
 
         try:
             # Check that default values fit field schema.
-            for field in ['input', 'output', 'schema']:
+            for field in ["input", "output", "schema"]:
                 for schema, _, path in iterate_schema({}, instance.get(field, {})):
-                    if 'default' in schema:
-                        validate_schema({schema['name']: schema['default']}, [schema])
+                    if "default" in schema:
+                        validate_schema({schema["name"]: schema["default"]}, [schema])
         except ValidationError:
-            self.stderr.write("    VALIDATION ERROR: {}".format(instance['name']))
-            self.stderr.write("        Default value of field '{}' is not valid.". format(path))
+            self.stderr.write("    VALIDATION ERROR: {}".format(instance["name"]))
+            self.stderr.write(
+                "        Default value of field '{}' is not valid.".format(path)
+            )
             return False
 
         return True
 
     def find_descriptor_schemas(self, schema_file):
         """Find descriptor schemas in given path."""
-        if not schema_file.lower().endswith(('.yml', '.yaml')):
+        if not schema_file.lower().endswith((".yml", ".yaml")):
             return []
 
         with open(schema_file) as fn:
@@ -82,7 +98,7 @@ class Command(BaseCommand):
 
         descriptor_schemas = []
         for schema in schemas:
-            if 'schema' not in schema:
+            if "schema" not in schema:
                 continue
 
             descriptor_schemas.append(schema)
@@ -99,7 +115,7 @@ class Command(BaseCommand):
             return
 
         if schema_type not in [SCHEMA_TYPE_PROCESS, SCHEMA_TYPE_DESCRIPTOR]:
-            raise ValueError('Invalid schema type')
+            raise ValueError("Invalid schema type")
 
         for root, _, files in os.walk(schema_path):
             for schema_file in [os.path.join(root, fn) for fn in files]:
@@ -126,120 +142,138 @@ class Command(BaseCommand):
         for p in process_schemas:
             # TODO: Remove this when all processes are migrated to the
             #       new syntax.
-            if 'flow_collection' in p:
-                if 'entity' in p:
+            if "flow_collection" in p:
+                if "entity" in p:
                     self.stderr.write(
                         "Skip processor {}: only one of 'flow_collection' and 'entity' fields "
-                        "allowed".format(p['slug'])
+                        "allowed".format(p["slug"])
                     )
                     continue
 
-                p['entity'] = {'type': p.pop('flow_collection')}
+                p["entity"] = {"type": p.pop("flow_collection")}
 
-            if p['type'][-1] != ':':
-                p['type'] += ':'
+            if p["type"][-1] != ":":
+                p["type"] += ":"
 
-            if 'category' in p and not p['category'].endswith(':'):
-                p['category'] += ':'
+            if "category" in p and not p["category"].endswith(":"):
+                p["category"] += ":"
 
-            for field in ['input', 'output']:
+            for field in ["input", "output"]:
                 for schema, _, _ in iterate_schema({}, p[field] if field in p else {}):
-                    if not schema['type'][-1].endswith(':'):
-                        schema['type'] += ':'
+                    if not schema["type"][-1].endswith(":"):
+                        schema["type"] += ":"
             # TODO: Check if schemas validate with our JSON meta schema and Processor model docs.
 
             if not self.valid(p, PROCESSOR_SCHEMA):
                 continue
 
-            if 'entity' in p:
-                if 'type' not in p['entity']:
+            if "entity" in p:
+                if "type" not in p["entity"]:
                     self.stderr.write(
-                        "Skip process {}: 'entity.type' required if 'entity' defined".format(p['slug'])
+                        "Skip process {}: 'entity.type' required if 'entity' defined".format(
+                            p["slug"]
+                        )
                     )
                     continue
-                if 'input' in p['entity'] and p['entity'].get('always_create', False):
+                if "input" in p["entity"] and p["entity"].get("always_create", False):
                     self.stderr.write(
                         "Skip process {}: 'entity.input' will not be considered if 'entity.always_create' "
-                        "is set to true.".format(p['slug'])
+                        "is set to true.".format(p["slug"])
                     )
                     continue
 
-                p['entity_type'] = p['entity']['type']
-                p['entity_descriptor_schema'] = p['entity'].get('descriptor_schema', p['entity_type'])
-                p['entity_input'] = p['entity'].get('input', None)
-                p['entity_always_create'] = p['entity'].get('always_create', False)
-                p.pop('entity')
+                p["entity_type"] = p["entity"]["type"]
+                p["entity_descriptor_schema"] = p["entity"].get(
+                    "descriptor_schema", p["entity_type"]
+                )
+                p["entity_input"] = p["entity"].get("input", None)
+                p["entity_always_create"] = p["entity"].get("always_create", False)
+                p.pop("entity")
 
-                if not DescriptorSchema.objects.filter(slug=p['entity_descriptor_schema']).exists():
+                if not DescriptorSchema.objects.filter(
+                    slug=p["entity_descriptor_schema"]
+                ).exists():
                     self.stderr.write(
                         "Skip processor {}: Unknown descriptor schema '{}' used in 'entity' "
-                        "field.".format(p['slug'], p['entity_descriptor_schema'])
+                        "field.".format(p["slug"], p["entity_descriptor_schema"])
                     )
                     continue
 
-            if 'persistence' in p:
+            if "persistence" in p:
                 persistence_mapping = {
-                    'RAW': Process.PERSISTENCE_RAW,
-                    'CACHED': Process.PERSISTENCE_CACHED,
-                    'TEMP': Process.PERSISTENCE_TEMP,
+                    "RAW": Process.PERSISTENCE_RAW,
+                    "CACHED": Process.PERSISTENCE_CACHED,
+                    "TEMP": Process.PERSISTENCE_TEMP,
                 }
 
-                p['persistence'] = persistence_mapping[p['persistence']]
+                p["persistence"] = persistence_mapping[p["persistence"]]
 
-            if 'scheduling_class' in p:
+            if "scheduling_class" in p:
                 scheduling_class_mapping = {
-                    'interactive': Process.SCHEDULING_CLASS_INTERACTIVE,
-                    'batch': Process.SCHEDULING_CLASS_BATCH
+                    "interactive": Process.SCHEDULING_CLASS_INTERACTIVE,
+                    "batch": Process.SCHEDULING_CLASS_BATCH,
                 }
 
-                p['scheduling_class'] = scheduling_class_mapping[p['scheduling_class']]
+                p["scheduling_class"] = scheduling_class_mapping[p["scheduling_class"]]
 
-            if 'input' in p:
-                p['input_schema'] = p.pop('input')
+            if "input" in p:
+                p["input_schema"] = p.pop("input")
 
-            if 'output' in p:
-                p['output_schema'] = p.pop('output')
+            if "output" in p:
+                p["output_schema"] = p.pop("output")
 
-            slug = p['slug']
+            slug = p["slug"]
 
-            if 'run' in p:
+            if "run" in p:
                 # Set default language to 'bash' if not set.
-                p['run'].setdefault('language', 'bash')
+                p["run"].setdefault("language", "bash")
 
                 # Transform output schema using the execution engine.
                 try:
-                    execution_engine = manager.get_execution_engine(p['run']['language'])
+                    execution_engine = manager.get_execution_engine(
+                        p["run"]["language"]
+                    )
                     extra_output_schema = execution_engine.get_output_schema(p)
                     if extra_output_schema:
-                        p.setdefault('output_schema', []).extend(extra_output_schema)
+                        p.setdefault("output_schema", []).extend(extra_output_schema)
                 except InvalidEngineError:
-                    self.stderr.write("Skip processor {}: execution engine '{}' not supported".format(
-                        slug, p['run']['language']
-                    ))
+                    self.stderr.write(
+                        "Skip processor {}: execution engine '{}' not supported".format(
+                            slug, p["run"]["language"]
+                        )
+                    )
                     continue
 
             # Validate if container image is allowed based on the configured pattern.
             # NOTE: This validation happens here and is not deferred to executors because the idea
             #       is that this will be moved to a "container" requirement independent of the
             #       executor.
-            if hasattr(settings, 'FLOW_CONTAINER_VALIDATE_IMAGE'):
+            if hasattr(settings, "FLOW_CONTAINER_VALIDATE_IMAGE"):
                 try:
-                    container_image = dict_dot(p, 'requirements.executor.docker.image')
-                    if not re.match(settings.FLOW_CONTAINER_VALIDATE_IMAGE, container_image):
-                        self.stderr.write("Skip processor {}: container image does not match '{}'".format(
-                            slug, settings.FLOW_CONTAINER_VALIDATE_IMAGE,
-                        ))
+                    container_image = dict_dot(p, "requirements.executor.docker.image")
+                    if not re.match(
+                        settings.FLOW_CONTAINER_VALIDATE_IMAGE, container_image
+                    ):
+                        self.stderr.write(
+                            "Skip processor {}: container image does not match '{}'".format(
+                                slug, settings.FLOW_CONTAINER_VALIDATE_IMAGE,
+                            )
+                        )
                         continue
                 except KeyError:
                     pass
 
-            version = p['version']
+            version = p["version"]
             int_version = convert_version_string_to_int(version, VERSION_NUMBER_BITS)
 
             # `latest version` is returned as `int` so it has to be compared to `int_version`
-            latest_version = Process.objects.filter(slug=slug).aggregate(Max('version'))['version__max']
+            latest_version = Process.objects.filter(slug=slug).aggregate(
+                Max("version")
+            )["version__max"]
             if latest_version is not None and latest_version > int_version:
-                self.stderr.write("Skip processor {}: newer version installed".format(slug))
+                self.stderr.write(
+                    "Skip processor {}: newer version installed".format(slug)
+                )
                 continue
 
             previous_process_qs = Process.objects.filter(slug=slug)
@@ -252,7 +286,9 @@ class Command(BaseCommand):
             if process_query.exists():
                 if not force:
                     if verbosity > 0:
-                        self.stdout.write("Skip processor {}: same version installed".format(slug))
+                        self.stdout.write(
+                            "Skip processor {}: same version installed".format(slug)
+                        )
                     continue
 
                 process_query.update(**p)
@@ -280,24 +316,28 @@ class Command(BaseCommand):
         log_descriptors = []
 
         for descriptor_schema in descriptor_schemas:
-            for schema, _, _ in iterate_schema({}, descriptor_schema.get('schema', {})):
-                if not schema['type'][-1].endswith(':'):
-                    schema['type'] += ':'
+            for schema, _, _ in iterate_schema({}, descriptor_schema.get("schema", {})):
+                if not schema["type"][-1].endswith(":"):
+                    schema["type"] += ":"
 
-            if 'schema' not in descriptor_schema:
-                descriptor_schema['schema'] = []
+            if "schema" not in descriptor_schema:
+                descriptor_schema["schema"] = []
 
             if not self.valid(descriptor_schema, DESCRIPTOR_SCHEMA):
                 continue
 
-            slug = descriptor_schema['slug']
-            version = descriptor_schema.get('version', '0.0.0')
+            slug = descriptor_schema["slug"]
+            version = descriptor_schema.get("version", "0.0.0")
             int_version = convert_version_string_to_int(version, VERSION_NUMBER_BITS)
 
             # `latest version` is returned as `int` so it has to be compared to `int_version`
-            latest_version = DescriptorSchema.objects.filter(slug=slug).aggregate(Max('version'))['version__max']
+            latest_version = DescriptorSchema.objects.filter(slug=slug).aggregate(
+                Max("version")
+            )["version__max"]
             if latest_version is not None and latest_version > int_version:
-                self.stderr.write("Skip descriptor schema {}: newer version installed".format(slug))
+                self.stderr.write(
+                    "Skip descriptor schema {}: newer version installed".format(slug)
+                )
                 continue
 
             previous_descriptor_qs = DescriptorSchema.objects.filter(slug=slug)
@@ -306,17 +346,25 @@ class Command(BaseCommand):
             else:
                 previous_descriptor = None
 
-            descriptor_query = DescriptorSchema.objects.filter(slug=slug, version=version)
+            descriptor_query = DescriptorSchema.objects.filter(
+                slug=slug, version=version
+            )
             if descriptor_query.exists():
                 if not force:
                     if verbosity > 0:
-                        self.stdout.write("Skip descriptor schema {}: same version installed".format(slug))
+                        self.stdout.write(
+                            "Skip descriptor schema {}: same version installed".format(
+                                slug
+                            )
+                        )
                     continue
 
                 descriptor_query.update(**descriptor_schema)
                 log_descriptors.append("Updated {}".format(slug))
             else:
-                descriptor = DescriptorSchema.objects.create(contributor=user, **descriptor_schema)
+                descriptor = DescriptorSchema.objects.create(
+                    contributor=user, **descriptor_schema
+                )
                 assign_contributor_permissions(descriptor)
                 if previous_descriptor:
                     copy_permissions(previous_descriptor, descriptor)
@@ -337,7 +385,7 @@ class Command(BaseCommand):
         - If they have data: flag them not active (``is_active=False``)
 
         """
-        process_slugs = set(ps['slug'] for ps in process_schemas)
+        process_slugs = set(ps["slug"] for ps in process_schemas)
 
         # Processes that are in DB but not in the code
         retired_processes = Process.objects.filter(~Q(slug__in=process_slugs))
@@ -346,19 +394,25 @@ class Command(BaseCommand):
         retired_processes.filter(data__exact=None).delete()
 
         # Remove non-latest processes which do not have data
-        latest_version_processes = Process.objects.order_by('slug', '-version').distinct('slug')
-        Process.objects.filter(data__exact=None).difference(latest_version_processes).delete()
+        latest_version_processes = Process.objects.order_by(
+            "slug", "-version"
+        ).distinct("slug")
+        Process.objects.filter(data__exact=None).difference(
+            latest_version_processes
+        ).delete()
 
         # Deactivate retired processes which have data
         retired_processes.update(is_active=False)
 
     def handle(self, *args, **options):
         """Register processes."""
-        force = options.get('force')
-        retire = options.get('retire')
-        verbosity = int(options.get('verbosity'))
+        force = options.get("force")
+        retire = options.get("retire")
+        verbosity = int(options.get("verbosity"))
 
-        users = get_user_model().objects.filter(is_superuser=True).order_by('date_joined')
+        users = (
+            get_user_model().objects.filter(is_superuser=True).order_by("date_joined")
+        )
 
         if not users.exists():
             self.stderr.write("Admin does not exist: create a superuser")
@@ -373,14 +427,22 @@ class Command(BaseCommand):
 
         for proc_path in process_paths:
             process_schemas.extend(
-                self.find_schemas(proc_path, schema_type=SCHEMA_TYPE_PROCESS, verbosity=verbosity))
+                self.find_schemas(
+                    proc_path, schema_type=SCHEMA_TYPE_PROCESS, verbosity=verbosity
+                )
+            )
 
         for desc_path in descriptor_paths:
             descriptor_schemas.extend(
-                self.find_schemas(desc_path, schema_type=SCHEMA_TYPE_DESCRIPTOR, verbosity=verbosity))
+                self.find_schemas(
+                    desc_path, schema_type=SCHEMA_TYPE_DESCRIPTOR, verbosity=verbosity
+                )
+            )
 
         user_admin = users.first()
-        self.register_descriptors(descriptor_schemas, user_admin, force, verbosity=verbosity)
+        self.register_descriptors(
+            descriptor_schemas, user_admin, force, verbosity=verbosity
+        )
         # NOTE: Descriptor schemas must be registered first, so
         #       processes can validate 'entity_descriptor_schema' field.
         self.register_processes(process_schemas, user_admin, force, verbosity=verbosity)

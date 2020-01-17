@@ -9,13 +9,18 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('flow', '0010_add_secret'),
+        ("flow", "0010_add_secret"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='datadependency',
-            name='parent',
-            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='children_dependency', to='flow.Data'),
+            model_name="datadependency",
+            name="parent",
+            field=models.ForeignKey(
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="children_dependency",
+                to="flow.Data",
+            ),
         ),
     ]

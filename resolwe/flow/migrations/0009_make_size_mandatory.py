@@ -8,13 +8,11 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('flow', '0008_compute_size'),
+        ("flow", "0008_compute_size"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='data',
-            name='size',
-            field=models.BigIntegerField(),
+            model_name="data", name="size", field=models.BigIntegerField(),
         ),
     ]

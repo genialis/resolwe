@@ -14,10 +14,20 @@ class ElasticIndexFilterMixin:
         """Command arguments."""
         super().add_arguments(parser)
 
-        parser.add_argument('-i', '--index', action='append', default=[],
-                            help="Only process specific indices (default: not set)")
-        parser.add_argument('-e', '--exclude', action='append', default=[],
-                            help="Do not process specific indices (default: not set)")
+        parser.add_argument(
+            "-i",
+            "--index",
+            action="append",
+            default=[],
+            help="Only process specific indices (default: not set)",
+        )
+        parser.add_argument(
+            "-e",
+            "--exclude",
+            action="append",
+            default=[],
+            help="Do not process specific indices (default: not set)",
+        )
 
     def invalid_index(self, name):
         """Show an invalid index error message."""
@@ -28,7 +38,7 @@ class ElasticIndexFilterMixin:
 
     def has_filter(self, options):
         """Return true if any filters have been specified."""
-        return options['index'] or options['exclude']
+        return options["index"] or options["exclude"]
 
     def handle_index(self, index):
         """Process index."""
@@ -36,18 +46,17 @@ class ElasticIndexFilterMixin:
     def filter_indices(self, options, verbosity, *args, **kwargs):
         """Filter indices and execute an action for each index."""
         index_name_map = {
-            index.__class__.__name__: index
-            for index in index_builder.indexes
+            index.__class__.__name__: index for index in index_builder.indexes
         }
 
         # Process includes.
-        if options['index']:
-            indices = set(options['index'])
+        if options["index"]:
+            indices = set(options["index"])
         else:
             indices = set(index_name_map.keys())
 
         # Process excludes.
-        for index_name in options['exclude']:
+        for index_name in options["exclude"]:
             if index_name not in index_name_map:
                 self.invalid_index(index_name)
                 return

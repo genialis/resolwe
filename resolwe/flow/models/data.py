@@ -14,7 +14,12 @@ from django.utils.timezone import now
 
 from resolwe.flow.expression_engines.exceptions import EvaluationError
 from resolwe.flow.models.utils import fill_with_defaults
-from resolwe.flow.utils import dict_dot, get_data_checksum, iterate_fields, rewire_inputs
+from resolwe.flow.utils import (
+    dict_dot,
+    get_data_checksum,
+    iterate_fields,
+    rewire_inputs,
+)
 from resolwe.permissions.utils import assign_contributor_permissions, copy_permissions
 
 from .base import BaseModel
@@ -23,11 +28,16 @@ from .entity import Entity
 from .secret import Secret
 from .storage import Storage
 from .utils import (
-    DirtyError, hydrate_input_references, hydrate_size, render_descriptor, render_template, validate_schema,
+    DirtyError,
+    hydrate_input_references,
+    hydrate_size,
+    render_descriptor,
+    render_template,
+    validate_schema,
 )
 
 # Compatibility for Python < 3.5.
-if not hasattr(json, 'JSONDecodeError'):
+if not hasattr(json, "JSONDecodeError"):
     json.JSONDecodeError = ValueError
 
 logger = logging.getLogger(__name__)
@@ -37,9 +47,9 @@ logger = logging.getLogger(__name__)
 class HandleEntityOperation(enum.Enum):
     """Constants for entity handling."""
 
-    CREATE = 'CREATE'
-    ADD = 'ADD'
-    PASS = 'PASS'
+    CREATE = "CREATE"
+    ADD = "ADD"
+    PASS = "PASS"
 
 
 class DataQuerySet(models.QuerySet):
@@ -73,17 +83,21 @@ class DataQuerySet(models.QuerySet):
                     logger.warning("Skipping creation of entity due to missing input.")
                     return
                 if isinstance(input_id, int):
-                    data_filter['data__pk'] = input_id
+                    data_filter["data__pk"] = input_id
                 elif isinstance(input_id, list):
-                    data_filter['data__pk__in'] = input_id
+                    data_filter["data__pk__in"] = input_id
                 else:
                     raise ValueError(
-                        "Cannot create entity due to invalid value of field {}.".format(entity_input)
+                        "Cannot create entity due to invalid value of field {}.".format(
+                            entity_input
+                        )
                     )
             else:
-                data_filter['data__in'] = obj.parents.all()
+                data_filter["data__in"] = obj.parents.all()
 
-            entity_query = Entity.objects.filter(type=entity_type, **data_filter).distinct()
+            entity_query = Entity.objects.filter(
+                type=entity_type, **data_filter
+            ).distinct()
             entity_count = entity_query.count()
 
             if entity_count == 0 or entity_always_create:
@@ -107,7 +121,9 @@ class DataQuerySet(models.QuerySet):
                 operation = HandleEntityOperation.ADD
 
             else:
-                logger.info("Skipping creation of entity due to multiple entities found.")
+                logger.info(
+                    "Skipping creation of entity due to multiple entities found."
+                )
                 entity = None
 
             if entity:
@@ -141,8 +157,10 @@ class DataQuerySet(models.QuerySet):
         if entity_operation == HandleEntityOperation.ADD and obj.collection:
             # 2.3
             if not obj.entity.collection:
-                raise ValueError("Created Data has collection {} assigned, but it is added to entity {} that is not "
-                                 "inside this collection.".format(obj.collection, obj.entity))
+                raise ValueError(
+                    "Created Data has collection {} assigned, but it is added to entity {} that is not "
+                    "inside this collection.".format(obj.collection, obj.entity)
+                )
             # 2.4
             assert obj.collection == obj.entity.collection
 
@@ -200,12 +218,12 @@ class DataQuerySet(models.QuerySet):
             # cannot be called on a sliced queryset due to ordering requirement.
             with transaction.atomic():
                 # Get offset of last item (needed because it may be less than the chunk size).
-                offset = queryset.order_by('pk')[:chunk_size].count()
+                offset = queryset.order_by("pk")[:chunk_size].count()
                 if not offset:
                     break
 
                 # Fetch primary key of last item and use it to delete the chunk.
-                last_instance = queryset.order_by('pk')[offset - 1]
+                last_instance = queryset.order_by("pk")[offset - 1]
                 queryset.filter(pk__lte=last_instance.pk).delete()
 
     def delete_chunked(self, chunk_size=500):
@@ -220,25 +238,27 @@ class DataQuerySet(models.QuerySet):
         return DataQuerySet._delete_chunked(self, chunk_size=chunk_size)
 
     @transaction.atomic
-    def duplicate(self, contributor=None, inherit_entity=False, inherit_collection=False):
+    def duplicate(
+        self, contributor=None, inherit_entity=False, inherit_collection=False
+    ):
         """Duplicate (make a copy) ``Data`` objects.
 
         :param contributor: Duplication user
         """
         bundle = [
             {
-                'original': data,
-                'copy': data.duplicate(
+                "original": data,
+                "copy": data.duplicate(
                     contributor=contributor,
                     inherit_entity=inherit_entity,
                     inherit_collection=inherit_collection,
-                )
+                ),
             }
             for data in self
         ]
 
         bundle = rewire_inputs(bundle)
-        duplicated = [item['copy'] for item in bundle]
+        duplicated = [item["copy"] for item in bundle]
 
         return duplicated
 
@@ -257,27 +277,27 @@ class Data(BaseModel):
         )
 
     #: data object is uploading
-    STATUS_UPLOADING = 'UP'
+    STATUS_UPLOADING = "UP"
     #: data object is being resolved
-    STATUS_RESOLVING = 'RE'
+    STATUS_RESOLVING = "RE"
     #: data object is waiting
-    STATUS_WAITING = 'WT'
+    STATUS_WAITING = "WT"
     #: data object is processing
-    STATUS_PROCESSING = 'PR'
+    STATUS_PROCESSING = "PR"
     #: data object is done
-    STATUS_DONE = 'OK'
+    STATUS_DONE = "OK"
     #: data object is in error state
-    STATUS_ERROR = 'ER'
+    STATUS_ERROR = "ER"
     #: data object is in dirty state
-    STATUS_DIRTY = 'DR'
+    STATUS_DIRTY = "DR"
     STATUS_CHOICES = (
-        (STATUS_UPLOADING, 'Uploading'),
-        (STATUS_RESOLVING, 'Resolving'),
-        (STATUS_WAITING, 'Waiting'),
-        (STATUS_PROCESSING, 'Processing'),
-        (STATUS_DONE, 'Done'),
-        (STATUS_ERROR, 'Error'),
-        (STATUS_DIRTY, 'Dirty')
+        (STATUS_UPLOADING, "Uploading"),
+        (STATUS_RESOLVING, "Resolving"),
+        (STATUS_WAITING, "Waiting"),
+        (STATUS_PROCESSING, "Processing"),
+        (STATUS_DONE, "Done"),
+        (STATUS_ERROR, "Error"),
+        (STATUS_DIRTY, "Dirty"),
     )
 
     #: manager
@@ -299,15 +319,21 @@ class Data(BaseModel):
     duplicated = models.DateTimeField(blank=True, null=True)
 
     #: checksum field calculated on inputs
-    checksum = models.CharField(max_length=64, db_index=True, validators=[
-        RegexValidator(
-            regex=r'^[0-9a-f]{64}$',
-            message='Checksum is exactly 40 alphanumerics',
-            code='invalid_checksum'
-        )
-    ])
+    checksum = models.CharField(
+        max_length=64,
+        db_index=True,
+        validators=[
+            RegexValidator(
+                regex=r"^[0-9a-f]{64}$",
+                message="Checksum is exactly 40 alphanumerics",
+                code="invalid_checksum",
+            )
+        ],
+    )
 
-    status = models.CharField(max_length=2, choices=STATUS_CHOICES, default=STATUS_RESOLVING)
+    status = models.CharField(
+        max_length=2, choices=STATUS_CHOICES, default=STATUS_RESOLVING
+    )
     """
     :class:`Data` status
 
@@ -322,7 +348,7 @@ class Data(BaseModel):
     """
 
     #: process used to compute the data object
-    process = models.ForeignKey('Process', on_delete=models.PROTECT)
+    process = models.ForeignKey("Process", on_delete=models.PROTECT)
 
     #: process id
     process_pid = models.PositiveIntegerField(blank=True, null=True)
@@ -352,7 +378,9 @@ class Data(BaseModel):
     size = models.BigIntegerField()
 
     #: data descriptor schema
-    descriptor_schema = models.ForeignKey('DescriptorSchema', blank=True, null=True, on_delete=models.PROTECT)
+    descriptor_schema = models.ForeignKey(
+        "DescriptorSchema", blank=True, null=True, on_delete=models.PROTECT
+    )
 
     #: actual descriptor
     descriptor = JSONField(default=dict)
@@ -365,10 +393,7 @@ class Data(BaseModel):
 
     #: dependencies between data objects
     parents = models.ManyToManyField(
-        'self',
-        through='DataDependency',
-        symmetrical=False,
-        related_name='children'
+        "self", through="DataDependency", symmetrical=False, related_name="children"
     )
 
     #: tags for categorizing objects
@@ -381,13 +406,27 @@ class Data(BaseModel):
     process_cores = models.PositiveSmallIntegerField(default=0)
 
     #: data location
-    location = models.ForeignKey('DataLocation', blank=True, null=True, on_delete=models.PROTECT, related_name='data')
+    location = models.ForeignKey(
+        "DataLocation",
+        blank=True,
+        null=True,
+        on_delete=models.PROTECT,
+        related_name="data",
+    )
 
     #: entity
-    entity = models.ForeignKey('Entity', blank=True, null=True, on_delete=models.CASCADE, related_name='data')
+    entity = models.ForeignKey(
+        "Entity", blank=True, null=True, on_delete=models.CASCADE, related_name="data"
+    )
 
     #: collection
-    collection = models.ForeignKey('Collection', blank=True, null=True, on_delete=models.CASCADE, related_name='data')
+    collection = models.ForeignKey(
+        "Collection",
+        blank=True,
+        null=True,
+        on_delete=models.CASCADE,
+        related_name="data",
+    )
 
     def __init__(self, *args, **kwargs):
         """Initialize attributes."""
@@ -397,12 +436,13 @@ class Data(BaseModel):
     def save_storage(self, instance, schema):
         """Save basic:json values to a Storage collection."""
         for field_schema, fields in iterate_fields(instance, schema):
-            name = field_schema['name']
+            name = field_schema["name"]
             value = fields[name]
-            if field_schema.get('type', '').startswith('basic:json:'):
+            if field_schema.get("type", "").startswith("basic:json:"):
                 if value and not self.pk:
                     raise ValidationError(
-                        'Data object must be `created` before creating `basic:json:` fields')
+                        "Data object must be `created` before creating `basic:json:` fields"
+                    )
 
                 if isinstance(value, int):
                     # already in Storage
@@ -419,11 +459,13 @@ class Data(BaseModel):
                                 content = file_handler.read()
                                 content = content.rstrip()
                                 raise ValidationError(
-                                    "Value of '{}' must be a valid JSON, current: {}".format(name, content)
+                                    "Value of '{}' must be a valid JSON, current: {}".format(
+                                        name, content
+                                    )
                                 )
 
                 storage = self.storages.create(
-                    name='Storage for data id {}'.format(self.pk),
+                    name="Storage for data id {}".format(self.pk),
                     contributor=self.contributor,
                     json=value,
                 )
@@ -442,28 +484,31 @@ class Data(BaseModel):
             and value is the secret value.
         """
         secrets = {}
-        for field_schema, fields in iterate_fields(self.input, self.process.input_schema):
-            if not field_schema.get('type', '').startswith('basic:secret:'):
+        for field_schema, fields in iterate_fields(
+            self.input, self.process.input_schema
+        ):
+            if not field_schema.get("type", "").startswith("basic:secret:"):
                 continue
 
-            name = field_schema['name']
+            name = field_schema["name"]
             value = fields[name]
             try:
-                handle = value['handle']
+                handle = value["handle"]
             except KeyError:
                 continue
 
             try:
                 secrets[handle] = Secret.objects.get_secret(
-                    handle,
-                    contributor=self.contributor
+                    handle, contributor=self.contributor
                 )
             except Secret.DoesNotExist:
-                raise PermissionDenied("Access to secret not allowed or secret does not exist")
+                raise PermissionDenied(
+                    "Access to secret not allowed or secret does not exist"
+                )
 
         # If the process does not not have the right requirements it is not
         # allowed to access any secrets.
-        allowed = self.process.requirements.get('resources', {}).get('secrets', False)
+        allowed = self.process.requirements.get("resources", {}).get("secrets", False)
         if secrets and not allowed:
             raise PermissionDenied(
                 "Process '{}' has secret inputs, but no permission to see secrets".format(
@@ -475,24 +520,25 @@ class Data(BaseModel):
 
     def save_dependencies(self, instance, schema):
         """Save data: and list:data: references as parents."""
+
         def add_dependency(value):
             """Add parent Data dependency."""
             try:
                 DataDependency.objects.update_or_create(
                     parent=Data.objects.get(pk=value),
                     child=self,
-                    defaults={'kind': DataDependency.KIND_IO},
+                    defaults={"kind": DataDependency.KIND_IO},
                 )
             except Data.DoesNotExist:
                 pass
 
         for field_schema, fields in iterate_fields(instance, schema):
-            name = field_schema['name']
+            name = field_schema["name"]
             value = fields[name]
 
-            if field_schema.get('type', '').startswith('data:'):
+            if field_schema.get("type", "").startswith("data:"):
                 add_dependency(value)
-            elif field_schema.get('type', '').startswith('list:data:'):
+            elif field_schema.get("type", "").startswith("list:data:"):
                 for data in value:
                     add_dependency(data)
 
@@ -511,7 +557,8 @@ class Data(BaseModel):
                 self.named_by_user = True
 
             self.checksum = get_data_checksum(
-                self.input, self.process.slug, self.process.version)
+                self.input, self.process.slug, self.process.version
+            )
 
         elif render_name:
             self._render_name()
@@ -521,8 +568,8 @@ class Data(BaseModel):
         if self.status != Data.STATUS_ERROR:
             hydrate_size(self)
             # If only specified fields are updated (e.g. in executor), size needs to be added
-            if 'update_fields' in kwargs:
-                kwargs['update_fields'].append('size')
+            if "update_fields" in kwargs:
+                kwargs["update_fields"].append("size")
 
         # Input Data objects are validated only upon creation as they can be deleted later.
         skip_missing_data = not create
@@ -539,17 +586,25 @@ class Data(BaseModel):
             except DirtyError:
                 self.descriptor_dirty = True
         elif self.descriptor and self.descriptor != {}:
-            raise ValueError("`descriptor_schema` must be defined if `descriptor` is given")
+            raise ValueError(
+                "`descriptor_schema` must be defined if `descriptor` is given"
+            )
 
         if self.status != Data.STATUS_ERROR:
             output_schema = self.process.output_schema
             if self.status == Data.STATUS_DONE:
                 validate_schema(
-                    self.output, output_schema, data_location=self.location, skip_missing_data=True
+                    self.output,
+                    output_schema,
+                    data_location=self.location,
+                    skip_missing_data=True,
                 )
             else:
                 validate_schema(
-                    self.output, output_schema, data_location=self.location, test_required=False
+                    self.output,
+                    output_schema,
+                    data_location=self.location,
+                    test_required=False,
                 )
 
         with transaction.atomic():
@@ -562,7 +617,7 @@ class Data(BaseModel):
     def delete(self, *args, **kwargs):
         """Delete the data model."""
         # Store ids in memory as relations are also deleted with the Data object.
-        storage_ids = list(self.storages.values_list('pk', flat=True))
+        storage_ids = list(self.storages.values_list("pk", flat=True))
 
         super().delete(*args, **kwargs)
 
@@ -572,29 +627,39 @@ class Data(BaseModel):
         """Return True if data object is a duplicate."""
         return bool(self.duplicated)
 
-    def duplicate(self, contributor=None, inherit_entity=False, inherit_collection=False):
+    def duplicate(
+        self, contributor=None, inherit_entity=False, inherit_collection=False
+    ):
         """Duplicate (make a copy)."""
         if self.status not in [self.STATUS_DONE, self.STATUS_ERROR]:
-            raise ValidationError('Data object must have done or error status to be duplicated')
+            raise ValidationError(
+                "Data object must have done or error status to be duplicated"
+            )
 
         duplicate = Data.objects.get(id=self.id)
         duplicate.pk = None
         duplicate.slug = None
-        duplicate.name = 'Copy of {}'.format(self.name)
+        duplicate.name = "Copy of {}".format(self.name)
         duplicate.duplicated = now()
         if contributor:
             duplicate.contributor = contributor
 
         duplicate.entity = None
         if inherit_entity:
-            if not contributor.has_perm('edit_entity', self.entity):
-                raise ValidationError("You do not have edit permission on entity {}.".format(self.entity))
+            if not contributor.has_perm("edit_entity", self.entity):
+                raise ValidationError(
+                    "You do not have edit permission on entity {}.".format(self.entity)
+                )
             duplicate.entity = self.entity
 
         duplicate.collection = None
         if inherit_collection:
-            if not contributor.has_perm('edit_collection', self.collection):
-                raise ValidationError("You do not have edit permission on collection {}.".format(self.collection))
+            if not contributor.has_perm("edit_collection", self.collection):
+                raise ValidationError(
+                    "You do not have edit permission on collection {}.".format(
+                        self.collection
+                    )
+                )
             duplicate.collection = self.collection
 
         duplicate._perform_save(force_insert=True)
@@ -608,21 +673,29 @@ class Data(BaseModel):
 
         duplicate.storages.set(self.storages.all())
 
-        for migration in self.migration_history.order_by('created'):
+        for migration in self.migration_history.order_by("created"):
             migration.pk = None
             migration.data = duplicate
             migration.save(force_insert=True)
 
         # Inherit existing child dependencies.
-        DataDependency.objects.bulk_create([
-            DataDependency(child=duplicate, parent=dependency.parent, kind=dependency.kind)
-            for dependency in DataDependency.objects.filter(child=self)
-        ])
+        DataDependency.objects.bulk_create(
+            [
+                DataDependency(
+                    child=duplicate, parent=dependency.parent, kind=dependency.kind
+                )
+                for dependency in DataDependency.objects.filter(child=self)
+            ]
+        )
         # Inherit existing parent dependencies.
-        DataDependency.objects.bulk_create([
-            DataDependency(child=dependency.child, parent=duplicate, kind=dependency.kind)
-            for dependency in DataDependency.objects.filter(parent=self)
-        ])
+        DataDependency.objects.bulk_create(
+            [
+                DataDependency(
+                    child=dependency.child, parent=duplicate, kind=dependency.kind
+                )
+                for dependency in DataDependency.objects.filter(parent=self)
+            ]
+        )
 
         # Permissions
         assign_contributor_permissions(duplicate)
@@ -642,17 +715,17 @@ class Data(BaseModel):
             return
 
         inputs = copy.deepcopy(self.input)
-        hydrate_input_references(inputs, self.process.input_schema, hydrate_values=False)
+        hydrate_input_references(
+            inputs, self.process.input_schema, hydrate_values=False
+        )
         template_context = inputs
 
         try:
             name = render_template(
-                self.process,
-                self.process.data_name,
-                template_context
+                self.process, self.process.data_name, template_context
             )
         except EvaluationError:
-            name = '?'
+            name = "?"
 
         self.name = name
 
@@ -661,18 +734,22 @@ class DataDependency(models.Model):
     """Dependency relation between data objects."""
 
     #: child uses parent's output as its input
-    KIND_IO = 'io'
+    KIND_IO = "io"
     #: child was spawned by the parent
-    KIND_SUBPROCESS = 'subprocess'
+    KIND_SUBPROCESS = "subprocess"
     KIND_CHOICES = (
         (KIND_IO, "Input/output dependency"),
         (KIND_SUBPROCESS, "Subprocess"),
     )
 
     #: child data object
-    child = models.ForeignKey(Data, on_delete=models.CASCADE, related_name='parents_dependency')
+    child = models.ForeignKey(
+        Data, on_delete=models.CASCADE, related_name="parents_dependency"
+    )
     #: parent data object
-    parent = models.ForeignKey(Data, null=True, on_delete=models.SET_NULL, related_name='children_dependency')
+    parent = models.ForeignKey(
+        Data, null=True, on_delete=models.SET_NULL, related_name="children_dependency"
+    )
     #: kind of dependency
     kind = models.CharField(max_length=16, choices=KIND_CHOICES)
 
@@ -688,7 +765,7 @@ class DataLocation(models.Model):
 
     def get_path(self, prefix=None, filename=None):
         """Compose data location path."""
-        prefix = prefix or settings.FLOW_EXECUTOR['DATA_DIR']
+        prefix = prefix or settings.FLOW_EXECUTOR["DATA_DIR"]
 
         path = os.path.join(prefix, self.subpath)
         if filename:
@@ -698,4 +775,6 @@ class DataLocation(models.Model):
 
     def get_runtime_path(self, filename=None):
         """Compose data runtime location path."""
-        return self.get_path(prefix=settings.FLOW_EXECUTOR['RUNTIME_DIR'], filename=filename)
+        return self.get_path(
+            prefix=settings.FLOW_EXECUTOR["RUNTIME_DIR"], filename=filename
+        )

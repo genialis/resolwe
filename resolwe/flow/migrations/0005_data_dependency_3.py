@@ -9,27 +9,29 @@ from resolwe.flow.utils import iterate_fields
 
 def update_dependency_kinds(apps, schema_editor):
     """Update historical dependency kinds as they may be wrong."""
-    DataDependency = apps.get_model('flow', 'DataDependency')
+    DataDependency = apps.get_model("flow", "DataDependency")
     for dependency in DataDependency.objects.all():
         # Assume dependency is of subprocess kind.
-        dependency.kind = 'subprocess'
+        dependency.kind = "subprocess"
 
         # Check child inputs to determine if this is an IO dependency.
         child = dependency.child
         parent = dependency.parent
 
-        for field_schema, fields in iterate_fields(child.input, child.process.input_schema):
-            name = field_schema['name']
+        for field_schema, fields in iterate_fields(
+            child.input, child.process.input_schema
+        ):
+            name = field_schema["name"]
             value = fields[name]
 
-            if field_schema.get('type', '').startswith('data:'):
+            if field_schema.get("type", "").startswith("data:"):
                 if value == parent.pk:
-                    dependency.kind = 'io'
+                    dependency.kind = "io"
                     break
-            elif field_schema.get('type', '').startswith('list:data:'):
+            elif field_schema.get("type", "").startswith("list:data:"):
                 for data in value:
                     if value == parent.pk:
-                        dependency.kind = 'io'
+                        dependency.kind = "io"
                         break
 
         dependency.save()
@@ -38,9 +40,7 @@ def update_dependency_kinds(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('flow', '0004_data_dependency_2'),
+        ("flow", "0004_data_dependency_2"),
     ]
 
-    operations = [
-        migrations.RunPython(update_dependency_kinds)
-    ]
+    operations = [migrations.RunPython(update_dependency_kinds)]

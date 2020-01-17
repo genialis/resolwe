@@ -41,16 +41,20 @@ class BaseFlowExecutorPreparer:
             processes with special permissions. Keys are filenames, values
             are the raw strings that should be written into those files.
         """
-        data = Data.objects.select_related('process').get(pk=data_id)
+        data = Data.objects.select_related("process").get(pk=data_id)
 
-        files[ExecutorFiles.DJANGO_SETTINGS].update({
-            'USE_TZ': settings.USE_TZ,
-            'FLOW_EXECUTOR_TOOLS_PATHS': self.get_tools_paths(),
-        })
+        files[ExecutorFiles.DJANGO_SETTINGS].update(
+            {
+                "USE_TZ": settings.USE_TZ,
+                "FLOW_EXECUTOR_TOOLS_PATHS": self.get_tools_paths(),
+            }
+        )
         files[ExecutorFiles.DATA] = model_to_dict(data)
         files[ExecutorFiles.DATA_LOCATION] = model_to_dict(data.location)
         files[ExecutorFiles.PROCESS] = model_to_dict(data.process)
-        files[ExecutorFiles.PROCESS]['resource_limits'] = data.process.get_resource_limits()
+        files[ExecutorFiles.PROCESS][
+            "resource_limits"
+        ] = data.process.get_resource_limits()
 
         # Add secrets if the process has permission to read them.
         secrets.update(data.resolve_secrets())
@@ -82,7 +86,7 @@ class BaseFlowExecutorPreparer:
             given data file in programs executed using this executor
         """
         if data is None:
-            return settings.FLOW_EXECUTOR['DATA_DIR']
+            return settings.FLOW_EXECUTOR["DATA_DIR"]
 
         return data.location.get_path(filename=filename)
 
@@ -95,9 +99,9 @@ class BaseFlowExecutorPreparer:
             executor
         """
         if filename is None:
-            return settings.FLOW_EXECUTOR['UPLOAD_DIR']
+            return settings.FLOW_EXECUTOR["UPLOAD_DIR"]
 
-        return os.path.join(settings.FLOW_EXECUTOR['UPLOAD_DIR'], filename)
+        return os.path.join(settings.FLOW_EXECUTOR["UPLOAD_DIR"], filename)
 
     def get_environment_variables(self):
         """Return dict of environment variables that will be added to executor."""

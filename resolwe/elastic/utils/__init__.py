@@ -15,7 +15,7 @@ from elasticsearch_dsl.connections import connections
 from django.conf import settings
 from django.test import SimpleTestCase, override_settings
 
-__all__ = ('const', 'prepare_connection')
+__all__ = ("const", "prepare_connection")
 
 
 def const(con):
@@ -44,6 +44,8 @@ def prepare_connection():
         So make sure that this function is called again in each
         process/thread to make sure that unique connection will be used.
     """
-    elasticsearch_host = getattr(settings, 'ELASTICSEARCH_HOST', 'localhost')
-    elasticsearch_port = getattr(settings, 'ELASTICSEARCH_PORT', 9200)
-    connections.create_connection(hosts=['{}:{}'.format(elasticsearch_host, elasticsearch_port)])
+    elasticsearch_host = getattr(settings, "ELASTICSEARCH_HOST", "localhost")
+    elasticsearch_port = getattr(settings, "ELASTICSEARCH_PORT", 9200)
+    connections.create_connection(
+        hosts=["{}:{}".format(elasticsearch_host, elasticsearch_port)]
+    )

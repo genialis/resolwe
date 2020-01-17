@@ -22,12 +22,12 @@ import redis
 
 from django.conf import settings
 
-ManagerChannelPair = namedtuple('ManagerChannelPair', ['queue', 'queue_response'])
+ManagerChannelPair = namedtuple("ManagerChannelPair", ["queue", "queue_response"])
 
-MANAGER_CONTROL_CHANNEL = 'DUMMY.control'
-MANAGER_EXECUTOR_CHANNELS = ManagerChannelPair('DUMMY.queue', 'DUMMY.queue_response')
-MANAGER_STATE_PREFIX = 'DUMMY.state_prefix'
-MANAGER_LISTENER_STATS = 'DUMMY.listener_stats'
+MANAGER_CONTROL_CHANNEL = "DUMMY.control"
+MANAGER_EXECUTOR_CHANNELS = ManagerChannelPair("DUMMY.queue", "DUMMY.queue_response")
+MANAGER_STATE_PREFIX = "DUMMY.state_prefix"
+MANAGER_LISTENER_STATS = "DUMMY.listener_stats"
 
 
 def update_constants():
@@ -41,15 +41,15 @@ def update_constants():
     """
     global MANAGER_CONTROL_CHANNEL, MANAGER_EXECUTOR_CHANNELS
     global MANAGER_LISTENER_STATS, MANAGER_STATE_PREFIX
-    redis_prefix = getattr(settings, 'FLOW_MANAGER', {}).get('REDIS_PREFIX', '')
+    redis_prefix = getattr(settings, "FLOW_MANAGER", {}).get("REDIS_PREFIX", "")
 
-    MANAGER_CONTROL_CHANNEL = '{}.control'.format(redis_prefix)
+    MANAGER_CONTROL_CHANNEL = "{}.control".format(redis_prefix)
     MANAGER_EXECUTOR_CHANNELS = ManagerChannelPair(
-        '{}.result_queue'.format(redis_prefix),
-        '{}.result_queue_response'.format(redis_prefix),
+        "{}.result_queue".format(redis_prefix),
+        "{}.result_queue_response".format(redis_prefix),
     )
-    MANAGER_STATE_PREFIX = '{}.state'.format(redis_prefix)
-    MANAGER_LISTENER_STATS = '{}.listener_stats'.format(redis_prefix)
+    MANAGER_STATE_PREFIX = "{}.state".format(redis_prefix)
+    MANAGER_LISTENER_STATS = "{}.listener_stats".format(redis_prefix)
 
 
 update_constants()
@@ -80,13 +80,17 @@ class ManagerState:
                 script.
             """
             if short:
-                self.script = """
+                self.script = (
+                    """
                     local oldval = tonumber(redis.call('EXISTS', KEYS[1]) and redis.call('GET', KEYS[1]) or ARGV[2])
                     local arg = tonumber(ARGV[1])
-                    local newval = """ + script + """
+                    local newval = """
+                    + script
+                    + """
                     redis.call('SET', KEYS[1], newval)
                     return newval
                 """
+                )
             else:
                 self.script = script
 
@@ -108,7 +112,7 @@ class ManagerState:
             :param item_name: The name of this variable.
             """
             self.redis = conn
-            self.item_name = key_prefix + '.' + item_name
+            self.item_name = key_prefix + "." + item_name
 
     class IntegerDatum(RedisAtomicBase):
         """Class for integer data supporting standard arithmetic."""
@@ -120,10 +124,14 @@ class ManagerState:
                 variable in case it doesn't exist in Redis yet.
             """
             super().__init__(*args, **kwargs)
-            self._lua_add = ManagerState.LuaFunction(self, 'oldval + arg', short=True)
-            self._lua_mul = ManagerState.LuaFunction(self, 'oldval * arg', short=True)
-            self._lua_floordiv = ManagerState.LuaFunction(self, 'floor(oldval / arg)', short=True)
-            self._lua_cas = ManagerState.LuaFunction(self, """
+            self._lua_add = ManagerState.LuaFunction(self, "oldval + arg", short=True)
+            self._lua_mul = ManagerState.LuaFunction(self, "oldval * arg", short=True)
+            self._lua_floordiv = ManagerState.LuaFunction(
+                self, "floor(oldval / arg)", short=True
+            )
+            self._lua_cas = ManagerState.LuaFunction(
+                self,
+                """
                 local oldval = tonumber(redis.call('EXISTS', KEYS[1]) and redis.call('GET', KEYS[1]) or ARGV[3])
                 if oldval == tonumber(ARGV[1]) then
                     redis.call('SET', KEYS[1], tonumber(ARGV[2]))
@@ -131,8 +139,9 @@ class ManagerState:
                 else
                     return 0
                 end
-            """)
-            self.initial_value = kwargs.get('initial_value', 0)
+            """,
+            )
+            self.initial_value = kwargs.get("initial_value", 0)
 
         def __int__(self):
             """Convert the proxy into an integer."""
@@ -180,7 +189,7 @@ class ManagerState:
             if not val:
                 return None
             try:
-                val = json.loads(val.decode('utf-8'))
+                val = json.loads(val.decode("utf-8"))
             except json.JSONDecodeError:
                 val = None
             return val
@@ -190,9 +199,13 @@ class ManagerState:
 
         :param key_prefix: The key prefix used for variable names.
         """
-        self.redis = redis.StrictRedis(**getattr(settings, 'FLOW_EXECUTOR', {}).get('REDIS_CONNECTION', {}))
+        self.redis = redis.StrictRedis(
+            **getattr(settings, "FLOW_EXECUTOR", {}).get("REDIS_CONNECTION", {})
+        )
         self.key_prefix = key_prefix
-        self._settings_override = self.ObjectDatum(self.redis, key_prefix, 'settings_override')
+        self._settings_override = self.ObjectDatum(
+            self.redis, key_prefix, "settings_override"
+        )
 
     def reset(self):
         """Reset all properties to their initial values."""

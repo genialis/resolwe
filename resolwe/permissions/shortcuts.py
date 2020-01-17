@@ -22,7 +22,12 @@ from guardian.ctypes import get_content_type
 from guardian.exceptions import MixedContentTypeError, WrongAppError
 from guardian.models import GroupObjectPermission
 from guardian.shortcuts import get_perms, get_users_with_perms
-from guardian.utils import get_anonymous_user, get_group_obj_perms_model, get_identity, get_user_obj_perms_model
+from guardian.utils import (
+    get_anonymous_user,
+    get_group_obj_perms_model,
+    get_identity,
+    get_user_obj_perms_model,
+)
 
 
 # XXX: This is a copy of guardian.shortcuts.get_groups_with_perms with a fixed bug
@@ -38,16 +43,18 @@ def get_groups_with_perms(obj, attach_perms=False):
         group_rel_name = group_model.group.field.related_query_name()
         if group_model.objects.is_generic():
             group_filters = {
-                '%s__content_type' % group_rel_name: ctype,
-                '%s__object_pk' % group_rel_name: obj.pk,
+                "%s__content_type" % group_rel_name: ctype,
+                "%s__object_pk" % group_rel_name: obj.pk,
             }
         else:
-            group_filters = {'%s__content_object' % group_rel_name: obj}
+            group_filters = {"%s__content_object" % group_rel_name: obj}
         return Group.objects.filter(**group_filters).distinct()
     else:
         group_perms_mapping = defaultdict(list)
         groups_with_perms = get_groups_with_perms(obj)
-        queryset = group_model.objects.filter(group__in=groups_with_perms).prefetch_related('group', 'permission')
+        queryset = group_model.objects.filter(
+            group__in=groups_with_perms
+        ).prefetch_related("group", "permission")
         if group_model is GroupObjectPermission:
             queryset = queryset.filter(object_pk=obj.pk, content_type=ctype)
         else:
@@ -104,14 +111,16 @@ def get_user_group_perms(user_or_group, obj):
         user_rel_name = user_model.groups.field.related_query_name()
         group_filters = {user_rel_name: user}
     else:
-        group_filters = {'pk': group.pk}
+        group_filters = {"pk": group.pk}
     if group_model.objects.is_generic():
-        group_filters.update({
-            '{}__content_type'.format(group_rel_name): ctype,
-            '{}__object_pk'.format(group_rel_name): obj.pk,
-        })
+        group_filters.update(
+            {
+                "{}__content_type".format(group_rel_name): ctype,
+                "{}__object_pk".format(group_rel_name): obj.pk,
+            }
+        )
     else:
-        group_filters['{}__content_object'.format(group_rel_name)] = obj
+        group_filters["{}__content_object".format(group_rel_name)] = obj
 
     user_perms, group_perms = [], []
 
@@ -122,21 +131,28 @@ def get_user_group_perms(user_or_group, obj):
         else:
             model = get_user_obj_perms_model(obj)
             related_name = model.permission.field.related_query_name()
-            user_filters = {'{}__user'.format(related_name): user}
+            user_filters = {"{}__user".format(related_name): user}
             if model.objects.is_generic():
-                user_filters.update({
-                    '{}__content_type'.format(related_name): ctype,
-                    '{}__object_pk'.format(related_name): obj.pk,
-                })
+                user_filters.update(
+                    {
+                        "{}__content_type".format(related_name): ctype,
+                        "{}__object_pk".format(related_name): obj.pk,
+                    }
+                )
             else:
-                user_filters['{}__content_object'.format(related_name)] = obj
+                user_filters["{}__content_object".format(related_name)] = obj
 
             user_perms_qs = perms_qs.filter(**user_filters)
             user_perms = list(chain(user_perms_qs.values_list("codename", flat=True)))
 
     group_perms_qs = Group.objects.filter(**group_filters)
-    group_perms = list(chain(group_perms_qs.order_by("pk").values_list(
-        "pk", "name", "{}__permission__codename".format(group_rel_name))))
+    group_perms = list(
+        chain(
+            group_perms_qs.order_by("pk").values_list(
+                "pk", "name", "{}__permission__codename".format(group_rel_name)
+            )
+        )
+    )
 
     group_perms = _group_groups(group_perms)
 
@@ -169,10 +185,11 @@ def get_object_perms(obj, user=None):
     :rtype: list
 
     """
+
     def format_permissions(perms):
         """Remove model name from permission."""
         ctype = ContentType.objects.get_for_model(obj)
-        return [perm.replace('_{}'.format(ctype.name), '') for perm in perms]
+        return [perm.replace("_{}".format(ctype.name), "") for perm in perms]
 
     perms_list = []
 
@@ -183,63 +200,75 @@ def get_object_perms(obj, user=None):
             user_perms, group_perms = [], []
 
         if user_perms != []:
-            perms_list.append({
-                'type': 'user',
-                'id': user.pk,
-                'name': user.get_full_name() or user.username,
-                'username': user.username,
-                'permissions': format_permissions(user_perms),
-            })
+            perms_list.append(
+                {
+                    "type": "user",
+                    "id": user.pk,
+                    "name": user.get_full_name() or user.username,
+                    "username": user.username,
+                    "permissions": format_permissions(user_perms),
+                }
+            )
 
         if group_perms != []:
             for group_id, group_name, perms in group_perms:
-                perms_list.append({
-                    'type': 'group',
-                    'id': group_id,
-                    'name': group_name,
-                    'permissions': format_permissions(perms),
-                })
+                perms_list.append(
+                    {
+                        "type": "group",
+                        "id": group_id,
+                        "name": group_name,
+                        "permissions": format_permissions(perms),
+                    }
+                )
     else:
-        user_options = {
-            'attach_perms': True,
-            'with_group_users': False
-        }
+        user_options = {"attach_perms": True, "with_group_users": False}
         for user, perms in get_users_with_perms(obj, **user_options).items():
             if user.username == settings.ANONYMOUS_USER_NAME:
                 # public user is treated separately
                 continue
-            perms_list.append({
-                'type': 'user',
-                'id': user.pk,
-                'name': user.get_full_name() or user.username,
-                'username': user.username,
-                'permissions': format_permissions(perms),
-            })
+            perms_list.append(
+                {
+                    "type": "user",
+                    "id": user.pk,
+                    "name": user.get_full_name() or user.username,
+                    "username": user.username,
+                    "permissions": format_permissions(perms),
+                }
+            )
 
         group_options = {
-            'attach_perms': True,
+            "attach_perms": True,
         }
         for group, perms in get_groups_with_perms(obj, **group_options).items():
-            perms_list.append({
-                'type': 'group',
-                'id': group.pk,
-                'name': group.name,
-                'permissions': format_permissions(perms),
-            })
+            perms_list.append(
+                {
+                    "type": "group",
+                    "id": group.pk,
+                    "name": group.name,
+                    "permissions": format_permissions(perms),
+                }
+            )
 
     public_perms = get_perms(AnonymousUser(), obj)
     if public_perms != []:
-        perms_list.append({
-            'type': 'public',
-            'permissions': format_permissions(public_perms),
-        })
+        perms_list.append(
+            {"type": "public", "permissions": format_permissions(public_perms),}
+        )
 
     return perms_list
 
 
 # based on guardian.shortcuts.get_objects_for_user
-def get_objects_for_user(user, perms, klass=None, use_groups=True, any_perm=False,
-                         with_superuser=True, accept_global_perms=True, perms_filter='pk__in'):
+def get_objects_for_user(
+    user,
+    perms,
+    klass=None,
+    use_groups=True,
+    any_perm=False,
+    with_superuser=True,
+    accept_global_perms=True,
+    perms_filter="pk__in",
+):
     """Return queryset with required permissions."""
     if isinstance(perms, str):
         perms = [perms]
@@ -250,12 +279,13 @@ def get_objects_for_user(user, perms, klass=None, use_groups=True, any_perm=Fals
 
     # Compute codenames set and ctype if possible
     for perm in perms:
-        if '.' in perm:
-            new_app_label, codename = perm.split('.', 1)
+        if "." in perm:
+            new_app_label, codename = perm.split(".", 1)
             if app_label is not None and app_label != new_app_label:
                 raise MixedContentTypeError(
                     "Given perms must have same app label "
-                    "({} != {})".format(app_label, new_app_label))
+                    "({} != {})".format(app_label, new_app_label)
+                )
             else:
                 app_label = new_app_label
         else:
@@ -263,12 +293,14 @@ def get_objects_for_user(user, perms, klass=None, use_groups=True, any_perm=Fals
         codenames.add(codename)
 
         if app_label is not None:
-            new_ctype = ContentType.objects.get(app_label=app_label,
-                                                permission__codename=codename)
+            new_ctype = ContentType.objects.get(
+                app_label=app_label, permission__codename=codename
+            )
             if ctype is not None and ctype != new_ctype:
                 raise MixedContentTypeError(
                     "ContentType was once computed to be {} and another "
-                    "one {}".format(ctype, new_ctype))
+                    "one {}".format(ctype, new_ctype)
+                )
             else:
                 ctype = new_ctype
 
@@ -282,9 +314,10 @@ def get_objects_for_user(user, perms, klass=None, use_groups=True, any_perm=Fals
         raise WrongAppError("Cannot determine content type")
     else:
         queryset = _get_queryset(klass)
-        if ctype.model_class() != queryset.model and perms_filter == 'pk__in':
-            raise MixedContentTypeError("Content type for given perms and "
-                                        "klass differs")
+        if ctype.model_class() != queryset.model and perms_filter == "pk__in":
+            raise MixedContentTypeError(
+                "Content type for given perms and " "klass differs"
+            )
 
     # At this point, we should have both ctype and queryset and they should
     # match which means: ctype.model_class() == queryset.model
@@ -305,7 +338,7 @@ def get_objects_for_user(user, perms, klass=None, use_groups=True, any_perm=Fals
     # a superuser has by default assigned global perms for any
     if accept_global_perms and with_superuser:
         for code in codenames:
-            if user.has_perm(ctype.app_label + '.' + code):
+            if user.has_perm(ctype.app_label + "." + code):
                 global_perms.add(code)
         for code in global_perms:
             codenames.remove(code)
@@ -334,15 +367,16 @@ def get_objects_for_user(user, perms, klass=None, use_groups=True, any_perm=Fals
     # Now we should extract list of pk values for which we would filter
     # queryset
     user_model = get_user_obj_perms_model(queryset.model)
-    user_obj_perms_queryset = (user_model.objects
-                               .filter(Q(user=user) | Q(user=get_anonymous_user()))
-                               .filter(permission__content_type=ctype))
+    user_obj_perms_queryset = user_model.objects.filter(
+        Q(user=user) | Q(user=get_anonymous_user())
+    ).filter(permission__content_type=ctype)
 
     if codenames:
         user_obj_perms_queryset = user_obj_perms_queryset.filter(
-            permission__codename__in=codenames)
-    direct_fields = ['content_object__pk', 'permission__codename']
-    generic_fields = ['object_pk', 'permission__codename']
+            permission__codename__in=codenames
+        )
+    direct_fields = ["content_object__pk", "permission__codename"]
+    generic_fields = ["object_pk", "permission__codename"]
     if user_model.objects.is_generic():
         user_fields = generic_fields
     else:
@@ -351,13 +385,15 @@ def get_objects_for_user(user, perms, klass=None, use_groups=True, any_perm=Fals
     if use_groups:
         group_model = get_group_obj_perms_model(queryset.model)
         group_filters = {
-            'permission__content_type': ctype,
-            'group__{}'.format(get_user_model().groups.field.related_query_name()): user,
+            "permission__content_type": ctype,
+            "group__{}".format(
+                get_user_model().groups.field.related_query_name()
+            ): user,
         }
         if codenames:
-            group_filters.update({
-                'permission__codename__in': codenames,
-            })
+            group_filters.update(
+                {"permission__codename__in": codenames,}
+            )
         groups_obj_perms_queryset = group_model.objects.filter(**group_filters)
         if group_model.objects.is_generic():
             group_fields = generic_fields
@@ -378,10 +414,10 @@ def get_objects_for_user(user, perms, klass=None, use_groups=True, any_perm=Fals
             return objects
 
     if not any_perm and len(codenames) > 1:
-        counts = user_obj_perms_queryset.values(
-            user_fields[0]).annotate(object_pk_count=Count(user_fields[0]))
-        user_obj_perms_queryset = counts.filter(
-            object_pk_count__gte=len(codenames))
+        counts = user_obj_perms_queryset.values(user_fields[0]).annotate(
+            object_pk_count=Count(user_fields[0])
+        )
+        user_obj_perms_queryset = counts.filter(object_pk_count__gte=len(codenames))
 
     values = user_obj_perms_queryset.values_list(user_fields[0], flat=True)
     if user_model.objects.is_generic():

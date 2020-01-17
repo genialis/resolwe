@@ -14,8 +14,15 @@ class Field:
 
     field_type = None
 
-    def __init__(self, label=None, required=True, description=None, default=None, choices=None,
-                 hidden=False):
+    def __init__(
+        self,
+        label=None,
+        required=True,
+        description=None,
+        default=None,
+        choices=None,
+        hidden=False,
+    ):
         """Construct a field descriptor."""
         self.name = None
         self.process = None
@@ -51,25 +58,24 @@ class Field:
             raise ValueError("field is not registered with process")
 
         schema = {
-            'name': self.name,
-            'type': self.get_field_type(),
+            "name": self.name,
+            "type": self.get_field_type(),
         }
         if self.required is not None:
-            schema['required'] = self.required
+            schema["required"] = self.required
         if self.label is not None:
-            schema['label'] = self.label
+            schema["label"] = self.label
         if self.description is not None:
-            schema['description'] = self.description
+            schema["description"] = self.description
         if self.default is not None:
-            schema['default'] = self.default
+            schema["default"] = self.default
         if self.hidden is not None:
-            schema['hidden'] = self.hidden
+            schema["hidden"] = self.hidden
         if self.choices is not None:
             for choice, label in self.choices:
-                schema.setdefault('choices', []).append({
-                    'label': label,
-                    'value': choice,
-                })
+                schema.setdefault("choices", []).append(
+                    {"label": label, "value": choice,}
+                )
 
         return schema
 
@@ -85,9 +91,9 @@ class Field:
         if value is not None and self.choices is not None:
             choices = [choice for choice, _ in self.choices]
             if value not in choices:
-                raise ValidationError("field must be one of: {}".format(
-                    ", ".join(choices),
-                ))
+                raise ValidationError(
+                    "field must be one of: {}".format(", ".join(choices),)
+                )
 
     def clean(self, value):
         """Run validators and return the clean value."""
@@ -98,10 +104,9 @@ class Field:
             value = self.to_python(value)
             self.validate(value)
         except ValidationError as error:
-            raise ValidationError("invalid value for {}: {}".format(
-                self.name,
-                error.args[0]
-            ))
+            raise ValidationError(
+                "invalid value for {}: {}".format(self.name, error.args[0])
+            )
         return value
 
     def __repr__(self):
@@ -117,7 +122,7 @@ class Field:
 class StringField(Field):
     """String field."""
 
-    field_type = 'basic:string'
+    field_type = "basic:string"
 
     def validate(self, value):
         """Validate field value."""
@@ -130,13 +135,13 @@ class StringField(Field):
 class TextField(StringField):
     """Text field."""
 
-    field_type = 'basic:text'
+    field_type = "basic:text"
 
 
 class BooleanField(Field):
     """Boolean field."""
 
-    field_type = 'basic:boolean'
+    field_type = "basic:boolean"
 
     def validate(self, value):
         """Validate field value."""
@@ -149,7 +154,7 @@ class BooleanField(Field):
 class IntegerField(Field):
     """Integer field."""
 
-    field_type = 'basic:integer'
+    field_type = "basic:integer"
 
     def to_python(self, value):
         """Convert value if needed."""
@@ -168,7 +173,7 @@ class FloatField(Field):
     """Float field."""
 
     # TODO: Fix the underlying field into basic:float once that is renamed.
-    field_type = 'basic:decimal'
+    field_type = "basic:decimal"
 
     def to_python(self, value):
         """Convert value if needed."""
@@ -186,22 +191,22 @@ class FloatField(Field):
 class DateField(Field):
     """Date field."""
 
-    field_type = 'basic:date'
+    field_type = "basic:date"
 
 
 class DateTimeField(Field):
     """Date time field."""
 
-    field_type = 'basic:datetime'
+    field_type = "basic:datetime"
 
 
 class UrlField(Field):
     """URL field."""
 
     # Url types.
-    DOWNLOAD = 'download'
-    VIEW = 'view'
-    LINK = 'link'
+    DOWNLOAD = "download"
+    VIEW = "view"
+    LINK = "link"
 
     URL_TYPES = (DOWNLOAD, VIEW, LINK)
 
@@ -211,7 +216,9 @@ class UrlField(Field):
         :param url_type: Type of URL
         """
         if url_type not in self.URL_TYPES:
-            raise ValueError("url_type must be one of: {}".format(', '.join(self.URL_TYPES)))
+            raise ValueError(
+                "url_type must be one of: {}".format(", ".join(self.URL_TYPES))
+            )
 
         self.url_type = url_type
         super().__init__(*args, **kwargs)
@@ -222,7 +229,7 @@ class UrlField(Field):
             return value
         elif isinstance(value, dict):
             try:
-                value = value['url']
+                value = value["url"]
             except KeyError:
                 raise ValidationError("dictionary must contain an 'url' element")
 
@@ -235,19 +242,27 @@ class UrlField(Field):
 
     def get_field_type(self):
         """Return this field's type."""
-        return 'basic:url:{}'.format(self.url_type)
+        return "basic:url:{}".format(self.url_type)
 
 
 class SecretField(Field):
     """Secret field."""
 
-    field_type = 'basic:secret'
+    field_type = "basic:secret"
 
 
 class FileDescriptor:
     """Descriptor for accessing files."""
 
-    def __init__(self, path, size=None, total_size=None, is_remote=False, file_temp=None, refs=None):
+    def __init__(
+        self,
+        path,
+        size=None,
+        total_size=None,
+        is_remote=False,
+        file_temp=None,
+        refs=None,
+    ):
         """Construct a file descriptor."""
         self.path = path
         self.size = size
@@ -266,8 +281,8 @@ class FileDescriptor:
         :param progress_to: Final progress value
         :return: Destination file path (if extracted and compressed, extracted path given)
         """
-        if not hasattr(resolwe_runtime_utils, 'import_file'):
-            raise RuntimeError('Requires resolwe-runtime-utils >= 2.0.0')
+        if not hasattr(resolwe_runtime_utils, "import_file"):
+            raise RuntimeError("Requires resolwe-runtime-utils >= 2.0.0")
 
         if imported_format is None:
             imported_format = resolwe_runtime_utils.ImportedFormat.BOTH
@@ -277,18 +292,18 @@ class FileDescriptor:
             file_name=self.path,
             imported_format=imported_format,
             progress_from=progress_from,
-            progress_to=progress_to
+            progress_to=progress_to,
         )
 
     def __repr__(self):
         """Return string representation."""
-        return '<FileDescriptor path={}>'.format(self.path)
+        return "<FileDescriptor path={}>".format(self.path)
 
 
 class FileField(Field):
     """File field."""
 
-    field_type = 'basic:file'
+    field_type = "basic:file"
 
     def to_python(self, value):
         """Convert value if needed."""
@@ -298,30 +313,30 @@ class FileField(Field):
             return FileDescriptor(value)
         elif isinstance(value, dict):
             try:
-                path = value['file']
+                path = value["file"]
             except KeyError:
                 raise ValidationError("dictionary must contain a 'file' element")
 
             if not isinstance(path, str):
                 raise ValidationError("field's file element must be a string")
 
-            size = value.get('size', None)
+            size = value.get("size", None)
             if size is not None and not isinstance(size, int):
                 raise ValidationError("field's size element must be an integer")
 
-            total_size = value.get('total_size', None)
+            total_size = value.get("total_size", None)
             if total_size is not None and not isinstance(total_size, int):
                 raise ValidationError("field's total_size element must be an integer")
 
-            is_remote = value.get('is_remote', None)
+            is_remote = value.get("is_remote", None)
             if is_remote is not None and not isinstance(is_remote, bool):
                 raise ValidationError("field's is_remote element must be a boolean")
 
-            file_temp = value.get('file_temp', None)
+            file_temp = value.get("file_temp", None)
             if file_temp is not None and not isinstance(file_temp, str):
                 raise ValidationError("field's file_temp element must be a string")
 
-            refs = value.get('refs', None)
+            refs = value.get("refs", None)
             if refs is not None and not isinstance(refs, list):
                 # TODO: Validate that all refs are strings.
                 raise ValidationError("field's refs element must be a list of strings")
@@ -339,13 +354,15 @@ class FileField(Field):
 
     def to_output(self, value):
         """Convert value to process output format."""
-        return json.loads(resolwe_runtime_utils.save_file(self.name, value.path, *value.refs))
+        return json.loads(
+            resolwe_runtime_utils.save_file(self.name, value.path, *value.refs)
+        )
 
 
 class FileHtmlField(FileField):
     """HTML file field."""
 
-    field_type = 'basic:file:html'
+    field_type = "basic:file:html"
 
 
 class DirDescriptor:
@@ -362,13 +379,13 @@ class DirDescriptor:
 
     def __repr__(self):
         """Return string representation."""
-        return '<DirDescriptor path={}>'.format(self.path)
+        return "<DirDescriptor path={}>".format(self.path)
 
 
 class DirField(Field):
     """Directory field."""
 
-    field_type = 'basic:dir'
+    field_type = "basic:dir"
 
     def to_python(self, value):
         """Convert value if needed."""
@@ -378,44 +395,41 @@ class DirField(Field):
             return DirDescriptor(value)
         elif isinstance(value, dict):
             try:
-                path = value['dir']
+                path = value["dir"]
             except KeyError:
                 raise ValidationError("dictionary must contain a 'dir' element")
 
             if not isinstance(path, str):
                 raise ValidationError("field's dir element must be a string")
 
-            size = value.get('size', None)
+            size = value.get("size", None)
             if size is not None and not isinstance(size, int):
                 raise ValidationError("field's size element must be an integer")
 
-            total_size = value.get('total_size', None)
+            total_size = value.get("total_size", None)
             if total_size is not None and not isinstance(total_size, int):
                 raise ValidationError("field's total_size element must be an integer")
 
-            refs = value.get('refs', None)
+            refs = value.get("refs", None)
             if refs is not None and not isinstance(refs, list):
                 # TODO: Validate that all refs are strings.
                 raise ValidationError("field's refs element must be a list of strings")
 
-            return DirDescriptor(
-                path,
-                size=size,
-                total_size=total_size,
-                refs=refs,
-            )
+            return DirDescriptor(path, size=size, total_size=total_size, refs=refs,)
         elif not isinstance(value, None):
             raise ValidationError("field must be a DirDescriptor, string or a dict")
 
     def to_output(self, value):
         """Convert value to process output format."""
-        return json.loads(resolwe_runtime_utils.save_dir(self.name, value.path, *value.refs))
+        return json.loads(
+            resolwe_runtime_utils.save_dir(self.name, value.path, *value.refs)
+        )
 
 
 class JsonField(Field):
     """JSON field."""
 
-    field_type = 'basic:json'
+    field_type = "basic:json"
 
     def to_python(self, value):
         """Convert value if needed."""
@@ -456,7 +470,7 @@ class ListField(Field):
 
     def get_field_type(self):
         """Return this field's type."""
-        return 'list:{}'.format(self.inner.get_field_type())
+        return "list:{}".format(self.inner.get_field_type())
 
     def validate(self, value):
         """Validate field value."""
@@ -468,10 +482,9 @@ class ListField(Field):
                 try:
                     self.inner.validate(element)
                 except ValidationError as error:
-                    raise ValidationError("invalid element {}: {}".format(
-                        index,
-                        error.args[0],
-                    ))
+                    raise ValidationError(
+                        "invalid element {}: {}".format(index, error.args[0],)
+                    )
 
         super().validate(value)
 
@@ -486,20 +499,20 @@ class DataDescriptor:
         :param field: Field this descriptor is for
         :param cache: Optional cached object to use
         """
-        super().__setattr__('_data_id', data_id)
+        super().__setattr__("_data_id", data_id)
 
         # Map output fields to a valid Python process syntax.
-        for field_descriptor in cache['__output_schema']:
-            field_name = field_descriptor['name']
+        for field_descriptor in cache["__output_schema"]:
+            field_name = field_descriptor["name"]
 
             if field_name not in cache:
                 # Non-required fields may be missing.
                 cache[field_name] = None
                 continue
 
-            field_type = field_descriptor['type'].rstrip(':')
+            field_type = field_descriptor["type"].rstrip(":")
 
-            if field_type.startswith('list:'):
+            if field_type.startswith("list:"):
                 field = ListField(ALL_FIELDS_MAP[field_type[5:]]())
             else:
                 field = ALL_FIELDS_MAP[field_type]()
@@ -508,7 +521,7 @@ class DataDescriptor:
             value = field.clean(value)
             cache[field_name] = value
 
-        super().__setattr__('_cache', cache)
+        super().__setattr__("_cache", cache)
 
     def _populate_cache(self):
         """Fetch data object from the backend if needed."""
@@ -535,17 +548,17 @@ class DataDescriptor:
     @property
     def type(self):
         """Type of this data object."""
-        return self._get('__type')
+        return self._get("__type")
 
     @property
     def descriptor(self):
         """Descriptor of this data object."""
-        return self._get('__descriptor')
+        return self._get("__descriptor")
 
     @property
     def entity_name(self):
         """Entity name."""
-        return self._get('__entity_name')
+        return self._get("__entity_name")
 
     def __getattr__(self, key):
         """Get attribute."""
@@ -557,7 +570,7 @@ class DataDescriptor:
 
     def __repr__(self):
         """Return string representation."""
-        return '<DataDescriptor id={}>'.format(self._data_id)
+        return "<DataDescriptor id={}>".format(self._data_id)
 
 
 class DataField(Field):
@@ -571,7 +584,7 @@ class DataField(Field):
 
     def get_field_type(self):
         """Return this field's type."""
-        return 'data:{}'.format(self.data_type)
+        return "data:{}".format(self.data_type)
 
     def to_python(self, value):
         """Convert value if needed."""
@@ -585,11 +598,13 @@ class DataField(Field):
             # Allow pre-hydrated data objects.
             cache = value
             try:
-                value = cache['__id']
+                value = cache["__id"]
             except KeyError:
                 raise ValidationError("dictionary must contain an '__id' element")
         elif not isinstance(value, int):
-            raise ValidationError("field must be a DataDescriptor, data object primary key or dict")
+            raise ValidationError(
+                "field must be a DataDescriptor, data object primary key or dict"
+            )
 
         return DataDescriptor(value, self, cache)
 
@@ -612,16 +627,20 @@ class GroupDescriptor:
 class GroupField(Field):
     """Group field."""
 
-    field_type = 'basic:group'
+    field_type = "basic:group"
 
-    def __init__(self, field_group, label=None, description=None, disabled=False, collapsed=False,
-                 hidden=False):
+    def __init__(
+        self,
+        field_group,
+        label=None,
+        description=None,
+        disabled=False,
+        collapsed=False,
+        hidden=False,
+    ):
         """Construct a group field."""
         super().__init__(
-            label=label,
-            required=None,
-            description=description,
-            hidden=hidden,
+            label=label, required=None, description=description, hidden=hidden,
         )
 
         self.disabled = disabled
@@ -639,7 +658,7 @@ class GroupField(Field):
         # Use order-preserving definition namespace (__dict__) to respect the
         # order of GroupField's fields definition.
         for field_name in self.field_group.__dict__:
-            if field_name.startswith('_'):
+            if field_name.startswith("_"):
                 continue
 
             field = getattr(self.field_group, field_name)
@@ -662,14 +681,14 @@ class GroupField(Field):
         """Return field schema for this field."""
         schema = super().to_schema()
         if self.disabled is not None:
-            schema['disabled'] = self.disabled
+            schema["disabled"] = self.disabled
         if self.collapsed is not None:
-            schema['collapsed'] = self.collapsed
+            schema["collapsed"] = self.collapsed
 
         group = []
         for field in self.fields.values():
             group.append(field.to_schema())
-        schema['group'] = group
+        schema["group"] = group
 
         return schema
 

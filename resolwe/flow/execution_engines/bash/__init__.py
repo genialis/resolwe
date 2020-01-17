@@ -19,7 +19,7 @@ class SafeString(str):
 class ExecutionEngine(BaseExecutionEngine):
     """An execution engine that outputs bash programs."""
 
-    name = 'bash'
+    name = "bash"
 
     def discover_process(self, path):
         """Perform process discovery in given path.
@@ -28,7 +28,7 @@ class ExecutionEngine(BaseExecutionEngine):
         should return a list of dictionaries with discovered process
         schemas.
         """
-        if not path.lower().endswith(('.yml', '.yaml')):
+        if not path.lower().endswith((".yml", ".yaml")):
             return []
 
         with open(path) as fn:
@@ -40,11 +40,11 @@ class ExecutionEngine(BaseExecutionEngine):
 
         process_schemas = []
         for schema in schemas:
-            if 'run' not in schema:
+            if "run" not in schema:
                 continue
 
             # NOTE: This currently assumes that 'bash' is the default.
-            if schema['run'].get('language', 'bash') != 'bash':
+            if schema["run"].get("language", "bash") != "bash":
                 continue
 
             process_schemas.append(schema)
@@ -59,32 +59,30 @@ class ExecutionEngine(BaseExecutionEngine):
             hydrate_input_uploads(inputs, data.process.input_schema)
 
             # Include special 'proc' variable in the context.
-            inputs['proc'] = {
-                'data_id': data.id,
-                'data_dir': self.manager.get_executor().resolve_data_path(),
+            inputs["proc"] = {
+                "data_id": data.id,
+                "data_dir": self.manager.get_executor().resolve_data_path(),
             }
 
             # Include special 'requirements' variable in the context.
-            inputs['requirements'] = data.process.requirements
+            inputs["requirements"] = data.process.requirements
             # Inject default values and change resources according to
             # the current Django configuration.
-            inputs['requirements']['resources'] = data.process.get_resource_limits()
+            inputs["requirements"]["resources"] = data.process.get_resource_limits()
 
-            script_template = data.process.run.get('program', '')
+            script_template = data.process.run.get("program", "")
 
             # Get the appropriate expression engine. If none is defined, do not evaluate
             # any expressions.
-            expression_engine = data.process.requirements.get('expression-engine', None)
+            expression_engine = data.process.requirements.get("expression-engine", None)
             if not expression_engine:
                 return script_template
 
             return self.get_expression_engine(expression_engine).evaluate_block(
-                script_template, inputs,
-                escape=self._escape,
-                safe_wrapper=SafeString,
+                script_template, inputs, escape=self._escape, safe_wrapper=SafeString,
             )
         except EvaluationError as error:
-            raise ExecutionError('{}'.format(error))
+            raise ExecutionError("{}".format(error))
 
     def _escape(self, value):
         """Escape given value unless it is safe."""

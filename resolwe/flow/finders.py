@@ -18,11 +18,15 @@ class BaseProcessesFinder:
 
     def find_processes(self):
         """Abstract method."""
-        raise NotImplementedError('subclasses of BaseProcessesLoader must provide a find_processes() method')
+        raise NotImplementedError(
+            "subclasses of BaseProcessesLoader must provide a find_processes() method"
+        )
 
     def find_descriptors(self):
         """Abstract method."""
-        raise NotImplementedError('subclasses of BaseProcessesLoader must provide a find_descriptors() method')
+        raise NotImplementedError(
+            "subclasses of BaseProcessesLoader must provide a find_descriptors() method"
+        )
 
 
 class FileSystemProcessesFinder(BaseProcessesFinder):
@@ -30,11 +34,11 @@ class FileSystemProcessesFinder(BaseProcessesFinder):
 
     def find_processes(self):
         """Return a list of process directories."""
-        return getattr(settings, 'FLOW_PROCESSES_DIRS', ())
+        return getattr(settings, "FLOW_PROCESSES_DIRS", ())
 
     def find_descriptors(self):
         """Return a list of descriptor directories."""
-        return getattr(settings, 'FLOW_DESCRIPTORS_DIRS', ())
+        return getattr(settings, "FLOW_DESCRIPTORS_DIRS", ())
 
 
 class AppDirectoriesFinder(BaseProcessesFinder):
@@ -51,11 +55,11 @@ class AppDirectoriesFinder(BaseProcessesFinder):
 
     def find_processes(self):
         """Return a list of process directories in the app."""
-        return self._find_folders('processes')
+        return self._find_folders("processes")
 
     def find_descriptors(self):
         """Return a list of descriptor directories in the app."""
-        return self._find_folders('descriptors')
+        return self._find_folders("descriptors")
 
 
 def get_finders():
@@ -69,5 +73,8 @@ def get_finder(import_path):
     finder_class = import_string(import_path)
     if not issubclass(finder_class, BaseProcessesFinder):
         raise ImproperlyConfigured(
-            'Finder "{}" is not a subclass of "{}"'.format(finder_class, BaseProcessesFinder))
+            'Finder "{}" is not a subclass of "{}"'.format(
+                finder_class, BaseProcessesFinder
+            )
+        )
     return finder_class()

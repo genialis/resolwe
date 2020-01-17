@@ -10,7 +10,7 @@ from resolwe.flow.utils import iterate_fields
 
 def calculate_total_size(apps, schema_editor):
     """Add ``total_size`` field to all file/dir-type outputs."""
-    Data = apps.get_model('flow', 'Data')
+    Data = apps.get_model("flow", "Data")
     for data in Data.objects.all():
         hydrate_size(data, force=True)
         data.save()
@@ -18,29 +18,31 @@ def calculate_total_size(apps, schema_editor):
 
 def remove_total_size(apps, schema_editor):
     """Remove ``total_size`` field from all file/dir-type outputs."""
-    Data = apps.get_model('flow', 'Data')
+    Data = apps.get_model("flow", "Data")
     for data in Data.objects.all():
-        for field_schema, fields in iterate_fields(data.output, data.process.output_schema):
-            name = field_schema['name']
+        for field_schema, fields in iterate_fields(
+            data.output, data.process.output_schema
+        ):
+            name = field_schema["name"]
             value = fields[name]
-            if 'type' in field_schema:
-                if field_schema['type'].startswith('basic:file:'):
-                    del value['total_size']
-                elif field_schema['type'].startswith('list:basic:file:'):
+            if "type" in field_schema:
+                if field_schema["type"].startswith("basic:file:"):
+                    del value["total_size"]
+                elif field_schema["type"].startswith("list:basic:file:"):
                     for obj in value:
-                        del obj['total_size']
-                elif field_schema['type'].startswith('basic:dir:'):
-                    del value['total_size']
-                elif field_schema['type'].startswith('list:basic:dir:'):
+                        del obj["total_size"]
+                elif field_schema["type"].startswith("basic:dir:"):
+                    del value["total_size"]
+                elif field_schema["type"].startswith("list:basic:dir:"):
                     for obj in value:
-                        del obj['total_size']
+                        del obj["total_size"]
         data.save()
 
 
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('flow', '0005_data_dependency_3'),
+        ("flow", "0005_data_dependency_3"),
     ]
 
     operations = [

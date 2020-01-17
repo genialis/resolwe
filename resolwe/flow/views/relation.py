@@ -11,16 +11,15 @@ from resolwe.flow.serializers import RelationSerializer
 from .mixins import ResolweCreateModelMixin
 
 
-class RelationViewSet(ResolweCreateModelMixin,
-                      viewsets.ModelViewSet):
+class RelationViewSet(ResolweCreateModelMixin, viewsets.ModelViewSet):
     """API view for :class:`Relation` objects."""
 
-    queryset = Relation.objects.all().prefetch_related('contributor')
+    queryset = Relation.objects.all().prefetch_related("contributor")
     serializer_class = RelationSerializer
     permission_classes = (permissions.IsAuthenticated,)
     filterset_class = RelationFilter
-    ordering_fields = ('id', 'created', 'modified')
-    ordering = ('id',)
+    ordering_fields = ("id", "created", "modified")
+    ordering = ("id",)
 
     def _filter_queryset(self, queryset):
         """Filter queryset by entity, label and position.
@@ -29,29 +28,29 @@ class RelationViewSet(ResolweCreateModelMixin,
         manually:
         https://github.com/carltongibson/django-filter/issues/883
         """
-        entities = self.request.query_params.getlist('entity')
-        labels = self.request.query_params.getlist('label')
-        positions = self.request.query_params.getlist('position')
+        entities = self.request.query_params.getlist("entity")
+        labels = self.request.query_params.getlist("label")
+        positions = self.request.query_params.getlist("position")
 
         if labels and len(labels) != len(entities):
             raise exceptions.ParseError(
-                'If `labels` query parameter is given, also `entities` '
-                'must be given and they must be of the same length.'
+                "If `labels` query parameter is given, also `entities` "
+                "must be given and they must be of the same length."
             )
 
         if positions and len(positions) != len(entities):
             raise exceptions.ParseError(
-                'If `positions` query parameter is given, also `entities` '
-                'must be given and they must be of the same length.'
+                "If `positions` query parameter is given, also `entities` "
+                "must be given and they must be of the same length."
             )
 
         if entities:
             for entity, label, position in zip_longest(entities, labels, positions):
-                filter_params = {'entities__pk': entity}
+                filter_params = {"entities__pk": entity}
                 if label:
-                    filter_params['relationpartition__label'] = label
+                    filter_params["relationpartition__label"] = label
                 if position:
-                    filter_params['relationpartition__position'] = position
+                    filter_params["relationpartition__position"] = position
 
                 queryset = queryset.filter(**filter_params)
 
@@ -78,8 +77,10 @@ class RelationViewSet(ResolweCreateModelMixin,
         the collection referenced in the ``Relation``.
         """
         instance = self.get_object()
-        if (not request.user.has_perm('edit_collection', instance.collection)
-                and not request.user.is_superuser):
+        if (
+            not request.user.has_perm("edit_collection", instance.collection)
+            and not request.user.is_superuser
+        ):
             return Response(status=status.HTTP_401_UNAUTHORIZED)
 
         return super().update(request, *args, **kwargs)
@@ -92,8 +93,10 @@ class RelationViewSet(ResolweCreateModelMixin,
         """
         instance = self.get_object()
 
-        if (not request.user.has_perm('edit_collection', instance.collection)
-                and not request.user.is_superuser):
+        if (
+            not request.user.has_perm("edit_collection", instance.collection)
+            and not request.user.is_superuser
+        ):
             return Response(status=status.HTTP_401_UNAUTHORIZED)
 
         return super().destroy(request, *args, **kwargs)

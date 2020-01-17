@@ -11,17 +11,24 @@ class Migration(migrations.Migration):
 
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='TestModel',
+            name="TestModel",
             fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=30)),
-                ('slug', resolwe.flow.models.fields.ResolweSlugField()),
-                ('version', versionfield.VersionField(default='0.0.0')),
+                (
+                    "id",
+                    models.AutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(max_length=30)),
+                ("slug", resolwe.flow.models.fields.ResolweSlugField()),
+                ("version", versionfield.VersionField(default="0.0.0")),
             ],
         ),
     ]

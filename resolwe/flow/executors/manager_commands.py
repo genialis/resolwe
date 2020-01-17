@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 
 _REDIS_RETRIES = 60
 # This channel name will be used for all listener communication; Data object-specific.
-_response_channel = EXECUTOR_SETTINGS.get('REDIS_CHANNEL_PAIR', ('', ''))[1]
-QUEUE_RESPONSE_CHANNEL = '{}.{}'.format(_response_channel, DATA.get('id', 0))
+_response_channel = EXECUTOR_SETTINGS.get("REDIS_CHANNEL_PAIR", ("", ""))[1]
+QUEUE_RESPONSE_CHANNEL = "{}.{}".format(_response_channel, DATA.get("id", 0))
 
 # The Redis connection instance used to communicate with the manager listener.
 redis_conn = None
@@ -26,11 +26,17 @@ async def init():
     """Create a connection to the Redis server."""
     global redis_conn
     conn = await aioredis.create_connection(
-        'redis://{}:{}'.format(
-            SETTINGS.get('FLOW_EXECUTOR', {}).get('REDIS_CONNECTION', {}).get('host', 'localhost'),
-            SETTINGS.get('FLOW_EXECUTOR', {}).get('REDIS_CONNECTION', {}).get('port', 56379)
+        "redis://{}:{}".format(
+            SETTINGS.get("FLOW_EXECUTOR", {})
+            .get("REDIS_CONNECTION", {})
+            .get("host", "localhost"),
+            SETTINGS.get("FLOW_EXECUTOR", {})
+            .get("REDIS_CONNECTION", {})
+            .get("port", 56379),
         ),
-        db=int(SETTINGS.get('FLOW_EXECUTOR', {}).get('REDIS_CONNECTION', {}).get('db', 1))
+        db=int(
+            SETTINGS.get("FLOW_EXECUTOR", {}).get("REDIS_CONNECTION", {}).get("db", 1)
+        ),
     )
     redis_conn = aioredis.Redis(conn)
 
@@ -51,7 +57,7 @@ async def send_manager_command(cmd, expect_reply=True, extra_fields={}):
         merged into the packet body (i.e. not under an extra key).
     """
     packet = {
-        ExecutorProtocol.DATA_ID: DATA['id'],
+        ExecutorProtocol.DATA_ID: DATA["id"],
         ExecutorProtocol.COMMAND: cmd,
     }
     packet.update(extra_fields)
@@ -60,11 +66,13 @@ async def send_manager_command(cmd, expect_reply=True, extra_fields={}):
 
     # TODO what happens here if the push fails? we don't have any realistic recourse,
     # so just let it explode and stop processing
-    queue_channel = EXECUTOR_SETTINGS['REDIS_CHANNEL_PAIR'][0]
+    queue_channel = EXECUTOR_SETTINGS["REDIS_CHANNEL_PAIR"][0]
     try:
         await redis_conn.rpush(queue_channel, json.dumps(packet))
     except Exception:
-        logger.error("Error sending command to manager:\n\n{}".format(traceback.format_exc()))
+        logger.error(
+            "Error sending command to manager:\n\n{}".format(traceback.format_exc())
+        )
         raise
 
     if not expect_reply:
@@ -78,10 +86,12 @@ async def send_manager_command(cmd, expect_reply=True, extra_fields={}):
         # NOTE: If there's still no response after a few seconds, the system is broken
         # enough that it makes sense to give up; we're isolated here, so if the manager
         # doesn't respond, we can't really do much more than just crash
-        raise RuntimeError("No response from the manager after {} retries.".format(_REDIS_RETRIES))
+        raise RuntimeError(
+            "No response from the manager after {} retries.".format(_REDIS_RETRIES)
+        )
 
     _, item = response
-    result = json.loads(item.decode('utf-8'))[ExecutorProtocol.RESULT]
+    result = json.loads(item.decode("utf-8"))[ExecutorProtocol.RESULT]
     assert result in [ExecutorProtocol.RESULT_OK, ExecutorProtocol.RESULT_ERROR]
 
     if result == ExecutorProtocol.RESULT_OK:

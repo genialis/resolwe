@@ -21,10 +21,10 @@ class Command(ElasticIndexFilterMixin, BaseCommand):
         super().add_arguments(parser)
 
         parser.add_argument(
-            '--skip-mapping',
-            dest='skip_mapping',
-            action='store_true',
-            help="Don't push fresh mappings to Elasticserch after deleting indices"
+            "--skip-mapping",
+            dest="skip_mapping",
+            action="store_true",
+            help="Don't push fresh mappings to Elasticserch after deleting indices",
         )
 
     def handle_index(self, index, skip_mapping):
@@ -35,8 +35,8 @@ class Command(ElasticIndexFilterMixin, BaseCommand):
 
     def handle(self, *args, **options):
         """Command handle."""
-        verbosity = int(options['verbosity'])
-        skip_mapping = options['skip_mapping']
+        verbosity = int(options["verbosity"])
+        skip_mapping = options["skip_mapping"]
 
         if self.has_filter(options):
             self.filter_indices(options, verbosity, skip_mapping=skip_mapping)

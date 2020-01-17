@@ -50,9 +50,9 @@ class TestCaseHelpers(DjangoSimpleTestCase):
         if not self._keep_data:
             # Do delete this here. See comment below near the makedirs
             # in setUp.
-            shutil.rmtree(settings.FLOW_EXECUTOR['DATA_DIR'], ignore_errors=True)
-            shutil.rmtree(settings.FLOW_EXECUTOR['UPLOAD_DIR'], ignore_errors=True)
-            shutil.rmtree(settings.FLOW_EXECUTOR['RUNTIME_DIR'], ignore_errors=True)
+            shutil.rmtree(settings.FLOW_EXECUTOR["DATA_DIR"], ignore_errors=True)
+            shutil.rmtree(settings.FLOW_EXECUTOR["UPLOAD_DIR"], ignore_errors=True)
+            shutil.rmtree(settings.FLOW_EXECUTOR["RUNTIME_DIR"], ignore_errors=True)
 
     def setUp(self):
         """Prepare environment for test."""
@@ -77,9 +77,9 @@ class TestCaseHelpers(DjangoSimpleTestCase):
         # deal specifically with the purging functionality and should
         # start in a clean environment, without the sediment
         # (e.g. jsonout.txt, stdout.txt) from previous tests.
-        os.makedirs(FLOW_EXECUTOR_SETTINGS['DATA_DIR'], exist_ok=True)
-        os.makedirs(FLOW_EXECUTOR_SETTINGS['UPLOAD_DIR'], exist_ok=True)
-        os.makedirs(FLOW_EXECUTOR_SETTINGS['RUNTIME_DIR'], exist_ok=True)
+        os.makedirs(FLOW_EXECUTOR_SETTINGS["DATA_DIR"], exist_ok=True)
+        os.makedirs(FLOW_EXECUTOR_SETTINGS["UPLOAD_DIR"], exist_ok=True)
+        os.makedirs(FLOW_EXECUTOR_SETTINGS["RUNTIME_DIR"], exist_ok=True)
 
         self._keep_data = settings.FLOW_MANAGER_KEEP_DATA
 
@@ -143,13 +143,24 @@ class TransactionTestCase(TestCaseHelpers, DjangoTransactionTestCase):
         super().setUp()
 
         user_model = get_user_model()
-        self.admin = user_model.objects.create_superuser(username='admin', email='admin@test.com', password='admin',
-                                                         first_name='James', last_name='Smith')
-        self.contributor = user_model.objects.create_user(username='contributor', email='contributor@test.com',
-                                                          first_name='Joe', last_name='Miller')
-        self.user = user_model.objects.create_user(username='normal_user', email='user@test.com')
+        self.admin = user_model.objects.create_superuser(
+            username="admin",
+            email="admin@test.com",
+            password="admin",
+            first_name="James",
+            last_name="Smith",
+        )
+        self.contributor = user_model.objects.create_user(
+            username="contributor",
+            email="contributor@test.com",
+            first_name="Joe",
+            last_name="Miller",
+        )
+        self.user = user_model.objects.create_user(
+            username="normal_user", email="user@test.com"
+        )
 
-        self.group = Group.objects.create(name='Users')
+        self.group = Group.objects.create(name="Users")
         self.group.user_set.add(self.user)
 
 

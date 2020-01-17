@@ -3,9 +3,15 @@
 import argparse
 import sys
 
-parser = argparse.ArgumentParser(description="Reformat cURL progress to process progress.")
-parser.add_argument("--scale", type=float, default=1., help="max progress at the end of transfer")
-parser.add_argument("--nprints", type=int, default=100, help="number of progress reports")
+parser = argparse.ArgumentParser(
+    description="Reformat cURL progress to process progress."
+)
+parser.add_argument(
+    "--scale", type=float, default=1.0, help="max progress at the end of transfer"
+)
+parser.add_argument(
+    "--nprints", type=int, default=100, help="number of progress reports"
+)
 args = parser.parse_args()
 
 nprints = args.nprints
@@ -19,7 +25,7 @@ while True:
     if not line:
         break
 
-    perc = float(line) * scale / 100.
+    perc = float(line) * scale / 100.0
 
     if perc >= milestone:
         print('{{"proc.progress":{}}}'.format(perc))

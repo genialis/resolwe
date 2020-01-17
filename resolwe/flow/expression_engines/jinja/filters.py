@@ -21,7 +21,7 @@ def _get_data_attr(data, attr):
     """Get data object field."""
     if isinstance(data, dict):
         # `Data` object's id is hydrated as `__id` in expression engine
-        data = data['__id']
+        data = data["__id"]
 
     data_obj = Data.objects.get(id=data)
 
@@ -30,17 +30,17 @@ def _get_data_attr(data, attr):
 
 def name(data):
     """Return `name` of `Data`."""
-    return apply_filter_list(lambda datum: _get_data_attr(datum, 'name'), data)
+    return apply_filter_list(lambda datum: _get_data_attr(datum, "name"), data)
 
 
 def slug(data):
     """Return `slug` of `Data`."""
-    return apply_filter_list(lambda datum: _get_data_attr(datum, 'slug'), data)
+    return apply_filter_list(lambda datum: _get_data_attr(datum, "slug"), data)
 
 
 def input_(data, field_path):
     """Return a hydrated value of the ``input`` field."""
-    data_obj = Data.objects.get(id=data['__id'])
+    data_obj = Data.objects.get(id=data["__id"])
 
     inputs = copy.deepcopy(data_obj.input)
     # XXX: Optimize by hydrating only the required field (major refactoring).
@@ -52,12 +52,12 @@ def input_(data, field_path):
 
 def id_(obj):
     """Return ``id`` key of dict."""
-    return apply_filter_list(lambda item: item['__id'], obj)
+    return apply_filter_list(lambda item: item["__id"], obj)
 
 
 def type_(obj):
     """Return ``type`` key of dict."""
-    return apply_filter_list(lambda item: item['__type'], obj)
+    return apply_filter_list(lambda item: item["__type"], obj)
 
 
 def basename(path):
@@ -88,14 +88,14 @@ def data_by_slug(data_slug):
 def _get_hydrated_path(field):
     """Return HydratedPath object for file-type field."""
     # Get only file path if whole file object is given.
-    if isinstance(field, str) and hasattr(field, 'file_name'):
+    if isinstance(field, str) and hasattr(field, "file_name"):
         # field is already actually a HydratedPath object
         return field
 
-    if isinstance(field, dict) and 'file' in field:
-        hydrated_path = field['file']
+    if isinstance(field, dict) and "file" in field:
+        hydrated_path = field["file"]
 
-    if not hasattr(hydrated_path, 'file_name'):
+    if not hasattr(hydrated_path, "file_name"):
         raise TypeError("Filter argument must be a valid file-type field.")
 
     return hydrated_path
@@ -104,8 +104,10 @@ def _get_hydrated_path(field):
 def get_url(field):
     """Return file's url based on base url set in settings."""
     hydrated_path = _get_hydrated_path(field)
-    base_url = getattr(settings, 'RESOLWE_HOST_URL', 'localhost')
-    return "{}/data/{}/{}".format(base_url, hydrated_path.data_id, hydrated_path.file_name)
+    base_url = getattr(settings, "RESOLWE_HOST_URL", "localhost")
+    return "{}/data/{}/{}".format(
+        base_url, hydrated_path.data_id, hydrated_path.file_name
+    )
 
 
 def relative_path(field):
@@ -114,7 +116,7 @@ def relative_path(field):
     return hydrated_path.file_name
 
 
-def descriptor(obj, path=''):
+def descriptor(obj, path=""):
     """Return descriptor of given object.
 
     If ``path`` is specified, only the content on that path is
@@ -123,7 +125,7 @@ def descriptor(obj, path=''):
     if isinstance(obj, dict):
         # Current object is hydrated, so we need to get descriptor from
         # dict representation.
-        desc = obj['__descriptor']
+        desc = obj["__descriptor"]
     else:
         desc = obj.descriptor
 
@@ -147,19 +149,19 @@ def any_(obj):
 
 # A dictionary of filters that will be registered.
 filters = {
-    'name': name,
-    'slug': slug,
-    'input': input_,
-    'id': id_,
-    'type': type_,
-    'basename': basename,
-    'dirname': dirname,
-    'subtype': subtype,
-    'yesno': yesno,
-    'data_by_slug': data_by_slug,
-    'get_url': get_url,
-    'relative_path': relative_path,
-    'descriptor': descriptor,
-    'all': all_,
-    'any': any_,
+    "name": name,
+    "slug": slug,
+    "input": input_,
+    "id": id_,
+    "type": type_,
+    "basename": basename,
+    "dirname": dirname,
+    "subtype": subtype,
+    "yesno": yesno,
+    "data_by_slug": data_by_slug,
+    "get_url": get_url,
+    "relative_path": relative_path,
+    "descriptor": descriptor,
+    "all": all_,
+    "any": any_,
 }

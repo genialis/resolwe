@@ -10,14 +10,14 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('flow', '0018_process_is_active'),
+        ("flow", "0018_process_is_active"),
     ]
 
     operations = [
         CITextExtension(),
         migrations.AlterField(
-            model_name='relation',
-            name='category',
+            model_name="relation",
+            name="category",
             field=django.contrib.postgres.fields.citext.CICharField(max_length=100),
         ),
     ]

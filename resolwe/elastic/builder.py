@@ -15,7 +15,9 @@ from importlib import import_module
 from django.apps import apps
 from django.db import models
 from django.db.models.fields.related_descriptors import (
-    ForwardManyToOneDescriptor, ManyToManyDescriptor, ReverseManyToOneDescriptor,
+    ForwardManyToOneDescriptor,
+    ManyToManyDescriptor,
+    ReverseManyToOneDescriptor,
 )
 from django.db.models.signals import m2m_changed, post_delete, post_save, pre_delete
 
@@ -26,8 +28,8 @@ from .indices import BaseIndex
 from .utils import prepare_connection
 
 __all__ = (
-    'index_builder',
-    'ManyToManyDependency',
+    "index_builder",
+    "ManyToManyDependency",
 )
 
 # UUID used in tests to make sure that no index is re-used.
@@ -48,7 +50,7 @@ class BuildArgumentsCache:
         """Derive cache key for given object."""
         if obj is not None:
             # Make sure that key is REALLY unique.
-            return '{}-{}'.format(id(self), obj.pk)
+            return "{}-{}".format(id(self), obj.pk)
 
         return "{}-None".format(id(self))
 
@@ -62,18 +64,18 @@ class BuildArgumentsCache:
             build_kwargs = {}
 
         cached = {}
-        if 'queryset' in build_kwargs:
+        if "queryset" in build_kwargs:
             cached = {
-                'model': build_kwargs['queryset'].model,
-                'pks': list(build_kwargs['queryset'].values_list('pk', flat=True)),
+                "model": build_kwargs["queryset"].model,
+                "pks": list(build_kwargs["queryset"].values_list("pk", flat=True)),
             }
 
-        elif 'obj' in build_kwargs:
+        elif "obj" in build_kwargs:
             cached = {
-                'obj': build_kwargs['obj'],
+                "obj": build_kwargs["obj"],
             }
 
-        if not hasattr(self._thread_local, 'cache'):
+        if not hasattr(self._thread_local, "cache"):
             self._thread_local.cache = {}
         self._thread_local.cache[self._get_cache_key(obj)] = cached
 
@@ -82,15 +84,17 @@ class BuildArgumentsCache:
         cached = self._thread_local.cache[self._get_cache_key(obj)]
         build_kwargs = {}
 
-        if 'model' in cached and 'pks' in cached:
-            build_kwargs['queryset'] = cached['model'].objects.filter(pk__in=cached['pks'])
+        if "model" in cached and "pks" in cached:
+            build_kwargs["queryset"] = cached["model"].objects.filter(
+                pk__in=cached["pks"]
+            )
 
-        elif 'obj' in cached:
-            if cached['obj'].__class__.objects.filter(pk=cached['obj'].pk).exists():
-                build_kwargs['obj'] = cached['obj']
+        elif "obj" in cached:
+            if cached["obj"].__class__.objects.filter(pk=cached["obj"].pk).exists():
+                build_kwargs["obj"] = cached["obj"]
             else:
                 # Object was deleted in the meantime.
-                build_kwargs['queryset'] = cached['obj'].__class__.objects.none()
+                build_kwargs["queryset"] = cached["obj"].__class__.objects.none()
 
         self._clean_cache(obj)
 
@@ -169,14 +173,14 @@ class Dependency:
         """
         self.index = index
 
-        signal = ElasticSignal(self, 'process', pass_kwargs=True)
+        signal = ElasticSignal(self, "process", pass_kwargs=True)
         signal.connect(post_save, sender=self.model)
         signal.connect(pre_delete, sender=self.model)
 
-        pre_delete_signal = ElasticSignal(self, 'process_predelete', pass_kwargs=True)
+        pre_delete_signal = ElasticSignal(self, "process_predelete", pass_kwargs=True)
         pre_delete_signal.connect(pre_delete, sender=self.model)
 
-        post_delete_signal = ElasticSignal(self, 'process_delete', pass_kwargs=True)
+        post_delete_signal = ElasticSignal(self, "process_delete", pass_kwargs=True)
         post_delete_signal.connect(post_delete, sender=self.model)
 
         return [signal, pre_delete_signal, post_delete_signal]
@@ -245,10 +249,10 @@ class ManyToManyDependency(Dependency):
             if self.field.rel.symmetrical:
                 # Symmetrical m2m relation on self has no reverse accessor.
                 raise NotImplementedError(
-                    'Dependencies on symmetrical M2M relations are not supported due '
-                    'to strange handling of the m2m_changed signal which only makes '
-                    'half of the relation visible during signal execution. For now you '
-                    'need to use symmetrical=False on the M2M field definition.'
+                    "Dependencies on symmetrical M2M relations are not supported due "
+                    "to strange handling of the m2m_changed signal which only makes "
+                    "half of the relation visible during signal execution. For now you "
+                    "need to use symmetrical=False on the M2M field definition."
                 )
             else:
                 self.accessor = self.field.rel.get_accessor_name()
@@ -256,27 +260,33 @@ class ManyToManyDependency(Dependency):
         # Connect signals.
         signals = super().connect(index)
 
-        m2m_signal = ElasticSignal(self, 'process_m2m', pass_kwargs=True)
+        m2m_signal = ElasticSignal(self, "process_m2m", pass_kwargs=True)
         m2m_signal.connect(m2m_changed, sender=self.field.through)
         signals.append(m2m_signal)
 
         # If the relation has a custom through model, we need to subscribe to it.
         if not self.field.rel.through._meta.auto_created:
-            signal = ElasticSignal(self, 'process_m2m_through_save', pass_kwargs=True)
+            signal = ElasticSignal(self, "process_m2m_through_save", pass_kwargs=True)
             signal.connect(post_save, sender=self.field.rel.through)
             signals.append(signal)
 
-            signal = ElasticSignal(self, 'process_m2m_through_pre_delete', pass_kwargs=True)
+            signal = ElasticSignal(
+                self, "process_m2m_through_pre_delete", pass_kwargs=True
+            )
             signal.connect(pre_delete, sender=self.field.rel.through)
             signals.append(signal)
 
-            signal = ElasticSignal(self, 'process_m2m_through_post_delete', pass_kwargs=True)
+            signal = ElasticSignal(
+                self, "process_m2m_through_post_delete", pass_kwargs=True
+            )
             signal.connect(post_delete, sender=self.field.rel.through)
             signals.append(signal)
 
         return signals
 
-    def _get_build_kwargs(self, obj, pk_set=None, action=None, update_fields=None, reverse=None, **kwargs):
+    def _get_build_kwargs(
+        self, obj, pk_set=None, action=None, update_fields=None, reverse=None, **kwargs
+    ):
         """Prepare arguments for rebuilding indices."""
         if action is None:
             # Check filter before rebuilding index.
@@ -287,9 +297,11 @@ class ManyToManyDependency(Dependency):
 
             # Special handling for relations to self.
             if self.field.rel.model == self.field.rel.related_model:
-                queryset = queryset.union(getattr(obj, self.field.rel.get_accessor_name()).all())
+                queryset = queryset.union(
+                    getattr(obj, self.field.rel.get_accessor_name()).all()
+                )
 
-            return {'queryset': queryset}
+            return {"queryset": queryset}
         else:
             # Update to relation itself, only update the object in question.
             if self.field.rel.model == self.field.rel.related_model:
@@ -301,36 +313,48 @@ class ManyToManyDependency(Dependency):
                 if self._filter(self.model.objects.filter(pk__in=[obj.pk])):
                     pks.update(pk_set)
 
-                return {'queryset': self.index.object_type.objects.filter(pk__in=pks)}
+                return {"queryset": self.index.object_type.objects.filter(pk__in=pks)}
             elif isinstance(obj, self.model):
                 # Need to switch the role of object and pk_set.
-                result = {'queryset': self.index.object_type.objects.filter(pk__in=pk_set)}
+                result = {
+                    "queryset": self.index.object_type.objects.filter(pk__in=pk_set)
+                }
                 pk_set = {obj.pk}
             else:
-                result = {'obj': obj}
+                result = {"obj": obj}
 
-            if action != 'post_clear':
+            if action != "post_clear":
                 # Check filter before rebuilding index.
                 if not self._filter(self.model.objects.filter(pk__in=pk_set)):
                     return
 
             return result
 
-    def process_m2m(self, obj, pk_set=None, action=None, update_fields=None, cache_key=None, **kwargs):
+    def process_m2m(
+        self,
+        obj,
+        pk_set=None,
+        action=None,
+        update_fields=None,
+        cache_key=None,
+        **kwargs,
+    ):
         """Process signals from dependencies.
 
         Remove signal is processed in two parts. For details see:
         :func:`~Dependency.connect`
         """
-        if action not in (None, 'post_add', 'pre_remove', 'post_remove', 'post_clear'):
+        if action not in (None, "post_add", "pre_remove", "post_remove", "post_clear"):
             return
 
-        if action == 'post_remove':
+        if action == "post_remove":
             build_kwargs = self.remove_cache.take(cache_key)
         else:
-            build_kwargs = self._get_build_kwargs(obj, pk_set, action, update_fields, **kwargs)
+            build_kwargs = self._get_build_kwargs(
+                obj, pk_set, action, update_fields, **kwargs
+            )
 
-        if action == 'pre_remove':
+        if action == "pre_remove":
             self.remove_cache.set(cache_key, build_kwargs)
             return
 
@@ -354,15 +378,15 @@ class ManyToManyDependency(Dependency):
         if not created:
             return
 
-        self._process_m2m_through(obj, 'post_add')
+        self._process_m2m_through(obj, "post_add")
 
     def process_m2m_through_pre_delete(self, obj, **kwargs):
         """Process M2M pre delete for custom through model."""
-        self._process_m2m_through(obj, 'pre_remove')
+        self._process_m2m_through(obj, "pre_remove")
 
     def process_m2m_through_post_delete(self, obj, **kwargs):
         """Process M2M post delete for custom through model."""
-        self._process_m2m_through(obj, 'post_remove')
+        self._process_m2m_through(obj, "post_remove")
 
 
 class ReverseManyToOneDependency(Dependency):
@@ -378,7 +402,11 @@ class ReverseManyToOneDependency(Dependency):
         if not self._filter([obj], update_fields=update_fields):
             return
 
-        return {'queryset': self.index.object_type.objects.filter(pk=getattr(obj, self.accessor))}
+        return {
+            "queryset": self.index.object_type.objects.filter(
+                pk=getattr(obj, self.accessor)
+            )
+        }
 
 
 class ForwardManyToOneDependency(Dependency):
@@ -394,7 +422,7 @@ class ForwardManyToOneDependency(Dependency):
         if not self._filter([obj], update_fields=update_fields):
             return
 
-        return {'queryset': getattr(obj, self.accessor).all()}
+        return {"queryset": getattr(obj, self.accessor).all()}
 
 
 class IndexBuilder:
@@ -423,11 +451,11 @@ class IndexBuilder:
 
     def _connect_signal(self, index):
         """Create signals for building indexes."""
-        post_save_signal = ElasticSignal(index, 'build')
+        post_save_signal = ElasticSignal(index, "build")
         post_save_signal.connect(post_save, sender=index.object_type)
         self.signals.append(post_save_signal)
 
-        post_delete_signal = ElasticSignal(index, 'remove_object')
+        post_delete_signal = ElasticSignal(index, "remove_object")
         post_delete_signal.connect(post_delete, sender=index.object_type)
         self.signals.append(post_delete_signal)
 
@@ -441,7 +469,9 @@ class IndexBuilder:
             elif isinstance(dependency, ForwardManyToOneDescriptor):
                 dependency = ForwardManyToOneDependency(dependency)
             elif not isinstance(dependency, Dependency):
-                raise TypeError("Unsupported dependency type: {}".format(repr(dependency)))
+                raise TypeError(
+                    "Unsupported dependency type: {}".format(repr(dependency))
+                )
 
             signal = dependency.connect(index)
             self.signals.extend(signal)
@@ -468,22 +498,28 @@ class IndexBuilder:
         self.indexes = []
 
         for app_config in apps.get_app_configs():
-            indexes_path = '{}.elastic_indexes'.format(app_config.name)
+            indexes_path = "{}.elastic_indexes".format(app_config.name)
             try:
                 indexes_module = import_module(indexes_path)
 
                 for attr_name in dir(indexes_module):
                     attr = getattr(indexes_module, attr_name)
-                    if inspect.isclass(attr) and issubclass(attr, BaseIndex) and attr is not BaseIndex:
+                    if (
+                        inspect.isclass(attr)
+                        and issubclass(attr, BaseIndex)
+                        and attr is not BaseIndex
+                    ):
                         # Make sure that parallel tests have different indices.
                         if is_testing():
                             index = attr.document_class._index._name
-                            testing_postfix = '_test_{}_{}'.format(TESTING_UUID, os.getpid())
+                            testing_postfix = "_test_{}_{}".format(
+                                TESTING_UUID, os.getpid()
+                            )
 
                             if not index.endswith(testing_postfix):
                                 # Replace current postfix with the new one.
                                 if attr.testing_postfix:
-                                    index = index[:-len(attr.testing_postfix)]
+                                    index = index[: -len(attr.testing_postfix)]
                                 index = index + testing_postfix
                                 attr.testing_postfix = testing_postfix
 
@@ -494,12 +530,12 @@ class IndexBuilder:
                         # Apply any extensions defined for the given index. Currently index extensions are
                         # limited to extending "mappings".
                         for extension in composer.get_extensions(attr):
-                            mapping = getattr(extension, 'mapping', {})
+                            mapping = getattr(extension, "mapping", {})
                             index.mapping.update(mapping)
 
                         self.indexes.append(index)
             except ImportError as ex:
-                if not re.match('No module named .*elastic_indexes.*', str(ex)):
+                if not re.match("No module named .*elastic_indexes.*", str(ex)):
                     raise
 
     def build(self, obj=None, queryset=None, push=True):

@@ -25,7 +25,7 @@ class Command(BaseCommand):
         self.interactive = None
         self.clear = None
 
-        if not hasattr(settings, 'FLOW_TOOLS_ROOT'):
+        if not hasattr(settings, "FLOW_TOOLS_ROOT"):
             raise CommandError("FLOW_TOOLS_ROOT must be defined in Django settings.")
 
         self.destination_path = settings.FLOW_TOOLS_ROOT
@@ -33,26 +33,32 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         """Command arguments."""
         parser.add_argument(
-            '--noinput', '--no-input', action='store_false', dest='interactive',
+            "--noinput",
+            "--no-input",
+            action="store_false",
+            dest="interactive",
             help="Do NOT prompt the user for input of any kind.",
         )
 
         parser.add_argument(
-            '-c', '--clear', action='store_true', dest='clear',
+            "-c",
+            "--clear",
+            action="store_true",
+            dest="clear",
             help="Clear existing files before copying new files.",
         )
 
     def set_options(self, **options):
         """Set instance variables based on an options dict."""
-        self.interactive = options['interactive']
-        self.clear = options['clear']
+        self.interactive = options["interactive"]
+        self.clear = options["clear"]
 
     def get_confirmation(self):
         """Get user confirmation to proceed."""
         if self.clear:
-            action = 'This will DELETE ALL FILES in this location!'
+            action = "This will DELETE ALL FILES in this location!"
         else:
-            action = 'This will overwrite existing files!'
+            action = "This will overwrite existing files!"
 
         message = (
             "\n"
@@ -65,12 +71,11 @@ class Command(BaseCommand):
             "Are you sure you want to do this?\n"
             "\n"
             "Type 'yes' to continue, or 'no' to cancel: ".format(
-                destination=self.destination_path,
-                action=action,
+                destination=self.destination_path, action=action,
             )
         )
 
-        if input(''.join(message)) != 'yes':
+        if input("".join(message)) != "yes":
             raise CommandError("Collecting tools cancelled.")
 
     def clear_dir(self):
@@ -93,7 +98,7 @@ class Command(BaseCommand):
         for app_name, tools_path in get_apps_tools().items():
             self.stdout.write("Copying files from '{}'.".format(tools_path))
 
-            app_name = app_name.replace('.', '_')
+            app_name = app_name.replace(".", "_")
 
             app_destination_path = os.path.join(self.destination_path, app_name)
             if not os.path.isdir(app_destination_path):

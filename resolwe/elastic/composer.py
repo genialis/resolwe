@@ -22,7 +22,7 @@ class Composer:
             previous_state = self._extensions.copy()
 
             for app_config in apps.get_app_configs():
-                indexes_path = '{}.extensions'.format(app_config.name)
+                indexes_path = "{}.extensions".format(app_config.name)
                 try:
                     import_module(indexes_path)
                 except ImportError:
@@ -41,10 +41,12 @@ class Composer:
         :return: String containing the class path
         """
         if inspect.isclass(klass_or_instance):
-            klass = '{}.{}'.format(klass_or_instance.__module__, klass_or_instance.__name__)
+            klass = "{}.{}".format(
+                klass_or_instance.__module__, klass_or_instance.__name__
+            )
         elif not isinstance(klass_or_instance, str):
             klass = klass_or_instance.__class__
-            klass = '{}.{}'.format(klass.__module__, klass.__name__)
+            klass = "{}.{}".format(klass.__module__, klass.__name__)
         else:
             klass = klass_or_instance
 

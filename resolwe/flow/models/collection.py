@@ -24,7 +24,9 @@ class BaseCollection(BaseModel):
     settings = JSONField(default=dict)
 
     #: collection descriptor schema
-    descriptor_schema = models.ForeignKey('flow.DescriptorSchema', blank=True, null=True, on_delete=models.PROTECT)
+    descriptor_schema = models.ForeignKey(
+        "flow.DescriptorSchema", blank=True, null=True, on_delete=models.PROTECT
+    )
 
     #: collection descriptor
     descriptor = JSONField(default=dict)
@@ -44,7 +46,9 @@ class BaseCollection(BaseModel):
             except DirtyError:
                 self.descriptor_dirty = True
         elif self.descriptor and self.descriptor != {}:
-            raise ValueError("`descriptor_schema` must be defined if `descriptor` is given")
+            raise ValueError(
+                "`descriptor_schema` must be defined if `descriptor` is given"
+            )
 
         super().save()
 
@@ -55,10 +59,7 @@ class CollectionQuerySet(models.QuerySet):
     @transaction.atomic
     def duplicate(self, contributor=None):
         """Duplicate (make a copy) ``Collection`` objects."""
-        return [
-            collection.duplicate(contributor=contributor)
-            for collection in self
-        ]
+        return [collection.duplicate(contributor=contributor) for collection in self]
 
 
 class Collection(BaseCollection):
@@ -89,7 +90,7 @@ class Collection(BaseCollection):
         duplicate = Collection.objects.get(id=self.id)
         duplicate.pk = None
         duplicate.slug = None
-        duplicate.name = 'Copy of {}'.format(self.name)
+        duplicate.name = "Copy of {}".format(self.name)
         duplicate.duplicated = now()
         if contributor:
             duplicate.contributor = contributor
@@ -103,7 +104,9 @@ class Collection(BaseCollection):
         duplicate.save()
 
         # Duplicate collection's entities.
-        entities = get_objects_for_user(contributor, 'view_entity', self.entity_set.all())
+        entities = get_objects_for_user(
+            contributor, "view_entity", self.entity_set.all()
+        )
         duplicated_entities = entities.duplicate(contributor=contributor)
         duplicate.entity_set.add(*duplicated_entities)
 

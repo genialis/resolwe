@@ -19,15 +19,21 @@ from resolwe.flow.models.entity import RelationPartition
 
 def commit_signal(data_id):
     """Nudge manager at the end of every Data object save event."""
-    if not getattr(settings, 'FLOW_MANAGER_DISABLE_AUTO_CALLS', False):
-        immediate = getattr(settings, 'FLOW_MANAGER_SYNC_AUTO_CALLS', False)
-        async_to_sync(manager.communicate)(data_id=data_id, save_settings=False, run_sync=immediate)
+    if not getattr(settings, "FLOW_MANAGER_DISABLE_AUTO_CALLS", False):
+        immediate = getattr(settings, "FLOW_MANAGER_SYNC_AUTO_CALLS", False)
+        async_to_sync(manager.communicate)(
+            data_id=data_id, save_settings=False, run_sync=immediate
+        )
 
 
 @receiver(post_save, sender=Data)
 def manager_post_save_handler(sender, instance, created, **kwargs):
     """Run newly created (spawned) processes."""
-    if instance.status == Data.STATUS_DONE or instance.status == Data.STATUS_ERROR or created:
+    if (
+        instance.status == Data.STATUS_DONE
+        or instance.status == Data.STATUS_ERROR
+        or created
+    ):
         # Run manager at the end of the potential transaction. Otherwise
         # tasks are send to workers before transaction ends and therefore
         # workers cannot access objects created inside transaction.
@@ -39,6 +45,7 @@ def manager_post_save_handler(sender, instance, created, **kwargs):
 @receiver(post_delete, sender=RelationPartition)
 def delete_relation(sender, instance, **kwargs):
     """Delete the Relation object when the last Entity is removed."""
+
     def process_signal(relation_id):
         """Get the relation and delete it if it has no entities left."""
         try:

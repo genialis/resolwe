@@ -7,23 +7,40 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('flow', '0038_remove_m2m_fields'),
+        ("flow", "0038_remove_m2m_fields"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='data',
-            name='collection',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='data', to='flow.Collection'),
+            model_name="data",
+            name="collection",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="data",
+                to="flow.Collection",
+            ),
         ),
         migrations.AlterField(
-            model_name='data',
-            name='entity',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='data', to='flow.Entity'),
+            model_name="data",
+            name="entity",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="data",
+                to="flow.Entity",
+            ),
         ),
         migrations.AlterField(
-            model_name='entity',
-            name='collection',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='flow.Collection'),
+            model_name="entity",
+            name="collection",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.CASCADE,
+                to="flow.Collection",
+            ),
         ),
     ]

@@ -38,7 +38,7 @@ def iterjson(text):
         if not isinstance(obj, dict):
             raise ValueError()
 
-        text = text[ndx:].lstrip('\r\n')
+        text = text[ndx:].lstrip("\r\n")
         yield obj
 
 
@@ -62,7 +62,7 @@ class BaseFlowExecutor:
         """Handle SIGTERM signal."""
         await self.update_data_status(
             process_error=["Executor was killed by the scheduling system."],
-            status=DATA_META['STATUS_ERROR'],
+            status=DATA_META["STATUS_ERROR"],
         )
 
         await self.terminate()
@@ -76,7 +76,7 @@ class BaseFlowExecutor:
 
     def get_tools_paths(self):
         """Get tools paths."""
-        tools_paths = SETTINGS['FLOW_EXECUTOR_TOOLS_PATHS']
+        tools_paths = SETTINGS["FLOW_EXECUTOR_TOOLS_PATHS"]
         return tools_paths
 
     async def start(self):
@@ -84,7 +84,9 @@ class BaseFlowExecutor:
 
     async def run_script(self, script):
         """Run process script."""
-        raise NotImplementedError("Subclasses of BaseFlowExecutor must implement a run_script() method.")
+        raise NotImplementedError(
+            "Subclasses of BaseFlowExecutor must implement a run_script() method."
+        )
 
     async def end(self):
         """End process execution."""
@@ -99,9 +101,10 @@ class BaseFlowExecutor:
         :param kwargs: The dictionary of
             :class:`~resolwe.flow.models.Data` attributes to be changed.
         """
-        await self._send_manager_command(ExecutorProtocol.UPDATE, extra_fields={
-            ExecutorProtocol.UPDATE_CHANGESET: kwargs
-        })
+        await self._send_manager_command(
+            ExecutorProtocol.UPDATE,
+            extra_fields={ExecutorProtocol.UPDATE_CHANGESET: kwargs},
+        )
 
     async def run(self, data_id, script):
         """Execute the script and save results."""
@@ -114,14 +117,18 @@ class BaseFlowExecutor:
             logger.exception("Unhandled exception in executor")
 
             # Send error report.
-            await self.update_data_status(process_error=[str(error)], status=DATA_META['STATUS_ERROR'])
+            await self.update_data_status(
+                process_error=[str(error)], status=DATA_META["STATUS_ERROR"]
+            )
 
             finish_fields = {
                 ExecutorProtocol.FINISH_PROCESS_RC: 1,
             }
 
         if finish_fields is not None:
-            await self._send_manager_command(ExecutorProtocol.FINISH, extra_fields=finish_fields)
+            await self._send_manager_command(
+                ExecutorProtocol.FINISH, extra_fields=finish_fields
+            )
 
         # The response channel (Redis list) is deleted automatically once the list is drained, so
         # there is no need to remove it manually.
@@ -129,7 +136,7 @@ class BaseFlowExecutor:
     def _create_file(self, filename):
         """Ensure a new file is created and opened for writing."""
         file_descriptor = os.open(filename, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
-        return os.fdopen(file_descriptor, 'w')
+        return os.fdopen(file_descriptor, "w")
 
     async def _run(self, data_id, script):
         """Execute the script and save results."""
@@ -137,15 +144,15 @@ class BaseFlowExecutor:
 
         # Fetch data instance to get any executor requirements.
         self.process = PROCESS
-        requirements = self.process['requirements']
-        self.requirements = requirements.get('executor', {}).get(self.name, {})
-        self.resources = requirements.get('resources', {})
+        requirements = self.process["requirements"]
+        self.requirements = requirements.get("executor", {}).get(self.name, {})
+        self.resources = requirements.get("resources", {})
 
         logger.debug("Preparing output files for Data with id {}".format(data_id))
-        os.chdir(EXECUTOR_SETTINGS['DATA_DIR'])
+        os.chdir(EXECUTOR_SETTINGS["DATA_DIR"])
         try:
-            log_file = self._create_file('stdout.txt')
-            json_file = self._create_file('jsonout.txt')
+            log_file = self._create_file("stdout.txt")
+            json_file = self._create_file("jsonout.txt")
         except FileExistsError:
             logger.error("Stdout or jsonout out file already exists.")
             # Looks like executor was already ran for this Data object,
@@ -156,8 +163,7 @@ class BaseFlowExecutor:
         proc_pid = await self.start()
 
         await self.update_data_status(
-            status=DATA_META['STATUS_PROCESSING'],
-            process_pid=proc_pid
+            status=DATA_META["STATUS_PROCESSING"], process_pid=proc_pid
         )
 
         # Run process and handle intermediate results
@@ -178,24 +184,26 @@ class BaseFlowExecutor:
 
                 if not line:
                     break
-                line = line.decode('utf-8')
+                line = line.decode("utf-8")
 
                 try:
-                    if line.strip().startswith('run'):
+                    if line.strip().startswith("run"):
                         # Save process and spawn if no errors
                         log_file.write(line)
                         log_file.flush()
 
                         for obj in iterjson(line[3:].strip()):
                             spawn_processes.append(obj)
-                    elif line.strip().startswith('export'):
+                    elif line.strip().startswith("export"):
                         file_name = line[6:].strip()
 
-                        export_folder = SETTINGS['FLOW_EXECUTOR']['UPLOAD_DIR']
-                        unique_name = 'export_{}'.format(uuid.uuid4().hex)
+                        export_folder = SETTINGS["FLOW_EXECUTOR"]["UPLOAD_DIR"]
+                        unique_name = "export_{}".format(uuid.uuid4().hex)
                         export_path = os.path.join(export_folder, unique_name)
 
-                        self.exported_files_mapper[self.data_id][file_name] = unique_name
+                        self.exported_files_mapper[self.data_id][
+                            file_name
+                        ] = unique_name
 
                         shutil.move(file_name, export_path)
                     else:
@@ -203,31 +211,33 @@ class BaseFlowExecutor:
                         updates = {}
                         for obj in iterjson(line):
                             for key, val in obj.items():
-                                if key.startswith('proc.'):
-                                    if key == 'proc.error':
+                                if key.startswith("proc."):
+                                    if key == "proc.error":
                                         process_error.append(val)
                                         if not process_rc:
                                             process_rc = 1
-                                            updates['process_rc'] = process_rc
-                                        updates['process_error'] = process_error
-                                        updates['status'] = DATA_META['STATUS_ERROR']
-                                    elif key == 'proc.warning':
+                                            updates["process_rc"] = process_rc
+                                        updates["process_error"] = process_error
+                                        updates["status"] = DATA_META["STATUS_ERROR"]
+                                    elif key == "proc.warning":
                                         process_warning.append(val)
-                                        updates['process_warning'] = process_warning
-                                    elif key == 'proc.info':
+                                        updates["process_warning"] = process_warning
+                                    elif key == "proc.info":
                                         process_info.append(val)
-                                        updates['process_info'] = process_info
-                                    elif key == 'proc.rc':
+                                        updates["process_info"] = process_info
+                                    elif key == "proc.rc":
                                         process_rc = int(val)
-                                        updates['process_rc'] = process_rc
+                                        updates["process_rc"] = process_rc
                                         if process_rc != 0:
-                                            updates['status'] = DATA_META['STATUS_ERROR']
-                                    elif key == 'proc.progress':
+                                            updates["status"] = DATA_META[
+                                                "STATUS_ERROR"
+                                            ]
+                                    elif key == "proc.progress":
                                         process_progress = int(float(val) * 100)
-                                        updates['process_progress'] = process_progress
+                                        updates["process_progress"] = process_progress
                                 else:
                                     output[key] = val
-                                    updates['output'] = output
+                                    updates["output"] = output
 
                         if updates:
                             await self.update_data_status(**updates)
@@ -237,9 +247,12 @@ class BaseFlowExecutor:
                         if process_rc > 0:
                             log_file.close()
                             json_file.close()
-                            await self._send_manager_command(ExecutorProtocol.FINISH, extra_fields={
-                                ExecutorProtocol.FINISH_PROCESS_RC: process_rc
-                            })
+                            await self._send_manager_command(
+                                ExecutorProtocol.FINISH,
+                                extra_fields={
+                                    ExecutorProtocol.FINISH_PROCESS_RC: process_rc
+                                },
+                            )
                             return
 
                         # Debug output
@@ -269,12 +282,12 @@ class BaseFlowExecutor:
             process_rc = return_code
 
         # send a notification to the executor listener that we're done
-        finish_fields = {
-            ExecutorProtocol.FINISH_PROCESS_RC: process_rc
-        }
+        finish_fields = {ExecutorProtocol.FINISH_PROCESS_RC: process_rc}
         if spawn_processes and process_rc == 0:
             finish_fields[ExecutorProtocol.FINISH_SPAWN_PROCESSES] = spawn_processes
-            finish_fields[ExecutorProtocol.FINISH_EXPORTED_FILES] = self.exported_files_mapper
+            finish_fields[
+                ExecutorProtocol.FINISH_EXPORTED_FILES
+            ] = self.exported_files_mapper
 
         return finish_fields
 

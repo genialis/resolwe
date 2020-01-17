@@ -4,22 +4,23 @@ from resolwe.test import TestCase
 
 
 class ManagerTest(TestCase):
-
     def setUp(self):
         super().setUp()
 
-        self.data = {'name': 'Test Process',
-                     'contributor': self.contributor,
-                     'type': 'data:test',
-                     'version': 1}
+        self.data = {
+            "name": "Test Process",
+            "contributor": self.contributor,
+            "type": "data:test",
+            "version": 1,
+        }
 
     def test_slug(self):
         p = Process.objects.create(**self.data)
-        self.assertEqual(p.slug, 'test-process')
+        self.assertEqual(p.slug, "test-process")
 
-        self.data['version'] = 2
+        self.data["version"] = 2
         p = Process.objects.create(**self.data)
-        self.assertEqual(p.slug, 'test-process')
+        self.assertEqual(p.slug, "test-process")
 
         p = Process.objects.create(**self.data)
-        self.assertEqual(p.slug, 'test-process-2')
+        self.assertEqual(p.slug, "test-process-2")

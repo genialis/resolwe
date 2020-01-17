@@ -27,22 +27,30 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         """Add command arguments."""
         super().add_arguments(parser)
-        parser.add_argument('--clear-queue', action='store_true',
-                            help="Consume and ignore any outstanding messages in the result queue on startup.")
+        parser.add_argument(
+            "--clear-queue",
+            action="store_true",
+            help="Consume and ignore any outstanding messages in the result queue on startup.",
+        )
 
     def handle(self, *args, **kwargs):
         """Run the executor listener. This method never returns."""
-        listener = ExecutorListener(redis_params=getattr(settings, 'FLOW_MANAGER', {}).get('REDIS_CONNECTION', {}))
+        listener = ExecutorListener(
+            redis_params=getattr(settings, "FLOW_MANAGER", {}).get(
+                "REDIS_CONNECTION", {}
+            )
+        )
 
         def _killer(signum, frame):
             """Kill the listener on receipt of a signal."""
             listener.terminate()
+
         signal(SIGINT, _killer)
         signal(SIGTERM, _killer)
 
         async def _runner():
             """Run the listener instance."""
-            if kwargs['clear_queue']:
+            if kwargs["clear_queue"]:
                 await listener.clear_queue()
             async with listener:
                 pass

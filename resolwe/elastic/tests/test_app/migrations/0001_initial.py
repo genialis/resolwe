@@ -10,46 +10,95 @@ class Migration(migrations.Migration):
 
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='TestDependency',
+            name="TestDependency",
             fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=30)),
+                (
+                    "id",
+                    models.AutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(max_length=30)),
             ],
         ),
         migrations.CreateModel(
-            name='TestModel',
+            name="TestModel",
             fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=30)),
-                ('field_process_type', models.CharField(max_length=100)),
-                ('number', models.IntegerField()),
-                ('date', models.DateTimeField(null=True)),
+                (
+                    "id",
+                    models.AutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(max_length=30)),
+                ("field_process_type", models.CharField(max_length=100)),
+                ("number", models.IntegerField()),
+                ("date", models.DateTimeField(null=True)),
             ],
             options={
-                'default_permissions': (),
-                'permissions': (('view_testmodel', 'Can view model'), ('edit_testmodel', 'Can edit model')),
+                "default_permissions": (),
+                "permissions": (
+                    ("view_testmodel", "Can view model"),
+                    ("edit_testmodel", "Can edit model"),
+                ),
             },
         ),
         migrations.CreateModel(
-            name='TestModelWithDependency',
+            name="TestModelWithDependency",
             fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=30)),
-                ('dependencies', models.ManyToManyField(to='test_app.TestDependency')),
-                ('dependency', models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='main_dep', to='test_app.TestDependency')),
+                (
+                    "id",
+                    models.AutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(max_length=30)),
+                ("dependencies", models.ManyToManyField(to="test_app.TestDependency")),
+                (
+                    "dependency",
+                    models.ForeignKey(
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="main_dep",
+                        to="test_app.TestDependency",
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='TestSelfDependency',
+            name="TestSelfDependency",
             fields=[
-                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=30)),
-                ('dependencies', models.ManyToManyField(to='test_app.TestSelfDependency', symmetrical=False, related_name='parents')),
+                (
+                    "id",
+                    models.AutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(max_length=30)),
+                (
+                    "dependencies",
+                    models.ManyToManyField(
+                        to="test_app.TestSelfDependency",
+                        symmetrical=False,
+                        related_name="parents",
+                    ),
+                ),
             ],
         ),
     ]

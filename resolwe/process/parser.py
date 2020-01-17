@@ -75,16 +75,16 @@ class StaticDictMetadata(StaticMetadata):
 
 # Possible process metadata.
 PROCESS_METADATA = {
-    'slug': StaticStringMetadata(),
-    'name': StaticStringMetadata(),
-    'process_type': StaticStringMetadata(),
-    'version': StaticStringMetadata(),
-    'category': StaticStringMetadata(),
-    'scheduling_class': StaticEnumMetadata(choices=SchedulingClass),
-    'persistence': StaticEnumMetadata(choices=Persistence),
-    'requirements': StaticDictMetadata(),
-    'data_name': StaticStringMetadata(),
-    'entity': StaticDictMetadata(),
+    "slug": StaticStringMetadata(),
+    "name": StaticStringMetadata(),
+    "process_type": StaticStringMetadata(),
+    "version": StaticStringMetadata(),
+    "category": StaticStringMetadata(),
+    "scheduling_class": StaticEnumMetadata(choices=SchedulingClass),
+    "persistence": StaticEnumMetadata(choices=Persistence),
+    "requirements": StaticDictMetadata(),
+    "data_name": StaticStringMetadata(),
+    "entity": StaticDictMetadata(),
 }
 
 
@@ -99,9 +99,7 @@ class SafeEvaluator(asteval.Interpreter):
             symtable = {}
 
         super().__init__(
-            symtable=symtable,
-            use_numpy=False,
-            no_print=True,
+            symtable=symtable, use_numpy=False, no_print=True,
         )
 
 
@@ -134,10 +132,7 @@ class ProcessVisitor(ast.NodeVisitor):
             # Build accessible symbols table.
             symtable = {}
             # All field types.
-            symtable.update({
-                field.__name__: field
-                for field in get_available_fields()
-            })
+            symtable.update({field.__name__: field for field in get_available_fields()})
             # Field group classes.
             symtable.update(field_groups)
 
@@ -156,6 +151,7 @@ class ProcessVisitor(ast.NodeVisitor):
                 discovered_fields[name] = field
 
         if descriptor is None:
+
             class Fields:
                 """Fields wrapper."""
 
@@ -194,19 +190,30 @@ class ProcessVisitor(ast.NodeVisitor):
         for item in node.body:
             if isinstance(item, ast.Assign):
                 # Possible metadata.
-                if (len(item.targets) == 1 and isinstance(item.targets[0], ast.Name)
-                        and isinstance(item.targets[0].ctx, ast.Store)
-                        and item.targets[0].id in PROCESS_METADATA):
+                if (
+                    len(item.targets) == 1
+                    and isinstance(item.targets[0], ast.Name)
+                    and isinstance(item.targets[0].ctx, ast.Store)
+                    and item.targets[0].id in PROCESS_METADATA
+                ):
                     # Try to get the metadata value.
                     value = PROCESS_METADATA[item.targets[0].id].get_value(item.value)
                     setattr(descriptor.metadata, item.targets[0].id, value)
-            elif (isinstance(item, ast.Expr) and isinstance(item.value, ast.Str)
-                  and descriptor.metadata.description is None):
+            elif (
+                isinstance(item, ast.Expr)
+                and isinstance(item.value, ast.Str)
+                and descriptor.metadata.description is None
+            ):
                 # Possible description string.
                 descriptor.metadata.description = item.value.s
-            elif isinstance(item, ast.ClassDef) and item.name in embedded_class_fields.keys():
+            elif (
+                isinstance(item, ast.ClassDef)
+                and item.name in embedded_class_fields.keys()
+            ):
                 # Possible input/output declaration.
-                self.visit_field_class(item, descriptor, embedded_class_fields[item.name])
+                self.visit_field_class(
+                    item, descriptor, embedded_class_fields[item.name]
+                )
 
         descriptor.validate()
         self.processes.append(descriptor)

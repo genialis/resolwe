@@ -5,14 +5,14 @@ from django.db import migrations
 
 def delete_obsolete_perms(apps, schema_editor):
     """Delete obsolete permissions from the database."""
-    Permission = apps.get_model('auth', 'Permission')
+    Permission = apps.get_model("auth", "Permission")
     Permission.objects.filter(
         codename__in=[
-            'add_collection',
-            'add_entity',
-            'download_collection',
-            'download_entity',
-            'download_data'
+            "add_collection",
+            "add_entity",
+            "download_collection",
+            "download_entity",
+            "download_data",
         ]
     ).delete()
 
@@ -20,9 +20,7 @@ def delete_obsolete_perms(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('flow', '0041_remove_download_perm'),
+        ("flow", "0041_remove_download_perm"),
     ]
 
-    operations = [
-        migrations.RunPython(delete_obsolete_perms)
-    ]
+    operations = [migrations.RunPython(delete_obsolete_perms)]

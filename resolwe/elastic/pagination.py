@@ -37,7 +37,7 @@ class LimitOffsetPostPagination(LimitOffsetPagination):
                 return _positive_int(
                     get_query_param(request, self.limit_query_param),
                     strict=True,
-                    cutoff=self.max_limit
+                    cutoff=self.max_limit,
                 )
             except (KeyError, ValueError):
                 pass
@@ -47,8 +47,6 @@ class LimitOffsetPostPagination(LimitOffsetPagination):
     def get_offset(self, request):
         """Return offset parameter."""
         try:
-            return _positive_int(
-                get_query_param(request, self.offset_query_param),
-            )
+            return _positive_int(get_query_param(request, self.offset_query_param),)
         except (KeyError, ValueError):
             return 0

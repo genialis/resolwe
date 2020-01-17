@@ -9,46 +9,54 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('flow', '0014_track_resources'),
+        ("flow", "0014_track_resources"),
     ]
 
     operations = [
         migrations.RenameModel(
-            old_name='PositionInRelation',
-            new_name='RelationPartition',
+            old_name="PositionInRelation", new_name="RelationPartition",
         ),
         migrations.RenameField(
-            model_name='relation',
-            old_name='label',
-            new_name='category',
+            model_name="relation", old_name="label", new_name="category",
         ),
         migrations.AlterField(
-            model_name='relation',
-            name='category',
-            field=models.CharField(default='', max_length=100),
+            model_name="relation",
+            name="category",
+            field=models.CharField(default="", max_length=100),
             preserve_default=False,
         ),
         migrations.AddField(
-            model_name='relation',
-            name='unit',
-            field=models.CharField(blank=True, choices=[('s', 'Second'), ('min', 'Minute'), ('hr', 'Hour'), ('d', 'Day'), ('wk', 'Week')], max_length=3, null=True),
+            model_name="relation",
+            name="unit",
+            field=models.CharField(
+                blank=True,
+                choices=[
+                    ("s", "Second"),
+                    ("min", "Minute"),
+                    ("hr", "Hour"),
+                    ("d", "Day"),
+                    ("wk", "Week"),
+                ],
+                max_length=3,
+                null=True,
+            ),
         ),
         migrations.AlterField(
-            model_name='relation',
-            name='collection',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='flow.Collection'),
+            model_name="relation",
+            name="collection",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE, to="flow.Collection"
+            ),
         ),
         migrations.AlterUniqueTogether(
-            name='relation',
-            unique_together=set([('collection', 'category')]),
+            name="relation", unique_together=set([("collection", "category")]),
         ),
         migrations.AddField(
-            model_name='relationpartition',
-            name='label',
+            model_name="relationpartition",
+            name="label",
             field=models.CharField(blank=True, db_index=True, max_length=30, null=True),
         ),
         migrations.AlterUniqueTogether(
-            name='relationpartition',
-            unique_together=set([('entity', 'relation')]),
+            name="relationpartition", unique_together=set([("entity", "relation")]),
         ),
     ]
