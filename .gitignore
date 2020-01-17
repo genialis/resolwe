@@ -16,6 +16,9 @@ sftp-config.json
 *.so
 *.dll
 
+# Python virtual environment.
+.venv/
+
 # Ignore built documentation
 _build
 
