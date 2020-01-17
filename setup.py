@@ -68,15 +68,13 @@ setuptools.setup(
         ],
         'package': ['twine', 'wheel'],
         'test': [
+            'black',
             'check-manifest',
             'coverage>=4.2',
-            'pycodestyle~=2.5.0',
+            'flake8~=3.7.0',
             'pydocstyle~=3.0.0',
-            'pylint~=2.3.1',
             'readme_renderer',
             'setuptools_scm',
-            # XXX: Astroid package 2.3.2 (pylint dependency) requires six==1.12
-            'six==1.12',
             'testfixtures>=4.10.0',
             'tblib>=1.3.0',
             'isort~=4.3.12',

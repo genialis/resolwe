@@ -2,7 +2,7 @@
 Resolwe
 =======
 
-|build| |coverage| |docs| |pypi_version| |pypi_pyversions| |pypi_downloads|
+|build| |coverage| |docs| |black| |pypi_version| |pypi_pyversions| |pypi_downloads|
 
 .. |build| image:: https://travis-ci.org/genialis/resolwe.svg?branch=master
     :target: https://travis-ci.org/genialis/resolwe
@@ -15,6 +15,10 @@ Resolwe
 .. |docs| image:: https://readthedocs.org/projects/resolwe/badge/?version=latest
     :target: http://resolwe.readthedocs.io/
     :alt: Documentation Status
+
+.. |black| image:: https://img.shields.io/badge/code%20style-black-000000.svg
+    :target: https://github.com/psf/black
+    :alt: Code Style Black
 
 .. |pypi_version| image:: https://img.shields.io/pypi/v/resolwe.svg
     :target: https://pypi.org/project/resolwe
