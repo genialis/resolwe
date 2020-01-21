@@ -252,3 +252,18 @@ class RequirementsProcess(Process):
 
         print("Cores:", outputs.cores)
         print("Memory:", outputs.memory)
+
+
+class ProcessWithWorkflowInput(Process):
+    slug = "process-with-workflow-input"
+    name = "Process with workflow input"
+    version = "1.0.0"
+    process_type = "data:test"
+
+    class Input:
+        """Input fields."""
+
+        data = DataField(data_type="", label="Data.")
+
+    def run(self, inputs, outputs):
+        pass

@@ -513,9 +513,17 @@ class DataDescriptor:
             field_type = field_descriptor["type"].rstrip(":")
 
             if field_type.startswith("list:"):
-                field = ListField(ALL_FIELDS_MAP[field_type[5:]]())
+                field_class = ALL_FIELDS_MAP[field_type[len("list:") :]]
+                extra_kwargs = {}
+                if issubclass(field_class, DataField):
+                    extra_kwargs["data_type"] = field_type[len("list:data:") :]
+                field = ListField(field_class(**extra_kwargs))
             else:
-                field = ALL_FIELDS_MAP[field_type]()
+                field_class = ALL_FIELDS_MAP[field_type]
+                extra_kwargs = {}
+                if issubclass(field_class, DataField):
+                    extra_kwargs["data_type"] = field_type[len("data:") :]
+                field = field_class(**extra_kwargs)
 
             value = cache[field_name]
             value = field.clean(value)
@@ -581,6 +589,8 @@ class DataDescriptor:
 class DataField(Field):
     """Data object field."""
 
+    field_type = "data"
+
     def __init__(self, data_type, *args, **kwargs):
         """Construct a data field."""
         # TODO: Validate data type format.
@@ -606,10 +616,8 @@ class DataField(Field):
                 value = cache["__id"]
             except KeyError:
                 raise ValidationError("dictionary must contain an '__id' element")
-        elif not isinstance(value, int):
-            raise ValidationError(
-                "field must be a DataDescriptor, data object primary key or dict"
-            )
+        else:
+            raise ValidationError("field must be a DataDescriptor or dict")
 
         return DataDescriptor(value, self, cache)
 

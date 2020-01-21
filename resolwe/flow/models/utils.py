@@ -341,6 +341,7 @@ def hydrate_input_references(input_, input_schema, hydrate_values=True):
                     continue
 
                 output = copy.deepcopy(data.output)
+                hydrate_input_references(output, data.process.output_schema)
                 if hydrate_values:
                     _hydrate_values(output, data.process.output_schema, data)
                 output["__id"] = data.id
@@ -365,6 +366,7 @@ def hydrate_input_references(input_, input_schema, hydrate_values=True):
                         continue
 
                     output = copy.deepcopy(data.output)
+                    hydrate_input_references(output, data.process.output_schema)
                     if hydrate_values:
                         _hydrate_values(output, data.process.output_schema, data)
 

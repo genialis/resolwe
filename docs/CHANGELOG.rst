@@ -15,6 +15,10 @@ Changed
 - Add ``username`` to ``current_user_permissions`` field of objects on API
 - Support retrieval of ``Data.name`` in Python process
 
+Added
+-----
+- Support workflows as inputs to Python processes
+
 
 ===================
 20.1.0 - 2019-12-16

@@ -21,3 +21,13 @@
         input:
           data: '{{input.data}}'
           data2: '{{input.data2}}'
+
+- slug: simple-workflow
+  name: Simple workflow
+  version: 1.0.0
+  type: data:workflow
+  run:
+    language: workflow
+    program:
+      - id: python-process-1
+        run: test-python-process-2

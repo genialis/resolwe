@@ -156,6 +156,18 @@ class PythonProcessTest(ProcessTestCase):
         self.assertEqual(data.status, "OK")
 
     @with_docker_executor
+    @tag_process("process-with-workflow-input")
+    def test_workflow_as_list_input(self):
+        """Test workflow with non-required data inputs"""
+        with self.preparation_stage():
+            workflow = self.run_process("simple-workflow")
+
+        data = self.run_process("process-with-workflow-input", {"data": workflow.pk})
+
+        data.refresh_from_db()
+        self.assertEqual(data.status, "OK")
+
+    @with_docker_executor
     @tag_process("test-python-process-error")
     def test_error(self):
         """Test process that raises exception"""
