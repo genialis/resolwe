@@ -2,6 +2,7 @@
 include LICENSE
 include README.rst
 # include documentation and files needed by documentation
+include .readthedocs.yml
 recursive-include docs *.py *.rst
 recursive-include docs/example/example/processes *.yml
 recursive-include docs/images *.png
