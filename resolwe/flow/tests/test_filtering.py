@@ -64,9 +64,39 @@ class CollectionViewSetFiltersTest(BaseViewSetFiltersTest):
 
             self.collections.append(collection)
 
+        collection = Collection.objects.create(
+            name="User test collection",
+            slug="user-collection",
+            contributor=self.user,
+            description="User's description",
+        )
+
+        assign_perm("owner_collection", self.user, collection)
+
+        self.collections.append(collection)
+
     def test_filter_name(self):
         self._check_filter({"name": "Test collection 1"}, [self.collections[1]])
         self._check_filter({"name": "Test collection"}, [])
+
+    def test_filter_name_contains(self):
+        self._check_filter({"name_contains": "test"}, self.collections)
+        self._check_filter({"name_contains": "xxx"}, [])
+
+    def test_filter_contributor_name(self):
+        self._check_filter(
+            {"contributor_name": "Joe"}, [self.collections[0], self.collections[1]]
+        )
+        self._check_filter({"contributor_name": "John"}, [self.collections[2]])
+        self._check_filter({"contributor_name": "xxx"}, [])
+
+    def test_filter_owners_name(self):
+        self._check_filter(
+            {"owners_name": "James"}, [self.collections[0], self.collections[1]]
+        )
+        self._check_filter({"owners_name": "John"}, [self.collections[2]])
+        self._check_filter({"owners_name": "Williams"}, [self.collections[2]])
+        self._check_filter({"owners_name": "xxx"}, [])
 
     def test_filter_text(self):
         # By slug.
@@ -78,24 +108,34 @@ class CollectionViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter({"text": "Test"}, self.collections)
         self._check_filter({"text": "test"}, self.collections)
         self._check_filter({"text": "tes"}, self.collections)
+        self._check_filter({"text": "user"}, [self.collections[2]])
         self._check_filter({"text": "est"}, [])
 
         # By contributor.
-        self._check_filter({"text": "joe"}, self.collections)
+        self._check_filter({"text": "joe"}, [self.collections[0], self.collections[1]])
         self._check_filter({"text": "oe"}, [])
-        self._check_filter({"text": "Miller"}, self.collections)
-        self._check_filter({"text": "mill"}, self.collections)
+        self._check_filter(
+            {"text": "Miller"}, [self.collections[0], self.collections[1]]
+        )
+        self._check_filter({"text": "mill"}, [self.collections[0], self.collections[1]])
+        self._check_filter({"text": "john"}, [self.collections[2]])
 
         # By owner.
-        self._check_filter({"text": "james"}, self.collections)
+        self._check_filter(
+            {"text": "james"}, [self.collections[0], self.collections[1]]
+        )
         self._check_filter({"text": "mes"}, [])
-        self._check_filter({"text": "Smith"}, self.collections)
-        self._check_filter({"text": "smi"}, self.collections)
+        self._check_filter(
+            {"text": "Smith"}, [self.collections[0], self.collections[1]]
+        )
+        self._check_filter({"text": "smi"}, [self.collections[0], self.collections[1]])
+        self._check_filter({"text": "john"}, [self.collections[2]])
 
         # By description.
         self._check_filter({"text": "description"}, self.collections)
         self._check_filter({"text": "my"}, [self.collections[0]])
         self._check_filter({"text": "my description"}, [self.collections[0]])
+        self._check_filter({"text": "user"}, [self.collections[2]])
         self._check_filter({"text": "ription"}, [])
 
 

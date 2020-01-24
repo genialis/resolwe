@@ -155,7 +155,10 @@ class TransactionTestCase(TestCaseHelpers, DjangoTransactionTestCase):
             last_name="Miller",
         )
         self.user = user_model.objects.create_user(
-            username="normal_user", email="user@test.com"
+            username="normal_user",
+            email="user@test.com",
+            first_name="John",
+            last_name="Williams",
         )
 
         self.group = Group.objects.create(name="Users")

@@ -48,17 +48,23 @@ class CollectionViewSet(
         "id",
         "slug",
         "name",
+        "name_contains",
         "created",
         "modified",
         "contributor",
+        "contributor_name",
         "owners",
+        "owners_name",
         "text",
         "tags",
     )
     filtering_map = {
         "name": "name.raw",
+        "name_contains": "name.ngrams",
         "contributor": "contributor_id",
+        "contributor_name": "contributor_name.ngrams",
         "owners": "owner_ids",
+        "owners_name": "owner_names.ngrams",
     }
     ordering_fields = ("id", "created", "modified", "name", "contributor")
     ordering_map = {

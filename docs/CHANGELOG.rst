@@ -14,6 +14,8 @@ Changed
 -------
 - Add ``username`` to ``current_user_permissions`` field of objects on API
 - Support retrieval of ``Data.name`` in Python process
+- Add ``name_contains``, ``contributor_name``, and ``owners_name``
+  collection filtering fields
 
 Added
 -----
