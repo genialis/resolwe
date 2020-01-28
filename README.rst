@@ -61,32 +61,16 @@ Install
 Prerequisites
 -------------
 
-Make sure you have Python_ 3.6 installed on your system. If you don't have it
-yet, follow `these instructions
-<https://docs.python.org/3/using/index.html>`__.
+Resolwe runs on Python_ 3.6 or later If you don't have it yet, follow `these
+instructions <https://docs.python.org/3/using/index.html>`__.
 
-Resolwe requires PostgreSQL_ (9.4+). Many Linux distributions already include
-the required version of PostgreSQL (e.g. Fedora 22+, Debian 8+, Ubuntu 15.04+)
-and you can simply install it via distribution's package manager.
-Otherwise, follow `these instructions
-<https://wiki.postgresql.org/wiki/Detailed_installation_guides>`__.
-
-Additionally, installing some (indirect) dependencies from PyPI_ will require
-having a C compiler (e.g. GCC_) as well as Python development files installed
-on the system.
-
-Note
-^^^^
-
-The preferred way to install the C compiler and Python development files is to
-use your distribution's packages, if they exist. For example, on a
-Fedora/RHEL-based system, that would mean installing ``gcc`` and
-``python3-devel`` packages.
+It's easiest to run other required services in Docker containers If you don't
+have it yet, you can follow the `official Docker tutorial`_ for Mac and for
+Windows or install it as a distribution's package in most of standard Linux
+distributions (Fedora, Ubuntu,...).
 
 .. _Python: https://www.python.org/
-.. _PostgreSQL: http://www.postgresql.org/
-.. _PyPi: https://pypi.python.org/
-.. _GCC: https://gcc.gnu.org/
+.. _official Docker tutorial: https://docs.docker.com/get-started/
 
 Using PyPI_
 -----------
@@ -94,6 +78,8 @@ Using PyPI_
 .. code::
 
     pip install resolwe
+
+.. _PyPI: https://pypi.org/
 
 Using source on GitHub_
 -----------------------
