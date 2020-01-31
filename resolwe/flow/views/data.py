@@ -49,10 +49,13 @@ class DataViewSet(
         "slug",
         "version",
         "name",
+        "name_contains",
         "created",
         "modified",
         "contributor",
+        "contributor_name",
         "owners",
+        "owners_name",
         "status",
         "process",
         "process_type",
@@ -68,8 +71,11 @@ class DataViewSet(
     )
     filtering_map = {
         "name": "name.raw",
+        "name_contains": "name.ngrams",
         "contributor": "contributor_id",
+        "contributor_name": "contributor_name.ngrams",
         "owners": "owner_ids",
+        "owners_name": "owner_names.ngrams",
         "process_name": "process_name.ngrams",
     }
     ordering_fields = (

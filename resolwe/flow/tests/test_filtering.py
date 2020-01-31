@@ -183,7 +183,7 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
             data = Data.objects.create(
                 name="Data {}".format(index),
                 slug="dataslug-{}".format(index),
-                contributor=self.contributor,
+                contributor=self.contributor if index < 9 else self.user,
                 process=self.proc1 if index < 5 else self.proc2,
                 status=Data.STATUS_DONE if index > 0 else Data.STATUS_RESOLVING,
                 started=datetime.datetime(2016, 7, 31, index, 0, tzinfo=tzone),
@@ -194,7 +194,7 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
             data.created = datetime.datetime(2016, 7, 30, index, 59, tzinfo=tzone)
             data.save()
 
-            assign_perm("owner_data", self.admin, data)
+            assign_perm("owner_data", self.admin if index < 9 else self.user, data)
 
             if index == 0:
                 data.collection = self.collection
@@ -225,17 +225,32 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter({"name": "Data"}, [])
         self._check_filter({"name": "1"}, [])
 
+    def test_filter_name_contains(self):
+        self._check_filter({"name_contains": "0"}, self.data[:1])
+        self._check_filter({"name_contains": "data"}, self.data)
+        self._check_filter({"name_contains": "xxx"}, [])
+
     def test_filter_contributor(self):
-        self._check_filter({"contributor": str(self.contributor.pk)}, self.data)
+        self._check_filter({"contributor": str(self.contributor.pk)}, self.data[:9])
         self._check_filter({"contributor": "0"}, [])
         self._check_filter(
-            {"contributor__in": "0,{}".format(self.contributor.pk)}, self.data
+            {"contributor__in": "0,{}".format(self.contributor.pk)}, self.data[:9]
         )
 
+    def test_filter_contributor_name(self):
+        self._check_filter({"contributor_name": "Joe"}, self.data[:9])
+        self._check_filter({"contributor_name": "John"}, self.data[9:])
+        self._check_filter({"contributor_name": "xxx"}, [])
+
     def test_filter_owners(self):
-        self._check_filter({"owners": str(self.admin.pk)}, self.data)
+        self._check_filter({"owners": str(self.admin.pk)}, self.data[:9])
         self._check_filter({"owners": "0"}, [])
-        self._check_filter({"owners__in": "0,{}".format(self.admin.pk)}, self.data)
+        self._check_filter({"owners__in": "0,{}".format(self.admin.pk)}, self.data[:9])
+
+    def test_filter_owners_name(self):
+        self._check_filter({"owners_name": "Joe"}, self.data[:9])
+        self._check_filter({"owners_name": "John"}, self.data[9:])
+        self._check_filter({"owners_name": "xxx"}, [])
 
     def test_filter_created(self):
         self._check_filter(
@@ -339,16 +354,17 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter({"text": "ata"}, [])
 
         # By contributor.
-        self._check_filter({"text": "joe"}, self.data)
+        self._check_filter({"text": "joe"}, self.data[:9])
         self._check_filter({"text": "oe"}, [])
-        self._check_filter({"text": "Miller"}, self.data)
-        self._check_filter({"text": "mill"}, self.data)
+        self._check_filter({"text": "Miller"}, self.data[:9])
+        self._check_filter({"text": "mill"}, self.data[:9])
+        self._check_filter({"text": "john"}, self.data[9:])
 
         # By owner.
-        self._check_filter({"text": "james"}, self.data)
+        self._check_filter({"text": "james"}, self.data[:9])
         self._check_filter({"text": "mes"}, [])
-        self._check_filter({"text": "Smith"}, self.data)
-        self._check_filter({"text": "smi"}, self.data)
+        self._check_filter({"text": "Smith"}, self.data[:9])
+        self._check_filter({"text": "smi"}, self.data[:9])
 
         # By process name.
         self._check_filter({"text": "first"}, self.data[:5])

@@ -16,6 +16,8 @@ Changed
 - Support retrieval of ``Data.name`` in Python process
 - Add ``name_contains``, ``contributor_name``, and ``owners_name``
   collection filtering fields
+- Add ``name_contains``, ``contributor_name``, and ``owners_name``
+  data filtering fields
 
 Added
 -----
