@@ -57,7 +57,19 @@ jobs:
         - RESOLWE_REDIS_PORT=6379
         # NOTE: We need to disable SECCOMP as it is not supported on Travis CI.
         - RESOLWE_DOCKER_DISABLE_SECCOMP=1
-
+    - stage: test
+      python: "3.8"
+      env:
+        - TOX_ENV=py38
+        # Set environment variables with information how to use the required
+        # services.
+        - RESOLWE_POSTGRESQL_USER=postgres
+        - RESOLWE_POSTGRESQL_PORT=5432
+        - RESOLWE_ES_PORT=9200
+        - RESOLWE_REDIS_PORT=6379
+        # NOTE: We need to disable SECCOMP as it is not supported on Travis CI.
+        - RESOLWE_DOCKER_DISABLE_SECCOMP=1
+  
     # NOTE: We undo almost all global Travis CI step definitions to ensure the
     # following Tox environments are run without access to any service.
     - stage: test
