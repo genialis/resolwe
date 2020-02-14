@@ -16,6 +16,7 @@ Changed
   on API endpoints
 - **BACKWARD INCOMPATIBLE:** Remove filtering by ``year``, ``month``, ``day``,
   ``hour``, ``minute`` and ``second`` on API endpoints
+- Migrate docker images to Fedora 31
 
 Added
 -----

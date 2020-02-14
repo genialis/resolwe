@@ -1,4 +1,4 @@
-FROM docker.io/fedora:26
+FROM docker.io/fedora:31
 
 LABEL MAINTAINER Resolwe authors https://github.com/genialis/resolwe
 
@@ -8,7 +8,8 @@ COPY re-import.sh /re-import.sh
 COPY curlprogress.py /usr/local/bin/
 
 
-RUN pip3 install resolwe-runtime-utils && \
+RUN dnf install -y --setopt=tsflags=nodocs python-pip && \
+    pip3 install resolwe-runtime-utils && \
     # XXX: Remove this hack after obsoleting re-checkrc
     echo 're-checkrc() { _re-checkrc $? "$@"; }' >> /etc/profile.d/resolwe-base.sh && \
     # XXX: Remove this hack after updating processes to no longer implicitly assume $NAME is set
@@ -16,4 +17,6 @@ RUN pip3 install resolwe-runtime-utils && \
     cat /re-import.sh >> /etc/profile.d/resolwe-base.sh && \
     rm /re-import.sh && \
     # XXX: Remove this after Resolwe learns how to mount re-* tools into every container
-    chmod +x /usr/local/bin/curlprogress.py
+    chmod +x /usr/local/bin/curlprogress.py && \
+    # Cleanup
+    dnf clean all
