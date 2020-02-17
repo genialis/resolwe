@@ -6,22 +6,17 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
-
-Changed
--------
-- Add ``username`` to ``current_user_permissions`` field of objects on API
-- Support retrieval of ``Data.name`` in Python process
-- Add ``name_contains``, ``contributor_name``, and ``owners_name``
-  collection filtering fields
-- Add ``name_contains``, ``contributor_name``, and ``owners_name``
-  data filtering fields
+===================
+20.2.0 - 2020-02-17
+===================
 
 Added
 -----
 - Support workflows as inputs to Python processes
+- Support retrieval of ``Data.name`` in Python process
+- Add ``name_contains``, ``contributor_name``, and ``owners_name`` collection
+  and data filtering fields on API
+- Add ``username`` to ``current_user_permissions`` field of objects on API
 - Add ``delete_chunked`` method to Collection, Entity and Storage managers
 
 Fixed
