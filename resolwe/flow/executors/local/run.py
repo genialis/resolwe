@@ -58,7 +58,11 @@ class FlowExecutor(BaseFlowExecutor):
 
     async def terminate(self):
         """Terminate a running script."""
-        self.proc.terminate()
+        try:
+            self.proc.terminate()
+        except ProcessLookupError:
+            # Process has already been terminated. Log exception and continue.
+            logger.exception("While terminating process with PID %s", self.proc.pid)
 
         await asyncio.wait_for(self.proc.wait(), self.kill_delay)
         if self.proc.returncode is None:
