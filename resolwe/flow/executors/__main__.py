@@ -73,6 +73,11 @@ if __name__ == "__main__":
     loop.run_until_complete(manager_commands.deinit())
 
     # Any stragglers?
+
+    # NOTE: method bellow is deprecated in Python 3.7 in favor of
+    # asyncio.all_tasks and will be removed in Python 3.9. The method
+    # asycio.all_tasks has been added in Python 3.7 so a switch can be made
+    # when support for Python 3.6 is dropped in Resolwe.
     pending = asyncio.Task.all_tasks()
     loop.run_until_complete(asyncio.gather(*pending))
 

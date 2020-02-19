@@ -66,6 +66,53 @@ class ManagerRunProcessTest(ProcessTestCase):
     def test_minimal_process(self):
         self.run_process("test-min")
 
+    @tag_process("test-annotate")
+    def test_annotate(self):
+        data = self.run_process("test-annotate")
+        self.assertIsNotNone(data.entity)
+        dsc = data.entity.descriptor
+        self.assertIn("general", dsc)
+        self.assertIn("species", dsc["general"])
+        self.assertEqual(dsc["general"]["species"], "Valid")
+
+    @tag_process("test-annotate-wrong-option")
+    def test_annotate_wrong_option(self):
+        data = self.run_process(
+            "test-annotate-wrong-option", assert_status=Data.STATUS_ERROR
+        )
+        self.assertEqual(len(data.process_error), 1)
+        self.assertIn(
+            "must match one of predefined choices", data.process_error[0]
+        )
+
+    @tag_process("test-annotate-wrong-type")
+    def test_annotate_wrong_type(self):
+        data = self.run_process(
+            "test-annotate-wrong-type", assert_status=Data.STATUS_ERROR
+        )
+        self.assertEqual(len(data.process_error), 1)
+        self.assertIn(
+            "not valid under any of the given schemas", data.process_error[0]
+        )
+
+    @tag_process("test-annotate-missing-field")
+    def test_annotate_missing_field(self):
+        data = self.run_process(
+            "test-annotate-missing-field", assert_status=Data.STATUS_ERROR
+        )
+        self.assertEqual(len(data.process_error), 1)
+        self.assertIn(
+            "definition (invalid) missing in schema", data.process_error[0]
+        )
+
+    @tag_process("test-annotate-no-entity")
+    def test_annotate_no_entity(self):
+        data = self.run_process(
+            "test-annotate-no-entity", assert_status=Data.STATUS_ERROR
+        )
+        self.assertEqual(len(data.process_error), 1)
+        self.assertIn("No entity to annotate", data.process_error[0])
+
     @tag_process("test-missing-file")
     def test_missing_file(self):
         self.run_process("test-missing-file", assert_status=Data.STATUS_ERROR)

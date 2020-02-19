@@ -12,6 +12,7 @@ Standalone Redis client used as a contact point for executors.
 """
 
 import asyncio
+from contextlib import suppress
 import json
 import logging
 import math
@@ -211,6 +212,98 @@ class ExecutorListener:
 
         return {"file_temp": export_fn, "file": filename}
 
+    def handle_annotate(self, obj):
+        """Handle an incoming ``Data`` object annotate request.
+
+        :param obj: The Channels message object. Command object format:
+
+            .. code-block:: none
+
+                {
+                    'command': 'annotate',
+                    'data_id': [id of the :class:`~resolwe.flow.models.Data`
+                               object this command annotates],
+                    'annotations': {
+                        [annotations to be added/updated]
+                    }
+                }
+        """
+        def report_failure():
+            async_to_sync(self._send_reply)(
+                obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_ERROR}
+            )
+            async_to_sync(consumer.send_event)(
+                {
+                    WorkerProtocol.COMMAND: WorkerProtocol.ABORT,
+                    WorkerProtocol.DATA_ID: obj[ExecutorProtocol.DATA_ID],
+                    WorkerProtocol.FINISH_COMMUNICATE_EXTRA: {
+                        "executor": getattr(settings, "FLOW_EXECUTOR", {}).get(
+                            "NAME", "resolwe.flow.executors.local"
+                        ),
+                    },
+                }
+            )
+        
+        data_id = obj[ExecutorProtocol.DATA_ID]
+        annotations = obj[ExecutorProtocol.ANNOTATIONS]
+
+        logger.debug(
+            __("Handling annotate for Data with id {} (handle_annotate).", data_id),
+            extra={"data_id": data_id, "packet": obj},
+        )
+        try:
+            d = Data.objects.get(pk=data_id)
+        except Data.DoesNotExist:
+            logger.warning(
+                "Data object does not exist (handle_annotate).",
+                extra={"data_id": data_id,},
+            )
+            report_failure()
+            return
+
+        if d.entity is None:
+            logger.error(
+                __(
+                    "No entity to annotate for process '{}' (handle_annotate):\n\n{}",
+                    d.process.slug,
+                    traceback.format_exc(),
+                ),
+                extra={"data_id": data_id},
+            )
+            d.process_error.append("No entity to annotate for process '{}' (handle_annotate)".format(d.process.slug))
+            d.status = Data.STATUS_ERROR
+
+            with suppress(Exception):
+                d.save(update_fields=["process_error", "status"])
+            report_failure()
+            return
+
+        for key, val in annotations.items():
+            logger.debug(__("Annotating entity {}: {} -> {}", d.entity, key, val))
+            dict_dot(d.entity.descriptor, key, val)
+
+        try:
+            d.entity.save()
+            async_to_sync(self._send_reply)(
+                obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK}
+            )
+        except ValidationError as exc:
+            logger.error(
+                __(
+                    "Validation error when saving Data object of process '{}' (handle_annotate):\n\n{}",
+                    d.process.slug,
+                    traceback.format_exc(),
+                ),
+                extra={"data_id": data_id},
+            )
+            d.refresh_from_db()
+            d.process_error.append(exc.message)
+            d.status = Data.STATUS_ERROR
+            with suppress(Exception):
+                d.save(update_fields=["process_error", "status"])
+            report_failure()
+        
+
     def handle_update(self, obj, internal_call=False):
         """Handle an incoming ``Data`` object update request.
 
@@ -322,10 +415,9 @@ class ExecutorListener:
             d.process_error.append(exc.message)
             d.status = Data.STATUS_ERROR
 
-            try:
+            with suppress(Exception):
                 d.save(update_fields=["process_error", "status"])
-            except Exception:
-                pass
+
         except Exception:
             logger.error(
                 __(

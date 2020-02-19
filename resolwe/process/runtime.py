@@ -254,9 +254,10 @@ class Process(metaclass=ProcessMeta):
                 "More than one data object returned for slug {}".format(slug)
             )
 
-    def update_descriptor(self, **kwargs):
-        """Update sample descriptor."""
-        raise NotImplementedError
+    def update_entity_descriptor(self, annotations):
+        """Update entity descriptor from dictionary of annotations."""
+        for key, value in annotations.items():
+            print(resolwe_runtime_utils.annotate_entity(key, value))
 
     @property
     def requirements(self):

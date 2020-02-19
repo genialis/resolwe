@@ -1,4 +1,17 @@
 - slug: sample
   name: Sample
   description: Test descriptor schema
-  schema: []
+  schema:
+    - name: general
+      label: General
+      group:
+        - name: description
+          label: Description
+          type: basic:string
+          required: false
+        - name: species
+          label: Species
+          type: basic:string
+          choices:
+            - label: Valid Choice
+              value: Valid

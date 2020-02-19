@@ -67,6 +67,18 @@ class PythonProcessTest(ProcessTestCase):
         process = Process.objects.get(slug="test-python-process-2")
 
     @with_docker_executor
+    @tag_process("test-python-process-annotate-entity")
+    def test_annotation(self):
+        data = self.run_process("test-python-process-annotate-entity")
+        self.assertIsNotNone(data.entity)
+        dsc = data.entity.descriptor
+        self.assertIn("general", dsc)
+        self.assertIn("species", dsc["general"])
+        self.assertEqual(dsc["general"]["species"], "Valid")
+        self.assertIn("description", dsc["general"])
+        self.assertEqual(dsc["general"]["description"], "desc")
+
+    @with_docker_executor
     @tag_process("test-python-process", "test-save-file", "entity-process")
     def test_python_process(self):
         with self.preparation_stage():

@@ -210,6 +210,23 @@ class ErrorProcess(Process):
         raise ValueError("Value error in ErrorProcess")
 
 
+class AnnotateProcess(Process):
+    slug = "test-python-process-annotate-entity"
+    name = "Test Python Process Annotate Entity"
+    version = "0.0.1"
+    process_type = "data:python:annotate"
+    entity = {
+        "type": "sample",
+    }
+
+    def run(self, inputs, outputs):
+        annotations = {
+            "general.description": "desc",
+            "general.species": "Valid"
+        }
+        self.update_entity_descriptor(annotations)
+
+
 class FileProcess(Process):
     slug = "test-python-process-file"
     name = "Test Python Process File"

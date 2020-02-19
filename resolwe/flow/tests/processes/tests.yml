@@ -25,6 +25,80 @@
     program: |
       echo 'Test Minimalistic Processor'
 
+- slug: test-annotate
+  name: Basic annotation test
+  requirements:
+    expression-engine: jinja
+    executor:
+      docker:
+        image: resolwe/base:fedora-26
+  version: 1.0.0
+  type: data:test:annotate
+  flow_collection: sample
+  run:
+    language: bash
+    program: |
+      re-annotate-entity general.species "Valid"
+
+- slug: test-annotate-wrong-option
+  name: Annotation sets invalid option
+  requirements:
+    expression-engine: jinja
+    executor:
+      docker:
+        image: resolwe/base:fedora-26
+  version: 1.0.0
+  type: data:test:annotate
+  flow_collection: sample
+  run:
+    language: bash
+    program: |
+      re-annotate-entity general.species "Invalid"
+
+- slug: test-annotate-wrong-type
+  name: Annotation sets invalid type
+  requirements:
+    expression-engine: jinja
+    executor:
+      docker:
+        image: resolwe/base:fedora-26
+  version: 1.0.0
+  type: data:test:annotate
+  flow_collection: sample
+  run:
+    language: bash
+    program: |
+      re-annotate-entity general.description 15
+
+- slug: test-annotate-no-entity
+  name: Annotation without entity
+  requirements:
+    expression-engine: jinja
+    executor:
+      docker:
+        image: resolwe/base:fedora-26
+  version: 1.0.0
+  type: data:test:annotate
+  run:
+    language: bash
+    program: |
+      re-annotate-entity general.description "description"
+
+- slug: test-annotate-missing-field
+  name: Annotation missing field
+  requirements:
+    expression-engine: jinja
+    executor:
+      docker:
+        image: resolwe/base:fedora-26
+  version: 1.0.0
+  type: data:test:annotate
+  flow_collection: sample
+  run:
+    language: bash
+    program: |
+      re-annotate-entity general.invalid "Some value"
+
 - slug: test-missing-file
   name: Save not existing file
   requirements:

@@ -23,6 +23,7 @@ Added
   database indexes
 - Add database indexes to improve search performance
 - Add database fields and triggers for full-text search in Postgres
+- Add support for annotating entities in processes
 
 
 ===================

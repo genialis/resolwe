@@ -27,6 +27,9 @@ class ExecutorProtocol:
     UPDATE = "update"
     UPDATE_CHANGESET = "changeset"
 
+    ANNOTATE = "annotate"
+    ANNOTATIONS = "annotations"
+
     FINISH = "finish"
     FINISH_PROCESS_RC = "process_rc"
     FINISH_SPAWN_PROCESSES = "spawn_processes"

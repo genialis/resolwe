@@ -106,9 +106,20 @@ class BaseFlowExecutor:
             extra_fields={ExecutorProtocol.UPDATE_CHANGESET: kwargs},
         )
 
+    async def annotate_data(self, **kwargs):
+        """Annotate Data object.
+
+        :param kwargs: The dictionary of annotations to be added/updated.
+        """
+        await self._send_manager_command(
+            ExecutorProtocol.ANNOTATE,
+            extra_fields={ExecutorProtocol.ANNOTATIONS: kwargs},
+        )
+
     async def run(self, data_id, script):
         """Execute the script and save results."""
         logger.debug("Executor for Data with id {} has started.".format(data_id))
+        finish_fields = None
         try:
             finish_fields = await self._run(data_id, script)
         except SystemExit as ex:
@@ -209,6 +220,7 @@ class BaseFlowExecutor:
                     else:
                         # If JSON, save to MongoDB
                         updates = {}
+                        annotations = {}
                         for obj in iterjson(line):
                             for key, val in obj.items():
                                 if key.startswith("proc."):
@@ -235,6 +247,8 @@ class BaseFlowExecutor:
                                     elif key == "proc.progress":
                                         process_progress = int(float(val) * 100)
                                         updates["process_progress"] = process_progress
+                                elif key.startswith("_entity.descriptor."):
+                                    annotations[key[len("_entity.descriptor."):]] = val
                                 else:
                                     output[key] = val
                                     updates["output"] = output
@@ -243,6 +257,9 @@ class BaseFlowExecutor:
                             await self.update_data_status(**updates)
                             # Process meta fields are collected in listener, so we can clear them.
                             process_error, process_warning, process_info = [], [], []
+
+                        if annotations:
+                            await self.annotate_data(**annotations)
 
                         if process_rc > 0:
                             log_file.close()
