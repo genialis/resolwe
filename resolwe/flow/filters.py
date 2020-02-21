@@ -6,6 +6,7 @@ Flow Filters
 
 """
 from django_filters import rest_framework as filters
+from django_filters.filterset import FilterSetMetaclass
 from versionfield import VersionField
 
 from django.contrib.auth import get_user_model
@@ -13,6 +14,8 @@ from django.contrib.postgres.search import SearchQuery
 
 from guardian.shortcuts import get_objects_for_user
 from rest_framework.exceptions import ParseError, ValidationError
+
+from resolwe.composer import composer
 
 from .models import Collection, Data, DescriptorSchema, Entity, Process, Relation
 
@@ -158,7 +161,55 @@ class TagsFilter(filters.BaseCSVFilter, filters.CharFilter):
         super().__init__(*args, **kwargs)
 
 
-class BaseResolweFilter(CheckQueryParamsMixin, filters.FilterSet):
+class ResolweFilterMetaclass(FilterSetMetaclass):
+    """Support extending filter by third-party packages.
+
+    .. note::
+
+        This injects filters in an undocumented way and can thus break in
+        future releases.
+
+    For example, to add a filter by ``my_field``, define an extension:
+
+    .. code-block:: python
+
+        class ExtendedFilter:
+
+            my_field = filters.CharFilter()
+
+    And add it to the composer, when the app is initialized, i.e. in
+    ``apps.py``:
+
+    .. code-block:: python
+
+        from django.apps import AppConfig
+
+        from resolwe.composer import composer
+
+        from .extensions import ExtendedDataFilter
+
+
+        class MyAppConfig(AppConfig):
+
+            composer.add_extension("path.to.my.Filter", ExtendedFilter)
+
+    """
+
+    def __new__(mcs, name, bases, namespace):
+        """Inject extensions into the filter."""
+        class_path = "{}.{}".format(namespace["__module__"], name)
+        for extension in composer.get_extensions(class_path):
+            for name in dir(extension):
+                if name.startswith("__"):
+                    continue
+                namespace[name] = getattr(extension, name)
+
+        return super().__new__(mcs, name, bases, namespace)
+
+
+class BaseResolweFilter(
+    CheckQueryParamsMixin, filters.FilterSet, metaclass=ResolweFilterMetaclass
+):
     """Base filter for Resolwe's endpoints."""
 
     contributor = filters.ModelChoiceFilter(
