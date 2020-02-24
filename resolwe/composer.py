@@ -1,5 +1,8 @@
 """Support for easier dynamic composition of type extensions."""
 import inspect
+from importlib import import_module
+
+from django.apps import apps
 
 
 class Composer:
@@ -7,7 +10,29 @@ class Composer:
 
     def __init__(self):
         """Construct new composer instance."""
+        self._discovery_done = False
         self._extensions = {}
+
+    def discover_extensions(self):
+        """Discover available extensions."""
+        if self._discovery_done:
+            return
+
+        try:
+            previous_state = self._extensions.copy()
+
+            for app_config in apps.get_app_configs():
+                indexes_path = "{}.extensions".format(app_config.name)
+                try:
+                    import_module(indexes_path)
+                except ImportError:
+                    pass
+
+            self._discovery_done = True
+        except Exception:
+            # Rollback state to prevent corrupted state on exceptions during import.
+            self._extensions = previous_state
+            raise
 
     def _get_class_path(self, klass_or_instance):
         """Return class path for a given class.
@@ -46,6 +71,8 @@ class Composer:
         :param klass: Class to get registered extensions for
         :return: All registered extensions for given class
         """
+        self.discover_extensions()
+
         return self._extensions.get(self._get_class_path(klass), [])
 
 

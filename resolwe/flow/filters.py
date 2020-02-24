@@ -169,29 +169,19 @@ class ResolweFilterMetaclass(FilterSetMetaclass):
         This injects filters in an undocumented way and can thus break in
         future releases.
 
-    For example, to add a filter by ``my_field``, define an extension:
+    For example, to add a filter by ``my_field``, define an extension and add
+    it to the composer:
 
     .. code-block:: python
+
+        from resolwe.composer import composer
+
 
         class ExtendedFilter:
 
             my_field = filters.CharFilter()
 
-    And add it to the composer, when the app is initialized, i.e. in
-    ``apps.py``:
-
-    .. code-block:: python
-
-        from django.apps import AppConfig
-
-        from resolwe.composer import composer
-
-        from .extensions import ExtendedDataFilter
-
-
-        class MyAppConfig(AppConfig):
-
-            composer.add_extension("path.to.my.Filter", ExtendedFilter)
+        composer.add_extension("path.to.my.Filter", ExtendedFilter)
 
     """
 
