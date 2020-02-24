@@ -28,9 +28,6 @@ CREATE OR REPLACE FUNCTION generate_resolwe_entity_search(entity_line flow_entit
             setweight(edge_ngrams(get_numbers(entity.name)), 'B') ||
             -- Collection description.
             setweight(to_tsvector('simple', entity.description), 'B') ||
-            setweight(edge_ngrams(entity.description), 'C') ||
-            setweight(edge_ngrams(get_characters(entity.description)), 'C') ||
-            setweight(edge_ngrams(get_numbers(entity.description)), 'C') ||
             -- Contributor username.
             setweight(to_tsvector('simple', contributor.username), 'B') ||
             setweight(edge_ngrams(contributor.username), 'C') ||

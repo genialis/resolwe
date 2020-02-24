@@ -28,9 +28,6 @@ CREATE OR REPLACE FUNCTION generate_resolwe_collection_search(collection_line fl
             setweight(edge_ngrams(get_numbers(collection.name)), 'B') ||
             -- Collection description.
             setweight(to_tsvector('simple', collection.description), 'B') ||
-            setweight(edge_ngrams(collection.description), 'C') ||
-            setweight(edge_ngrams(get_characters(collection.description)), 'C') ||
-            setweight(edge_ngrams(get_numbers(collection.description)), 'C') ||
             -- Contributor username.
             setweight(to_tsvector('simple', contributor.username), 'B') ||
             setweight(edge_ngrams(contributor.username), 'C') ||
