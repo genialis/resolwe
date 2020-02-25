@@ -230,28 +230,25 @@ class CollectionViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter({"text": "Test collection 1"}, [self.collections[1]])
         self._check_filter({"text": "Test"}, self.collections)
         self._check_filter({"text": "test"}, self.collections)
-        self._check_filter({"text": "tes"}, self.collections)
-        self._check_filter({"text": "est"}, [])
         self._check_filter({"text": "user"}, [self.collections[2]])
 
         # By contributor.
         self._check_filter({"text": "joe"}, self.collections[:2])
-        self._check_filter({"text": "oe"}, [])
         self._check_filter({"text": "Miller"}, self.collections[:2])
-        self._check_filter({"text": "mill"}, self.collections[:2])
 
         # By owner.
         self._check_filter({"text": "james"}, self.collections[:2])
-        self._check_filter({"text": "mes"}, [])
         self._check_filter({"text": "Smith"}, self.collections[:2])
-        self._check_filter({"text": "smi"}, self.collections[:2])
 
         # By description.
         self._check_filter({"text": "description"}, self.collections)
         self._check_filter({"text": "my"}, [self.collections[0]])
         self._check_filter({"text": "my description"}, [self.collections[0]])
         self._check_filter({"text": "user"}, [self.collections[2]])
-        self._check_filter({"text": "ription"}, [])
+
+        # By mixed fields.
+        self._check_filter({"text": "test joe"}, self.collections[:2])
+        self._check_filter({"text": "joe my description"}, [self.collections[0]])
 
 
 class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
@@ -437,28 +434,25 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter({"text": "Test entity 1"}, [self.entities[1]])
         self._check_filter({"text": "Test"}, self.entities)
         self._check_filter({"text": "test"}, self.entities)
-        self._check_filter({"text": "tes"}, self.entities)
-        self._check_filter({"text": "est"}, [])
         self._check_filter({"text": "user"}, [self.entities[2]])
 
         # By contributor.
         self._check_filter({"text": "joe"}, self.entities[:2])
-        self._check_filter({"text": "oe"}, [])
         self._check_filter({"text": "Miller"}, self.entities[:2])
-        self._check_filter({"text": "mill"}, self.entities[:2])
 
         # By owner.
         self._check_filter({"text": "james"}, self.entities[:2])
-        self._check_filter({"text": "mes"}, [])
         self._check_filter({"text": "Smith"}, self.entities[:2])
-        self._check_filter({"text": "smi"}, self.entities[:2])
 
         # By description.
         self._check_filter({"text": "description"}, self.entities)
         self._check_filter({"text": "my"}, [self.entities[0]])
         self._check_filter({"text": "my description"}, [self.entities[0]])
         self._check_filter({"text": "user"}, [self.entities[2]])
-        self._check_filter({"text": "ription"}, [])
+
+        # By mixed fields.
+        self._check_filter({"text": "test joe"}, self.entities[:2])
+        self._check_filter({"text": "joe my description"}, [self.entities[0]])
 
 
 class DataViewSetFiltersTest(BaseViewSetFiltersTest):
@@ -733,26 +727,23 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter({"text": "Data 1"}, [self.data[1]])
         self._check_filter({"text": "Data"}, self.data)
         self._check_filter({"text": "data"}, self.data)
-        self._check_filter({"text": "dat"}, self.data)
-        self._check_filter({"text": "ata"}, [])
 
         # By contributor.
         self._check_filter({"text": "joe"}, self.data[:2])
-        self._check_filter({"text": "oe"}, [])
         self._check_filter({"text": "Miller"}, self.data[:2])
-        self._check_filter({"text": "mill"}, self.data[:2])
 
         # By owner.
         self._check_filter({"text": "james"}, self.data[:2])
-        self._check_filter({"text": "mes"}, [])
         self._check_filter({"text": "Smith"}, self.data[:2])
-        self._check_filter({"text": "smi"}, self.data[:2])
 
         # By process name.
         self._check_filter({"text": "first"}, self.data[:2])
-        self._check_filter({"text": "fir"}, self.data[:2])
-        self._check_filter({"text": "rst"}, [])
         self._check_filter({"text": "process"}, self.data)
+
+        # By mixed fields.
+        self._check_filter({"text": "data joe"}, self.data[:2])
+        self._check_filter({"text": "joe first"}, self.data[:2])
+
 
     def test_nonexisting_parameter(self):
         response = self._check_filter({"foo": "bar"}, [], expected_status_code=400)

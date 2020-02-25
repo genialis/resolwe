@@ -23,33 +23,26 @@ CREATE OR REPLACE FUNCTION generate_resolwe_collection_search(collection_line fl
         SELECT
             -- Collection name.
             setweight(to_tsvector('simple', collection.name), 'A') ||
-            setweight(edge_ngrams(collection.name), 'B') ||
-            setweight(edge_ngrams(get_characters(collection.name)), 'B') ||
-            setweight(edge_ngrams(get_numbers(collection.name)), 'B') ||
+            setweight(to_tsvector('simple', get_characters(collection.name)), 'B') ||
+            setweight(to_tsvector('simple', get_numbers(collection.name)), 'B') ||
             -- Collection description.
             setweight(to_tsvector('simple', collection.description), 'B') ||
             -- Contributor username.
             setweight(to_tsvector('simple', contributor.username), 'B') ||
-            setweight(edge_ngrams(contributor.username), 'C') ||
-            setweight(edge_ngrams(get_characters(contributor.username)), 'C') ||
-            setweight(edge_ngrams(get_numbers(contributor.username)), 'C') ||
+            setweight(to_tsvector('simple', get_characters(contributor.username)), 'C') ||
+            setweight(to_tsvector('simple', get_numbers(contributor.username)), 'C') ||
             -- Contributor first name.
             setweight(to_tsvector('simple', contributor.first_name), 'B') ||
-            setweight(edge_ngrams(contributor.first_name), 'C') ||
             -- Contributor last name.
             setweight(to_tsvector('simple', contributor.last_name), 'B') ||
-            setweight(edge_ngrams(contributor.last_name), 'C') ||
             -- Owners usernames.
             setweight(to_tsvector('simple', owners.usernames), 'A') ||
-            setweight(edge_ngrams(owners.usernames), 'B') ||
-            setweight(edge_ngrams(get_characters(owners.usernames)), 'B') ||
-            setweight(edge_ngrams(get_numbers(owners.usernames)), 'B') ||
+            setweight(to_tsvector('simple', get_characters(owners.usernames)), 'B') ||
+            setweight(to_tsvector('simple', get_numbers(owners.usernames)), 'B') ||
             -- Owners first names.
             setweight(to_tsvector('simple', owners.first_names), 'A') ||
-            setweight(edge_ngrams(owners.first_names), 'B') ||
             -- Owners last names.
             setweight(to_tsvector('simple', owners.last_names), 'A') ||
-            setweight(edge_ngrams(owners.last_names), 'B') ||
             -- Collection tags.
             setweight(to_tsvector('simple', array_to_string(collection.tags, ' ')), 'B')
         FROM flow_collection collection

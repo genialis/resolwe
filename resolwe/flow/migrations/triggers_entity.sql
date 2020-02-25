@@ -23,33 +23,26 @@ CREATE OR REPLACE FUNCTION generate_resolwe_entity_search(entity_line flow_entit
         SELECT
             -- Entity name.
             setweight(to_tsvector('simple', entity.name), 'A') ||
-            setweight(edge_ngrams(entity.name), 'B') ||
-            setweight(edge_ngrams(get_characters(entity.name)), 'B') ||
-            setweight(edge_ngrams(get_numbers(entity.name)), 'B') ||
+            setweight(to_tsvector('simple', get_characters(entity.name)), 'B') ||
+            setweight(to_tsvector('simple', get_numbers(entity.name)), 'B') ||
             -- Collection description.
             setweight(to_tsvector('simple', entity.description), 'B') ||
             -- Contributor username.
             setweight(to_tsvector('simple', contributor.username), 'B') ||
-            setweight(edge_ngrams(contributor.username), 'C') ||
-            setweight(edge_ngrams(get_characters(contributor.username)), 'C') ||
-            setweight(edge_ngrams(get_numbers(contributor.username)), 'C') ||
+            setweight(to_tsvector('simple', get_characters(contributor.username)), 'C') ||
+            setweight(to_tsvector('simple', get_numbers(contributor.username)), 'C') ||
             -- Contributor first name.
             setweight(to_tsvector('simple', contributor.first_name), 'B') ||
-            setweight(edge_ngrams(contributor.first_name), 'C') ||
             -- Contributor last name.
             setweight(to_tsvector('simple', contributor.last_name), 'B') ||
-            setweight(edge_ngrams(contributor.last_name), 'C') ||
             -- Owners usernames.
             setweight(to_tsvector('simple', owners.usernames), 'A') ||
-            setweight(edge_ngrams(owners.usernames), 'B') ||
-            setweight(edge_ngrams(get_characters(owners.usernames)), 'B') ||
-            setweight(edge_ngrams(get_numbers(owners.usernames)), 'B') ||
+            setweight(to_tsvector('simple', get_characters(owners.usernames)), 'B') ||
+            setweight(to_tsvector('simple', get_numbers(owners.usernames)), 'B') ||
             -- Owners first names.
             setweight(to_tsvector('simple', owners.first_names), 'A') ||
-            setweight(edge_ngrams(owners.first_names), 'B') ||
             -- Owners last names.
             setweight(to_tsvector('simple', owners.last_names), 'A') ||
-            setweight(edge_ngrams(owners.last_names), 'B') ||
             -- Entity tags.
             setweight(to_tsvector('simple', array_to_string(entity.tags, ' ')), 'B')
         FROM flow_entity entity

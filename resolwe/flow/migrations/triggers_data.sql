@@ -23,36 +23,28 @@ CREATE OR REPLACE FUNCTION generate_resolwe_data_search(data_line flow_data)
         SELECT
             -- Data name.
             setweight(to_tsvector('simple', data.name), 'A') ||
-            setweight(edge_ngrams(data.name), 'B') ||
-            setweight(edge_ngrams(get_characters(data.name)), 'B') ||
-            setweight(edge_ngrams(get_numbers(data.name)), 'B') ||
+            setweight(to_tsvector('simple', get_characters(data.name)), 'B') ||
+            setweight(to_tsvector('simple', get_numbers(data.name)), 'B') ||
             -- Contributor username.
             setweight(to_tsvector('simple', contributor.username), 'B') ||
-            setweight(edge_ngrams(contributor.username), 'C') ||
-            setweight(edge_ngrams(get_characters(contributor.username)), 'C') ||
-            setweight(edge_ngrams(get_numbers(contributor.username)), 'C') ||
+            setweight(to_tsvector('simple', get_characters(contributor.username)), 'C') ||
+            setweight(to_tsvector('simple', get_numbers(contributor.username)), 'C') ||
             -- Contributor first name.
             setweight(to_tsvector('simple', contributor.first_name), 'B') ||
-            setweight(edge_ngrams(contributor.first_name), 'C') ||
             -- Contributor last name.
             setweight(to_tsvector('simple', contributor.last_name), 'B') ||
-            setweight(edge_ngrams(contributor.last_name), 'C') ||
             -- Owners usernames.
             setweight(to_tsvector('simple', owners.usernames), 'A') ||
-            setweight(edge_ngrams(owners.usernames), 'B') ||
-            setweight(edge_ngrams(get_characters(owners.usernames)), 'B') ||
-            setweight(edge_ngrams(get_numbers(owners.usernames)), 'B') ||
+            setweight(to_tsvector('simple', get_characters(owners.usernames)), 'B') ||
+            setweight(to_tsvector('simple', get_numbers(owners.usernames)), 'B') ||
             -- Owners first names.
             setweight(to_tsvector('simple', owners.first_names), 'A') ||
-            setweight(edge_ngrams(owners.first_names), 'B') ||
             -- Owners last names.
             setweight(to_tsvector('simple', owners.last_names), 'A') ||
-            setweight(edge_ngrams(owners.last_names), 'B') ||
             -- Process name.
             setweight(to_tsvector('simple', process.name), 'B') ||
-            setweight(edge_ngrams(process.name), 'C') ||
-            setweight(edge_ngrams(get_characters(process.name)), 'C') ||
-            setweight(edge_ngrams(get_numbers(process.name)), 'C') ||
+            setweight(to_tsvector('simple', get_characters(process.name)), 'C') ||
+            setweight(to_tsvector('simple', get_numbers(process.name)), 'C') ||
             -- Process type.
             setweight(to_tsvector('simple', process.type), 'D') ||
             -- Data tags.
