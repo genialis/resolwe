@@ -48,14 +48,14 @@ CREATE OR REPLACE FUNCTION generate_resolwe_data_search(data flow_data)
             setweight(to_tsvector('simple', contributor.first_names), 'B') ||
             -- Contributor last name.
             setweight(to_tsvector('simple', contributor.last_names), 'B') ||
-            -- Owners usernames.
-            setweight(to_tsvector('simple', owners.usernames), 'A') ||
+            -- Owners usernames. There is no guarantee that it is not NULL.
+            setweight(to_tsvector('simple', COALESCE(owners.usernames, '')), 'A') ||
             setweight(to_tsvector('simple', get_characters(owners.usernames)), 'B') ||
             setweight(to_tsvector('simple', get_numbers(owners.usernames)), 'B') ||
-            -- Owners first names.
-            setweight(to_tsvector('simple', owners.first_names), 'A') ||
-            -- Owners last names.
-            setweight(to_tsvector('simple', owners.last_names), 'A') ||
+            -- Owners first names. There is no guarantee that it is not NULL.
+            setweight(to_tsvector('simple', COALESCE(owners.first_names, '')), 'A') ||
+            -- Owners last names. There is no guarantee that it is not NULL.
+            setweight(to_tsvector('simple', COALESCE(owners.last_names, '')), 'A') ||
             -- Process name.
             setweight(to_tsvector('simple', process.name), 'B') ||
             setweight(to_tsvector('simple', get_characters(process.name)), 'C') ||
@@ -76,6 +76,10 @@ CREATE OR REPLACE FUNCTION data_biut()
     AS $$
     BEGIN
         SELECT generate_resolwe_data_search(NEW) INTO NEW.search;
+
+        IF NEW.search IS NULL THEN
+            RAISE WARNING 'Search index for data (id: %) is NULL.', NEW.id;
+        END IF;
 
         RETURN NEW;
     END;
