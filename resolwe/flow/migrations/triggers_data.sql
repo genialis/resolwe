@@ -1,38 +1,53 @@
 -- Trigger after insert/update Data object.
-CREATE OR REPLACE FUNCTION generate_resolwe_data_search(data_line flow_data)
+CREATE TYPE process_result AS (
+    name text,
+    type text
+);
+
+CREATE OR REPLACE FUNCTION generate_resolwe_data_search(data flow_data)
     RETURNS tsvector
     LANGUAGE plpgsql
     AS $$
     DECLARE
+        owners users_result;
+        contributor users_result;
+        process process_result;
         search tsvector;
     BEGIN
-        WITH owners AS (
-            SELECT
-                object_pk::int data_id,
-                array_to_string(array_agg(username), ' ') AS usernames,
-                array_to_string(array_remove(array_agg(first_name), ''), ' ') AS first_names,
-                array_to_string(array_remove(array_agg(last_name), ''), ' ') AS last_names
-            FROM auth_user
-            JOIN guardian_userobjectpermission ON auth_user.id=guardian_userobjectpermission.user_id
-            WHERE
-                content_type_id=(SELECT id FROM django_content_type WHERE app_label='flow' and model='data')
-                AND permission_id=(SELECT id FROM auth_permission WHERE codename='owner_data')
-                AND object_pk::int=data_line.id
-            GROUP BY object_pk
-        )
+        SELECT
+            array_to_string(array_agg(username), ' ') AS usernames,
+            array_to_string(array_remove(array_agg(first_name), ''), ' ') AS first_names,
+            array_to_string(array_remove(array_agg(last_name), ''), ' ') AS last_names
+        INTO owners
+        FROM auth_user
+        JOIN guardian_userobjectpermission ON auth_user.id=guardian_userobjectpermission.user_id
+        WHERE
+            content_type_id=(SELECT id FROM django_content_type WHERE app_label='flow' and model='data')
+            AND permission_id=(SELECT id FROM auth_permission WHERE codename='owner_data')
+            AND object_pk::int=data.id
+        GROUP BY object_pk;
+
+        SELECT
+            username usernames, first_name first_names, last_name last_names
+        INTO contributor
+        FROM auth_user
+        WHERE id = data.contributor_id;
+
+        SELECT name, type INTO process FROM flow_process WHERE id=data.process_id;
+
         SELECT
             -- Data name.
             setweight(to_tsvector('simple', data.name), 'A') ||
             setweight(to_tsvector('simple', get_characters(data.name)), 'B') ||
             setweight(to_tsvector('simple', get_numbers(data.name)), 'B') ||
             -- Contributor username.
-            setweight(to_tsvector('simple', contributor.username), 'B') ||
-            setweight(to_tsvector('simple', get_characters(contributor.username)), 'C') ||
-            setweight(to_tsvector('simple', get_numbers(contributor.username)), 'C') ||
+            setweight(to_tsvector('simple', contributor.usernames), 'B') ||
+            setweight(to_tsvector('simple', get_characters(contributor.usernames)), 'C') ||
+            setweight(to_tsvector('simple', get_numbers(contributor.usernames)), 'C') ||
             -- Contributor first name.
-            setweight(to_tsvector('simple', contributor.first_name), 'B') ||
+            setweight(to_tsvector('simple', contributor.first_names), 'B') ||
             -- Contributor last name.
-            setweight(to_tsvector('simple', contributor.last_name), 'B') ||
+            setweight(to_tsvector('simple', contributor.last_names), 'B') ||
             -- Owners usernames.
             setweight(to_tsvector('simple', owners.usernames), 'A') ||
             setweight(to_tsvector('simple', get_characters(owners.usernames)), 'B') ||
@@ -49,11 +64,6 @@ CREATE OR REPLACE FUNCTION generate_resolwe_data_search(data_line flow_data)
             setweight(to_tsvector('simple', process.type), 'D') ||
             -- Data tags.
             setweight(to_tsvector('simple', array_to_string(data.tags, ' ')), 'B')
-        FROM flow_data data
-        JOIN owners ON data.id=owners.data_id
-        JOIN flow_process process ON data.process_id=process.id
-        JOIN auth_user contributor ON data.contributor_id=contributor.id
-        WHERE data.id=data_line.id
         INTO search;
 
         RETURN search;

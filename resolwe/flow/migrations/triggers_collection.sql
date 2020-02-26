@@ -1,25 +1,32 @@
 -- Trigger after insert/update Collection object.
-CREATE OR REPLACE FUNCTION generate_resolwe_collection_search(collection_line flow_collection)
+CREATE OR REPLACE FUNCTION generate_resolwe_collection_search(collection flow_collection)
     RETURNS tsvector
     LANGUAGE plpgsql
     AS $$
     DECLARE
+        owners users_result;
+        contributor users_result;
         search tsvector;
     BEGIN
-        WITH owners AS (
-            SELECT
-                object_pk::int collection_id,
-                array_to_string(array_agg(username), ' ') AS usernames,
-                array_to_string(array_remove(array_agg(first_name), ''), ' ') AS first_names,
-                array_to_string(array_remove(array_agg(last_name), ''), ' ') AS last_names
-            FROM auth_user
-            JOIN guardian_userobjectpermission ON auth_user.id=guardian_userobjectpermission.user_id
-            WHERE
-                content_type_id=(SELECT id FROM django_content_type WHERE app_label='flow' and model='collection')
-                AND permission_id=(SELECT id FROM auth_permission WHERE codename='owner_collection')
-                AND object_pk::int=collection_line.id
-            GROUP BY object_pk
-        )
+        SELECT
+            array_to_string(array_agg(username), ' ') AS usernames,
+            array_to_string(array_remove(array_agg(first_name), ''), ' ') AS first_names,
+            array_to_string(array_remove(array_agg(last_name), ''), ' ') AS last_names
+        INTO owners
+        FROM auth_user
+        JOIN guardian_userobjectpermission ON auth_user.id=guardian_userobjectpermission.user_id
+        WHERE
+            content_type_id=(SELECT id FROM django_content_type WHERE app_label='flow' and model='collection')
+            AND permission_id=(SELECT id FROM auth_permission WHERE codename='owner_collection')
+            AND object_pk::int=collection.id
+        GROUP BY object_pk;
+
+        SELECT
+            username usernames, first_name first_names, last_name last_names
+        INTO contributor
+        FROM auth_user
+        WHERE id = collection.contributor_id;
+
         SELECT
             -- Collection name.
             setweight(to_tsvector('simple', collection.name), 'A') ||
@@ -28,13 +35,13 @@ CREATE OR REPLACE FUNCTION generate_resolwe_collection_search(collection_line fl
             -- Collection description.
             setweight(to_tsvector('simple', collection.description), 'B') ||
             -- Contributor username.
-            setweight(to_tsvector('simple', contributor.username), 'B') ||
-            setweight(to_tsvector('simple', get_characters(contributor.username)), 'C') ||
-            setweight(to_tsvector('simple', get_numbers(contributor.username)), 'C') ||
+            setweight(to_tsvector('simple', contributor.usernames), 'B') ||
+            setweight(to_tsvector('simple', get_characters(contributor.usernames)), 'C') ||
+            setweight(to_tsvector('simple', get_numbers(contributor.usernames)), 'C') ||
             -- Contributor first name.
-            setweight(to_tsvector('simple', contributor.first_name), 'B') ||
+            setweight(to_tsvector('simple', contributor.first_names), 'B') ||
             -- Contributor last name.
-            setweight(to_tsvector('simple', contributor.last_name), 'B') ||
+            setweight(to_tsvector('simple', contributor.last_names), 'B') ||
             -- Owners usernames.
             setweight(to_tsvector('simple', owners.usernames), 'A') ||
             setweight(to_tsvector('simple', get_characters(owners.usernames)), 'B') ||
@@ -45,10 +52,6 @@ CREATE OR REPLACE FUNCTION generate_resolwe_collection_search(collection_line fl
             setweight(to_tsvector('simple', owners.last_names), 'A') ||
             -- Collection tags.
             setweight(to_tsvector('simple', array_to_string(collection.tags, ' ')), 'B')
-        FROM flow_collection collection
-        JOIN owners ON collection.id=owners.collection_id
-        JOIN auth_user contributor ON collection.contributor_id=contributor.id
-        WHERE collection.id=collection_line.id
         INTO search;
 
         RETURN search;

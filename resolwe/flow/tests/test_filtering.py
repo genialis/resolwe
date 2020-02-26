@@ -250,6 +250,11 @@ class CollectionViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter({"text": "test joe"}, self.collections[:2])
         self._check_filter({"text": "joe my description"}, [self.collections[0]])
 
+        # Check that changes are applied immediately.
+        self.collections[0].name = "Awesome new name"
+        self.collections[0].save()
+
+        self._check_filter({"text": "awesome"}, [self.collections[0]])
 
 class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
     @classmethod
@@ -453,6 +458,12 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
         # By mixed fields.
         self._check_filter({"text": "test joe"}, self.entities[:2])
         self._check_filter({"text": "joe my description"}, [self.entities[0]])
+
+        # Check that changes are applied immediately.
+        self.entities[0].name = "Awesome new name"
+        self.entities[0].save()
+
+        self._check_filter({"text": "awesome"}, [self.entities[0]])
 
 
 class DataViewSetFiltersTest(BaseViewSetFiltersTest):
@@ -744,6 +755,11 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter({"text": "data joe"}, self.data[:2])
         self._check_filter({"text": "joe first"}, self.data[:2])
 
+        # Check that changes are applied immediately.
+        self.data[0].name = "Awesome new name"
+        self.data[0].save()
+
+        self._check_filter({"text": "awesome"}, [self.data[0]])
 
     def test_nonexisting_parameter(self):
         response = self._check_filter({"foo": "bar"}, [], expected_status_code=400)

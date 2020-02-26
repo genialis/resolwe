@@ -1,3 +1,9 @@
+CREATE TYPE users_result AS (
+    usernames text,
+    first_names text,
+    last_names text
+);
+
 CREATE OR REPLACE FUNCTION edge_ngrams(text text)
     RETURNS tsvector
     LANGUAGE plpgsql
