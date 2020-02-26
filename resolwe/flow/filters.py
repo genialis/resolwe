@@ -11,6 +11,7 @@ from versionfield import VersionField
 
 from django.contrib.auth import get_user_model
 from django.contrib.postgres.search import SearchQuery
+from django.db.models import Subquery
 
 from guardian.shortcuts import get_objects_for_user
 from rest_framework.exceptions import ParseError, ValidationError
@@ -145,7 +146,9 @@ class UserFilterMixin:
                 )
             )
 
-        return result
+        # Union can no longer be filtered, so we have to create a new queryset
+        # for following filters.
+        return result.model.objects.filter(pk__in=Subquery(result.values("pk")))
 
     def filter_contributor_name(self, queryset, name, value):
         """Filter queryset by owner's name."""

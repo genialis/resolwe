@@ -256,6 +256,17 @@ class CollectionViewSetFiltersTest(BaseViewSetFiltersTest):
 
         self._check_filter({"text": "awesome"}, [self.collections[0]])
 
+    def test_filter_mixed(self):
+        self._check_filter(
+            {"name": "Test collection 0", "owners_name": "James Smith"},
+            [self.collections[0]],
+        )
+        self._check_filter(
+            {"text": "collection 0", "owners_name": "James Smith"},
+            [self.collections[0]],
+        )
+
+
 class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
     @classmethod
     def setUpTestData(cls):
@@ -464,6 +475,14 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
         self.entities[0].save()
 
         self._check_filter({"text": "awesome"}, [self.entities[0]])
+
+    def test_filter_mixed(self):
+        self._check_filter(
+            {"name": "Test entity 0", "owners_name": "James Smith"}, [self.entities[0]]
+        )
+        self._check_filter(
+            {"text": "entity 0", "owners_name": "James Smith"}, [self.entities[0]]
+        )
 
 
 class DataViewSetFiltersTest(BaseViewSetFiltersTest):
@@ -760,6 +779,14 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
         self.data[0].save()
 
         self._check_filter({"text": "awesome"}, [self.data[0]])
+
+    def test_filter_mixed(self):
+        self._check_filter(
+            {"name": "Data 0", "owners_name": "James Smith"}, [self.data[0]]
+        )
+        self._check_filter(
+            {"text": "Data 0", "owners_name": "James Smith"}, [self.data[0]]
+        )
 
     def test_nonexisting_parameter(self):
         response = self._check_filter({"foo": "bar"}, [], expected_status_code=400)
