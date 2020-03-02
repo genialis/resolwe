@@ -17,6 +17,9 @@ Changed
 - **BACKWARD INCOMPATIBLE:** Remove filtering by ``year``, ``month``, ``day``,
   ``hour``, ``minute`` and ``second`` on API endpoints
 - Migrate docker images to Fedora 31
+- Use ``DictRelatedField`` for ``collection`` field in ``RelationSerializer``.
+  In practice this fixes inconsistency comparing with how other serializers
+  handle collections field.
 
 Added
 -----

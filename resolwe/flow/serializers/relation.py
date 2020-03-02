@@ -5,6 +5,8 @@ from rest_framework import serializers
 
 from resolwe.flow.models.collection import Collection
 from resolwe.flow.models.entity import Relation, RelationPartition, RelationType
+from resolwe.flow.serializers.fields import DictRelatedField
+from resolwe.flow.serializers import CollectionSerializer
 from resolwe.rest.serializers import SelectiveFieldMixin
 
 from .base import ResolweBaseSerializer
@@ -24,7 +26,11 @@ class RelationSerializer(ResolweBaseSerializer):
     """Serializer for Relation objects."""
 
     partitions = RelationPartitionSerializer(source="relationpartition_set", many=True)
-    collection = serializers.PrimaryKeyRelatedField(queryset=Collection.objects.all())
+    collection = DictRelatedField(
+        queryset=Collection.objects.all(),
+        serializer=CollectionSerializer,
+        write_permission="edit",
+    )
     type = serializers.SlugRelatedField(
         queryset=RelationType.objects.all(), slug_field="name"
     )

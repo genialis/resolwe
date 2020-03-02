@@ -100,7 +100,7 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
         resp = self._get_detail(self.relation_group.pk, user=self.contributor)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
 
-        self.assertEqual(resp.data["collection"], self.collection.pk)
+        self.assertEqual(resp.data["collection"]["id"], self.collection.pk)
         self.assertEqual(resp.data["type"], "group")
         self.assertEqual(resp.data["category"], "replicates")
         self.assertEqual(resp.data["unit"], None)
@@ -125,7 +125,7 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
         resp = self._get_detail(self.relation_series.pk, user=self.contributor)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
 
-        self.assertEqual(resp.data["collection"], self.collection_2.pk)
+        self.assertEqual(resp.data["collection"]["id"], self.collection_2.pk)
         self.assertEqual(resp.data["type"], "series")
         self.assertEqual(resp.data["category"], "time-series")
         self.assertEqual(resp.data["unit"], "hr")
@@ -208,7 +208,7 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
 
     def test_create_only_entity(self):
         data = {
-            "collection": self.collection.pk,
+            "collection": {"id": self.collection.pk},
             "type": "group",
             "category": "clones",
             "partitions": [{"entity": self.entity_3.pk}, {"entity": self.entity_4.pk},],
@@ -231,7 +231,7 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
 
     def test_create_empty_partitions(self):
         data = {
-            "collection": self.collection.pk,
+            "collection": {"id": self.collection.pk},
             "type": "group",
             "category": "clones",
             "partitions": [],
@@ -245,7 +245,7 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
 
     def test_create_with_position(self):
         data = {
-            "collection": self.collection.pk,
+            "collection": {"id": self.collection.pk},
             "type": "series",
             "category": "time series",
             "partitions": [
@@ -274,7 +274,7 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
 
     def test_create_with_label(self):
         data = {
-            "collection": self.collection.pk,
+            "collection": {"id": self.collection.pk},
             "type": "series",
             "category": "time series",
             "partitions": [
@@ -303,7 +303,7 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
 
     def test_create_with_missing_type(self):
         data = {
-            "collection": self.collection.pk,
+            "collection": {"id": self.collection.pk},
             "category": "time series",
             "partitions": [
                 {"entity": self.entity_3.pk, "position": 1},
@@ -315,7 +315,7 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
 
     def test_create_missing_category(self):
         data = {
-            "collection": self.collection.pk,
+            "collection": {"id": self.collection.pk},
             "type": "series",
             "partitions": [
                 {"entity": self.entity_3.pk, "position": 1},
@@ -327,7 +327,7 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
 
     def test_create_duplicated_category(self):
         data = {
-            "collection": self.collection.pk,
+            "collection": {"id": self.collection.pk},
             "type": "group",
             "category": "RePlIcAtEs",
             "partitions": [{"entity": self.entity_3.pk}, {"entity": self.entity_4.pk},],
@@ -353,7 +353,7 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_update(self):
-        data = {"collection": self.collection_2.pk}
+        data = {"collection": {"id": self.collection_2.pk}}
         resp = self._patch(self.relation_group.pk, data, user=self.contributor)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
 
@@ -385,20 +385,21 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
         )
 
     def test_update_superuser(self):
-        data = {"collection": self.collection_2.pk}
+        data = {"collection": {"id": self.collection_2.pk}}
         resp = self._patch(self.relation_group.pk, data, user=self.admin)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.relation_group.refresh_from_db()
         self.assertEqual(self.relation_group.collection, self.collection_2)
 
     def test_update_different_user(self):
-        data = {"collection": self.collection_2.pk}
+        data = {"collection": {"id": self.collection_2.pk}}
         resp = self._patch(self.relation_group.pk, data, user=self.user)
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
         self.relation_group.refresh_from_db()
         self.assertEqual(self.relation_group.collection, self.collection)
 
         assign_contributor_permissions(self.collection, self.user)
+        assign_contributor_permissions(self.collection_2, self.user)
 
         resp = self._patch(self.relation_group.pk, data, user=self.user)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
