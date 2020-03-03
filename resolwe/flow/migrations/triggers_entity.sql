@@ -6,6 +6,7 @@ CREATE OR REPLACE FUNCTION generate_resolwe_entity_search(entity flow_entity)
     DECLARE
         owners users_result;
         contributor users_result;
+        flat_descriptor text;
         search tsvector;
     BEGIN
         SELECT
@@ -26,6 +27,8 @@ CREATE OR REPLACE FUNCTION generate_resolwe_entity_search(entity flow_entity)
         INTO contributor
         FROM auth_user
         WHERE id = entity.contributor_id;
+
+        SELECT COALESCE(flatten_descriptor_values(entity.descriptor), '') INTO flat_descriptor;
 
         SELECT
             -- Entity name.
@@ -51,7 +54,12 @@ CREATE OR REPLACE FUNCTION generate_resolwe_entity_search(entity flow_entity)
             -- Owners last names. There is no guarantee that it is not NULL.
             setweight(to_tsvector('simple', COALESCE(owners.last_names, '')), 'A') ||
             -- Entity tags.
-            setweight(to_tsvector('simple', array_to_string(entity.tags, ' ')), 'B')
+            setweight(to_tsvector('simple', array_to_string(entity.tags, ' ')), 'B') ||
+            -- Entity descriptor.
+            setweight(to_tsvector('simple', flat_descriptor), 'C') ||
+            setweight(to_tsvector('simple', get_characters(flat_descriptor)), 'D') ||
+            setweight(to_tsvector('simple', get_numbers(flat_descriptor)), 'D')
+
         INTO search;
 
         RETURN search;

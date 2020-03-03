@@ -12,6 +12,7 @@ CREATE OR REPLACE FUNCTION generate_resolwe_data_search(data flow_data)
         owners users_result;
         contributor users_result;
         process process_result;
+        flat_descriptor text;
         search tsvector;
     BEGIN
         SELECT
@@ -34,6 +35,8 @@ CREATE OR REPLACE FUNCTION generate_resolwe_data_search(data flow_data)
         WHERE id = data.contributor_id;
 
         SELECT name, type INTO process FROM flow_process WHERE id=data.process_id;
+
+        SELECT COALESCE(flatten_descriptor_values(data.descriptor), '') INTO flat_descriptor;
 
         SELECT
             -- Data name.
@@ -63,7 +66,11 @@ CREATE OR REPLACE FUNCTION generate_resolwe_data_search(data flow_data)
             -- Process type.
             setweight(to_tsvector('simple', process.type), 'D') ||
             -- Data tags.
-            setweight(to_tsvector('simple', array_to_string(data.tags, ' ')), 'B')
+            setweight(to_tsvector('simple', array_to_string(data.tags, ' ')), 'B') ||
+            -- Data descriptor.
+            setweight(to_tsvector('simple', flat_descriptor), 'C') ||
+            setweight(to_tsvector('simple', get_characters(flat_descriptor)), 'D') ||
+            setweight(to_tsvector('simple', get_numbers(flat_descriptor)), 'D')
         INTO search;
 
         RETURN search;

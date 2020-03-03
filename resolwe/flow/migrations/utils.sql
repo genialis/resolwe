@@ -36,3 +36,36 @@ CREATE OR REPLACE FUNCTION get_numbers(text text)
             ' '
         )
     $$;
+
+CREATE OR REPLACE FUNCTION flatten_descriptor_values(value jsonb)
+    RETURNS text
+    LANGUAGE sql
+    AS $$
+        WITH RECURSIVE tree(typeof, value) AS (
+            SELECT  jsonb_typeof(value), value
+            UNION ALL
+            (
+                -- Recursive reference to query can appear only once, so
+                -- we have to make an alias.
+                WITH tree AS (
+                    SELECT * FROM tree
+                )
+                SELECT jsonb_typeof(item.value), item.value
+                FROM tree
+                CROSS JOIN LATERAL jsonb_each(value) item
+                WHERE typeof = 'object'
+
+                UNION ALL
+
+                SELECT jsonb_typeof(element), element
+                FROM tree
+                CROSS JOIN LATERAL jsonb_array_elements(value) element
+                WHERE typeof = 'array'
+            )
+        )
+        -- #>> is used to decompose json and remove quotes from strings.
+        SELECT string_agg(nullif((value #>> '{}')::text, ''), ' ')
+        FROM tree
+        WHERE typeof = 'string' OR typeof = 'number'
+        GROUP BY true
+    $$;

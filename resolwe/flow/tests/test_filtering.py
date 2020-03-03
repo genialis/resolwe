@@ -74,7 +74,22 @@ class CollectionViewSetFiltersTest(BaseViewSetFiltersTest):
         super().setUpTestData()
 
         cls.descriptor_schema = DescriptorSchema.objects.create(
-            slug="test-schema", version="1.0.0", contributor=cls.contributor,
+            slug="test-schema",
+            version="1.0.0",
+            contributor=cls.contributor,
+            schema=[
+                {
+                    "name": "company",
+                    "group": [
+                        {"name": "name", "type": "basic:string:", "required": False,},
+                        {
+                            "name": "departments",
+                            "type": "list:basic:string:",
+                            "required": False,
+                        },
+                    ],
+                }
+            ],
         )
 
         cls.collections = [
@@ -84,6 +99,12 @@ class CollectionViewSetFiltersTest(BaseViewSetFiltersTest):
                 contributor=cls.contributor,
                 description="My description!",
                 descriptor_schema=cls.descriptor_schema,
+                descriptor={
+                    "company": {
+                        "name": "Genialis",
+                        "departments": ["engineering", "operations"],
+                    }
+                },
                 tags=["first-tag"],
             ),
             Collection.objects.create(
@@ -251,6 +272,10 @@ class CollectionViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter({"text": "my description"}, [self.collections[0]])
         self._check_filter({"text": "user"}, [self.collections[2]])
 
+        # By descriptor.
+        self._check_filter({"text": "genialis"}, [self.collections[0]])
+        self._check_filter({"text": "engineering"}, [self.collections[0]])
+
         # By mixed fields.
         self._check_filter({"text": "test joe"}, self.collections[:2])
         self._check_filter({"text": "joe my description"}, [self.collections[0]])
@@ -285,8 +310,7 @@ class CollectionViewSetFiltersTest(BaseViewSetFiltersTest):
 
         # Check that ordering can be overriden.
         result = self._check_filter(
-            {"text": "test collection", "ordering": "id"},
-            self.collections
+            {"text": "test collection", "ordering": "id"}, self.collections
         )
         self.assertEqual(result.data[0]["id"], self.collections[0].pk)
 
@@ -297,7 +321,22 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
         super().setUpTestData()
 
         cls.descriptor_schema = DescriptorSchema.objects.create(
-            slug="test-schema", version="1.0.0", contributor=cls.contributor,
+            slug="test-schema",
+            version="1.0.0",
+            contributor=cls.contributor,
+            schema=[
+                {
+                    "name": "company",
+                    "group": [
+                        {"name": "name", "type": "basic:string:", "required": False,},
+                        {
+                            "name": "departments",
+                            "type": "list:basic:string:",
+                            "required": False,
+                        },
+                    ],
+                }
+            ],
         )
 
         cls.collection1 = Collection.objects.create(
@@ -318,6 +357,12 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
                 collection=cls.collection1,
                 description="My description!",
                 descriptor_schema=cls.descriptor_schema,
+                descriptor={
+                    "company": {
+                        "name": "Genialis",
+                        "departments": ["engineering", "operations"],
+                    }
+                },
                 tags=["first-tag"],
             ),
             Entity.objects.create(
@@ -494,6 +539,10 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter({"text": "my description"}, [self.entities[0]])
         self._check_filter({"text": "user"}, [self.entities[2]])
 
+        # By descriptor.
+        self._check_filter({"text": "genialis"}, [self.entities[0]])
+        self._check_filter({"text": "engineering"}, [self.entities[0]])
+
         # By mixed fields.
         self._check_filter({"text": "test joe"}, self.entities[:2])
         self._check_filter({"text": "joe my description"}, [self.entities[0]])
@@ -538,6 +587,25 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
         super().setUpTestData()
 
         tzone = get_current_timezone()
+
+        descriptor_schema = DescriptorSchema.objects.create(
+            slug="test-schema",
+            version="1.0.0",
+            contributor=cls.contributor,
+            schema=[
+                {
+                    "name": "company",
+                    "group": [
+                        {"name": "name", "type": "basic:string:", "required": False,},
+                        {
+                            "name": "departments",
+                            "type": "list:basic:string:",
+                            "required": False,
+                        },
+                    ],
+                }
+            ],
+        )
 
         cls.collection1 = Collection.objects.create(
             name="My collection", slug="my-collection", contributor=cls.contributor,
@@ -597,6 +665,13 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
                 started=datetime.datetime(2016, 7, 31, 0, 0, tzinfo=tzone),
                 finished=datetime.datetime(2016, 7, 31, 0, 30, tzinfo=tzone),
                 tags=["first-tag"],
+                descriptor_schema=descriptor_schema,
+                descriptor={
+                    "company": {
+                        "name": "Genialis",
+                        "departments": ["engineering", "operations"],
+                    }
+                },
             ),
             Data.objects.create(
                 name="Data 1",
@@ -816,6 +891,10 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
         # By process name.
         self._check_filter({"text": "first"}, self.data[:2])
         self._check_filter({"text": "process"}, self.data)
+
+        # By descriptor.
+        self._check_filter({"text": "genialis"}, [self.data[0]])
+        self._check_filter({"text": "engineering"}, [self.data[0]])
 
         # By mixed fields.
         self._check_filter({"text": "data joe"}, self.data[:2])
