@@ -64,7 +64,8 @@ class BaseViewSetFiltersTest(TestCase):
         else:
             self.assertEqual(response.status_code, expected_status_code)
             response.render()
-            return response
+
+        return response
 
 
 class CollectionViewSetFiltersTest(BaseViewSetFiltersTest):
@@ -89,7 +90,7 @@ class CollectionViewSetFiltersTest(BaseViewSetFiltersTest):
                 name="Test collection 1",
                 slug="test-collection-1",
                 contributor=cls.contributor,
-                description="Other description",
+                description="My favourite test collection",
                 descriptor_schema=cls.descriptor_schema,
                 tags=["first-tag", "second-tag"],
             ),
@@ -148,8 +149,10 @@ class CollectionViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter({"name__icontains": "test"}, self.collections)
 
     def test_filter_description(self):
-        self._check_filter({"description__icontains": "other"}, [self.collections[1]])
-        self._check_filter({"description__contains": "other"}, [])
+        self._check_filter(
+            {"description__icontains": "Favourite"}, [self.collections[1]]
+        )
+        self._check_filter({"description__contains": "Favourite"}, [])
 
     def test_filter_descriptor_schema(self):
         self._check_filter(
@@ -241,8 +244,10 @@ class CollectionViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter({"text": "Smith"}, self.collections[:2])
 
         # By description.
-        self._check_filter({"text": "description"}, self.collections)
-        self._check_filter({"text": "my"}, [self.collections[0]])
+        self._check_filter(
+            {"text": "description"}, [self.collections[0], self.collections[2]]
+        )
+        self._check_filter({"text": "my"}, self.collections[:2])
         self._check_filter({"text": "my description"}, [self.collections[0]])
         self._check_filter({"text": "user"}, [self.collections[2]])
 
@@ -265,6 +270,25 @@ class CollectionViewSetFiltersTest(BaseViewSetFiltersTest):
             {"text": "collection 0", "owners_name": "James Smith"},
             [self.collections[0]],
         )
+
+    def test_order_by_relevance(self):
+        result = self._check_filter({"text": "test collection"}, self.collections)
+        self.assertEqual(result.data[0]["id"], self.collections[1].pk)
+
+        # Make another collection more important.
+        collection = self.collections[2]
+        collection.description = "This is test collection. My test collection rocks."
+        collection.save()
+
+        result = self._check_filter({"text": "test collection"}, self.collections)
+        self.assertEqual(result.data[0]["id"], self.collections[2].pk)
+
+        # Check that ordering can be overriden.
+        result = self._check_filter(
+            {"text": "test collection", "ordering": "id"},
+            self.collections
+        )
+        self.assertEqual(result.data[0]["id"], self.collections[0].pk)
 
 
 class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
@@ -301,7 +325,7 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
                 slug="test-entity-1",
                 contributor=cls.contributor,
                 collection=cls.collection2,
-                description="Other description",
+                description="My favourite test entity",
                 descriptor_schema=cls.descriptor_schema,
                 tags=["first-tag", "second-tag"],
             ),
@@ -354,8 +378,10 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter({"name__icontains": "test"}, self.entities)
 
     def test_filter_description(self):
-        self._check_filter({"description__icontains": "other"}, [self.entities[1]])
-        self._check_filter({"description__contains": "other"}, [])
+        self._check_filter(
+            {"description__icontains": "Favourite"}, [self.entities[1]]
+        )
+        self._check_filter({"description__contains": "Favourite"}, [])
 
     def test_filter_descriptor_schema(self):
         self._check_filter(
@@ -461,8 +487,10 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter({"text": "Smith"}, self.entities[:2])
 
         # By description.
-        self._check_filter({"text": "description"}, self.entities)
-        self._check_filter({"text": "my"}, [self.entities[0]])
+        self._check_filter(
+            {"text": "description"}, [self.entities[0], self.entities[2]]
+        )
+        self._check_filter({"text": "my"}, self.entities[:2])
         self._check_filter({"text": "my description"}, [self.entities[0]])
         self._check_filter({"text": "user"}, [self.entities[2]])
 
@@ -483,6 +511,25 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter(
             {"text": "entity 0", "owners_name": "James Smith"}, [self.entities[0]]
         )
+
+    def test_order_by_relevance(self):
+        result = self._check_filter({"text": "test entity"}, self.entities)
+        self.assertEqual(result.data[0]["id"], self.entities[1].pk)
+
+        # Make another entity more important.
+        entity = self.entities[2]
+        entity.description = "This is test entity. My test entity rocks."
+        entity.save()
+
+        result = self._check_filter({"text": "test entity"}, self.entities)
+        self.assertEqual(result.data[0]["id"], self.entities[2].pk)
+
+        # Check that ordering can be overriden.
+        result = self._check_filter(
+            {"text": "test entity", "ordering": "id"},
+            self.entities
+        )
+        self.assertEqual(result.data[0]["id"], self.entities[0].pk)
 
 
 class DataViewSetFiltersTest(BaseViewSetFiltersTest):
@@ -561,7 +608,7 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
                 status=Data.STATUS_DONE,
                 started=datetime.datetime(2016, 7, 31, 1, 0, tzinfo=tzone),
                 finished=datetime.datetime(2016, 7, 31, 1, 30, tzinfo=tzone),
-                tags=["first-tag", "second-tag"],
+                tags=["first-tag", "second-tag", "data"],
             ),
             Data.objects.create(
                 name="User data",
@@ -787,6 +834,25 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter(
             {"text": "Data 0", "owners_name": "James Smith"}, [self.data[0]]
         )
+
+    def test_order_by_relevance(self):
+        result = self._check_filter({"text": "data"}, self.data)
+        self.assertEqual(result.data[0]["id"], self.data[1].pk)
+
+        # Make another entity more important.
+        data = self.data[2]
+        data.name = "Data data data"
+        data.save()
+
+        result = self._check_filter({"text": "data"}, self.data)
+        self.assertEqual(result.data[0]["id"], self.data[2].pk)
+
+        # Check that ordering can be overriden.
+        result = self._check_filter(
+            {"text": "data", "ordering": "id"},
+            self.data
+        )
+        self.assertEqual(result.data[0]["id"], self.data[0].pk)
 
     def test_nonexisting_parameter(self):
         response = self._check_filter({"foo": "bar"}, [], expected_status_code=400)

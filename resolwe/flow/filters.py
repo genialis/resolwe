@@ -10,11 +10,12 @@ from django_filters.filterset import FilterSetMetaclass
 from versionfield import VersionField
 
 from django.contrib.auth import get_user_model
-from django.contrib.postgres.search import SearchQuery
-from django.db.models import Subquery
+from django.contrib.postgres.search import SearchQuery, SearchRank
+from django.db.models import F, Subquery
 
 from guardian.shortcuts import get_objects_for_user
 from rest_framework.exceptions import ParseError, ValidationError
+from rest_framework.filters import OrderingFilter as DrfOrderingFilter
 
 from resolwe.composer import composer
 
@@ -101,7 +102,15 @@ class TextFilterMixin:
 
     def filter_text(self, queryset, name, value):
         """Full-text search."""
-        return queryset.filter(**{name: SearchQuery(value, config="simple")})
+        query = SearchQuery(value, config="simple")
+        return (
+            queryset.filter(**{name: query})
+            # This assumes that field is already a TextSearch vector and thus
+            # doesn't need to be transformed. To achieve that F function is
+            # required.
+            .annotate(rank=SearchRank(F(name), query))
+            .order_by("-rank")
+        )
 
 
 class UserFilterMixin:
@@ -357,3 +366,30 @@ class RelationFilter(BaseResolweFilter):
     def get_always_allowed_arguments(self):
         """Get always allowed query arguments."""
         return super().get_always_allowed_arguments() + ("entity", "label", "position",)
+
+
+class OrderingFilter(DrfOrderingFilter):
+    """Order results by field specified in request.
+
+    If no ordering is given, default ordering is used. Default ordering
+    is skipped for views filtered by full-text search as it already
+    applies ordering by ranking.
+    """
+
+    def get_ordering(self, request, queryset, view):
+        """Return name of the filed by which results should be ordered.
+
+        Ordering is skipped if ``None`` is returned.
+        """
+        params = request.query_params.get(self.ordering_param)
+        if params:
+            fields = [param.strip() for param in params.split(',')]
+            ordering = self.remove_invalid_fields(queryset, fields, view, request)
+            if ordering:
+                return ordering
+
+        # Skip default ordering as full-text search applies ordering by rank.
+        if request.query_params.get('text'):
+            return None
+
+        return self.get_default_ordering(view)
