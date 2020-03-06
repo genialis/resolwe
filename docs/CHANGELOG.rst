@@ -14,7 +14,8 @@ Added
 -----
 - Add support for the ``allow_custom_choice`` field property in Python
   processes
-- Add ordering by contributor's first and last name to Collection viewset
+- Add ordering by contributor's first and last name to Collection and Data
+  viewsets
 
 Fixed
 -----

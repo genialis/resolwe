@@ -42,6 +42,8 @@ class DataViewSet(
 
     ordering_fields = (
         "contributor",
+        "contributor__first_name",
+        "contributor__last_name",
         "created",
         "finished",
         "id",
