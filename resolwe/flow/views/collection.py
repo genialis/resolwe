@@ -41,6 +41,8 @@ class CollectionViewSet(
 
     ordering_fields = (
         "contributor",
+        "contributor__first_name",
+        "contributor__last_name",
         "created",
         "id",
         "modified",
