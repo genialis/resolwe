@@ -52,13 +52,13 @@ CREATE OR REPLACE FUNCTION generate_resolwe_data_search(data flow_data)
             -- Contributor last name.
             setweight(to_tsvector('simple', contributor.last_names), 'B') ||
             -- Owners usernames. There is no guarantee that it is not NULL.
-            setweight(to_tsvector('simple', COALESCE(owners.usernames, '')), 'A') ||
-            setweight(to_tsvector('simple', get_characters(owners.usernames)), 'B') ||
-            setweight(to_tsvector('simple', get_numbers(owners.usernames)), 'B') ||
+            setweight(to_tsvector('simple', COALESCE(owners.usernames, '')), 'B') ||
+            setweight(to_tsvector('simple', get_characters(owners.usernames)), 'C') ||
+            setweight(to_tsvector('simple', get_numbers(owners.usernames)), 'C') ||
             -- Owners first names. There is no guarantee that it is not NULL.
-            setweight(to_tsvector('simple', COALESCE(owners.first_names, '')), 'A') ||
+            setweight(to_tsvector('simple', COALESCE(owners.first_names, '')), 'B') ||
             -- Owners last names. There is no guarantee that it is not NULL.
-            setweight(to_tsvector('simple', COALESCE(owners.last_names, '')), 'A') ||
+            setweight(to_tsvector('simple', COALESCE(owners.last_names, '')), 'B') ||
             -- Process name.
             setweight(to_tsvector('simple', process.name), 'B') ||
             setweight(to_tsvector('simple', get_characters(process.name)), 'C') ||
