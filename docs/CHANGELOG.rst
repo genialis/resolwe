@@ -13,6 +13,9 @@ Unreleased
 Changed
 -------
 - Various code fixes to make code work with the new storage model
+- Use storage connectors in workers to download data not available locally
+- Move purge code inside worker, remove old purge code
+
 
 Added
 -----
@@ -22,6 +25,7 @@ Added
 - Add migrations to move from old storage model to the new one
 - Add storage manager
 - Add management command to start storage manager
+
 
 ===================
 21.1.0 - 2020-04-14

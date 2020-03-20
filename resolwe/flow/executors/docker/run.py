@@ -14,7 +14,7 @@ import tempfile
 import time
 from asyncio import subprocess
 
-from ..global_settings import DATA_LOCATION, PROCESS_META, SETTINGS
+from ..global_settings import PROCESS_META, SETTINGS, STORAGE_LOCATION
 from ..local.run import FlowExecutor as LocalFlowExecutor
 from ..protocol import ExecutorFiles
 from . import constants
@@ -174,7 +174,7 @@ class FlowExecutor(LocalFlowExecutor):
                 "data",
                 "DATA_DIR",
                 constants.DATA_VOLUME,
-                [DATA_LOCATION["subpath"]],
+                [STORAGE_LOCATION["url"]],
                 read_only=False,
             ),
             new_volume("data_all", "DATA_DIR", constants.DATA_ALL_VOLUME),
@@ -185,7 +185,7 @@ class FlowExecutor(LocalFlowExecutor):
                 "secrets",
                 "RUNTIME_DIR",
                 constants.SECRETS_VOLUME,
-                [DATA_LOCATION["subpath"], ExecutorFiles.SECRETS_DIR],
+                [STORAGE_LOCATION["url"], ExecutorFiles.SECRETS_DIR],
             ),
         ]
 
@@ -232,7 +232,7 @@ class FlowExecutor(LocalFlowExecutor):
             for src, dst in runtime_volume_maps.items():
                 volumes.append(
                     new_volume(
-                        "runtime", "RUNTIME_DIR", dst, [DATA_LOCATION["subpath"], src],
+                        "runtime", "RUNTIME_DIR", dst, [STORAGE_LOCATION["url"], src],
                     )
                 )
 

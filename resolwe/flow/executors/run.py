@@ -69,9 +69,9 @@ class BaseFlowExecutor:
 
     async def _send_manager_command(self, *args, **kwargs):
         """Send an update to manager and terminate the process if it fails."""
-        resp = await send_manager_command(*args, **kwargs)
-
-        if resp is False:
+        try:
+            await send_manager_command(*args, **kwargs)
+        except RuntimeError:
             await self.terminate()
 
     def get_tools_paths(self):

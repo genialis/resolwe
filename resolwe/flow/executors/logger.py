@@ -7,7 +7,7 @@ import socket
 import sys
 from logging.config import dictConfig
 
-from .global_settings import DATA, DATA_LOCATION
+from .global_settings import DATA, STORAGE_LOCATION
 from .manager_commands import send_manager_command
 from .protocol import ExecutorProtocol
 
@@ -20,7 +20,7 @@ class JSONFormatter(logging.Formatter):
         data = record.__dict__.copy()
 
         data["data_id"] = DATA["id"]
-        data["data_location_id"] = DATA_LOCATION["id"]
+        data["data_location_id"] = STORAGE_LOCATION["id"]
         data["hostname"] = socket.gethostname()
 
         # Get relative path, so listener can reconstruct the path to the actual code.

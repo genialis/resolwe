@@ -6,6 +6,7 @@ Dispatcher
 
 """
 import asyncio
+import copy
 import inspect
 import json
 import logging
@@ -468,14 +469,19 @@ class Manager:
             # TODO Find a better solution, e.g. defer the database constraint.
             temporary_location_string = uuid.uuid4().hex[:10]
             file_storage = FileStorage.objects.create()
+            # Create StorageLocation with default connector.
+            # We must also specify status since it is Uploading by default.
             data_location = StorageLocation.objects.create(
-                file_storage=file_storage, url=temporary_location_string
+                file_storage=file_storage,
+                url=temporary_location_string,
+                status=StorageLocation.STATUS_PREPARING,
+                connector_name=settings.LOCAL_CONNECTOR,
             )
             data_location.url = str(data_location.id)
             data_location.save()
             data_location.data.add(data)
 
-        output_path = self._get_per_data_dir("DATA_DIR", data_location.subpath)
+        output_path = self._get_per_data_dir("DATA_DIR", data_location.url)
         dir_mode = self.settings_actual.get("FLOW_EXECUTOR", {}).get(
             "DATA_DIR_MODE", 0o755
         )
@@ -484,7 +490,7 @@ class Manager:
         os.chmod(output_path, dir_mode)
         return output_path
 
-    def _prepare_context(self, data_id, data_dir, runtime_dir, **kwargs):
+    def _prepare_context(self, data, data_dir, runtime_dir, **kwargs):
         """Prepare settings and constants JSONs for the executor.
 
         Settings and constants provided by other ``resolwe`` modules and
@@ -492,7 +498,7 @@ class Manager:
         executor once it is deployed, so they need to be serialized into
         the runtime directory.
 
-        :param data_id: The :class:`~resolwe.flow.models.Data` object id
+        :param data: The :class:`~resolwe.flow.models.Data` object
             being prepared for.
         :param data_dir: The target execution directory for this
             :class:`~resolwe.flow.models.Data` object.
@@ -504,6 +510,8 @@ class Manager:
         """
         files = {}
         secrets = {}
+        data_id = data.id
+        secrets_dir = os.path.join(runtime_dir, ExecutorFiles.SECRETS_DIR)
 
         settings_dict = {}
         settings_dict["DATA_DIR"] = data_dir
@@ -530,6 +538,28 @@ class Manager:
             if k.startswith("STATUS_") and isinstance(getattr(Data, k), str)
         }
 
+        # Prepare storage connectors settings and secrets.
+        connectors_settings = copy.deepcopy(settings.STORAGE_CONNECTORS)
+        for connector_settings in connectors_settings.values():
+            # Fix class name for inclusion in the executor.
+            klass = connector_settings["connector"]
+            klass = "executors." + klass.rsplit(".storage.")[-1]
+            connector_settings["connector"] = klass
+            connector_config = connector_settings["config"]
+
+            # Prepare credentials for executor.
+            if "credentials" in connector_config:
+                src_credentials = connector_config["credentials"]
+                base_credentials_name = os.path.basename(src_credentials)
+                secrets[base_credentials_name] = ""
+                if os.path.isfile(src_credentials):
+                    with open(src_credentials, "r") as f:
+                        secrets[base_credentials_name] = f.read()
+                connector_config["credentials"] = os.path.join(
+                    secrets_dir, base_credentials_name
+                )
+        django_settings["STORAGE_CONNECTORS"] = connectors_settings
+
         # Extend the settings with whatever the executor wants.
         self.executor.extend_settings(data_id, files, secrets)
 
@@ -542,7 +572,6 @@ class Manager:
 
         # Save the secrets in the runtime dir, with permissions to prevent listing the given
         # directory.
-        secrets_dir = os.path.join(runtime_dir, ExecutorFiles.SECRETS_DIR)
         os.makedirs(secrets_dir, mode=0o300)
         for file_name, value in secrets.items():
             file_path = os.path.join(secrets_dir, file_name)
@@ -580,7 +609,9 @@ class Manager:
         import resolwe.flow.executors as executor_package
 
         exec_dir = os.path.dirname(inspect.getsourcefile(executor_package))
-        dest_dir = self._get_per_data_dir("RUNTIME_DIR", data.location.subpath)
+        dest_dir = self._get_per_data_dir(
+            "RUNTIME_DIR", data.location.default_storage_location.subpath
+        )
         dest_package_dir = os.path.join(dest_dir, "executors")
         shutil.copytree(exec_dir, dest_package_dir)
         dir_mode = self.settings_actual.get("FLOW_EXECUTOR", {}).get(
@@ -590,6 +621,19 @@ class Manager:
 
         class_name = executor.rpartition(".executors.")[-1]
         return ".{}".format(class_name), dest_dir
+
+    def _prepare_storage_connectors(self, runtime_dir):
+        """Copy connectors inside executors package."""
+        import resolwe.storage.connectors as connectors_package
+
+        exec_dir = os.path.dirname(inspect.getsourcefile(connectors_package))
+        dest_dir = os.path.join(runtime_dir, "executors")
+        dest_package_dir = os.path.join(dest_dir, "connectors")
+        shutil.copytree(exec_dir, dest_package_dir)
+        dir_mode = self.settings_actual.get("FLOW_EXECUTOR", {}).get(
+            "RUNTIME_DIR_MODE", 0o755
+        )
+        os.chmod(dest_dir, dir_mode)
 
     def _prepare_script(self, dest_dir, program):
         """Copy the script into the destination directory.
@@ -649,7 +693,6 @@ class Manager:
         elif cmd == WorkerProtocol.FINISH:
             try:
                 data_id = message[WorkerProtocol.DATA_ID]
-
                 data_location = FileStorage.objects.get(
                     data__id=data_id
                 ).default_storage_location
@@ -816,6 +859,7 @@ class Manager:
             program = self._include_environment_variables(program, executor_env_vars)
             data_dir = self._prepare_data_dir(data)
             executor_module, runtime_dir = self._prepare_executor(data, executor)
+            self._prepare_storage_connectors(runtime_dir)
 
             # Execute execution engine specific runtime preparation.
             execution_engine = data.process.run.get("language", None)
@@ -824,7 +868,7 @@ class Manager:
             )
 
             self._prepare_context(
-                data.id, data_dir, runtime_dir, RUNTIME_VOLUME_MAPS=volume_maps
+                data, data_dir, runtime_dir, RUNTIME_VOLUME_MAPS=volume_maps,
             )
             self._prepare_script(runtime_dir, program)
 

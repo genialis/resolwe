@@ -50,9 +50,10 @@ class BaseFlowExecutorPreparer:
             }
         )
         files[ExecutorFiles.DATA] = model_to_dict(data)
-        files[ExecutorFiles.DATA_LOCATION] = model_to_dict(data.location)
-        # Add subpath for backward compatibility since it is not a field in this model anymore
-        files[ExecutorFiles.DATA_LOCATION]["subpath"] = data.location.subpath
+        files[ExecutorFiles.STORAGE_LOCATION] = model_to_dict(data.location)
+        files[ExecutorFiles.STORAGE_LOCATION][
+            "url"
+        ] = data.location.default_storage_location.url
         files[ExecutorFiles.PROCESS] = model_to_dict(data.process)
         files[ExecutorFiles.PROCESS][
             "resource_limits"
@@ -87,8 +88,9 @@ class BaseFlowExecutorPreparer:
         :return: Resolved filename, which can be used to access the
             given data file in programs executed using this executor
         """
+        data_dir = settings.FLOW_EXECUTOR["DATA_DIR"]
         if data is None:
-            return settings.FLOW_EXECUTOR["DATA_DIR"]
+            return data_dir
 
         return data.location.get_path(filename=filename)
 

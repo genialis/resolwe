@@ -31,9 +31,11 @@ import asyncio
 from importlib import import_module
 
 from . import manager_commands
+from .collect import collect_files
 from .global_settings import DATA
 from .logger import configure_logging
 from .protocol import ExecutorFiles
+from .transfer import transfer_data
 
 
 async def run_executor():
@@ -60,7 +62,9 @@ if __name__ == "__main__":
     async def _sequential():
         """Run some things sequentially but asynchronously."""
         await manager_commands.init()
+        await transfer_data()
         await run_executor()
+        await collect_files()
 
     loop = asyncio.get_event_loop()
     loop.run_until_complete(_sequential())

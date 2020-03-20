@@ -4,9 +4,6 @@
 Flow Utilities
 ==============
 
-.. automodule:: resolwe.flow.utils.purge
-   :members:
-
 .. automodule:: resolwe.flow.utils.exceptions
    :members:
 

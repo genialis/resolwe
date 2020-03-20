@@ -260,6 +260,8 @@ class Data(BaseModel):
     STATUS_RESOLVING = "RE"
     #: data object is waiting
     STATUS_WAITING = "WT"
+    #: data object is preparing
+    STATUS_PREPARING = "PP"
     #: data object is processing
     STATUS_PROCESSING = "PR"
     #: data object is done
@@ -272,6 +274,7 @@ class Data(BaseModel):
         (STATUS_UPLOADING, "Uploading"),
         (STATUS_RESOLVING, "Resolving"),
         (STATUS_WAITING, "Waiting"),
+        (STATUS_PREPARING, "Preparing"),
         (STATUS_PROCESSING, "Processing"),
         (STATUS_DONE, "Done"),
         (STATUS_ERROR, "Error"),
@@ -692,6 +695,8 @@ class Data(BaseModel):
         None return the path to the filename in the working directory of the
         executor.
         """
+        if self.is_duplicate():
+            raise Exception("Copied Data objects have no runtime directory.")
         return self.location.get_path(
             prefix=settings.FLOW_EXECUTOR["RUNTIME_DIR"], filename=filename
         )

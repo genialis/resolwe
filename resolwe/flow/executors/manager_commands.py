@@ -55,6 +55,8 @@ async def send_manager_command(cmd, expect_reply=True, extra_fields={}):
         with an acknowledgement packet.
     :param extra_fields: A dictionary of extra information that's
         merged into the packet body (i.e. not under an extra key).
+    :raises RuntimeError: when no response is received from the manager or
+        response has ExecutorProtocol.RESULT_ERROR status.
     """
     packet = {
         ExecutorProtocol.DATA_ID: DATA["id"],
@@ -91,10 +93,10 @@ async def send_manager_command(cmd, expect_reply=True, extra_fields={}):
         )
 
     _, item = response
-    result = json.loads(item.decode("utf-8"))[ExecutorProtocol.RESULT]
+    decoded_item = json.loads(item.decode("utf-8"))
+    result = decoded_item[ExecutorProtocol.RESULT]
     assert result in [ExecutorProtocol.RESULT_OK, ExecutorProtocol.RESULT_ERROR]
 
-    if result == ExecutorProtocol.RESULT_OK:
-        return True
-
-    return False
+    if result == ExecutorProtocol.RESULT_ERROR:
+        raise RuntimeError("The response has ERROR status, treminating process")
+    return decoded_item

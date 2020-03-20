@@ -23,8 +23,6 @@ from contextlib import suppress
 import aioredis
 from asgiref.sync import async_to_sync
 from channels.db import database_sync_to_async
-from channels.exceptions import ChannelFull
-from channels.layers import get_channel_layer
 
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
@@ -36,8 +34,9 @@ from django.utils.timezone import now
 from django_priority_batch import PrioritizedBatcher
 
 from resolwe.flow.models import Data, Process
-from resolwe.flow.protocol import CHANNEL_PURGE_WORKER, TYPE_PURGE_RUN
+from resolwe.flow.models.utils import referenced_files
 from resolwe.flow.utils import dict_dot, iterate_fields, stats
+from resolwe.storage.models import AccessLog, ReferencedPath, StorageLocation
 from resolwe.test.utils import is_testing
 from resolwe.utils import BraceMessage as __
 
@@ -66,8 +65,7 @@ class ExecutorListener:
         self._should_stop = False
         self._runner_coro = None
 
-        # The verbosity level to pass around to Resolwe utilities
-        # such as location_purge.
+        # The verbosity level to pass around to Resolwe utilities.
         self._verbosity = kwargs.get("verbosity", 1)
 
         # Statistics about how much time each event needed for handling.
@@ -181,6 +179,26 @@ class ExecutorListener:
             aioredis.Redis.rpush, self._queue_response_channel(obj), json.dumps(reply)
         )
 
+    def _abort_processing(self, obj):
+        """Abort processing of the current data object.
+
+        Also notify worker and frontend.
+        """
+        async_to_sync(self._send_reply)(
+            obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_ERROR}
+        )
+        async_to_sync(consumer.send_event)(
+            {
+                WorkerProtocol.COMMAND: WorkerProtocol.ABORT,
+                WorkerProtocol.DATA_ID: obj[ExecutorProtocol.DATA_ID],
+                WorkerProtocol.FINISH_COMMUNICATE_EXTRA: {
+                    "executor": getattr(settings, "FLOW_EXECUTOR", {}).get(
+                        "NAME", "resolwe.flow.executors.local"
+                    ),
+                },
+            }
+        )
+
     def hydrate_spawned_files(self, exported_files_mapper, filename, data_id):
         """Pop the given file's map from the exported files mapping.
 
@@ -211,6 +229,386 @@ class ExecutorListener:
             exported_files_mapper.pop(data_id)
 
         return {"file_temp": export_fn, "file": filename}
+
+    def handle_get_referenced_files(self, obj):
+        """Get a list of files referenced by the data object.
+
+        To get the entire output this request must be sent after processing
+        is finished.
+
+        :param obj: The Channels message object. Command object format:
+
+            .. code-block:: none
+
+                {
+                    'command': 'get_referenced_data',
+                    'data_id': [id of the :class:`~resolwe.flow.models.Data`
+                               object],
+                }
+        """
+        try:
+            data_id = obj[ExecutorProtocol.DATA_ID]
+            data = Data.objects.get(pk=data_id)
+        except Data.DoesNotExist:
+            logger.warning(
+                "Data object does not exist (handle_get_referenced_files).",
+                extra={"data_id": data_id,},
+            )
+            self._abort_processing(obj)
+            return
+
+        async_to_sync(self._send_reply)(
+            obj,
+            {
+                ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK,
+                ExecutorProtocol.REFERENCED_FILES: referenced_files(data),
+            },
+        )
+
+    def handle_get_files_to_download(self, obj):
+        """Get a list of files belonging to a given storage location object.
+
+        :param obj: The Channels message object. Command object format:
+
+            .. code-block:: none
+
+                {
+                    'command': 'get_files_to_download',
+                    'data_id': [id of the :class:`~resolwe.flow.models.Data`
+                               object],
+                    'storage_location_id': id of the :class:`~resolwe.storage.models.StorageLocation` object.
+                }
+        """
+        try:
+            storage_location_id = obj[ExecutorProtocol.STORAGE_LOCATION_ID]
+            location = StorageLocation.objects.get(pk=storage_location_id)
+        except StorageLocation.DoesNotExist:
+            logger.error(
+                "StorageLocation object does not exist (handle_get_files_to_download).",
+                extra={"storage_location_id": storage_location_id,},
+            )
+            self._abort_processing(obj)
+            return
+        async_to_sync(self._send_reply)(
+            obj,
+            {
+                ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK,
+                ExecutorProtocol.REFERENCED_FILES: location.urls,
+            },
+        )
+
+    def handle_referenced_files(self, obj):
+        """Store  a list of files and directories produced by the worker.
+
+        :param obj: The Channels message object. Command object format:
+
+            .. code-block:: none
+
+                {
+                    'command': 'referenced_data',
+                    'data_id': [id of the :class:`~resolwe.flow.models.Data`
+                               object],
+                    'referenced_files': list of referenced file names relative
+                        to the DATA_DIR.
+                    'referenced_dirs': list of referenced directory paths
+                        relative to the DATA_DIR.
+                }
+        """
+        data_id = obj[ExecutorProtocol.DATA_ID]
+        logger.debug(
+            __(
+                "Handling referenced files for Data with id {} (handle_referenced_files).",
+                data_id,
+            ),
+            extra={"data_id": data_id, "packet": obj},
+        )
+        try:
+            data = Data.objects.get(pk=data_id)
+        except Data.DoesNotExist:
+            logger.error(
+                "Data object does not exist (handle_referenced_files).",
+                extra={"data_id": data_id,},
+            )
+            self._abort_processing(obj)
+            return
+
+        file_storage = data.location
+        # At this point default_storage_location will always be local.
+        local_location = file_storage.default_storage_location
+        with transaction.atomic():
+            try:
+                ReferencedPath.objects.bulk_create(
+                    [
+                        ReferencedPath(path=path, file_storage=file_storage, size=size)
+                        for path, size in obj[ExecutorProtocol.REFERENCED_FILES]
+                    ]
+                )
+                local_location.status = StorageLocation.STATUS_DONE
+                local_location.save()
+            except Exception:
+                logger.exception(
+                    "Exception while saving referenced files (handle_referenced_files).",
+                    extra={"data_id": data_id,},
+                )
+                self._abort_processing(obj)
+                return
+
+        async_to_sync(self._send_reply)(
+            obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK}
+        )
+
+    def handle_download_started(self, obj):
+        """Handle an incoming request to start downloading data.
+
+        We have to check if the download for given StorageLocation object has
+        already started.
+
+        :param obj: The Channels message object. Command object format:
+
+            .. code-block:: none
+
+                {
+                    'command': 'download_started',
+                    'data_id': [id of the :class:`~resolwe.flow.models.Data`
+                               object],
+                    'storage_location_id': id of storage location
+                    'download_started_lock': obtain lock, defaults to False
+                }
+        """
+        storage_location_id = obj[ExecutorProtocol.STORAGE_LOCATION_ID]
+        lock = obj.get(ExecutorProtocol.DOWNLOAD_STARTED_LOCK, False)
+        query = StorageLocation.all_objects.select_for_update().filter(
+            pk=storage_location_id
+        )
+        with transaction.atomic():
+            if not query.exists():
+                # Log error and abort
+                logger.error(
+                    "StorageLocation for downloaded data does not exist",
+                    extra={"storage_location_id": storage_location_id},
+                )
+                self._abort_processing(obj)
+                return
+
+            storage_location = query.get()
+            return_status = {
+                StorageLocation.STATUS_PREPARING: ExecutorProtocol.DOWNLOAD_STARTED,
+                StorageLocation.STATUS_UPLOADING: ExecutorProtocol.DOWNLOAD_IN_PROGRESS,
+                StorageLocation.STATUS_DONE: ExecutorProtocol.DOWNLOAD_FINISHED,
+            }[storage_location.status]
+
+            if storage_location.status == StorageLocation.STATUS_PREPARING and lock:
+                storage_location.status = StorageLocation.STATUS_UPLOADING
+                storage_location.save()
+
+        async_to_sync(self._send_reply)(
+            obj,
+            {
+                ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK,
+                ExecutorProtocol.DOWNLOAD_RESULT: return_status,
+            },
+        )
+
+    def handle_download_aborted(self, obj):
+        """Handle an incoming download aborted request.
+
+        :param obj: The Channels message object. Command object format:
+
+            .. code-block:: none
+
+                {
+                    'command': 'download_aborted',
+                    'data_id': [id of the :class:`~resolwe.flow.models.Data`
+                               object],
+                    'storage_location_id': id of storage location
+                }
+        """
+        storage_location_id = obj[ExecutorProtocol.STORAGE_LOCATION_ID]
+        query = StorageLocation.all_objects.filter(pk=storage_location_id)
+        if not query.exists():
+            # Log error and continue, worker can proceed normally
+            logger.error(
+                "StorageLocation for data does not exist",
+                extra={
+                    "storage_location_id": storage_location_id,
+                    "data_id": obj[ExecutorProtocol.DATA_ID],
+                },
+            )
+        else:
+            query.update(status=StorageLocation.STATUS_PREPARING)
+
+    def handle_download_finished(self, obj):
+        """Handle an incoming download finished request.
+
+        :param obj: The Channels message object. Command object format:
+
+            .. code-block:: none
+
+                {
+                    'command': 'download_finished',
+                    'data_id': [id of the :class:`~resolwe.flow.models.Data`
+                               object],
+                    'storage_location_id': id of storage location
+                }
+        """
+        storage_location_id = obj[ExecutorProtocol.STORAGE_LOCATION_ID]
+        query = StorageLocation.all_objects.filter(pk=storage_location_id)
+        if not query.exists():
+            # Log error and continue, worker can proceed normally.
+            logger.error(
+                "StorageLocation for downloaded data does not exist",
+                extra={
+                    "storage_location_id": storage_location_id,
+                    "data_id": obj[ExecutorProtocol.DATA_ID],
+                },
+            )
+            async_to_sync(self._send_reply)(
+                obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_ERROR},
+            )
+        else:
+            query.update(status=StorageLocation.STATUS_DONE)
+            async_to_sync(self._send_reply)(
+                obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK},
+            )
+
+    def handle_missing_data_locations(self, obj):
+        """Handle an incoming request to get missing data locations.
+
+        :param obj: The Channels message object. Command object format:
+
+            .. code-block:: none
+
+                {
+                    'command': 'missing_data_locations',
+                    'data_id': [id of the :class:`~resolwe.flow.models.Data`
+                               object]
+                }
+        """
+        data_id = obj[ExecutorProtocol.DATA_ID]
+        logger.debug(
+            __("Handling get missing data location"),
+            extra={"data_id": data_id, "packet": obj},
+        )
+        try:
+            data = Data.objects.get(pk=data_id)
+        except Data.DoesNotExist:
+            logger.warning(
+                "Data object does not exist (handle_missing_data_locations).",
+                extra={"data_id": data_id,},
+            )
+            self._abort_processing(obj)
+            return
+
+        missing_data = []
+        dependencies = (
+            Data.objects.filter(children_dependency__child=data)
+            .exclude(location__isnull=True)
+            .distinct()
+        )
+        for parent in dependencies:
+            file_storage = parent.location
+            if not file_storage.has_storage_location(settings.LOCAL_CONNECTOR):
+                from_location = file_storage.default_storage_location
+                if from_location is None:
+                    logger.error(
+                        "No storage location exists (handle_get_missing_data_locations).",
+                        extra={"data_id": data_id, "file_storage_id": file_storage.id},
+                    )
+                    self._abort_processing(obj)
+                    return
+
+                to_location = StorageLocation.all_objects.get_or_create(
+                    file_storage=file_storage,
+                    url=from_location.url,
+                    connector_name=settings.LOCAL_CONNECTOR,
+                )[0]
+                missing_data.append(
+                    {
+                        "connector_name": from_location.connector_name,
+                        "url": from_location.url,
+                        "data_id": data_id,
+                        "to_storage_location_id": to_location.id,
+                        "from_storage_location_id": from_location.id,
+                    }
+                )
+                # Set last modified time so it does not get deleted.
+                from_location.last_update = now()
+                from_location.save()
+        async_to_sync(self._send_reply)(
+            obj,
+            {
+                ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK,
+                ExecutorProtocol.STORAGE_DATA_LOCATIONS: missing_data,
+            },
+        )
+
+    def handle_storage_location_lock(self, obj):
+        """Handle an incoming request to lock StorageLocation object.
+
+        Lock is implemented by creating AccessLog object with finish date set
+        to None.
+
+        :param obj: The Channels message object. Command object format:
+
+            .. code-block:: none
+
+                {
+                    'command': 'storage_location_lock',
+                    'data_id': [id of the :class:`~resolwe.flow.models.Data`
+                               object],
+                    'storage_location_id': id of storage location
+                    'storage_location_lock_reason': reason for lock.
+                }
+        """
+        storage_location_id = obj[ExecutorProtocol.STORAGE_LOCATION_ID]
+        query = StorageLocation.all_objects.filter(pk=storage_location_id)
+        if not query.exists():
+            # Log error and continue
+            logger.error(
+                "StorageLocation does not exist",
+                extra={"storage_location_id": storage_location_id},
+            )
+            async_to_sync(self._send_reply)(
+                obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_ERROR},
+            )
+            return
+        storage_location = query.get()
+        access_log = AccessLog.objects.create(
+            storage_location=storage_location,
+            reason=obj[ExecutorProtocol.STORAGE_LOCATION_LOCK_REASON],
+        )
+        async_to_sync(self._send_reply)(
+            obj,
+            {
+                ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK,
+                ExecutorProtocol.STORAGE_ACCESS_LOG_ID: access_log.id,
+            },
+        )
+
+    def handle_storage_location_unlock(self, obj):
+        """Handle an incoming request to unlock StorageLocation object.
+
+        :param obj: The Channels message object. Command object format:
+
+            .. code-block:: none
+
+                {
+                    'command': 'storage_location_unlock',
+                    'data_id': [id of the :class:`~resolwe.flow.models.Data`
+                               object],
+                    'storage_location_id': id of storage location
+                    'storage_access_log_id': id of access log to close.
+                }
+        """
+        access_log_id = obj[ExecutorProtocol.STORAGE_ACCESS_LOG_ID]
+        query = AccessLog.objects.filter(pk=access_log_id)
+        if not query.exists():
+            # Log error and continue
+            logger.error(
+                "AccessLog does not exist", extra={"access_log_id": access_log_id},
+            )
+        else:
+            query.update(finished=now())
 
     def handle_annotate(self, obj):
         """Handle an incoming ``Data`` object annotate request.
@@ -567,25 +965,6 @@ class ExecutorListener:
 
                 obj[ExecutorProtocol.UPDATE_CHANGESET] = changeset
                 self.handle_update(obj, internal_call=True)
-
-        if not getattr(settings, "FLOW_MANAGER_KEEP_DATA", False):
-            # Purge worker is not running in test runner, so we should skip triggering it.
-            if not is_testing():
-                channel_layer = get_channel_layer()
-                try:
-                    async_to_sync(channel_layer.send)(
-                        CHANNEL_PURGE_WORKER,
-                        {
-                            "type": TYPE_PURGE_RUN,
-                            "location_id": d.location.id,
-                            "verbosity": self._verbosity,
-                        },
-                    )
-                except ChannelFull:
-                    logger.warning(
-                        "Cannot trigger purge because channel is full.",
-                        extra={"data_id": data_id},
-                    )
 
         # Notify the executor that we're done.
         async_to_sync(self._send_reply)(
