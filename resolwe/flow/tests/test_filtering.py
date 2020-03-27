@@ -174,12 +174,13 @@ class CollectionViewSetFiltersTest(BaseViewSetFiltersTest):
             {"description__icontains": "Favourite"}, [self.collections[1]]
         )
         self._check_filter({"description__contains": "Favourite"}, [])
+        self._check_filter({"description__contains": 420}, [])
 
     def test_filter_descriptor_schema(self):
         self._check_filter(
             {"descriptor_schema": str(self.descriptor_schema.pk)}, self.collections[:2]
         )
-        self._check_filter({"description__contains": 420}, [])
+        self._check_filter({"descriptor_schema": "999999"}, [])
 
     def test_filter_tags(self):
         self._check_filter({"tags": "first-tag"}, self.collections[:2])
@@ -196,6 +197,7 @@ class CollectionViewSetFiltersTest(BaseViewSetFiltersTest):
 
     def test_filter_owners(self):
         self._check_filter({"owners": str(self.admin.pk)}, self.collections[:2])
+        self._check_filter({"owners": "999999"}, [])
 
     def test_filter_contributor_name(self):
         # Filter by first name.
@@ -427,12 +429,13 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
             {"description__icontains": "Favourite"}, [self.entities[1]]
         )
         self._check_filter({"description__contains": "Favourite"}, [])
+        self._check_filter({"description__contains": "420"}, [])
 
     def test_filter_descriptor_schema(self):
         self._check_filter(
             {"descriptor_schema": str(self.descriptor_schema.pk)}, self.entities[:2]
         )
-        self._check_filter({"description__contains": "420"}, [])
+        self._check_filter({"descriptor_schema": "999999"}, [])
 
     def test_filter_tags(self):
         self._check_filter({"tags": "first-tag"}, self.entities[:2])
@@ -447,6 +450,7 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
 
     def test_filter_owners(self):
         self._check_filter({"owners": str(self.admin.pk)}, self.entities[:2])
+        self._check_filter({"owners": "999999"}, [])
 
     def test_filter_contributor_name(self):
         # Filter by first name.
@@ -501,6 +505,11 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
                 )
             },
             self.entities[:2],
+        )
+        self._check_filter({"collection": "999999"}, [])
+        self._check_filter(
+            {"collection__in": "{},{}".format(self.collection1.pk, "999999")},
+            self.entities[:1],
         )
 
     def test_filter_collection_name(self):
@@ -749,6 +758,7 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
 
     def test_filter_owners(self):
         self._check_filter({"owners": str(self.admin.pk)}, self.data[:2])
+        self._check_filter({"owners": "999999"}, [])
 
     def test_filter_contributor_name(self):
         # Filter by first name.
@@ -818,6 +828,11 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
             },
             self.data[:2],
         )
+        self._check_filter({"collection": "999999"}, [])
+        self._check_filter(
+            {"collection__in": "{},{}".format(self.collection1.pk, "999999")},
+            self.data[:1],
+        )
 
     def test_filter_collection_name(self):
         self._check_filter({"collection__name": "My collection"}, [self.data[0]])
@@ -833,6 +848,14 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter({"entity": str(self.entity1.pk)}, [self.data[0]])
         self._check_filter(
             {"entity__in": "{},{}".format(self.entity1.pk, self.entity2.pk)},
+            self.data[:2],
+        )
+        self._check_filter({"entity": "999999"}, [])
+        self._check_filter(
+            {"entity__in": "{},{}".format(self.entity1.pk, "999999")}, [self.data[0]],
+        )
+        self._check_filter(
+            {"entity__in": "{},{}".format(self.entity1.pk, self.entity2.pk, "999999")},
             self.data[:2],
         )
 
@@ -862,6 +885,7 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
     def test_filter_process(self):
         self._check_filter({"process": str(self.proc1.pk)}, self.data[:2])
         self._check_filter({"process": str(self.proc2.pk)}, self.data[2:])
+        self._check_filter({"process": "999999"}, [])
 
     def test_filter_process_name(self):
         self._check_filter({"process__name": "First process"}, self.data[:2])
@@ -994,7 +1018,11 @@ class DescriptorSchemaViewSetFiltersTest(BaseViewSetFiltersTest):
     def test_contributor(self):
         self._check_filter({"contributor": self.user.pk}, [self.ds1, self.ds2])
         self._check_filter({"contributor": self.admin.pk}, [self.ds3])
+        self._check_filter({"contributor": "999999"}, [])
         self._check_filter({"contributor__in": self.admin.pk}, [self.ds3])
+        self._check_filter(
+            {"contributor__in": "999999,{}".format(self.admin.pk)}, [self.ds3]
+        )
         self._check_filter(
             {"contributor__in": "{},{}".format(self.user.pk, self.admin.pk)},
             [self.ds1, self.ds2, self.ds3],

@@ -11,7 +11,7 @@ from versionfield import VersionField
 
 from django.contrib.auth import get_user_model
 from django.contrib.postgres.search import SearchQuery, SearchRank
-from django.db.models import F, Subquery
+from django.db.models import F, Subquery, ForeignKey
 
 from guardian.shortcuts import get_objects_for_user
 from rest_framework.exceptions import ParseError, ValidationError
@@ -132,13 +132,7 @@ class UserFilterMixin:
         try:
             user = user_model.objects.get(pk=value)
         except user_model.DoesNotExist:
-            raise ValidationError(
-                {
-                    "owner": [
-                        "Select a valid choice. That choice is not one of the available choices."
-                    ]
-                }
-            )
+            return queryset.none()
 
         return get_objects_for_user(
             user, self.owner_permission, queryset, with_superuser=False
@@ -213,11 +207,6 @@ class BaseResolweFilter(
     CheckQueryParamsMixin, filters.FilterSet, metaclass=ResolweFilterMetaclass
 ):
     """Base filter for Resolwe's endpoints."""
-
-    contributor = filters.ModelChoiceFilter(
-        queryset=user_model.objects.all(), validators=[]
-    )
-
     class Meta:
         """Filter configuration."""
 
@@ -233,6 +222,7 @@ class BaseResolweFilter(
 
         filter_overrides = {
             VersionField: {"filter_class": filters.CharFilter,},
+            ForeignKey: {"filter_class": filters.Filter,},
         }
 
 
