@@ -1,12 +1,13 @@
 """Collection viewset."""
 from django.db.models import Prefetch
+from django.db.models import Count, Q
 
 from rest_framework import exceptions, mixins, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from resolwe.flow.filters import CollectionFilter
-from resolwe.flow.models import Collection, DescriptorSchema
+from resolwe.flow.models import Collection, Data, DescriptorSchema
 from resolwe.flow.serializers import CollectionSerializer
 from resolwe.permissions.loader import get_permissions_class
 from resolwe.permissions.mixins import ResolwePermissionsMixin
@@ -39,6 +40,7 @@ class CollectionViewSet(
     queryset = Collection.objects.select_related("contributor").prefetch_related(
         Prefetch("descriptor_schema", queryset=qs_descriptor_schema),
     )
+
     serializer_class = CollectionSerializer
     filter_class = CollectionFilter
     permission_classes = (get_permissions_class(),)
@@ -53,6 +55,20 @@ class CollectionViewSet(
         "name",
     )
     ordering = "id"
+
+    def get_queryset(self):
+        if self.request.method == "GET":
+            return self.queryset.annotate(
+                data_count=Count('data'),
+                data_uploading_count=Count('data', filter=Q(data__status=Data.STATUS_UPLOADING)),
+                data_resolving_count=Count('data', filter=Q(data__status=Data.STATUS_RESOLVING)),
+                data_waiting_count=Count('data', filter=Q(data__status=Data.STATUS_WAITING)),
+                data_processing_count=Count('data', filter=Q(data__status=Data.STATUS_PROCESSING)),
+                data_done_count=Count('data', filter=Q(data__status=Data.STATUS_DONE)),
+                data_error_count=Count('data', filter=Q(data__status=Data.STATUS_ERROR))
+            )
+
+        return self.queryset
 
     def set_content_permissions(self, user, obj, payload):
         """Apply permissions to data objects and entities in ``Collection``."""

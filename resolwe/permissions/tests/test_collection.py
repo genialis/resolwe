@@ -54,6 +54,7 @@ class CollectionTestCase(ResolweAPITestCase):
             resp.data[0],
             [
                 "slug",
+                "status",
                 "name",
                 "created",
                 "modified",
@@ -62,6 +63,7 @@ class CollectionTestCase(ResolweAPITestCase):
                 "id",
                 "settings",
                 "current_user_permissions",
+                "data_count",
                 "descriptor_schema",
                 "descriptor",
                 "descriptor_dirty",
@@ -109,6 +111,7 @@ class CollectionTestCase(ResolweAPITestCase):
             resp.data,
             [
                 "slug",
+                "status",
                 "name",
                 "created",
                 "modified",
@@ -117,6 +120,7 @@ class CollectionTestCase(ResolweAPITestCase):
                 "settings",
                 "id",
                 "current_user_permissions",
+                "data_count",
                 "descriptor_schema",
                 "descriptor",
                 "descriptor_dirty",
@@ -137,6 +141,7 @@ class CollectionTestCase(ResolweAPITestCase):
             resp.data,
             [
                 "slug",
+                "status",
                 "name",
                 "created",
                 "modified",
@@ -145,6 +150,7 @@ class CollectionTestCase(ResolweAPITestCase):
                 "settings",
                 "id",
                 "current_user_permissions",
+                "data_count",
                 "descriptor_schema",
                 "descriptor",
                 "descriptor_dirty",

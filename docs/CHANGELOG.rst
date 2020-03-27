@@ -16,6 +16,8 @@ Added
   processes
 - Add ordering by contributor's first and last name to Collection and Data
   viewsets
+- Add ``data_count`` and ``status`` fields to the ``Collection``
+  serializer
 
 Fixed
 -----

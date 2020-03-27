@@ -98,6 +98,7 @@ class ProjectionTest(TestCase):
                 "tags",
                 "collection",
                 "type",
+                "status",
             ],
         )
 
