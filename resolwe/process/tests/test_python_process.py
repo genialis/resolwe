@@ -197,6 +197,14 @@ class PythonProcessTest(ProcessTestCase):
         self.assertEqual(data.output["dst"]["file"], "testfile.txt")
         self.assertEqual(data.output["dst"]["size"], 15)
 
+    @with_docker_executor
+    @tag_process("process-with-choices-input")
+    def test_process_with_choices(self):
+        """Test process that does not have a predefined choice as an input."""
+        data = self.run_process(
+            "process-with-choices-input", {"string_input": "baz"}
+        )
+        self.assertFields(data, "string_output", "baz")
 
 class PythonProcessRequirementsTest(ProcessTestCase):
     def setUp(self):

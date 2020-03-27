@@ -21,6 +21,7 @@ class Field:
         description=None,
         default=None,
         choices=None,
+        allow_custom_choice=None,
         hidden=False,
     ):
         """Construct a field descriptor."""
@@ -31,6 +32,7 @@ class Field:
         self.description = description
         self.default = default
         self.choices = choices
+        self.allow_custom_choice = allow_custom_choice
         self.hidden = hidden
 
     def get_field_type(self):
@@ -71,6 +73,8 @@ class Field:
             schema["default"] = self.default
         if self.hidden is not None:
             schema["hidden"] = self.hidden
+        if self.allow_custom_choice is not None:
+            schema["allow_custom_choice"] = self.allow_custom_choice
         if self.choices is not None:
             for choice, label in self.choices:
                 schema.setdefault("choices", []).append(
@@ -90,7 +94,7 @@ class Field:
 
         if value is not None and self.choices is not None:
             choices = [choice for choice, _ in self.choices]
-            if value not in choices:
+            if value not in choices and not self.allow_custom_choice:
                 raise ValidationError(
                     "field must be one of: {}".format(", ".join(choices),)
                 )

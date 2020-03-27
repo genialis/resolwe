@@ -284,3 +284,27 @@ class ProcessWithWorkflowInput(Process):
 
     def run(self, inputs, outputs):
         pass
+
+class ProcessWithChoicesInput(Process):
+    slug = "process-with-choices-input"
+    name = "Process with choices input"
+    version = "1.0.0"
+    process_type = "data:test"
+
+    class Input:
+        """Input fields."""
+        string_input = StringField(
+            label="Input field",
+            allow_custom_choice=True,
+            choices=[
+                ("foo", "foo"),
+                ("bar", "bar"),
+            ]
+        )
+
+    class Output:
+        """Output fields."""
+        string_output = StringField(label="Output field")
+
+    def run(self, inputs, outputs):
+        outputs.string_output = inputs.string_input
