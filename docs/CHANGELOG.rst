@@ -15,6 +15,10 @@ Added
 - Add support for the ``allow_custom_choice`` field property in Python
   processes
 
+Fixed
+-----
+- Enable all top-level class definitions in Python processes
+
 
 ===================
 21.0.0 - 2020-03-16

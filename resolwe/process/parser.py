@@ -1,6 +1,7 @@
 """Safe Resolwe process parser."""
 import ast
 import collections
+from inspect import isclass
 import json
 
 import asteval
@@ -173,7 +174,7 @@ class ProcessVisitor(ast.NodeVisitor):
             else:
                 continue
 
-            if issubclass(base, runtime.Process):
+            if isclass(base) and issubclass(base, runtime.Process):
                 break
         else:
             return
