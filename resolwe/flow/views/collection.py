@@ -1,10 +1,12 @@
 """Collection viewset."""
+from django.db.models import Prefetch
+
 from rest_framework import exceptions, mixins, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from resolwe.flow.filters import CollectionFilter
-from resolwe.flow.models import Collection
+from resolwe.flow.models import Collection, DescriptorSchema
 from resolwe.flow.serializers import CollectionSerializer
 from resolwe.permissions.loader import get_permissions_class
 from resolwe.permissions.mixins import ResolwePermissionsMixin
@@ -32,8 +34,10 @@ class CollectionViewSet(
 ):
     """API view for :class:`Collection` objects."""
 
-    queryset = Collection.objects.all().prefetch_related(
-        "descriptor_schema", "contributor"
+    qs_descriptor_schema = DescriptorSchema.objects.select_related("contributor")
+
+    queryset = Collection.objects.select_related("contributor").prefetch_related(
+        Prefetch("descriptor_schema", queryset=qs_descriptor_schema),
     )
     serializer_class = CollectionSerializer
     filter_class = CollectionFilter

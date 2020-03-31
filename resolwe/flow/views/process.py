@@ -20,7 +20,7 @@ class ProcessViewSet(
 ):
     """API view for :class:`Process` objects."""
 
-    queryset = Process.objects.all().prefetch_related("contributor")
+    queryset = Process.objects.all().select_related("contributor")
     serializer_class = ProcessSerializer
     permission_classes = (get_permissions_class(),)
     filterset_class = ProcessFilter

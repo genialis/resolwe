@@ -51,8 +51,6 @@ class TestDataViewSetCase(TestCase):
         self.parents_viewset = DataViewSet.as_view(actions={"get": "parents",})
         self.children_viewset = DataViewSet.as_view(actions={"get": "children",})
 
-        self.collection = Collection.objects.create(contributor=self.contributor)
-
         self.proc = Process.objects.create(
             type="data:test:process",
             slug="test-process",
@@ -69,27 +67,66 @@ class TestDataViewSetCase(TestCase):
             slug="test-schema", version="1.0.0", contributor=self.contributor,
         )
 
+        self.collection = Collection.objects.create(
+            contributor=self.contributor, descriptor_schema=self.descriptor_schema,
+        )
+
+        self.entity = Entity.objects.create(
+            collection=self.collection,
+            contributor=self.contributor,
+            descriptor_schema=self.descriptor_schema,
+        )
+
         assign_perm("view_collection", self.contributor, self.collection)
         assign_perm("edit_collection", self.contributor, self.collection)
         assign_perm("view_process", self.contributor, self.proc)
         assign_perm("view_descriptorschema", self.contributor, self.descriptor_schema)
 
     def test_prefetch(self):
+        process_2 = Process.objects.create(contributor=self.user)
+        descriptor_schema_2 = DescriptorSchema.objects.create(contributor=self.user,)
+        collection_2 = Collection.objects.create(
+            contributor=self.user, descriptor_schema=descriptor_schema_2
+        )
+        entity_2 = Entity.objects.create(
+            collection=collection_2,
+            contributor=self.user,
+            descriptor_schema=descriptor_schema_2,
+        )
+
+        for i in range(5):
+            create_kwargs = {
+                "contributor": self.contributor,
+                "descriptor_schema": self.descriptor_schema,
+                "process": self.proc,
+            }
+            if i < 4:
+                create_kwargs["collection"] = self.collection
+            if i < 3:
+                create_kwargs["entity"] = self.entity
+            Data.objects.create(**create_kwargs)
+
+        for i in range(5):
+            create_kwargs = {
+                "contributor": self.user,
+                "descriptor_schema": descriptor_schema_2,
+                "process": process_2,
+            }
+            if i < 4:
+                create_kwargs["collection"] = collection_2
+            if i < 3:
+                create_kwargs["entity"] = entity_2
+            data = Data.objects.create(**create_kwargs)
+            assign_perm("view_data", self.contributor, data)
+
         request = factory.get("/", "", format="json")
         force_authenticate(request, self.contributor)
 
-        for _ in range(10):
-            Data.objects.create(contributor=self.contributor, process=self.proc)
-
-        # Check prefetch. The number of queries without prefetch depends
-        # on the number of Data objects. With prefetch 56 queries,
-        # without prefetch 73 queries. Python 2 and 3 have slightly
-        # different number of queries, so we set a loose constraint in test.
         conn = connections[DEFAULT_DB_ALIAS]
         with CaptureQueriesContext(conn) as captured_queries:
             response = self.data_viewset(request)
             self.assertEqual(len(response.data), 10)
-            self.assertLess(len(captured_queries), 95)
+            self.assertEqual(len(captured_queries), 65)
 
     def test_descriptor_schema(self):
         # Descriptor schema can be assigned by slug.
@@ -223,6 +260,8 @@ class TestDataViewSetCase(TestCase):
         )
 
     def test_handle_entity(self):
+        self.entity.delete()
+
         data = {
             "process": {"slug": "test-process"},
             "collection": {"id": self.collection.pk},
@@ -470,6 +509,33 @@ class TestCollectionViewSetCase(TestCase):
     def _create_entity(self):
         return Entity.objects.create(name="Test entity", contributor=self.contributor,)
 
+    def test_prefetch(self):
+        descriptor_schema_1 = DescriptorSchema.objects.create(
+            contributor=self.contributor,
+        )
+        descriptor_schema_2 = DescriptorSchema.objects.create(contributor=self.user,)
+
+        for _ in range(5):
+            collection = Collection.objects.create(
+                contributor=self.contributor, descriptor_schema=descriptor_schema_1
+            )
+            assign_perm("view_collection", self.contributor, collection)
+
+        for _ in range(5):
+            collection = Collection.objects.create(
+                contributor=self.user, descriptor_schema=descriptor_schema_2
+            )
+            assign_perm("view_collection", self.contributor, collection)
+
+        request = factory.get("/", "", format="json")
+        force_authenticate(request, self.contributor)
+
+        conn = connections[DEFAULT_DB_ALIAS]
+        with CaptureQueriesContext(conn) as captured_queries:
+            response = self.collection_list_viewset(request)
+            self.assertEqual(len(response.data), 10)
+            self.assertEqual(len(captured_queries), 58)
+
     def test_set_descriptor_schema(self):
         d_schema = DescriptorSchema.objects.create(
             slug="new-schema", name="New Schema", contributor=self.contributor
@@ -675,8 +741,13 @@ class EntityViewSetTest(TestCase):
     def setUp(self):
         super().setUp()
 
+        self.descriptor_schema = DescriptorSchema.objects.create(
+            contributor=self.contributor,
+        )
         self.collection = Collection.objects.create(
-            name="Test Collection", contributor=self.contributor
+            name="Test Collection",
+            contributor=self.contributor,
+            descriptor_schema=self.descriptor_schema,
         )
         self.collection2 = Collection.objects.create(
             name="Test Collection 2", contributor=self.contributor
@@ -757,6 +828,43 @@ class EntityViewSetTest(TestCase):
         return Data.objects.create(
             name="Test data", contributor=self.contributor, process=process,
         )
+
+    def test_prefetch(self):
+        self.entity.delete()
+
+        descriptor_schema_2 = DescriptorSchema.objects.create(contributor=self.user)
+        collection_2 = Collection.objects.create(
+            contributor=self.user, descriptor_schema=descriptor_schema_2
+        )
+
+        for i in range(5):
+            create_kwargs = {
+                "contributor": self.contributor,
+                "descriptor_schema": self.descriptor_schema,
+            }
+            if i < 4:
+                create_kwargs["collection"] = self.collection
+            entity = Entity.objects.create(**create_kwargs)
+            assign_perm("view_entity", self.contributor, entity)
+
+        for i in range(5):
+            create_kwargs = {
+                "contributor": self.user,
+                "descriptor_schema": descriptor_schema_2,
+            }
+            if i < 4:
+                create_kwargs["collection"] = collection_2
+            entity = Entity.objects.create(**create_kwargs)
+            assign_perm("view_entity", self.contributor, entity)
+
+        request = factory.get("/", "", format="json")
+        force_authenticate(request, self.contributor)
+
+        conn = connections[DEFAULT_DB_ALIAS]
+        with CaptureQueriesContext(conn) as captured_queries:
+            response = self.entity_list_viewset(request)
+            self.assertEqual(len(response.data), 10)
+            self.assertEqual(len(captured_queries), 60)
 
     def test_list_filter_collection(self):
         request = factory.get("/", {}, format="json")

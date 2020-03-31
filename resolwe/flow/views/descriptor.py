@@ -16,7 +16,7 @@ class DescriptorSchemaViewSet(
 ):
     """API view for :class:`DescriptorSchema` objects."""
 
-    queryset = DescriptorSchema.objects.all().prefetch_related("contributor")
+    queryset = DescriptorSchema.objects.all().select_related("contributor")
     serializer_class = DescriptorSchemaSerializer
     permission_classes = (get_permissions_class(),)
     filterset_class = DescriptorSchemaFilter

@@ -1,11 +1,13 @@
 """Relation viewset."""
 from itertools import zip_longest
 
+from django.db.models import Prefetch
+
 from rest_framework import exceptions, permissions, status, viewsets
 from rest_framework.response import Response
 
 from resolwe.flow.filters import RelationFilter
-from resolwe.flow.models import Relation
+from resolwe.flow.models import Collection, DescriptorSchema, Relation
 from resolwe.flow.serializers import RelationSerializer
 
 from .mixins import ResolweCreateModelMixin
@@ -14,7 +16,19 @@ from .mixins import ResolweCreateModelMixin
 class RelationViewSet(ResolweCreateModelMixin, viewsets.ModelViewSet):
     """API view for :class:`Relation` objects."""
 
-    queryset = Relation.objects.all().prefetch_related("contributor")
+    qs_collection_ds = DescriptorSchema.objects.select_related("contributor")
+    qs_collection = Collection.objects.select_related("contributor")
+    qs_collection = qs_collection.prefetch_related(
+        Prefetch("descriptor_schema", queryset=qs_collection_ds),
+    )
+
+    queryset = (
+        Relation.objects.all()
+        .select_related("contributor", "type")
+        .prefetch_related(
+            Prefetch("collection", queryset=qs_collection), "relationpartition_set"
+        )
+    )
     serializer_class = RelationSerializer
     permission_classes = (permissions.IsAuthenticated,)
     filterset_class = RelationFilter

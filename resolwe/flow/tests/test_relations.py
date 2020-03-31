@@ -3,11 +3,13 @@ import os
 
 from django.apps import apps
 from django.core.management import call_command
+from django.db import DEFAULT_DB_ALIAS, connections
+from django.test.utils import CaptureQueriesContext
 
 from guardian.shortcuts import assign_perm
 from rest_framework import status
 
-from resolwe.flow.models import Collection, Entity, Relation
+from resolwe.flow.models import Collection, DescriptorSchema, Entity, Relation
 from resolwe.flow.models.entity import RelationPartition, RelationType
 from resolwe.flow.views import RelationViewSet
 from resolwe.permissions.utils import assign_contributor_permissions
@@ -51,13 +53,13 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
         assign_contributor_permissions(self.collection, self.contributor)
         assign_contributor_permissions(self.collection_2, self.contributor)
 
-        rel_type_group = RelationType.objects.get(name="group")
-        rel_type_series = RelationType.objects.get(name="series")
+        self.rel_type_group = RelationType.objects.get(name="group")
+        self.rel_type_series = RelationType.objects.get(name="series")
 
         self.relation_group = Relation.objects.create(
             contributor=self.contributor,
             collection=self.collection,
-            type=rel_type_group,
+            type=self.rel_type_group,
             category="replicates",
         )
         self.group_partiton_1 = RelationPartition.objects.create(
@@ -70,7 +72,7 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
         self.relation_series = Relation.objects.create(
             contributor=self.contributor,
             collection=self.collection_2,
-            type=rel_type_series,
+            type=self.rel_type_series,
             category="time-series",
             unit=Relation.UNIT_HOUR,
         )
@@ -95,6 +97,46 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
 
         assign_perm("view_relation", self.contributor, self.relation_group)
         assign_perm("view_relation", self.contributor, self.relation_series)
+
+    def test_prefetch(self):
+        self.relation_group.delete()
+        self.relation_series.delete()
+
+        descriptor_schema_1 = DescriptorSchema.objects.create(
+            contributor=self.contributor,
+        )
+        descriptor_schema_2 = DescriptorSchema.objects.create(contributor=self.user,)
+
+        self.collection.descriptor_schema = descriptor_schema_1
+        self.collection.save()
+
+        self.collection_2.contributor = self.user
+        self.collection_2.descriptor_schema = descriptor_schema_2
+        self.collection_2.save()
+
+        for i in range(5):
+            relation = Relation.objects.create(
+                contributor=self.contributor,
+                type=self.rel_type_group,
+                category="replicates-{}".format(i),
+                collection=self.collection,
+            )
+            assign_perm("view_relation", self.contributor, relation)
+
+        for i in range(5):
+            relation = Relation.objects.create(
+                contributor=self.user,
+                type=self.rel_type_group,
+                category="replicates-{}".format(i),
+                collection=self.collection_2,
+            )
+            assign_perm("view_relation", self.contributor, relation)
+
+        conn = connections[DEFAULT_DB_ALIAS]
+        with CaptureQueriesContext(conn) as captured_queries:
+            response = self._get_list(self.contributor)
+            self.assertEqual(len(response.data), 10)
+            self.assertEqual(len(captured_queries), 10)
 
     def test_get(self):
         resp = self._get_detail(self.relation_group.pk, user=self.contributor)

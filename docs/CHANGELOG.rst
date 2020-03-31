@@ -24,6 +24,8 @@ Fixed
   not exist return empty set instead of raising validation exception.
   Also when filtering using list of foreign keys do not raise validation
   exception if some foreign keys in the list do not exist.
+- Reduce number of database queries in API viewsets by prefetching all
+  required data
 
 
 ===================

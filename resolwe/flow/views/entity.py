@@ -1,10 +1,12 @@
 """Entity viewset."""
+from django.db.models import Prefetch
+
 from rest_framework import exceptions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from resolwe.flow.filters import EntityFilter
-from resolwe.flow.models import Collection, Entity
+from resolwe.flow.models import Collection, DescriptorSchema, Entity
 from resolwe.flow.serializers import EntitySerializer
 from resolwe.permissions.shortcuts import get_objects_for_user
 from resolwe.permissions.utils import update_permission
@@ -15,8 +17,19 @@ from .collection import CollectionViewSet
 class EntityViewSet(CollectionViewSet):
     """API view for entities."""
 
+    qs_collection_ds = DescriptorSchema.objects.select_related("contributor")
+    qs_collection = Collection.objects.select_related("contributor")
+    qs_collection = qs_collection.prefetch_related(
+        Prefetch("descriptor_schema", queryset=qs_collection_ds),
+    )
+
+    qs_descriptor_schema = DescriptorSchema.objects.select_related("contributor")
+
+    queryset = Entity.objects.select_related("contributor").prefetch_related(
+        Prefetch("collection", queryset=qs_collection),
+        Prefetch("descriptor_schema", queryset=qs_descriptor_schema),
+    )
     serializer_class = EntitySerializer
-    queryset = Entity.objects.prefetch_related("descriptor_schema", "contributor")
     filter_class = EntityFilter
 
     def _get_collection_for_user(self, collection_id, user):
