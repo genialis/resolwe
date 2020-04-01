@@ -9,7 +9,7 @@
     expression-engine: jinja
     executor:
       docker:
-        image: resolwe/base:fedora-26
+        image: resolwe/base:fedora-31
     resources:
       cores: 1
       memory: 1024
@@ -43,7 +43,7 @@
     expression-engine: jinja
     executor:
       docker:
-        image: resolwe/base:fedora-26
+        image: resolwe/base:fedora-31
     resources:
       cores: 1
       memory: 1024
