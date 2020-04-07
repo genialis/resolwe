@@ -45,7 +45,7 @@ def create_data_location(subpath=None):
         subpath = file_storage.pk
 
     StorageLocation.objects.create(
-        url=subpath, file_storage=file_storage, connector_name="local"
+        url=subpath, file_storage=file_storage, connector_name=settings.LOCAL_CONNECTOR
     )
     return file_storage
 

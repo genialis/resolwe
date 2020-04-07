@@ -25,7 +25,7 @@ Added
 - Add migrations to move from old storage model to the new one
 - Add storage manager
 - Add management command to start storage manager
-
+- Add tests for new storage framework
 
 ===================
 21.1.0 - 2020-04-14

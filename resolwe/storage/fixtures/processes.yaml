@@ -1,0 +1,29 @@
+---
+
+- model: flow.process
+  pk: 1
+  fields:
+    run:
+      language: 'bash'
+      program: ''
+    category: 'test:category:2'
+    contributor: 1
+    created: 2015-01-01T10:00:00.000+0000
+    description: Test process 2
+    input_schema:
+      - name: test_input_field
+        label: test_input_field label
+        type: 'basic:string:'
+        required: False
+      - name: test_boolean_field
+        label: test_boolean_field label
+        type: 'basic:boolean:'
+        required: False
+    modified: 2015-01-01T10:00:00.000+0000
+    name: 'test.process'
+    output_schema: []
+    persistence: RAW
+    slug: 'test_process'
+    type: 'data:test:'
+    version: 1.0.0
+  

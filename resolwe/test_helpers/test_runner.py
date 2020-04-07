@@ -11,10 +11,8 @@ import copy
 import logging
 import os
 import re
-import shutil
 import subprocess
 import sys
-from unittest import mock
 
 import yaml
 from channels.db import database_sync_to_async
@@ -287,18 +285,7 @@ class ResolweRunner(DiscoverRunner):
         """Initialize test runner."""
         self.only_changes_to = kwargs.pop("only_changes_to", None)
         self.changes_file_types = kwargs.pop("changes_file_types", None)
-
-        # Handle implication first, meanings get inverted later.
-        self.keep_data = False
-        if "no_mock_purge" in kwargs:
-            self.keep_data = True
-
-        # mock_purge used to be the default, so keep it that way;
-        # this means the command line option does the opposite
-        # (disables it), so the boolean must be inverted here.
-        self.mock_purge = not kwargs.pop("no_mock_purge", False)
-
-        self.keep_data = kwargs.pop("keep_data", self.keep_data)
+        self.keep_data = kwargs.pop("keep_data", False)
 
         super().__init__(*args, **kwargs)
 
@@ -327,13 +314,6 @@ class ResolweRunner(DiscoverRunner):
             dest="keep_data",
             action="store_true",
             help="Prevent test cases from cleaning up after execution",
-        )
-
-        parser.add_argument(
-            "--no-mock-purge",
-            dest="no_mock_purge",
-            action="store_true",
-            help="Do not mock purging functions (implies --keep-data)",
         )
 
     def build_suite(self, *args, **kwargs):
@@ -386,15 +366,6 @@ class ResolweRunner(DiscoverRunner):
 
         keep_data_override = override_settings(FLOW_MANAGER_KEEP_DATA=self.keep_data)
         keep_data_override.__enter__()
-
-        if self.keep_data and self.mock_purge:
-            purge_mock_os = mock.patch("resolwe.flow.utils.purge.os", wraps=os).start()
-            purge_mock_os.remove = mock.MagicMock()
-
-            purge_mock_shutil = mock.patch(
-                "resolwe.flow.utils.purge.shutil", wraps=shutil
-            ).start()
-            purge_mock_shutil.rmtree = mock.MagicMock()
 
         if self.parallel > 1:
             return super().run_suite(suite, **kwargs)

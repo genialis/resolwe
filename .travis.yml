@@ -22,6 +22,8 @@ before_install:
   - curl -sSL -O https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-6.6.0.deb
   - sudo dpkg -i --force-confnew elasticsearch-6.6.0.deb
   - sudo service elasticsearch restart
+  - if ! [ -z $encrypted_5c8667bed1e2_key]; then openssl aes-256-cbc -K $encrypted_5c8667bed1e2_key -iv $encrypted_5c8667bed1e2_iv -in tests/testing_credentials_s3.json.enc -out tests/testing_credentials_s3.json -d; fi
+  - if ! [ -z $encrypted_03acdb43301f_key]; then openssl aes-256-cbc -K $encrypted_03acdb43301f_key -iv $encrypted_03acdb43301f_iv -in tests/testing_credentials_gcs.json.enc -out tests/testing_credentials_gcs.json -d; fi
 
 install: pip install tox
 
@@ -69,7 +71,19 @@ jobs:
         - RESOLWE_REDIS_PORT=6379
         # NOTE: We need to disable SECCOMP as it is not supported on Travis CI.
         - RESOLWE_DOCKER_DISABLE_SECCOMP=1
-  
+    - stage: test
+      python: "3.8"
+      if: (NOT type IN (pull_request))
+      env:
+        - TOX_ENV=py38-storage-credentials
+        # Set environment variables with information how to use the required
+        # services.
+        - RESOLWE_POSTGRESQL_USER=postgres
+        - RESOLWE_POSTGRESQL_PORT=5432
+        - RESOLWE_ES_PORT=9200
+        - RESOLWE_REDIS_PORT=6379
+        # NOTE: We need to disable SECCOMP as it is not supported on Travis CI.
+        - RESOLWE_DOCKER_DISABLE_SECCOMP=1
     # NOTE: We undo almost all global Travis CI step definitions to ensure the
     # following Tox environments are run without access to any service.
     - stage: test

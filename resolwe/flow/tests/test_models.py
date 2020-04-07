@@ -24,7 +24,7 @@ from resolwe.flow.models import (
     Storage,
 )
 from resolwe.flow.models.data import Data, DataDependency, hydrate_size, render_template
-from resolwe.flow.models.utils import hydrate_input_references
+from resolwe.flow.models.utils import hydrate_input_references, referenced_files
 from resolwe.flow.views import DataViewSet
 from resolwe.test import TestCase, TransactionTestCase
 from resolwe.test.utils import create_data_location
@@ -1405,3 +1405,192 @@ class UtilsTestCase(TestCase):
         )
 
         self.assertEqual(input_["data"]["__entity_name"], "test")
+
+    def _test_referenced_files(self, field_schema, output):
+        data_mock = MagicMock(
+            output=output,
+            process=MagicMock(output_schema=field_schema),
+            descriptor={},
+            descriptor_schema=[],
+        )
+        refs = referenced_files(data_mock)
+        refs.remove("jsonout.txt")
+        refs.remove("stderr.txt")
+        refs.remove("stdout.txt")
+        return refs
+
+    def test_referenced_basic_file(self):
+        field_type = "basic:file:"
+        output = {"sample": {"file": "sample_file"}}
+        field_schema = [
+            {"name": "sample", "label": "Sample output", "type": field_type}
+        ]
+        refs = self._test_referenced_files(field_schema, output)
+        self.assertEqual(refs, ["sample_file"])
+
+        field_schema = [
+            {"name": "sample", "label": "Sample output", "type": field_type}
+        ]
+        output = {"sample": {"file": "dir/sample_file"}}
+
+        refs = self._test_referenced_files(field_schema, output)
+        self.assertEqual(refs, ["dir/sample_file"])
+
+        field_schema = [
+            {"name": "a", "label": "Sample output", "type": field_type},
+            {"name": "b", "label": "Sample output", "type": field_type},
+        ]
+        output = {"a": {"file": "file1"}, "b": {"file": "file2"}}
+        refs = self._test_referenced_files(field_schema, output)
+        self.assertSetEqual(set(refs), {"file1", "file2"})
+
+    def test_referenced_list_basic_file(self):
+        field_schema = [
+            {"name": "sample", "label": "Sample output", "type": "list:basic:file:"}
+        ]
+        output = {"sample": [{"file": "a"}, {"file": "b"}]}
+        refs = self._test_referenced_files(field_schema, output)
+        self.assertSetEqual(set(refs), {"a", "b"})
+
+        field_schema = [
+            {"name": "sample1", "label": "Sample output", "type": "list:basic:file:"},
+            {"name": "sample2", "label": "Sample output", "type": "list:basic:file:"},
+        ]
+        output = {
+            "sample1": [{"file": "a"}, {"file": "b"}],
+            "sample2": [{"file": "c"}, {"file": "d"}],
+        }
+        refs = self._test_referenced_files(field_schema, output)
+        self.assertSetEqual(set(refs), {"a", "b", "c", "d"})
+
+    def test_referenced_basic_dir(self):
+        field_schema = [
+            {"name": "sample", "label": "Sample output", "type": "basic:dir:"}
+        ]
+        output = {"sample": {"dir": "sample_dir"}}
+        refs = self._test_referenced_files(field_schema, output)
+        self.assertEqual(refs, ["sample_dir"])
+
+        field_schema = [
+            {"name": "sample", "label": "Sample output", "type": "basic:dir:"}
+        ]
+        output = {"sample": {"dir": "dir/dir"}}
+        refs = self._test_referenced_files(field_schema, output)
+        self.assertEqual(refs, ["dir/dir"])
+
+        field_schema = [
+            {"name": "a", "label": "Sample output", "type": "basic:dir:"},
+            {"name": "b", "label": "Sample output", "type": "basic:dir:"},
+        ]
+        output = {"a": {"dir": "dir1"}, "b": {"dir": "dir2"}}
+        refs = self._test_referenced_files(field_schema, output)
+        self.assertSetEqual(set(refs), {"dir1", "dir2"})
+
+    def test_referenced_list_basic_dir(self):
+        field_schema = [
+            {"name": "sample", "label": "Sample output", "type": "list:basic:dir:"}
+        ]
+        output = {"sample": [{"dir": "a"}, {"dir": "b"}]}
+        refs = self._test_referenced_files(field_schema, output)
+        self.assertSetEqual(set(refs), {"a", "b"})
+
+        field_schema = [
+            {"name": "sample1", "label": "Sample output", "type": "list:basic:dir:"},
+            {"name": "sample2", "label": "Sample output", "type": "list:basic:dir:"},
+        ]
+        output = {
+            "sample1": [{"dir": "a/1"}, {"dir": "b"}],
+            "sample2": [{"dir": "c"}, {"dir": "d"}],
+        }
+        refs = self._test_referenced_files(field_schema, output)
+        self.assertSetEqual(set(refs), {"a/1", "b", "c", "d"})
+
+    def test_referenced_complex(self):
+        field_schema = [
+            {"name": "sample1", "label": "Sample output", "type": "basic:file:"},
+            {"name": "sample2", "label": "Sample output", "type": "list:basic:file:"},
+            {"name": "sample3", "label": "Sample output", "type": "basic:file:s"},
+            {"name": "sample4", "label": "Sample output", "type": "list:basic:file:s",},
+            {"name": "sample5", "label": "Sample output", "type": "basic:dir:"},
+            {"name": "sample6", "label": "Sample output", "type": "list:basic:dir:",},
+            {"name": "sample7", "label": "Sample output", "type": "basic:dir:s"},
+            {"name": "sample8", "label": "Sample output", "type": "list:basic:dir:s",},
+        ]
+        output = {
+            "sample1": {"file": "file1"},
+            "sample2": [{"file": "file2"}, {"file": "file3"}],
+            "sample3": {"file": "file4"},
+            "sample4": [{"file": "file5"}, {"file": "file6"}],
+            "sample5": {"dir": "dir1"},
+            "sample6": [{"dir": "dir2"}, {"dir": "dir3"}],
+            "sample7": {"dir": "dir4"},
+            "sample8": [{"dir": "dir5"}, {"dir": "dir6"}],
+        }
+        refs = self._test_referenced_files(field_schema, output)
+        files = {"file{}".format(i) for i in range(1, 6 + 1)}
+        dirs = {"dir{}".format(i) for i in range(1, 6 + 1)}
+        self.assertSetEqual(set(refs), files | dirs)
+
+    def test_referenced_complex_descriptor(self):
+        field_schema = [
+            {"name": "sample1", "label": "Sample output", "type": "basic:file:"},
+            {"name": "sample2", "label": "Sample output", "type": "list:basic:file:"},
+            {"name": "sample3", "label": "Sample output", "type": "basic:file:s"},
+            {"name": "sample4", "label": "Sample output", "type": "list:basic:file:s",},
+            {"name": "sample5", "label": "Sample output", "type": "basic:dir:"},
+            {"name": "sample6", "label": "Sample output", "type": "list:basic:dir:",},
+            {"name": "sample7", "label": "Sample output", "type": "basic:dir:s"},
+            {"name": "sample8", "label": "Sample output", "type": "list:basic:dir:s",},
+        ]
+        output = {
+            "sample1": {"file": "file1"},
+            "sample2": [{"file": "file2"}, {"file": "file3"}],
+            "sample3": {"file": "file4"},
+            "sample4": [{"file": "file5"}, {"file": "file6"}],
+            "sample5": {"dir": "dir1"},
+            "sample6": [{"dir": "dir2"}, {"dir": "dir3"}],
+            "sample7": {"dir": "dir4"},
+            "sample8": [{"dir": "dir5"}, {"dir": "dir6"}],
+        }
+        data_mock = MagicMock(
+            output={},
+            process=MagicMock(output_schema=[]),
+            descriptor=output,
+            descriptor_schema=MagicMock(schema=field_schema),
+        )
+        refs = referenced_files(data_mock)
+        refs.remove("jsonout.txt")
+        refs.remove("stderr.txt")
+        refs.remove("stdout.txt")
+
+        refs = self._test_referenced_files(field_schema, output)
+        files = {"file{}".format(i) for i in range(1, 6 + 1)}
+        dirs = {"dir{}".format(i) for i in range(1, 6 + 1)}
+        self.assertSetEqual(set(refs), files | dirs)
+
+    def test_referenced_mix(self):
+        field_schema = [
+            {"name": "sample1", "label": "Sample output", "type": "basic:file:"},
+        ]
+        output = {
+            "sample1": {"file": "file1"},
+        }
+
+        field_schema_descriptor = [
+            {"name": "sample2", "label": "Sample output", "type": "basic:file:"},
+        ]
+        output_descriptor = {
+            "sample2": {"file": "file2"},
+        }
+
+        data_mock = MagicMock(
+            output=output,
+            process=MagicMock(output_schema=field_schema),
+            descriptor=output_descriptor,
+            descriptor_schema=MagicMock(schema=field_schema_descriptor),
+        )
+        refs = referenced_files(data_mock)
+        refs.remove("jsonout.txt")
+        refs.remove("stderr.txt")
+        refs.remove("stdout.txt")
+        self.assertSetEqual(set(refs), {"file1", "file2"})
