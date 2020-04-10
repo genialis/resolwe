@@ -20,7 +20,7 @@ Added
 - Add storage connectors for Google Cloud Storage, Amazon Simple Storage
   service and local filesystem.
 - Add migrations to move from old storage model to the new one
-
+- Add storage manager
 
 ===================
 21.1.0 - 2020-04-14

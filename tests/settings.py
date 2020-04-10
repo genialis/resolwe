@@ -118,34 +118,38 @@ FLOW_EXECUTOR = {
     'REDIS_CONNECTION': REDIS_CONNECTION,
 }
 
-# New storage connector settings
+# Storage connector settings
+LOCAL_CONNECTOR = 'local'
 STORAGE_CONNECTORS = {
+    # Code assumes that connector named 'local' exists and points
+    # to the location FLOW_EXECUTOR["DATA_DIR"].
+    # If this is not true BAD THING WILL HAPPEN.
     "local": {
         "connector": "resolwe.storage.connectors.localconnector.LocalFilesystemConnector",
         "config": {
-            "priority": 10,
-            "path": "/storage/data/",
-            "copy": {
-                "GCS": {"delay": 2},  # in days
-                "S3": {"delay": 10000},  # in days
-            },
-            "delete": {
+            "priority": 0,  # If ommited, default 100 is used
+            "path": FLOW_EXECUTOR["DATA_DIR"],
+            # Delete from here after delay days from last access to this storage
+            # location and when min_other_copies of data exist on other
+            # locations.
+            "delete": {  
                 "delay": 2,  # in days
-                "min_other_copies": 1,
+                "min_other_copies": 2,
             }
         }
     },
-    "S3": {
+    "S3": { # Can create credentials that access only part of the bucket??
         "connector": "resolwe.storage.connectors.s3connector.AwsS3Connector",
         "config": {
-            "priority": 20,
-            "bucket": "my_S3_storage_bucket",
+            "priority": 10,
+            "bucket": "genialis-test-storage",
+            "copy": {  # copy here from delay days from creation of filestorage object
+                "delay": 5,  # in days
+            },
             # Two values bellow affect e_tag computation on Amazon S3 connector.
             # Default value for both settings is 8MB.
             "multipart_threshold": 8*1024*1024,
             "multipart_chunksize": 8*1024*1024,
-            "priority": 10,
-            "bucket": "genialis-test-storage",
             "credentials": os.path.join(
                 PROJECT_ROOT, "testing_credentials_s3.json"
             ),
@@ -154,26 +158,14 @@ STORAGE_CONNECTORS = {
     "GCS": {
         "connector": "resolwe.storage.connectors.googleconnector.GoogleConnector",
         "config": {
-            "priority": 20,
-            "bucket": "genialis_storage_test",
+            "priority": 10,
+            "bucket": "genialis-test-storage",
             "credentials": os.path.join(
                 PROJECT_ROOT, "testing_credentials_gcs.json"
             ),
             "copy": {
-                "local": {"delay": 2},  # in days
-            },
-            "delete": {
                 "delay": 2,  # in days
-                "min_other_copies": 1,
             },
-        },
-    },
-    "GCS1": {
-        "connector": "resolwe.storage.connectors.googleconnector.GoogleConnector",
-        "config": {
-            "priority": 20,
-            "bucket": "genialis_storage_test",
-            "credentials": "/home/gregor/genialis/forks/resolwe/playtime.json",
         },
     },
 }
