@@ -54,4 +54,7 @@ class StorageConfig(AppConfig):
     def ready(self):
         """Application initialization."""
         self._check_connector_settings(self._get_connectors_settings())
+        # Register signals handlers
+        from . import signals  # noqa: F401
+
         return super().ready()

@@ -26,6 +26,8 @@ Added
 - Add storage manager
 - Add management command to start storage manager
 - Add tests for new storage framework
+- Add cleanup manager for removing unreferenced data
+
 
 ===================
 21.1.0 - 2020-04-14
