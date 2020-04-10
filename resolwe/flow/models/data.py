@@ -385,7 +385,7 @@ class Data(BaseModel):
 
     #: data location
     location = models.ForeignKey(
-        "DataLocation",
+        "storage.FileStorage",
         blank=True,
         null=True,
         on_delete=models.PROTECT,
@@ -685,6 +685,17 @@ class Data(BaseModel):
 
         return duplicate
 
+    def get_runtime_path(self, filename=None):
+        """Get the runtime directory of the executor.
+
+        That is the script that created this object. When filename is not
+        None return the path to the filename in the working directory of the
+        executor.
+        """
+        return self.location.get_path(
+            prefix=settings.FLOW_EXECUTOR["RUNTIME_DIR"], filename=filename
+        )
+
     def _render_name(self):
         """Render data name.
 
@@ -733,29 +744,3 @@ class DataDependency(models.Model):
     )
     #: kind of dependency
     kind = models.CharField(max_length=16, choices=KIND_CHOICES)
-
-
-class DataLocation(models.Model):
-    """Location data of the data object."""
-
-    #: subpath of data location
-    subpath = models.CharField(max_length=30, unique=True)
-
-    #: indicate wether the object was processed by `purge`
-    purged = models.BooleanField(default=False)
-
-    def get_path(self, prefix=None, filename=None):
-        """Compose data location path."""
-        prefix = prefix or settings.FLOW_EXECUTOR["DATA_DIR"]
-
-        path = os.path.join(prefix, self.subpath)
-        if filename:
-            path = os.path.join(path, filename)
-
-        return path
-
-    def get_runtime_path(self, filename=None):
-        """Compose data runtime location path."""
-        return self.get_path(
-            prefix=settings.FLOW_EXECUTOR["RUNTIME_DIR"], filename=filename
-        )

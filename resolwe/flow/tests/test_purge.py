@@ -14,9 +14,10 @@ from django.test import override_settings
 from django.utils.crypto import get_random_string
 
 from resolwe.flow.managers.utils import disable_auto_calls
-from resolwe.flow.models import Data, DataLocation, DescriptorSchema, Process, Storage
+from resolwe.flow.models import Data, DescriptorSchema, Process, Storage
 from resolwe.flow.utils import purge
 from resolwe.test import ProcessTestCase
+from resolwe.test.utils import create_data_location
 
 
 class PurgeTestFieldsMixin:
@@ -380,9 +381,7 @@ class PurgeUnitTest(PurgeTestFieldsMixin, ProcessTestCase):
     @disable_auto_calls()
     def test_remove(self):
         completed_data = Data.objects.create(**self.data)
-        data_location = DataLocation.objects.create(subpath="")
-        data_location.subpath = str(data_location.id)
-        data_location.save()
+        data_location = create_data_location()
         data_location.data.add(completed_data)
         completed_data.status = Data.STATUS_DONE
         completed_data.output = {"sample": {"file": "test-file"}}
@@ -391,9 +390,7 @@ class PurgeUnitTest(PurgeTestFieldsMixin, ProcessTestCase):
         completed_data.save()
 
         pending_data = Data.objects.create(**self.data)
-        data_location = DataLocation.objects.create(subpath="")
-        data_location.subpath = str(data_location.id)
-        data_location.save()
+        data_location = create_data_location()
         data_location.data.add(pending_data)
         self.create_test_file(pending_data.location, "test-file")
         self.create_test_file(pending_data.location, "donotremoveme")
@@ -420,8 +417,8 @@ class PurgeUnitTest(PurgeTestFieldsMixin, ProcessTestCase):
         completed_data.location.save()
 
         # Create dummy data directories for non-existant data objects.
-        self.create_test_file(DataLocation.objects.create(subpath="990"), "dummy")
-        self.create_test_file(DataLocation.objects.create(subpath="991"), "dummy")
+        self.create_test_file(create_data_location(subpath="990"), "dummy")
+        self.create_test_file(create_data_location(subpath="991"), "dummy")
 
         # Check that only the 'removeme' file from the completed Data objects is removed
         # together with directories not belonging to any data objects.
@@ -459,9 +456,7 @@ class PurgeUnitTest(PurgeTestFieldsMixin, ProcessTestCase):
         # Create another data object and check that if remove is called on one object,
         # only that object's data is removed.
         another_data = Data.objects.create(**self.data)
-        data_location = DataLocation.objects.create(subpath="")
-        data_location.subpath = str(data_location.id)
-        data_location.save()
+        data_location = create_data_location()
         data_location.data.add(another_data)
         another_data.status = Data.STATUS_DONE
         another_data.output = {"sample": {"file": "test-file"}}
@@ -492,9 +487,7 @@ class PurgeUnitTest(PurgeTestFieldsMixin, ProcessTestCase):
         # that if one object is deleted, the data is not removed upon purge.
         # It should be removed only when location is not referenced by any data object.
         same_location_data = Data.objects.create(**self.data)
-        data_location = DataLocation.objects.create(subpath="")
-        data_location.subpath = str(data_location.id)
-        data_location.save()
+        data_location = create_data_location()
         data_location.data.add(same_location_data)
         subpath = same_location_data.location.subpath
 
@@ -510,9 +503,7 @@ class PurgeUnitTest(PurgeTestFieldsMixin, ProcessTestCase):
         same_location_data_2.save()
 
         not_to_be_deleted = Data.objects.create(**self.data)
-        data_location = DataLocation.objects.create(subpath="")
-        data_location.subpath = str(data_location.id)
-        data_location.save()
+        data_location = create_data_location()
         data_location.data.add(not_to_be_deleted)
         not_to_be_deleted.output = {"sample": {"file": "test-file"}}
         not_to_be_deleted.status = Data.STATUS_DONE

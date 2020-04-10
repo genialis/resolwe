@@ -34,6 +34,7 @@ INSTALLED_APPS = (
     'resolwe.permissions',
     'resolwe.flow',
     'resolwe.elastic',
+    'resolwe.storage',
     'resolwe.toolkit',
     'resolwe.test_helpers',
 )
@@ -116,6 +117,67 @@ FLOW_EXECUTOR = {
     'RUNTIME_DIR': os.path.join(PROJECT_ROOT, '.test_runtime'),
     'REDIS_CONNECTION': REDIS_CONNECTION,
 }
+
+# New storage connector settings
+STORAGE_CONNECTORS = {
+    "local": {
+        "connector": "resolwe.storage.connectors.localconnector.LocalFilesystemConnector",
+        "config": {
+            "priority": 10,
+            "path": "/storage/data/",
+            "copy": {
+                "GCS": {"delay": 2},  # in days
+                "S3": {"delay": 10000},  # in days
+            },
+            "delete": {
+                "delay": 2,  # in days
+                "min_other_copies": 1,
+            }
+        }
+    },
+    "S3": {
+        "connector": "resolwe.storage.connectors.s3connector.AwsS3Connector",
+        "config": {
+            "priority": 20,
+            "bucket": "my_S3_storage_bucket",
+            # Two values bellow affect e_tag computation on Amazon S3 connector.
+            # Default value for both settings is 8MB.
+            "multipart_threshold": 8*1024*1024,
+            "multipart_chunksize": 8*1024*1024,
+            "priority": 10,
+            "bucket": "genialis-test-storage",
+            "credentials": os.path.join(
+                PROJECT_ROOT, "testing_credentials_s3.json"
+            ),
+        },
+    },
+    "GCS": {
+        "connector": "resolwe.storage.connectors.googleconnector.GoogleConnector",
+        "config": {
+            "priority": 20,
+            "bucket": "genialis_storage_test",
+            "credentials": os.path.join(
+                PROJECT_ROOT, "testing_credentials_gcs.json"
+            ),
+            "copy": {
+                "local": {"delay": 2},  # in days
+            },
+            "delete": {
+                "delay": 2,  # in days
+                "min_other_copies": 1,
+            },
+        },
+    },
+    "GCS1": {
+        "connector": "resolwe.storage.connectors.googleconnector.GoogleConnector",
+        "config": {
+            "priority": 20,
+            "bucket": "genialis_storage_test",
+            "credentials": "/home/gregor/genialis/forks/resolwe/playtime.json",
+        },
+    },
+}
+
 
 # Check if any Manager settings are set via environment variables
 manager_prefix = os.environ.get('RESOLWE_MANAGER_REDIS_PREFIX', 'resolwe.flow.manager')

@@ -1,9 +1,15 @@
 ---
 
-- model: flow.DataLocation
+- model: storage.FileStorage
   fields:
     id: 1
-    subpath: '1'
+
+- model: storage.StorageLocation
+  fields:
+    id: 1
+    url: '1'
+    file_storage: 1
+    last_update: 2020-01-01 11:11:11
 
 - model: flow.data
   pk: 1
@@ -22,11 +28,16 @@
     size: 42
     location: 1
 
-
-- model: flow.DataLocation
+- model: storage.FileStorage
   fields:
     id: 2
-    subpath: '2'
+
+- model: storage.StorageLocation
+  fields:
+    id: 2
+    url: '2'
+    file_storage: 2
+    last_update: 2020-01-01 11:11:11
 
 - model: flow.data
   pk: 2

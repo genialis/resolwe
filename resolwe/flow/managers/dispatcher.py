@@ -30,7 +30,8 @@ from django.utils.timezone import now
 
 from resolwe.flow.engine import InvalidEngineError, load_engines
 from resolwe.flow.execution_engines import ExecutionError
-from resolwe.flow.models import Data, DataDependency, DataLocation, Process
+from resolwe.flow.models import Data, DataDependency, Process
+from resolwe.storage.models import FileStorage, StorageLocation
 from resolwe.test.utils import is_testing
 from resolwe.utils import BraceMessage as __
 
@@ -466,10 +467,11 @@ class Manager:
             # location id since object has to be created first.
             # TODO Find a better solution, e.g. defer the database constraint.
             temporary_location_string = uuid.uuid4().hex[:10]
-            data_location = DataLocation.objects.create(
-                subpath=temporary_location_string
+            file_storage = FileStorage.objects.create()
+            data_location = StorageLocation.objects.create(
+                file_storage=file_storage, url=temporary_location_string
             )
-            data_location.subpath = str(data_location.id)
+            data_location.url = str(data_location.id)
             data_location.save()
             data_location.data.add(data)
 
@@ -647,7 +649,11 @@ class Manager:
         elif cmd == WorkerProtocol.FINISH:
             try:
                 data_id = message[WorkerProtocol.DATA_ID]
-                data_location = DataLocation.objects.get(data__id=data_id)
+
+                data_location = FileStorage.objects.get(
+                    data__id=data_id
+                ).default_storage_location
+
                 if not getattr(settings, "FLOW_MANAGER_KEEP_DATA", False):
                     try:
 
@@ -662,7 +668,8 @@ class Manager:
                         # data object is removed.
                         secrets_dir = os.path.join(
                             self._get_per_data_dir(
-                                "RUNTIME_DIR", data_location.subpath
+                                "RUNTIME_DIR",
+                                data_location.url,  # TODO Gregor: fix entire fetching data logic
                             ),
                             ExecutorFiles.SECRETS_DIR,
                         )

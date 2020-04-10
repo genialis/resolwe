@@ -75,7 +75,7 @@ def validate_schema(
         are present. It is usefule if validation is run before ``Data``
         object is finished and there are some field stil missing
         (default: ``False``)
-    :param :class:`~resolwe.flow.models.data.DataLocation` data_location:
+    :param :class:`~resolwe.storage.models.FileStorage` data_location:
         data location used for checking if files and directories exist
         (default: ``None``)
     :param bool skip_missing_data: Don't raise an error if referenced

@@ -334,7 +334,9 @@ class ManagerRunProcessTest(ProcessTestCase):
 
         process = subprocess.run(
             ["python", "-m", "executors", ".docker"],
-            cwd=data.location.get_runtime_path(),
+            cwd=settings.FLOW_EXECUTOR[
+                "RUNTIME_DIR"
+            ],  # data.location.get_runtime_path(),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             timeout=5,

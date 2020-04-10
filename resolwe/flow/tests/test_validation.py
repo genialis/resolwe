@@ -4,16 +4,10 @@ from unittest.mock import MagicMock, patch
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 
-from resolwe.flow.models import (
-    Collection,
-    Data,
-    DataLocation,
-    DescriptorSchema,
-    Entity,
-    Process,
-)
+from resolwe.flow.models import Collection, Data, DescriptorSchema, Entity, Process
 from resolwe.flow.models.utils import validate_schema
 from resolwe.test import TestCase
+from resolwe.test.utils import create_data_location
 
 
 class ValidationTest(TestCase):
@@ -362,7 +356,7 @@ class ValidationUnitTest(TestCase):
         ]
         instance = {"result": {"file": "result.txt"}}
 
-        data_location = DataLocation.objects.create(subpath="1")
+        data_location = create_data_location(subpath="1")
 
         with patch("resolwe.flow.models.utils.os") as os_mock:
             validate_schema(instance, schema)
@@ -417,7 +411,7 @@ class ValidationUnitTest(TestCase):
         ]
         instance = {"result": {"dir": "results"}}
 
-        data_location = DataLocation.objects.create(subpath="1")
+        data_location = create_data_location(subpath="1")
 
         # dir validation is not called if `data_location` is not given
         with patch("resolwe.flow.models.utils.os") as os_mock:

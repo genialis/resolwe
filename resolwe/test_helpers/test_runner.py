@@ -7,6 +7,7 @@ Resolwe Test Runner
 """
 import asyncio
 import contextlib
+import copy
 import logging
 import os
 import re
@@ -31,6 +32,7 @@ import resolwe.test.testcases.setting_overrides as resolwe_settings
 from resolwe.flow.finders import get_finders
 from resolwe.flow.managers import manager, state
 from resolwe.flow.managers.listener import ExecutorListener
+from resolwe.storage.connectors import connectors
 from resolwe.test.utils import generate_process_tag
 
 logger = logging.getLogger(__name__)
@@ -165,10 +167,15 @@ def _prepare_settings():
         os.path.basename(resolwe_settings.FLOW_EXECUTOR_SETTINGS["DATA_DIR"]),
     )
 
+    storage_config = copy.deepcopy(settings.STORAGE_CONNECTORS)
+    storage_config["local"]["config"]["path"] = resolwe_settings.FLOW_EXECUTOR_SETTINGS[
+        "DATA_DIR"
+    ]
     return override_settings(
         CELERY_ALWAYS_EAGER=True,
         FLOW_EXECUTOR=resolwe_settings.FLOW_EXECUTOR_SETTINGS,
         FLOW_MANAGER=resolwe_settings.FLOW_MANAGER_SETTINGS,
+        STORAGE_CONNECTORS=storage_config,
     )
 
 
@@ -226,6 +233,7 @@ async def _run_on_infrastructure(meth, *args, **kwargs):
     with TestingContext():
         _create_test_dirs()
         with _prepare_settings():
+            connectors.recreate_connectors()
             await database_sync_to_async(_manager_setup)()
             with AtScopeExit(manager.state.destroy_channels):
                 redis_params = getattr(settings, "FLOW_MANAGER", {}).get(

@@ -23,16 +23,11 @@ from resolwe.flow.models import (
     Process,
     Storage,
 )
-from resolwe.flow.models.data import (
-    Data,
-    DataDependency,
-    DataLocation,
-    hydrate_size,
-    render_template,
-)
+from resolwe.flow.models.data import Data, DataDependency, hydrate_size, render_template
 from resolwe.flow.models.utils import hydrate_input_references
 from resolwe.flow.views import DataViewSet
 from resolwe.test import TestCase, TransactionTestCase
+from resolwe.test.utils import create_data_location
 
 try:
     import builtins  # py3
@@ -158,9 +153,7 @@ class DataModelTest(TestCase):
 
         data.output = {"output_file": {"file": "output.txt"}}
 
-        data_location = DataLocation.objects.create(subpath="")
-        data_location.subpath = str(data_location.id)
-        data_location.save()
+        data_location = create_data_location()
         data_location.data.add(data)
 
         dir_path = data.location.get_path()
@@ -604,9 +597,7 @@ class DuplicateTestCase(TestCase):
             started=now(),
             input={"data_field": input_data.id},
         )
-        data_location = DataLocation.objects.create(subpath="")
-        data_location.subpath = str(data_location.id)
-        data_location.save()
+        data_location = create_data_location()
         data_location.data.add(data2)
         data2.output = {"json_field": {"foo": "bar"}}
         data2.status = Data.STATUS_DONE
@@ -701,9 +692,7 @@ class DuplicateTestCase(TestCase):
         data = Data.objects.create(
             contributor=self.user, process=process2, input={"data_field": input_data.id}
         )
-        data_location = DataLocation.objects.create(subpath="")
-        data_location.subpath = str(data_location.id)
-        data_location.save()
+        data_location = create_data_location()
         data_location.data.add(data)
         data.output = {"json_field": {"foo": "bar"}}
         data.status = Data.STATUS_DONE
@@ -1084,9 +1073,7 @@ class HydrateFileSizeUnitTest(TestCase):
         os_mock.path.getsize.return_value = 0
 
         data = Data.objects.create(contributor=contributor, process=process)
-        data_location = DataLocation.objects.create(subpath="")
-        data_location.subpath = str(data_location.id)
-        data_location.save()
+        data_location = create_data_location()
         data_location.data.add(data)
 
         data.output = {"test_file": {"file": "test_file.tmp"}}
@@ -1202,9 +1189,7 @@ class StorageModelTestCase(TestCase):
         data = Data.objects.create(
             name="Test data", contributor=self.contributor, process=self.proc,
         )
-        data_location = DataLocation.objects.create(subpath="")
-        data_location.subpath = str(data_location.id)
-        data_location.save()
+        data_location = create_data_location()
         data_location.data.add(data)
 
         data.output = {"json_field": "json.txt"}
@@ -1335,9 +1320,7 @@ class UtilsTestCase(TestCase):
             descriptor={"annotation": "my-annotation",},
             size=0,
         )
-        data_location = DataLocation.objects.create(subpath="")
-        data_location.subpath = str(data_location.id)
-        data_location.save()
+        data_location = create_data_location()
         data_location.data.add(data)
         input_schema = [
             {"name": "data", "type": "data:test:",},

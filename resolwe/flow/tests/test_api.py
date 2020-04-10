@@ -15,7 +15,6 @@ from resolwe.flow.models import (
     Collection,
     Data,
     DataDependency,
-    DataLocation,
     DescriptorSchema,
     Entity,
     Process,
@@ -27,6 +26,7 @@ from resolwe.flow.views import (
     ProcessViewSet,
 )
 from resolwe.test import ResolweAPITestCase, TestCase
+from resolwe.test.utils import create_data_location
 
 factory = APIRequestFactory()
 
@@ -379,10 +379,10 @@ class TestDataViewSetCase(TestCase):
     def test_duplicate(self):
         data = Data.objects.create(contributor=self.contributor, process=self.proc)
         assign_perm("view_data", self.contributor, data)
-        data_location = DataLocation.objects.create(subpath="")
-        data_location.subpath = str(data_location.id)
-        data_location.save()
+
+        data_location = create_data_location(subpath="")
         data_location.data.add(data)
+
         data.status = Data.STATUS_DONE
         data.save()
 
@@ -873,9 +873,8 @@ class EntityViewSetTest(TestCase):
             process=process,
             status=Data.STATUS_DONE,
         )
-        data_location = DataLocation.objects.create(subpath="")
-        data_location.subpath = str(data_location.id)
-        data_location.save()
+
+        data_location = create_data_location()
         data_location.data.add(self.data)
         self.data_2 = Data.objects.create(
             name="Test data 2",
@@ -883,18 +882,14 @@ class EntityViewSetTest(TestCase):
             process=process,
             status=Data.STATUS_DONE,
         )
-        data_location = DataLocation.objects.create(subpath="")
-        data_location.subpath = str(data_location.id)
-        data_location.save()
+        data_location = create_data_location()
         data_location.data.add(self.data_2)
 
         # another Data object to make sure that other objects are not processed
         data = Data.objects.create(
             name="Dummy data", contributor=self.contributor, process=process
         )
-        data_location = DataLocation.objects.create(subpath="")
-        data_location.subpath = str(data_location.id)
-        data_location.save()
+        data_location = create_data_location()
         data_location.data.add(data)
 
         self.entity.data.add(self.data)

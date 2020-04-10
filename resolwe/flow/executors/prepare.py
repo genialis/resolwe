@@ -51,6 +51,8 @@ class BaseFlowExecutorPreparer:
         )
         files[ExecutorFiles.DATA] = model_to_dict(data)
         files[ExecutorFiles.DATA_LOCATION] = model_to_dict(data.location)
+        # Add subpath for backward compatibility since it is not a field in this model anymore
+        files[ExecutorFiles.DATA_LOCATION]["subpath"] = data.location.subpath
         files[ExecutorFiles.PROCESS] = model_to_dict(data.process)
         files[ExecutorFiles.PROCESS][
             "resource_limits"

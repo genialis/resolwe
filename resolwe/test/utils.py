@@ -18,9 +18,12 @@ import wrapt
 from django.conf import settings
 from django.test import override_settings, tag
 
+from resolwe.storage.models import FileStorage, StorageLocation
+
 __all__ = (
     "check_installed",
     "check_docker",
+    "create_data_location",
     "with_custom_executor",
     "with_docker_executor",
     "with_null_executor",
@@ -29,6 +32,22 @@ __all__ = (
 )
 
 TAG_PROCESS = "resolwe.process"
+
+
+def create_data_location(subpath=None):
+    """Create equivalent of old DataLocation object.
+
+    When argument is None, store the ID of the file storage object in the
+    subpath.
+    """
+    file_storage = FileStorage.objects.create()
+    if subpath is None:
+        subpath = file_storage.pk
+
+    StorageLocation.objects.create(
+        url=subpath, file_storage=file_storage, connector_name="local"
+    )
+    return file_storage
 
 
 def check_installed(command):

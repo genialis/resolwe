@@ -9,10 +9,12 @@ import logging
 import os
 import shutil
 
+from django.conf import settings
 from django.db.models import Q
 
-from resolwe.flow.models import Data, DataLocation, Storage
+from resolwe.flow.models import Data, Storage
 from resolwe.flow.utils import iterate_fields
+from resolwe.storage.models import FileStorage
 from resolwe.utils import BraceMessage as __
 
 logger = logging.getLogger(__name__)
@@ -103,15 +105,15 @@ def location_purge(location_id, delete=False, verbosity=0):
     """Print and conditionally delete files not referenced by meta data.
 
     :param location_id: Id of the
-        :class:`~resolwe.flow.models.DataLocation` model that data
+        :class:`~resolwe.storage.models.FileStorage` model that data
         objects reference to.
     :param delete: If ``True``, then delete unreferenced files.
     """
     try:
-        location = DataLocation.objects.get(id=location_id)
-    except DataLocation.DoesNotExist:
+        location = FileStorage.objects.get(id=location_id)
+    except FileStorage.DoesNotExist:
         logger.warning(
-            "Data location does not exist", extra={"location_id": location_id}
+            "FileStorage location does not exist", extra={"location_id": location_id}
         )
         return
 
@@ -145,7 +147,9 @@ def location_purge(location_id, delete=False, verbosity=0):
     else:
         # Remove data directory.
         unreferenced_files.add(location.get_path())
-        unreferenced_files.add(location.get_runtime_path())
+        unreferenced_files.add(
+            os.path.join(settings.FLOW_EXECUTOR["RUNTIME_DIR"], location.subpath)
+        )
 
     if verbosity >= 1:
         # Print unreferenced files
@@ -174,13 +178,16 @@ def location_purge(location_id, delete=False, verbosity=0):
         location.save()
 
         if not referenced_by_data:
+            # TODO: what should I do here? Delete ell storage locations?
+            # I should know more about purge to actually make this decision.
+            location.storage_locations.all().delete()
             location.delete()
 
 
 def _location_purge_all(delete=False, verbosity=0):
     """Purge all data locations."""
-    if DataLocation.objects.exists():
-        for location in DataLocation.objects.filter(Q(purged=False) | Q(data=None)):
+    if FileStorage.objects.exists():  # TODO: only default storage location is purged
+        for location in FileStorage.objects.filter(Q(purged=False) | Q(data=None)):
             location_purge(location.id, delete, verbosity)
     else:
         logger.info("No data locations")

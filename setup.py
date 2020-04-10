@@ -40,6 +40,8 @@ setuptools.setup(
         "async-timeout~=3.0.0",
         "channels~=2.4.0",
         "channels_redis~=2.4.1",
+        # Storage requirement for computing hashes.
+        "crcmod",
         "Django~=2.2.0",
         "djangorestframework~=3.9.0",
         "django-filter~=2.0.0",
@@ -63,6 +65,10 @@ setuptools.setup(
         "wrapt~=1.11.1",
     ],
     extras_require={
+        # XXX: Temporarily pin docutils to 0.15.2 (last before 0.16) since botocore3 depends
+        # on docutils<0.16 and pip tries to install 0.16.
+        "storage_s3": ["boto3~=1.12.7", "crcmod", "docutils~=0.15.2"],
+        "storage_gcs": ["crcmod", "google-cloud-storage~=1.26.0"],
         "docs": ["sphinx_rtd_theme", "pyasn1>=0.4.8",],
         "package": ["twine", "wheel"],
         "test": [

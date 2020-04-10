@@ -6,6 +6,22 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Changed
+-------
+- Various code fixes to make code work with the new storage model
+
+Added
+-----
+- Add ``resolwe.storage`` application, a framework for storage management
+- Add storage connectors for Google Cloud Storage, Amazon Simple Storage
+  service and local filesystem.
+- Add migrations to move from old storage model to the new one
+
+
 ===================
 21.1.0 - 2020-04-14
 ===================
