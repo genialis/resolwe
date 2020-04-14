@@ -6,9 +6,9 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+===================
+21.1.0 - 2020-04-14
+===================
 
 Added
 -----
@@ -16,8 +16,7 @@ Added
   processes
 - Add ordering by contributor's first and last name to Collection and Data
   viewsets
-- Add ``data_count`` and ``status`` fields to the ``Collection``
-  serializer
+- Add ``data_count`` and ``status`` fields to the ``Collection`` serializer
 
 Fixed
 -----
