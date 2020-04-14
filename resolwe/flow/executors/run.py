@@ -248,7 +248,7 @@ class BaseFlowExecutor:
                                         process_progress = int(float(val) * 100)
                                         updates["process_progress"] = process_progress
                                 elif key.startswith("_entity.descriptor."):
-                                    annotations[key[len("_entity.descriptor."):]] = val
+                                    annotations[key[len("_entity.descriptor.") :]] = val
                                 else:
                                     output[key] = val
                                     updates["output"] = output

@@ -716,10 +716,10 @@ class TestCollectionViewSetCase(TestCase):
         collection2.data.add(data1, data2)
 
         response = self.client.get(self.detail_url(collection1.id))
-        self.assertEqual(response.data['data_count'], 0)
+        self.assertEqual(response.data["data_count"], 0)
 
         response = self.client.get(self.detail_url(collection2.id))
-        self.assertEqual(response.data['data_count'], 2)
+        self.assertEqual(response.data["data_count"], 2)
 
     def test_collection_status(self):
         data_error = self._create_data(Data.STATUS_ERROR)
@@ -729,44 +729,81 @@ class TestCollectionViewSetCase(TestCase):
         data_resolving = self._create_data(Data.STATUS_RESOLVING)
         data_done = self._create_data(Data.STATUS_DONE)
 
-        collection = Collection.objects.create(contributor=self.contributor, name="error")
+        collection = Collection.objects.create(
+            contributor=self.contributor, name="error"
+        )
         assign_perm("view_collection", AnonymousUser(), collection)
-        collection.data.add(data_error, data_uploading, data_processing, data_waiting, data_resolving, data_done)
+        collection.data.add(
+            data_error,
+            data_uploading,
+            data_processing,
+            data_waiting,
+            data_resolving,
+            data_done,
+        )
 
-        collection = Collection.objects.create(contributor=self.contributor, name="uploading")
+        collection = Collection.objects.create(
+            contributor=self.contributor, name="uploading"
+        )
         assign_perm("view_collection", AnonymousUser(), collection)
-        collection.data.add(data_uploading, data_processing, data_waiting, data_resolving, data_done)
+        collection.data.add(
+            data_uploading, data_processing, data_waiting, data_resolving, data_done
+        )
 
-        collection = Collection.objects.create(contributor=self.contributor, name="processing")
+        collection = Collection.objects.create(
+            contributor=self.contributor, name="processing"
+        )
         assign_perm("view_collection", AnonymousUser(), collection)
         collection.data.add(data_processing, data_waiting, data_resolving, data_done)
 
-        collection = Collection.objects.create(contributor=self.contributor, name="waiting")
+        collection = Collection.objects.create(
+            contributor=self.contributor, name="waiting"
+        )
         assign_perm("view_collection", AnonymousUser(), collection)
         collection.data.add(data_waiting, data_resolving, data_done)
 
-        collection = Collection.objects.create(contributor=self.contributor, name="resolving")
+        collection = Collection.objects.create(
+            contributor=self.contributor, name="resolving"
+        )
         assign_perm("view_collection", AnonymousUser(), collection)
         collection.data.add(data_resolving, data_done)
 
-        collection = Collection.objects.create(contributor=self.contributor, name="done")
+        collection = Collection.objects.create(
+            contributor=self.contributor, name="done"
+        )
         assign_perm("view_collection", AnonymousUser(), collection)
         collection.data.add(data_done)
 
-        collection = Collection.objects.create(contributor=self.contributor, name="empty")
+        collection = Collection.objects.create(
+            contributor=self.contributor, name="empty"
+        )
         assign_perm("view_collection", AnonymousUser(), collection)
         collection.data.add()
 
         collections = self.client.get(self.list_url).data
 
-        get_collection = lambda collections, name: next(x for x in collections if x['name'] == name)
-        self.assertEqual(get_collection(collections, "error")['status'], Data.STATUS_ERROR)
-        self.assertEqual(get_collection(collections, "uploading")['status'], Data.STATUS_UPLOADING)
-        self.assertEqual(get_collection(collections, "processing")['status'], Data.STATUS_PROCESSING)
-        self.assertEqual(get_collection(collections, "waiting")['status'], Data.STATUS_WAITING)
-        self.assertEqual(get_collection(collections, "resolving")['status'], Data.STATUS_RESOLVING)
-        self.assertEqual(get_collection(collections, "done")['status'], Data.STATUS_DONE)
-        self.assertEqual(get_collection(collections, "empty")['status'], None)
+        get_collection = lambda collections, name: next(
+            x for x in collections if x["name"] == name
+        )
+        self.assertEqual(
+            get_collection(collections, "error")["status"], Data.STATUS_ERROR
+        )
+        self.assertEqual(
+            get_collection(collections, "uploading")["status"], Data.STATUS_UPLOADING
+        )
+        self.assertEqual(
+            get_collection(collections, "processing")["status"], Data.STATUS_PROCESSING
+        )
+        self.assertEqual(
+            get_collection(collections, "waiting")["status"], Data.STATUS_WAITING
+        )
+        self.assertEqual(
+            get_collection(collections, "resolving")["status"], Data.STATUS_RESOLVING
+        )
+        self.assertEqual(
+            get_collection(collections, "done")["status"], Data.STATUS_DONE
+        )
+        self.assertEqual(get_collection(collections, "empty")["status"], None)
 
 
 class ProcessTestCase(ResolweAPITestCase):

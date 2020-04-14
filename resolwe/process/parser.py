@@ -1,8 +1,8 @@
 """Safe Resolwe process parser."""
 import ast
 import collections
-from inspect import isclass
 import json
+from inspect import isclass
 
 import asteval
 

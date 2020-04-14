@@ -12,13 +12,13 @@ Standalone Redis client used as a contact point for executors.
 """
 
 import asyncio
-from contextlib import suppress
 import json
 import logging
 import math
 import os
 import time
 import traceback
+from contextlib import suppress
 
 import aioredis
 from asgiref.sync import async_to_sync
@@ -228,6 +228,7 @@ class ExecutorListener:
                     }
                 }
         """
+
         def report_failure():
             async_to_sync(self._send_reply)(
                 obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_ERROR}
@@ -243,7 +244,7 @@ class ExecutorListener:
                     },
                 }
             )
-        
+
         data_id = obj[ExecutorProtocol.DATA_ID]
         annotations = obj[ExecutorProtocol.ANNOTATIONS]
 
@@ -270,7 +271,11 @@ class ExecutorListener:
                 ),
                 extra={"data_id": data_id},
             )
-            d.process_error.append("No entity to annotate for process '{}' (handle_annotate)".format(d.process.slug))
+            d.process_error.append(
+                "No entity to annotate for process '{}' (handle_annotate)".format(
+                    d.process.slug
+                )
+            )
             d.status = Data.STATUS_ERROR
 
             with suppress(Exception):
@@ -302,7 +307,6 @@ class ExecutorListener:
             with suppress(Exception):
                 d.save(update_fields=["process_error", "status"])
             report_failure()
-        
 
     def handle_update(self, obj, internal_call=False):
         """Handle an incoming ``Data`` object update request.

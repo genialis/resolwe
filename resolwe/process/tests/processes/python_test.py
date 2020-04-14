@@ -220,10 +220,7 @@ class AnnotateProcess(Process):
     }
 
     def run(self, inputs, outputs):
-        annotations = {
-            "general.description": "desc",
-            "general.species": "Valid"
-        }
+        annotations = {"general.description": "desc", "general.species": "Valid"}
         self.update_entity_descriptor(annotations)
 
 
@@ -285,6 +282,7 @@ class ProcessWithWorkflowInput(Process):
     def run(self, inputs, outputs):
         pass
 
+
 class ProcessWithChoicesInput(Process):
     slug = "process-with-choices-input"
     name = "Process with choices input"
@@ -293,17 +291,16 @@ class ProcessWithChoicesInput(Process):
 
     class Input:
         """Input fields."""
+
         string_input = StringField(
             label="Input field",
             allow_custom_choice=True,
-            choices=[
-                ("foo", "foo"),
-                ("bar", "bar"),
-            ]
+            choices=[("foo", "foo"), ("bar", "bar"),],
         )
 
     class Output:
         """Output fields."""
+
         string_output = StringField(label="Output field")
 
     def run(self, inputs, outputs):

@@ -201,10 +201,9 @@ class PythonProcessTest(ProcessTestCase):
     @tag_process("process-with-choices-input")
     def test_process_with_choices(self):
         """Test process that does not have a predefined choice as an input."""
-        data = self.run_process(
-            "process-with-choices-input", {"string_input": "baz"}
-        )
+        data = self.run_process("process-with-choices-input", {"string_input": "baz"})
         self.assertFields(data, "string_output", "baz")
+
 
 class PythonProcessRequirementsTest(ProcessTestCase):
     def setUp(self):

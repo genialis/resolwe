@@ -29,7 +29,7 @@ class CollectionSerializer(ResolweBaseSerializer):
 
     def get_status(self, collection):
         """Return status of the collection based on the status of data objects."""
-        if not hasattr(collection, 'data_count'):
+        if not hasattr(collection, "data_count"):
             return None
         if collection.data_count == 0:
             return None
@@ -49,7 +49,7 @@ class CollectionSerializer(ResolweBaseSerializer):
 
         logger.warning(
             "Could not determine the status of a collection.",
-            extra={"collection": collection.__dict__}
+            extra={"collection": collection.__dict__},
         )
         return None
 

@@ -11,10 +11,10 @@ from versionfield import VersionField
 
 from django.contrib.auth import get_user_model
 from django.contrib.postgres.search import SearchQuery, SearchRank
-from django.db.models import F, Subquery, ForeignKey
+from django.db.models import F, ForeignKey, Subquery
 
 from guardian.shortcuts import get_objects_for_user
-from rest_framework.exceptions import ParseError, ValidationError
+from rest_framework.exceptions import ParseError
 from rest_framework.filters import OrderingFilter as DrfOrderingFilter
 
 from resolwe.composer import composer
@@ -108,8 +108,7 @@ class TextFilterMixin:
             # This assumes that field is already a TextSearch vector and thus
             # doesn't need to be transformed. To achieve that F function is
             # required.
-            .annotate(rank=SearchRank(F(name), query))
-            .order_by("-rank")
+            .annotate(rank=SearchRank(F(name), query)).order_by("-rank")
         )
 
 
@@ -207,6 +206,7 @@ class BaseResolweFilter(
     CheckQueryParamsMixin, filters.FilterSet, metaclass=ResolweFilterMetaclass
 ):
     """Base filter for Resolwe's endpoints."""
+
     class Meta:
         """Filter configuration."""
 
@@ -373,13 +373,13 @@ class OrderingFilter(DrfOrderingFilter):
         """
         params = request.query_params.get(self.ordering_param)
         if params:
-            fields = [param.strip() for param in params.split(',')]
+            fields = [param.strip() for param in params.split(",")]
             ordering = self.remove_invalid_fields(queryset, fields, view, request)
             if ordering:
                 return ordering
 
         # Skip default ordering as full-text search applies ordering by rank.
-        if request.query_params.get('text'):
+        if request.query_params.get("text"):
             return None
 
         return self.get_default_ordering(view)

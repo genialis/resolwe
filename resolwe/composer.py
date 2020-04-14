@@ -41,6 +41,7 @@ class Composer:
             class path as a string
         :return: String containing the class path
         """
+
         def construct_class_path(klass):
             """Return full path of the class."""
             return "{}.{}".format(klass.__module__, klass.__name__)

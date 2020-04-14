@@ -1,6 +1,5 @@
 """Collection viewset."""
-from django.db.models import Prefetch
-from django.db.models import Count, Q
+from django.db.models import Count, Prefetch, Q
 
 from rest_framework import exceptions, mixins, viewsets
 from rest_framework.decorators import action
@@ -57,15 +56,26 @@ class CollectionViewSet(
     ordering = "id"
 
     def get_queryset(self):
+        """Annotate Get requests with data counts and return queryset."""
         if self.request.method == "GET":
             return self.queryset.annotate(
-                data_count=Count('data'),
-                data_uploading_count=Count('data', filter=Q(data__status=Data.STATUS_UPLOADING)),
-                data_resolving_count=Count('data', filter=Q(data__status=Data.STATUS_RESOLVING)),
-                data_waiting_count=Count('data', filter=Q(data__status=Data.STATUS_WAITING)),
-                data_processing_count=Count('data', filter=Q(data__status=Data.STATUS_PROCESSING)),
-                data_done_count=Count('data', filter=Q(data__status=Data.STATUS_DONE)),
-                data_error_count=Count('data', filter=Q(data__status=Data.STATUS_ERROR))
+                data_count=Count("data"),
+                data_uploading_count=Count(
+                    "data", filter=Q(data__status=Data.STATUS_UPLOADING)
+                ),
+                data_resolving_count=Count(
+                    "data", filter=Q(data__status=Data.STATUS_RESOLVING)
+                ),
+                data_waiting_count=Count(
+                    "data", filter=Q(data__status=Data.STATUS_WAITING)
+                ),
+                data_processing_count=Count(
+                    "data", filter=Q(data__status=Data.STATUS_PROCESSING)
+                ),
+                data_done_count=Count("data", filter=Q(data__status=Data.STATUS_DONE)),
+                data_error_count=Count(
+                    "data", filter=Q(data__status=Data.STATUS_ERROR)
+                ),
             )
 
         return self.queryset

@@ -425,9 +425,7 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter({"name__icontains": "test"}, self.entities)
 
     def test_filter_description(self):
-        self._check_filter(
-            {"description__icontains": "Favourite"}, [self.entities[1]]
-        )
+        self._check_filter({"description__icontains": "Favourite"}, [self.entities[1]])
         self._check_filter({"description__contains": "Favourite"}, [])
         self._check_filter({"description__contains": "420"}, [])
 
@@ -584,8 +582,7 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
 
         # Check that ordering can be overriden.
         result = self._check_filter(
-            {"text": "test entity", "ordering": "id"},
-            self.entities
+            {"text": "test entity", "ordering": "id"}, self.entities
         )
         self.assertEqual(result.data[0]["id"], self.entities[0].pk)
 
@@ -951,10 +948,7 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
         self.assertEqual(result.data[0]["id"], self.data[2].pk)
 
         # Check that ordering can be overriden.
-        result = self._check_filter(
-            {"text": "data", "ordering": "id"},
-            self.data
-        )
+        result = self._check_filter({"text": "data", "ordering": "id"}, self.data)
         self.assertEqual(result.data[0]["id"], self.data[0].pk)
 
     def test_nonexisting_parameter(self):

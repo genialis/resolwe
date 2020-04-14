@@ -81,9 +81,7 @@ class ManagerRunProcessTest(ProcessTestCase):
             "test-annotate-wrong-option", assert_status=Data.STATUS_ERROR
         )
         self.assertEqual(len(data.process_error), 1)
-        self.assertIn(
-            "must match one of predefined choices", data.process_error[0]
-        )
+        self.assertIn("must match one of predefined choices", data.process_error[0])
 
     @tag_process("test-annotate-wrong-type")
     def test_annotate_wrong_type(self):
@@ -91,9 +89,7 @@ class ManagerRunProcessTest(ProcessTestCase):
             "test-annotate-wrong-type", assert_status=Data.STATUS_ERROR
         )
         self.assertEqual(len(data.process_error), 1)
-        self.assertIn(
-            "not valid under any of the given schemas", data.process_error[0]
-        )
+        self.assertIn("not valid under any of the given schemas", data.process_error[0])
 
     @tag_process("test-annotate-missing-field")
     def test_annotate_missing_field(self):
@@ -101,9 +97,7 @@ class ManagerRunProcessTest(ProcessTestCase):
             "test-annotate-missing-field", assert_status=Data.STATUS_ERROR
         )
         self.assertEqual(len(data.process_error), 1)
-        self.assertIn(
-            "definition (invalid) missing in schema", data.process_error[0]
-        )
+        self.assertIn("definition (invalid) missing in schema", data.process_error[0])
 
     @tag_process("test-annotate-no-entity")
     def test_annotate_no_entity(self):
