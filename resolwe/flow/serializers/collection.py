@@ -13,8 +13,8 @@ from .fields import DictRelatedField
 logger = logging.getLogger(__name__)
 
 
-class CollectionSerializer(ResolweBaseSerializer):
-    """Serializer for Collection objects."""
+class BaseCollectionSerializer(ResolweBaseSerializer):
+    """Base serializer for Collection objects."""
 
     settings = ProjectableJSONField(required=False)
     descriptor = ProjectableJSONField(required=False)
@@ -80,3 +80,18 @@ class CollectionSerializer(ResolweBaseSerializer):
                 "tags",
             )
         )
+
+
+class CollectionSerializer(BaseCollectionSerializer):
+    """Serializer for Collection objects."""
+
+    entity_count = serializers.IntegerField(required=False)
+
+    class Meta(BaseCollectionSerializer.Meta):
+        """CollectionSerializer Meta options."""
+
+        read_only_fields = BaseCollectionSerializer.Meta.read_only_fields + (
+            "entity_count",
+        )
+
+        fields = BaseCollectionSerializer.Meta.fields + ("entity_count",)

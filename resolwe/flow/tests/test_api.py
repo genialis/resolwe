@@ -514,8 +514,13 @@ class TestCollectionViewSetCase(TestCase):
 
         return data
 
-    def _create_entity(self):
-        return Entity.objects.create(name="Test entity", contributor=self.contributor)
+    def _create_entity(self, data_objects=[]):
+        entity = Entity.objects.create(name="Test entity", contributor=self.contributor)
+
+        if data_objects:
+            entity.data.add(*data_objects)
+
+        return entity
 
     def test_prefetch(self):
         descriptor_schema_1 = DescriptorSchema.objects.create(
@@ -708,17 +713,45 @@ class TestCollectionViewSetCase(TestCase):
         data1 = self._create_data()
         data2 = self._create_data()
 
+        entity = self._create_entity([data1, data2])
+
         collection1 = Collection.objects.create(contributor=self.contributor)
         assign_perm("view_collection", AnonymousUser(), collection1)
 
         collection2 = Collection.objects.create(contributor=self.contributor)
         assign_perm("view_collection", AnonymousUser(), collection2)
+        collection2.entity_set.add(entity)
         collection2.data.add(data1, data2)
 
         response = self.client.get(self.detail_url(collection1.id))
         self.assertEqual(response.data["data_count"], 0)
 
         response = self.client.get(self.detail_url(collection2.id))
+        self.assertEqual(response.data["data_count"], 2)
+
+    def test_collection_entity_count(self):
+        # Collection 1
+        collection1 = Collection.objects.create(contributor=self.contributor)
+        assign_perm("view_collection", AnonymousUser(), collection1)
+        collection1.data.add(self._create_data(), self._create_data())
+
+        # Collection 2
+        collection2 = Collection.objects.create(contributor=self.contributor)
+        assign_perm("view_collection", AnonymousUser(), collection2)
+
+        col2_data1 = self._create_data()
+        col2_data2 = self._create_data()
+        col2_entity = self._create_entity([col2_data1, col2_data2])
+
+        collection2.entity_set.add(col2_entity)
+        collection2.data.add(col2_data1, col2_data2)
+
+        # Asserts
+        response = self.client.get(self.detail_url(collection1.id))
+        self.assertEqual(response.data["entity_count"], 0)
+
+        response = self.client.get(self.detail_url(collection2.id))
+        self.assertEqual(response.data["entity_count"], 1)
         self.assertEqual(response.data["data_count"], 2)
 
     def test_collection_status(self):

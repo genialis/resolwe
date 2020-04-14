@@ -11,10 +11,10 @@ from resolwe.flow.serializers import EntitySerializer
 from resolwe.permissions.shortcuts import get_objects_for_user
 from resolwe.permissions.utils import update_permission
 
-from .collection import CollectionViewSet
+from .collection import BaseCollectionViewSet
 
 
-class EntityViewSet(CollectionViewSet):
+class EntityViewSet(BaseCollectionViewSet):
     """API view for entities."""
 
     qs_collection_ds = DescriptorSchema.objects.select_related("contributor")

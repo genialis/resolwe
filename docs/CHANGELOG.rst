@@ -28,6 +28,7 @@ Added
 - Add tests for new storage framework
 - Add cleanup manager for removing unreferenced data
 - Add ``isnull`` related lookup filter
+- Add ``entity_count`` to the ``Collection`` serializer
 
 
 ===================

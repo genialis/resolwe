@@ -21,7 +21,7 @@ from .mixins import (
 )
 
 
-class CollectionViewSet(
+class BaseCollectionViewSet(
     ResolweCreateModelMixin,
     mixins.RetrieveModelMixin,
     ResolweUpdateModelMixin,
@@ -32,7 +32,7 @@ class CollectionViewSet(
     ParametersMixin,
     viewsets.GenericViewSet,
 ):
-    """API view for :class:`Collection` objects."""
+    """Base API view for :class:`Collection` objects."""
 
     qs_descriptor_schema = DescriptorSchema.objects.select_related("contributor")
 
@@ -40,7 +40,6 @@ class CollectionViewSet(
         Prefetch("descriptor_schema", queryset=qs_descriptor_schema),
     )
 
-    serializer_class = CollectionSerializer
     filter_class = CollectionFilter
     permission_classes = (get_permissions_class(),)
 
@@ -59,22 +58,24 @@ class CollectionViewSet(
         """Annotate Get requests with data counts and return queryset."""
         if self.request.method == "GET":
             return self.queryset.annotate(
-                data_count=Count("data"),
+                data_count=Count("data", distinct=True),
                 data_uploading_count=Count(
-                    "data", filter=Q(data__status=Data.STATUS_UPLOADING)
+                    "data", distinct=True, filter=Q(data__status=Data.STATUS_UPLOADING)
                 ),
                 data_resolving_count=Count(
-                    "data", filter=Q(data__status=Data.STATUS_RESOLVING)
+                    "data", distinct=True, filter=Q(data__status=Data.STATUS_RESOLVING)
                 ),
                 data_waiting_count=Count(
-                    "data", filter=Q(data__status=Data.STATUS_WAITING)
+                    "data", distinct=True, filter=Q(data__status=Data.STATUS_WAITING)
                 ),
                 data_processing_count=Count(
-                    "data", filter=Q(data__status=Data.STATUS_PROCESSING)
+                    "data", distinct=True, filter=Q(data__status=Data.STATUS_PROCESSING)
                 ),
-                data_done_count=Count("data", filter=Q(data__status=Data.STATUS_DONE)),
+                data_done_count=Count(
+                    "data", distinct=True, filter=Q(data__status=Data.STATUS_DONE)
+                ),
                 data_error_count=Count(
-                    "data", filter=Q(data__status=Data.STATUS_ERROR)
+                    "data", distinct=True, filter=Q(data__status=Data.STATUS_ERROR)
                 ),
             )
 
@@ -120,3 +121,18 @@ class CollectionViewSet(
 
         serializer = self.get_serializer(duplicated, many=True)
         return Response(serializer.data)
+
+
+class CollectionViewSet(BaseCollectionViewSet):
+    """API view for :class:`Collection` objects."""
+
+    serializer_class = CollectionSerializer
+
+    def get_queryset(self):
+        """Annotate Get requests with entity count and return queryset."""
+        queryset = super().get_queryset()
+
+        if self.request.method == "GET":
+            return queryset.annotate(entity_count=Count("entity", distinct=True))
+
+        return queryset

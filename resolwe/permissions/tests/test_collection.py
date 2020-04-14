@@ -69,6 +69,7 @@ class CollectionTestCase(ResolweAPITestCase):
                 "descriptor_dirty",
                 "tags",
                 "duplicated",
+                "entity_count",
             ],
         )
 
@@ -126,6 +127,7 @@ class CollectionTestCase(ResolweAPITestCase):
                 "descriptor_dirty",
                 "tags",
                 "duplicated",
+                "entity_count",
             ],
         )
 
@@ -156,6 +158,7 @@ class CollectionTestCase(ResolweAPITestCase):
                 "descriptor_dirty",
                 "tags",
                 "duplicated",
+                "entity_count",
             ],
         )
 
