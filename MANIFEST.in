@@ -32,7 +32,11 @@ recursive-include resolwe/test/tests/files *
 recursive-include resolwe/test/tests/processes *.yml
 recursive-include resolwe/toolkit/tests *.py
 recursive-include resolwe/toolkit/tests/files *
+recursive-include resolwe/storage/tests *.py
+include resolwe/storage/fixtures/*.yaml
 # include Dockerfiles and files needed to build Docker images
 recursive-include resolwe/toolkit/docker_images Dockerfile Dockerfile.* README.md
 include resolwe/toolkit/docker_images/base/curlprogress.py
 include resolwe/toolkit/docker_images/base/re-import.sh
+# Exclude encrypted credentials for test connectors.
+exclude tests/testing_credentials_*.json.enc
