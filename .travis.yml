@@ -2,7 +2,7 @@
 # explicitly overriden in the jobs.include matrix.
 
 language: python
-dist: xenial
+dist: bionic
 # We need to be able to install packages.
 sudo: required
 python: "3.6"
