@@ -22,8 +22,9 @@ before_install:
   - curl -sSL -O https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-6.6.0.deb
   - sudo dpkg -i --force-confnew elasticsearch-6.6.0.deb
   - sudo service elasticsearch restart
-  - if ! [ -z $encrypted_5c8667bed1e2_key]; then openssl aes-256-cbc -K $encrypted_5c8667bed1e2_key -iv $encrypted_5c8667bed1e2_iv -in tests/testing_credentials_s3.json.enc -out tests/testing_credentials_s3.json -d; fi
-  - if ! [ -z $encrypted_03acdb43301f_key]; then openssl aes-256-cbc -K $encrypted_03acdb43301f_key -iv $encrypted_03acdb43301f_iv -in tests/testing_credentials_gcs.json.enc -out tests/testing_credentials_gcs.json -d; fi
+  # Decrypt storage credentials only when secretes are available.
+  - if ! [ -z $encrypted_8df206c75486_key]; then openssl aes-256-cbc -K $encrypted_8df206c75486_key -iv $encrypted_8df206c75486_iv -in tests/testing_credentials.tgz.enc -out tests/testing_credentials.tgz -d; fi
+  - if ! [ -z $encrypted_8df206c75486_key]; then tar -xf tests/testing_credentials.tgz -C tests; fi
 
 install: pip install tox
 

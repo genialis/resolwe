@@ -39,4 +39,4 @@ recursive-include resolwe/toolkit/docker_images Dockerfile Dockerfile.* README.m
 include resolwe/toolkit/docker_images/base/curlprogress.py
 include resolwe/toolkit/docker_images/base/re-import.sh
 # Exclude encrypted credentials for test connectors.
-exclude tests/testing_credentials_*.json.enc
+exclude tests/testing_credentials.tgz.enc
