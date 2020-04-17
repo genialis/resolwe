@@ -19,6 +19,7 @@ from django.conf import settings
 from django.test import override_settings, tag
 
 from resolwe.storage.models import FileStorage, StorageLocation
+from resolwe.storage.settings import LOCAL_CONNECTOR
 
 __all__ = (
     "check_installed",
@@ -45,7 +46,7 @@ def create_data_location(subpath=None):
         subpath = file_storage.pk
 
     StorageLocation.objects.create(
-        url=subpath, file_storage=file_storage, connector_name=settings.LOCAL_CONNECTOR
+        url=subpath, file_storage=file_storage, connector_name=LOCAL_CONNECTOR
     )
     return file_storage
 

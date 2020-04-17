@@ -206,7 +206,6 @@ class DecisionMakerTest(TestCase):
         self.assertIsNone(self.decision_maker.delete())
 
 
-@patch("resolwe.storage.models.connectors", CONNECTORS)
 @patch("resolwe.storage.manager.connectors", CONNECTORS)
 @patch("resolwe.storage.manager.STORAGE_CONNECTORS", CONNECTORS_SETTINGS)
 class DecisionMakerOverrideRuleTest(TestCase):
@@ -313,6 +312,8 @@ class DecisionMakerOverrideRuleTest(TestCase):
             self.assertEqual(decision_maker.copy(), [])
 
 
+@patch("resolwe.storage.manager.connectors", CONNECTORS)
+@patch("resolwe.storage.manager.STORAGE_CONNECTORS", CONNECTORS_SETTINGS)
 class ManagerTest(TransactionTestCase):
     def setUp(self):
         self.file_storage1: FileStorage = FileStorage.objects.create()
@@ -390,7 +391,7 @@ class ManagerTest(TransactionTestCase):
         self.assertEqual(AccessLog.objects.all().count(), 1)
         self.assertEqual(StorageLocation.objects.all().count(), 2)
         created_location = StorageLocation.objects.exclude(pk=location_local.pk).get()
-        self.assertEqual(created_location.connector_name, "GCS")
+        self.assertEqual(created_location.connector_name, "S3")
         self.assertEqual(created_location.url, "url")
         access_log = AccessLog.objects.all().first()
         self.assertEqual(access_log.storage_location, location_local)

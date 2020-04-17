@@ -37,6 +37,7 @@ from resolwe.flow.models import Data, Process
 from resolwe.flow.models.utils import referenced_files
 from resolwe.flow.utils import dict_dot, iterate_fields, stats
 from resolwe.storage.models import AccessLog, ReferencedPath, StorageLocation
+from resolwe.storage.settings import LOCAL_CONNECTOR
 from resolwe.test.utils import is_testing
 from resolwe.utils import BraceMessage as __
 
@@ -507,7 +508,7 @@ class ExecutorListener:
         )
         for parent in dependencies:
             file_storage = parent.location
-            if not file_storage.has_storage_location(settings.LOCAL_CONNECTOR):
+            if not file_storage.has_storage_location(LOCAL_CONNECTOR):
                 from_location = file_storage.default_storage_location
                 if from_location is None:
                     logger.error(
@@ -520,7 +521,7 @@ class ExecutorListener:
                 to_location = StorageLocation.all_objects.get_or_create(
                     file_storage=file_storage,
                     url=from_location.url,
-                    connector_name=settings.LOCAL_CONNECTOR,
+                    connector_name=LOCAL_CONNECTOR,
                 )[0]
                 missing_data.append(
                     {

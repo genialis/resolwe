@@ -3,9 +3,9 @@ import io
 import os
 import shutil
 import tempfile
+from unittest.mock import patch
 
 from django.conf import settings
-from django.test import override_settings
 
 from resolwe.storage.connectors import (
     AwsS3Connector,
@@ -60,7 +60,7 @@ def hashes(filename):
 
 class RegistryTest(TestCase):
     def setUp(self):
-        with override_settings(STORAGE_CONNECTORS=CONNECTORS_SETTINGS):
+        with patch("resolwe.storage.settings.STORAGE_CONNECTORS", CONNECTORS_SETTINGS):
             connectors.recreate_connectors()
 
     def tearDown(self):

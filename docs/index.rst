@@ -29,5 +29,6 @@ Contents
    composer
    ref
    flow
+   storage
    CHANGELOG
    contributing

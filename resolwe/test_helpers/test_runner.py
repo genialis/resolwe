@@ -32,6 +32,7 @@ from resolwe.flow.finders import get_finders
 from resolwe.flow.managers import manager, state
 from resolwe.flow.managers.listener import ExecutorListener
 from resolwe.storage.connectors import connectors
+from resolwe.storage.settings import LOCAL_CONNECTOR, STORAGE_CONNECTORS
 from resolwe.test.utils import generate_process_tag
 
 logger = logging.getLogger(__name__)
@@ -226,8 +227,8 @@ async def _run_on_infrastructure(meth, *args, **kwargs):
     with TestingContext():
         _create_test_dirs()
         with _prepare_settings():
-            storage_config = copy.deepcopy(settings.STORAGE_CONNECTORS)
-            storage_config["local"]["config"]["path"] = settings.FLOW_EXECUTOR[
+            storage_config = copy.deepcopy(STORAGE_CONNECTORS)
+            storage_config[LOCAL_CONNECTOR]["config"]["path"] = settings.FLOW_EXECUTOR[
                 "DATA_DIR"
             ]
             with patch("resolwe.storage.settings.STORAGE_CONNECTORS", storage_config):
