@@ -70,6 +70,7 @@ toxenv = os.environ.get('TOXENV', '')
 # Check if PostgreSQL settings are set via environment variables
 pgname = os.environ.get('RESOLWE_POSTGRESQL_NAME', 'resolwe')
 pguser = os.environ.get('RESOLWE_POSTGRESQL_USER', 'resolwe')
+pgpass = os.environ.get('RESOLWE_POSTGRESQL_PASS', 'resolwe')
 pghost = os.environ.get('RESOLWE_POSTGRESQL_HOST', 'localhost')
 pgport = int(os.environ.get('RESOLWE_POSTGRESQL_PORT', 55432))
 
@@ -78,6 +79,7 @@ DATABASES = {
         'ENGINE': 'resolwe.db.postgresql',
         'NAME': pgname,
         'USER': pguser,
+        'PASSWORD': pgpass,
         'HOST': pghost,
         'PORT': pgport,
         'TEST': {

@@ -6,6 +6,7 @@ postgresql:
     environment:
         POSTGRES_USER: resolwe
         POSTGRES_DB: resolwe
+        POSTGRES_PASSWORD: resolwe
     ports:
         - "55432:5432"
 elasticsearch:
