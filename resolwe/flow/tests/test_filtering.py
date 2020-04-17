@@ -509,6 +509,9 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
             {"collection__in": "{},{}".format(self.collection1.pk, "999999")},
             self.entities[:1],
         )
+        self._check_filter(
+            {"collection__isnull": True}, self.entities[2:],
+        )
 
     def test_filter_collection_name(self):
         self._check_filter({"collection__name": "My collection"}, [self.entities[0]])
@@ -830,6 +833,9 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
             {"collection__in": "{},{}".format(self.collection1.pk, "999999")},
             self.data[:1],
         )
+        self._check_filter(
+            {"collection__isnull": True}, self.data[2:],
+        )
 
     def test_filter_collection_name(self):
         self._check_filter({"collection__name": "My collection"}, [self.data[0]])
@@ -854,6 +860,9 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter(
             {"entity__in": "{},{}".format(self.entity1.pk, self.entity2.pk, "999999")},
             self.data[:2],
+        )
+        self._check_filter(
+            {"entity__isnull": True}, self.data[2:],
         )
 
     def test_filter_entity_name(self):

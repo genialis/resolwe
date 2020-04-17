@@ -24,6 +24,7 @@ from .models import Collection, Data, DescriptorSchema, Entity, Process, Relatio
 RELATED_LOOKUPS = [
     "exact",
     "in",
+    "isnull",
 ]
 NUMBER_LOOKUPS = [
     "exact",

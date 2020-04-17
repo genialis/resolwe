@@ -27,6 +27,7 @@ Added
 - Add management command to start storage manager
 - Add tests for new storage framework
 - Add cleanup manager for removing unreferenced data
+- Add ``isnull`` related lookup filter
 
 
 ===================
