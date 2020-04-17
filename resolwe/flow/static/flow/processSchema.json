@@ -43,7 +43,7 @@
                     "type": "string"
                 },
                 "input": {
-                    "description": "Input or list of inputch from which entity will be propagated.",
+                    "description": "Input from which the entity will be propagated.",
                     "type": "string"
                 },
                 "always_create": {
