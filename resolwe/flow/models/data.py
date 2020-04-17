@@ -4,6 +4,7 @@ import enum
 import json
 import logging
 import os
+from contextlib import suppress
 
 from django.conf import settings
 from django.contrib.postgres.fields import ArrayField, JSONField
@@ -416,10 +417,11 @@ class Data(BaseModel):
         """Initialize attributes."""
         super().__init__(*args, **kwargs)
         self._original_name = self.name
+        self._original_output = self.output
 
     def save_storage(self, instance, schema):
         """Save basic:json values to a Storage collection."""
-        for field_schema, fields in iterate_fields(instance, schema):
+        for field_schema, fields, path in iterate_fields(instance, schema, ""):
             name = field_schema["name"]
             value = fields[name]
             if field_schema.get("type", "").startswith("basic:json:"):
@@ -448,14 +450,20 @@ class Data(BaseModel):
                                     )
                                 )
 
-                storage = self.storages.create(
-                    name="Storage for data id {}".format(self.pk),
-                    contributor=self.contributor,
-                    json=value,
-                )
+                existing_storage_pk = None
+                with suppress(KeyError):
+                    existing_storage_pk = dict_dot(self._original_output, path)
 
-                # `value` is copied by value, so `fields[name]` must be changed
-                fields[name] = storage.pk
+                if isinstance(existing_storage_pk, int):
+                    self.storages.filter(pk=existing_storage_pk).update(json=value)
+                    fields[name] = existing_storage_pk
+                else:
+                    storage = self.storages.create(
+                        name="Storage for data id {}".format(self.pk),
+                        contributor=self.contributor,
+                        json=value,
+                    )
+                    fields[name] = storage.pk
 
     def resolve_secrets(self):
         """Retrieve handles for all basic:secret: fields on input.
@@ -593,6 +601,8 @@ class Data(BaseModel):
 
         with transaction.atomic():
             self._perform_save(*args, **kwargs)
+
+        self._original_output = self.output
 
     def _perform_save(self, *args, **kwargs):
         """Save the data model."""

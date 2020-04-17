@@ -1177,12 +1177,18 @@ class StorageModelTestCase(TestCase):
         )
 
         data.output = {"json_field": {"foo": "bar"}}
+        data.save()
+        first_storage = data.output["json_field"]
+
+        data.output = {"json_field": {"foo": "bar"}}
         data.status = Data.STATUS_DONE
         data.save()
 
         self.assertEqual(Storage.objects.count(), 1)
         storage = Storage.objects.first()
         self.assertEqual(data.output["json_field"], storage.pk)
+        # Make sure that the storage is updated and not replaced.
+        self.assertEqual(first_storage, storage.pk)
 
     def test_save_storage_file(self):
         """File is loaded and saved to storage"""
