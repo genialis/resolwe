@@ -43,9 +43,8 @@ class StorageConnectors(MutableMapping[str, BaseStorageConnector]):
             settings = SETTINGS.get(key, {})
         except ImportError:
             # Import settings from Django.
-            from django.conf import settings
+            from resolwe.storage.settings import STORAGE_CONNECTORS as settings
 
-            settings = getattr(settings, key) if hasattr(settings, key) else {}
         return settings
 
     def add_storage_connector_class(self, connector: BaseStorageConnector):

@@ -33,6 +33,7 @@ from resolwe.flow.engine import InvalidEngineError, load_engines
 from resolwe.flow.execution_engines import ExecutionError
 from resolwe.flow.models import Data, DataDependency, Process
 from resolwe.storage.models import FileStorage, StorageLocation
+from resolwe.storage.settings import STORAGE_CONNECTORS
 from resolwe.test.utils import is_testing
 from resolwe.utils import BraceMessage as __
 
@@ -539,7 +540,7 @@ class Manager:
         }
 
         # Prepare storage connectors settings and secrets.
-        connectors_settings = copy.deepcopy(settings.STORAGE_CONNECTORS)
+        connectors_settings = copy.deepcopy(STORAGE_CONNECTORS)
         for connector_settings in connectors_settings.values():
             # Fix class name for inclusion in the executor.
             klass = connector_settings["connector"]

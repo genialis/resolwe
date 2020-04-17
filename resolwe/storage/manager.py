@@ -4,12 +4,12 @@ import logging
 from datetime import timedelta
 from typing import List, Optional
 
-from django.conf import settings
 from django.db import transaction
 from django.utils.timezone import now
 
 from resolwe.storage.connectors import Transfer, connectors
 from resolwe.storage.models import AccessLog, FileStorage, StorageLocation
+from resolwe.storage.settings import STORAGE_CONNECTORS
 
 logger = logging.getLogger(__name__)
 
@@ -37,9 +37,7 @@ class DecisionMaker:
 
         Known rule types are 'copy' and 'delete'.
         """
-        location_settings = copy.deepcopy(
-            settings.STORAGE_CONNECTORS.get(connector_name, {})
-        )
+        location_settings = copy.deepcopy(STORAGE_CONNECTORS.get(connector_name, {}))
         rules: dict = location_settings.get("config", {}).get(_type, {})
         for override, name in self.override_priorities:
             override_rules = rules.pop(override, {})
@@ -51,7 +49,7 @@ class DecisionMaker:
         """Get a list of connector names where data must be copied to."""
         return [
             connector_name
-            for connector_name in settings.STORAGE_CONNECTORS
+            for connector_name in STORAGE_CONNECTORS
             if self._should_copy_to(connector_name)
         ]
 
@@ -78,7 +76,6 @@ class DecisionMaker:
             move_delay = timedelta(days=copy_rules["delay"])
             current_delay = now() - self.file_storage.created
             rule_results["delay"] = current_delay >= move_delay
-
         return all(rule_results.values())
 
     def delete(self) -> Optional[StorageLocation]:

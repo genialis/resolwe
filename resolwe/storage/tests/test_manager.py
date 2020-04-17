@@ -6,7 +6,6 @@ from threading import Event
 from unittest.mock import MagicMock, call, patch
 
 from django.db import connection, transaction
-from django.test import override_settings
 from django.utils import timezone
 
 from resolwe.flow.models import Data
@@ -54,6 +53,7 @@ CONNECTORS = {
 
 @patch("resolwe.storage.models.connectors", CONNECTORS)
 @patch("resolwe.storage.manager.connectors", CONNECTORS)
+@patch("resolwe.storage.manager.STORAGE_CONNECTORS", CONNECTORS_SETTINGS)
 class DecisionMakerTest(TestCase):
     def setUp(self):
         self.file_storage: FileStorage = FileStorage.objects.create()
@@ -72,13 +72,13 @@ class DecisionMakerTest(TestCase):
         )
         storage_location.refresh_from_db()
         self.file_storage.refresh_from_db()
-        with override_settings(
-            STORAGE_CONNECTORS={"local": CONNECTORS_SETTINGS["local"]}
+        with patch(
+            "resolwe.storage.manager.STORAGE_CONNECTORS",
+            {"local": CONNECTORS_SETTINGS["local"]},
         ):
             self.assertEqual(self.decision_maker.copy(), [])
             self.assertIsNone(self.decision_maker.delete())
 
-    @override_settings(STORAGE_CONNECTORS=CONNECTORS_SETTINGS)
     def test_copy(self):
         StorageLocation.objects.create(
             file_storage=self.file_storage, url="url", connector_name="local"
@@ -98,7 +98,6 @@ class DecisionMakerTest(TestCase):
         self.assertIn("S3", copies)
         self.assertIn("GCS", copies)
 
-    @override_settings(STORAGE_CONNECTORS=CONNECTORS_SETTINGS)
     def test_delete_last(self):
         location_s3 = StorageLocation.objects.create(
             file_storage=self.file_storage,
@@ -111,7 +110,6 @@ class DecisionMakerTest(TestCase):
         )
         self.assertIsNone(self.decision_maker.delete())
 
-    @override_settings(STORAGE_CONNECTORS=CONNECTORS_SETTINGS)
     def test_delete_early(self):
         location_s3 = StorageLocation.objects.create(
             file_storage=self.file_storage,
@@ -130,7 +128,6 @@ class DecisionMakerTest(TestCase):
         )
         self.assertIsNone(self.decision_maker.delete())
 
-    @override_settings(STORAGE_CONNECTORS=CONNECTORS_SETTINGS)
     def test_delete(self):
         location_s3 = StorageLocation.objects.create(
             file_storage=self.file_storage,
@@ -149,7 +146,6 @@ class DecisionMakerTest(TestCase):
         )
         self.assertEqual(self.decision_maker.delete(), location_s3)
 
-    @override_settings(STORAGE_CONNECTORS=CONNECTORS_SETTINGS)
     def test_delete_mincopy(self):
         StorageLocation.objects.create(
             file_storage=self.file_storage,
@@ -175,7 +171,6 @@ class DecisionMakerTest(TestCase):
         )
         self.assertEqual(self.decision_maker.delete(), location_gcs)
 
-    @override_settings(STORAGE_CONNECTORS=CONNECTORS_SETTINGS)
     def test_delete_priority(self):
         location_gcs = StorageLocation.objects.create(
             file_storage=self.file_storage,
@@ -213,6 +208,7 @@ class DecisionMakerTest(TestCase):
 
 @patch("resolwe.storage.models.connectors", CONNECTORS)
 @patch("resolwe.storage.manager.connectors", CONNECTORS)
+@patch("resolwe.storage.manager.STORAGE_CONNECTORS", CONNECTORS_SETTINGS)
 class DecisionMakerOverrideRuleTest(TestCase):
     fixtures = [
         "processes.yaml",
@@ -244,11 +240,15 @@ class DecisionMakerOverrideRuleTest(TestCase):
         self.assertEqual(decision_maker.copy(), ["GCS"])
 
         settings["GCS"]["config"]["copy"]["process_type"] = override
-        with override_settings(STORAGE_CONNECTORS=settings):
+        with patch(
+            "resolwe.storage.manager.STORAGE_CONNECTORS", settings,
+        ):
             self.assertEqual(decision_maker.copy(), [])
 
         settings["GCS"]["config"]["copy"]["process_type"] = override_nonexisting
-        with override_settings(STORAGE_CONNECTORS=settings):
+        with patch(
+            "resolwe.storage.manager.STORAGE_CONNECTORS", settings,
+        ):
             self.assertEqual(decision_maker.copy(), ["GCS"])
 
     def test_override_data_slug(self):
@@ -269,11 +269,15 @@ class DecisionMakerOverrideRuleTest(TestCase):
         self.assertEqual(decision_maker.copy(), ["GCS"])
 
         settings["GCS"]["config"]["copy"]["data_slug"] = override
-        with override_settings(STORAGE_CONNECTORS=settings):
+        with patch(
+            "resolwe.storage.manager.STORAGE_CONNECTORS", settings,
+        ):
             self.assertEqual(decision_maker.copy(), [])
 
         settings["GCS"]["config"]["copy"]["data_slug"] = override_nonexisting
-        with override_settings(STORAGE_CONNECTORS=settings):
+        with patch(
+            "resolwe.storage.manager.STORAGE_CONNECTORS", settings,
+        ):
             self.assertEqual(decision_maker.copy(), ["GCS"])
 
     def test_override_priority(self):
@@ -296,12 +300,16 @@ class DecisionMakerOverrideRuleTest(TestCase):
         settings["GCS"]["config"]["copy"]["data_slug"] = override_data_slug
         settings["GCS"]["config"]["copy"]["process_type"] = override_process_type
 
-        with override_settings(STORAGE_CONNECTORS=settings):
+        with patch(
+            "resolwe.storage.manager.STORAGE_CONNECTORS", settings,
+        ):
             self.assertEqual(decision_maker.copy(), ["GCS"])
 
         override_data_slug["test_data"]["delay"] = 10
         override_process_type["test:data:"]["delay"] = 5
-        with override_settings(STORAGE_CONNECTORS=settings):
+        with patch(
+            "resolwe.storage.manager.STORAGE_CONNECTORS", settings,
+        ):
             self.assertEqual(decision_maker.copy(), [])
 
 

@@ -13,6 +13,7 @@ import os
 import re
 import subprocess
 import sys
+from unittest.mock import patch
 
 import yaml
 from channels.db import database_sync_to_async
@@ -164,16 +165,10 @@ def _prepare_settings():
         get_random_string(length=6),
         os.path.basename(resolwe_settings.FLOW_EXECUTOR_SETTINGS["DATA_DIR"]),
     )
-
-    storage_config = copy.deepcopy(settings.STORAGE_CONNECTORS)
-    storage_config["local"]["config"]["path"] = resolwe_settings.FLOW_EXECUTOR_SETTINGS[
-        "DATA_DIR"
-    ]
     return override_settings(
         CELERY_ALWAYS_EAGER=True,
         FLOW_EXECUTOR=resolwe_settings.FLOW_EXECUTOR_SETTINGS,
         FLOW_MANAGER=resolwe_settings.FLOW_MANAGER_SETTINGS,
-        STORAGE_CONNECTORS=storage_config,
     )
 
 
@@ -231,21 +226,28 @@ async def _run_on_infrastructure(meth, *args, **kwargs):
     with TestingContext():
         _create_test_dirs()
         with _prepare_settings():
-            connectors.recreate_connectors()
-            await database_sync_to_async(_manager_setup)()
-            with AtScopeExit(manager.state.destroy_channels):
-                redis_params = getattr(settings, "FLOW_MANAGER", {}).get(
-                    "REDIS_CONNECTION", {}
-                )
-                listener = ExecutorListener(redis_params=redis_params)
-                await listener.clear_queue()
-                async with listener:
-                    try:
-                        with override_settings(FLOW_MANAGER_SYNC_AUTO_CALLS=True):
-                            result = await database_sync_to_async(meth)(*args, **kwargs)
-                        return result
-                    finally:
-                        listener.terminate()
+            storage_config = copy.deepcopy(settings.STORAGE_CONNECTORS)
+            storage_config["local"]["config"]["path"] = settings.FLOW_EXECUTOR[
+                "DATA_DIR"
+            ]
+            with patch("resolwe.storage.settings.STORAGE_CONNECTORS", storage_config):
+                connectors.recreate_connectors()
+                await database_sync_to_async(_manager_setup)()
+                with AtScopeExit(manager.state.destroy_channels):
+                    redis_params = getattr(settings, "FLOW_MANAGER", {}).get(
+                        "REDIS_CONNECTION", {}
+                    )
+                    listener = ExecutorListener(redis_params=redis_params)
+                    await listener.clear_queue()
+                    async with listener:
+                        try:
+                            with override_settings(FLOW_MANAGER_SYNC_AUTO_CALLS=True):
+                                result = await database_sync_to_async(meth)(
+                                    *args, **kwargs
+                                )
+                            return result
+                        finally:
+                            listener.terminate()
 
 
 def _run_manager(meth, *args, **kwargs):

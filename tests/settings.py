@@ -132,7 +132,7 @@ STORAGE_CONNECTORS = {
             # Delete from here after delay days from last access to this storage
             # location and when min_other_copies of data exist on other
             # locations.
-            "delete": {  
+            "delete": {
                 "delay": 2,  # in days
                 "min_other_copies": 2,
             }

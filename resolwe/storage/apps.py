@@ -4,11 +4,11 @@ from contextlib import suppress
 from importlib import import_module
 
 from django.apps import AppConfig
-from django.conf import settings
 from django.utils.translation import ugettext_lazy as _
 
 from resolwe.storage.connectors import connectors
 from resolwe.storage.connectors.baseconnector import BaseStorageConnector
+from resolwe.storage.settings import STORAGE_CONNECTORS
 
 logger = logging.getLogger(__name__)
 
@@ -19,13 +19,13 @@ class StorageConfig(AppConfig):
     name = "resolwe.storage"
     verbose_name = _("Resolwe Storage")
 
-    def _check_connector_settings(self, connector_settings: dict):
+    def _check_connector_settings(self):
         """Validate the storage connector settings in the django config.
 
         When there exists a section that does not match any known storage
         connector then error is logged.
         """
-        for connector_name, connector_settings in connector_settings.items():
+        for connector_name, connector_settings in STORAGE_CONNECTORS.items():
             if connector_name not in connectors:
                 full_class_name = connector_settings.get("connector")
                 class_exists = False
@@ -47,13 +47,9 @@ class StorageConfig(AppConfig):
                     message += " Class is not a subclass of BaseStorageConnector."
                 logger.warning(message)
 
-    def _get_connectors_settings(self) -> dict:
-        """Return storage connector settings."""
-        return getattr(settings, "STORAGE_CONNECTORS", {})
-
     def ready(self):
         """Application initialization."""
-        self._check_connector_settings(self._get_connectors_settings())
+        self._check_connector_settings()
         # Register signals handlers
         from . import signals  # noqa: F401
 
