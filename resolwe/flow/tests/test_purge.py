@@ -125,6 +125,11 @@ class PurgeE2ETest(PurgeTestFieldsMixin, ProcessTestCase):
                         "type": "basic:file:",
                     },
                     {
+                        "name": "another_sample_file",
+                        "label": "Another sample output file",
+                        "type": "basic:file:",
+                    },
+                    {
                         "name": "sample_dir",
                         "label": "Sample output directory",
                         "type": "basic:dir:",
@@ -145,6 +150,8 @@ class PurgeE2ETest(PurgeTestFieldsMixin, ProcessTestCase):
                     "program": """
 touch these files should be removed
 touch this_file_should_stay
+mkdir -p should_stay/
+touch should_stay/file
 mkdir -p directory/should/be
 touch directory/should/be/removed
 touch directory/should/be/removed2
@@ -158,6 +165,7 @@ touch ref1 ref2 ref3 ref4
 mkdir refs
 touch refs/a refs/b
 
+re-save-file another_sample_file should_stay/file
 re-save-file sample_file this_file_should_stay ref3
 re-save-dir sample_dir stay ref4
 re-save-file-list sample_file_list entry1 entry2:ref1 entry3:refs
@@ -188,6 +196,7 @@ re-save-dir-list sample_dir_list dir1:ref2 dir2 dir3
             "ref4",
             "refs/a",
             "refs/b",
+            "should_stay/file",
         )
 
     def assertFieldWorks(

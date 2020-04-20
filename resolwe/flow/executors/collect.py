@@ -18,7 +18,7 @@ def collect_and_purge(base_path: str, refs: List[str]) -> Tuple[Set[str], Set[st
         parents = []
         path = os.path.dirname(path)
         while path.startswith(base_path):
-            parents.append(os.path.relpath(path, base_path))
+            parents.append(os.path.join(os.path.relpath(path, base_path), ""))
             path = os.path.dirname(path)
         return parents
 
