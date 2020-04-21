@@ -233,7 +233,7 @@ class ReferencedPath(models.Model):
     path = models.TextField(db_index=True)
 
     #: size of the file (-1 undefined)
-    size = models.IntegerField(default=-1)
+    size = models.BigIntegerField(default=-1)
 
     #: FileStorage object
     file_storage = models.ForeignKey(

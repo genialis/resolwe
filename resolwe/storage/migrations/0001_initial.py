@@ -119,7 +119,7 @@ class Migration(migrations.Migration):
                         to="storage.FileStorage",
                     ),
                 ),
-                ("size", models.IntegerField(default=-1)),
+                ("size", models.BigIntegerField(default=-1)),
             ],
         ),
         migrations.AlterField(
