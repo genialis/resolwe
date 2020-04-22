@@ -4,7 +4,7 @@ Used to provide s simple default configuration.
 """
 from django.conf import settings
 
-data_dir = getattr(settings, "FLOW_EXECUTOR", {}.get("DATA_DIR", "/some_path"))
+data_dir = getattr(settings, "FLOW_EXECUTOR", {}).get("DATA_DIR", "/some_path")
 default_local_connector = "local"
 default_storage_connectors = {
     "local": {
