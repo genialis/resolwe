@@ -67,7 +67,6 @@ class RegistryTest(TestCase):
         connectors.recreate_connectors()
 
     def test_instance_from_settings(self):
-
         self.assertIn("local", connectors)
         self.assertIn("S3", connectors)
         self.assertIn("GCS", connectors)
@@ -83,6 +82,10 @@ class TestMixin:
         for file_ in self.created_files:
             self.assertTrue(self.connector.exists(file_))
         self.assertFalse(self.connector.exists(self.prefix_name("nonexisting_file")))
+        with self.assertRaises(ValueError):
+            self.connector.exists("/etc")
+        with self.assertRaises(TypeError):
+            self.connector.exists(0)
 
     def test_list_objects(self):
         files = self.connector.get_object_list(self.url_prefix)
@@ -97,6 +100,10 @@ class TestMixin:
             self.connector.get_object_list(self.prefix_name("nonexisting_directory")),
             [],
         )
+        with self.assertRaises(ValueError):
+            self.connector.get_object_list("/etc")
+        with self.assertRaises(TypeError):
+            self.connector.get_object_list(0)
 
     def test_delete(self):
         self.connector.delete([self.prefix_name("nonexisting_file")])
@@ -106,6 +113,12 @@ class TestMixin:
         self.connector.delete(self.created_files[:2])
         files = self.connector.get_object_list(self.url_prefix)
         self.assertEqual(files, [self.created_files[2]])
+        with self.assertRaises(TypeError):
+            self.connector.delete("/etc")
+        with self.assertRaises(TypeError):
+            self.connector.delete([0, "/etc"])
+        with self.assertRaises(ValueError):
+            self.connector.delete(["OK", "/etc"])
 
     def test_get(self):
         stream = io.BytesIO()
@@ -115,6 +128,10 @@ class TestMixin:
         stream.seek(0)
         self.assertEqual(stream.read(len(starts_with)), starts_with)
         self.assertEqual(stream.read(), b"\0" * (1024 * 1024 - len(starts_with)))
+        with self.assertRaises(ValueError):
+            self.connector.get("/etc", None)
+        with self.assertRaises(TypeError):
+            self.connector.get(0, None)
 
     def test_push(self):
         transfer_file = self.prefix_name("transfer")
@@ -130,6 +147,11 @@ class TestMixin:
             with open(self.path(downloaded_file), "rb") as f2:
                 self.assertEqual(f1.read(), f2.read())
 
+        with self.assertRaises(ValueError):
+            self.connector.push(None, "/etc")
+        with self.assertRaises(TypeError):
+            self.connector.push(None, 0)
+
         self.connector.delete([transfer_file])
 
     def test_get_hash(self):
@@ -144,6 +166,10 @@ class TestMixin:
                 self.connector.get_hash(test_file, type_).lower(),
                 computed_hashes[type_].lower(),
             )
+        with self.assertRaises(ValueError):
+            self.connector.get_hash("/etc", None)
+        with self.assertRaises(TypeError):
+            self.connector.get_hash(0, None)
 
 
 class BaseTestCase(TestCase):

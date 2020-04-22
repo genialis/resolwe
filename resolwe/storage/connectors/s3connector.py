@@ -1,11 +1,15 @@
 """Amazon S3 storage connector."""
 import json
+import logging
 import os
+from pathlib import Path
 
 import boto3
 import botocore
 
 from .baseconnector import BaseStorageConnector
+
+logger = logging.getLogger(__name__)
 
 
 class AwsS3Connector(BaseStorageConnector):
@@ -14,6 +18,7 @@ class AwsS3Connector(BaseStorageConnector):
     def __init__(self, config: dict, name: str):
         """Connector initialization."""
         super().__init__(config, name)
+        self.config = config
         self.bucket_name = config["bucket"]
         self.supported_download_hash = ["md5", "crc32c", "awss3etag"]
         self.supported_upload_hash = ["awss3etag"]
@@ -41,6 +46,7 @@ class AwsS3Connector(BaseStorageConnector):
             aws_access_key_id=settings["AccessKeyId"],
             aws_secret_access_key=settings["SecretAccessKey"],
             aws_session_token=settings.get("SessionToken"),
+            region_name=self.config.get("region_name"),
         )
         self.awss3 = self.session.resource("s3")
         self.client = self.session.client("s3")
@@ -58,23 +64,27 @@ class AwsS3Connector(BaseStorageConnector):
     def push(self, stream, url):
         """Push data from the stream to the given URL."""
         self.client.upload_fileobj(
-            stream, self.bucket_name, url, Config=self._get_transfer_config(),
+            stream,
+            self.bucket_name,
+            os.fspath(url),
+            Config=self._get_transfer_config(),
         )
 
     def delete(self, urls):
         """Remove objects."""
+        super().delete(urls)
         # At most 1000 objects can be deleted at the same time.
         max_chunk = 1000
         bucket = self.awss3.Bucket(self.bucket_name)
         for i in range(0, len(urls), max_chunk):
             next_chunk = urls[i : i + max_chunk]
-            objects = [{"Key": url} for url in next_chunk]
+            objects = [{"Key": os.fspath(url)} for url in next_chunk]
             bucket.delete_objects(Delete={"Objects": objects, "Quiet": True})
 
     def get(self, url, stream):
         """Get data from the given URL and write it into the given stream."""
         self.client.download_fileobj(
-            self.bucket_name, url, stream, Config=self._get_transfer_config()
+            self.bucket_name, os.fspath(url), stream, Config=self._get_transfer_config()
         )
 
     def _get_transfer_config(self):
@@ -102,7 +112,7 @@ class AwsS3Connector(BaseStorageConnector):
 
     def get_hash(self, url, hash_type):
         """Get the hash of the given type for the given object."""
-        resource = self.awss3.Object(self.bucket_name, url)
+        resource = self.awss3.Object(self.bucket_name, os.fspath(url))
         try:
             if hash_type in self.hash_propery:
                 prop = self.hash_propery[hash_type]
@@ -119,7 +129,7 @@ class AwsS3Connector(BaseStorageConnector):
     def exists(self, url):
         """Get if the object at the given URL exist."""
         try:
-            self.awss3.Object(self.bucket_name, url).load()
+            self.awss3.Object(self.bucket_name, os.fspath(url)).load()
         except botocore.exceptions.ClientError as error:
             if error.response["Error"]["Code"] == "404":
                 return False
@@ -138,7 +148,7 @@ class AwsS3Connector(BaseStorageConnector):
         # If one uses copy_object method proposed by some solutions the e_tag
         # value on object can (and will) change. That causes error downloading
         # since hash check fails.
-        head = self.client.head_object(Bucket=self.bucket_name, Key=url)
+        head = self.client.head_object(Bucket=self.bucket_name, Key=os.fspath(url))
         meta = head["Metadata"]
         hashes = {k: v for (k, v) in hashes.items() if k not in self.hash_propery}
         meta.update(hashes)
@@ -156,4 +166,4 @@ class AwsS3Connector(BaseStorageConnector):
     @property
     def base_path(self):
         """Get a base path for this connector."""
-        return ""
+        return Path("")

@@ -1,5 +1,6 @@
 """Storage cleanup."""
 import logging
+from pathlib import Path
 from typing import Optional
 
 from django.db import transaction
@@ -30,15 +31,18 @@ class Cleaner:
             )
             return
         try:
-            connector.delete(storage_location.urls)
+            connector.delete(
+                [Path(storage_location.url) / path for path in storage_location.urls]
+            )
+            # Delete the storage location if all files have been removed.
+            storage_location.delete()
+
         except Exception:
             logger.exception(
                 "Exception while deleting StorageLocation {}.".format(
                     storage_location.id
                 )
             )
-        # Delete the storage location when all files have been removed.
-        storage_location.delete()
 
     def _process_file_storage(self, file_storage: FileStorage):
         """Delete all data from FileStorage object."""

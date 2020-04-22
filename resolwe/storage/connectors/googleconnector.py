@@ -2,11 +2,12 @@
 import base64
 import os
 from contextlib import suppress
+from pathlib import Path
 
 from google.api_core.exceptions import NotFound
 from google.cloud import storage
 
-from .baseconnector import BaseStorageConnector
+from .baseconnector import BaseStorageConnector, validate_url
 
 
 class GoogleConnector(BaseStorageConnector):
@@ -20,6 +21,7 @@ class GoogleConnector(BaseStorageConnector):
         self.supported_download_hash = ["crc32c", "md5", "awss3etag"]
         self.hash_propery = {"md5": "md5_hash", "crc32c": "crc32c"}
 
+    @validate_url
     def get_object_list(self, url):
         """Get a list of objects stored bellow the given URL."""
         url = os.path.join(url, "")
@@ -42,32 +44,36 @@ class GoogleConnector(BaseStorageConnector):
 
     def delete(self, urls):
         """Remove objects."""
+        super().delete(urls)
         with suppress(NotFound):
             with self.client.batch():
                 for to_delete in urls:
-                    blob = self.bucket.blob(to_delete)
+                    blob = self.bucket.blob(os.fspath(to_delete))
                     if blob.exists():
                         blob.delete()
 
+    @validate_url
     def push(self, stream, url, hash_type=None, data_hash=None):
         """Push data from the stream to the given URL."""
 
-        blob = self.bucket.blob(url)
+        blob = self.bucket.blob(os.fspath(url))
         if hash_type is not None:
             assert hash_type in self.supported_upload_hash
             prop = self.hash_propery[hash_type]
             setattr(blob, prop, data_hash)
         blob.upload_from_file(stream)
 
+    @validate_url
     def get(self, url, stream):
         """Get data from the given URL and write it into the given stream."""
-        blob = self.bucket.blob(url)
+        blob = self.bucket.blob(os.fspath(url))
         blob.download_to_file(stream)
 
+    @validate_url
     def get_hash(self, url, hash_type):
         """Get the hash of the given type for the given object."""
         assert hash_type in self.supported_download_hash
-        blob = self.bucket.get_blob(url)
+        blob = self.bucket.get_blob(os.fspath(url))
         if blob is None:
             return None
         blob.update()
@@ -77,9 +83,10 @@ class GoogleConnector(BaseStorageConnector):
         else:
             return blob.metadata[hash_type]
 
+    @validate_url
     def set_hashes(self, url, hashes):
         """Set the  hashes for the given object."""
-        blob = self.bucket.get_blob(url)
+        blob = self.bucket.get_blob(os.fspath(url))
         blob.update()
         meta = blob.metadata or dict()
         hashes = {k: v for (k, v) in hashes.items() if k not in self.hash_propery}
@@ -87,11 +94,12 @@ class GoogleConnector(BaseStorageConnector):
         blob.metadata = meta
         blob.update()
 
+    @validate_url
     def exists(self, url):
         """Get if the object at the given URL exist."""
-        return storage.Blob(bucket=self.bucket, name=url).exists()
+        return storage.Blob(bucket=self.bucket, name=os.fspath(url)).exists()
 
     @property
     def base_path(self):
         """Get a base path for this connector."""
-        return ""
+        return Path("")
