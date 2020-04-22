@@ -68,6 +68,9 @@ class BaseCollectionViewSet(
                 data_waiting_count=Count(
                     "data", distinct=True, filter=Q(data__status=Data.STATUS_WAITING)
                 ),
+                data_preparing_count=Count(
+                    "data", distinct=True, filter=Q(data__status=Data.STATUS_PREPARING)
+                ),
                 data_processing_count=Count(
                     "data", distinct=True, filter=Q(data__status=Data.STATUS_PROCESSING)
                 ),

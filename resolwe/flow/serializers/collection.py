@@ -40,6 +40,8 @@ class BaseCollectionSerializer(ResolweBaseSerializer):
             return Data.STATUS_UPLOADING
         if collection.data_processing_count:
             return Data.STATUS_PROCESSING
+        if collection.data_preparing_count:
+            return Data.STATUS_PREPARING
         if collection.data_waiting_count:
             return Data.STATUS_WAITING
         if collection.data_resolving_count:

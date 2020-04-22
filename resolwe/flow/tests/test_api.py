@@ -758,6 +758,7 @@ class TestCollectionViewSetCase(TestCase):
         data_error = self._create_data(Data.STATUS_ERROR)
         data_uploading = self._create_data(Data.STATUS_UPLOADING)
         data_processing = self._create_data(Data.STATUS_PROCESSING)
+        data_preparing = self._create_data(Data.STATUS_PREPARING)
         data_waiting = self._create_data(Data.STATUS_WAITING)
         data_resolving = self._create_data(Data.STATUS_RESOLVING)
         data_done = self._create_data(Data.STATUS_DONE)
@@ -770,6 +771,7 @@ class TestCollectionViewSetCase(TestCase):
             data_error,
             data_uploading,
             data_processing,
+            data_preparing,
             data_waiting,
             data_resolving,
             data_done,
@@ -780,14 +782,27 @@ class TestCollectionViewSetCase(TestCase):
         )
         assign_perm("view_collection", AnonymousUser(), collection)
         collection.data.add(
-            data_uploading, data_processing, data_waiting, data_resolving, data_done
+            data_uploading,
+            data_processing,
+            data_preparing,
+            data_waiting,
+            data_resolving,
+            data_done,
         )
 
         collection = Collection.objects.create(
             contributor=self.contributor, name="processing"
         )
         assign_perm("view_collection", AnonymousUser(), collection)
-        collection.data.add(data_processing, data_waiting, data_resolving, data_done)
+        collection.data.add(
+            data_processing, data_preparing, data_waiting, data_resolving, data_done
+        )
+
+        collection = Collection.objects.create(
+            contributor=self.contributor, name="preparing"
+        )
+        assign_perm("view_collection", AnonymousUser(), collection)
+        collection.data.add(data_preparing, data_waiting, data_resolving, data_done)
 
         collection = Collection.objects.create(
             contributor=self.contributor, name="waiting"
@@ -826,6 +841,9 @@ class TestCollectionViewSetCase(TestCase):
         )
         self.assertEqual(
             get_collection(collections, "processing")["status"], Data.STATUS_PROCESSING
+        )
+        self.assertEqual(
+            get_collection(collections, "preparing")["status"], Data.STATUS_PREPARING
         )
         self.assertEqual(
             get_collection(collections, "waiting")["status"], Data.STATUS_WAITING
