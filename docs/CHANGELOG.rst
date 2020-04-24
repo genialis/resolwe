@@ -30,6 +30,10 @@ Added
 - Add ``isnull`` related lookup filter
 - Add ``entity_count`` to the ``Collection`` serializer
 
+Fixed
+-----
+- Add entity_always_create in ``Process`` serializer
+
 
 ===================
 21.1.0 - 2020-04-14

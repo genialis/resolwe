@@ -22,6 +22,7 @@ class ProcessSerializer(ResolweBaseSerializer):
             "contributor",
             "data_name",
             "description",
+            "entity_always_create",
             "entity_descriptor_schema",
             "entity_input",
             "entity_type",
