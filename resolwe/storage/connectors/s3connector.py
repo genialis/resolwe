@@ -167,3 +167,27 @@ class AwsS3Connector(BaseStorageConnector):
     def base_path(self):
         """Get a base path for this connector."""
         return Path("")
+
+    def presigned_url(self, url, expiration=60):
+        """Create a presigned URL.
+
+        The URL is used to obtain temporary access to the object ar the
+        given URL using only returned URL.
+
+        :param expiration: expiration time of the link (in seconds), default
+            is one minute.
+
+        :returns: URL that can be used to access object or None.
+        """
+        response = None
+        try:
+            response = self.client.generate_presigned_url(
+                "get_object",
+                Params={"Bucket": self.bucket_name, "Key": os.fspath(url)},
+                ExpiresIn=expiration,
+            )
+        except botocore.exceptions.ClientError:
+            logger.exception("Error creating presigned URL")
+
+        # The response contains the presigned URL
+        return response

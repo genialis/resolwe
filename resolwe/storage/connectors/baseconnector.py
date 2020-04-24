@@ -3,7 +3,7 @@ import abc
 from inspect import getfullargspec
 from os import PathLike
 from pathlib import PurePath
-from typing import BinaryIO, Dict, List, Union
+from typing import BinaryIO, Dict, List, Optional, Union
 
 from wrapt import decorator
 
@@ -138,6 +138,22 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
         # Check that all URLS are relative.
         if any(PurePath(url).is_absolute() for url in urls):
             raise ValueError("Paths must be relative.")
+
+    @abc.abstractmethod
+    def presigned_url(
+        self, url: Union[str, PathLike], expiration: int = 10
+    ) -> Optional[str]:
+        """Create a presigned URL.
+
+        The URL is used to obtain temporary access to the object ar the
+        given URL using only returned URL.
+
+        :param expiration: expiration time of the link (in seconds), default
+            is 10 seconds.
+
+        :returns: URL that can be used to access object or None.
+        """
+        raise NotImplementedError
 
     @classmethod
     def __init_subclass__(cls, **kwargs):

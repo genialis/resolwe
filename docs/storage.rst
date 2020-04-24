@@ -22,6 +22,8 @@ Example settings
             "config": {
                 "priority": 0,  # If ommited, default 100 is used
                 "path": FLOW_EXECUTOR["DATA_DIR"],
+                # Public URL from where data is served
+                "public_url": "/local_data",
                 # Delete from here after delay days from last access to this storage
                 # location and when min_other_copies of data exist on other
                 # locations.
@@ -39,6 +41,8 @@ Example settings
                 "copy": {  # copy here from delay days from creation of filestorage object
                     "delay": 5,  # in days
                 },
+                # Region name is needed to generate valid pre-signed urls.
+                "region_name": "eu-central-1",
                 # Two values bellow affect e_tag computation on Amazon S3 connector.
                 # Default value for both settings is 8MB.
                 "multipart_threshold": 8*1024*1024,
@@ -51,7 +55,6 @@ Example settings
         "GCS": {
             "connector": "resolwe.storage.connectors.googleconnector.GoogleConnector",
             "config": {
-                "priority": 10,
                 "bucket": "genialis-test-storage",
                 "credentials": os.path.join(
                     PROJECT_ROOT, "testing_credentials_gcs.json"

@@ -1,5 +1,6 @@
 """Google storage connector."""
 import base64
+import datetime
 import os
 from contextlib import suppress
 from pathlib import Path
@@ -103,3 +104,23 @@ class GoogleConnector(BaseStorageConnector):
     def base_path(self):
         """Get a base path for this connector."""
         return Path("")
+
+    @validate_url
+    def presigned_url(self, url, expiration=60):
+        """Create a presigned URL.
+
+        The URL is used to obtain temporary access to the object ar the
+        given URL using only returned URL.
+
+        :param expiration: expiration time of the link (in seconds), default
+            is one minute.
+
+        :returns: URL that can be used to access object or None.
+        """
+        blob = self.bucket.blob(os.fspath(url))
+        response = blob.generate_signed_url(
+            version="v4",
+            expiration=datetime.timedelta(seconds=expiration),
+            method="GET",
+        )
+        return response

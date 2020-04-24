@@ -87,3 +87,19 @@ class LocalFilesystemConnector(BaseStorageConnector):
     def base_path(self):
         """Get a base path for this connector."""
         return Path(self.path)
+
+    @validate_url
+    def presigned_url(self, url, expiration=3600):
+        """Create a presigned URL.
+
+        The URL is used to obtain temporary access to the object ar the
+        given URL using only returned URL.
+
+        :param expiration: expiration time of the link (in seconds), default
+            is one minute.
+
+        :returns: URL that can be used to access object or None.
+        """
+        public_url = Path(self.config.get("public_url", "/local_data"))
+        resource_url = public_url / url
+        return resource_url.as_posix()
