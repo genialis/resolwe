@@ -6,6 +6,15 @@ Resolwe Storage Framework is storage management system for Resolwe Flow Design.
 Currenlty it supports storing data to local filesystem, Google Cloud Storage
 and Amazon Simple Storage Service.
 
+Testing connectors
+==================
+
+When testing connectors make sure there are credentials available (see sample
+settings bellow for details). These tests start with 
+``storage_credentials_test_`` and are skipped by default when running tox. Since
+tox does not allow decrypting files on pull requests these tests would fail on
+all pull requests blocking merge.
+
 Example settings
 ================
 
@@ -30,6 +39,15 @@ Example settings
                 "delete": {
                     "delay": 2,  # in days
                     "min_other_copies": 2,
+                },
+                "copy": {
+                    # Override default settings for this data_slug.
+                    "data_slug": {
+                        "00hrfastqgz-66": {
+                            "delay": 0
+                        }
+                    },
+                    "delay": 10,
                 }
             }
         },
