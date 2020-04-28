@@ -1,6 +1,7 @@
 """Resolwe storage model."""
 import os
-from typing import List, Optional
+from pathlib import PurePath
+from typing import List, Optional, Union
 
 from django.db import models
 
@@ -164,15 +165,19 @@ class StorageLocation(models.Model):
             self.pk, self.connector_name, self.url
         )
 
-    def get_path(self, prefix: str = None, filename: str = None) -> str:
+    def get_path(
+        self,
+        prefix: Optional[Union[str, PurePath]] = None,
+        filename: Optional[Union[str, PurePath]] = None,
+    ) -> str:
         """Get the path for this storage location."""
         prefix = prefix or self.connector.base_path
-        path = os.path.join(prefix, self.url)
+        path = PurePath(prefix) / self.url
 
         if filename:
-            path = os.path.join(path, filename)
+            path = path / filename
 
-        return path
+        return os.fspath(path)
 
     @property
     def connector(self) -> BaseStorageConnector:
@@ -201,6 +206,20 @@ class StorageLocation(models.Model):
     def urls(self) -> List[str]:
         """Get a list of URLs of stored files and directories."""
         return self.file_storage.urls
+
+    @property
+    def connector_urls(self) -> List[os.PathLike]:
+        """Get a list of URLs of stored files and directories.
+
+        The URLs are relative with respect to the connector base path.
+        """
+        entries = [os.path.join(self.url, file_) for file_ in self.urls]
+        entries.append(os.path.join(self.url, ""))
+        return entries
+
+    def delete_data(self):
+        """Delete all data for this storage location."""
+        self.connector.delete(self.connector_urls)
 
 
 class AccessLog(models.Model):

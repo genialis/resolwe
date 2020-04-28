@@ -423,3 +423,33 @@ class ManagerTest(TransactionTestCase):
         access_log = AccessLog.objects.all().first()
         self.assertEqual(access_log.storage_location, location_local)
         self.assertIsNotNone(access_log.finished)
+
+    def test_delete(self):
+        location_local: StorageLocation = StorageLocation.objects.create(
+            file_storage=self.file_storage1,
+            url="url",
+            connector_name="local",
+            status=StorageLocation.STATUS_DONE,
+        )
+        # Do not delete.
+        copy = MagicMock(return_value=[])
+        delete = MagicMock(return_value=None)
+        decision_maker = MagicMock(copy=copy, delete=delete)
+        DecisionMaker = MagicMock(return_value=decision_maker)
+        with patch("resolwe.storage.manager.DecisionMaker", DecisionMaker):
+            self.manager._process_file_storage(self.file_storage1)
+        copy.assert_called_once_with()
+        delete.assert_called_once_with()
+
+        # Delete location_local.
+        delete_data = MagicMock()
+        location_local.delete_data = delete_data()
+        copy = MagicMock(return_value=[])
+        delete = MagicMock(side_effect=[location_local, None])
+        decision_maker = MagicMock(copy=copy, delete=delete)
+        DecisionMaker = MagicMock(return_value=decision_maker)
+        with patch("resolwe.storage.manager.DecisionMaker", DecisionMaker):
+            self.manager._process_file_storage(self.file_storage1)
+        copy.assert_called_once_with()
+        self.assertEqual(delete.call_count, 2)
+        delete_data.assert_called_once_with()

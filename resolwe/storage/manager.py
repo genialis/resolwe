@@ -174,7 +174,6 @@ class Manager:
 
         delete_location = decide.delete()
         while delete_location:
-            delete_connector = delete_location.connector
             logger.debug(
                 "Delete from location {}".format(delete_location.connector_name)
             )
@@ -183,11 +182,14 @@ class Manager:
             # Delete the StorageLocation first (otherwise we have inconsistent
             # state) and let the healthcare operation remove stale files.
             # TODO: healthcare
-            filenames = [
-                delete_location.get_path(e) for e in delete_location.files.all()
-            ]
-            delete_location.delete()
-            delete_connector.delete(filenames)
+            try:
+                delete_location.delete_data()
+                delete_location.delete()
+            except Exception:
+                logger.exception(
+                    "Error deleting data from StorageLocation instance",
+                    extra={"storage_location_id": delete_location.id,},
+                )
             delete_location = decide.delete()
 
     def process(self):

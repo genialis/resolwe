@@ -1,6 +1,6 @@
 # pylint: disable=missing-docstring
 from datetime import timedelta
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from django.db.utils import IntegrityError
 from django.utils import timezone
@@ -10,7 +10,12 @@ from resolwe.storage.connectors import (
     GoogleConnector,
     LocalFilesystemConnector,
 )
-from resolwe.storage.models import AccessLog, FileStorage, StorageLocation
+from resolwe.storage.models import (
+    AccessLog,
+    FileStorage,
+    ReferencedPath,
+    StorageLocation,
+)
 from resolwe.test import TransactionTestCase
 
 CONNECTORS_SETTINGS = {
@@ -196,6 +201,27 @@ class StorageLocationTest(TransactionTestCase):
             StorageLocation.objects.create(
                 file_storage=self.file_storage, url="url", connector_name="S3"
             )
+
+    def test_delete_data(self):
+        ReferencedPath.objects.create(
+            path="remove_me.txt", file_storage=self.file_storage
+        )
+        ReferencedPath.objects.create(
+            path="dir/remove_me.txt", file_storage=self.file_storage
+        )
+        storage_location = StorageLocation.objects.create(
+            file_storage=self.file_storage, url="url", connector_name="local"
+        )
+        delete = MagicMock()
+        connector_mock = MagicMock(delete=delete)
+        with patch("resolwe.storage.models.connectors", {"local": connector_mock}):
+            storage_location.delete_data()
+        self.assertEqual(delete.call_count, 2)
+        self.assertCountEqual(
+            delete.call_args_list[0][0][0],
+            ["url/remove_me.txt", "url/dir/remove_me.txt"],
+        )
+        self.assertEqual(delete.call_args_list[1][0][0], ["url/"])
 
 
 class AccessLogTest(TransactionTestCase):
