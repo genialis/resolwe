@@ -53,7 +53,7 @@ def create_new_storage_locations(apps, schema_editor):
             file_storage=file_storage,
             url=data_location.subpath,
             status="OK",
-            connector_name=getattr(settings, "LOCAL_CONNECTOR", "local"),
+            connector_name=getattr(settings, "STORAGE_LOCAL_CONNECTOR", "local"),
         )
         max_id = max(max_id, data_location.id + 1)
 

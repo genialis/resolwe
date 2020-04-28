@@ -21,7 +21,7 @@ Example settings
 .. code::
 
     # Storage connector sample settings.
-    LOCAL_CONNECTOR = 'local'
+    STORAGE_LOCAL_CONNECTOR = 'local'
     STORAGE_CONNECTORS = {
         # Code assumes that connector named 'local' exists and points
         # to the location FLOW_EXECUTOR["DATA_DIR"].
