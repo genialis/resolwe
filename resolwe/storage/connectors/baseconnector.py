@@ -41,7 +41,7 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
         self.supported_download_hash = []
 
     @abc.abstractproperty
-    def base_path(self) -> PathLike:
+    def base_path(self) -> PurePath:
         """Get a base path for this connector."""
 
     @abc.abstractmethod
