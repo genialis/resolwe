@@ -13,7 +13,6 @@ import logging
 import os
 import shlex
 import shutil
-import uuid
 from contextlib import suppress
 from importlib import import_module
 
@@ -465,22 +464,16 @@ class Manager:
         logger.debug(__("Preparing data directory for Data with id {}.", data.id))
 
         with transaction.atomic():
-            # Create a temporary random location and then override it with data
-            # location id since object has to be created first.
-            # TODO Find a better solution, e.g. defer the database constraint.
-            temporary_location_string = uuid.uuid4().hex[:10]
             file_storage = FileStorage.objects.create()
             # Create StorageLocation with default connector.
             # We must also specify status since it is Uploading by default.
             data_location = StorageLocation.objects.create(
                 file_storage=file_storage,
-                url=temporary_location_string,
+                url=str(file_storage.id),
                 status=StorageLocation.STATUS_PREPARING,
                 connector_name=STORAGE_LOCAL_CONNECTOR,
             )
-            data_location.url = str(data_location.id)
-            data_location.save()
-            data_location.data.add(data)
+            file_storage.data.add(data)
 
         output_path = self._get_per_data_dir("DATA_DIR", data_location.url)
         dir_mode = self.settings_actual.get("FLOW_EXECUTOR", {}).get(
