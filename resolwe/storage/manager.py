@@ -217,7 +217,7 @@ class Manager:
     def process(self):
         """Process all FileStorage objects."""
         logger.debug("Starting storage manager run")
-        for file_storage in FileStorage.objects.all():
+        for file_storage in FileStorage.objects.iterator():
             with transaction.atomic():
                 q_set = FileStorage.objects.filter(
                     id=file_storage.id

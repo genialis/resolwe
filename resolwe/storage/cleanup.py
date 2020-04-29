@@ -61,7 +61,7 @@ class Cleaner:
         qset = FileStorage.objects.all()
         if file_storage_id is not None:
             qset = qset.filter(pk=file_storage_id)
-        for file_storage in qset.filter(data__isnull=True):
+        for file_storage in qset.filter(data__isnull=True).iterator():
             # Set applicable storage locations to deleting.
             StorageLocation.all_objects.unreferenced_locations().filter(
                 file_storage=file_storage
