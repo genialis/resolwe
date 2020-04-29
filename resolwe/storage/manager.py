@@ -20,29 +20,45 @@ class DecisionMaker:
     def __init__(self, file_storage: FileStorage):
         """Initialization."""
         self.file_storage = file_storage
-        data_slug = None
-        process_type = None
+        self.process_type = ""
+        self.data_slug = ""
         data = file_storage.data.first()
         if data is not None:
-            process_type = data.process.type
-            data_slug = data.slug
-        # Later element override previous ones.
-        self.override_priorities = [
-            ("process_type", process_type),
-            ("data_slug", data_slug),
-        ]
+            self.process_type = data.process.type
+            self.data_slug = data.slug
 
-    def _get_rules(self, connector_name: str, _type: str) -> dict:
+    def _get_data_slug_overrides(self, override_rules: dict) -> dict:
+        """Get a matching override rule for data slug."""
+        return override_rules.get(self.data_slug, dict())
+
+    def _get_process_type_overrides(self, override_rules: dict) -> dict:
+        """Get a matching override rule for process type."""
+        rule = dict()
+        matching_keys = []
+        for key in override_rules.keys():
+            if not key.endswith(":"):
+                key += ":"
+            if self.process_type.startswith(key):
+                matching_keys.append(key)
+        matching_keys.sort(key=len)
+        for matching_key in matching_keys:
+            rule.update(override_rules[matching_key])
+        return rule
+
+    def _get_rules(self, connector_name: str, rule_type: str) -> dict:
         """Get rules for the given connector name and _type.
 
         Known rule types are 'copy' and 'delete'.
         """
         location_settings = copy.deepcopy(STORAGE_CONNECTORS.get(connector_name, {}))
-        rules: dict = location_settings.get("config", {}).get(_type, {})
-        for override, name in self.override_priorities:
-            override_rules = rules.pop(override, {})
-            if name in override_rules:
-                rules.update(override_rules[name])
+        rules: dict = location_settings.get("config", {}).get(rule_type, {})
+        override_rules = []
+        override_rules.append(
+            self._get_process_type_overrides(rules.pop("process_type", {}))
+        )
+        override_rules.append(self._get_data_slug_overrides(rules.pop("data_slug", {})))
+        for override_rule in override_rules:
+            rules.update(override_rule)
         return rules
 
     def copy(self) -> List[str]:
