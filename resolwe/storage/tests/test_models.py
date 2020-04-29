@@ -216,12 +216,11 @@ class StorageLocationTest(TransactionTestCase):
         connector_mock = MagicMock(delete=delete)
         with patch("resolwe.storage.models.connectors", {"local": connector_mock}):
             storage_location.delete_data()
-        self.assertEqual(delete.call_count, 2)
+        self.assertEqual(delete.call_count, 1)
         self.assertCountEqual(
             delete.call_args_list[0][0][0],
-            ["url/remove_me.txt", "url/dir/remove_me.txt"],
+            ["url/remove_me.txt", "url/dir/remove_me.txt", "url/"],
         )
-        self.assertEqual(delete.call_args_list[1][0][0], ["url/"])
 
 
 class AccessLogTest(TransactionTestCase):

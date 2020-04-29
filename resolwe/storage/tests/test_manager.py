@@ -98,6 +98,22 @@ class DecisionMakerTest(TestCase):
         self.assertIn("S3", copies)
         self.assertIn("GCS", copies)
 
+    def test_copy_negative_delay(self):
+        StorageLocation.objects.create(
+            file_storage=self.file_storage, url="url", connector_name="local"
+        )
+        FileStorage.objects.filter(pk=self.file_storage.pk).update(
+            created=timezone.now() - timedelta(days=3)
+        )
+        self.file_storage.refresh_from_db()
+
+        connectors_settings = copy.deepcopy(CONNECTORS_SETTINGS)
+        connectors_settings["S3"]["config"]["copy"]["delay"] = -1
+        with patch("resolwe.storage.manager.STORAGE_CONNECTORS", connectors_settings):
+            copies = self.decision_maker.copy()
+        self.assertEqual(len(copies), 1)
+        self.assertIn("GCS", copies)
+
     def test_delete_last(self):
         location_s3 = StorageLocation.objects.create(
             file_storage=self.file_storage,
@@ -145,6 +161,27 @@ class DecisionMakerTest(TestCase):
             last_update=timezone.now() - timedelta(days=5)
         )
         self.assertEqual(self.decision_maker.delete(), location_s3)
+
+    def test_delete_negative_delay(self):
+        location_s3 = StorageLocation.objects.create(
+            file_storage=self.file_storage,
+            url="url",
+            connector_name="S3",
+            status=StorageLocation.STATUS_DONE,
+        )
+        StorageLocation.objects.create(
+            file_storage=self.file_storage,
+            url="url",
+            connector_name="local",
+            status=StorageLocation.STATUS_DONE,
+        )
+        StorageLocation.objects.filter(pk=location_s3.pk).update(
+            last_update=timezone.now() - timedelta(days=5)
+        )
+        connectors_settings = copy.deepcopy(CONNECTORS_SETTINGS)
+        connectors_settings["S3"]["config"]["delete"]["delay"] = -1
+        with patch("resolwe.storage.manager.STORAGE_CONNECTORS", connectors_settings):
+            self.assertIsNone(self.decision_maker.delete())
 
     def test_delete_mincopy(self):
         StorageLocation.objects.create(

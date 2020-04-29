@@ -89,6 +89,9 @@ class DecisionMaker:
         )
 
         if "delay" in copy_rules:
+            # Do not copy if delay is negative.
+            rule_results["delay_non_negative"] = copy_rules["delay"] >= 0
+
             move_delay = timedelta(days=copy_rules["delay"])
             current_delay = now() - self.file_storage.created
             rule_results["delay"] = current_delay >= move_delay
@@ -136,6 +139,9 @@ class DecisionMaker:
         rule_results["highest_priority"] = storage_location != default_location
 
         if "delay" in rules:
+            # Do not remove if delay is negative.
+            rule_results["delay_non_negative"] = rules["delay"] >= 0
+
             delete_delay = timedelta(days=rules["delay"])
             current_delay = now() - storage_location.last_update
             rule_results["delay"] = current_delay >= delete_delay
