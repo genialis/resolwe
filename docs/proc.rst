@@ -216,7 +216,7 @@ and the definition of the field.
 
 * ``type`` is required and defines the type of entity that the new ``Data``
   object is attached to
-* ``input`` limits the group of parents' enteties to a single field (dot
+* ``input`` limits the group of parents' entities to a single field (dot
   separated path to the field in the definition of input)
 * ``descriptor_schema`` specifies the slug of the descriptor schema that is
   attached to newly created entity. It defaults to the value of ``type``
