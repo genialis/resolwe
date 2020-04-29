@@ -36,9 +36,8 @@ class DecisionMaker:
         rule = dict()
         matching_keys = []
         for key in override_rules.keys():
-            if not key.endswith(":"):
-                key += ":"
-            if self.process_type.startswith(key):
+            modified_key = key if key.endswith(":") else key + ":"
+            if self.process_type.startswith(modified_key):
                 matching_keys.append(key)
         matching_keys.sort(key=len)
         for matching_key in matching_keys:
