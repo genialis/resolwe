@@ -261,7 +261,7 @@ class DecisionMakerOverrideRuleTest(TestCase):
     def test_override_process_type(self):
         decision_maker = DecisionMaker(self.file_storage1)
         settings = copy.deepcopy(CONNECTORS_SETTINGS)
-        override = {"data:test:": {"delay": 10}}
+        override = {"data:test": {"delay": 10}}
         override_nonexisting = {"data:nonexisting": {"delay": 10}}
         FileStorage.objects.filter(pk=self.file_storage1.pk).update(
             created=timezone.now() - timedelta(days=6)
