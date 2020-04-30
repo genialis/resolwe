@@ -145,7 +145,7 @@ class DecisionMakerTest(TestCase):
         self.assertIsNone(self.decision_maker.delete())
 
     def test_delete(self):
-        location_s3 = StorageLocation.objects.create(
+        location_s3: StorageLocation = StorageLocation.objects.create(
             file_storage=self.file_storage,
             url="url",
             connector_name="S3",
@@ -161,6 +161,11 @@ class DecisionMakerTest(TestCase):
             last_update=timezone.now() - timedelta(days=5)
         )
         self.assertEqual(self.decision_maker.delete(), location_s3)
+
+        StorageLocation.objects.filter(pk=location_s3.pk).update(
+            status=StorageLocation.STATUS_DELETING
+        )
+        self.assertIsNone(self.decision_maker.delete())
 
     def test_delete_negative_delay(self):
         location_s3 = StorageLocation.objects.create(
@@ -487,6 +492,25 @@ class ManagerTest(TransactionTestCase):
         DecisionMaker = MagicMock(return_value=decision_maker)
         with patch("resolwe.storage.manager.DecisionMaker", DecisionMaker):
             self.manager._process_file_storage(self.file_storage1)
+        copy.assert_called_once_with()
+        self.assertEqual(delete.call_count, 2)
+        delete_data.assert_called_once_with()
+
+    def test_delete_failed(self):
+        # Error while deleting location, do not fall into endless loop.
+        delete_data = MagicMock()
+        location_local_mock = MagicMock(
+            spec=StorageLocation, delete_data=delete_data, connector_name="local"
+        )
+        file_storage_mock = MagicMock(
+            spec=FileStorage, default_storage_location=location_local_mock
+        )
+        copy = MagicMock(return_value=[])
+        delete = MagicMock(return_value=location_local_mock)
+        decision_maker = MagicMock(copy=copy, delete=delete)
+        DecisionMaker = MagicMock(return_value=decision_maker)
+        with patch("resolwe.storage.manager.DecisionMaker", DecisionMaker):
+            self.manager._process_file_storage(file_storage_mock)
         copy.assert_called_once_with()
         self.assertEqual(delete.call_count, 2)
         delete_data.assert_called_once_with()

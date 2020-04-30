@@ -109,7 +109,7 @@ class DecisionMaker:
         can_delete = [
             storage_location
             for storage_location in self.file_storage.storage_locations.all()
-            if self._should_delete(storage_location) and not storage_location.locked
+            if self._should_delete(storage_location)
         ]
         if can_delete:
             return sorted(
@@ -125,6 +125,7 @@ class DecisionMaker:
         rules = self._get_rules(storage_location.connector_name, "delete")
         rule_results = {}
         rule_results["has_rules"] = len(rules) > 0
+
         rule_results["not_locked"] = not storage_location.locked
 
         # Never remove the last storage location.
@@ -136,6 +137,14 @@ class DecisionMaker:
         # default_storage_location on FileStorage object.
         default_location = storage_location.file_storage.default_storage_location
         rule_results["highest_priority"] = storage_location != default_location
+
+        # Do not delete location with status STATUS_DELETING. Probably error
+        # occured while removing it and we do not want to fall into endless
+        # loop of trying to remove same location over and over again.
+        # The Cleanup Manager will remove it eventually.
+        rule_results["status_ok"] = (
+            storage_location.status == StorageLocation.STATUS_DONE
+        )
 
         if "delay" in rules:
             # Do not remove if delay is negative.
@@ -193,17 +202,31 @@ class Manager:
                     access_log.finished = now()
                     access_log.save()
 
+        processed_locations = set()
         delete_location = decide.delete()
         while delete_location:
+            if delete_location.pk in processed_locations:
+                logger.error(
+                    "Location {} already processed, aborting delete".format(
+                        storage_location
+                    )
+                )
+                break
+
             logger.debug(
-                "Delete from location {}".format(delete_location.connector_name)
+                "Deleting data from location {}".format(delete_location.connector_name)
             )
+            processed_locations.add(delete_location.pk)
             # This is a problem, since delete is NOT atomic and can even be
             # long running on cloud (as in couple of days).
             # Delete the StorageLocation first (otherwise we have inconsistent
             # state) and let the healthcare operation remove stale files.
             # TODO: healthcare
             try:
+                # Update status to DELETING so DecisionManager will not pick
+                # it again in case of error while deleting data.
+                delete_location.status = StorageLocation.STATUS_DELETING
+                delete_location.save()
                 delete_location.delete_data()
                 delete_location.delete()
             except Exception:
