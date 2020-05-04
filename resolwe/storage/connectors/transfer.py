@@ -6,11 +6,37 @@ from functools import partial
 from threading import Condition
 from typing import List, Optional
 
+import wrapt
+
 from .baseconnector import BaseStorageConnector
 from .exceptions import DataTransferError
 from .hasher import StreamHasher
 
+try:
+    from google.api_core.exceptions import ServiceUnavailable
+    from requests.exceptions import ConnectionError, ReadTimeout
+
+    gcs_exceptions = [ConnectionError, ReadTimeout, ServiceUnavailable]
+except ModuleNotFoundError:
+    gcs_exceptions = []
+
+
 logger = logging.getLogger(__name__)
+ERROR_MAX_RETRIES = 3
+transfer_exceptions = tuple(gcs_exceptions + [DataTransferError])
+
+
+@wrapt.decorator
+def retry_on_transfer_error(wrapped, instance, args, kwargs):
+    """Retry on tranfser error."""
+    for _ in range(ERROR_MAX_RETRIES):
+        try:
+            return wrapped(*args, **kwargs)
+
+        except transfer_exceptions as err:
+            connection_err = err
+
+    raise connection_err
 
 
 class CircularBuffer:
@@ -189,7 +215,7 @@ class Transfer:
     """Transfer data between two storage connectors using in-memory buffer."""
 
     def __init__(
-        self, from_connector: BaseStorageConnector, to_connector: BaseStorageConnector
+        self, from_connector: BaseStorageConnector, to_connector: BaseStorageConnector,
     ):
         """Initialize transfer object."""
         self.from_connector = from_connector
@@ -217,6 +243,7 @@ class Transfer:
             if entry[-1] != "/":
                 self.transfer(entry, entry)
 
+    @retry_on_transfer_error
     def transfer(self, from_url: str, to_url: str):
         """Transfer single object between two storage connectors."""
 
