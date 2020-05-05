@@ -122,5 +122,6 @@ class GoogleConnector(BaseStorageConnector):
             version="v4",
             expiration=datetime.timedelta(seconds=expiration),
             method="GET",
+            virtual_hosted_style=True,
         )
         return response

@@ -68,7 +68,7 @@ setuptools.setup(
         # XXX: Temporarily pin docutils to 0.15.2 (last before 0.16) since botocore3 depends
         # on docutils<0.16 and pip tries to install 0.16.
         "storage_s3": ["boto3~=1.12.7", "crcmod", "docutils~=0.15.2"],
-        "storage_gcs": ["crcmod", "google-cloud-storage~=1.26.0"],
+        "storage_gcs": ["crcmod", "google-cloud-storage~=1.28.1"],
         "docs": ["sphinx_rtd_theme", "pyasn1>=0.4.8",],
         "package": ["twine", "wheel"],
         "test": [
