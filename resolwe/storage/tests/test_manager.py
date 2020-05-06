@@ -80,13 +80,17 @@ class DecisionMakerTest(TestCase):
             self.assertIsNone(self.decision_maker.delete())
 
     def test_copy(self):
-        StorageLocation.objects.create(
-            file_storage=self.file_storage, url="url", connector_name="local"
+        storage_location: StorageLocation = StorageLocation.objects.create(
+            file_storage=self.file_storage, url="url", connector_name="local",
         )
         FileStorage.objects.filter(pk=self.file_storage.pk).update(
             created=timezone.now() - timedelta(days=2)
         )
         self.file_storage.refresh_from_db()
+        self.assertEqual(self.decision_maker.copy(), [])
+
+        storage_location.status = StorageLocation.STATUS_DONE
+        storage_location.save()
         self.assertEqual(self.decision_maker.copy(), ["S3"])
 
         FileStorage.objects.filter(pk=self.file_storage.pk).update(
@@ -100,7 +104,10 @@ class DecisionMakerTest(TestCase):
 
     def test_copy_negative_delay(self):
         StorageLocation.objects.create(
-            file_storage=self.file_storage, url="url", connector_name="local"
+            file_storage=self.file_storage,
+            url="url",
+            connector_name="local",
+            status=StorageLocation.STATUS_DONE,
         )
         FileStorage.objects.filter(pk=self.file_storage.pk).update(
             created=timezone.now() - timedelta(days=3)

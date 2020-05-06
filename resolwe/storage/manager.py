@@ -83,6 +83,13 @@ class DecisionMaker:
 
         rule_results["has_rules"] = len(copy_rules) > 0
 
+        # Do not copy objects that have no StorageLocation.
+        default_location = self.file_storage.default_storage_location
+        rule_results["location_present"] = (
+            default_location is not None
+            and default_location.status == StorageLocation.STATUS_DONE
+        )
+
         rule_results["copy_not_present"] = not self.file_storage.has_storage_location(
             connector_name
         )
