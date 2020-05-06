@@ -89,6 +89,7 @@ class DataViewSet(
         if not request.user.is_authenticated:
             raise exceptions.NotFound
 
+        inherit_collection = request.data.get("inherit_collection", False)
         ids = self.get_ids(request.data)
         queryset = get_objects_for_user(
             request.user, "view_data", Data.objects.filter(id__in=ids)
@@ -102,8 +103,9 @@ class DataViewSet(
                 )
             )
 
-        # TODO support ``inherit_collection``
-        duplicated = queryset.duplicate(contributor=request.user)
+        duplicated = queryset.duplicate(
+            contributor=request.user, inherit_collection=inherit_collection,
+        )
 
         serializer = self.get_serializer(duplicated, many=True)
         return Response(serializer.data)

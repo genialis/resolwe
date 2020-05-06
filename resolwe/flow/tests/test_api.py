@@ -377,15 +377,19 @@ class TestDataViewSetCase(TestCase):
         self.assertEqual(response.status_code, 400)
 
     def test_duplicate(self):
-        data = Data.objects.create(contributor=self.contributor, process=self.proc)
-        assign_perm("view_data", self.contributor, data)
+        def create_data():
+            data = Data.objects.create(contributor=self.contributor, process=self.proc)
+            assign_perm("view_data", self.contributor, data)
 
-        data_location = create_data_location(subpath="")
-        data_location.data.add(data)
+            data_location = create_data_location()
+            data_location.data.add(data)
 
-        data.status = Data.STATUS_DONE
-        data.save()
+            data.status = Data.STATUS_DONE
+            data.save()
+            return data
 
+        # Simplest form:
+        data = create_data()
         request = factory.post(
             reverse("resolwe-api:data-duplicate"), {"ids": [data.id]}, format="json"
         )
@@ -394,6 +398,23 @@ class TestDataViewSetCase(TestCase):
 
         duplicate = Data.objects.get(id=response.data[0]["id"])
         self.assertTrue(duplicate.is_duplicate())
+
+        # Inherit collection
+        data = create_data()
+        assign_perm("edit_collection", self.contributor, self.collection)
+        self.collection.data.add(data)
+        request = factory.post(
+            reverse("resolwe-api:data-duplicate"),
+            {"ids": [data.id], "inherit_collection": True},
+            format="json",
+        )
+        force_authenticate(request, self.contributor)
+        response = self.duplicate_viewset(request)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        duplicate = Data.objects.get(id=response.data[0]["id"])
+        self.assertTrue(duplicate.is_duplicate())
+        self.assertTrue(duplicate.collection.id, self.collection.id)
 
     def test_duplicate_not_auth(self):
         request = factory.post(reverse("resolwe-api:data-duplicate"), format="json")

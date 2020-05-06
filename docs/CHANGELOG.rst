@@ -29,6 +29,7 @@ Added
 - Add cleanup manager for removing unreferenced data
 - Add ``isnull`` related lookup filter
 - Add ``entity_count`` to the ``Collection`` serializer
+- Add ``inherit_collection`` to ``Data`` viewset
 
 Fixed
 -----
