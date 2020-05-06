@@ -1,6 +1,7 @@
 """Google storage connector."""
 import base64
 import datetime
+import mimetypes
 import os
 from contextlib import suppress
 from pathlib import Path
@@ -56,13 +57,13 @@ class GoogleConnector(BaseStorageConnector):
     @validate_url
     def push(self, stream, url, hash_type=None, data_hash=None):
         """Push data from the stream to the given URL."""
-
+        mime_type = mimetypes.guess_type(url)[0]
         blob = self.bucket.blob(os.fspath(url))
         if hash_type is not None:
             assert hash_type in self.supported_upload_hash
             prop = self.hash_propery[hash_type]
             setattr(blob, prop, data_hash)
-        blob.upload_from_file(stream)
+        blob.upload_from_file(stream, content_type=mime_type)
 
     @validate_url
     def get(self, url, stream):

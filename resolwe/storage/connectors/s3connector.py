@@ -1,6 +1,7 @@
 """Amazon S3 storage connector."""
 import json
 import logging
+import mimetypes
 import os
 from pathlib import Path
 
@@ -63,11 +64,14 @@ class AwsS3Connector(BaseStorageConnector):
 
     def push(self, stream, url):
         """Push data from the stream to the given URL."""
+        mime_type = mimetypes.guess_type(url)[0]
+        extra_args = {} if mime_type is None else {"ContentType": mime_type}
         self.client.upload_fileobj(
             stream,
             self.bucket_name,
             os.fspath(url),
             Config=self._get_transfer_config(),
+            ExtraArgs=extra_args,
         )
 
     def delete(self, urls):
