@@ -338,6 +338,8 @@ class ExecutorListener:
         local_location = file_storage.default_storage_location
         with transaction.atomic():
             try:
+                # Remove files previously referenced by updating data.output.
+                ReferencedPath.objects.filter(file_storage=file_storage).delete()
                 ReferencedPath.objects.bulk_create(
                     [
                         ReferencedPath(path=path, file_storage=file_storage, size=size)
@@ -803,6 +805,18 @@ class ExecutorListener:
 
         try:
             d.save(update_fields=list(changeset.keys()))
+            # Update referenced files. Since entire output is sent every time
+            # just delete and recreate objects. Computing changes and updating
+            # would probably be slower.
+            if "output" in changeset:
+                ReferencedPath.objects.filter(file_storage=d.location).delete()
+                ReferencedPath.objects.bulk_create(
+                    [
+                        ReferencedPath(path=path, file_storage=d.location)
+                        for path in referenced_files(d, include_descriptor=False)
+                    ]
+                )
+
         except ValidationError as exc:
             logger.error(
                 __(

@@ -671,49 +671,69 @@ def fill_with_defaults(process_input, input_schema):
             dict_dot(process_input, path, field_schema["default"])
 
 
-def referenced_files(data):
+def referenced_schema_files(fields, schema):
+    """Get the list of files and directories references by fields.
+
+    :return: tuple of lists, first list containing  files and
+        directories refereced in data.output.
+    :rtype: Tuple[List[str], List[str]]
+    """
+    refs = []
+    for field_schema, fields in iterate_fields(fields, schema):
+        if "type" in field_schema:
+            field_type = field_schema["type"]
+            field_name = field_schema["name"]
+
+            # Add basic:file: entries
+            if field_type.startswith("basic:file:"):
+                refs.append(fields[field_name]["file"])
+                refs += fields[field_name].get("refs", [])
+
+            # Add list:basic:file: entries
+            elif field_type.startswith("list:basic:file:"):
+                for field in fields[field_name]:
+                    refs.append(field["file"])
+                    refs += field.get("refs", [])
+
+            # Add basic:dir: entries
+            elif field_type.startswith("basic:dir:"):
+                refs.append(fields[field_name]["dir"])
+                refs += fields[field_name].get("refs", [])
+
+            # Add list:basic:dir: entries
+            elif field_type.startswith("list:basic:dir:"):
+                for field in fields[field_name]:
+                    refs.append(field["dir"])
+                    refs += field.get("refs", [])
+    return refs
+
+
+def referenced_files(data, include_descriptor=True):
     """Get the list of files and directories referenced by the data object.
 
     :param data: given data object.
     :type data: resolwe.flow.models.Data
 
-    :return: tuple of lists, first list containing referenced files and
-        referenced directories.
-    :rtype: Tuple[List[str], List[str]]
+    :param include_descriptor: include files referenced in descriptor schema.
+    :type include_descriptor: bool
+
+    :return: referenced files and directories.
+    :rtype: List[str]
     """
-    refs = ["jsonout.txt", "stderr.txt", "stdout.txt"]
+    special_files = ["jsonout.txt", "stderr.txt", "stdout.txt"]
 
     output = data.output
     output_schema = data.process.output_schema
+
     descriptor = data.descriptor
     descriptor_schema = getattr(data.descriptor_schema, "schema", [])
-    meta_fields = [[output, output_schema], [descriptor, descriptor_schema]]
 
-    for meta_field, meta_field_schema in meta_fields:
-        for field_schema, fields in iterate_fields(meta_field, meta_field_schema):
-            if "type" in field_schema:
-                field_type = field_schema["type"]
-                field_name = field_schema["name"]
+    output_files = referenced_schema_files(output, output_schema)
 
-                # Add basic:file: entries
-                if field_type.startswith("basic:file:"):
-                    refs.append(fields[field_name]["file"])
-                    refs += fields[field_name].get("refs", [])
+    descriptor_files = (
+        referenced_schema_files(descriptor, descriptor_schema)
+        if include_descriptor
+        else []
+    )
 
-                # Add list:basic:file: entries
-                elif field_type.startswith("list:basic:file:"):
-                    for field in fields[field_name]:
-                        refs.append(field["file"])
-                        refs += field.get("refs", [])
-
-                # Add basic:dir: entries
-                elif field_type.startswith("basic:dir:"):
-                    refs.append(fields[field_name]["dir"])
-                    refs += fields[field_name].get("refs", [])
-
-                # Add list:basic:dir: entries
-                elif field_type.startswith("list:basic:dir:"):
-                    for field in fields[field_name]:
-                        refs.append(field["dir"])
-                        refs += field.get("refs", [])
-    return refs
+    return special_files + output_files + descriptor_files

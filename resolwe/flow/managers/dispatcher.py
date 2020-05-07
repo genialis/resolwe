@@ -31,7 +31,8 @@ from django.utils.timezone import now
 from resolwe.flow.engine import InvalidEngineError, load_engines
 from resolwe.flow.execution_engines import ExecutionError
 from resolwe.flow.models import Data, DataDependency, Process
-from resolwe.storage.models import FileStorage, StorageLocation
+from resolwe.flow.models.utils import referenced_files
+from resolwe.storage.models import FileStorage, ReferencedPath, StorageLocation
 from resolwe.storage.settings import STORAGE_CONNECTORS, STORAGE_LOCAL_CONNECTOR
 from resolwe.test.utils import is_testing
 from resolwe.utils import BraceMessage as __
@@ -474,6 +475,10 @@ class Manager:
                 connector_name=STORAGE_LOCAL_CONNECTOR,
             )
             file_storage.data.add(data)
+
+            # Reference 'special' files.
+            for file_ in referenced_files(data, include_descriptor=False):
+                ReferencedPath.objects.create(path=file_, file_storage=file_storage)
 
         output_path = self._get_per_data_dir("DATA_DIR", data_location.url)
         dir_mode = self.settings_actual.get("FLOW_EXECUTOR", {}).get(
