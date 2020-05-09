@@ -19,7 +19,6 @@ class AwsS3Connector(BaseStorageConnector):
     def __init__(self, config: dict, name: str):
         """Connector initialization."""
         super().__init__(config, name)
-        self.config = config
         self.bucket_name = config["bucket"]
         self.supported_download_hash = ["md5", "crc32c", "awss3etag"]
         self.supported_upload_hash = ["awss3etag"]
@@ -62,6 +61,7 @@ class AwsS3Connector(BaseStorageConnector):
         self._initialize()
         return getattr(self, name)
 
+    @validate_url
     def push(self, stream, url):
         """Push data from the stream to the given URL."""
         mime_type = mimetypes.guess_type(url)[0]
@@ -85,6 +85,7 @@ class AwsS3Connector(BaseStorageConnector):
             objects = [{"Key": os.fspath(url)} for url in next_chunk]
             bucket.delete_objects(Delete={"Objects": objects, "Quiet": True})
 
+    @validate_url
     def get(self, url, stream):
         """Get data from the given URL and write it into the given stream."""
         self.client.download_fileobj(
@@ -99,6 +100,7 @@ class AwsS3Connector(BaseStorageConnector):
             use_threads=self.use_threads,
         )
 
+    @validate_url
     def get_object_list(self, url):
         """Get a list of objects stored bellow the given URL."""
         url = os.path.join(url, "")
@@ -114,6 +116,7 @@ class AwsS3Connector(BaseStorageConnector):
                 ret.append(obj["Key"])
         return ret
 
+    @validate_url
     def get_hash(self, url, hash_type):
         """Get the hash of the given type for the given object."""
         resource = self.awss3.Object(self.bucket_name, os.fspath(url))
@@ -130,6 +133,7 @@ class AwsS3Connector(BaseStorageConnector):
                 # Something else has gone wrong.
                 raise
 
+    @validate_url
     def exists(self, url):
         """Get if the object at the given URL exist."""
         try:
@@ -143,6 +147,7 @@ class AwsS3Connector(BaseStorageConnector):
         else:
             return True
 
+    @validate_url
     def set_hashes(self, url, hashes):
         """Set the  hashes for the given object."""
         # Changing metadata on existing objects in S3 is annoyingly hard.
@@ -172,6 +177,7 @@ class AwsS3Connector(BaseStorageConnector):
         """Get a base path for this connector."""
         return Path("")
 
+    @validate_url
     def presigned_url(self, url, expiration=60):
         """Create a presigned URL.
 

@@ -17,6 +17,10 @@ Added
 - Add a pseudo Python process to serve as a template
 - Add ``validate_urls`` method to ``BaseConnector`` class.
 
+Fixed
+-----
+- Add missing decorator ``validate_url`` to ``AwsS3Connector``
+
 
 ===================
 22.0.0 - 2020-05-18
