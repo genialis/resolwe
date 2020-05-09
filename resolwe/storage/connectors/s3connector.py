@@ -16,6 +16,8 @@ logger = logging.getLogger(__name__)
 class AwsS3Connector(BaseStorageConnector):
     """Amazon S3 storage connector."""
 
+    REQUIRED_SETTINGS = ["bucket", "credentials"]
+
     def __init__(self, config: dict, name: str):
         """Connector initialization."""
         super().__init__(config, name)

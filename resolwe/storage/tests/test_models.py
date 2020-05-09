@@ -29,11 +29,15 @@ CONNECTORS_SETTINGS = {
     },
     "S3": {
         "connector": "resolwe.storage.connectors.s3connector.AwsS3Connector",
-        "config": {"priority": 200, "bucket": "genialis-test-storage",},
+        "config": {
+            "priority": 200,
+            "bucket": "genialis-test-storage",
+            "credentials": "test.json",
+        },
     },
     "GCS": {
         "connector": "resolwe.storage.connectors.googleconnector.GoogleConnector",
-        "config": {"bucket": "genialis-test-storage",},
+        "config": {"bucket": "genialis-test-storage", "credentials": "test.json",},
     },
 }
 

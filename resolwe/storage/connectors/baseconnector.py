@@ -1,5 +1,6 @@
 """Storage connector."""
 import abc
+import copy
 from inspect import getfullargspec
 from os import PathLike
 from pathlib import PurePath
@@ -51,10 +52,12 @@ def validate_urls(wrapped, instance, args, kwargs):
 class BaseStorageConnector(metaclass=abc.ABCMeta):
     """Base class for storage connectors."""
 
+    REQUIRED_SETTINGS = ["Connector must override REQUIRED_SETTINGS"]
+
     def __init__(self, config: dict, name: str):
         """Connector initialization."""
         self.priority = config.get("priority", DEFAULT_CONNECTOR_PRIORITY)
-        self.config = config
+        self.config = copy.deepcopy(config)
         self.name = name
         self.supported_upload_hash = []
         self.supported_download_hash = []

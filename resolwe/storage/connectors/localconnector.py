@@ -12,6 +12,7 @@ class LocalFilesystemConnector(BaseStorageConnector):
 
     #: Read files by chunks of the given size
     CHUNK_SIZE = 1024 * 1024
+    REQUIRED_SETTINGS = ["path"]
 
     def __init__(self, config: dict, name: str):
         """Connector initialization."""
@@ -79,9 +80,14 @@ class LocalFilesystemConnector(BaseStorageConnector):
             hasher.compute(f)
         return hasher.hexdigest(hash_type)
 
+    @validate_url
     def set_hashes(self, url, hashes):
-        """Set the  hashes for the given object."""
-        pass
+        """Set the  hashes for the given object.
+
+        Local connector has currently no way to store metadata alongside files
+        so this call is silently ignored. Hash is calculated always when
+        get_hashes method is called.
+        """
 
     @property
     def base_path(self):

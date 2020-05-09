@@ -15,6 +15,8 @@ from .baseconnector import BaseStorageConnector, validate_url, validate_urls
 class GoogleConnector(BaseStorageConnector):
     """Google Cloud Storage storage connector."""
 
+    REQUIRED_SETTINGS = ["bucket", "credentials"]
+
     def __init__(self, config: dict, name: str):
         """Initialize Google connector."""
         super().__init__(config, name)

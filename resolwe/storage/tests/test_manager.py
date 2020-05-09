@@ -16,7 +16,12 @@ from resolwe.storage.connectors import (
 )
 from resolwe.storage.connectors.exceptions import DataTransferError
 from resolwe.storage.manager import DecisionMaker, Manager
-from resolwe.storage.models import AccessLog, FileStorage, StorageLocation
+from resolwe.storage.models import (
+    AccessLog,
+    FileStorage,
+    ReferencedPath,
+    StorageLocation,
+)
 from resolwe.test import TestCase, TransactionTestCase
 
 CONNECTORS_SETTINGS = {
@@ -31,6 +36,7 @@ CONNECTORS_SETTINGS = {
             "bucket": "genialis-test-storage",
             "copy": {"delay": 2,},
             "delete": {"delay": 5,},
+            "credentials": "test.json",
         },
     },
     "GCS": {
@@ -40,6 +46,7 @@ CONNECTORS_SETTINGS = {
             "bucket": "genialis_storage_test",
             "copy": {"delay": 3,},
             "delete": {"delay": 5, "min_other_copies": 2},
+            "credentials": "test.json",
         },
     },
 }
