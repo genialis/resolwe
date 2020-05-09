@@ -15,6 +15,7 @@ Added
 - Add ``move_to_collection`` to ``Data`` viewset
 - Report registration failure in ``ProcessTestCase``
 - Add a pseudo Python process to serve as a template
+- Add ``validate_urls`` method to ``BaseConnector`` class.
 
 
 ===================

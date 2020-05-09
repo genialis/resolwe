@@ -9,7 +9,7 @@ from pathlib import Path
 from google.api_core.exceptions import NotFound
 from google.cloud import storage
 
-from .baseconnector import BaseStorageConnector, validate_url
+from .baseconnector import BaseStorageConnector, validate_url, validate_urls
 
 
 class GoogleConnector(BaseStorageConnector):
@@ -44,9 +44,9 @@ class GoogleConnector(BaseStorageConnector):
         self._initialize()
         return getattr(self, name)
 
+    @validate_urls
     def delete(self, urls):
         """Remove objects."""
-        super().delete(urls)
         with suppress(NotFound):
             with self.client.batch():
                 for to_delete in urls:

@@ -8,7 +8,7 @@ from pathlib import Path
 import boto3
 import botocore
 
-from .baseconnector import BaseStorageConnector
+from .baseconnector import BaseStorageConnector, validate_url, validate_urls
 
 logger = logging.getLogger(__name__)
 
@@ -74,9 +74,9 @@ class AwsS3Connector(BaseStorageConnector):
             ExtraArgs=extra_args,
         )
 
+    @validate_urls
     def delete(self, urls):
         """Remove objects."""
-        super().delete(urls)
         # At most 1000 objects can be deleted at the same time.
         max_chunk = 1000
         bucket = self.awss3.Bucket(self.bucket_name)

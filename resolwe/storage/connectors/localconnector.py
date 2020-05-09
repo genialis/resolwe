@@ -3,7 +3,7 @@ import os
 import shutil
 from pathlib import Path
 
-from .baseconnector import BaseStorageConnector, validate_url
+from .baseconnector import BaseStorageConnector, validate_url, validate_urls
 from .hasher import StreamHasher
 
 
@@ -21,9 +21,9 @@ class LocalFilesystemConnector(BaseStorageConnector):
         self.supported_download_hash = ["crc32c", "md5"]
         self.multipart_chunksize = self.CHUNK_SIZE
 
+    @validate_urls
     def delete(self, urls):
         """Remove objects."""
-        super().delete(urls)
         for url in urls:
             path = self.base_path / url
             if path.exists():

@@ -29,6 +29,25 @@ def validate_url(wrapped, instance, args, kwargs):
     return wrapped(*args, **kwargs)
 
 
+@decorator
+def validate_urls(wrapped, instance, args, kwargs):
+    """Enforces argument named "urls" to be a list of relative paths."""
+    try:
+        # Use -1 since self is not included in the args.
+        urls = args[getfullargspec(wrapped).args.index("urls") - 1]
+    except IndexError:
+        urls = kwargs.get("urls")
+    # Check that URLS is really a list of strings.
+    if not isinstance(urls, list):
+        raise TypeError("Argument urls must be a list of strings or path-like objects")
+    if not all(isinstance(url, (str, PathLike)) for url in urls):
+        raise TypeError("Argument urls must be a list of strings or path-like objects")
+    # Check that all URLS are relative.
+    if any(PurePath(url).is_absolute() for url in urls):
+        raise ValueError("Paths must be relative.")
+    return wrapped(*args, *kwargs)
+
+
 class BaseStorageConnector(metaclass=abc.ABCMeta):
     """Base class for storage connectors."""
 
@@ -126,18 +145,7 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
 
         :rtype: None
         """
-        # Check that URLS is really a list of strings.
-        if not isinstance(urls, list):
-            raise TypeError(
-                "Argument urls must be a list of strings or path-like objects"
-            )
-        if not all(isinstance(url, (str, PathLike)) for url in urls):
-            raise TypeError(
-                "Argument urls must be a list of strings or path-like objects"
-            )
-        # Check that all URLS are relative.
-        if any(PurePath(url).is_absolute() for url in urls):
-            raise ValueError("Paths must be relative.")
+        raise NotImplementedError
 
     @abc.abstractmethod
     def presigned_url(
