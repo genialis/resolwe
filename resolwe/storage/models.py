@@ -1,12 +1,15 @@
 """Resolwe storage model."""
 import os
 from pathlib import PurePath
-from typing import List, Optional, Union
+from typing import TYPE_CHECKING, List, Optional, Union
 
 from django.db import models
 
 from resolwe.storage.connectors import DEFAULT_CONNECTOR_PRIORITY, connectors
-from resolwe.storage.connectors.baseconnector import BaseStorageConnector
+from resolwe.storage.connectors.transfer import Transfer
+
+if TYPE_CHECKING:
+    from resolwe.storage.connectors.baseconnector import BaseStorageConnector
 
 
 class FileStorage(models.Model):
@@ -180,7 +183,7 @@ class StorageLocation(models.Model):
         return os.fspath(path)
 
     @property
-    def connector(self) -> BaseStorageConnector:
+    def connector(self) -> "BaseStorageConnector":
         """Get the connector for this storage location."""
         return connectors[self.connector_name]
 
@@ -204,7 +207,10 @@ class StorageLocation(models.Model):
 
     @property
     def urls(self) -> List[str]:
-        """Get a list of URLs of stored files and directories."""
+        """Get a list of URLs of stored files and directories.
+
+        The paths are relative with respecto to the url.
+        """
         return self.file_storage.urls
 
     @property
@@ -220,6 +226,11 @@ class StorageLocation(models.Model):
     def delete_data(self):
         """Delete all data for this storage location."""
         self.connector.delete(self.connector_urls)
+
+    def transfer_data(self, destination: "StorageLocation"):
+        """Transfer data to another storage location."""
+        t = Transfer(self.connector, destination.connector)
+        t.transfer_rec(self.url, self.urls)
 
 
 class AccessLog(models.Model):

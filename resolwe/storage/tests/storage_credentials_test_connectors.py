@@ -125,7 +125,7 @@ class TestMixin:
 
     def test_get(self):
         stream = io.BytesIO()
-        starts_with = self.path(self.created_files[0]).encode("utf-8")
+        starts_with = Path(self.path(self.created_files[0])).name.encode("utf-8")
         self.connector.get(self.created_files[0], stream)
         self.assertEqual(stream.tell(), 1024 * 1024)
         stream.seek(0)
@@ -160,11 +160,7 @@ class TestMixin:
     def test_get_hash(self):
         test_file = self.created_files[0]
         computed_hashes = hashes(self.path(test_file))
-        for type_ in ("md5", "crc32c"):
-            self.assertEqual(
-                self.connector.get_hash(test_file, type_).lower(),
-                computed_hashes[type_].lower(),
-            )
+        for type_ in ("md5", "crc32c", "awss3etag"):
             self.assertEqual(
                 self.connector.get_hash(test_file, type_).lower(),
                 computed_hashes[type_].lower(),
@@ -183,6 +179,8 @@ class BaseTestCase(TestCase):
         local_settings = CONNECTORS_SETTINGS["local"]["config"].copy()
         local_settings["path"] = cls.tmp_dir.name
         cls.local = LocalFilesystemConnector(local_settings, "local")
+        # Afects awss3etag hash computation.
+        cls.local.multipart_chunksize = 8 * 1024 * 1024
         cls.gcs = GoogleConnector(CONNECTORS_SETTINGS["GCS"]["config"], "GCS")
         cls.s3 = AwsS3Connector(CONNECTORS_SETTINGS["S3"]["config"], "S3")
 
@@ -230,9 +228,11 @@ class GoogleConnectorTest(BaseTestCase, TestMixin):
             if not self.gcs.exists(file_):
                 with open(self.path(file_), "rb") as stream:
                     self.gcs.push(stream, file_)
+                    computed_hashes = hashes(self.path(file_))
+                    self.gcs.set_hashes(file_, computed_hashes)
 
 
-class S3ConnectorTest(BaseTestCase):
+class S3ConnectorTest(BaseTestCase, TestMixin):
     def setUp(self):
         self.url_prefix = "s3_connector_test"
         self.connector = self.s3
@@ -240,6 +240,8 @@ class S3ConnectorTest(BaseTestCase):
         # Use connector to push files to storage for testing.
         # If this does not work tests will fail anyway.
         for file_ in self.created_files:
-            if not self.s3.exists(file_):
-                with open(self.path(file_), "rb") as stream:
+            with open(self.path(file_), "rb") as stream:
+                if not self.s3.exists(file_):
                     self.s3.push(stream, file_)
+                    computed_hashes = hashes(self.path(file_))
+                    self.s3.set_hashes(file_, computed_hashes)

@@ -438,12 +438,15 @@ class ManagerTest(TransactionTestCase):
             connector_name="local",
             status=StorageLocation.STATUS_DONE,
         )
+        ReferencedPath.objects.create(
+            file_storage=self.file_storage1, path="testme.txt",
+        )
         transfer_rec = MagicMock(return_value=True)
         transfer_instance = MagicMock(transfer_rec=transfer_rec)
         transfer_module = MagicMock(return_value=transfer_instance)
-        with patch("resolwe.storage.manager.Transfer", transfer_module):
+        with patch("resolwe.storage.models.Transfer", transfer_module):
             self.manager._process_file_storage(self.file_storage1)
-        transfer_rec.assert_called_once_with("url")
+        transfer_rec.assert_called_once_with("url", ["testme.txt"])
         self.assertEqual(AccessLog.objects.all().count(), 1)
         self.assertEqual(StorageLocation.objects.all().count(), 2)
         created_location = StorageLocation.objects.exclude(pk=location_local.pk).get()
@@ -467,12 +470,15 @@ class ManagerTest(TransactionTestCase):
             connector_name="local",
             status=StorageLocation.STATUS_DONE,
         )
+        ReferencedPath.objects.create(
+            file_storage=self.file_storage1, path="testme.txt",
+        )
         transfer_rec = MagicMock(side_effect=raise_datatransfererror)
         transfer_instance = MagicMock(transfer_rec=transfer_rec)
         transfer_module = MagicMock(return_value=transfer_instance)
-        with patch("resolwe.storage.manager.Transfer", transfer_module):
+        with patch("resolwe.storage.models.Transfer", transfer_module):
             self.manager._process_file_storage(self.file_storage1)
-        transfer_rec.assert_called_once_with("url")
+        transfer_rec.assert_called_once_with("url", ["testme.txt"])
         self.assertEqual(AccessLog.objects.all().count(), 1)
         self.assertEqual(StorageLocation.objects.all().count(), 1)
         self.assertEqual(location_local, StorageLocation.objects.all().first())

@@ -7,7 +7,7 @@ from typing import List, Optional
 from django.db import transaction
 from django.utils.timezone import now
 
-from resolwe.storage.connectors import Transfer, connectors
+from resolwe.storage.connectors import connectors
 from resolwe.storage.models import AccessLog, FileStorage, StorageLocation
 from resolwe.storage.settings import STORAGE_CONNECTORS
 
@@ -184,14 +184,13 @@ class Manager:
                 access_log = AccessLog.objects.create(
                     storage_location=storage_location, reason="Manager data transfer"
                 )
-                transfer = Transfer(from_connector, to_connector)
                 new_storage_location = StorageLocation.objects.create(
                     file_storage=file_storage,
                     url=storage_location.url,
                     connector_name=connector_name,
                     status=StorageLocation.STATUS_UPLOADING,
                 )
-                transfer.transfer_rec(storage_location.url)
+                storage_location.transfer_data(new_storage_location)
                 new_storage_location.status = StorageLocation.STATUS_DONE
                 new_storage_location.save()
             except Exception:
