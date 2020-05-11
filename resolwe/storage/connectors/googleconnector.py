@@ -29,7 +29,10 @@ class GoogleConnector(BaseStorageConnector):
     def get_object_list(self, url):
         """Get a list of objects stored bellow the given URL."""
         url = os.path.join(url, "")
-        return [e.name for e in self.bucket.list_blobs(prefix=url)]
+        return [
+            Path(e.name).relative_to(url).as_posix()
+            for e in self.bucket.list_blobs(prefix=url)
+        ]
 
     def _initialize(self):
         """Perform initialization."""

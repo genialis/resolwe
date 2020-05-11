@@ -3,6 +3,7 @@ import io
 import os
 import shutil
 import tempfile
+from pathlib import Path
 from unittest.mock import patch
 
 from django.conf import settings
@@ -48,7 +49,7 @@ def create_file(name, size):
         f.seek(size - 1)
         f.write(b"\0")
         f.seek(0)
-        f.write(name.encode("utf-8"))
+        f.write(Path(name).name.encode("utf-8"))
 
 
 def hashes(filename):
@@ -91,10 +92,10 @@ class TestMixin:
         files = self.connector.get_object_list(self.url_prefix)
         self.assertEqual(len(files), len(self.created_files))
         for file_ in self.created_files:
-            self.assertIn(file_, files)
+            self.assertIn(Path(file_).relative_to(self.url_prefix).as_posix(), files)
+
         self.assertEqual(
-            self.connector.get_object_list(self.prefix_name("dir")),
-            [self.prefix_name("dir/3")],
+            self.connector.get_object_list(self.prefix_name("dir")), ["3"],
         )
         self.assertEqual(
             self.connector.get_object_list(self.prefix_name("nonexisting_directory")),
@@ -109,10 +110,12 @@ class TestMixin:
         self.connector.delete([self.prefix_name("nonexisting_file")])
         files = self.connector.get_object_list(self.url_prefix)
         for file_ in self.created_files:
-            self.assertIn(file_, files)
+            self.assertIn(Path(file_).relative_to(self.url_prefix).as_posix(), files)
         self.connector.delete(self.created_files[:2])
         files = self.connector.get_object_list(self.url_prefix)
-        self.assertEqual(files, [self.created_files[2]])
+        self.assertEqual(
+            files, [Path(self.created_files[2]).relative_to(self.url_prefix).as_posix()]
+        )
         with self.assertRaises(TypeError):
             self.connector.delete("/etc")
         with self.assertRaises(TypeError):

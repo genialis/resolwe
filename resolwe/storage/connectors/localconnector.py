@@ -58,7 +58,7 @@ class LocalFilesystemConnector(BaseStorageConnector):
         """Get a list of objects stored bellow the given URL."""
         path = self.base_path / url
         return [
-            os.fspath((Path(dirpath) / filename).relative_to(self.base_path))
+            os.fspath((Path(dirpath) / filename).relative_to(path))
             for dirpath, _, files in os.walk(path)
             for filename in files
             if filename != path

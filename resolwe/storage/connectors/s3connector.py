@@ -115,7 +115,7 @@ class AwsS3Connector(BaseStorageConnector):
             except KeyError:
                 break
             for obj in contents:
-                ret.append(obj["Key"])
+                ret.append(Path(obj["Key"]).relative_to(url).as_posix())
         return ret
 
     @validate_url

@@ -503,9 +503,7 @@ class DownloadDataTest(BasicTestCase):
         transfer = MagicMock(transfer_rec=transfer_rec)
         transfer_module = MagicMock(return_value=transfer)
         self._test_workflow(send_command, transfer_module, commands)
-        transfer_rec.assert_called_once_with(
-            "transfer_url", ["transfer_url/1", "transfer_url/dir/1"]
-        )
+        transfer_rec.assert_called_once_with("transfer_url", ["1", "dir/1"])
 
     def test_download_retry(self):
         commands = [
@@ -526,8 +524,7 @@ class DownloadDataTest(BasicTestCase):
         transfer_module = MagicMock(return_value=transfer)
         self._test_workflow(send_command, transfer_module, commands)
         self.assertEqual(
-            transfer_rec.call_args_list,
-            [call("transfer_url", ["transfer_url/1", "transfer_url/dir/1"])] * 2,
+            transfer_rec.call_args_list, [call("transfer_url", ["1", "dir/1"])] * 2,
         )
 
     def test_download_retry_fail(self):
@@ -551,6 +548,5 @@ class DownloadDataTest(BasicTestCase):
 
         self._test_workflow(send_command, transfer_module, commands, False)
         self.assertEqual(
-            transfer_rec.call_args_list,
-            [call("transfer_url", ["transfer_url/1", "transfer_url/dir/1"])] * 2,
+            transfer_rec.call_args_list, [call("transfer_url", ["1", "dir/1"])] * 2,
         )

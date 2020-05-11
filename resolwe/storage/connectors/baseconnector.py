@@ -73,7 +73,8 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
         :param url: given URL.
         :type url: str
 
-        :return: a list of paths for objects stored under the given URL.
+        :return: a list of paths for objects stored under the given URL. The
+            paths are relative with respect to the given URL.
         :rtype: List[str]
         """
         raise NotImplementedError

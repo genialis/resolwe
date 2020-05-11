@@ -177,10 +177,7 @@ async def download_data(missing_data: dict) -> bool:
                         ExecutorProtocol.STORAGE_LOCATION_ID: from_storage_location_id,
                     },
                 )
-                objects = [
-                    os.path.join(missing_data["url"], file_)
-                    for file_ in response[ExecutorProtocol.REFERENCED_FILES]
-                ]
+                objects = response[ExecutorProtocol.REFERENCED_FILES]
 
             t = Transfer(from_connector, to_connector)
             t.transfer_rec(missing_data["url"], objects)
