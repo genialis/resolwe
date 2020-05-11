@@ -87,6 +87,46 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
         """
         return self.__class__(self.config, self.name)
 
+    def before_get(self, objects: List[dict], url: str) -> List[dict]:
+        """Perform pre-processing before get.
+
+        :param objects: objects to transfer.
+
+        :param url: URL that will be used by transfer.
+
+        :returns: a list of dictionaries with information about files that
+            will be actually transfered.
+        """
+        return objects
+
+    def after_get(self, objects: List[dict], url: str):
+        """Perform post-processing after get.
+
+        :param objects: objects that were transfered.
+
+        :param url: URL that was used by transfer.
+        """
+
+    def before_push(self, objects: List[dict], url: str):
+        """Perform pre-processing before push.
+
+        :param objects: objects to transfer.
+
+        :param url: URL that will be used by transfer.
+        """
+
+    def after_push(self, objects: List[dict], url: str) -> Optional[List[dict]]:
+        """Perform post-processing after push.
+
+        :param objects: objects that were transfered.
+
+        :param url: URL that was used by transfer.
+
+        :return: a list of dictionaries with information about files actually
+            stored or None if files were just transfered.
+        """
+        return objects
+
     @abc.abstractmethod
     def push(self, stream: BinaryIO, url: Union[str, PathLike]):
         """Push data from the stream to the given URL.

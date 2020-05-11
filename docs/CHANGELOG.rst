@@ -30,6 +30,7 @@ Added
 - Add ``compute_hashes`` method to ``hasher`` class
 - Use threads when transfering files with ``AwsS3Connector``
 - Add ``duplicate`` method to connectors
+- Add pre-processing and post-processing hooks when transfering data
 
 Fixed
 -----

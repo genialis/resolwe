@@ -3,16 +3,19 @@ import concurrent.futures
 import logging
 from contextlib import suppress
 from functools import partial
-from typing import List
+from pathlib import Path
+from typing import TYPE_CHECKING, List, Optional
 
 import wrapt
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from requests.exceptions import ReadTimeout
 
-from .baseconnector import BaseStorageConnector
 from .circular_buffer import CircularBuffer
 from .exceptions import DataTransferError
 from .hasher import StreamHasher
+
+if TYPE_CHECKING:
+    from .baseconnector import BaseStorageConnector
 
 try:
     from google.api_core.exceptions import ServiceUnavailable
@@ -46,13 +49,43 @@ class Transfer:
     """Transfer data between two storage connectors using in-memory buffer."""
 
     def __init__(
-        self, from_connector: BaseStorageConnector, to_connector: BaseStorageConnector,
+        self,
+        from_connector: "BaseStorageConnector",
+        to_connector: "BaseStorageConnector",
     ):
         """Initialize transfer object."""
         self.from_connector = from_connector
         self.to_connector = to_connector
 
-    def transfer_rec(self, url: str, objects: List[str] = None):
+    def pre_processing(self, url: str, objects: Optional[List[str]] = None):
+        """Notify connectors that transfer is about to start.
+
+        The connector is allowed to change names of the objects that are to be
+        transfered. This allows us to do some pre-processing, like zipping all
+        files into one and transfering that one.
+
+        :param url: base url for file transfer.
+
+        :param objects: list of objects to be transfered, their paths are
+            relative with respect to the url.
+        """
+        objects_to_transfer = self.from_connector.before_get(objects, url)
+        self.to_connector.before_push(objects_to_transfer, url)
+        return objects_to_transfer
+
+    def post_processing(self, url: str, objects: Optional[List[str]] = None):
+        """Notify connectors that transfer is complete.
+
+        :param url: base url for file transfer.
+
+        :param objects: the list ob objects that was actually transfered.The
+            paths are relative with respect to the url.
+        """
+        self.from_connector.after_get(objects, url)
+        objects_stored = self.to_connector.after_push(objects, url)
+        return objects_stored
+
+    def transfer_rec(self, url: str, objects: Optional[List[str]] = None):
         """Transfer all objects under the given URL.
 
         Objects are read from to_connector and copied to from_connector. This
@@ -60,19 +93,41 @@ class Transfer:
         since it could lists all the objects in the url.
 
         :param url: the given URL to transfer from/to.
-        :type url: str
 
         :param objects: the list of objects to transfer. Their paths are
-            relative with respect to url. When the argument is not given a
+            relative with respect to the url. When the argument is not given a
             list of objects is obtained from the connector.
-        :type objects: List[str]
         """
         if objects is None:
             objects = self.from_connector.get_object_list(url)
+
+        # Pre-processing.
+        try:
+            objects_to_transfer = self.pre_processing(url, objects)
+        except Exception:
+            logger.exception(
+                "Error in pre-processing while transfering data from url {}".format(url)
+            )
+            raise DataTransferError()
+
+        url = Path(url)
         for entry in objects:
             # Do not transfer directories.
-            if entry[-1] != "/":
-                self.transfer(entry, entry)
+            if not entry.endswith("/"):
+                self.transfer(url / entry, url / entry)
+
+        # Post-processing.
+        try:
+            objects_stored = self.post_processing(url, objects_to_transfer)
+        except Exception:
+            logger.exception(
+                "Error in post-processing while transfering data from url {}".format(
+                    url
+                )
+            )
+            raise DataTransferError()
+
+        return None if objects_stored is objects else objects_stored
 
     @retry_on_transfer_error
     def transfer(self, from_url: str, to_url: str):
