@@ -21,6 +21,7 @@ Added
 Fixed
 -----
 - Add missing decorator ``validate_url`` to ``AwsS3Connector``
+- Always import exceptions from ``requests`` library
 
 
 ===================

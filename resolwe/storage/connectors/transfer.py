@@ -6,6 +6,8 @@ from functools import partial
 from typing import List
 
 import wrapt
+from requests.exceptions import ConnectionError as RequestsConnectionError
+from requests.exceptions import ReadTimeout
 
 from .baseconnector import BaseStorageConnector
 from .circular_buffer import CircularBuffer
@@ -14,16 +16,17 @@ from .hasher import StreamHasher
 
 try:
     from google.api_core.exceptions import ServiceUnavailable
-    from requests.exceptions import ConnectionError, ReadTimeout
 
-    gcs_exceptions = [ConnectionError, ReadTimeout, ServiceUnavailable]
+    gcs_exceptions = [ServiceUnavailable]
 except ModuleNotFoundError:
     gcs_exceptions = []
 
 
 logger = logging.getLogger(__name__)
 ERROR_MAX_RETRIES = 3
-transfer_exceptions = tuple(gcs_exceptions + [DataTransferError])
+transfer_exceptions = tuple(
+    gcs_exceptions + [DataTransferError] + [RequestsConnectionError, ReadTimeout]
+)
 
 
 @wrapt.decorator
