@@ -96,12 +96,6 @@ class DataSerializer(ResolweBaseSerializer):
 
     def validate_collection(self, collection):
         """Verify that changing collection is done in the right place."""
-        if getattr(self.instance, "entity", None):
-            if getattr(self.instance.entity.collection, "id", None) != getattr(
-                collection, "id", None
-            ):
-                raise serializers.ValidationError(
-                    "If Data is in entity, you can only move it to another collection "
-                    "by moving entire entity."
-                )
+        if self.instance:
+            self.instance.validate_change_collection()
         return collection

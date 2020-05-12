@@ -20,6 +20,7 @@ from .mixins import (
     ResolweCreateModelMixin,
     ResolweUpdateModelMixin,
 )
+from .utils import get_collection_for_user
 
 
 class DataViewSet(
@@ -164,3 +165,40 @@ class DataViewSet(
     def children(self, request, pk=None):
         """Return children of the current data object."""
         return self._parents_children(request, self.get_object().children)
+
+    @action(detail=False, methods=["post"])
+    def move_to_collection(self, request, *args, **kwargs):
+        """Move data objects to destination collection."""
+        ids = self.get_ids(request.data)
+        dst_collection_id = self.get_id(request.data, "destination_collection")
+
+        dst_collection = get_collection_for_user(dst_collection_id, request.user)
+
+        queryset = self._get_data(request.user, ids)
+        queryset.move_to_collection(dst_collection)
+
+        return Response()
+
+    def _get_data(self, user, ids):
+        """Return data objects queryset based on provided ids."""
+        queryset = get_objects_for_user(
+            user, "view_data", Data.objects.filter(id__in=ids)
+        )
+        actual_ids = queryset.values_list("id", flat=True)
+        missing_ids = list(set(ids) - set(actual_ids))
+        if missing_ids:
+            raise exceptions.ParseError(
+                "Data objects with the following ids not found: {}".format(
+                    ", ".join(map(str, missing_ids))
+                )
+            )
+
+        for data in queryset:
+            collection = data.collection
+            if collection and not user.has_perm("edit_collection", obj=collection):
+                if user.is_authenticated:
+                    raise exceptions.PermissionDenied()
+                else:
+                    raise exceptions.NotFound()
+
+        return queryset

@@ -230,6 +230,21 @@ class DataQuerySet(BaseQuerySet):
 
         return duplicated
 
+    @transaction.atomic
+    def move_to_collection(self, destination_collection):
+        """Move data objects to destination collection.
+
+        Note that this method will also copy tags and permissions
+        of the destination collection to the data objects.
+        """
+        for data in self:
+            data.validate_change_collection()
+            data.collection = destination_collection
+            if destination_collection:
+                data.tags = destination_collection.tags
+                copy_permissions(destination_collection, data)
+            data.save()
+
 
 class Data(BaseModel):
     """Postgres model for storing data."""
@@ -710,6 +725,14 @@ class Data(BaseModel):
         return self.location.get_path(
             prefix=settings.FLOW_EXECUTOR["RUNTIME_DIR"], filename=filename
         )
+
+    def validate_change_collection(self):
+        """Raise validation error if data object cannot change collection."""
+        if self.entity:
+            raise ValidationError(
+                "If Data is in entity, you can only move it to another collection "
+                "by moving entire entity."
+            )
 
     def _render_name(self):
         """Render data name.

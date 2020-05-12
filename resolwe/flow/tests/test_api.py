@@ -7,7 +7,7 @@ from django.urls import reverse
 
 from guardian.conf.settings import ANONYMOUS_USER_NAME
 from guardian.models import UserObjectPermission
-from guardian.shortcuts import assign_perm
+from guardian.shortcuts import assign_perm, remove_perm
 from rest_framework import status
 from rest_framework.test import APIRequestFactory, force_authenticate
 
@@ -45,6 +45,9 @@ class TestDataViewSetCase(TestCase):
             actions={"get": "list", "post": "create",}
         )
         self.duplicate_viewset = DataViewSet.as_view(actions={"post": "duplicate",})
+        self.move_to_collection_viewset = DataViewSet.as_view(
+            actions={"post": "move_to_collection",}
+        )
         self.data_detail_viewset = DataViewSet.as_view(
             actions={"get": "retrieve", "patch": "partial_update",}
         )
@@ -366,6 +369,89 @@ class TestDataViewSetCase(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data.refresh_from_db()
         self.assertEqual(data.collection, self.collection)
+
+    def test_move_to_collection(self):
+        data_in_entity = Data.objects.create(
+            contributor=self.contributor, process=self.proc
+        )
+        data_orphan = Data.objects.create(
+            contributor=self.contributor, process=self.proc
+        )
+        data_orphan.entity.data.remove(data_orphan)
+
+        collection_1 = Collection.objects.create(contributor=self.contributor)
+        collection_1.data.add(data_orphan)
+        assign_perm("view_collection", self.contributor, collection_1)
+        assign_perm("edit_collection", self.contributor, collection_1)
+
+        collection_2 = Collection.objects.create(contributor=self.contributor)
+        assign_perm("view_collection", self.contributor, collection_2)
+        assign_perm("edit_collection", self.contributor, collection_2)
+
+        # Assert preventing moving data in entity.
+        request = factory.post(
+            reverse("resolwe-api:data-move-to-collection"),
+            {"ids": [data_in_entity.id], "destination_collection": collection_2.id,},
+            format="json",
+        )
+        force_authenticate(request, self.contributor)
+        response = self.move_to_collection_viewset(request)
+
+        self.assertEqual(
+            response.data["error"],
+            "If Data is in entity, you can only move it to another collection by moving entire entity.",
+        )
+
+        # Assert moving data not in entity.
+        request = factory.post(
+            reverse("resolwe-api:data-move-to-collection"),
+            {"ids": [data_orphan.id], "destination_collection": collection_2.id,},
+            format="json",
+        )
+
+        self.assertEqual(collection_1.data.count(), 1)
+        self.assertEqual(collection_2.data.count(), 0)
+
+        force_authenticate(request, self.contributor)
+        response = self.move_to_collection_viewset(request)
+
+        self.assertEqual(collection_1.data.count(), 0)
+        self.assertEqual(collection_2.data.count(), 1)
+
+        # Assert preventing moving data if destination collection
+        # lacks permissions.
+        remove_perm("edit_collection", self.contributor, collection_1)
+        request = factory.post(
+            reverse("resolwe-api:data-move-to-collection"),
+            {"ids": [data_orphan.id], "destination_collection": collection_1.id,},
+            format="json",
+        )
+        force_authenticate(request, self.contributor)
+        response = self.move_to_collection_viewset(request)
+
+        self.assertEqual(
+            response.data["detail"],
+            "You do not have permission to perform this action.",
+        )
+
+        # It shouldn't be possible to move the data if you don't
+        # have edit permission on both collections.
+        assign_perm("edit_collection", self.contributor, collection_1)
+        remove_perm("edit_collection", self.contributor, collection_2)
+        request = factory.post(
+            reverse("resolwe-api:data-move-to-collection"),
+            {"ids": [data_orphan.id], "destination_collection": collection_1.id,},
+            format="json",
+        )
+        force_authenticate(request, self.contributor)
+        response = self.move_to_collection_viewset(request)
+
+        self.assertEqual(
+            response.data["detail"],
+            "You do not have permission to perform this action.",
+        )
+        self.assertEqual(collection_1.data.count(), 0)
+        self.assertEqual(collection_2.data.count(), 1)
 
     def test_process_is_active(self):
         # Do not allow creating data of inactive processes

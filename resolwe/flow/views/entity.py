@@ -12,6 +12,7 @@ from resolwe.permissions.shortcuts import get_objects_for_user
 from resolwe.permissions.utils import update_permission
 
 from .collection import BaseCollectionViewSet
+from .utils import get_collection_for_user
 
 
 class EntityViewSet(BaseCollectionViewSet):
@@ -31,21 +32,6 @@ class EntityViewSet(BaseCollectionViewSet):
     )
     serializer_class = EntitySerializer
     filter_class = EntityFilter
-
-    def _get_collection_for_user(self, collection_id, user):
-        """Check that collection exists and user has `edit` permission."""
-        collection_query = Collection.objects.filter(pk=collection_id)
-        if not collection_query.exists():
-            raise exceptions.ValidationError("Collection id does not exist")
-
-        collection = collection_query.first()
-        if not user.has_perm("edit_collection", obj=collection):
-            if user.is_authenticated:
-                raise exceptions.PermissionDenied()
-            else:
-                raise exceptions.NotFound()
-
-        return collection
 
     def _get_entities(self, user, ids):
         """Return entities queryset based on provided entity ids."""
@@ -76,8 +62,8 @@ class EntityViewSet(BaseCollectionViewSet):
         src_collection_id = self.get_id(request.data, "source_collection")
         dst_collection_id = self.get_id(request.data, "destination_collection")
 
-        src_collection = self._get_collection_for_user(src_collection_id, request.user)
-        dst_collection = self._get_collection_for_user(dst_collection_id, request.user)
+        src_collection = get_collection_for_user(src_collection_id, request.user)
+        dst_collection = get_collection_for_user(dst_collection_id, request.user)
 
         entity_qs = self._get_entities(request.user, ids)
         entity_qs.move_to_collection(src_collection, dst_collection)
