@@ -137,7 +137,7 @@ class DataQuerySet(BaseQuerySet):
 
     @staticmethod
     def _handle_collection(obj, entity_operation=None):
-        """Correclty assign Collection to Data and it's Entity.
+        """Correctly assign Collection to Data and it's Entity.
 
         There are 2 x 4 possible scenarios how to handle collection
         assignment. One dimension in "decision matrix" is Data.collection:
