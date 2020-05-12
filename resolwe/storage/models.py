@@ -227,6 +227,16 @@ class StorageLocation(models.Model):
         """Delete all data for this storage location."""
         self.connector.delete(self.connector_urls)
 
+    def delete(self, *args, **kwargs):
+        """Delete StorageLocation object.
+
+        Set status to DELETING, remove data and finally location object.
+        """
+        self.status = StorageLocation.STATUS_DELETING
+        self.save()
+        self.delete_data()
+        super().delete(*args, **kwargs)
+
     def transfer_data(self, destination: "StorageLocation"):
         """Transfer data to another storage location."""
         t = Transfer(self.connector, destination.connector)

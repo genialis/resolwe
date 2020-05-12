@@ -231,9 +231,6 @@ class Manager:
             try:
                 # Update status to DELETING so DecisionManager will not pick
                 # it again in case of error while deleting data.
-                delete_location.status = StorageLocation.STATUS_DELETING
-                delete_location.save()
-                delete_location.delete_data()
                 delete_location.delete()
             except Exception:
                 logger.exception(

@@ -30,9 +30,7 @@ class Cleaner:
             )
             return
         try:
-            # Delete all files belonging to the storage location.
-            storage_location.delete_data()
-            # Delete the storage location if all files have been removed.
+            # Delete the storage location(files will be also removed).
             storage_location.delete()
         except Exception:
             logger.exception(

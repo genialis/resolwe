@@ -18,6 +18,7 @@ Added
 - Add ``validate_urls`` method to ``BaseConnector`` class.
 - Validate connector settings on registraton
 - Add ``transfer_data`` method to ``StorageLocation`` class
+- Remove data when ``StorageLocation`` object is deleted
 
 Fixed
 -----
