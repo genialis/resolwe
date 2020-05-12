@@ -61,10 +61,6 @@ Example settings
                 },
                 # Region name is needed to generate valid pre-signed urls.
                 "region_name": "eu-central-1",
-                # Two values bellow affect e_tag computation on Amazon S3 connector.
-                # Default value for both settings is 8MB.
-                "multipart_threshold": 8*1024*1024,
-                "multipart_chunksize": 8*1024*1024,
                 "credentials": os.path.join(
                     PROJECT_ROOT, "testing_credentials_s3.json"
                 ),
