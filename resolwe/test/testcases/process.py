@@ -253,7 +253,10 @@ class ProcessTestCase(TransactionTestCase):
         """Initialize test data."""
         super().setUp()
 
-        self._register_schemas()
+        _, stderr = self._register_schemas()
+        stderr = stderr.getvalue()
+        if stderr:
+            raise RuntimeError(stderr)
 
         self.collection = self._create_collection()
         self.upload_dir = settings.FLOW_EXECUTOR["UPLOAD_DIR"]

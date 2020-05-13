@@ -13,6 +13,7 @@ Unreleased
 Added
 -----
 - Add ``move_to_collection`` to ``Data`` viewset
+- Report registration failure in ``ProcessTestCase``
 
 
 ===================
@@ -25,7 +26,6 @@ Changed
   code
 - Various code fixes to make code work with the new storage model
 - Use storage connectors in workers to download data not available locally
-
 
 Added
 -----
