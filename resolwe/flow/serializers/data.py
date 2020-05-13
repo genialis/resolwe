@@ -96,6 +96,15 @@ class DataSerializer(ResolweBaseSerializer):
 
     def validate_collection(self, collection):
         """Verify that changing collection is done in the right place."""
-        if self.instance:
-            self.instance.validate_change_collection()
+        if self.instance and self.instance.collection != collection:
+            self.instance.validate_change_collection(collection)
         return collection
+
+    def update(self, instance, validated_data):
+        """Update."""
+        pre_update_collection = instance.collection
+        instance = super().update(instance, validated_data)
+        if pre_update_collection != instance.collection:
+            instance.move_to_collection(instance.collection)
+
+        return instance

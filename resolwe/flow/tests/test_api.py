@@ -370,6 +370,23 @@ class TestDataViewSetCase(TestCase):
         data.refresh_from_db()
         self.assertEqual(data.collection, self.collection)
 
+        # Should copy tags and permissions
+        collection = Collection.objects.create(
+            contributor=self.contributor, tags=["test:tag"]
+        )
+        assign_perm("view_collection", self.contributor, collection)
+        assign_perm("edit_collection", self.contributor, collection)
+
+        request = factory.patch(
+            "/", {"collection": {"id": collection.pk}}, format="json"
+        )
+        force_authenticate(request, self.contributor)
+        response = self.data_detail_viewset(request, pk=data.pk)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data.refresh_from_db()
+        self.assertEqual(data.tags, collection.tags)
+
     def test_move_to_collection(self):
         data_in_entity = Data.objects.create(
             contributor=self.contributor, process=self.proc

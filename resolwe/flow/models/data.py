@@ -238,12 +238,7 @@ class DataQuerySet(BaseQuerySet):
         of the destination collection to the data objects.
         """
         for data in self:
-            data.validate_change_collection()
-            data.collection = destination_collection
-            if destination_collection:
-                data.tags = destination_collection.tags
-                copy_permissions(destination_collection, data)
-            data.save()
+            data.move_to_collection(destination_collection)
 
 
 class Data(BaseModel):
@@ -726,7 +721,16 @@ class Data(BaseModel):
             prefix=settings.FLOW_EXECUTOR["RUNTIME_DIR"], filename=filename
         )
 
-    def validate_change_collection(self):
+    def move_to_collection(self, destination_collection):
+        """Move data object to collection."""
+        self.validate_change_collection(destination_collection)
+        self.collection = destination_collection
+        if destination_collection:
+            self.tags = destination_collection.tags
+            copy_permissions(destination_collection, self)
+        self.save()
+
+    def validate_change_collection(self, destination_collection):
         """Raise validation error if data object cannot change collection."""
         if self.entity:
             raise ValidationError(
