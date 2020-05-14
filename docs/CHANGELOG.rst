@@ -21,6 +21,7 @@ Added
 - Remove data when ``StorageLocation`` object is deleted
 - Store file hashes inside ``ReferencedPath`` model and connect it to
   ``StorageLocation`` model
+- Add ``get_hashes`` method to connectors
 
 Fixed
 -----

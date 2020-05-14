@@ -91,6 +91,23 @@ class GoogleConnector(BaseStorageConnector):
             return blob.metadata[hash_type]
 
     @validate_url
+    def get_hashes(self, url, hash_types):
+        """Get the hash of the given type for the given object."""
+        hashes = []
+        blob = self.bucket.get_blob(os.fspath(url))
+        if blob is None:
+            return None
+        blob.update()
+
+        for hash_type in hash_types:
+            if hash_type in self.hash_propery:
+                prop = self.hash_propery[hash_type]
+                hashes.append(base64.b64decode(getattr(blob, prop)).hex())
+            else:
+                hashes.append(blob.metadata[hash_type])
+        return hashes
+
+    @validate_url
     def set_hashes(self, url, hashes):
         """Set the  hashes for the given object."""
         blob = self.bucket.get_blob(os.fspath(url))

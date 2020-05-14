@@ -136,6 +136,26 @@ class AwsS3Connector(BaseStorageConnector):
                 raise
 
     @validate_url
+    def get_hashes(self, url, hash_types):
+        """Get the hash of the given type for the given object."""
+        resource = self.awss3.Object(self.bucket_name, os.fspath(url))
+        hashes = []
+        try:
+            for hash_type in hash_types:
+                if hash_type in self.hash_propery:
+                    prop = self.hash_propery[hash_type]
+                    hashes.append(getattr(resource, prop).strip('"'))
+                else:
+                    hashes.append(resource.metadata.get(hash_type))
+        except botocore.exceptions.ClientError as error:
+            if error.response["Error"]["Code"] == "404":
+                return None
+            else:
+                # Something else has gone wrong.
+                raise
+        return hashes
+
+    @validate_url
     def exists(self, url):
         """Get if the object at the given URL exist."""
         try:

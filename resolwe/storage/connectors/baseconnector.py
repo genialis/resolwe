@@ -110,6 +110,13 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     @abc.abstractmethod
+    def get_hashes(
+        self, url: Union[str, PathLike], hash_types: List[str]
+    ) -> Optional[List[str]]:
+        """Get the hashes of the given types for the given object."""
+        raise NotImplementedError
+
+    @abc.abstractmethod
     def set_hashes(self, url: Union[str, PathLike], hashes: Dict[str, str]):
         """Set the  hashes for the given object.
 
