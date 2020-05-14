@@ -22,15 +22,13 @@ class AwsS3Connector(BaseStorageConnector):
         """Connector initialization."""
         super().__init__(config, name)
         self.bucket_name = config["bucket"]
-        self.supported_download_hash = ["md5", "crc32c", "awss3etag"]
-        self.supported_upload_hash = ["awss3etag"]
+        self.supported_hash = ["awss3etag"]
         self.hash_propery = {"awss3etag": "e_tag"}
-        default_chunk_size = 8 * 1024 * 1024  # 8MB
         self.multipart_threshold = self.config.get(
-            "multipart_threshold", default_chunk_size
+            "multipart_threshold", self.CHUNK_SIZE
         )
         self.multipart_chunksize = self.config.get(
-            "multipart_chunksize", default_chunk_size
+            "multipart_chunksize", self.CHUNK_SIZE
         )
         self.use_threads = False
 

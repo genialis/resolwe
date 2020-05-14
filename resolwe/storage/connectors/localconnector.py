@@ -11,15 +11,13 @@ class LocalFilesystemConnector(BaseStorageConnector):
     """Local filesystem connector."""
 
     #: Read files by chunks of the given size
-    CHUNK_SIZE = 1024 * 1024
     REQUIRED_SETTINGS = ["path"]
 
     def __init__(self, config: dict, name: str):
         """Connector initialization."""
         super().__init__(config, name)
         self.path = config["path"]
-        self.supported_upload_hash = ["crc32c", "md5"]
-        self.supported_download_hash = ["crc32c", "md5"]
+        self.supported_hash = ["crc32c", "md5", "awss3etag"]
         self.multipart_chunksize = self.CHUNK_SIZE
 
     @validate_urls
@@ -109,7 +107,7 @@ class LocalFilesystemConnector(BaseStorageConnector):
 
         Local connector has currently no way to store metadata alongside files
         so this call is silently ignored. Hash is calculated always when
-        get_hashes method is called.
+        get_hash(es) method is called.
         """
 
     @property

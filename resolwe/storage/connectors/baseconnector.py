@@ -53,14 +53,14 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
     """Base class for storage connectors."""
 
     REQUIRED_SETTINGS = ["Connector must override REQUIRED_SETTINGS"]
+    CHUNK_SIZE = 8 * 1024 * 1024  # 8 MB
 
     def __init__(self, config: dict, name: str):
         """Connector initialization."""
         self.priority = config.get("priority", DEFAULT_CONNECTOR_PRIORITY)
         self.config = copy.deepcopy(config)
         self.name = name
-        self.supported_upload_hash = []
-        self.supported_download_hash = []
+        self.supported_hash = []
 
     @abc.abstractproperty
     def base_path(self) -> PurePath:

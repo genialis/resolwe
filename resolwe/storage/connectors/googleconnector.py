@@ -21,8 +21,7 @@ class GoogleConnector(BaseStorageConnector):
         """Initialize Google connector."""
         super().__init__(config, name)
         self.bucket_name = config["bucket"]
-        self.supported_upload_hash = ["crc32c", "md5"]
-        self.supported_download_hash = ["crc32c", "md5", "awss3etag"]
+        self.supported_hash = ["crc32c", "md5"]
         self.hash_propery = {"md5": "md5_hash", "crc32c": "crc32c"}
 
     @validate_url
@@ -65,7 +64,7 @@ class GoogleConnector(BaseStorageConnector):
         mime_type = mimetypes.guess_type(url)[0]
         blob = self.bucket.blob(os.fspath(url))
         if hash_type is not None:
-            assert hash_type in self.supported_upload_hash
+            assert hash_type in self.supported_hash
             prop = self.hash_propery[hash_type]
             setattr(blob, prop, data_hash)
         blob.upload_from_file(stream, content_type=mime_type)
@@ -79,7 +78,6 @@ class GoogleConnector(BaseStorageConnector):
     @validate_url
     def get_hash(self, url, hash_type):
         """Get the hash of the given type for the given object."""
-        assert hash_type in self.supported_download_hash
         blob = self.bucket.get_blob(os.fspath(url))
         if blob is None:
             return None
