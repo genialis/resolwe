@@ -2,9 +2,17 @@
 import logging
 import os
 import shutil
+from pathlib import Path
 from typing import List, Set, Tuple
 
 from .protocol import ExecutorProtocol
+
+# Make sure sphinx can import this module.
+try:
+    from .connectors.utils import get_transfer_object
+except ImportError:
+    pass
+
 
 logger = logging.getLogger(__name__)
 
@@ -89,15 +97,13 @@ async def collect_files():
     refs = reply[ExecutorProtocol.REFERENCED_FILES]
     base_dir = EXECUTOR_SETTINGS["DATA_DIR"]
     collected, _ = collect_and_purge(base_dir, refs)
-    collected_size = []
-    for entry in collected:
-        real_path = os.path.join(base_dir, entry)
-        if os.path.isfile(real_path):
-            collected_size.append((entry, os.path.getsize(real_path)))
-        else:
-            collected_size.append((entry, -1))
+
+    base_dir = Path(base_dir)
+    collected_objects = [
+        get_transfer_object(base_dir / object_, base_dir) for object_ in collected
+    ]
 
     await send_manager_command(
         ExecutorProtocol.REFERENCED_FILES,
-        extra_fields={ExecutorProtocol.REFERENCED_FILES: collected_size},
+        extra_fields={ExecutorProtocol.REFERENCED_FILES: collected_objects},
     )

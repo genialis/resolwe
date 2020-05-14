@@ -4,7 +4,7 @@ import logging
 from contextlib import suppress
 from functools import partial
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Iterable, List, Optional, Union
 
 import wrapt
 from requests.exceptions import ConnectionError as RequestsConnectionError
@@ -12,9 +12,9 @@ from requests.exceptions import ReadTimeout
 
 from .circular_buffer import CircularBuffer
 from .exceptions import DataTransferError
-from .hasher import StreamHasher
 
 if TYPE_CHECKING:
+    from os import PathLike
     from .baseconnector import BaseStorageConnector
 
 try:
@@ -56,6 +56,8 @@ class Transfer:
         """Initialize transfer object."""
         self.from_connector = from_connector
         self.to_connector = to_connector
+        # Always upload file larger that small_file (in bytes).
+        self.small_file = 100_000
 
     def pre_processing(self, url: str, objects: Optional[List[str]] = None):
         """Notify connectors that transfer is about to start.
@@ -85,22 +87,24 @@ class Transfer:
         objects_stored = self.to_connector.after_push(objects, url)
         return objects_stored
 
-    def transfer_rec(self, url: str, objects: Optional[List[str]] = None):
-        """Transfer all objects under the given URL.
+    def transfer_objects(
+        self, url: Union[str, Path], objects: List[dict]
+    ) -> Optional[List[dict]]:
+        """Transfer objects under the given URL.
 
-        Objects are read from to_connector and copied to from_connector. This
-        could cause significant number of operations to a storage provider
-        since it could lists all the objects in the url.
+        Objects are read from from_connector and copied to to_connector.
 
         :param url: the given URL to transfer from/to.
 
-        :param objects: the list of objects to transfer. Their paths are
-            relative with respect to the url. When the argument is not given a
-            list of objects is obtained from the connector.
-        """
-        if objects is None:
-            objects = self.from_connector.get_object_list(url)
+        :param objects: the list of objects to transfer. Each object is
+            represented with the dictionary containing at least keys "path",
+            "size", "md5", "crc32c", "awss3etag".
+            All values for key "path" must be relative with respect to the
+            argument url.
 
+        :returns: the list of objects that were stored in the to_connector if
+            it is different that argument objects or None.
+        """
         # Pre-processing.
         try:
             objects_to_transfer = self.pre_processing(url, objects)
@@ -111,10 +115,19 @@ class Transfer:
             raise DataTransferError()
 
         url = Path(url)
-        for entry in objects:
-            # Do not transfer directories.
-            if not entry.endswith("/"):
-                self.transfer(url / entry, url / entry)
+
+        def chunks(iterable, n):
+            """Split iterable into n evenly sized chunks."""
+            for i in range(0, n):
+                yield iterable[i::n]
+
+        max_threads = 50
+        number_of_chunks = min(len(objects_to_transfer), max_threads)
+        objects_chunks = chunks(objects_to_transfer, number_of_chunks)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
+            for objects_chunk in objects_chunks:
+                executor.submit(self._transfer_chunk, url, objects_chunk)
 
         # Post-processing.
         try:
@@ -129,79 +142,127 @@ class Transfer:
 
         return None if objects_stored is objects else objects_stored
 
-    @retry_on_transfer_error
-    def transfer(self, from_url: str, to_url: str):
-        """Transfer single object between two storage connectors."""
+    def _transfer_chunk(self, url: Union[str, Path], objects: Iterable[dict]):
+        """Transfer a single chunk of objects."""
+        to_connector = self.to_connector.duplicate()
+        from_connector = self.from_connector.duplicate()
+        for entry in objects:
+            # Do not transfer directories.
+            if not entry["path"].endswith("/"):
+                self.transfer(
+                    url, entry, url, Path(entry["path"]), from_connector, to_connector
+                )
 
-        def future_done(stream_to_close, future):
-            stream_to_close.close()
-            if future.exception() is not None:
-                executor.shutdown(wait=False)
+    def transfer(
+        self,
+        from_base_url: Path,
+        object_: dict,
+        to_base_url: Path,
+        to_url: "PathLike[str]",
+        from_connector: "BaseStorageConnector" = None,
+        to_connector: "BaseStorageConnector" = None,
+    ):
+        """Transfer single object between two storage connectors.
 
-        hash_stream = CircularBuffer()
-        data_stream = CircularBuffer()
-        hasher_chunk_size = 8 * 1024 * 1024
+        :param from_base_url: base url on from_connector.
 
-        hasher = StreamHasher(hasher_chunk_size)
-        download_hash_type = self.from_connector.supported_download_hash[0]
-        upload_hash_type = self.to_connector.supported_upload_hash[0]
+        :param object_: object to transfer. It must be a dictionary containing
+            at least keys "path", "md5", "crc32c", "size" and "awss3etag".
 
-        # Hack for S3/local connector to use same chunk size for transfer and
-        # hash calculation (affects etag calculation).
-        if hasattr(self.to_connector, "multipart_chunksize"):
-            hasher_chunk_size = self.to_connector.multipart_chunksize
+        :param to_base_url: base url on to_connector.
+
+        :param to_url: where to copy object. It is relative with respect to the
+            argument to_base_url.
+
+        :param from_connector: from connector, defaults to None. If None
+            duplicate of from_connector from the Transfer class instance is
+            used.
+
+        :param to_connector: to connector, defaults to None. If None
+            duplicate of to_connector from the Transfer class instance is
+            used.
+        """
+        # Duplicate connectors for thread safety.
+        to_connector = to_connector or self.to_connector.duplicate()
+        from_connector = from_connector or self.from_connector.duplicate()
+
+        from_url = from_base_url / object_["path"]
+        hashes = {type_: object_[type_] for type_ in ["md5", "crc32c", "awss3etag"]}
+        common_hash_type = next(
+            e for e in to_connector.supported_hash if e in hashes.keys()
+        )
+        from_hash = hashes[common_hash_type]
 
         # Check if file already exist and has the right hash.
-        to_hashes = self.to_connector.supported_download_hash
-        from_hashes = self.from_connector.supported_download_hash
-        common_hash = [e for e in to_hashes if e in from_hashes]
-        if common_hash:
-            hash_type = common_hash[0]
-            from_hash = self.from_connector.get_hash(from_url, hash_type)
-            to_hash = self.to_connector.get_hash(to_url, hash_type)
-            if from_hash == to_hash and from_hash is not None:
+        # Skip check for small files as it is slower than upload.
+        if object_["size"] > self.small_file:
+            to_hash = to_connector.get_hash(to_base_url / to_url, common_hash_type)
+            if from_hash == to_hash:
                 # Object exists and has the right hash.
                 logger.debug(
-                    "From: {}:{}".format(self.from_connector.name, from_url)
-                    + " to: {}:{}".format(self.to_connector.name, to_url)
+                    "From: {}:{}".format(from_connector.name, from_url)
+                    + " to: {}:{}".format(to_connector.name, to_base_url / to_url)
                     + " object exists with right hash, skipping."
                 )
                 return
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-            download_task = executor.submit(
-                self.from_connector.get, from_url, hash_stream
+        # When object can be open directly as stream do it.
+        if from_connector.can_open_stream:
+            stream = from_connector.open_stream(from_url, "rb")
+            to_connector.push(stream, to_base_url / to_url)
+            stream.close()
+
+        elif to_connector.can_open_stream:
+            stream = to_connector.open_stream(to_base_url / to_url, "wb")
+            from_connector.get(from_url, stream)
+            stream.close()
+        # Otherwise create out own stream and use threads to transfer data.
+        else:
+
+            def future_done(stream_to_close, future):
+                stream_to_close.close()
+                if future.exception() is not None:
+                    executor.shutdown(wait=False)
+
+            data_stream = CircularBuffer(
+                buffer_size=min(200 * 1024 * 1024, object_["size"])
             )
-            hash_task = executor.submit(hasher.compute, hash_stream, data_stream)
-            upload_task = executor.submit(self.to_connector.push, data_stream, to_url)
-            download_task.add_done_callback(partial(future_done, hash_stream))
-            hash_task.add_done_callback(partial(future_done, data_stream))
-            futures = (download_task, hash_task, upload_task)
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                download_task = executor.submit(
+                    from_connector.get, from_url, data_stream
+                )
+                upload_task = executor.submit(
+                    to_connector.push, data_stream, to_base_url / to_url
+                )
+                download_task.add_done_callback(partial(future_done, data_stream))
+                futures = (download_task, upload_task)
 
-        if any(f.exception() is not None for f in futures):
+            # Re-raise possible exception as DataTransferError.
+            if any(f.exception() is not None for f in futures):
+                # Log exceptions in threads to preserve original stack trace.
+                for f in futures:
+                    try:
+                        f.result
+                    except Exception:
+                        logger.exception("Exception occured while transfering data")
+
+                # Delete transfered data.
+                with suppress(Exception):
+                    to_connector.delete(to_base_url, [to_url])
+
+                # Re-raise exception.
+                ex = [f.exception() for f in futures if f.exception() is not None]
+                messages = [str(e) for e in ex]
+                raise DataTransferError("\n\n".join(messages))
+
+        # Check hash of the uploaded object.
+        if from_hash != to_connector.get_hash(to_base_url / to_url, common_hash_type):
             with suppress(Exception):
-                self.to_connector.delete(to_url)
-            ex = [f.exception() for f in futures if f.exception() is not None]
-            messages = [str(e) for e in ex]
-            raise DataTransferError("\n\n".join(messages))
-
-        from_hash = self.from_connector.get_hash(from_url, download_hash_type)
-        to_hash = self.to_connector.get_hash(to_url, upload_hash_type)
-
-        hasher_from_hash = hasher.hexdigest(download_hash_type)
-        hasher_to_hash = hasher.hexdigest(upload_hash_type)
-
-        if (from_hash, to_hash) != (hasher_from_hash, hasher_to_hash):
-            with suppress(Exception):
-                self.to_connector.delete(to_url)
+                to_connector.delete(to_base_url, [to_url])
             raise DataTransferError()
 
         # Store computed hashes as metadata for later use.
-        hashes = {
-            hash_type: hasher.hexdigest(hash_type)
-            for hash_type in StreamHasher.KNOWN_HASH_TYPES
-        }
-        # This is strictly speaking not a hash but is set to know the value
-        # of upload_chunk_size for awss3etag computation.
-        hashes["_upload_chunk_size"] = str(hasher.chunk_size)
-        self.to_connector.set_hashes(to_url, hashes)
+        # Value "_upload_chunk_size" not a hash but is set to know the value
+        # of upload_chunk_size that was used for awss3etag computation.
+        hashes["_upload_chunk_size"] = str(to_connector.CHUNK_SIZE)
+        to_connector.set_hashes(to_base_url / to_url, hashes)

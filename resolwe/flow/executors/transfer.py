@@ -180,7 +180,7 @@ async def download_data(missing_data: dict) -> bool:
                 objects = response[ExecutorProtocol.REFERENCED_FILES]
 
             t = Transfer(from_connector, to_connector)
-            t.transfer_rec(missing_data["url"], objects)
+            t.transfer_objects(missing_data["url"], objects)
             await send_manager_command(
                 ExecutorProtocol.DOWNLOAD_FINISHED,
                 extra_fields={

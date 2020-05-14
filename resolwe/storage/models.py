@@ -235,7 +235,13 @@ class StorageLocation(models.Model):
     def transfer_data(self, destination: "StorageLocation"):
         """Transfer data to another storage location."""
         t = Transfer(self.connector, destination.connector)
-        t.transfer_rec(self.url, self.urls)
+        transfered_files = t.transfer_objects(self.url, list(self.files.values()))
+        if transfered_files is None:
+            destination.files.add(*self.files.all())
+        else:
+            referenced_paths = [ReferencedPath(**e) for e in transfered_files]
+            ReferencedPath.objects.bulk_create(referenced_paths)
+            destination.files.add(*referenced_paths)
 
 
 class AccessLog(models.Model):

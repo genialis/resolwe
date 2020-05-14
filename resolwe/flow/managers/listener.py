@@ -294,7 +294,7 @@ class ExecutorListener:
             obj,
             {
                 ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK,
-                ExecutorProtocol.REFERENCED_FILES: location.urls,
+                ExecutorProtocol.REFERENCED_FILES: list(location.files.values()),
             },
         )
 
@@ -338,14 +338,14 @@ class ExecutorListener:
         local_location = file_storage.default_storage_location
         with transaction.atomic():
             try:
+                referenced_paths = [
+                    ReferencedPath(**object_)
+                    for object_ in obj[ExecutorProtocol.REFERENCED_FILES]
+                ]
                 # Remove files previously referenced by updating data.output.
-                ReferencedPath.objects.filter(file_storage=file_storage).delete()
-                ReferencedPath.objects.bulk_create(
-                    [
-                        ReferencedPath(path=path, file_storage=file_storage, size=size)
-                        for path, size in obj[ExecutorProtocol.REFERENCED_FILES]
-                    ]
-                )
+                ReferencedPath.objects.filter(storage_locations=local_location).delete()
+                ReferencedPath.objects.bulk_create(referenced_paths)
+                local_location.files.add(*referenced_paths)
                 local_location.status = StorageLocation.STATUS_DONE
                 local_location.save()
             except Exception:
@@ -809,13 +809,16 @@ class ExecutorListener:
             # just delete and recreate objects. Computing changes and updating
             # would probably be slower.
             if "output" in changeset:
-                ReferencedPath.objects.filter(file_storage=d.location).delete()
-                ReferencedPath.objects.bulk_create(
-                    [
-                        ReferencedPath(path=path, file_storage=d.location)
-                        for path in referenced_files(d, include_descriptor=False)
-                    ]
-                )
+                storage_location = d.location.default_storage_location
+                ReferencedPath.objects.filter(
+                    storage_locations=storage_location
+                ).delete()
+                referenced_paths = [
+                    ReferencedPath(path=path)
+                    for path in referenced_files(d, include_descriptor=False)
+                ]
+                ReferencedPath.objects.bulk_create(referenced_paths)
+                storage_location.files.add(*referenced_paths)
 
         except ValidationError as exc:
             logger.error(

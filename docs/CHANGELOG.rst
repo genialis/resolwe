@@ -13,6 +13,9 @@ Unreleased
 Changed
 -------
 - Use threads when transfering files with ``AwsS3Connector``
+- Rename ``transfer_rec`` to ``transfer_objects`` and change its signature to
+  accept dictionary objects with information about name, size and hashes of
+  objects to transfer
 
 Added
 -----
@@ -31,6 +34,7 @@ Added
 - Use threads when transfering files with ``AwsS3Connector``
 - Add ``duplicate`` method to connectors
 - Add pre-processing and post-processing hooks when transfering data
+- Use multiple threads for file transfer
 
 Fixed
 -----
