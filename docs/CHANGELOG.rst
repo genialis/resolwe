@@ -28,6 +28,8 @@ Added
 - Add ``get_hashes`` method to connectors
 - Add ``open_stream`` method to connectors
 - Add ``compute_hashes`` method to ``hasher`` class
+- Use threads when transfering files with ``AwsS3Connector``
+- Add ``duplicate`` method to connectors
 
 Fixed
 -----

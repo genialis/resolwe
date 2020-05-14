@@ -79,6 +79,14 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
         """
         raise NotImplementedError
 
+    def duplicate(self) -> "BaseStorageConnector":
+        """Duplicate existing connector.
+
+        Since connector is not thread safe, each thread needs its own instance
+        of the connector.
+        """
+        return self.__class__(self.config, self.name)
+
     @abc.abstractmethod
     def push(self, stream: BinaryIO, url: Union[str, PathLike]):
         """Push data from the stream to the given URL.
