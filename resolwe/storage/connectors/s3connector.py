@@ -187,12 +187,12 @@ class AwsS3Connector(BaseStorageConnector):
         meta.update(hashes)
         copy_source = {
             "Bucket": self.bucket_name,
-            "Key": url,
+            "Key": os.fspath(url),
         }
         self.client.copy(
             copy_source,
             self.bucket_name,
-            url,
+            os.fspath(url),
             ExtraArgs={"Metadata": meta, "MetadataDirective": "REPLACE"},
         )
 
