@@ -38,6 +38,10 @@ class CircularBuffer:
         """
         return self.__closed
 
+    def seekable(self) -> bool:
+        """Is stream seekable."""
+        return False
+
     @property
     def buffer_size(self) -> int:
         """Get the size of the backing memory buffer.
