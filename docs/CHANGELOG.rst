@@ -19,6 +19,8 @@ Added
 - Validate connector settings on registraton
 - Add ``transfer_data`` method to ``StorageLocation`` class
 - Remove data when ``StorageLocation`` object is deleted
+- Store file hashes inside ``ReferencedPath`` model and connect it to
+  ``StorageLocation`` model
 
 Fixed
 -----

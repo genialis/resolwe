@@ -478,7 +478,8 @@ class Manager:
 
             # Reference 'special' files.
             for file_ in referenced_files(data, include_descriptor=False):
-                ReferencedPath.objects.create(path=file_, file_storage=file_storage)
+                referenced_path = ReferencedPath.objects.create(path=file_)
+                referenced_path.storage_locations.add(data_location)
 
         output_path = self._get_per_data_dir("DATA_DIR", data_location.url)
         dir_mode = self.settings_actual.get("FLOW_EXECUTOR", {}).get(

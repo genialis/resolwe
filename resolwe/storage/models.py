@@ -72,9 +72,14 @@ class FileStorage(models.Model):
         return self.default_storage_location.url
 
     @property
+    def files(self) -> models.QuerySet:
+        """Get referenced path objects in default storage location."""
+        return self.default_storage_location.files
+
+    @property
     def urls(self) -> List[str]:
-        """Get a list of URLs of stored files and directories."""
-        return [file_.path for file_ in self.files.all()]
+        """Get a list of URLs of objects stored in default storage location."""
+        return self.default_storage_location.urls
 
 
 class LocationsDoneManager(models.Manager):
@@ -207,21 +212,8 @@ class StorageLocation(models.Model):
 
     @property
     def urls(self) -> List[str]:
-        """Get a list of URLs of stored files and directories.
-
-        The paths are relative with respecto to the url.
-        """
-        return self.file_storage.urls
-
-    @property
-    def connector_urls(self) -> List[os.PathLike]:
-        """Get a list of URLs of stored files and directories.
-
-        The URLs are relative with respect to the connector base path.
-        """
-        entries = [os.path.join(self.url, file_) for file_ in self.urls]
-        entries.append(os.path.join(self.url, ""))
-        return entries
+        """Get a list of URLs of stored files and directories."""
+        return [file_.path for file_ in self.files.all()]
 
     def delete_data(self):
         """Delete all data for this storage location."""
@@ -236,6 +228,9 @@ class StorageLocation(models.Model):
         self.save()
         self.delete_data()
         super().delete(*args, **kwargs)
+        # Remove referenced paths if they are not connected to another storage
+        # location.
+        ReferencedPath.objects.filter(storage_locations__isnull=True).delete()
 
     def transfer_data(self, destination: "StorageLocation"):
         """Transfer data to another storage location."""
@@ -275,7 +270,26 @@ class ReferencedPath(models.Model):
     #: size of the file (-1 undefined)
     size = models.BigIntegerField(default=-1)
 
-    #: FileStorage object
-    file_storage = models.ForeignKey(
-        "FileStorage", on_delete=models.CASCADE, related_name="files"
-    )
+    #: StorageLocation objects
+    storage_locations = models.ManyToManyField("StorageLocation", related_name="files")
+
+    #: MD5 hexadecimal hash
+    md5 = models.CharField(max_length=32, null=False, blank=False)
+
+    #: CRC32C hexadecimal hash
+    crc32c = models.CharField(max_length=8, null=False, blank=False)
+
+    #: CRC32C hexadecimal hash
+    awss3etag = models.CharField(max_length=50, null=False, blank=False)
+
+    @property
+    def file_storage(self) -> Optional[FileStorage]:
+        """Get the file storage object that holds this object.
+
+        When no such FileStorage exists None is returned.
+        """
+        storage_location = self.storage_locations.first()
+        if storage_location is None:
+            return None
+
+        return storage_location.file_storage
