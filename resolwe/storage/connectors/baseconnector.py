@@ -143,6 +143,25 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
         """
         raise NotImplementedError
 
+    @property
+    def can_open_stream(self):
+        """Get True if connector can open object as stream."""
+        return False
+
+    def open_stream(self, url: "PathLike[str]", mode: str) -> Optional[BinaryIO]:
+        """Get stream for data at the given URL.
+
+        :param url: URL of the object.
+
+        :param mode: mode in which the stream is opened. See
+            https://docs.python.org/3/library/functions.html#open .
+
+        :returns: binary stream if data exists None otherwise. User is
+            responsible for closing stream after use.
+        """
+        raise NotImplementedError
+
+    
     def delete(self, urls: List[Union[str, PathLike]]):
         """Remove objects.
 

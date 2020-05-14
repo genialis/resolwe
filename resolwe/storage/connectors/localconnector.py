@@ -53,6 +53,18 @@ class LocalFilesystemConnector(BaseStorageConnector):
             for chunk in iter(lambda: f.read(self.CHUNK_SIZE), b""):
                 stream.write(chunk)
 
+    @property
+    def can_open_stream(self):
+        """Get True if connector can open object as stream."""
+        return True
+
+    @validate_url
+    def open_stream(self, url, mode):
+        """Get stream for data at the given URL."""
+        path: Path = self.base_path / url
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return path.open(mode, self.CHUNK_SIZE)
+
     @validate_url
     def get_object_list(self, url):
         """Get a list of objects stored bellow the given URL."""

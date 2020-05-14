@@ -22,6 +22,7 @@ Added
 - Store file hashes inside ``ReferencedPath`` model and connect it to
   ``StorageLocation`` model
 - Add ``get_hashes`` method to connectors
+- Add ``open_stream`` method to connectors
 
 Fixed
 -----
