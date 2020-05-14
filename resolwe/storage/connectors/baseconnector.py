@@ -161,15 +161,16 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
         """
         raise NotImplementedError
 
-    
-    def delete(self, urls: List[Union[str, PathLike]]):
+    def delete(self, url: str, urls: List[Union[str, PathLike]]):
         """Remove objects.
 
-        Since delete is potentially harmfull there are some sanity checks
-        in the main class. I suggest using them.
+        Since delete is potentially harmfull use validate_urls and validate_url
+        decorators on the implementation.
 
-        :param urls: URLs of the objects to delete. They must be relative else
-            ValueError is raised.
+        :param url: base URL of the objets to delete.
+
+        :param urls: URLs of the objects to delete. They must be relative with
+            respect to url argument.
 
         :type url: List[str]
 

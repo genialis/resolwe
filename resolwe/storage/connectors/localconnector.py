@@ -21,15 +21,20 @@ class LocalFilesystemConnector(BaseStorageConnector):
         self.multipart_chunksize = self.CHUNK_SIZE
 
     @validate_urls
-    def delete(self, urls):
+    @validate_url
+    def delete(self, url, urls):
         """Remove objects."""
-        for url in urls:
-            path = self.base_path / url
+        for delete_url in urls:
+            path = self.base_path / url / delete_url
             if path.exists():
                 if path.is_dir():
                     shutil.rmtree(path)
                 else:
                     path.unlink()
+        # Remove url base directory if empty.
+        if not self.get_object_list(url):
+            if (self.base_path / url).is_dir():
+                shutil.rmtree(self.base_path / url)
 
     @validate_url
     def push(self, stream, url):

@@ -75,14 +75,18 @@ class AwsS3Connector(BaseStorageConnector):
         )
 
     @validate_urls
-    def delete(self, urls):
+    @validate_url
+    def delete(self, url, urls):
         """Remove objects."""
         # At most 1000 objects can be deleted at the same time.
         max_chunk = 1000
         bucket = self.awss3.Bucket(self.bucket_name)
         for i in range(0, len(urls), max_chunk):
             next_chunk = urls[i : i + max_chunk]
-            objects = [{"Key": os.fspath(url)} for url in next_chunk]
+            objects = [
+                {"Key": os.fspath(self.base_path / url / delete_url)}
+                for delete_url in next_chunk
+            ]
             bucket.delete_objects(Delete={"Objects": objects, "Quiet": True})
 
     @validate_url

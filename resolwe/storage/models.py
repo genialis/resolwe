@@ -217,7 +217,7 @@ class StorageLocation(models.Model):
 
     def delete_data(self):
         """Delete all data for this storage location."""
-        self.connector.delete(self.connector_urls)
+        self.connector.delete(self.url, self.urls)
 
     def delete(self, *args, **kwargs):
         """Delete StorageLocation object.

@@ -49,12 +49,15 @@ class GoogleConnector(BaseStorageConnector):
         return getattr(self, name)
 
     @validate_urls
-    def delete(self, urls):
+    @validate_url
+    def delete(self, url, urls):
         """Remove objects."""
         with suppress(NotFound):
             with self.client.batch():
-                for to_delete in urls:
-                    blob = self.bucket.blob(os.fspath(to_delete))
+                for delete_url in urls:
+                    blob = self.bucket.blob(
+                        os.fspath(self.base_path / url / delete_url)
+                    )
                     if blob.exists():
                         blob.delete()
 
