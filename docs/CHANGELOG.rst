@@ -10,6 +10,10 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Changed
+-------
+- Use threads when transfering files with ``AwsS3Connector``
+
 Added
 -----
 - Add ``move_to_collection`` to ``Data`` viewset

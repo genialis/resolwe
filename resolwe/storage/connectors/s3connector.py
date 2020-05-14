@@ -30,7 +30,7 @@ class AwsS3Connector(BaseStorageConnector):
         self.multipart_chunksize = self.config.get(
             "multipart_chunksize", self.CHUNK_SIZE
         )
-        self.use_threads = False
+        self.use_threads = True
 
         self._session = None
         self._client = None
