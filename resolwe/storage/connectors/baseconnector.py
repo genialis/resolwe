@@ -97,15 +97,15 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_hash(self, url: Union[str, PathLike], hash_type: str) -> str:
+    def get_hash(self, url: Union[str, PathLike], hash_type: str) -> Optional[str]:
         """Get the hash of the given type for the given object.
 
         Hashes are computed using instance of the class
         :class:`~resolwe.storage.connectors.hasher.Hasher` and stored as
         metadata (when supported by the connector).
 
-        :return: the string containg hexdigest for the given object.
-        :trype: str
+        :return: the string containg hexdigest for the given object. if given
+            object does not exist None is returned.
         """
         raise NotImplementedError
 
