@@ -23,6 +23,7 @@ Added
   ``StorageLocation`` model
 - Add ``get_hashes`` method to connectors
 - Add ``open_stream`` method to connectors
+- Add ``compute_hashes`` method to ``hasher`` class
 
 Fixed
 -----

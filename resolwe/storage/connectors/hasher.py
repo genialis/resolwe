@@ -1,8 +1,36 @@
 """Compute hashes from stream."""
 import hashlib
 from io import RawIOBase
+from pathlib import Path
+from typing import TYPE_CHECKING, Dict
 
 import crcmod
+
+if TYPE_CHECKING:
+    from os import PathLike
+
+
+def compute_hashes(file: "PathLike[str]") -> Dict[str, str]:
+    """Compute hashes for a given file/directory.
+
+    :param file_: path-like object pointing to a file/directory.
+
+    :returns: dictionary that contains hash types as keys and corresponding
+        hashes as values. There is one entry in this dictionary for each hash
+        type in StreamHasher.KNOWN_HASH_TYPES.
+        If file_ points to a directory values are empty strings.
+    """
+    path = Path(file)
+    if path.is_dir():
+        return {hash_type: "" for hash_type in StreamHasher.KNOWN_HASH_TYPES}
+
+    hasher = StreamHasher()
+    with path.open("rb") as stream:
+        hasher.compute(stream)
+    return {
+        hash_type: hasher.hexdigest(hash_type)
+        for hash_type in StreamHasher.KNOWN_HASH_TYPES
+    }
 
 
 class AWSS3ETagHash:
