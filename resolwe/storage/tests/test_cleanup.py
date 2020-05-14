@@ -106,20 +106,12 @@ class CleanupTest(TransactionTestCase):
     def test_delete(self):
         connector_mock = MagicMock()
         delete_mock = MagicMock()
-        delete_data_mock = MagicMock()
-        storage_location = MagicMock(
-            connector=connector_mock, delete=delete_mock, delete_data=delete_data_mock
-        )
+        storage_location = MagicMock(connector=connector_mock, delete=delete_mock)
         self.cleaner._cleanup(storage_location)
-        delete_data_mock.assert_called_once_with()
         delete_mock.assert_called_once_with()
 
         connector_mock = MagicMock()
-        delete_mock = MagicMock()
-        delete_data_mock = MagicMock(side_effect=Exception)
-        storage_location = MagicMock(
-            connector=connector_mock, delete=delete_mock, delete_data=delete_data_mock
-        )
+        delete_mock = MagicMock(side_effect=Exception)
+        storage_location = MagicMock(connector=connector_mock, delete=delete_mock)
         self.cleaner._cleanup(storage_location)
-        delete_data_mock.assert_called_once_with()
-        delete_mock.assert_not_called()
+        delete_mock.assert_called_once_with()

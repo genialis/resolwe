@@ -499,11 +499,11 @@ class DownloadDataTest(BasicTestCase):
         send_command = MagicMock(side_effect=partial(send, commands))
 
         # Mock the transfer object
-        transfer_rec = MagicMock()
-        transfer = MagicMock(transfer_rec=transfer_rec)
+        transfer_objects = MagicMock()
+        transfer = MagicMock(transfer_objects=transfer_objects)
         transfer_module = MagicMock(return_value=transfer)
         self._test_workflow(send_command, transfer_module, commands)
-        transfer_rec.assert_called_once_with("transfer_url", ["1", "dir/1"])
+        transfer_objects.assert_called_once_with("transfer_url", ["1", "dir/1"])
 
     def test_download_retry(self):
         commands = [
@@ -519,12 +519,12 @@ class DownloadDataTest(BasicTestCase):
         send_command = MagicMock(side_effect=partial(send, commands))
 
         # Mock the transfer object
-        transfer_rec = MagicMock()
-        transfer = MagicMock(transfer_rec=transfer_rec)
+        transfer_objects = MagicMock()
+        transfer = MagicMock(transfer_objects=transfer_objects)
         transfer_module = MagicMock(return_value=transfer)
         self._test_workflow(send_command, transfer_module, commands)
         self.assertEqual(
-            transfer_rec.call_args_list, [call("transfer_url", ["1", "dir/1"])] * 2,
+            transfer_objects.call_args_list, [call("transfer_url", ["1", "dir/1"])] * 2,
         )
 
     def test_download_retry_fail(self):
@@ -542,11 +542,11 @@ class DownloadDataTest(BasicTestCase):
         send_command = MagicMock(side_effect=partial(send, commands))
 
         # Mock the transfer object
-        transfer_rec = MagicMock()
-        transfer = MagicMock(transfer_rec=transfer_rec)
+        transfer_objects = MagicMock()
+        transfer = MagicMock(transfer_objects=transfer_objects)
         transfer_module = MagicMock(return_value=transfer)
 
         self._test_workflow(send_command, transfer_module, commands, False)
         self.assertEqual(
-            transfer_rec.call_args_list, [call("transfer_url", ["1", "dir/1"])] * 2,
+            transfer_objects.call_args_list, [call("transfer_url", ["1", "dir/1"])] * 2,
         )

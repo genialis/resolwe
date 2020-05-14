@@ -80,7 +80,7 @@ class TestMixin:
     """Tests for all storage connectors."""
 
     def test_exists(self):
-        for file_ in self.created_files:
+        for file_ in self.prefix_created_files:
             self.assertTrue(self.connector.exists(file_))
         self.assertFalse(self.connector.exists(self.prefix_name("nonexisting_file")))
         with self.assertRaises(ValueError):
@@ -92,7 +92,7 @@ class TestMixin:
         files = self.connector.get_object_list(self.url_prefix)
         self.assertEqual(len(files), len(self.created_files))
         for file_ in self.created_files:
-            self.assertIn(Path(file_).relative_to(self.url_prefix).as_posix(), files)
+            self.assertIn(file_, files)
 
         self.assertEqual(
             self.connector.get_object_list(self.prefix_name("dir")), ["3"],
@@ -107,26 +107,26 @@ class TestMixin:
             self.connector.get_object_list(0)
 
     def test_delete(self):
-        self.connector.delete([self.prefix_name("nonexisting_file")])
+        self.connector.delete(self.url_prefix, ["nonexisting_file"])
         files = self.connector.get_object_list(self.url_prefix)
         for file_ in self.created_files:
-            self.assertIn(Path(file_).relative_to(self.url_prefix).as_posix(), files)
-        self.connector.delete(self.created_files[:2])
+            self.assertIn(file_, files)
+        self.connector.delete(self.url_prefix, self.created_files[:2])
         files = self.connector.get_object_list(self.url_prefix)
-        self.assertEqual(
-            files, [Path(self.created_files[2]).relative_to(self.url_prefix).as_posix()]
-        )
-        with self.assertRaises(TypeError):
-            self.connector.delete("/etc")
-        with self.assertRaises(TypeError):
-            self.connector.delete([0, "/etc"])
+        self.assertEqual(files, [self.created_files[2]])
         with self.assertRaises(ValueError):
-            self.connector.delete(["OK", "/etc"])
+            self.connector.delete("/etc", [])
+        with self.assertRaises(TypeError):
+            self.connector.delete(0, [])
+        with self.assertRaises(TypeError):
+            self.connector.delete("", [0])
+        with self.assertRaises(ValueError):
+            self.connector.delete("", ["OK", "/etc"])
 
     def test_get(self):
         stream = io.BytesIO()
-        starts_with = Path(self.path(self.created_files[0])).name.encode("utf-8")
-        self.connector.get(self.created_files[0], stream)
+        starts_with = Path(self.path(self.prefix_created_files[0])).name.encode("utf-8")
+        self.connector.get(self.prefix_created_files[0], stream)
         self.assertEqual(stream.tell(), 1024 * 1024)
         stream.seek(0)
         self.assertEqual(stream.read(len(starts_with)), starts_with)
@@ -138,7 +138,7 @@ class TestMixin:
 
     def test_push(self):
         transfer_file = self.prefix_name("transfer")
-        with open(self.path(self.created_files[0]), "rb") as f:
+        with open(self.path(self.prefix_created_files[0]), "rb") as f:
             self.connector.push(f, transfer_file)
         self.assertTrue(self.connector.exists(transfer_file))
 
@@ -146,7 +146,7 @@ class TestMixin:
         with open(self.path(downloaded_file), "wb") as stream:
             self.connector.get(transfer_file, stream)
 
-        with open(self.path(self.created_files[0]), "rb") as f1:
+        with open(self.path(self.prefix_created_files[0]), "rb") as f1:
             with open(self.path(downloaded_file), "rb") as f2:
                 self.assertEqual(f1.read(), f2.read())
 
@@ -155,10 +155,10 @@ class TestMixin:
         with self.assertRaises(TypeError):
             self.connector.push(None, 0)
 
-        self.connector.delete([transfer_file])
+        self.connector.delete(self.url_prefix, ["transfer"])
 
     def test_get_hash(self):
-        test_file = self.created_files[0]
+        test_file = self.prefix_created_files[0]
         computed_hashes = hashes(self.path(test_file))
         for type_ in ("md5", "crc32c", "awss3etag"):
             self.assertEqual(
@@ -195,11 +195,16 @@ class BaseTestCase(TestCase):
         self._purge_tmp_dir()
         os.makedirs(os.path.join(self.tmp_dir.name, self.url_prefix, "dir"))
 
-        self.created_files = [
+        self.prefix_created_files = [
             os.path.join(self.url_prefix, name) for name in ("1", "2", "dir/3")
         ]
-        for file_ in self.created_files:
+        self.created_files = [name for name in ("1", "2", "dir/3")]
+
+        for file_ in self.prefix_created_files:
             create_file(self.path(file_), 1024 * 1024)
+
+        # Delete possible transfer file.
+        self.connector.delete(self.url_prefix, ["transfer"])
 
         return super().setUp()
 
@@ -224,7 +229,7 @@ class GoogleConnectorTest(BaseTestCase, TestMixin):
         super().setUp()
         # Use connector to push files to storage for testing.
         # If this does not work tests will fail anyway.
-        for file_ in self.created_files:
+        for file_ in self.prefix_created_files:
             if not self.gcs.exists(file_):
                 with open(self.path(file_), "rb") as stream:
                     self.gcs.push(stream, file_)
@@ -239,7 +244,7 @@ class S3ConnectorTest(BaseTestCase, TestMixin):
         super().setUp()
         # Use connector to push files to storage for testing.
         # If this does not work tests will fail anyway.
-        for file_ in self.created_files:
+        for file_ in self.prefix_created_files:
             with open(self.path(file_), "rb") as stream:
                 if not self.s3.exists(file_):
                     self.s3.push(stream, file_)

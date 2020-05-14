@@ -207,23 +207,19 @@ class StorageLocationTest(TransactionTestCase):
             )
 
     def test_delete_data(self):
-        ReferencedPath.objects.create(
-            path="remove_me.txt", file_storage=self.file_storage
-        )
-        ReferencedPath.objects.create(
-            path="dir/remove_me.txt", file_storage=self.file_storage
-        )
+        path1 = ReferencedPath.objects.create(path="remove_me.txt")
+        path2 = ReferencedPath.objects.create(path="dir/remove_me.txt")
         storage_location = StorageLocation.objects.create(
             file_storage=self.file_storage, url="url", connector_name="local"
         )
+        storage_location.files.add(path1, path2)
         delete = MagicMock()
         connector_mock = MagicMock(delete=delete)
         with patch("resolwe.storage.models.connectors", {"local": connector_mock}):
             storage_location.delete_data()
         self.assertEqual(delete.call_count, 1)
         self.assertCountEqual(
-            delete.call_args_list[0][0][0],
-            ["url/remove_me.txt", "url/dir/remove_me.txt", "url/"],
+            delete.call_args_list[0][0][1], ["remove_me.txt", "dir/remove_me.txt"],
         )
 
 

@@ -14,6 +14,7 @@ from resolwe.storage.connectors import (
     LocalFilesystemConnector,
 )
 from resolwe.storage.connectors.transfer import Transfer
+from resolwe.storage.connectors.utils import get_transfer_object
 from resolwe.test import TestCase
 
 CONNECTORS = {
@@ -54,7 +55,6 @@ class BaseTestCase(TestCase):
     _files = (
         ("1", 1 * _mb),
         ("dir/2", 10 * _mb),
-        # ("dir/3", 100 * _mb),
     )
 
     @classmethod
@@ -80,10 +80,16 @@ class BaseTestCase(TestCase):
     def _create_files(cls):
         os.makedirs(cls.path(cls, ""))
         os.makedirs(cls.path(cls, "dir"))
+        cls.transfer_objects = []
         for file_, size in cls._files:
             create_file(cls.path(cls, file_), size)
             with open(cls.path(cls, file_), "r+b") as f:
-                f.write(cls.path(cls, file_).encode("utf-8"))
+                f.write((file_.encode("utf-8")))
+            cls.transfer_objects.append(
+                get_transfer_object(
+                    cls.path(cls, file_), os.path.join(cls.tmp_dir.name, cls._prefix)
+                )
+            )
 
     @classmethod
     def _copy_files_to(cls, connector):
@@ -99,12 +105,12 @@ class BaseTestCase(TestCase):
 
     def _test_from_to(self, from_connector, to_connector):
         t = Transfer(from_connector, to_connector)
-        t.transfer_rec(self._prefix)
+        t.transfer_objects(self._prefix, self.transfer_objects)
         objects = to_connector.get_object_list(self._prefix)
         self.assertEqual(len(objects), len(self.created_files))
         for file_ in self.created_files:
             real_path = os.path.join(self._prefix, file_)
-            self.assertIn(real_path, objects)
+            self.assertIn(file_, objects)
             for type_ in ("md5", "crc32c"):
                 self.assertEqual(
                     from_connector.get_hash(real_path, type_).lower(),
@@ -119,8 +125,8 @@ class TransferFromLocalTest(BaseTestCase):
     def setUpClass(cls):
         super().setUpClass()
         cls._create_files()
-        cls.gcs.delete(cls.created_files)
-        cls.s3.delete(cls.created_files)
+        cls.gcs.delete(cls._prefix, cls.created_files)
+        cls.s3.delete(cls._prefix, cls.created_files)
 
     def test_to_google(self):
         self._test_from_to(self.local, self.gcs)
@@ -136,14 +142,14 @@ class TransferFromGoogleTest(BaseTestCase):
     def setUpClass(cls):
         super().setUpClass()
         cls._create_files()
-        cls.gcs.delete(cls.created_files)
+        cls.gcs.delete(cls._prefix, cls.created_files)
         cls._copy_files_to(cls.gcs)
         cls._purge_tmp_dir()
 
     def setUp(self):
         super().setUp()
-        self.local.delete(self.created_files)
-        self.s3.delete(self.created_files)
+        self.local.delete(self._prefix, self.created_files)
+        self.s3.delete(self._prefix, self.created_files)
 
     def test_to_local(self):
         self._test_from_to(self.gcs, self.local)
@@ -159,14 +165,14 @@ class TransferFromS3Test(BaseTestCase):
     def setUpClass(cls):
         super().setUpClass()
         cls._create_files()
-        cls.s3.delete(cls.created_files)
+        cls.s3.delete(cls._prefix, cls.created_files)
         cls._copy_files_to(cls.s3)
         cls._purge_tmp_dir()
 
     def setUp(self):
         super().setUp()
-        self.gcs.delete(self.created_files)
-        self.local.delete(self.created_files)
+        self.gcs.delete(self._prefix, self.created_files)
+        self.local.delete(self._prefix, self.created_files)
 
     def test_to_local(self):
         self._test_from_to(self.s3, self.local)
