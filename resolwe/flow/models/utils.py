@@ -3,6 +3,7 @@ import copy
 import json
 import os
 import re
+from pathlib import Path
 
 import jsonschema
 
@@ -89,17 +90,18 @@ def validate_schema(
 
     path_prefix = None
     if data_location:
-        path_prefix = data_location.get_path()
+        path_prefix = Path(data_location.get_path())
 
     def validate_refs(field):
         """Validate reference paths."""
         for ref_filename in field.get("refs", []):
-            ref_path = os.path.join(path_prefix, ref_filename)
-            if not os.path.exists(ref_path):
+            ref_path: Path = path_prefix / ref_filename
+            file_exists = ref_path.exists()
+            if not file_exists:
                 raise ValidationError(
                     "Path referenced in `refs` ({}) does not exist.".format(ref_path)
                 )
-            if not (os.path.isfile(ref_path) or os.path.isdir(ref_path)):
+            if not (ref_path.is_file() or ref_path.is_dir()):
                 raise ValidationError(
                     "Path referenced in `refs` ({}) is neither a file or directory.".format(
                         ref_path
@@ -109,19 +111,18 @@ def validate_schema(
     def validate_file(field, regex):
         """Validate file name (and check that it exists)."""
         filename = field["file"]
-
         if regex and not re.search(regex, filename):
             raise ValidationError(
                 "File name {} does not match regex {}".format(filename, regex)
             )
 
         if path_prefix:
-            path = os.path.join(path_prefix, filename)
-            if not os.path.exists(path):
+            path: Path = path_prefix / filename
+            if not path.exists():
                 raise ValidationError(
                     "Referenced path ({}) does not exist.".format(path)
                 )
-            if not os.path.isfile(path):
+            if not path.is_file():
                 raise ValidationError(
                     "Referenced path ({}) is not a file.".format(path)
                 )
@@ -133,12 +134,12 @@ def validate_schema(
         dirname = field["dir"]
 
         if path_prefix:
-            path = os.path.join(path_prefix, dirname)
-            if not os.path.exists(path):
+            path: Path = path_prefix / dirname
+            if not path.exists():
                 raise ValidationError(
                     "Referenced path ({}) does not exist.".format(path)
                 )
-            if not os.path.isdir(path):
+            if not path.is_dir():
                 raise ValidationError(
                     "Referenced path ({}) is not a directory.".format(path)
                 )
@@ -444,34 +445,28 @@ def hydrate_size(data, force=False):
 
     def get_dir_size(path):
         """Get directory size."""
-        total_size = 0
-        for dirpath, _, filenames in os.walk(path):
-            for file_name in filenames:
-                file_path = os.path.join(dirpath, file_name)
-                if not os.path.isfile(
-                    file_path
-                ):  # Skip all "not normal" files (links, ...)
-                    continue
-                total_size += os.path.getsize(file_path)
-        return total_size
+        return sum(
+            file_.stat().st_size for file_ in Path(path).rglob("*") if file_.is_file()
+        )
 
     def get_refs_size(obj, obj_path):
         """Calculate size of all references of ``obj``.
 
         :param dict obj: Data object's output field (of type file/dir).
-        :param str obj_path: Path to ``obj``.
+        :param Path obj_path: Path to ``obj``.
         """
         total_size = 0
         for ref in obj.get("refs", []):
             ref_path = data.location.get_path(filename=ref)
-            if ref_path in obj_path:
+            if ref_path in os.fspath(obj_path):
                 # It is a common case that ``obj['file']`` is also contained in
                 # one of obj['ref']. In that case, we need to make sure that it's
                 # size is not counted twice:
                 continue
-            if os.path.isfile(ref_path):
-                total_size += os.path.getsize(ref_path)
-            elif os.path.isdir(ref_path):
+            ref_path: Path = Path(ref_path)
+            if ref_path.is_file():
+                total_size += ref_path.stat().st_size
+            elif ref_path.is_dir():
                 total_size += get_dir_size(ref_path)
 
         return total_size
@@ -485,11 +480,11 @@ def hydrate_size(data, force=False):
         ):
             return
 
-        path = data.location.get_path(filename=obj["file"])
-        if not os.path.isfile(path):
+        path = Path(data.location.get_path(filename=obj["file"]))
+        if not path.is_file():
             raise ValidationError("Referenced file does not exist ({})".format(path))
 
-        obj["size"] = os.path.getsize(path)
+        obj["size"] = path.stat().st_size
         obj["total_size"] = obj["size"] + get_refs_size(obj, path)
 
     def add_dir_size(obj):
@@ -501,8 +496,8 @@ def hydrate_size(data, force=False):
         ):
             return
 
-        path = data.location.get_path(filename=obj["dir"])
-        if not os.path.isdir(path):
+        path = Path(data.location.get_path(filename=obj["dir"]))
+        if not path.is_dir():
             raise ValidationError("Referenced dir does not exist ({})".format(path))
 
         obj["size"] = get_dir_size(path)

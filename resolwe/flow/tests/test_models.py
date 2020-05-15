@@ -4,7 +4,7 @@ import json
 import os
 import shutil
 from datetime import timedelta
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, PropertyMock, patch
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
@@ -1063,14 +1063,15 @@ class ProcessModelTest(TestCase):
         self.assertFalse(process_fetched.is_active)
 
 
-@patch("resolwe.flow.models.utils.os")
+@patch("resolwe.flow.models.utils.Path")
 class HydrateFileSizeUnitTest(TestCase):
-    def create_data(self, os_mock, contributor, process):
+    def create_data(self, path_mock, contributor, process):
         # Mock isfile and getsize for data creation to pass.
         # Make sure to set these two values to desired
         # values after calling this method.
-        os_mock.path.isfile.return_value = True
-        os_mock.path.getsize.return_value = 0
+        path_mock.return_value = MagicMock(
+            stat=lambda: MagicMock(st_size=0), is_file=lambda: True
+        )
 
         data = Data.objects.create(contributor=contributor, process=process)
         data_location = create_data_location()
@@ -1092,19 +1093,22 @@ class HydrateFileSizeUnitTest(TestCase):
             ],
         )
 
-    def test_done_data(self, os_mock):
-        data = self.create_data(os_mock, self.contributor, self.process)
+    def test_done_data(self, path_mock):
+        data = self.create_data(path_mock, self.contributor, self.process)
 
-        os_mock.path.isfile.return_value = True
-        os_mock.path.getsize.return_value = 42000
+        path_mock.return_value = MagicMock(
+            stat=lambda: MagicMock(st_size=42000), is_file=lambda: True
+        )
+
         hydrate_size(data)
         self.assertEqual(data.output["test_file"]["size"], 42000)
 
-    def test_data_with_refs(self, os_mock):
-        data = self.create_data(os_mock, self.contributor, self.process)
-
-        os_mock.path.isfile.return_value = True
-        os_mock.path.getsize.side_effect = [42000, 8000, 42]
+    @patch("resolwe.flow.models.utils.os")
+    def test_data_with_refs(self, os_mock, path_mock):
+        data = self.create_data(path_mock, self.contributor, self.process)
+        stat_mock = MagicMock()
+        type(stat_mock).st_size = PropertyMock(side_effect=[42000, 8000, 42])
+        path_mock.return_value = MagicMock(is_file=lambda: True, stat=lambda: stat_mock)
         data.output = {
             "test_file": {
                 "file": "test_file.tmp",
@@ -1116,11 +1120,18 @@ class HydrateFileSizeUnitTest(TestCase):
         self.assertEqual(data.output["test_file"]["total_size"], 50042)
         self.assertEqual(data.size, 50042)
 
-    def test_list(self, os_mock):
-        data = self.create_data(os_mock, self.contributor, self.process)
+    @patch("resolwe.flow.models.utils.os")
+    def test_list(self, os_mock, path_mock):
+        data = self.create_data(path_mock, self.contributor, self.process)
 
-        os_mock.path.isfile.return_value = True
-        os_mock.path.getsize.side_effect = [34, 42000, 42]
+        stat_mock = MagicMock()
+        type(stat_mock).st_size = PropertyMock(side_effect=[34, 42000, 42])
+        path_mock.return_value = MagicMock(
+            is_file=lambda: True,
+            stat=lambda: stat_mock,
+            __fspath__=lambda: "my_mocked_file_name",
+        )
+
         data.output = {
             "file_list": [
                 {"file": "test_01.tmp",},
@@ -1134,28 +1145,34 @@ class HydrateFileSizeUnitTest(TestCase):
         self.assertEqual(data.output["file_list"][1]["total_size"], 42042)
         self.assertEqual(data.size, 34 + 42042)
 
-    def test_change_size(self, os_mock):
+    def test_change_size(self, path_mock):
         """Size is not changed after object is done."""
-        data = self.create_data(os_mock, self.contributor, self.process)
+        data = self.create_data(path_mock, self.contributor, self.process)
 
-        os_mock.path.isfile.return_value = True
-        os_mock.path.getsize.return_value = 42000
+        path_mock.return_value = MagicMock(
+            stat=lambda: MagicMock(st_size=42000), is_file=lambda: True
+        )
+
         hydrate_size(data)
         self.assertEqual(data.output["test_file"]["size"], 42000)
 
-        os_mock.path.getsize.return_value = 43000
+        path_mock.return_value = MagicMock(
+            stat=lambda: MagicMock(st_size=43000), is_file=lambda: True
+        )
         hydrate_size(data)
         self.assertEqual(data.output["test_file"]["size"], 43000)
 
         data.status = Data.STATUS_DONE
-        os_mock.path.getsize.return_value = 44000
+        path_mock.return_value = MagicMock(
+            stat=lambda: MagicMock(st_size=44000), is_file=lambda: True
+        )
         hydrate_size(data)
         self.assertEqual(data.output["test_file"]["size"], 43000)
 
-    def test_missing_file(self, os_mock):
-        data = self.create_data(os_mock, self.contributor, self.process)
+    def test_missing_file(self, path_mock):
+        data = self.create_data(path_mock, self.contributor, self.process)
 
-        os_mock.path.isfile.return_value = False
+        path_mock.return_value = MagicMock(is_file=lambda: False)
         with self.assertRaises(ValidationError):
             hydrate_size(data)
 

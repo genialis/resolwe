@@ -362,113 +362,141 @@ class ValidationUnitTest(TestCase):
         schema = [
             {"name": "result", "type": "basic:file:"},
         ]
+        path_instance = MagicMock()
         instance = {"result": {"file": "result.txt"}}
 
         data_location = create_data_location(subpath="1")
 
-        with patch("resolwe.flow.models.utils.os") as os_mock:
+        with patch("resolwe.flow.models.utils.Path") as path_mock:
+            path_mock.return_value = path_instance
             validate_schema(instance, schema)
-            self.assertEqual(os_mock.path.isfile.call_count, 0)
+            path_instance.exists = MagicMock(return_value=True)
+            self.assertEqual(path_instance.is_file.call_count, 0)
 
         # missing file
-        with patch("resolwe.flow.models.utils.os") as os_mock:
-            os_mock.path.exists = MagicMock(return_value=False)
+        with patch("resolwe.flow.models.utils.Path") as path_mock:
+            path_mock.return_value = path_instance
+            path_instance.exists = MagicMock(return_value=False)
+            path_instance.__truediv__ = MagicMock(return_value=path_instance)
             with self.assertRaisesRegex(
                 ValidationError, "Referenced path .* does not exist."
             ):
                 validate_schema(instance, schema, data_location=data_location)
-            self.assertEqual(os_mock.path.exists.call_count, 1)
+            self.assertEqual(path_instance.exists.call_count, 1)
 
         # File is not a normal file
-        with patch("resolwe.flow.models.utils.os") as os_mock:
-            os_mock.path.exists = MagicMock(return_value=True)
-            os_mock.path.isfile = MagicMock(return_value=False)
+        with patch("resolwe.flow.models.utils.Path") as path_mock:
+            path_mock.return_value = path_instance
+            path_instance.exists = MagicMock(return_value=True)
+            path_instance.is_file = MagicMock(return_value=False)
+            path_instance.__truediv__ = MagicMock(return_value=path_instance)
             with self.assertRaisesRegex(
                 ValidationError, "Referenced path .* is not a file."
             ):
                 validate_schema(instance, schema, data_location=data_location)
-            self.assertEqual(os_mock.path.isfile.call_count, 1)
+            self.assertEqual(path_instance.is_file.call_count, 1)
 
-        with patch("resolwe.flow.models.utils.os") as os_mock:
-            os_mock.path.isfile = MagicMock(return_value=True)
+        with patch("resolwe.flow.models.utils.Path") as path_mock:
+            path_mock.return_value = path_instance
+            path_instance.is_file = MagicMock(return_value=True)
+            path_instance.__truediv__ = MagicMock(return_value=path_instance)
             validate_schema(instance, schema, data_location=data_location)
-            self.assertEqual(os_mock.path.isfile.call_count, 1)
+            self.assertEqual(path_instance.is_file.call_count, 1)
 
         instance = {
             "result": {"file": "result.txt", "refs": ["user1.txt", "user2.txt"]}
         }
 
-        with patch("resolwe.flow.models.utils.os") as os_mock:
-            os_mock.path.isfile = MagicMock(return_value=True)
+        with patch("resolwe.flow.models.utils.Path") as path_mock:
+            path_mock.return_value = path_instance
+            path_instance.is_file = MagicMock(return_value=True)
+            path_instance.__truediv__ = MagicMock(return_value=path_instance)
             validate_schema(instance, schema, data_location=data_location)
-            self.assertEqual(os_mock.path.isfile.call_count, 3)
+            self.assertEqual(path_instance.is_file.call_count, 3)
 
         # missing second `refs` file
-        with patch("resolwe.flow.models.utils.os") as os_mock:
-            os_mock.path.isfile = MagicMock(side_effect=[True, True, False])
-            os_mock.path.isdir = MagicMock(return_value=False)
+        with patch("resolwe.flow.models.utils.Path") as path_mock:
+            path_mock.return_value = path_instance
+            path_instance.is_file = MagicMock(side_effect=[True, True, False])
+            path_instance.is_dir = MagicMock(return_value=False)
+            path_instance.__truediv__ = MagicMock(return_value=path_instance)
             message = "Path referenced in `refs` .* is neither a file or directory."
             with self.assertRaisesRegex(ValidationError, message):
                 validate_schema(instance, schema, data_location=data_location)
-            self.assertEqual(os_mock.path.isfile.call_count, 3)
-            self.assertEqual(os_mock.path.isdir.call_count, 1)
+            self.assertEqual(path_instance.is_file.call_count, 3)
+            self.assertEqual(path_instance.is_dir.call_count, 1)
 
     def test_dir_prefix(self):
         schema = [
             {"name": "result", "type": "basic:dir:"},
         ]
+        path_instance = MagicMock()
         instance = {"result": {"dir": "results"}}
-
         data_location = create_data_location(subpath="1")
 
         # dir validation is not called if `data_location` is not given
-        with patch("resolwe.flow.models.utils.os") as os_mock:
+        with patch("resolwe.flow.models.utils.Path") as path_mock:
+            path_mock.return_value = path_instance
             validate_schema(instance, schema)
-            self.assertEqual(os_mock.path.isdir.call_count, 0)
+            self.assertEqual(path_instance.is_file.call_count, 0)
+        path_instance.reset_mock()
 
-        with patch("resolwe.flow.models.utils.os") as os_mock:
-            os_mock.path.exists = MagicMock(return_value=True)
-            os_mock.path.isdir = MagicMock(return_value=True)
+        with patch("resolwe.flow.models.utils.Path") as path_mock:
+            path_mock.return_value = path_instance
+            path_instance.exists = lambda: True
+            path_instance.__truediv__ = MagicMock(return_value=path_instance)
+            path_instance.is_dir = MagicMock(return_value=True)
             validate_schema(instance, schema, data_location=data_location)
-            self.assertEqual(os_mock.path.isdir.call_count, 1)
+            self.assertEqual(path_instance.is_dir.call_count, 1)
+        path_instance.reset_mock()
 
         # missing path
-        with patch("resolwe.flow.models.utils.os") as os_mock:
-            os_mock.path.exists = MagicMock(return_value=False)
+        with patch("resolwe.flow.models.utils.Path") as path_mock:
+            path_mock.return_value = path_instance
+            path_instance.exists = MagicMock(return_value=False)
             with self.assertRaisesRegex(
                 ValidationError, "Referenced path .* does not exist."
             ):
                 validate_schema(instance, schema, data_location=data_location)
-            self.assertEqual(os_mock.path.exists.call_count, 1)
+            self.assertEqual(path_instance.exists.call_count, 1)
+        path_instance.reset_mock()
 
         # not a dir
-        with patch("resolwe.flow.models.utils.os") as os_mock:
-            os_mock.path.exists = MagicMock(return_value=True)
-            os_mock.path.isdir = MagicMock(return_value=False)
+        with patch("resolwe.flow.models.utils.Path") as path_mock:
+            path_mock.return_value = path_instance
+            path_instance.exists = MagicMock(return_value=True)
+            path_instance.is_dir = MagicMock(return_value=False)
             with self.assertRaisesRegex(
                 ValidationError, "Referenced path .* is not a directory"
             ):
                 validate_schema(instance, schema, data_location=data_location)
-            self.assertEqual(os_mock.path.isdir.call_count, 1)
+            self.assertEqual(path_instance.is_dir.call_count, 1)
+        path_instance.reset_mock()
 
         instance = {"result": {"dir": "results", "refs": ["file01.txt", "file02.txt"]}}
 
-        with patch("resolwe.flow.models.utils.os") as os_mock:
-            os_mock.path.isdir = MagicMock(return_value=True)
-            os_mock.path.isfile = MagicMock(return_value=True)
+        with patch("resolwe.flow.models.utils.Path") as path_mock:
+            path_mock.return_value = path_instance
+            path_instance.is_file = MagicMock(return_value=True)
+            path_instance.is_dir = MagicMock(return_value=True)
+            path_instance.__truediv__ = MagicMock(return_value=path_instance)
+
             validate_schema(instance, schema, data_location=data_location)
-            self.assertEqual(os_mock.path.isdir.call_count, 1)
-            self.assertEqual(os_mock.path.isfile.call_count, 2)
+            self.assertEqual(path_instance.is_dir.call_count, 1)
+            self.assertEqual(path_instance.is_file.call_count, 2)
+        path_instance.reset_mock()
 
         # missing second `refs` file
-        with patch("resolwe.flow.models.utils.os") as os_mock:
-            os_mock.path.isdir = MagicMock(side_effect=[True, False])
-            os_mock.path.isfile = MagicMock(side_effect=[True, False])
+        with patch("resolwe.flow.models.utils.Path") as path_mock:
+            path_mock.return_value = path_instance
+            path_instance.is_file = MagicMock(side_effect=[True, False])
+            path_instance.is_dir = MagicMock(side_effect=[True, False])
+            path_instance.__truediv__ = MagicMock(return_value=path_instance)
             message = "Path referenced in `refs` .* is neither a file or directory"
             with self.assertRaisesRegex(ValidationError, message):
                 validate_schema(instance, schema, data_location=data_location)
-            self.assertEqual(os_mock.path.isdir.call_count, 2)
-            self.assertEqual(os_mock.path.isfile.call_count, 2)
+            self.assertEqual(path_instance.is_dir.call_count, 2)
+            self.assertEqual(path_instance.is_file.call_count, 2)
 
     def test_string_field(self):
         schema = [
