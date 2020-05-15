@@ -6,15 +6,16 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+===================
+22.0.0 - 2020-05-18
+===================
 
 Changed
 -------
+- **BACKWARD INCOMPATIBLE:** Move purge code inside worker, remove old purge
+  code
 - Various code fixes to make code work with the new storage model
 - Use storage connectors in workers to download data not available locally
-- Move purge code inside worker, remove old purge code
 
 
 Added
@@ -25,14 +26,10 @@ Added
 - Add migrations to move from old storage model to the new one
 - Add storage manager
 - Add management command to start storage manager
-- Add tests for new storage framework
 - Add cleanup manager for removing unreferenced data
 - Add ``isnull`` related lookup filter
 - Add ``entity_count`` to the ``Collection`` serializer
 - Add ``inherit_collection`` to ``Data`` viewset
-
-Fixed
------
 - Add entity_always_create in ``Process`` serializer
 
 
