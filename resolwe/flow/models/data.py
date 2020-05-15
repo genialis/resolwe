@@ -16,7 +16,7 @@ from django.db import models, transaction
 from django.utils.timezone import now
 
 from resolwe.flow.expression_engines.exceptions import EvaluationError
-from resolwe.flow.models.utils import fill_with_defaults
+from resolwe.flow.models.utils import DirtyError, fill_with_defaults, validate_schema
 from resolwe.flow.utils import (
     dict_dot,
     get_data_checksum,
@@ -31,12 +31,10 @@ from .entity import Entity
 from .secret import Secret
 from .storage import Storage
 from .utils import (
-    DirtyError,
     hydrate_input_references,
     hydrate_size,
     render_descriptor,
     render_template,
-    validate_schema,
 )
 
 # Compatibility for Python < 3.5.
@@ -573,12 +571,6 @@ class Data(BaseModel):
             if "update_fields" in kwargs:
                 kwargs["update_fields"].append("size")
 
-        # Input Data objects are validated only upon creation as they can be deleted later.
-        skip_missing_data = not create
-        validate_schema(
-            self.input, self.process.input_schema, skip_missing_data=skip_missing_data
-        )
-
         render_descriptor(self)
 
         if self.descriptor_schema:
@@ -591,23 +583,6 @@ class Data(BaseModel):
             raise ValueError(
                 "`descriptor_schema` must be defined if `descriptor` is given"
             )
-
-        if self.status != Data.STATUS_ERROR:
-            output_schema = self.process.output_schema
-            if self.status == Data.STATUS_DONE:
-                validate_schema(
-                    self.output,
-                    output_schema,
-                    data_location=self.location,
-                    skip_missing_data=True,
-                )
-            else:
-                validate_schema(
-                    self.output,
-                    output_schema,
-                    data_location=self.location,
-                    test_required=False,
-                )
 
         with transaction.atomic():
             self._perform_save(*args, **kwargs)

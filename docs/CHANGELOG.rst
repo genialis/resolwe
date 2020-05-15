@@ -16,6 +16,7 @@ Changed
 - Rename ``transfer_rec`` to ``transfer_objects`` and change its signature to
   accept dictionary objects with information about name, size and hashes of
   objects to transfer
+- Move part of ``Data`` object validation to listener
 
 Added
 -----

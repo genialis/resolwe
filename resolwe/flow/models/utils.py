@@ -256,6 +256,19 @@ def validate_schema(
         )
 
 
+def validate_data_object(data, skip_missing_data=False):
+    """Validate data object.
+
+    Data object is validated only when worker is done with processing.
+    """
+    validate_schema(
+        data.input, data.process.input_schema, skip_missing_data=skip_missing_data
+    )
+    validate_schema(
+        data.output, data.process.output_schema, data_location=data.location,
+    )
+
+
 def _hydrate_values(output, output_schema, data):
     """Hydrate basic:file and basic:json values.
 

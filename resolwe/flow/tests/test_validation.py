@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 
 from resolwe.flow.models import Collection, Data, DescriptorSchema, Entity, Process
-from resolwe.flow.models.utils import validate_schema
+from resolwe.flow.models.utils import validate_data_object, validate_schema
 from resolwe.test import TestCase
 from resolwe.test.utils import create_data_location
 
@@ -36,19 +36,21 @@ class ValidationTest(TestCase):
         }
 
         with self.assertRaisesRegex(ValidationError, '"value" not given'):
-            Data.objects.create(input={}, **data)
+            validate_data_object(Data.objects.create(input={}, **data))
 
         with self.assertRaisesRegex(ValidationError, "Required fields .* not given"):
-            Data.objects.create(input={}, **data)
+            validate_data_object(Data.objects.create(input={}, **data))
 
         d = Data.objects.create(input={"value": 42}, **data)
 
         d.status = Data.STATUS_DONE
         with self.assertRaisesRegex(ValidationError, '"result" not given'):
             d.save()
+            validate_data_object(d)
 
         d.output = {"result": "forty-two"}
         d.save()
+        validate_data_object(d)
 
     def test_validate_data_descriptor(self):
         proc = Process.objects.create(name="Test process", contributor=self.user)
@@ -153,11 +155,13 @@ class ValidationTest(TestCase):
         d.output = {"big_result": 245}
         with self.assertRaisesRegex(ValidationError, "`Storage` object does not exist"):
             d.save()
+            validate_data_object(d)
 
         d.storages.create(name="storage", contributor=self.user, json={"value": 42})
         self.assertEqual(d.storages.count(), 1)
         d.output = {"big_result": d.storages.first().id}
         d.save()
+        validate_data_object(d)
 
     def test_referenced_data(self):
         proc1 = Process.objects.create(
@@ -173,6 +177,7 @@ class ValidationTest(TestCase):
         d = Data.objects.create(
             name="Referenced object", contributor=self.user, process=proc1
         )
+        validate_data_object(d)
 
         data = {
             "name": "Test data",
@@ -181,23 +186,23 @@ class ValidationTest(TestCase):
             "input": {"data_object": d.pk},
         }
 
-        Data.objects.create(**data)
+        validate_data_object(Data.objects.create(**data))
 
         # less specific type
         proc2.input_schema = [{"name": "data_object", "type": "data:referenced:"}]
-        Data.objects.create(**data)
+        validate_data_object(Data.objects.create(**data))
 
         # wrong type
         proc2.input_schema = [{"name": "data_object", "type": "data:wrong:type:"}]
         with self.assertRaisesRegex(
             ValidationError, "Data object of type .* is required"
         ):
-            Data.objects.create(**data)
+            validate_data_object(Data.objects.create(**data))
 
         # non-existing `Data` object
         data["input"] = {"data_object": 631}
         with self.assertRaisesRegex(ValidationError, "`Data` object does not exist"):
-            Data.objects.create(**data)
+            validate_data_object(Data.objects.create(**data))
 
     def test_delete_input(self):
         proc1 = Process.objects.create(
@@ -219,10 +224,13 @@ class ValidationTest(TestCase):
             process=proc2,
             input={"data_object": data1.pk},
         )
+        validate_data_object(data1)
+        validate_data_object(data2)
 
         data1.delete()
         data2.name = "New name"
         data2.save()
+        validate_data_object(data2, skip_missing_data=True)
 
 
 class ValidationUnitTest(TestCase):

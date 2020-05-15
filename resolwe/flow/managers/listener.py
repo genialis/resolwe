@@ -34,7 +34,7 @@ from django.utils.timezone import now
 from django_priority_batch import PrioritizedBatcher
 
 from resolwe.flow.models import Data, Process
-from resolwe.flow.models.utils import referenced_files
+from resolwe.flow.models.utils import referenced_files, validate_data_object
 from resolwe.flow.utils import dict_dot, iterate_fields, stats
 from resolwe.storage.models import AccessLog, ReferencedPath, StorageLocation
 from resolwe.storage.settings import STORAGE_LOCAL_CONNECTOR
@@ -805,6 +805,11 @@ class ExecutorListener:
 
         try:
             d.save(update_fields=list(changeset.keys()))
+
+            # Perform validation when data object is DONE.
+            if changeset.get("status") == Data.STATUS_DONE:
+                validate_data_object(d)
+
             # Update referenced files. Since entire output is sent every time
             # just delete and recreate objects. Computing changes and updating
             # would probably be slower.
@@ -820,7 +825,7 @@ class ExecutorListener:
                 ReferencedPath.objects.bulk_create(referenced_paths)
                 storage_location.files.add(*referenced_paths)
 
-        except ValidationError as exc:
+        except (ValidationError, ValueError) as exc:
             logger.error(
                 __(
                     "Validation error when saving Data object of process '{}' (handle_update):\n\n{}",
