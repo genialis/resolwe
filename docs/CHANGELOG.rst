@@ -41,6 +41,8 @@ Fixed
 -----
 - Add missing decorator ``validate_url`` to ``AwsS3Connector``
 - Always import exceptions from ``requests`` library
+- Fix bug that sometimes caused objects inside workflow to fail with
+  ``Failed to transfer data.``
 
 
 ===================

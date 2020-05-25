@@ -356,6 +356,38 @@ class ExecutorListener:
                 self._abort_processing(obj)
                 return
 
+            try:
+                # Set Data status to DONE and perfoem validation only if it is
+                # still in status PROCESSING.
+                if data.status == Data.STATUS_PROCESSING:
+                    data.status = Data.STATUS_DONE
+                    data.save()
+                    validate_data_object(data)
+
+            except ValidationError as exc:
+                logger.error(
+                    __(
+                        "Validation error when saving Data object of process '{}' (handle_referenced_files):\n\n{}",
+                        data.process.slug,
+                        traceback.format_exc(),
+                    ),
+                    extra={"data_id": data_id},
+                )
+                data.refresh_from_db()
+                data.process_error.append(exc.message)
+                data.status = Data.STATUS_ERROR
+
+                with suppress(Exception):
+                    data.save(update_fields=["process_error", "status"])
+
+            except Exception:
+                logger.exception(
+                    "Exception while setting data status to DONE (handle_referenced_files).",
+                    extra={"data_id": data_id,},
+                )
+                self._abort_processing(obj)
+                return
+
         async_to_sync(self._send_reply)(
             obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK}
         )
@@ -805,11 +837,31 @@ class ExecutorListener:
 
         try:
             d.save(update_fields=list(changeset.keys()))
+        except ValidationError as exc:
+            logger.error(
+                __(
+                    "Validation error when saving Data object of process '{}' (handle_update):\n\n{}",
+                    d.process.slug,
+                    traceback.format_exc(),
+                ),
+                extra={"data_id": data_id},
+            )
+            d.refresh_from_db()
+            d.process_error.append(exc.message)
+            d.status = Data.STATUS_ERROR
+            with suppress(Exception):
+                d.save(update_fields=["process_error", "status"])
 
-            # Perform validation when data object is DONE.
-            if changeset.get("status") == Data.STATUS_DONE:
-                validate_data_object(d)
-
+        except Exception:
+            logger.error(
+                __(
+                    "Error when saving Data object of process '{}' (handle_update):\n\n{}",
+                    d.process.slug,
+                    traceback.format_exc(),
+                ),
+                extra={"data_id": data_id},
+            )
+        try:
             # Update referenced files. Since entire output is sent every time
             # just delete and recreate objects. Computing changes and updating
             # would probably be slower.
@@ -824,29 +876,10 @@ class ExecutorListener:
                 ]
                 ReferencedPath.objects.bulk_create(referenced_paths)
                 storage_location.files.add(*referenced_paths)
-
-        except (ValidationError, ValueError) as exc:
-            logger.error(
-                __(
-                    "Validation error when saving Data object of process '{}' (handle_update):\n\n{}",
-                    d.process.slug,
-                    traceback.format_exc(),
-                ),
-                extra={"data_id": data_id},
-            )
-
-            d.refresh_from_db()
-
-            d.process_error.append(exc.message)
-            d.status = Data.STATUS_ERROR
-
-            with suppress(Exception):
-                d.save(update_fields=["process_error", "status"])
-
         except Exception:
             logger.error(
                 __(
-                    "Error when saving Data object of process '{}' (handle_update):\n\n{}",
+                    "Error when saving ReferencedFile objects of process '{}' (handle_update):\n\n{}",
                     d.process.slug,
                     traceback.format_exc(),
                 ),
@@ -979,10 +1012,7 @@ class ExecutorListener:
                         "Error while preparing spawned Data objects"
                     ]
 
-                elif process_rc == 0 and not d.status == Data.STATUS_ERROR:
-                    changeset["status"] = Data.STATUS_DONE
-
-                else:
+                elif process_rc != 0:
                     changeset["status"] = Data.STATUS_ERROR
                     changeset["process_rc"] = process_rc
 
