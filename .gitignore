@@ -40,3 +40,9 @@ distribute*.tar.gz
 # Ignore unencrypted storage manager secrets (used for testing).
 testing_credentials_*.json
 testing_credentials.tgz
+
+# Ignore mypy cache files.
+.mypy_cache
+
+# Ignore VS Code files
+*.code-workspace
