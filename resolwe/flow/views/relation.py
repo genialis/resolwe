@@ -19,7 +19,7 @@ class RelationViewSet(ResolweCreateModelMixin, viewsets.ModelViewSet):
     qs_collection_ds = DescriptorSchema.objects.select_related("contributor")
     qs_collection = Collection.objects.select_related("contributor")
     qs_collection = qs_collection.prefetch_related(
-        Prefetch("descriptor_schema", queryset=qs_collection_ds),
+        "data", "entity_set", Prefetch("descriptor_schema", queryset=qs_collection_ds),
     )
 
     queryset = (

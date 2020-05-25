@@ -17,6 +17,7 @@ Changed
   accept dictionary objects with information about name, size and hashes of
   objects to transfer
 - Move part of ``Data`` object validation to listener
+- Improve loading time of collection endpoint
 
 Added
 -----
