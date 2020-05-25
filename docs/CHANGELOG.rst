@@ -10,6 +10,10 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Changed
+-------
+- Improve loading time of collection endpoint
+
 Fixed
 -----
 - Fix bug that sometimes caused objects inside workflow to fail with

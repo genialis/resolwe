@@ -24,30 +24,33 @@ class BaseCollectionSerializer(ResolweBaseSerializer):
         allow_null=True,
         required=False,
     )
-    data_count = serializers.IntegerField(required=False)
+    data_count = serializers.SerializerMethodField(required=False)
     status = serializers.SerializerMethodField(required=False)
+
+    def get_data_count(self, collection):
+        """Return number of data objects on the collection."""
+        return collection.data.count()
 
     def get_status(self, collection):
         """Return status of the collection based on the status of data objects."""
-        if not hasattr(collection, "data_count"):
-            return None
-        if collection.data_count == 0:
+        status_set = set([data.status for data in collection.data.all()])
+
+        if not status_set:
             return None
 
-        if collection.data_error_count:
-            return Data.STATUS_ERROR
-        if collection.data_uploading_count:
-            return Data.STATUS_UPLOADING
-        if collection.data_processing_count:
-            return Data.STATUS_PROCESSING
-        if collection.data_preparing_count:
-            return Data.STATUS_PREPARING
-        if collection.data_waiting_count:
-            return Data.STATUS_WAITING
-        if collection.data_resolving_count:
-            return Data.STATUS_RESOLVING
-        if collection.data_done_count == collection.data_count:
-            return Data.STATUS_DONE
+        status_order = [
+            Data.STATUS_ERROR,
+            Data.STATUS_UPLOADING,
+            Data.STATUS_PROCESSING,
+            Data.STATUS_PREPARING,
+            Data.STATUS_WAITING,
+            Data.STATUS_RESOLVING,
+            Data.STATUS_DONE,
+        ]
+
+        for status in status_order:
+            if status in status_set:
+                return status
 
         logger.warning(
             "Could not determine the status of a collection.",
@@ -87,7 +90,11 @@ class BaseCollectionSerializer(ResolweBaseSerializer):
 class CollectionSerializer(BaseCollectionSerializer):
     """Serializer for Collection objects."""
 
-    entity_count = serializers.IntegerField(required=False)
+    entity_count = serializers.SerializerMethodField(required=False)
+
+    def get_entity_count(self, collection):
+        """Return number of entities on the collection."""
+        return collection.entity_set.count()
 
     class Meta(BaseCollectionSerializer.Meta):
         """CollectionSerializer Meta options."""

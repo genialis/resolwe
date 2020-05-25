@@ -89,6 +89,7 @@ class ProjectionTest(TestCase):
                 "id",
                 "modified",
                 "contributor",
+                "data_count",
                 "description",
                 "descriptor",
                 "descriptor_schema",
