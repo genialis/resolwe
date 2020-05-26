@@ -6,6 +6,16 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Fixed
+-----
+- Fix bug that sometimes caused objects inside workflow to fail with
+  ``Failed to transfer data.``
+ 
+
 ===================
 22.0.0 - 2020-05-18
 ===================

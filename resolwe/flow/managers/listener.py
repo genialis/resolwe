@@ -348,6 +348,28 @@ class ExecutorListener:
                 )
                 local_location.status = StorageLocation.STATUS_DONE
                 local_location.save()
+                if data.status == Data.STATUS_PROCESSING:
+                    data.status = Data.STATUS_DONE
+                    data.save()
+            except ValidationError as exc:
+                logger.error(
+                    __(
+                        "Validation error when saving Data object of process '{}' (handle_referenced_files):\n\n{}",
+                        data.process.slug,
+                        traceback.format_exc(),
+                    ),
+                    extra={"data_id": data_id},
+                )
+                data.refresh_from_db()
+                data.process_error.append(exc.message)
+                data.status = Data.STATUS_ERROR
+
+                with suppress(Exception):
+                    data.save(update_fields=["process_error", "status"])
+
+                self._abort_processing(obj)
+                return
+
             except Exception:
                 logger.exception(
                     "Exception while saving referenced files (handle_referenced_files).",
@@ -971,10 +993,7 @@ class ExecutorListener:
                         "Error while preparing spawned Data objects"
                     ]
 
-                elif process_rc == 0 and not d.status == Data.STATUS_ERROR:
-                    changeset["status"] = Data.STATUS_DONE
-
-                else:
+                elif process_rc != 0:
                     changeset["status"] = Data.STATUS_ERROR
                     changeset["process_rc"] = process_rc
 
