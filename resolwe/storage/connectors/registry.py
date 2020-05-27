@@ -2,8 +2,6 @@
 import logging
 from typing import MutableMapping
 
-from django.core.exceptions import ImproperlyConfigured
-
 from .baseconnector import BaseStorageConnector
 
 logger = logging.getLogger(__name__)
@@ -75,7 +73,7 @@ class StorageConnectors(MutableMapping[str, BaseStorageConnector]):
                 # Validate connector config before creating instance.
                 for setting_name in klass.REQUIRED_SETTINGS:
                     if setting_name not in connector_settings["config"]:
-                        raise ImproperlyConfigured(
+                        raise Exception(
                             "Setting named {} must be set in connector {} configuration".format(
                                 setting_name, connector_name
                             )
