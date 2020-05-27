@@ -8,15 +8,16 @@ from .global_settings import DATA_META
 from .manager_commands import send_manager_command
 from .protocol import ExecutorProtocol
 
+logger = logging.getLogger(__name__)
+
 # Make sure sphinx can import this module.
 try:
     from .connectors import Transfer, connectors
     from .connectors.exceptions import DataTransferError
 except ImportError:
-    pass
+    logger.exception("Unable to import 'connectors' module")
 
 
-logger = logging.getLogger(__name__)
 DOWNLOAD_WAITING_TIMEOUT = 60  # in seconds
 RETRIES = 5
 
