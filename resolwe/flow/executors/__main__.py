@@ -28,14 +28,42 @@ using the python from the ``venv`` virtualenv.
 
 import argparse
 import asyncio
+import logging
+import sys
+import traceback
 from importlib import import_module
 
 from . import manager_commands
-from .collect import collect_files
-from .global_settings import DATA
+from .global_settings import DATA, DATA_META
 from .logger import configure_logging
-from .protocol import ExecutorFiles
-from .transfer import transfer_data
+from .protocol import ExecutorProtocol
+
+
+def handle_exception(exc_type, exc_value, exc_traceback):
+    """Log unhandled exceptions."""
+    message = "".join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+    logger.error("Unhandled exception in executor: {}".format(message))
+
+    loop.run_until_complete(
+        asyncio.gather(
+            *logging_future_list,
+            manager_commands.send_manager_command(
+                ExecutorProtocol.UPDATE,
+                extra_fields={
+                    ExecutorProtocol.UPDATE_CHANGESET: {
+                        "process_error": ["Unhandled exception in executor."],
+                        "status": DATA_META["STATUS_ERROR"],
+                    }
+                },
+            ),
+            manager_commands.send_manager_command(
+                ExecutorProtocol.ABORT, expect_reply=False
+            ),
+        )
+    )
+
+
+sys.excepthook = handle_exception
 
 
 async def run_executor():
@@ -56,17 +84,24 @@ async def run_executor():
 
 
 if __name__ == "__main__":
+    # Initialize logging ASAP.
     logging_future_list = []
+    loop = asyncio.get_event_loop()
     configure_logging(logging_future_list)
+    loop.run_until_complete(manager_commands.init())
+    logger = logging.getLogger(__name__)
+
+    # Import storage modules.
+    from .collect import collect_files
+    from .protocol import ExecutorFiles
+    from .transfer import transfer_data
 
     async def _sequential():
         """Run some things sequentially but asynchronously."""
-        await manager_commands.init()
         await transfer_data()
         await run_executor()
         await collect_files()
 
-    loop = asyncio.get_event_loop()
     loop.run_until_complete(_sequential())
 
     # Wait for any pending logging emits now there's
