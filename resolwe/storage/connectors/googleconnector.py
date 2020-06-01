@@ -64,8 +64,9 @@ class GoogleConnector(BaseStorageConnector):
     @validate_url
     def push(self, stream, url, hash_type=None, data_hash=None):
         """Push data from the stream to the given URL."""
+        url = os.fspath(url)
         mime_type = mimetypes.guess_type(url)[0]
-        blob = self.bucket.blob(os.fspath(url))
+        blob = self.bucket.blob(url)
         if hash_type is not None:
             assert hash_type in self.supported_hash
             prop = self.hash_propery[hash_type]

@@ -64,12 +64,13 @@ class AwsS3Connector(BaseStorageConnector):
     @validate_url
     def push(self, stream, url):
         """Push data from the stream to the given URL."""
+        url = os.fspath(url)
         mime_type = mimetypes.guess_type(url)[0]
         extra_args = {} if mime_type is None else {"ContentType": mime_type}
         self.client.upload_fileobj(
             stream,
             self.bucket_name,
-            os.fspath(url),
+            url,
             Config=self._get_transfer_config(),
             ExtraArgs=extra_args,
         )
@@ -181,18 +182,19 @@ class AwsS3Connector(BaseStorageConnector):
         # If one uses copy_object method proposed by some solutions the e_tag
         # value on object can (and will) change. That causes error downloading
         # since hash check fails.
-        head = self.client.head_object(Bucket=self.bucket_name, Key=os.fspath(url))
+        url = os.fspath(url)
+        head = self.client.head_object(Bucket=self.bucket_name, Key=url)
         meta = head["Metadata"]
         hashes = {k: v for (k, v) in hashes.items() if k not in self.hash_propery}
         meta.update(hashes)
         copy_source = {
             "Bucket": self.bucket_name,
-            "Key": os.fspath(url),
+            "Key": url,
         }
         self.client.copy(
             copy_source,
             self.bucket_name,
-            os.fspath(url),
+            url,
             ExtraArgs={"Metadata": meta, "MetadataDirective": "REPLACE"},
         )
 

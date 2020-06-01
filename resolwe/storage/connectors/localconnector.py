@@ -28,13 +28,13 @@ class LocalFilesystemConnector(BaseStorageConnector):
             path = self.base_path / url / delete_url
             if path.exists():
                 if path.is_dir():
-                    shutil.rmtree(path)
+                    shutil.rmtree(os.fspath(path))
                 else:
                     path.unlink()
         # Remove url base directory if empty.
         if not self.get_object_list(url):
             if (self.base_path / url).is_dir():
-                shutil.rmtree(self.base_path / url)
+                shutil.rmtree(os.fspath(self.base_path / url))
 
     @validate_url
     def push(self, stream, url):
