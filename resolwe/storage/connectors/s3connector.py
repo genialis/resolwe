@@ -142,14 +142,14 @@ class AwsS3Connector(BaseStorageConnector):
     def get_hashes(self, url, hash_types):
         """Get the hash of the given type for the given object."""
         resource = self.awss3.Object(self.bucket_name, os.fspath(url))
-        hashes = []
+        hashes = dict()
         try:
             for hash_type in hash_types:
                 if hash_type in self.hash_propery:
                     prop = self.hash_propery[hash_type]
-                    hashes.append(getattr(resource, prop).strip('"'))
+                    hashes[hash_type] = getattr(resource, prop).strip('"')
                 else:
-                    hashes.append(resource.metadata.get(hash_type))
+                    hashes[hash_type] = resource.metadata.get(hash_type)
         except botocore.exceptions.ClientError as error:
             if error.response["Error"]["Code"] == "404":
                 return None

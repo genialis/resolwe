@@ -93,7 +93,7 @@ class LocalFilesystemConnector(BaseStorageConnector):
             return None
         with path.open("rb", self.CHUNK_SIZE) as f:
             hasher.compute(f)
-        return [hasher.hexdigest(hash_type) for hash_type in hash_types]
+        return {hash_type: hasher.hexdigest(hash_type) for hash_type in hash_types}
 
     @validate_url
     def get_hash(self, url, hash_type):

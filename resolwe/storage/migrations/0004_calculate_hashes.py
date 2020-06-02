@@ -14,9 +14,9 @@ def process_storage_location(file_storage, best_storage_location):
     for referenced_path in file_storage.files.all():
         url = base_url / referenced_path.path
         hashes = connector.get_hashes(url, ["md5", "crc32c", "awss3etag"])
-        referenced_path.md5 = hashes[0]
-        referenced_path.crc32c = hashes[1]
-        referenced_path.awss3etag = hashes[2]
+        referenced_path.md5 = hashes["md5"]
+        referenced_path.crc32c = hashes["crc32c"]
+        referenced_path.awss3etag = hashes["awss3etag"]
         referenced_path.save()
 
 

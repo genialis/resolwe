@@ -127,6 +127,15 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
         """
         return objects
 
+    @validate_url
+    def check_url(self, url: Union[str, PathLike]) -> bool:
+        """Perform check on URL.
+
+        Usually this just checks that object at given url exists, but in some
+        cases additional checks are performed.
+        """
+        return self.exists(url)
+
     @abc.abstractmethod
     def push(self, stream: BinaryIO, url: Union[str, PathLike]):
         """Push data from the stream to the given URL.
@@ -160,7 +169,7 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def get_hashes(
         self, url: Union[str, PathLike], hash_types: List[str]
-    ) -> Optional[List[str]]:
+    ) -> Optional[Dict[str, str]]:
         """Get the hashes of the given types for the given object."""
         raise NotImplementedError
 

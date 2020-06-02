@@ -222,6 +222,60 @@ class StorageLocationTest(TransactionTestCase):
             delete.call_args_list[0][0][1], ["remove_me.txt", "dir/remove_me.txt"],
         )
 
+    def test_verify_data_ok(self):
+        path1 = ReferencedPath.objects.create(
+            path="1", md5="1", crc32c="1", awss3etag="1"
+        )
+        storage_location: StorageLocation = StorageLocation.objects.create(
+            file_storage=self.file_storage, url="url", connector_name="local"
+        )
+        storage_location.files.add(path1)
+        with patch(
+            "resolwe.storage.models.StorageLocation.connector"
+        ) as connector_mock:
+            connector_mock.check_url = MagicMock(return_value=True)
+            connector_mock.get_hashes = MagicMock(
+                side_effect=[{"md5": "1", "crc32c": "1", "awss3etag": "1"},]
+            )
+            verified = storage_location.verify_data()
+            self.assertTrue(verified)
+
+    def test_verify_data_connector_failed(self):
+        path1 = ReferencedPath.objects.create(
+            path="1", md5="1", crc32c="1", awss3etag="1"
+        )
+        storage_location: StorageLocation = StorageLocation.objects.create(
+            file_storage=self.file_storage, url="url", connector_name="local"
+        )
+        storage_location.files.add(path1)
+        with patch(
+            "resolwe.storage.models.StorageLocation.connector"
+        ) as connector_mock:
+            connector_mock.check_url = MagicMock(return_value=False)
+            connector_mock.get_hashes = MagicMock(
+                side_effect=[{"md5": "1", "crc32c": "1", "awss3etag": "1"},]
+            )
+            verified = storage_location.verify_data()
+            self.assertFalse(verified)
+
+    def test_verify_data_hash_failed(self):
+        path1 = ReferencedPath.objects.create(
+            path="1", md5="1", crc32c="1", awss3etag="1"
+        )
+        storage_location: StorageLocation = StorageLocation.objects.create(
+            file_storage=self.file_storage, url="url", connector_name="local"
+        )
+        storage_location.files.add(path1)
+        with patch(
+            "resolwe.storage.models.StorageLocation.connector"
+        ) as connector_mock:
+            connector_mock.check_url = MagicMock(return_value=True)
+            connector_mock.get_hashes = MagicMock(
+                side_effect=[{"md5": "1", "crc32c": "invalid", "awss3etag": "1"},]
+            )
+            verified = storage_location.verify_data()
+            self.assertFalse(verified)
+
 
 class AccessLogTest(TransactionTestCase):
     def setUp(self):

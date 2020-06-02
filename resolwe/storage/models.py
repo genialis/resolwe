@@ -1,4 +1,5 @@
 """Resolwe storage model."""
+import logging
 import os
 from pathlib import PurePath
 from typing import TYPE_CHECKING, List, Optional, Union
@@ -10,6 +11,8 @@ from resolwe.storage.connectors.transfer import Transfer
 
 if TYPE_CHECKING:
     from resolwe.storage.connectors.baseconnector import BaseStorageConnector
+
+logger = logging.getLogger(__name__)
 
 
 class FileStorage(models.Model):
@@ -242,6 +245,54 @@ class StorageLocation(models.Model):
             referenced_paths = [ReferencedPath(**e) for e in transfered_files]
             ReferencedPath.objects.bulk_create(referenced_paths)
             destination.files.add(*referenced_paths)
+
+    def verify_data(self) -> bool:
+        """Verify data stored in this location.
+
+        Verify hashes and sizes of all files. This operation could be slow
+        and cause network traffic, use with care.
+
+        :returns: True if data is OK, False otherwise. In case of failure
+        additional information about error is logged.
+        """
+        hash_types = ["md5", "crc32c", "awss3etag"]
+        return_value = True
+        for referenced_path in self.files.all():
+            url = self.get_path(filename=referenced_path.path, prefix=PurePath(""))
+            return_value &= self.connector.check_url(url)
+            connector_hashes = self.connector.get_hashes(url, hash_types)
+            # Could not retrieve hashes: log error and continue to check other files.
+            if connector_hashes is None:
+                logger.error(
+                    "Connector {} could not retrieve hashes for {}".format(
+                        self.connector.name, url
+                    )
+                )
+                return_value = False
+                continue
+
+            for hash_name, hash_value in connector_hashes.items():
+                referenced_path_hash = getattr(referenced_path, hash_name)
+                if not referenced_path_hash:
+                    logger.warning(
+                        "ReferencedPath with id {} has no {} hash".format(
+                            referenced_path.id, hash_name
+                        )
+                    )
+                    continue
+
+                # Hashes differ: log error and continue to check other hashes.
+                if referenced_path_hash != hash_value:
+                    return_value = False
+                    logger.error(
+                        "ReferencedPath with id {} has wrong {} hash: {} instead of {}".format(
+                            referenced_path.id,
+                            hash_name,
+                            referenced_path_hash,
+                            hash_value,
+                        )
+                    )
+        return return_value
 
 
 class AccessLog(models.Model):
