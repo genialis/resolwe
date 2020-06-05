@@ -44,6 +44,9 @@ Fixed
 - Always import exceptions from ``requests`` library
 - Fix bug that sometimes caused objects inside workflow to fail with
   ``Failed to transfer data.``
+- Fix dependency handling bug in listener: when checking for missing data
+  listener must only consider depencies with kind ``KIND_IO`` instead of all
+  depencies.
 
 
 ===================

@@ -33,7 +33,7 @@ from django.utils.timezone import now
 
 from django_priority_batch import PrioritizedBatcher
 
-from resolwe.flow.models import Data, Process
+from resolwe.flow.models import Data, DataDependency, Process
 from resolwe.flow.models.utils import referenced_files, validate_data_object
 from resolwe.flow.utils import dict_dot, iterate_fields, stats
 from resolwe.storage.models import AccessLog, ReferencedPath, StorageLocation
@@ -536,10 +536,14 @@ class ExecutorListener:
 
         missing_data = []
         dependencies = (
-            Data.objects.filter(children_dependency__child=data)
+            Data.objects.filter(
+                children_dependency__child=data,
+                children_dependency__kind=DataDependency.KIND_IO,
+            )
             .exclude(location__isnull=True)
             .distinct()
         )
+
         for parent in dependencies:
             file_storage = parent.location
             if not file_storage.has_storage_location(STORAGE_LOCAL_CONNECTOR):
