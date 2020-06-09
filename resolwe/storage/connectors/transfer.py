@@ -127,9 +127,10 @@ class Transfer:
             max_threads=max_threads,
         )
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
-            for objects_chunk in objects_chunks:
-                executor.submit(self._transfer_chunk, url, objects_chunk)
+        # Check future results. This wil re-raise exception raised in
+        # _transfer_chunk.
+        for future in futures:
+            future.result()
 
         # Post-processing.
         try:

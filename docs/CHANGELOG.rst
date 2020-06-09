@@ -47,6 +47,7 @@ Fixed
 - Fix dependency handling bug in listener: when checking for missing data
   listener must only consider depencies with kind ``KIND_IO`` instead of all
   depencies.
+- Raise exception when data transfer failed.
 
 
 ===================
