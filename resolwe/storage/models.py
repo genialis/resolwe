@@ -2,12 +2,13 @@
 import logging
 import os
 from pathlib import PurePath
-from typing import TYPE_CHECKING, List, Optional, Union
+from typing import TYPE_CHECKING, Iterable, List, Optional, Union
 
 from django.db import models
 
 from resolwe.storage.connectors import DEFAULT_CONNECTOR_PRIORITY, connectors
 from resolwe.storage.connectors.transfer import Transfer
+from resolwe.storage.connectors.utils import paralelize
 
 if TYPE_CHECKING:
     from resolwe.storage.connectors.baseconnector import BaseStorageConnector
@@ -255,44 +256,56 @@ class StorageLocation(models.Model):
         :returns: True if data is OK, False otherwise. In case of failure
         additional information about error is logged.
         """
-        hash_types = ["md5", "crc32c", "awss3etag"]
-        return_value = True
-        for referenced_path in self.files.all():
-            url = self.get_path(filename=referenced_path.path, prefix=PurePath(""))
-            return_value &= self.connector.check_url(url)
-            connector_hashes = self.connector.get_hashes(url, hash_types)
-            # Could not retrieve hashes: log error and continue to check other files.
-            if connector_hashes is None:
-                logger.error(
-                    "Connector {} could not retrieve hashes for {}".format(
-                        self.connector.name, url
-                    )
-                )
-                return_value = False
-                continue
 
-            for hash_name, hash_value in connector_hashes.items():
-                referenced_path_hash = getattr(referenced_path, hash_name)
-                if not referenced_path_hash:
-                    logger.warning(
-                        "ReferencedPath with id {} has no {} hash".format(
-                            referenced_path.id, hash_name
+        def worker(referenced_paths: Iterable[ReferencedPath]) -> bool:
+            """Check given referenced paths."""
+            hash_types = ["md5", "crc32c"]
+            return_value = True
+            connector = self.connector.duplicate()
+            for referenced_path in referenced_paths:
+                url = self.get_path(filename=referenced_path.path, prefix=PurePath(""))
+                return_value &= connector.check_url(url)
+                connector_hashes = connector.get_hashes(url, hash_types)
+                # Could not retrieve hashes: log error and continue to check other files.
+                if connector_hashes is None:
+                    logger.error(
+                        "Connector {} could not retrieve hashes for {}".format(
+                            connector.name, url
                         )
                     )
+                    return_value = False
                     continue
 
-                # Hashes differ: log error and continue to check other hashes.
-                if referenced_path_hash != hash_value:
-                    return_value = False
-                    logger.error(
-                        "ReferencedPath with id {} has wrong {} hash: {} instead of {}".format(
-                            referenced_path.id,
-                            hash_name,
-                            referenced_path_hash,
-                            hash_value,
+                for hash_name, hash_value in connector_hashes.items():
+                    referenced_path_hash = getattr(referenced_path, hash_name)
+                    if not referenced_path_hash:
+                        logger.warning(
+                            "ReferencedPath with id {} has no {} hash".format(
+                                referenced_path.id, hash_name
+                            )
                         )
-                    )
-        return return_value
+                        continue
+
+                    # Hashes differ: log error and continue to check other hashes.
+                    if referenced_path_hash != hash_value:
+                        return_value = False
+                        logger.error(
+                            "ReferencedPath with id {} has wrong {} hash: {} instead of {}".format(
+                                referenced_path.id,
+                                hash_name,
+                                referenced_path_hash,
+                                hash_value,
+                            )
+                        )
+            return return_value
+
+        max_threads = max(1, min((self.files.count() // 5), 20))
+        futures = paralelize(
+            self.files.all().exclude(path__endswith="/"),
+            worker,
+            max_threads=max_threads,
+        )
+        return all(future.result() for future in futures)
 
 
 class AccessLog(models.Model):

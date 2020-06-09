@@ -16,7 +16,7 @@ class TransferTest(TestCase):
         t = Transfer(self.local, self.local)
         with patch.object(Transfer, "_transfer_chunk") as transfer_mock:
             t.transfer_objects("base", [{}])
-        transfer_mock.assert_called_once_with([{}], url=Path("base"))
+        transfer_mock.assert_called_once_with(Path("base"), [{}])
 
     def test_max_thread(self):
         t = Transfer(self.local, self.local)

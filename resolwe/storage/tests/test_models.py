@@ -233,7 +233,9 @@ class StorageLocationTest(TransactionTestCase):
         with patch(
             "resolwe.storage.models.StorageLocation.connector"
         ) as connector_mock:
-            connector_mock.check_url = MagicMock(return_value=True)
+            connector_mock.duplicate = MagicMock(
+                return_value=MagicMock(check_url=MagicMock(return_value=True))
+            )
             connector_mock.get_hashes = MagicMock(
                 side_effect=[{"md5": "1", "crc32c": "1", "awss3etag": "1"},]
             )
@@ -251,7 +253,9 @@ class StorageLocationTest(TransactionTestCase):
         with patch(
             "resolwe.storage.models.StorageLocation.connector"
         ) as connector_mock:
-            connector_mock.check_url = MagicMock(return_value=False)
+            connector_mock.duplicate = MagicMock(
+                return_value=MagicMock(check_url=MagicMock(return_value=False))
+            )
             connector_mock.get_hashes = MagicMock(
                 side_effect=[{"md5": "1", "crc32c": "1", "awss3etag": "1"},]
             )
@@ -269,7 +273,9 @@ class StorageLocationTest(TransactionTestCase):
         with patch(
             "resolwe.storage.models.StorageLocation.connector"
         ) as connector_mock:
-            connector_mock.check_url = MagicMock(return_value=True)
+            connector_mock.duplicate = MagicMock(
+                return_value=MagicMock(check_url=MagicMock(return_value=False))
+            )
             connector_mock.get_hashes = MagicMock(
                 side_effect=[{"md5": "1", "crc32c": "invalid", "awss3etag": "1"},]
             )
