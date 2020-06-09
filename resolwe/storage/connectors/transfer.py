@@ -12,6 +12,7 @@ from requests.exceptions import ReadTimeout
 
 from .circular_buffer import CircularBuffer
 from .exceptions import DataTransferError
+from .utils import paralelize
 
 if TYPE_CHECKING:
     from os import PathLike
@@ -59,7 +60,9 @@ class Transfer:
         # Always upload file larger that small_file (in bytes).
         self.small_file = 100_000
 
-    def pre_processing(self, url: str, objects: Optional[List[str]] = None):
+    def pre_processing(
+        self, url: Union[str, Path], objects: Optional[List[dict]] = None
+    ):
         """Notify connectors that transfer is about to start.
 
         The connector is allowed to change names of the objects that are to be
@@ -75,7 +78,9 @@ class Transfer:
         self.to_connector.before_push(objects_to_transfer, url)
         return objects_to_transfer
 
-    def post_processing(self, url: str, objects: Optional[List[str]] = None):
+    def post_processing(
+        self, url: Union[str, Path], objects: Optional[List[dict]] = None
+    ):
         """Notify connectors that transfer is complete.
 
         :param url: base url for file transfer.
@@ -88,7 +93,7 @@ class Transfer:
         return objects_stored
 
     def transfer_objects(
-        self, url: Union[str, Path], objects: List[dict]
+        self, url: Union[str, Path], objects: List[dict], max_threads: int = 10
     ) -> Optional[List[dict]]:
         """Transfer objects under the given URL.
 
@@ -116,14 +121,11 @@ class Transfer:
 
         url = Path(url)
 
-        def chunks(iterable, n):
-            """Split iterable into n evenly sized chunks."""
-            for i in range(0, n):
-                yield iterable[i::n]
-
-        max_threads = 50
-        number_of_chunks = min(len(objects_to_transfer), max_threads)
-        objects_chunks = chunks(objects_to_transfer, number_of_chunks)
+        futures = paralelize(
+            objects=objects_to_transfer,
+            worker=partial(self._transfer_chunk, url),
+            max_threads=max_threads,
+        )
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
             for objects_chunk in objects_chunks:
