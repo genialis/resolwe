@@ -145,7 +145,7 @@ class Transfer:
 
         return None if objects_stored is objects else objects_stored
 
-    def _transfer_chunk(self, url: Union[str, Path], objects: Iterable[dict]):
+    def _transfer_chunk(self, url: Path, objects: Iterable[dict]):
         """Transfer a single chunk of objects."""
         to_connector = self.to_connector.duplicate()
         from_connector = self.from_connector.duplicate()
@@ -158,9 +158,9 @@ class Transfer:
 
     def transfer(
         self,
-        from_base_url: Path,
+        from_base_url: Union[str, Path],
         object_: dict,
-        to_base_url: Path,
+        to_base_url: Union[str, Path],
         to_url: "PathLike[str]",
         from_connector: "BaseStorageConnector" = None,
         to_connector: "BaseStorageConnector" = None,
@@ -185,11 +185,12 @@ class Transfer:
             duplicate of to_connector from the Transfer class instance is
             used.
         """
+        to_base_url = Path(to_base_url)
         # Duplicate connectors for thread safety.
         to_connector = to_connector or self.to_connector.duplicate()
         from_connector = from_connector or self.from_connector.duplicate()
 
-        from_url = from_base_url / object_["path"]
+        from_url = Path(from_base_url) / object_["path"]
         hashes = {type_: object_[type_] for type_ in ["md5", "crc32c", "awss3etag"]}
         common_hash_type = next(
             e for e in to_connector.supported_hash if e in hashes.keys()

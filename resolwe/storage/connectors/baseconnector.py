@@ -67,7 +67,7 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
         """Get a base path for this connector."""
 
     @abc.abstractmethod
-    def get_object_list(self, url: str) -> List[str]:
+    def get_object_list(self, url: Union[str, PathLike]) -> List[str]:
         """Get a list of objects stored bellow the given URL.
 
         :param url: given URL.
@@ -87,7 +87,7 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
         """
         return self.__class__(self.config, self.name)
 
-    def before_get(self, objects: List[dict], url: str) -> List[dict]:
+    def before_get(self, objects: List[dict], url: Union[str, PathLike]) -> List[dict]:
         """Perform pre-processing before get.
 
         :param objects: objects to transfer.
@@ -99,7 +99,7 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
         """
         return objects
 
-    def after_get(self, objects: List[dict], url: str):
+    def after_get(self, objects: List[dict], url: Union[str, PathLike]):
         """Perform post-processing after get.
 
         :param objects: objects that were transfered.
@@ -107,7 +107,7 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
         :param url: URL that was used by transfer.
         """
 
-    def before_push(self, objects: List[dict], url: str):
+    def before_push(self, objects: List[dict], url: Union[str, PathLike]):
         """Perform pre-processing before push.
 
         :param objects: objects to transfer.
@@ -115,7 +115,9 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
         :param url: URL that will be used by transfer.
         """
 
-    def after_push(self, objects: List[dict], url: str) -> Optional[List[dict]]:
+    def after_push(
+        self, objects: List[dict], url: Union[str, PathLike]
+    ) -> Optional[List[dict]]:
         """Perform post-processing after push.
 
         :param objects: objects that were transfered.
@@ -205,7 +207,7 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
         """Get True if connector can open object as stream."""
         return False
 
-    def open_stream(self, url: "PathLike[str]", mode: str) -> Optional[BinaryIO]:
+    def open_stream(self, url: Union[str, PathLike], mode: str) -> Optional[BinaryIO]:
         """Get stream for data at the given URL.
 
         :param url: URL of the object.
@@ -218,7 +220,7 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
         """
         raise NotImplementedError
 
-    def delete(self, url: str, urls: List[Union[str, PathLike]]):
+    def delete(self, url: Union[str, PathLike], urls: List[Union[str, PathLike]]):
         """Remove objects.
 
         Since delete is potentially harmfull use validate_urls and validate_url
