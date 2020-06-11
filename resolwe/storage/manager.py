@@ -183,7 +183,7 @@ class Manager:
                 access_log = AccessLog.objects.create(
                     storage_location=storage_location, reason="Manager data transfer"
                 )
-                new_storage_location = StorageLocation.objects.create(
+                new_storage_location, _ = StorageLocation.all_objects.get_or_create(
                     file_storage=file_storage,
                     url=storage_location.url,
                     connector_name=connector_name,
@@ -201,7 +201,6 @@ class Manager:
                         "to_connector": connector_name,
                     },
                 )
-                new_storage_location.delete()
             finally:
                 if access_log is not None:
                     access_log.finished = now()
