@@ -239,7 +239,10 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def presigned_url(
-        self, url: Union[str, PathLike], expiration: int = 10
+        self,
+        url: Union[str, PathLike],
+        expiration: int = 10,
+        force_download: bool = False,
     ) -> Optional[str]:
         """Create a presigned URL.
 
@@ -248,6 +251,8 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
 
         :param expiration: expiration time of the link (in seconds), default
             is 10 seconds.
+
+        :param force_download: force download.
 
         :returns: URL that can be used to access object or None.
         """

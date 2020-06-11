@@ -131,7 +131,7 @@ class GoogleConnector(BaseStorageConnector):
         return Path("")
 
     @validate_url
-    def presigned_url(self, url, expiration=60):
+    def presigned_url(self, url, expiration=60, force_download=False):
         """Create a presigned URL.
 
         The URL is used to obtain temporary access to the object ar the
@@ -140,13 +140,18 @@ class GoogleConnector(BaseStorageConnector):
         :param expiration: expiration time of the link (in seconds), default
             is one minute.
 
+        :param force_download: force download.
+
         :returns: URL that can be used to access object or None.
         """
+        content_disposition = "attachment" if force_download else "inline"
+        query_parameters = {"response-content-disposition": content_disposition}
         blob = self.bucket.blob(os.fspath(url))
         response = blob.generate_signed_url(
             version="v4",
             expiration=datetime.timedelta(seconds=expiration),
             method="GET",
             virtual_hosted_style=True,
+            query_parameters=query_parameters,
         )
         return response

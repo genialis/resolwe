@@ -204,7 +204,7 @@ class AwsS3Connector(BaseStorageConnector):
         return Path("")
 
     @validate_url
-    def presigned_url(self, url, expiration=60):
+    def presigned_url(self, url, expiration=60, force_download=False):
         """Create a presigned URL.
 
         The URL is used to obtain temporary access to the object ar the
@@ -213,13 +213,20 @@ class AwsS3Connector(BaseStorageConnector):
         :param expiration: expiration time of the link (in seconds), default
             is one minute.
 
+        :param force_download: force download.
+
         :returns: URL that can be used to access object or None.
         """
+        content_disposition = "attachment" if force_download else "inline"
         response = None
         try:
             response = self.client.generate_presigned_url(
                 "get_object",
-                Params={"Bucket": self.bucket_name, "Key": os.fspath(url)},
+                Params={
+                    "Bucket": self.bucket_name,
+                    "Key": os.fspath(url),
+                    "ResponseContentDisposition": content_disposition,
+                },
                 ExpiresIn=expiration,
             )
         except botocore.exceptions.ClientError:

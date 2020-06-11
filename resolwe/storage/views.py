@@ -1,6 +1,7 @@
 """Storage application views."""
 
 from datetime import datetime
+from distutils.util import strtobool
 from pathlib import Path
 from typing import Union
 
@@ -93,8 +94,9 @@ class DataBrowseView(View):
             return JsonResponse(data, safe=False)
         elif is_file:
             # Redirect to the resource.
+            force_download = strtobool(request.GET.get("force_download", "false"))
             redirect_url = file_storage.default_storage_location.connector.presigned_url(
-                file_storage.subpath / relative_path
+                file_storage.subpath / relative_path, force_download=force_download
             )
             return redirect(redirect_url)
         else:

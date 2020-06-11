@@ -121,7 +121,7 @@ class LocalFilesystemConnector(BaseStorageConnector):
         return Path(self.path)
 
     @validate_url
-    def presigned_url(self, url, expiration=3600):
+    def presigned_url(self, url, expiration=3600, force_download=False):
         """Create a presigned URL.
 
         The URL is used to obtain temporary access to the object ar the
@@ -130,8 +130,11 @@ class LocalFilesystemConnector(BaseStorageConnector):
         :param expiration: expiration time of the link (in seconds), default
             is one minute.
 
+        :param force_download: force download.
+
         :returns: URL that can be used to access object or None.
         """
+        force_download = "?force_download=1" if force_download else ""
         public_url = Path(self.config.get("public_url", "/local_data"))
         resource_url = public_url / url
-        return resource_url.as_posix()
+        return resource_url.as_posix() + force_download
