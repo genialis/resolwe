@@ -122,6 +122,7 @@ class DecisionMaker:
             return sorted(
                 can_delete, key=lambda e: connectors[e.connector_name].priority
             )[-1]
+        return None
 
     def _should_delete(self, storage_location: StorageLocation) -> bool:
         """Get if the given StorageLocation should be deleted.
@@ -172,6 +173,8 @@ class Manager:
         logger.debug("Processing FileStorage object with id {}".format(file_storage.id))
         decide = DecisionMaker(file_storage)
         storage_location = file_storage.default_storage_location
+        assert storage_location is not None
+
         from_connector = connectors[storage_location.connector_name]
         copy_locations = decide.copy()
 
