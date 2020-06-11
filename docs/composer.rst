@@ -53,42 +53,6 @@ Again, what the extension is depends on the type that is being extended. Now
 we describe some common extension types for types that are part of the Resolwe
 core.
 
-Elasticsearch indices
----------------------
-
-It is possible to extend the ``mapping`` field of Elasticsearch indices by
-defining an extension as follows:
-
-.. code:: python
-
-    class ExtendedDataIndex:
-        """Data ES index extensions."""
-        mapping = {
-            'source': 'output.source',
-            'species': 'output.species',
-            'build': 'output.build',
-            'feature_type': 'output.feature_type',
-        }
-
-    composer.add_extension('resolwe.flow.elastic_indexes.data.DataIndex', ExtendedDataIndex)
-
-Elasticsearch documents
------------------------
-
-It is possible to extend Elasticsearch documents using arbitrary fields by
-defining an extension as follows:
-
-.. code:: python
-
-    class ExtendedDataDocument:
-        """Data ES document extensions."""
-        source = dsl.Keyword()
-        species = dsl.Text()
-        build = dsl.Keyword()
-        feature_type = dsl.Keyword()
-
-    composer.add_extension('resolwe.flow.elastic_indexes.data.DataDocument', ExtendedDataDocument)
-
 Data viewset
 ------------
 

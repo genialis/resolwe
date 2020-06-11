@@ -33,12 +33,6 @@ class CollectionTestCase(ResolweAPITestCase):
 
         super().setUp()
 
-        # Reindex data objects as they are loaded in fixtures.
-        # TODO: Remove this when we get rid of fixtures.
-        from resolwe.elastic.builder import index_builder
-
-        index_builder.build()
-
     def test_get_list(self):
         resp = self._get_list(self.user1)
         self.assertEqual(len(resp.data), 3)

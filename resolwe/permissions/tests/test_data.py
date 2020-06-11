@@ -46,12 +46,6 @@ class DataTestCase(ResolweAPITestCase):
 
         super().setUp()
 
-        # Reindex data objects as they are loaded in fixtures.
-        # TODO: Remove this when we get rid of fixtures.
-        from resolwe.elastic.builder import index_builder
-
-        index_builder.build()
-
     def tearDown(self):
         for data in Data.objects.all():
             if data.location:

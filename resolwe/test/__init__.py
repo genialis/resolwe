@@ -10,13 +10,7 @@ Resolwe Test Framework
    :members:
 
 """
-from resolwe.test.testcases import (
-    ElasticSearchTestCase,
-    TestCase,
-    TestCaseHelpers,
-    TransactionElasticSearchTestCase,
-    TransactionTestCase,
-)
+from resolwe.test.testcases import TestCase, TestCaseHelpers, TransactionTestCase
 from resolwe.test.testcases.api import ResolweAPITestCase, TransactionResolweAPITestCase
 from resolwe.test.testcases.process import ProcessTestCase
 from resolwe.test.utils import (
@@ -37,8 +31,6 @@ __all__ = (
     "TransactionTestCase",
     "ResolweAPITestCase",
     "TransactionResolweAPITestCase",
-    "ElasticSearchTestCase",
-    "TransactionElasticSearchTestCase",
     "ProcessTestCase",
     "check_docker",
     "check_installed",

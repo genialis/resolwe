@@ -4,7 +4,6 @@
 language: python
 dist: bionic
 # We need to be able to install packages.
-sudo: required
 python: "3.6"
 
 services:
@@ -15,13 +14,6 @@ addons:
   postgresql: "10"
 
 before_install:
-  # NOTE: We need to manually install ElasticSearch since we want to control
-  # the exact version we use instead of relying on the version shipped by
-  # Travis CI's python image.
-  # XXX: Version 6.7.0 should be used, but it doesn't work on Travis.
-  - curl -sSL -O https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-6.6.0.deb
-  - sudo dpkg -i --force-confnew elasticsearch-6.6.0.deb
-  - sudo service elasticsearch restart
   # Decrypt storage credentials only when secretes are available.
   - if ! [ -z $encrypted_8df206c75486_key]; then openssl aes-256-cbc -K $encrypted_8df206c75486_key -iv $encrypted_8df206c75486_iv -in tests/testing_credentials.tgz.enc -out tests/testing_credentials.tgz -d; fi
   - if ! [ -z $encrypted_8df206c75486_key]; then tar -xf tests/testing_credentials.tgz -C tests; fi
@@ -44,7 +36,6 @@ jobs:
         # services.
         - RESOLWE_POSTGRESQL_USER=postgres
         - RESOLWE_POSTGRESQL_PORT=5432
-        - RESOLWE_ES_PORT=9200
         - RESOLWE_REDIS_PORT=6379
         # NOTE: We need to disable SECCOMP as it is not supported on Travis CI.
         - RESOLWE_DOCKER_DISABLE_SECCOMP=1
@@ -56,7 +47,6 @@ jobs:
         # services.
         - RESOLWE_POSTGRESQL_USER=postgres
         - RESOLWE_POSTGRESQL_PORT=5432
-        - RESOLWE_ES_PORT=9200
         - RESOLWE_REDIS_PORT=6379
         # NOTE: We need to disable SECCOMP as it is not supported on Travis CI.
         - RESOLWE_DOCKER_DISABLE_SECCOMP=1
@@ -68,7 +58,6 @@ jobs:
         # services.
         - RESOLWE_POSTGRESQL_USER=postgres
         - RESOLWE_POSTGRESQL_PORT=5432
-        - RESOLWE_ES_PORT=9200
         - RESOLWE_REDIS_PORT=6379
         # NOTE: We need to disable SECCOMP as it is not supported on Travis CI.
         - RESOLWE_DOCKER_DISABLE_SECCOMP=1
@@ -81,7 +70,6 @@ jobs:
         # services.
         - RESOLWE_POSTGRESQL_USER=postgres
         - RESOLWE_POSTGRESQL_PORT=5432
-        - RESOLWE_ES_PORT=9200
         - RESOLWE_REDIS_PORT=6379
         # NOTE: We need to disable SECCOMP as it is not supported on Travis CI.
         - RESOLWE_DOCKER_DISABLE_SECCOMP=1

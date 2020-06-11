@@ -33,7 +33,6 @@ INSTALLED_APPS = (
     'resolwe',
     'resolwe.permissions',
     'resolwe.flow',
-    'resolwe.elastic',
     'resolwe.storage',
     'resolwe.toolkit',
     'resolwe.test_helpers',
@@ -224,9 +223,6 @@ DATETIME_INPUT_FORMATS = (
 )
 
 
-ELASTICSEARCH_HOST = os.environ.get('RESOLWE_ES_HOST', 'localhost')
-ELASTICSEARCH_PORT = int(os.environ.get('RESOLWE_ES_PORT', '59200'))
-
 # Testing.
 
 TEST_RUNNER = 'resolwe.test_helpers.test_runner.ResolweRunner'
@@ -265,16 +261,6 @@ LOGGING = {
         '': {
             'handlers': ['file'],
             'level': 'DEBUG',
-        },
-        'elasticsearch': {
-            'handlers': ['file'],
-            'level': 'WARNING',
-            'propagate': False,
-        },
-        'urllib3': {
-            'handlers': ['file'],
-            'level': 'WARNING',
-            'propagate': False,
         },
     }
 }

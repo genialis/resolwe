@@ -54,15 +54,7 @@ class TestCaseHelpers(DjangoSimpleTestCase):
 
     def setUp(self):
         """Prepare environment for test."""
-        from resolwe.elastic.builder import index_builder
-
         super().setUp()
-
-        # Prepare Elastic search indices.
-        index_builder.discover_indexes()
-        index_builder.create_mappings()
-        index_builder.unregister_signals()
-        index_builder.register_signals()
 
         # Directories need to be recreated here in case a previous
         # TestCase deleted them. Moving this logic into the test runner
@@ -82,15 +74,6 @@ class TestCaseHelpers(DjangoSimpleTestCase):
         self._keep_data = settings.FLOW_MANAGER_KEEP_DATA
 
         self.addCleanup(self._clean_up)
-
-    def tearDown(self):
-        """Cleanup environment."""
-        from resolwe.elastic.builder import index_builder
-
-        super().tearDown()
-
-        # Reset Elastic search indices.
-        index_builder.destroy()
 
     def keep_data(self, mock_purge=True):
         """Do not delete output files after tests."""
@@ -174,8 +157,3 @@ class TestCase(TransactionTestCase, DjangoTestCase):
     rolled back at the end of the test.
 
     """
-
-
-# Deprecated legacy aliases.
-TransactionElasticSearchTestCase = TransactionTestCase
-ElasticSearchTestCase = TestCase

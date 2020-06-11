@@ -6,6 +6,15 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Changed
+-------
+- **BACKWARD INCOMPATIBLE:** Delete ``elastic`` application
+
+
 ===================
 22.1.3 - 2020-07-13
 ===================
@@ -14,7 +23,7 @@ Fixed
 -----
 - When deciding which StorageLocation objects will be deleted consider only
   completed StorageLocation objects.
-- Add ``google.resumable_media.common.DataCorruption`` exception to 
+- Add ``google.resumable_media.common.DataCorruption`` exception to
   ``transfer_exceptions`` tuple.
 
 

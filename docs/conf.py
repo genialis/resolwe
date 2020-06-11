@@ -20,7 +20,6 @@ settings.configure(
         'resolwe',
         'resolwe.permissions',
         'resolwe.flow',
-        'resolwe.elastic',
     ),
 )
 django.setup()

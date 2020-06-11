@@ -49,7 +49,6 @@ setuptools.setup(
         "django-versionfield2~=0.5.0",
         "django-fernet-fields~=0.5",
         "django-priority-batch~=2.1.0",
-        "elasticsearch-dsl~=6.3.1",
         "Jinja2~=2.10.1",
         "jsonschema~=2.6.0",
         "plumbum~=1.6.6",

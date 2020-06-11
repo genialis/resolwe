@@ -9,14 +9,6 @@ postgresql:
         POSTGRES_PASSWORD: resolwe
     ports:
         - "55432:5432"
-elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch-oss:6.7.0
-    environment:
-        - discovery.type=single-node
-        # Limit JVM's heap memory.
-        - ES_JAVA_OPTS=-Xms512m -Xmx512m
-    ports:
-        - "59200:9200"
 redis:
     image: redis:3.2
     ports:
