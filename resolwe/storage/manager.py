@@ -177,7 +177,6 @@ class Manager:
 
         # Copy data to new StorageLocations.
         for connector_name in copy_locations:
-            to_connector = connectors[connector_name]
             logger.debug("Copying to location {}".format(connector_name))
             access_log = None
             try:
@@ -199,7 +198,7 @@ class Manager:
                     extra={
                         "file_storage_id": file_storage.id,
                         "from_connector": from_connector.name,
-                        "to_connector": to_connector.name,
+                        "to_connector": connector_name,
                     },
                 )
                 new_storage_location.delete()
