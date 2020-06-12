@@ -4,6 +4,7 @@ import logging
 from contextlib import suppress
 from functools import partial
 from pathlib import Path
+from time import sleep
 from typing import TYPE_CHECKING, Iterable, List, Optional, Union
 
 import wrapt
@@ -28,6 +29,7 @@ except ModuleNotFoundError:
 
 logger = logging.getLogger(__name__)
 ERROR_MAX_RETRIES = 3
+ERROR_TIMEOUT = 5  # In seconds.
 transfer_exceptions = tuple(
     gcs_exceptions + [DataTransferError] + [RequestsConnectionError, ReadTimeout]
 )
@@ -42,6 +44,7 @@ def retry_on_transfer_error(wrapped, instance, args, kwargs):
 
         except transfer_exceptions as err:
             connection_err = err
+            sleep(ERROR_TIMEOUT)
 
     raise connection_err
 
@@ -156,6 +159,7 @@ class Transfer:
                     url, entry, url, Path(entry["path"]), from_connector, to_connector
                 )
 
+    @retry_on_transfer_error
     def transfer(
         self,
         from_base_url: Union[str, Path],
