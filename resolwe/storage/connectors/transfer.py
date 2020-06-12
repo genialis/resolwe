@@ -41,7 +41,6 @@ def retry_on_transfer_error(wrapped, instance, args, kwargs):
     for _ in range(ERROR_MAX_RETRIES):
         try:
             return wrapped(*args, **kwargs)
-
         except transfer_exceptions as err:
             connection_err = err
             sleep(ERROR_TIMEOUT)
@@ -130,10 +129,10 @@ class Transfer:
             max_threads=max_threads,
         )
 
-        # Check future results. This wil re-raise exception raised in
+        # Check future results. This wil re-raise any exception raised in
         # _transfer_chunk.
-        for future in futures:
-            future.result()
+        if not all(future.result() for future in futures):
+            raise DataTransferError()
 
         # Post-processing.
         try:
@@ -148,16 +147,21 @@ class Transfer:
 
         return None if objects_stored is objects else objects_stored
 
-    def _transfer_chunk(self, url: Path, objects: Iterable[dict]):
-        """Transfer a single chunk of objects."""
+    def _transfer_chunk(self, url: Path, objects: Iterable[dict]) -> bool:
+        """Transfer a single chunk of objects.
+        
+        :returns: True on success.
+        """
         to_connector = self.to_connector.duplicate()
         from_connector = self.from_connector.duplicate()
         for entry in objects:
             # Do not transfer directories.
             if not entry["path"].endswith("/"):
-                self.transfer(
+                if not self.transfer(
                     url, entry, url, Path(entry["path"]), from_connector, to_connector
-                )
+                ):
+                    raise DataTransferError()
+        return True
 
     @retry_on_transfer_error
     def transfer(
@@ -168,7 +172,7 @@ class Transfer:
         to_url: "PathLike[str]",
         from_connector: "BaseStorageConnector" = None,
         to_connector: "BaseStorageConnector" = None,
-    ):
+    ) -> bool:
         """Transfer single object between two storage connectors.
 
         :param from_base_url: base url on from_connector.
@@ -188,6 +192,10 @@ class Transfer:
         :param to_connector: to connector, defaults to None. If None
             duplicate of to_connector from the Transfer class instance is
             used.
+
+        :raises DataTransferError: on failure.
+
+        :returns: True on success.
         """
         to_base_url = Path(to_base_url)
         # Duplicate connectors for thread safety.
@@ -212,7 +220,7 @@ class Transfer:
                     + " to: {}:{}".format(to_connector.name, to_base_url / to_url)
                     + " object exists with right hash, skipping."
                 )
-                return
+                return True
 
         # When object can be open directly as stream do it.
         if from_connector.can_open_stream:
@@ -250,7 +258,7 @@ class Transfer:
                 # Log exceptions in threads to preserve original stack trace.
                 for f in futures:
                     try:
-                        f.result
+                        f.result()
                     except Exception:
                         logger.exception("Exception occured while transfering data")
 
@@ -274,3 +282,5 @@ class Transfer:
         # of upload_chunk_size that was used for awss3etag computation.
         hashes["_upload_chunk_size"] = str(to_connector.CHUNK_SIZE)
         to_connector.set_hashes(to_base_url / to_url, hashes)
+
+        return True
