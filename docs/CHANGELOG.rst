@@ -6,13 +6,12 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+===================
+22.1.0 - 2020-06-15
+===================
 
 Changed
 -------
-- Use threads when transfering files with ``AwsS3Connector``
 - Rename ``transfer_rec`` to ``transfer_objects`` and change its signature to
   accept dictionary objects with information about name, size and hashes of
   objects to transfer
@@ -21,21 +20,21 @@ Changed
 
 Added
 -----
-- Add ``move_to_collection`` to ``Data`` viewset
+- Add ``move_to_collection`` method to ``Data`` viewset
 - Report registration failure in ``ProcessTestCase``
 - Add a pseudo Python process to serve as a template
-- Add ``validate_urls`` method to ``BaseConnector`` class.
-- Validate connector settings on registraton
+- Add ``validate_urls`` method to storage ``BaseConnector`` class
+- Validate storage connector settings on registraton
 - Add ``transfer_data`` method to ``StorageLocation`` class
 - Remove data when ``StorageLocation`` object is deleted
 - Store file hashes inside ``ReferencedPath`` model and connect it to
   ``StorageLocation`` model
-- Add ``get_hashes`` method to connectors
-- Add ``open_stream`` method to connectors
-- Add ``compute_hashes`` method to ``hasher`` class
+- Add ``get_hashes`` method to storage connectors
+- Add ``open_stream`` method to storage connectors
+- Add ``compute_hashes`` function to ``storage.connectors.hasher`` module
 - Use threads when transfering files with ``AwsS3Connector``
-- Add ``duplicate`` method to connectors
-- Add pre-processing and post-processing hooks when transfering data
+- Add ``duplicate`` method to storage connectors
+- Add pre-processing and post-processing hooks to storage connectors
 - Use multiple threads for file transfer
 
 Fixed
