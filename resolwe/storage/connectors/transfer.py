@@ -59,8 +59,6 @@ class Transfer:
         """Initialize transfer object."""
         self.from_connector = from_connector
         self.to_connector = to_connector
-        # Always upload file larger that small_file (in bytes).
-        self.small_file = 100_000
 
     def pre_processing(
         self, url: Union[str, Path], objects: Optional[List[dict]] = None
@@ -210,17 +208,15 @@ class Transfer:
         from_hash = hashes[common_hash_type]
 
         # Check if file already exist and has the right hash.
-        # Skip check for small files as it is slower than upload.
-        if object_["size"] > self.small_file:
-            to_hash = to_connector.get_hash(to_base_url / to_url, common_hash_type)
-            if from_hash == to_hash:
-                # Object exists and has the right hash.
-                logger.debug(
-                    "From: {}:{}".format(from_connector.name, from_url)
-                    + " to: {}:{}".format(to_connector.name, to_base_url / to_url)
-                    + " object exists with right hash, skipping."
-                )
-                return True
+        to_hash = to_connector.get_hash(to_base_url / to_url, common_hash_type)
+        if from_hash == to_hash:
+            # Object exists and has the right hash.
+            logger.debug(
+                "From: {}:{}".format(from_connector.name, from_url)
+                + " to: {}:{}".format(to_connector.name, to_base_url / to_url)
+                + " object exists with right hash, skipping."
+            )
+            return True
 
         # When object can be open directly as stream do it.
         if from_connector.can_open_stream:
