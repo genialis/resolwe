@@ -7,6 +7,7 @@ from typing import List, Optional
 from django.db import transaction
 from django.utils.timezone import now
 
+from resolwe.flow.models import Data
 from resolwe.storage.connectors import connectors
 from resolwe.storage.models import AccessLog, FileStorage, StorageLocation
 from resolwe.storage.settings import STORAGE_CONNECTORS
@@ -82,6 +83,10 @@ class DecisionMaker:
         rule_results = {}
 
         rule_results["has_rules"] = len(copy_rules) > 0
+
+        rule_results["data_object_ok"] = self.file_storage.data.filter(
+            status=Data.STATUS_DONE
+        ).exists()
 
         # Do not copy objects that have no StorageLocation.
         default_location = self.file_storage.default_storage_location

@@ -62,8 +62,13 @@ CONNECTORS = {
 @patch("resolwe.storage.manager.connectors", CONNECTORS)
 @patch("resolwe.storage.manager.STORAGE_CONNECTORS", CONNECTORS_SETTINGS)
 class DecisionMakerTest(TestCase):
+    fixtures = [
+        "storage_processes.yaml",
+        "storage_data.yaml",
+    ]
+
     def setUp(self):
-        self.file_storage: FileStorage = FileStorage.objects.create()
+        self.file_storage: FileStorage = FileStorage.objects.get(pk=1)
         self.decision_maker = DecisionMaker(self.file_storage)
         super().setUp()
 
@@ -273,8 +278,8 @@ class DecisionMakerTest(TestCase):
 @patch("resolwe.storage.manager.STORAGE_CONNECTORS", CONNECTORS_SETTINGS)
 class DecisionMakerOverrideRuleTest(TestCase):
     fixtures = [
-        "processes.yaml",
-        "data.yaml",
+        "storage_processes.yaml",
+        "storage_data.yaml",
     ]
 
     def setUp(self):
@@ -379,9 +384,15 @@ class DecisionMakerOverrideRuleTest(TestCase):
 @patch("resolwe.storage.manager.STORAGE_CONNECTORS", CONNECTORS_SETTINGS)
 @patch("resolwe.storage.models.connectors", CONNECTORS)
 class ManagerTest(TransactionTestCase):
+    fixtures = [
+        "storage_processes.yaml",
+        "storage_data.yaml",
+        "storage_users.yaml",
+    ]
+
     def setUp(self):
-        self.file_storage1: FileStorage = FileStorage.objects.create()
-        self.file_storage2: FileStorage = FileStorage.objects.create()
+        self.file_storage1: FileStorage = FileStorage.objects.get(pk=1)
+        self.file_storage2: FileStorage = FileStorage.objects.get(pk=2)
         self.manager = Manager()
         super().setUp()
 

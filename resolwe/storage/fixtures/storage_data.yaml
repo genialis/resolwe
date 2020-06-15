@@ -5,14 +5,6 @@
     id: 1
     created: 2020-01-01T09:00:00.000+0000
 
-- model: storage.StorageLocation
-  fields:
-    id: 1
-    url: '1'
-    file_storage: 1
-    last_update: 2020-01-01 11:11:11
-    connector_name: 'local'
-
 - model: flow.data
   pk: 1
   fields:
@@ -34,14 +26,7 @@
   fields:
     id: 2
     created: 2020-01-01T09:00:00.000+0000
-
-- model: storage.StorageLocation
-  fields:
-    id: 2
-    url: '2'
-    file_storage: 2
-    last_update: 2020-01-01 11:11:11
-    connector_name: 'local'
+    
 
 - model: flow.data
   pk: 2
