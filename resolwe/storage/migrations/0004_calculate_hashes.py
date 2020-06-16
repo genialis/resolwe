@@ -11,7 +11,7 @@ from resolwe.storage.connectors import connectors
 def process_storage_location(file_storage, best_storage_location):
     connector = connectors[best_storage_location.connector_name].duplicate()
     base_url = Path(best_storage_location.url)
-    for referenced_path in file_storage.files.all():
+    for referenced_path in file_storage.files.exclude(path__endswith="/"):
         url = base_url / referenced_path.path
         hashes = connector.get_hashes(url, ["md5", "crc32c", "awss3etag"])
         referenced_path.md5 = hashes["md5"]
