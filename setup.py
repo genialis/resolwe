@@ -36,7 +36,6 @@ setuptools.setup(
     },
     python_requires=">=3.6, <3.9",
     install_requires=[
-        "asgiref==3.2.7",
         "asteval~=0.9.12",
         "async-timeout~=3.0.0",
         "channels~=2.4.0",
