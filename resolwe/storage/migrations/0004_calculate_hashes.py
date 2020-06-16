@@ -24,7 +24,7 @@ def calculate_hashes(apps, schema_editor):
     """Calculate hashes for existing ReferencedPaths."""
     FileStorage = apps.get_model("storage", "FileStorage")
 
-    with ThreadPoolExecutor(max_workers=100) as executor:
+    with ThreadPoolExecutor(max_workers=50) as executor:
         for file_storage in FileStorage.objects.all():
             storage_locations = file_storage.storage_locations.filter(status="OK")
             # Do not calculate hash when no location with status OK exists.
