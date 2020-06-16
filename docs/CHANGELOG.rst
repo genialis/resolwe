@@ -6,6 +6,17 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+
+===================
+22.1.1 - 2020-06-16
+===================
+
+Changed
+-------
+- Remove ``asgiref`` version pin due to new release that fixed previous
+  regression.
+
+
 ===================
 22.1.0 - 2020-06-15
 ===================
