@@ -52,13 +52,16 @@ class GoogleConnector(BaseStorageConnector):
     @validate_url
     def delete(self, url, urls):
         """Remove objects."""
-        with suppress(NotFound):
-            with self.client.batch():
-                for delete_url in urls:
-                    blob = self.bucket.blob(
-                        os.fspath(self.base_path / url / delete_url)
-                    )
-                    if blob.exists():
+        # At most 1000 objects can be deleted at the same time.
+        max_chunk_length = 1000
+        for i in range(0, len(urls), max_chunk_length):
+            with suppress(NotFound):
+                next_chunk = urls[i : i + max_chunk_length]
+                with self.client.batch():
+                    for delete_url in next_chunk:
+                        blob = self.bucket.blob(
+                            os.fspath(self.base_path / url / delete_url)
+                        )
                         blob.delete()
 
     @validate_url
