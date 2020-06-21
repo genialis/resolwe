@@ -5,6 +5,15 @@ Change Log
 All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
+==========
+Unreleased
+==========
+
+Fixed
+-----
+- Celery sometimes starts more than one worker for a given Data object. In
+  such case the download and purge part of the worker must be skipped or
+  errors processing Data objects might occur.
 
 
 ===================

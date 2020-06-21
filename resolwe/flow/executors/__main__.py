@@ -29,13 +29,16 @@ using the python from the ``venv`` virtualenv.
 import argparse
 import asyncio
 import logging
+import os
 import sys
 import traceback
 from importlib import import_module
+from pathlib import Path
 
 from . import manager_commands
-from .global_settings import DATA, DATA_META
+from .global_settings import DATA, DATA_META, EXECUTOR_SETTINGS
 from .logger import configure_logging
+from .manager_commands import send_manager_command
 from .protocol import ExecutorProtocol
 
 
@@ -66,7 +69,24 @@ def handle_exception(exc_type, exc_value, exc_traceback):
 sys.excepthook = handle_exception
 
 
-async def run_executor():
+def get_stdout_json_file():
+    """Get exclusive lock over stdout and json file.
+
+    :raises FileExistsException: if the lock can not be obtained.
+    """
+
+    def _create_file(filename):
+        """Ensure a new file is created and opened for writing."""
+        file_descriptor = os.open(filename, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
+        return os.fdopen(file_descriptor, "w")
+
+    logger.debug("Preparing output files for Data with id {}".format(DATA["id"]))
+    stdout_file = _create_file(Path(EXECUTOR_SETTINGS["DATA_DIR"]) / "stdout.txt")
+    json_file = _create_file(Path(EXECUTOR_SETTINGS["DATA_DIR"]) / "jsonout.txt")
+    return stdout_file, json_file
+
+
+async def run_executor(log_file, json_file):
     """Start the actual execution; instantiate the executor and run."""
     parser = argparse.ArgumentParser(description="Run the specified executor.")
     parser.add_argument(
@@ -80,7 +100,7 @@ async def run_executor():
     module = import_module(module_name, __package__)
     executor = getattr(module, class_name)()
     with open(ExecutorFiles.PROCESS_SCRIPT, "rt") as script_file:
-        await executor.run(DATA["id"], script_file.read())
+        await executor.run(DATA["id"], script_file.read(), log_file, json_file)
 
 
 if __name__ == "__main__":
@@ -98,9 +118,17 @@ if __name__ == "__main__":
 
     async def _sequential():
         """Run some things sequentially but asynchronously."""
-        await transfer_data()
-        await run_executor()
-        await collect_files()
+        try:
+            # Try to obtains exclusive lock over stdout and jsonout files.
+            # When lock can not be obtained this task is probably a duplicate
+            # spawned by celery so lock error and skip processing.
+            log_file, json_file = get_stdout_json_file()
+            await transfer_data()
+            await run_executor(log_file, json_file)
+            await collect_files()
+        except FileExistsError:
+            logger.error("Stdout or jsonout file already exists, aborting.")
+            await send_manager_command(ExecutorProtocol.ABORT, expect_reply=False)
 
     loop.run_until_complete(_sequential())
 

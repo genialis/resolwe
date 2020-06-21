@@ -21,6 +21,6 @@ class FlowExecutor(BaseFlowExecutor):
 
     name = "null"
 
-    async def run(self, data_id, script):
+    async def run(self, data_id, script, log_file, json_file):
         """Do nothing :)."""
         await send_manager_command(ExecutorProtocol.FINISH)

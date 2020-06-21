@@ -2,6 +2,7 @@
 import os
 import subprocess
 import unittest
+from pathlib import Path
 from unittest import mock
 
 from django.conf import settings
@@ -334,6 +335,10 @@ class ManagerRunProcessTest(ProcessTestCase):
         data.output = {}
         data.save()
 
+        file = Path(data.location.get_path(filename="temporary_file_do_not_purge.txt"))
+        self.assertFalse(file.exists())
+        file.touch()
+
         process = subprocess.run(
             ["python", "-m", "executors", ".docker"],
             cwd=data.get_runtime_path(),
@@ -352,3 +357,5 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.assertEqual(data.output, {})
         self.assertEqual(data.status, Data.STATUS_DONE)
         self.assertEqual(data.process_error, [])
+        # Check that temporary file was not deleted.
+        self.assertTrue(file.exists())

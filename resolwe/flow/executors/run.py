@@ -116,12 +116,12 @@ class BaseFlowExecutor:
             extra_fields={ExecutorProtocol.ANNOTATIONS: kwargs},
         )
 
-    async def run(self, data_id, script):
+    async def run(self, data_id, script, log_file, json_file):
         """Execute the script and save results."""
         logger.debug("Executor for Data with id {} has started.".format(data_id))
         finish_fields = None
         try:
-            finish_fields = await self._run(data_id, script)
+            finish_fields = await self._run(data_id, script, log_file, json_file)
         except SystemExit as ex:
             raise ex
         except Exception as error:
@@ -144,12 +144,7 @@ class BaseFlowExecutor:
         # The response channel (Redis list) is deleted automatically once the list is drained, so
         # there is no need to remove it manually.
 
-    def _create_file(self, filename):
-        """Ensure a new file is created and opened for writing."""
-        file_descriptor = os.open(filename, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
-        return os.fdopen(file_descriptor, "w")
-
-    async def _run(self, data_id, script):
+    async def _run(self, data_id, script, log_file, json_file):
         """Execute the script and save results."""
         self.data_id = data_id
 
@@ -158,18 +153,7 @@ class BaseFlowExecutor:
         requirements = self.process["requirements"]
         self.requirements = requirements.get("executor", {}).get(self.name, {})
         self.resources = requirements.get("resources", {})
-
-        logger.debug("Preparing output files for Data with id {}".format(data_id))
         os.chdir(EXECUTOR_SETTINGS["DATA_DIR"])
-        try:
-            log_file = self._create_file("stdout.txt")
-            json_file = self._create_file("jsonout.txt")
-        except FileExistsError:
-            logger.error("Stdout or jsonout out file already exists.")
-            # Looks like executor was already ran for this Data object,
-            # so don't raise the error to prevent setting status to error.
-            await self._send_manager_command(ExecutorProtocol.ABORT, expect_reply=False)
-            return
 
         proc_pid = await self.start()
 
