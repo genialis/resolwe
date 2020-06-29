@@ -251,7 +251,7 @@ class ExecutorListener:
             data_id = obj[ExecutorProtocol.DATA_ID]
             data = Data.objects.get(pk=data_id)
         except Data.DoesNotExist:
-            logger.warning(
+            logger.error(
                 "Data object does not exist (handle_get_referenced_files).",
                 extra={"data_id": data_id,},
             )
@@ -501,7 +501,14 @@ class ExecutorListener:
                 obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_ERROR},
             )
         else:
-            query.update(status=StorageLocation.STATUS_DONE)
+            # Add files to the downloaded storage location.
+            storage_location = query.get()
+            default_storage_location = (
+                storage_location.file_storage.default_storage_location
+            )
+            storage_location.files.add(*default_storage_location.files.all())
+            storage_location.status = StorageLocation.STATUS_DONE
+            storage_location.save()
             async_to_sync(self._send_reply)(
                 obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK},
             )
@@ -527,7 +534,7 @@ class ExecutorListener:
         try:
             data = Data.objects.get(pk=data_id)
         except Data.DoesNotExist:
-            logger.warning(
+            logger.error(
                 "Data object does not exist (handle_missing_data_locations).",
                 extra={"data_id": data_id,},
             )
@@ -635,7 +642,6 @@ class ExecutorListener:
                     'command': 'storage_location_unlock',
                     'data_id': [id of the :class:`~resolwe.flow.models.Data`
                                object],
-                    'storage_location_id': id of storage location
                     'storage_access_log_id': id of access log to close.
                 }
         """
