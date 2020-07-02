@@ -143,7 +143,9 @@ class DecisionMaker:
 
         # Never remove the last storage location.
         min_other_copies = rules.get("min_other_copies", 1)
-        current_copies = self.file_storage.storage_locations.count()
+        current_copies = self.file_storage.storage_locations.filter(
+            status=StorageLocation.STATUS_DONE
+        ).count()
         rule_results["has_copies"] = min_other_copies < current_copies
 
         # Never remove the location with "highest" priority that is

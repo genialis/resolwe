@@ -224,12 +224,15 @@ class DecisionMakerTest(TestCase):
             last_update=timezone.now() - timedelta(days=5)
         )
         self.assertIsNone(self.decision_maker.delete())
-        StorageLocation.objects.create(
+        storage_location = StorageLocation.objects.create(
             file_storage=self.file_storage,
             url="url",
             connector_name="GCS1",
-            status=StorageLocation.STATUS_DONE,
+            status=StorageLocation.STATUS_DELETING,
         )
+        self.assertIsNone(self.decision_maker.delete())
+        storage_location.status = StorageLocation.STATUS_DONE
+        storage_location.save()
         self.assertEqual(self.decision_maker.delete(), location_gcs)
 
     def test_delete_priority(self):
