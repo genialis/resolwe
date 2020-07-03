@@ -21,8 +21,9 @@ if TYPE_CHECKING:
 
 try:
     from google.api_core.exceptions import ServiceUnavailable
+    from google.resumable_media.common import DataCorruption
 
-    gcs_exceptions = [ServiceUnavailable]
+    gcs_exceptions = [DataCorruption, ServiceUnavailable]
 except ModuleNotFoundError:
     gcs_exceptions = []
 
