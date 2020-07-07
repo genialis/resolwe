@@ -272,7 +272,7 @@ class PurgeUnitTest(PurgeTestFieldsMixin, ProcessTestCase):
                 descriptor_schema=[],
             )
             refs = referenced_files(data_mock)
-            collected, deleted = collect_and_purge(simulated_root, refs)
+            collected, deleted = collect_and_purge(simulated_root, refs, False)
 
             def strip_slash(filename):
                 return filename[:-1] if filename[-1] == "/" else filename

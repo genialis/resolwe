@@ -561,6 +561,11 @@ class Manager:
                 )
         django_settings["STORAGE_CONNECTORS"] = connectors_settings
 
+        # Send keep data settings to the executor.
+        django_settings["FLOW_MANAGER_KEEP_DATA"] = getattr(
+            settings, "FLOW_MANAGER_KEEP_DATA", False
+        )
+
         # Extend the settings with whatever the executor wants.
         self.executor.extend_settings(data_id, files, secrets)
 

@@ -17,8 +17,13 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-def collect_and_purge(base_path: str, refs: List[str]) -> Tuple[Set[str], Set[str]]:
-    """Collect all files and directories that are listed in the list refs."""
+def collect_and_purge(
+    base_path: str, refs: List[str], keep_data=bool
+) -> Tuple[Set[str], Set[str]]:
+    """Collect all files and directories that are listed in the list refs.
+
+    Other files are deleted except when keep_data is set to True.
+    """
 
     def collect_parent_dirs(base_path: str, path: str) -> List[str]:
         """Also collect parent directories until base_path."""
@@ -60,26 +65,28 @@ def collect_and_purge(base_path: str, refs: List[str]) -> Tuple[Set[str], Set[st
             collected.add(ref)
 
     # Remove unreferenced files.
-    for root, dirs, files in os.walk(os.path.join(base_path)):
-        for file_ in files:
-            real_path = os.path.join(root, file_)
-            relative_path = os.path.relpath(real_path, base_path)
-            if relative_path not in collected:
-                os.remove(real_path)
-                removed.add(relative_path)
-        # Modify dirs in place in order not to visit removed directories.
-        i = 0
-        while i < len(dirs):
-            dir_ = dirs[i]
-            real_path = os.path.join(root, dir_)
-            relative_path = os.path.join(os.path.relpath(real_path, base_path), "")
-            if relative_path not in collected:
-                if os.path.isdir(real_path):
-                    removed.update(get_dir_files(base_path, real_path))
-                    shutil.rmtree(real_path)
-                dirs.pop(i)
-            else:
-                i = i + 1
+    if not keep_data:
+        for root, dirs, files in os.walk(os.path.join(base_path)):
+            for file_ in files:
+                real_path = os.path.join(root, file_)
+                relative_path = os.path.relpath(real_path, base_path)
+                if relative_path not in collected:
+                    os.remove(real_path)
+                    removed.add(relative_path)
+            # Modify dirs in place in order not to visit removed directories.
+            i = 0
+            while i < len(dirs):
+                dir_ = dirs[i]
+                real_path = os.path.join(root, dir_)
+                relative_path = os.path.join(os.path.relpath(real_path, base_path), "")
+                if relative_path not in collected:
+                    if os.path.isdir(real_path):
+                        removed.update(get_dir_files(base_path, real_path))
+                        shutil.rmtree(real_path)
+                    dirs.pop(i)
+                else:
+                    i = i + 1
+
     return collected, removed
 
 
@@ -89,14 +96,16 @@ async def collect_files():
     Keep only files that are referenced in the data model.
     """
     # Make file importable from outside executor environment
-    from .global_settings import DATA, EXECUTOR_SETTINGS
+    from .global_settings import DATA, EXECUTOR_SETTINGS, SETTINGS
     from .manager_commands import send_manager_command
 
     logger.debug("Collecting files for data object with id {}".format(DATA["id"]))
     reply = await send_manager_command(ExecutorProtocol.GET_REFERENCED_FILES)
     refs = reply[ExecutorProtocol.REFERENCED_FILES]
     base_dir = EXECUTOR_SETTINGS["DATA_DIR"]
-    collected, _ = collect_and_purge(base_dir, refs)
+    collected, _ = collect_and_purge(
+        base_dir, refs, SETTINGS.get("FLOW_MANAGER_KEEP_DATA", False)
+    )
 
     base_dir = Path(base_dir)
     collected_objects = [
