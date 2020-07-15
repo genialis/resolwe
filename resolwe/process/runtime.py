@@ -8,7 +8,7 @@ import urllib
 import resolwe_runtime_utils
 
 from .descriptor import ProcessDescriptor
-from .fields import Field
+from .fields import Field, RelationDescriptor
 
 try:
     from plumbum import local as Cmd
@@ -271,6 +271,11 @@ class Process(metaclass=ProcessMeta):
                 return dotdict(value) if isinstance(value, dict) else value
 
         return dotdict(self._meta.metadata.requirements)
+
+    @property
+    def relations(self):
+        """Process relations."""
+        return [RelationDescriptor.from_dict(data) for data in self._meta.relations]
 
     def start(self, inputs):
         """Start the process.

@@ -56,6 +56,7 @@ class ProcessDescriptor:
         self.metadata = ProcessDescriptor.Metadata()
         self.inputs = collections.OrderedDict()
         self.outputs = collections.OrderedDict()
+        self.relations = None
         self.source = source
 
     def validate(self):

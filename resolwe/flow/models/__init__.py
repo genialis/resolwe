@@ -101,7 +101,7 @@ Postgres ORM model for storing data migration history.
 from .collection import Collection
 from .data import Data, DataDependency
 from .descriptor import DescriptorSchema
-from .entity import Entity, Relation, RelationType
+from .entity import Entity, Relation, RelationPartition, RelationType
 from .migrations import DataMigrationHistory, ProcessMigrationHistory
 from .process import Process
 from .secret import Secret
@@ -117,6 +117,7 @@ __all__ = (
     "Process",
     "ProcessMigrationHistory",
     "Relation",
+    "RelationPartition",
     "RelationType",
     "Secret",
     "Storage",

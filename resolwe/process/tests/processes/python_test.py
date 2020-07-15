@@ -312,3 +312,44 @@ class ProcessWithChoicesInput(Process):
 
     def run(self, inputs, outputs):
         outputs.string_output = inputs.string_input
+
+
+class RelationsProcess(Process):
+    slug = "test-process-relations"
+    name = "Test Python Process relations"
+    version = "0.0.1"
+    process_type = "data:python:relations"
+    requirements = {
+        "relations": [{"type": "series"}],
+    }
+
+    class Input:
+        """Input fields."""
+
+        data = ListField(DataField(data_type=""), label="Data.")
+
+    class Output:
+        """Output fields."""
+
+        relation_id = IntegerField(label="Relation id")
+        relation_type = StringField(label="Relation type")
+        relation_ordered = StringField(label="Relation ordering")
+        relation_category = StringField(label="Relation category")
+        relation_unit = StringField(label="Relation unit")
+        relation_partition_label = StringField(label="Relation partition label")
+        relation_partition_position = IntegerField(label="Relation partition label")
+
+    def run(self, inputs, outputs):
+        # Access relation attributes
+        outputs.relation_id = inputs.data[0].relations[0].id
+        outputs.relation_type = inputs.data[0].relations[0].type
+        outputs.relation_ordered = str(inputs.data[0].relations[0].ordered)
+        outputs.relation_category = inputs.data[0].relations[0].category
+        outputs.relation_unit = inputs.data[0].relations[0].unit
+        # Access relation partition attributes
+        outputs.relation_partition_label = (
+            inputs.data[0].relations[0].partitions[0].label
+        )
+        outputs.relation_partition_position = (
+            inputs.data[0].relations[0].partitions[0].position
+        )

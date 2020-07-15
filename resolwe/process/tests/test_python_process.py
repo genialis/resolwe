@@ -8,7 +8,15 @@ from django.test import LiveServerTestCase, override_settings
 
 from guardian.shortcuts import assign_perm
 
-from resolwe.flow.models import Data, Entity, Process
+from resolwe.flow.models import (
+    Collection,
+    Data,
+    Entity,
+    Process,
+    Relation,
+    RelationPartition,
+    RelationType,
+)
 from resolwe.test import (
     ProcessTestCase,
     tag_process,
@@ -219,6 +227,55 @@ class PythonProcessTest(ProcessTestCase):
         """Test process that does not have a predefined choice as an input."""
         data = self.run_process("process-with-choices-input", {"string_input": "baz"})
         self.assertFields(data, "string_output", "baz")
+
+    @with_docker_executor
+    @tag_process("test-process-relations")
+    def test_python_process_relations(self):
+        """Test relations in Python process.
+
+        Make two Data (with corresponding entities) in series relation.
+        """
+        with self.preparation_stage():
+            # From collection 1
+            start = self.run_process("entity-process")
+            end = self.run_process("entity-process")
+
+            # Set relation between the start and end object's entities.
+            rel_type_series = RelationType.objects.create(name="series", ordered=True)
+            relation = Relation.objects.create(
+                contributor=self.contributor,
+                collection=self.collection,
+                type=rel_type_series,
+                category="time-series",
+                unit=Relation.UNIT_HOUR,
+            )
+            assign_perm("view_relation", self.contributor, relation)
+            RelationPartition.objects.create(
+                relation=relation, entity=start.entity, label="start", position=1,
+            )
+            RelationPartition.objects.create(
+                relation=relation, entity=end.entity, label="end", position=2,
+            )
+
+            # Prepare also another data that is not inside entity and is in another collection
+            other = self.run_process("test-python-process-2")
+            collection_2 = Collection.objects.create(
+                name="Collection 2", contributor=self.contributor
+            )
+            collection_2.data.add(other)
+
+        data = self.run_process(
+            "test-process-relations", {"data": [start.pk, end.pk, other.pk]}
+        )
+
+        data.refresh_from_db()
+        self.assertEqual(data.output["relation_id"], relation.id)
+        self.assertEqual(data.output["relation_type"], "series")
+        self.assertEqual(data.output["relation_ordered"], "True")
+        self.assertEqual(data.output["relation_category"], "time-series")
+        self.assertEqual(data.output["relation_unit"], "hr")
+        self.assertEqual(data.output["relation_partition_label"], "start")
+        self.assertEqual(data.output["relation_partition_position"], 1)
 
 
 class PythonProcessRequirementsTest(ProcessTestCase):

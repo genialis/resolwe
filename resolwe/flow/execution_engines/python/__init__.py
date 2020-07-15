@@ -7,7 +7,12 @@ import shlex
 import shutil
 
 from resolwe.flow.execution_engines.base import BaseExecutionEngine
-from resolwe.flow.models.utils import hydrate_input_references, hydrate_input_uploads
+from resolwe.flow.models.utils import (
+    get_collection_of_input_entities,
+    hydrate_input_references,
+    hydrate_input_uploads,
+    serialize_collection_relations,
+)
 from resolwe.process.parser import SafeParser
 
 PYTHON_RUNTIME_DIRNAME = "python_runtime"
@@ -19,6 +24,9 @@ PYTHON_PROGRAM_VOLUME = os.path.join(PYTHON_PROGRAM_ROOT, PYTHON_PROGRAM_FILENAM
 PYTHON_INPUTS_FILENAME = "inputs.json"
 PYTHON_INPUTS_ROOT = "/"
 PYTHON_INPUTS_VOLUME = os.path.join(PYTHON_INPUTS_ROOT, PYTHON_INPUTS_FILENAME)
+PYTHON_RELATIONS_FILENAME = "relations.json"
+PYTHON_RELATIONS_ROOT = "/"
+PYTHON_RELATIONS_VOLUME = os.path.join(PYTHON_RELATIONS_ROOT, PYTHON_RELATIONS_FILENAME)
 PYTHON_REQUIREMENTS_FILENAME = "requirements.json"
 PYTHON_REQUIREMENTS_ROOT = "/"
 PYTHON_REQUIREMENTS_VOLUME = os.path.join(
@@ -51,11 +59,13 @@ class ExecutionEngine(BaseExecutionEngine):
             'PYTHONPATH="{runtime}" python3 -u -m resolwe.process {program} '
             "--slug {slug} "
             "--inputs {inputs} "
+            "--relations {relations} "
             "--requirements {requirements}".format(
                 runtime=PYTHON_RUNTIME_VOLUME,
                 program=PYTHON_PROGRAM_VOLUME,
                 slug=shlex.quote(data.process.slug),
                 inputs=PYTHON_INPUTS_VOLUME,
+                relations=PYTHON_RELATIONS_VOLUME,
                 requirements=PYTHON_REQUIREMENTS_VOLUME,
             )
         )
@@ -109,11 +119,22 @@ class ExecutionEngine(BaseExecutionEngine):
         with open(requirements_path, "w") as file:
             json.dump(requirements, file)
 
+        # Write serialized relations
+        relations = {}
+        if "relations" in requirements:
+            collection = get_collection_of_input_entities(data)
+            relations = serialize_collection_relations(collection)
+        relations_path = os.path.join(runtime_dir, PYTHON_RELATIONS_FILENAME)
+
+        with open(relations_path, "w") as file:
+            json.dump(relations, file)
+
         # Generate volume maps required to expose needed files.
         volume_maps = {
             PYTHON_RUNTIME_DIRNAME: PYTHON_RUNTIME_VOLUME,
             PYTHON_PROGRAM_FILENAME: PYTHON_PROGRAM_VOLUME,
             PYTHON_INPUTS_FILENAME: PYTHON_INPUTS_VOLUME,
+            PYTHON_RELATIONS_FILENAME: PYTHON_RELATIONS_VOLUME,
             PYTHON_REQUIREMENTS_FILENAME: PYTHON_REQUIREMENTS_VOLUME,
         }
 

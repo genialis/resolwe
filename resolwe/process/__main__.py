@@ -22,6 +22,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--requirements", type=str, help="Path to requirements JSON file"
     )
+    parser.add_argument("--relations", type=str, help="Path to relations JSON file")
     args = parser.parse_args()
 
     # Switch to target directory to import the module.
@@ -95,6 +96,16 @@ if __name__ == "__main__":
         print("ERROR: Requirements failed to load: {}".format(str(error)))
         sys.exit(1)
 
+    # Prepare relations.
+    relations = None
+    try:
+        if args.relations:
+            with open(args.relations) as relations_file:
+                relations = json.load(relations_file)
+    except Exception as error:
+        print("ERROR: Relations failed to load: {}".format(str(error)))
+        sys.exit(1)
+
     # TODO: Configure logging.
 
     # Start the process.
@@ -102,6 +113,7 @@ if __name__ == "__main__":
     try:
         if requirements is not None:
             instance._meta.metadata.requirements = requirements
+        instance._meta.relations = relations
 
         instance.start(inputs)
     except ValidationError as error:

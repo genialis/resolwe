@@ -493,6 +493,66 @@ class ListField(Field):
         super().validate(value)
 
 
+class RelationPartitionDescriptor:
+    """Descriptor for accessing relation partitions."""
+
+    def __init__(self, entity_id, position=None, label=None):
+        """Construct a relation partition descriptor."""
+        self.entity_id = entity_id
+        self.position = position
+        self.label = label
+
+
+class RelationDescriptor:
+    """Descriptor for accessing relations between data / entities."""
+
+    def __init__(self, id, type, ordered, category, partitions, unit=None):
+        """Construct a relation descriptor."""
+        self.id = id
+        self.type = type
+        self.ordered = ordered
+        self.category = category
+        self.unit = unit
+        self.partitions = partitions
+
+    def __eq__(self, other):
+        """Compare equality."""
+        if isinstance(other, RelationDescriptor):
+            return self.id == other.id
+        return False
+
+    def __hash__(self):
+        """Get hash value."""
+        return hash(self.id)
+
+    @classmethod
+    def from_dict(cls, data):
+        """Create relation descriptor from a dictionary."""
+        id = data["relation_id"]
+        type = data["relation_type_name"]
+        ordered = data["relation_type_ordered"]
+        category = data["category"]
+        unit = data.get("unit", None)
+
+        partitions = []
+        for partitinon_data in data["partitions"]:
+            partition = RelationPartitionDescriptor(
+                entity_id=partitinon_data["entity_id"],
+                position=partitinon_data.get("position"),
+                label=partitinon_data.get("label"),
+            )
+            partitions.append(partition)
+
+        return cls(
+            id=id,
+            type=type,
+            ordered=ordered,
+            category=category,
+            partitions=partitions,
+            unit=unit,
+        )
+
+
 class DataDescriptor:
     """Descriptor for accessing data objects."""
 
@@ -503,7 +563,9 @@ class DataDescriptor:
         :param field: Field this descriptor is for
         :param cache: Optional cached object to use
         """
+        # Calling __setattr__ on parent class  as it is overridden in this one
         super().__setattr__("_data_id", data_id)
+        super().__setattr__("_field", field)
 
         # Map output fields to a valid Python process syntax.
         for field_descriptor in cache["__output_schema"]:
@@ -546,6 +608,12 @@ class DataDescriptor:
 
     def _get(self, key):
         """Return given key from cache."""
+        # Relations are not stored in self._cache by default since they
+        # are not accessible at the initialization stage.
+        if key == "__relations" and "__relations" not in self._cache:
+            self._cache["__relations"] = self.get_relations()
+            super().__setattr__("_cache", self._cache)
+
         self._populate_cache()
         if key not in self._cache:
             raise AttributeError("DataField has no member {}".format(key))
@@ -581,6 +649,20 @@ class DataDescriptor:
     def entity_name(self):
         """Entity name."""
         return self._get("__entity_name")
+
+    @property
+    def relations(self):
+        """Relations."""
+        return self._get("__relations")
+
+    def get_relations(self):
+        """Get this data's relations."""
+        relations = set()
+        for relation in self._field.process.relations:
+            for partition in relation["partitions"]:
+                if partition["entity_id"] == self.entity_id:
+                    relations.add(RelationDescriptor.from_dict(relation))
+        return list(relations)
 
     def __getattr__(self, key):
         """Get attribute."""
