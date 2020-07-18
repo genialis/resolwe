@@ -1428,6 +1428,7 @@ class UtilsTestCase(TestCase):
         )
 
         self.assertEqual(input_["data"]["__entity_name"], "test")
+        self.assertEqual(input_["data"]["__entity_id"], data.entity.id)
 
     def _test_referenced_files(self, field_schema, output):
         data_mock = MagicMock(

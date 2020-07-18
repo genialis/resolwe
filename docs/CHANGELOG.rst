@@ -18,6 +18,7 @@ Added
 -----
 - Add relations property to ``data:`` and ``list:data:`` fields to support
   relations on client
+- Add ``entity_id`` property do ``DataField`` in Python processes
 
 
 ===================

@@ -362,6 +362,7 @@ def hydrate_input_references(input_, input_schema, hydrate_values=True):
                 output["__type"] = data.process.type
                 output["__descriptor"] = data.descriptor
                 output["__name"] = getattr(data, "name", None)
+                output["__entity_id"] = getattr(data.entity, "id", None)
                 output["__entity_name"] = getattr(data.entity, "name", None)
                 output["__output_schema"] = data.process.output_schema
 
@@ -388,6 +389,7 @@ def hydrate_input_references(input_, input_schema, hydrate_values=True):
                     output["__type"] = data.process.type
                     output["__descriptor"] = data.descriptor
                     output["__name"] = getattr(data, "name", None)
+                    output["__entity_id"] = getattr(data.entity, "id", None)
                     output["__entity_name"] = getattr(data.entity, "name", None)
                     output["__output_schema"] = data.process.output_schema
 
