@@ -14,6 +14,11 @@ Changed
 -------
 - **BACKWARD INCOMPATIBLE:** Delete ``elastic`` application
 
+Added
+-----
+- Add relations property to ``data:`` and ``list:data:`` fields to support
+  relations on client
+
 
 ===================
 22.1.3 - 2020-07-13

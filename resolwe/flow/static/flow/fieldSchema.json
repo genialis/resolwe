@@ -12,9 +12,11 @@
             { "$ref": "#{{PARENT}}/definitions/_single_no_choices" },
             { "$ref": "#{{PARENT}}/definitions/_single" },
             { "$ref": "#{{PARENT}}/definitions/_single_numeric" },
+            { "$ref": "#{{PARENT}}/definitions/_single_data" },
             { "$ref": "#{{PARENT}}/definitions/_list_no_choices" },
             { "$ref": "#{{PARENT}}/definitions/_list" },
-            { "$ref": "#{{PARENT}}/definitions/_list_numeric" }
+            { "$ref": "#{{PARENT}}/definitions/_list_numeric" },
+            { "$ref": "#{{PARENT}}/definitions/_list_data" }
         ]
     },
 
@@ -75,8 +77,7 @@
                         {"type": "string", "pattern": "^basic:secret:$"},
                         {"type": "string", "pattern": "^basic:file:(html:)?$"},
                         {"type": "string", "pattern": "^basic:dir:$"},
-                        {"type": "string", "pattern": "^basic:json:$"},
-                        {"type": "string", "pattern": "^data:([a-z0-9]+:)*$"}
+                        {"type": "string", "pattern": "^basic:json:$"}
                     ]
                 },
                 "description": {
@@ -249,6 +250,54 @@
             }
         },
 
+        "_single_data": {
+            "type": "object",
+            "required": ["name", "label", "type"],
+            "additionalProperties": false,
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string",
+                    "pattern": "^data:([a-z0-9]+:)*$"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "disabled": {
+                    "type": ["string", "boolean"]
+                },
+                "hidden": {
+                    "type": ["string", "boolean"]
+                },
+                "relation": {
+                    "type": "object",
+                    "required": ["type"],
+                    "additionalProperties": false,
+                    "properties": {
+                        "type": {
+                            "type": "string"
+                        },
+                        "npartitions": {
+                            "anyOf": [
+                                {"type": "integer"},
+                                {"type": "string", "patteren": "^none|any$"}
+                            ],
+                            "default": "none"
+                        }
+                    }
+                }
+            }
+        },
+
         "_list_no_choices": {
             "type": "object",
             "required": ["name", "label", "type"],
@@ -269,8 +318,7 @@
                         {"type": "string", "pattern": "^list:basic:datetime:$"},
                         {"type": "string", "pattern": "^list:basic:url:(download|view|link):$"},
                         {"type": "string", "pattern": "^list:basic:file:(html:)?$"},
-                        {"type": "string", "pattern": "^list:basic:dir:$"},
-                        {"type": "string", "pattern": "^list:data:([a-z0-9]+:)*$"}
+                        {"type": "string", "pattern": "^list:basic:dir:$"}
                     ]
                 },
                 "description": {
@@ -444,6 +492,54 @@
                             "value": {
                                 "type": ["string", "integer", "number", "array"]
                             }
+                        }
+                    }
+                }
+            }
+        },
+
+        "_list_data": {
+            "type": "object",
+            "required": ["name", "label", "type"],
+            "additionalProperties": false,
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string",
+                    "pattern": "^list:data:([a-z0-9]+:)*$"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "disabled": {
+                    "type": ["string", "boolean"]
+                },
+                "hidden": {
+                    "type": ["string", "boolean"]
+                },
+                "relation": {
+                    "type": "object",
+                    "required": ["type"],
+                    "additionalProperties": false,
+                    "properties": {
+                        "type": {
+                            "type": "string"
+                        },
+                        "npartitions": {
+                            "anyOf": [
+                                {"type": "integer"},
+                                {"type": "string", "patteren": "^none|any$"}
+                            ],
+                            "default": "none"
                         }
                     }
                 }

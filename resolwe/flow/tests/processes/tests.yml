@@ -197,6 +197,23 @@
       type: basic:url:link
       default:
         url: "http://www.google.com/"
+    - name: single_data
+      label: Single data
+      type: data:test
+    - name: single_data_relations
+      label: Single data with relations
+      type: data:test
+      relation:
+        type: group
+        npartitions: 1
+    - name: list_data
+      label: Data list
+      type: list:data:test
+    - name: list_data_relations
+      label: Data list with relations
+      type: list:data:test
+      relation:
+        type: group
     - name: group
       label: Group
       group:
