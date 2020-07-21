@@ -595,15 +595,36 @@ class DataField(Field):
 
     field_type = "data"
 
-    def __init__(self, data_type, *args, **kwargs):
+    def __init__(
+        self, data_type, relation_type=None, relation_npartitions=None, *args, **kwargs
+    ):
         """Construct a data field."""
+        if relation_npartitions is not None and relation_type is None:
+            raise AttributeError(
+                "relation_type should be set when relation_npartition is not None."
+            )
+
         # TODO: Validate data type format.
         self.data_type = data_type
+        self.relation_type = relation_type
+        self.relation_npartitions = relation_npartitions
         super().__init__(*args, **kwargs)
 
     def get_field_type(self):
         """Return this field's type."""
         return "data:{}".format(self.data_type)
+
+    def to_schema(self):
+        """Return field schema for this field."""
+        schema = super().to_schema()
+
+        if self.relation_type is not None:
+            schema["relation"] = {
+                "type": self.relation_type,
+                "npartitions": self.relation_npartitions or "none",
+            }
+
+        return schema
 
     def to_python(self, value):
         """Convert value if needed."""

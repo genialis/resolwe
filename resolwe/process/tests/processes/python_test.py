@@ -63,7 +63,14 @@ class PythonProcess(Process):
         my_list = ListField(StringField(), label="My list")
         input_data = DataField("test:save", label="My input data")
         input_entity_data = DataField("entity", label="My entity data")
-        bar = DataField(data_type="test:save", label="My bar")
+        bar = DataField(data_type="test:save", label="My bar", relation_type="group")
+        baz = DataField(
+            data_type="test:save",
+            required=False,
+            label="My bar",
+            relation_type="group",
+            relation_npartitions=1,
+        )
         url = UrlField(UrlField.DOWNLOAD, label="My URL")
         integer = IntegerField(label="My integer")
         my_float = FloatField(label="My float")
