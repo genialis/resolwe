@@ -10,6 +10,11 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Fixed
+-----
+- Fix ordering options in Data vievset to enable ordering by ``process__name``
+  and ``process__type``
+
 Changed
 -------
 - **BACKWARD INCOMPATIBLE:** Delete ``elastic`` application

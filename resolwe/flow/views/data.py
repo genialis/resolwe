@@ -78,10 +78,9 @@ class DataViewSet(
         "id",
         "modified",
         "name",
-        "process_name",
-        "process_type",
+        "process__name",
+        "process__type",
         "started",
-        "type",
     )
     ordering = "-created"
 
