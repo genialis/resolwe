@@ -71,6 +71,13 @@ class PythonProcess(Process):
             relation_type="group",
             relation_npartitions=1,
         )
+        baz_list = ListField(
+            DataField(data_type="test:save"),
+            required=False,
+            label="My baz list",
+            relation_type="group",
+            relation_npartitions=1,
+        )
         url = UrlField(UrlField.DOWNLOAD, label="My URL")
         integer = IntegerField(label="My integer")
         my_float = FloatField(label="My float")

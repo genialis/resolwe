@@ -87,6 +87,14 @@ class PythonProcessTest(ProcessTestCase):
         else:
             self.fail("Field baz not found in test-python-process")
 
+        for field in process.input_schema:
+            if field["name"] == "baz_list":
+                self.assertEqual(field["relation"]["type"], "group")
+                self.assertEqual(field["relation"]["npartitions"], 1)
+                break
+        else:
+            self.fail("Field baz_list not found in test-python-process")
+
         # Make sure that process with inheritance from `module.Class` is also registered.
         process = Process.objects.get(slug="test-python-process-2")
 

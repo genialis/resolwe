@@ -23,6 +23,8 @@ class Field:
         choices=None,
         allow_custom_choice=None,
         hidden=False,
+        *args,
+        **kwargs,
     ):
         """Construct a field descriptor."""
         self.name = None
@@ -82,6 +84,10 @@ class Field:
                 )
 
         return schema
+
+    def to_list_schema(self, *args, **kwargs):
+        """Return part of list field schema that is particular to this field."""
+        return {}
 
     def to_output(self, value):
         """Convert value to process output format."""
@@ -450,6 +456,8 @@ class ListField(Field):
             raise TypeError("inner field must be an instance of Field")
 
         self.inner = inner
+        self.args = args
+        self.kwargs = kwargs
         super().__init__(*args, **kwargs)
 
     def contribute_to_class(self, process, fields, name):
@@ -467,6 +475,12 @@ class ListField(Field):
     def to_python(self, value):
         """Convert value if needed."""
         return [self.inner.to_python(v) for v in value]
+
+    def to_schema(self):
+        """Return field schema for this field."""
+        schema = super().to_schema()
+        schema.update(self.inner.to_list_schema(*self.args, **self.kwargs))
+        return schema
 
     def to_output(self, value):
         """Convert value to process output format."""
@@ -686,11 +700,6 @@ class DataField(Field):
         self, data_type, relation_type=None, relation_npartitions=None, *args, **kwargs
     ):
         """Construct a data field."""
-        if relation_npartitions is not None and relation_type is None:
-            raise AttributeError(
-                "relation_type should be set when relation_npartition is not None."
-            )
-
         # TODO: Validate data type format.
         self.data_type = data_type
         self.relation_type = relation_type
@@ -701,17 +710,40 @@ class DataField(Field):
         """Return this field's type."""
         return "data:{}".format(self.data_type)
 
+    @staticmethod
+    def _generate_relation(relation_type, relation_npartitions):
+        """Generate relation part of data field schema."""
+        if relation_npartitions is not None and relation_type is None:
+            raise AttributeError(
+                "relation_type should be set when relation_npartition is not None."
+            )
+
+        if relation_type is None and relation_npartitions is None:
+            return {}
+
+        return {
+            "relation": {
+                "type": relation_type,
+                "npartitions": relation_npartitions or "none",
+            }
+        }
+
     def to_schema(self):
         """Return field schema for this field."""
         schema = super().to_schema()
 
-        if self.relation_type is not None:
-            schema["relation"] = {
-                "type": self.relation_type,
-                "npartitions": self.relation_npartitions or "none",
-            }
+        relation = self._generate_relation(
+            self.relation_type, self.relation_npartitions
+        )
+        schema.update(relation)
 
         return schema
+
+    def to_list_schema(
+        self, relation_type=None, relation_npartitions=None, *args, **kwargs
+    ):
+        """Add relation informations to list data field."""
+        return self._generate_relation(relation_type, relation_npartitions)
 
     def to_python(self, value):
         """Convert value if needed."""
