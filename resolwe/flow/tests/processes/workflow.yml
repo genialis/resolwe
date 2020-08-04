@@ -11,6 +11,10 @@
     - name: param2
       label: Param 2
       type: basic:boolean
+    - name: list_param
+      label: Optional list
+      type: list:data:test
+      required: false
   output:
     - name: out1
       label: Out 1
@@ -58,6 +62,10 @@
     - name: param1
       label: Param 1
       type: basic:string
+    - name: list_param
+      label: Optional list
+      type: list:data:test
+      required: false
   run:
     language: workflow
     program:
@@ -66,6 +74,7 @@
         input:
           param1: '{{ input.param1 }}'
           param2: true
+          list_param: '{{ input.list_param }}'
       - id: step2
         run: test-example-2
         input:

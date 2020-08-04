@@ -18,6 +18,7 @@ Fixed
 Changed
 -------
 - **BACKWARD INCOMPATIBLE:** Delete ``elastic`` application
+- Don't pass undefined values to steps of workflows
 
 Added
 -----

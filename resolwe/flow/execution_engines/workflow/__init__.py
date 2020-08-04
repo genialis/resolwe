@@ -80,7 +80,8 @@ class ExecutionEngine(BaseExecutionEngine):
                     expression_engine, step_id, value, context
                 )
 
-            processed[name] = value
+            if value is not None:
+                processed[name] = value
 
         return processed
 
