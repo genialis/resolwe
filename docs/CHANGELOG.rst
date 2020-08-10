@@ -14,6 +14,7 @@ Fixed
 -----
 - Fix ordering options in Data vievset to enable ordering by ``process__name``
   and ``process__type``
+- Handle exception when processing deleted Data object. 
 
 Changed
 -------

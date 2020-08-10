@@ -22,20 +22,32 @@ DOWNLOAD_WAITING_TIMEOUT = 60  # in seconds
 RETRIES = 5
 
 
+async def _notify_abort(reason):
+    """Notify listener that worker is aborting processing due to error."""
+    await send_manager_command(
+        ExecutorProtocol.UPDATE,
+        extra_fields={
+            ExecutorProtocol.UPDATE_CHANGESET: {
+                "process_error": [reason],
+                "status": DATA_META["STATUS_ERROR"],
+            }
+        },
+    )
+    await send_manager_command(ExecutorProtocol.ABORT, expect_reply=False)
+
+
 async def transfer_data():
     """Transfer missing data, terminate script on failure."""
-    if not await _transfer_data():
-        await send_manager_command(
-            ExecutorProtocol.UPDATE,
-            extra_fields={
-                ExecutorProtocol.UPDATE_CHANGESET: {
-                    "process_error": ["Failed to transfer data."],
-                    "status": DATA_META["STATUS_ERROR"],
-                }
-            },
-        )
-        await send_manager_command(ExecutorProtocol.ABORT, expect_reply=False)
-        sys.exit(1)
+    try:
+        abort_reason = None
+        if not await _transfer_data():
+            abort_reason = "Error while transfering data."
+    except RuntimeError:
+        abort_reason = "Communication error: data object or its location is missing."
+    finally:
+        if abort_reason:
+            await _notify_abort(abort_reason)
+            sys.exit(1)
 
 
 async def _transfer_data():

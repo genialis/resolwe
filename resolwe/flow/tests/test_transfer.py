@@ -384,7 +384,7 @@ class TransfersTest(BasicTestCase):
                     "update",
                     {
                         "changeset": {
-                            "process_error": ["Failed to transfer data."],
+                            "process_error": ["Error while transfering data."],
                             "status": Data.STATUS_ERROR,
                         }
                     },
