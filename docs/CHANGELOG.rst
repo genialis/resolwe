@@ -6,15 +6,15 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+===================
+23.0.0 - 2020-08-17
+===================
 
 Fixed
 -----
-- Fix ordering options in Data vievset to enable ordering by ``process__name``
+- Fix ordering options in Data viewset to enable ordering by ``process__name``
   and ``process__type``
-- Handle exception when processing deleted Data object. 
+- Handle exception when processing deleted Data object
 
 Changed
 -------
