@@ -369,6 +369,13 @@ class FlowExecutor(LocalFlowExecutor):
         await self.proc.stdin.drain()
         self.proc.stdin.close()
 
+    async def run(self, *args, **kwargs):
+        """Run the script and make sure Docker container terminates at the end."""
+        ret = await super().run(*args, **kwargs)
+        await self._terminate_docker()
+
+        return ret
+
     async def end(self):
         """End process execution."""
         try:
@@ -381,21 +388,29 @@ class FlowExecutor(LocalFlowExecutor):
 
         return self.proc.returncode
 
-    async def terminate(self):
-        """Terminate a running script."""
-        container_name = self._generate_container_name()
+    async def _terminate_docker(self):
+        """Terminate docker container that runs the process."""
         # Workaround for pylint issue #1469
         # (https://github.com/PyCQA/pylint/issues/1469).
         cmd = await subprocess.create_subprocess_exec(
-            *shlex.split("{} rm -f {}".format(self.command, container_name)),
+            *shlex.split(
+                "{} rm -f {}".format(self.command, self._generate_container_name()),
+            ),
+            stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
         await cmd.wait()
 
-        if cmd.returncode != 0:
+        return cmd
+
+    async def terminate(self):
+        """Terminate a running script."""
+        result = await self._terminate_docker()
+
+        if result.returncode != 0:
             logger.error(
                 "Error while removing docker container: {}\n\n{}".format(
-                    container_name, await cmd.stderr.read()
+                    self._generate_container_name(), await result.stderr.read()
                 )
             )
 

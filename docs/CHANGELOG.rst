@@ -6,6 +6,15 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Fixed
+-----
+- Make sure to terminate Docker container before executor exits
+
+
 ===================
 23.0.0 - 2020-08-17
 ===================
