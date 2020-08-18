@@ -248,13 +248,8 @@ class BaseFlowExecutor:
                         if process_rc > 0:
                             log_file.close()
                             json_file.close()
-                            await self._send_manager_command(
-                                ExecutorProtocol.FINISH,
-                                extra_fields={
-                                    ExecutorProtocol.FINISH_PROCESS_RC: process_rc
-                                },
-                            )
-                            return
+
+                            return {ExecutorProtocol.FINISH_PROCESS_RC: process_rc}
 
                         # Debug output
                         # Not referenced in Data object
