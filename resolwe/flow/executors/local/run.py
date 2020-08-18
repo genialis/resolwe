@@ -4,6 +4,7 @@
 
 """
 import asyncio
+import contextlib
 import logging
 import os
 import shlex
@@ -61,12 +62,13 @@ class FlowExecutor(BaseFlowExecutor):
         try:
             self.proc.terminate()
         except ProcessLookupError:
-            # Process has already been terminated. Log exception and continue.
-            logger.exception("While terminating process with PID %s", self.proc.pid)
-
-        await asyncio.wait_for(self.proc.wait(), self.kill_delay)
-        if self.proc.returncode is None:
-            self.proc.kill()
-        await self.proc.wait()
+            # Process has already been terminated.
+            pass
+        else:
+            with contextlib.suppress(asyncio.TimeoutError):
+                await asyncio.wait_for(self.proc.wait(), self.kill_delay)
+            if self.proc.returncode is None:
+                self.proc.kill()
+            await self.proc.wait()
 
         await super().terminate()
