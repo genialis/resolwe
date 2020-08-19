@@ -10,6 +10,11 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Changed
+-------
+- **BACKWARD INCOMPATIBLE:** Terminate Python process immediately after
+  ``self.error`` method is called inside the process
+
 Fixed
 -----
 - Make sure to terminate Docker container before executor exits

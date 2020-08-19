@@ -231,6 +231,7 @@ class Process(metaclass=ProcessMeta):
         report = resolwe_runtime_utils.error(" ".join([str(x) for x in args]))
         # TODO: Use the protocol to report progress.
         print(report)
+        sys.exit(1)
 
     def get_data_id_by_slug(self, slug):
         """Find data object ID for given slug.
