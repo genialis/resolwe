@@ -166,22 +166,10 @@ async def download_data(missing_data: dict) -> bool:
     objects = None
     for retry in range(1, RETRIES + 1):
         try:
-            access_log_id = None
             to_connector = connectors["local"]
             from_connector = connectors[missing_data["connector_name"]]
             from_storage_location_id = missing_data["from_storage_location_id"]
             to_storage_location_id = missing_data["to_storage_location_id"]
-            logger.debug(
-                "Locking storage location with id {}".format(from_storage_location_id)
-            )
-            response = await send_manager_command(
-                ExecutorProtocol.STORAGE_LOCATION_LOCK,
-                extra_fields={
-                    ExecutorProtocol.STORAGE_LOCATION_ID: from_storage_location_id,
-                    ExecutorProtocol.STORAGE_LOCATION_LOCK_REASON: "Executor data transfer",
-                },
-            )
-            access_log_id = response[ExecutorProtocol.STORAGE_ACCESS_LOG_ID]
 
             if objects is None:
                 response = await send_manager_command(
@@ -213,15 +201,6 @@ async def download_data(missing_data: dict) -> bool:
                     data_id, retry, RETRIES
                 )
             )
-        finally:
-            if access_log_id is not None:
-                await send_manager_command(
-                    ExecutorProtocol.STORAGE_LOCATION_UNLOCK,
-                    expect_reply=False,
-                    extra_fields={
-                        ExecutorProtocol.STORAGE_ACCESS_LOG_ID: access_log_id
-                    },
-                )
     # None od the retries has been successfull, abort the download.
     await send_manager_command(
         ExecutorProtocol.DOWNLOAD_ABORTED,

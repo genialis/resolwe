@@ -38,9 +38,6 @@ class ExecutorProtocol:
     DOWNLOAD_STARTED_LOCK = "download_started_lock"
     STORAGE_LOCATION_ID = "storage_location_id"
     STORAGE_ACCESS_LOG_ID = "storage_access_log_id"
-    STORAGE_LOCATION_LOCK = "storage_location_lock"
-    STORAGE_LOCATION_UNLOCK = "storage_location_unlock"
-    STORAGE_LOCATION_LOCK_REASON = "storage_location_lock_reason"
 
     MISSING_DATA_LOCATIONS = "missing_data_locations"
     STORAGE_DATA_LOCATIONS = "storage_data_locations"

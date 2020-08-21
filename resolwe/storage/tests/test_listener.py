@@ -5,12 +5,7 @@ from unittest.mock import MagicMock, call, patch
 from resolwe.flow.managers.listener import ExecutorListener
 from resolwe.flow.managers.protocol import ExecutorProtocol
 from resolwe.flow.models import Data, DataDependency
-from resolwe.storage.models import (
-    AccessLog,
-    FileStorage,
-    ReferencedPath,
-    StorageLocation,
-)
+from resolwe.storage.models import FileStorage, ReferencedPath, StorageLocation
 from resolwe.test import TestCase
 
 
@@ -639,102 +634,3 @@ class ListenerTest(TestCase):
             ]
         )
         error_logger_mock.assert_not_called()
-
-    @patch("resolwe.flow.managers.listener.logger.error")
-    @patch("resolwe.flow.managers.listener.ExecutorListener._send_reply")
-    @patch("resolwe.flow.managers.listener.async_to_sync")
-    def test_handle_storage_location_lock_missing_storage_location(
-        self, async_to_sync_mock, send_reply_mock, error_logger_mock
-    ):
-        obj = {
-            "command": ExecutorProtocol.STORAGE_LOCATION_LOCK,
-            ExecutorProtocol.STORAGE_LOCATION_LOCK_REASON: "test_reason",
-            "data_id": -1,
-            "storage_location_id": -2,
-        }
-        self.listener.handle_storage_location_lock(obj)
-        async_to_sync_mock.assert_has_calls(
-            [
-                call(send_reply_mock),
-                call()(
-                    {
-                        "command": "storage_location_lock",
-                        "storage_location_lock_reason": "test_reason",
-                        "data_id": -1,
-                        "storage_location_id": -2,
-                    },
-                    {"result": "ER"},
-                ),
-            ]
-        )
-        error_logger_mock.assert_called_once_with(
-            "StorageLocation does not exist",
-            extra={"storage_location_id": -2},
-        )
-
-    @patch("resolwe.flow.managers.listener.logger.error")
-    @patch("resolwe.flow.managers.listener.ExecutorListener._send_reply")
-    @patch("resolwe.flow.managers.listener.async_to_sync")
-    def test_handle_storage_location_lock(
-        self, async_to_sync_mock, send_reply_mock, error_logger_mock
-    ):
-        obj = {
-            "command": ExecutorProtocol.STORAGE_LOCATION_LOCK,
-            ExecutorProtocol.STORAGE_LOCATION_LOCK_REASON: "test_reason",
-            "data_id": -1,
-            "storage_location_id": self.storage_location.id,
-        }
-        self.listener.handle_storage_location_lock(obj)
-        async_to_sync_mock.assert_has_calls(
-            [
-                call(send_reply_mock),
-                call()(
-                    {
-                        "command": "storage_location_lock",
-                        "storage_location_lock_reason": "test_reason",
-                        "data_id": -1,
-                        "storage_location_id": self.storage_location.id,
-                    },
-                    {"result": "OK", "storage_access_log_id": 1},
-                ),
-            ]
-        )
-        self.assertTrue(AccessLog.objects.filter(id=1).exists())
-        access_log = AccessLog.objects.get(id=1)
-        self.assertEqual(access_log.reason, "test_reason")
-        self.assertEqual(access_log.storage_location_id, self.storage_location.id)
-        self.assertIsNone(access_log.finished)
-        self.assertTrue(self.storage_location.locked)
-
-    @patch("resolwe.flow.managers.listener.logger.error")
-    @patch("resolwe.flow.managers.listener.ExecutorListener._send_reply")
-    @patch("resolwe.flow.managers.listener.async_to_sync")
-    def test_handle_storage_location_unlock(
-        self, async_to_sync_mock, send_reply_mock, error_logger_mock
-    ):
-        obj = {
-            "command": ExecutorProtocol.STORAGE_LOCATION_UNLOCK,
-            "data_id": -1,
-            "storage_access_log_id": -2,
-        }
-        self.listener.handle_storage_location_unlock(obj)
-        async_to_sync_mock.assert_not_called()
-        error_logger_mock.assert_called_once_with(
-            "AccessLog does not exist",
-            extra={"access_log_id": -2},
-        )
-
-        access_log = AccessLog.objects.create(
-            storage_location=self.storage_location, reason="test"
-        )
-
-        async_to_sync_mock.reset_mock()
-        send_reply_mock.reset_mock()
-        error_logger_mock.reset_mock()
-        obj["storage_access_log_id"] = access_log.id
-        self.listener.handle_storage_location_unlock(obj)
-        async_to_sync_mock.assert_not_called()
-        error_logger_mock.assert_not_called()
-        access_log.refresh_from_db()
-        self.assertIsNotNone(access_log.finished)
-        self.assertFalse(self.storage_location.locked)

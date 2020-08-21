@@ -423,13 +423,6 @@ class DownloadDataTest(BasicTestCase):
             "from_storage_location_id": 1,
             "to_storage_location_id": 2,
         }
-        self.COMMAND_LOCATION_LOCK = [
-            ExecutorProtocol.STORAGE_LOCATION_LOCK,
-            {
-                ExecutorProtocol.STORAGE_LOCATION_ID: 1,
-                ExecutorProtocol.STORAGE_LOCATION_LOCK_REASON: "Executor data transfer",
-            },
-        ]
         self.COMMAND_DOWNLOAD_FINISHED = [
             ExecutorProtocol.DOWNLOAD_FINISHED,
             {ExecutorProtocol.STORAGE_LOCATION_ID: 2},
@@ -437,10 +430,6 @@ class DownloadDataTest(BasicTestCase):
         self.COMMAND_DOWNLOAD_ABORTED = [
             ExecutorProtocol.DOWNLOAD_ABORTED,
             {ExecutorProtocol.STORAGE_LOCATION_ID: 2},
-        ]
-        self.COMMAND_LOCATION_UNLOCK = [
-            ExecutorProtocol.STORAGE_LOCATION_UNLOCK,
-            {ExecutorProtocol.STORAGE_ACCESS_LOG_ID: 1},
         ]
         self.COMMAND_GET_FILES = [
             ExecutorProtocol.GET_FILES_TO_DOWNLOAD,
@@ -468,10 +457,7 @@ class DownloadDataTest(BasicTestCase):
         for i in range(1, len(commands)):
             command, extra_fields = commands[i][0]
             kwargs = {"extra_fields": extra_fields}
-            if command in (
-                ExecutorProtocol.STORAGE_LOCATION_UNLOCK,
-                ExecutorProtocol.DOWNLOAD_ABORTED,
-            ):
+            if command in (ExecutorProtocol.DOWNLOAD_ABORTED,):
                 kwargs["expect_reply"] = False
             expected_args_list.append(call(command, **kwargs))
         self.assertEqual(expected_args_list, send_command.call_args_list)
@@ -492,10 +478,8 @@ class DownloadDataTest(BasicTestCase):
     def test_download_simple(self):
         commands = [
             1,
-            (self.COMMAND_LOCATION_LOCK, self.ACCESS_LOG),
             (self.COMMAND_GET_FILES, self.FILES_LIST),
             (self.COMMAND_DOWNLOAD_FINISHED, self.RESULT_OK),
-            (self.COMMAND_LOCATION_UNLOCK, self.RESULT_OK),
         ]
         send_command = MagicMock(side_effect=partial(send, commands))
 
@@ -509,13 +493,9 @@ class DownloadDataTest(BasicTestCase):
     def test_download_retry(self):
         commands = [
             1,
-            (self.COMMAND_LOCATION_LOCK, self.ACCESS_LOG),
             (self.COMMAND_GET_FILES, self.FILES_LIST),
             (self.COMMAND_DOWNLOAD_FINISHED, raise_datatransfererror),
-            (self.COMMAND_LOCATION_UNLOCK, self.RESULT_OK),
-            (self.COMMAND_LOCATION_LOCK, self.ACCESS_LOG),
             (self.COMMAND_DOWNLOAD_FINISHED, self.RESULT_OK),
-            (self.COMMAND_LOCATION_UNLOCK, self.RESULT_OK),
         ]
         send_command = MagicMock(side_effect=partial(send, commands))
 
@@ -532,13 +512,9 @@ class DownloadDataTest(BasicTestCase):
     def test_download_retry_fail(self):
         commands = [
             1,
-            (self.COMMAND_LOCATION_LOCK, self.ACCESS_LOG),
             (self.COMMAND_GET_FILES, self.FILES_LIST),
             (self.COMMAND_DOWNLOAD_FINISHED, raise_datatransfererror),
-            (self.COMMAND_LOCATION_UNLOCK, self.RESULT_OK),
-            (self.COMMAND_LOCATION_LOCK, self.ACCESS_LOG),
             (self.COMMAND_DOWNLOAD_FINISHED, raise_datatransfererror),
-            (self.COMMAND_LOCATION_UNLOCK, self.RESULT_OK),
             (self.COMMAND_DOWNLOAD_ABORTED, self.RESULT_OK),
         ]
         send_command = MagicMock(side_effect=partial(send, commands))
