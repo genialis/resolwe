@@ -126,6 +126,23 @@ class TestManager(ProcessTestCase):
         data_child1.refresh_from_db()
         data_child2.refresh_from_db()
         data_child3.refresh_from_db()
+
+        # Check locks are created in manager.
+        self.assertFalse(data_parent.access_logs.exists())
+        self.assertFalse(data_child1.access_logs.exists())
+        self.assertTrue(data_child2.access_logs.exists())
+        self.assertFalse(data_child3.access_logs.exists())
+
+        # Check that the data_parent location was locked.
+        access_log = data_child2.access_logs.get()
+        self.assertEqual(
+            access_log.storage_location.file_storage.data.get().id, data_parent.id
+        )
+        # Check that the log is released.
+        self.assertIsNotNone(access_log.started)
+        self.assertIsNotNone(access_log.finished)
+
+        # Check status.
         self.assertEqual(data_parent.status, Data.STATUS_DONE)
         self.assertEqual(data_child1.status, Data.STATUS_DONE)
         self.assertEqual(data_child2.status, Data.STATUS_DONE)

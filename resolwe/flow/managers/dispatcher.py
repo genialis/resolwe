@@ -24,15 +24,21 @@ from redis.exceptions import ConnectionError as RedisConnectionError
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ImproperlyConfigured, PermissionDenied
-from django.db import IntegrityError, connection, transaction
-from django.db.models import Q
+from django.db import IntegrityError, connection, models, transaction
+from django.db.models import OuterRef, Q, Subquery
 from django.utils.timezone import now
 
 from resolwe.flow.engine import InvalidEngineError, load_engines
 from resolwe.flow.execution_engines import ExecutionError
 from resolwe.flow.models import Data, DataDependency, Process
 from resolwe.flow.models.utils import referenced_files
-from resolwe.storage.models import FileStorage, ReferencedPath, StorageLocation
+from resolwe.storage.connectors import DEFAULT_CONNECTOR_PRIORITY, connectors
+from resolwe.storage.models import (
+    AccessLog,
+    FileStorage,
+    ReferencedPath,
+    StorageLocation,
+)
 from resolwe.storage.settings import STORAGE_CONNECTORS, STORAGE_LOCAL_CONNECTOR
 from resolwe.test.utils import is_testing
 from resolwe.utils import BraceMessage as __
@@ -760,12 +766,7 @@ class Manager:
             await consumer.exit_consumer()
 
         self._ensure_counter()
-        await asyncio.wait(
-            [
-                _barrier(),
-                consumer.run_consumer(),
-            ]
-        )
+        await asyncio.wait([_barrier(), consumer.run_consumer()])
         self.sync_counter = self._SynchronizationManagerDummy()
 
     async def communicate(self, data_id=None, run_sync=False, save_settings=True):
@@ -839,6 +840,58 @@ class Manager:
                 )
             )
 
+    def _lock_inputs_local_storage_locations(self, data):
+        """Lock storage locations for inputs.
+
+        Lock storage locations of inputs so they are not deleted while data
+        object is processing.
+        """
+        connector_priorities = {
+            connector_name: connectors[connector_name].priority
+            for connector_name in connectors
+        }
+        connector_priorities[STORAGE_LOCAL_CONNECTOR] = -1
+        whens = [
+            models.When(connector_name=connector_name, then=priority)
+            for connector_name, priority in connector_priorities.items()
+        ]
+
+        storage_location_subquery = (
+            StorageLocation.objects.filter(file_storage_id=OuterRef("file_storage_id"))
+            .annotate(
+                priority=models.Case(
+                    *whens,
+                    default=DEFAULT_CONNECTOR_PRIORITY,
+                    output_field=models.IntegerField(),
+                )
+            )
+            .order_by("priority")
+            .values_list("id", flat=True)[:1]
+        )
+
+        file_storages = (
+            DataDependency.objects.filter(child=data, kind=DataDependency.KIND_IO)
+            .values_list("parent__location", flat=True)
+            .distinct()
+        )
+
+        storage_locations = (
+            StorageLocation.objects.filter(file_storage__in=file_storages)
+            .filter(pk__in=Subquery(storage_location_subquery))
+            .values_list("id", flat=True)
+        )
+
+        AccessLog.objects.bulk_create(
+            [
+                AccessLog(
+                    storage_location_id=storage_location,
+                    reason="Input for data with id {}".format(data.id),
+                    cause=data,
+                )
+                for storage_location in storage_locations
+            ]
+        )
+
     def _data_execute(self, data, program, executor):
         """Execute the Data object.
 
@@ -864,6 +917,7 @@ class Manager:
             data_dir = self._prepare_data_dir(data)
             executor_module, runtime_dir = self._prepare_executor(data, executor)
             self._prepare_storage_connectors(runtime_dir)
+            self._lock_inputs_local_storage_locations(data)
 
             # Execute execution engine specific runtime preparation.
             execution_engine = data.process.run.get("language", None)
@@ -872,10 +926,7 @@ class Manager:
             )
 
             self._prepare_context(
-                data,
-                data_dir,
-                runtime_dir,
-                RUNTIME_VOLUME_MAPS=volume_maps,
+                data, data_dir, runtime_dir, RUNTIME_VOLUME_MAPS=volume_maps
             )
             self._prepare_script(runtime_dir, program)
 
