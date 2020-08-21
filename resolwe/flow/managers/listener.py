@@ -627,6 +627,7 @@ class ExecutorListener:
         access_log = AccessLog.objects.create(
             storage_location=storage_location,
             reason=obj[ExecutorProtocol.STORAGE_LOCATION_LOCK_REASON],
+            cause_id=obj[ExecutorProtocol.DATA_ID],
         )
         async_to_sync(self._send_reply)(
             obj,
