@@ -333,6 +333,11 @@ class AccessLog(models.Model):
     #: human readable reason for access
     reason = models.CharField(max_length=120, null=False, blank=False)
 
+    #: data object that was the cause for the lock
+    cause = models.ForeignKey(
+        "flow.Data", on_delete=models.CASCADE, related_name="access_logs", null=True
+    )
+
 
 class ReferencedPath(models.Model):
     """Stores reference to a single object (file or directory).
