@@ -233,6 +233,15 @@ class ExecutorListener:
 
         return {"file_temp": export_fn, "file": filename}
 
+    def unlock_all_inputs(self, data_id):
+        """Unlock all data objects that were locked by the given data.
+
+        If exception occurs during unlocking we can not do much but ignore it.
+        """
+        with suppress(Exception):
+            query = AccessLog.objects.filter(cause_id=data_id)
+            query.update(finished=now())
+
     def handle_get_referenced_files(self, obj):
         """Get a list of files referenced by the data object.
 
@@ -610,6 +619,8 @@ class ExecutorListener:
         """
 
         def report_failure():
+            self.unlock_all_inputs(obj[ExecutorProtocol.DATA_ID])
+
             async_to_sync(self._send_reply)(
                 obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_ERROR}
             )
@@ -755,6 +766,7 @@ class ExecutorListener:
                     ),
                 },
             )
+            self.unlock_all_inputs(data_id)
 
         if d.status == Data.STATUS_ERROR:
             changeset["status"] = Data.STATUS_ERROR
@@ -798,6 +810,7 @@ class ExecutorListener:
             d.status = Data.STATUS_ERROR
             with suppress(Exception):
                 d.save(update_fields=["process_error", "status"])
+            self.unlock_all_inputs(data_id)
 
         except Exception:
             logger.error(
@@ -808,6 +821,7 @@ class ExecutorListener:
                 ),
                 extra={"data_id": data_id},
             )
+
         try:
             # Update referenced files. Since entire output is sent every time
             # just delete and recreate objects. Computing changes and updating
@@ -965,6 +979,9 @@ class ExecutorListener:
 
                 obj[ExecutorProtocol.UPDATE_CHANGESET] = changeset
                 self.handle_update(obj, internal_call=True)
+
+        # Unlock all inputs.
+        self.unlock_all_inputs(data_id)
 
         # Notify the executor that we're done.
         async_to_sync(self._send_reply)(

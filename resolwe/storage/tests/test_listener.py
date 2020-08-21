@@ -60,7 +60,7 @@ class ListenerTest(TestCase):
         )
         obj = {
             "command": ExecutorProtocol.DOWNLOAD_FINISHED,
-            "data_id": -1,
+            "data_id": 1,
             "storage_location_id": storage_location.id,
         }
         send_wrapper = MagicMock()
@@ -75,7 +75,7 @@ class ListenerTest(TestCase):
         send_wrapper.assert_called_once_with(
             {
                 "command": "download_finished",
-                "data_id": -1,
+                "data_id": 1,
                 "storage_location_id": storage_location.id,
             },
             {"result": "OK"},
