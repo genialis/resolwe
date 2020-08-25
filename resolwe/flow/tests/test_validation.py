@@ -383,14 +383,14 @@ class ValidationUnitTest(TestCase):
 
         data_location = create_data_location(subpath="1")
 
-        with patch("resolwe.flow.models.utils.Path") as path_mock:
+        with patch("resolwe.flow.models.utils.validation.Path") as path_mock:
             path_mock.return_value = path_instance
             validate_schema(instance, schema)
             path_instance.exists = MagicMock(return_value=True)
             self.assertEqual(path_instance.is_file.call_count, 0)
 
         # missing file
-        with patch("resolwe.flow.models.utils.Path") as path_mock:
+        with patch("resolwe.flow.models.utils.validation.Path") as path_mock:
             path_mock.return_value = path_instance
             path_instance.exists = MagicMock(return_value=False)
             path_instance.__truediv__ = MagicMock(return_value=path_instance)
@@ -401,7 +401,7 @@ class ValidationUnitTest(TestCase):
             self.assertEqual(path_instance.exists.call_count, 1)
 
         # File is not a normal file
-        with patch("resolwe.flow.models.utils.Path") as path_mock:
+        with patch("resolwe.flow.models.utils.validation.Path") as path_mock:
             path_mock.return_value = path_instance
             path_instance.exists = MagicMock(return_value=True)
             path_instance.is_file = MagicMock(return_value=False)
@@ -412,7 +412,7 @@ class ValidationUnitTest(TestCase):
                 validate_schema(instance, schema, data_location=data_location)
             self.assertEqual(path_instance.is_file.call_count, 1)
 
-        with patch("resolwe.flow.models.utils.Path") as path_mock:
+        with patch("resolwe.flow.models.utils.validation.Path") as path_mock:
             path_mock.return_value = path_instance
             path_instance.is_file = MagicMock(return_value=True)
             path_instance.__truediv__ = MagicMock(return_value=path_instance)
@@ -423,7 +423,7 @@ class ValidationUnitTest(TestCase):
             "result": {"file": "result.txt", "refs": ["user1.txt", "user2.txt"]}
         }
 
-        with patch("resolwe.flow.models.utils.Path") as path_mock:
+        with patch("resolwe.flow.models.utils.validation.Path") as path_mock:
             path_mock.return_value = path_instance
             path_instance.is_file = MagicMock(return_value=True)
             path_instance.__truediv__ = MagicMock(return_value=path_instance)
@@ -431,7 +431,7 @@ class ValidationUnitTest(TestCase):
             self.assertEqual(path_instance.is_file.call_count, 3)
 
         # missing second `refs` file
-        with patch("resolwe.flow.models.utils.Path") as path_mock:
+        with patch("resolwe.flow.models.utils.validation.Path") as path_mock:
             path_mock.return_value = path_instance
             path_instance.is_file = MagicMock(side_effect=[True, True, False])
             path_instance.is_dir = MagicMock(return_value=False)
@@ -451,13 +451,13 @@ class ValidationUnitTest(TestCase):
         data_location = create_data_location(subpath="1")
 
         # dir validation is not called if `data_location` is not given
-        with patch("resolwe.flow.models.utils.Path") as path_mock:
+        with patch("resolwe.flow.models.utils.validation.Path") as path_mock:
             path_mock.return_value = path_instance
             validate_schema(instance, schema)
             self.assertEqual(path_instance.is_file.call_count, 0)
         path_instance.reset_mock()
 
-        with patch("resolwe.flow.models.utils.Path") as path_mock:
+        with patch("resolwe.flow.models.utils.validation.Path") as path_mock:
             path_mock.return_value = path_instance
             path_instance.exists = lambda: True
             path_instance.__truediv__ = MagicMock(return_value=path_instance)
@@ -467,7 +467,7 @@ class ValidationUnitTest(TestCase):
         path_instance.reset_mock()
 
         # missing path
-        with patch("resolwe.flow.models.utils.Path") as path_mock:
+        with patch("resolwe.flow.models.utils.validation.Path") as path_mock:
             path_mock.return_value = path_instance
             path_instance.exists = MagicMock(return_value=False)
             with self.assertRaisesRegex(
@@ -478,7 +478,7 @@ class ValidationUnitTest(TestCase):
         path_instance.reset_mock()
 
         # not a dir
-        with patch("resolwe.flow.models.utils.Path") as path_mock:
+        with patch("resolwe.flow.models.utils.validation.Path") as path_mock:
             path_mock.return_value = path_instance
             path_instance.exists = MagicMock(return_value=True)
             path_instance.is_dir = MagicMock(return_value=False)
@@ -491,7 +491,7 @@ class ValidationUnitTest(TestCase):
 
         instance = {"result": {"dir": "results", "refs": ["file01.txt", "file02.txt"]}}
 
-        with patch("resolwe.flow.models.utils.Path") as path_mock:
+        with patch("resolwe.flow.models.utils.validation.Path") as path_mock:
             path_mock.return_value = path_instance
             path_instance.is_file = MagicMock(return_value=True)
             path_instance.is_dir = MagicMock(return_value=True)
@@ -503,7 +503,7 @@ class ValidationUnitTest(TestCase):
         path_instance.reset_mock()
 
         # missing second `refs` file
-        with patch("resolwe.flow.models.utils.Path") as path_mock:
+        with patch("resolwe.flow.models.utils.validation.Path") as path_mock:
             path_mock.return_value = path_instance
             path_instance.is_file = MagicMock(side_effect=[True, False])
             path_instance.is_dir = MagicMock(side_effect=[True, False])

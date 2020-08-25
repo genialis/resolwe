@@ -1107,7 +1107,7 @@ class ProcessModelTest(TestCase):
         self.assertFalse(process_fetched.is_active)
 
 
-@patch("resolwe.flow.models.utils.Path")
+@patch("resolwe.flow.models.utils.hydrate.Path")
 class HydrateFileSizeUnitTest(TestCase):
     def create_data(self, path_mock, contributor, process):
         # Mock isfile and getsize for data creation to pass.
@@ -1147,7 +1147,7 @@ class HydrateFileSizeUnitTest(TestCase):
         hydrate_size(data)
         self.assertEqual(data.output["test_file"]["size"], 42000)
 
-    @patch("resolwe.flow.models.utils.os")
+    @patch("resolwe.flow.models.utils.hydrate.os")
     def test_data_with_refs(self, os_mock, path_mock):
         data = self.create_data(path_mock, self.contributor, self.process)
         stat_mock = MagicMock()
@@ -1164,7 +1164,7 @@ class HydrateFileSizeUnitTest(TestCase):
         self.assertEqual(data.output["test_file"]["total_size"], 50042)
         self.assertEqual(data.size, 50042)
 
-    @patch("resolwe.flow.models.utils.os")
+    @patch("resolwe.flow.models.utils.hydrate.os")
     def test_list(self, os_mock, path_mock):
         data = self.create_data(path_mock, self.contributor, self.process)
 
