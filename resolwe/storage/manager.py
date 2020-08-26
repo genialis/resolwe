@@ -169,6 +169,11 @@ class DecisionMaker:
             current_delay = now() - storage_location.last_update
             rule_results["delay"] = current_delay >= delete_delay
 
+            last_access_log = storage_location.access_logs.order_by("started").last()
+            if last_access_log is not None:
+                access_log_delay = now() - last_access_log.started
+                rule_results["access_log_delay"] = access_log_delay >= delete_delay
+
         return all(rule_results.values())
 
 

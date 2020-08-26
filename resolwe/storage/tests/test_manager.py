@@ -190,6 +190,10 @@ class DecisionMakerTest(TestCase):
         StorageLocation.objects.filter(pk=location_s3.pk).update(
             last_update=timezone.now() - timedelta(days=5)
         )
+        access_log = AccessLog.objects.create(storage_location=location_s3)
+        self.assertIsNone(self.decision_maker.delete())
+
+        access_log.delete()
         self.assertEqual(self.decision_maker.delete(), location_s3)
 
         StorageLocation.objects.filter(pk=location_s3.pk).update(
