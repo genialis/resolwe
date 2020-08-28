@@ -133,10 +133,14 @@ class DataModelNameTest(TransactionTestCase):
 class DataModelTest(TestCase):
     def test_delete_chunked(self):
         process = Process.objects.create(contributor=self.contributor)
-        for _ in range(1000):
-            Data.objects.create(contributor=self.contributor, process=process)
+        Data.objects.bulk_create(
+            [
+                Data(name=str(i), contributor=self.contributor, process=process, size=0)
+                for i in range(25)
+            ]
+        )
 
-        Data.objects.all().delete_chunked(chunk_size=50)
+        Data.objects.all().delete_chunked(chunk_size=10)
         self.assertFalse(Data.objects.exists())
 
     def test_trim_name(self):
