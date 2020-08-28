@@ -13,16 +13,10 @@ from django.contrib.postgres.search import SearchVectorField
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.validators import RegexValidator
 from django.db import models, transaction
-from django.utils.timezone import now
 
 from resolwe.flow.expression_engines.exceptions import EvaluationError
 from resolwe.flow.models.utils import DirtyError, fill_with_defaults, validate_schema
-from resolwe.flow.utils import (
-    dict_dot,
-    get_data_checksum,
-    iterate_fields,
-    rewire_inputs,
-)
+from resolwe.flow.utils import dict_dot, get_data_checksum, iterate_fields
 from resolwe.permissions.utils import assign_contributor_permissions, copy_permissions
 
 from .base import BaseModel, BaseQuerySet
@@ -31,6 +25,7 @@ from .entity import Entity
 from .secret import Secret
 from .storage import Storage
 from .utils import (
+    bulk_duplicate,
     hydrate_input_references,
     hydrate_size,
     render_descriptor,
@@ -204,29 +199,18 @@ class DataQuerySet(BaseQuerySet):
         return obj
 
     @transaction.atomic
-    def duplicate(
-        self, contributor=None, inherit_entity=False, inherit_collection=False
-    ):
+    def duplicate(self, contributor, inherit_entity=False, inherit_collection=False):
         """Duplicate (make a copy) ``Data`` objects.
 
         :param contributor: Duplication user
         """
-        bundle = [
-            {
-                "original": data,
-                "copy": data.duplicate(
-                    contributor=contributor,
-                    inherit_entity=inherit_entity,
-                    inherit_collection=inherit_collection,
-                ),
-            }
-            for data in self
-        ]
 
-        bundle = rewire_inputs(bundle)
-        duplicated = [item["copy"] for item in bundle]
-
-        return duplicated
+        return bulk_duplicate(
+            data=self,
+            contributor=contributor,
+            inherit_entity=inherit_entity,
+            inherit_collection=inherit_collection,
+        )
 
     @transaction.atomic
     def move_to_collection(self, destination_collection):
@@ -606,82 +590,14 @@ class Data(BaseModel):
         """Return True if data object is a duplicate."""
         return bool(self.duplicated)
 
-    def duplicate(
-        self, contributor=None, inherit_entity=False, inherit_collection=False
-    ):
+    def duplicate(self, contributor, inherit_entity=False, inherit_collection=False):
         """Duplicate (make a copy)."""
-        if self.status not in [self.STATUS_DONE, self.STATUS_ERROR]:
-            raise ValidationError(
-                "Data object must have done or error status to be duplicated"
-            )
-
-        duplicate = Data.objects.get(id=self.id)
-        duplicate.pk = None
-        duplicate.slug = None
-        duplicate.name = "Copy of {}".format(self.name)
-        duplicate.duplicated = now()
-        if contributor:
-            duplicate.contributor = contributor
-
-        duplicate.entity = None
-        if inherit_entity:
-            if not contributor.has_perm("edit_entity", self.entity):
-                raise ValidationError(
-                    "You do not have edit permission on entity {}.".format(self.entity)
-                )
-            duplicate.entity = self.entity
-
-        duplicate.collection = None
-        if inherit_collection:
-            if not contributor.has_perm("edit_collection", self.collection):
-                raise ValidationError(
-                    "You do not have edit permission on collection {}.".format(
-                        self.collection
-                    )
-                )
-            duplicate.collection = self.collection
-
-        duplicate._perform_save(force_insert=True)
-
-        # Override fields that are automatically set on create.
-        duplicate.created = self.created
-        duplicate._perform_save()
-
-        if self.location:
-            self.location.data.add(duplicate)
-
-        duplicate.storages.set(self.storages.all())
-
-        for migration in self.migration_history.order_by("created"):
-            migration.pk = None
-            migration.data = duplicate
-            migration.save(force_insert=True)
-
-        # Inherit existing child dependencies.
-        DataDependency.objects.bulk_create(
-            [
-                DataDependency(
-                    child=duplicate, parent=dependency.parent, kind=dependency.kind
-                )
-                for dependency in DataDependency.objects.filter(child=self)
-            ]
-        )
-        # Inherit existing parent dependencies.
-        DataDependency.objects.bulk_create(
-            [
-                DataDependency(
-                    child=dependency.child, parent=duplicate, kind=dependency.kind
-                )
-                for dependency in DataDependency.objects.filter(parent=self)
-            ]
-        )
-
-        # Permissions
-        assign_contributor_permissions(duplicate)
-        copy_permissions(duplicate.entity, duplicate)
-        copy_permissions(duplicate.collection, duplicate)
-
-        return duplicate
+        return bulk_duplicate(
+            data=self._meta.model.objects.filter(pk=self.pk),
+            contributor=contributor,
+            inherit_entity=inherit_entity,
+            inherit_collection=inherit_collection,
+        )[0]
 
     def get_runtime_path(self, filename=None):
         """Get the runtime directory of the executor.

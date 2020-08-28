@@ -18,6 +18,7 @@ Changed
 Fixed
 -----
 - Make sure to terminate Docker container before executor exits
+- Speed-up duplication of ``Data`` objects, ``Enteties``, and ``Collections``
 
 
 ===================

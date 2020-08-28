@@ -96,6 +96,11 @@ Postgres ORM model for storing data migration history.
 .. autoclass:: resolwe.flow.models.DataMigrationHistory
     :members:
 
+Utility functions
+=================
+
+.. autofunction:: resolwe.flow.models.utils.duplicate.bulk_duplicate
+
 """
 
 from .collection import Collection

@@ -1,6 +1,7 @@
 """Resolwe models utils."""
 from resolwe.flow.utils import iterate_fields
 
+from .duplicate import bulk_duplicate  # noqa: F401
 from .hydrate import (  # noqa: F401
     hydrate_input_references,
     hydrate_input_uploads,

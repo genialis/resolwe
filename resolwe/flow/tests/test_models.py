@@ -746,7 +746,7 @@ class DuplicateTestCase(TestCase):
 
         # Duplicate.
         duplicate = data.duplicate(self.contributor)
-        duplicate_of_duplicate = duplicate.duplicate()
+        duplicate_of_duplicate = duplicate.duplicate(self.contributor)
 
         self.assertEqual(
             duplicate.contributor.id, duplicate_of_duplicate.contributor.id
@@ -801,7 +801,7 @@ class DuplicateTestCase(TestCase):
             status=Data.STATUS_DONE,
         )
 
-        should_not_be_rewritten = data1.duplicate()
+        should_not_be_rewritten = data1.duplicate(self.user)
 
         data2 = Data.objects.create(
             contributor=self.user,
@@ -967,7 +967,7 @@ class DuplicateTestCase(TestCase):
         collection = Collection.objects.create(contributor=self.user)
         assign_perm("view_collection", self.user, collection)
         assign_perm("edit_collection", self.user, collection)
-        assign_perm("edit_collection", self.contributor, collection)
+        assign_perm("view_collection", self.contributor, collection)
         collection.entity_set.add(entity)
         collection.data.add(data)
 
@@ -989,12 +989,17 @@ class DuplicateTestCase(TestCase):
         self.assertEqual(len(get_perms(self.user, duplicated_entity1)), 4)
         self.assertEqual(len(get_perms(self.user, duplicated_entity1.data.first())), 4)
         self.assertListEqual(
-            get_perms(self.contributor, collection), ["edit_collection"]
+            get_perms(self.contributor, collection), ["view_collection"]
         )
         self.assertListEqual(get_perms(self.contributor, duplicated_entity1), [])
         self.assertListEqual(
             get_perms(self.contributor, duplicated_entity1.data.first()), []
         )
+
+        with self.assertRaises(ValidationError):
+            Entity.objects.filter(id=entity.id).duplicate(
+                self.contributor, inherit_collection=True
+            )[0]
 
         duplicated_entity2 = Entity.objects.filter(id=entity.id).duplicate(
             self.user, inherit_collection=True
@@ -1015,13 +1020,7 @@ class DuplicateTestCase(TestCase):
         self.assertEqual(len(get_perms(self.user, duplicated_entity2)), 4)
         self.assertEqual(len(get_perms(self.user, duplicated_entity2.data.first())), 4)
         self.assertListEqual(
-            get_perms(self.contributor, collection), ["edit_collection"]
-        )
-        self.assertListEqual(
-            get_perms(self.contributor, duplicated_entity2), ["edit_entity"]
-        )
-        self.assertListEqual(
-            get_perms(self.contributor, duplicated_entity2.data.first()), ["edit_data"]
+            get_perms(self.contributor, collection), ["view_collection"]
         )
 
     def test_collection_duplicate(self):

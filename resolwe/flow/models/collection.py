@@ -3,13 +3,9 @@ from django.contrib.postgres.fields import ArrayField, JSONField
 from django.contrib.postgres.indexes import GinIndex
 from django.contrib.postgres.search import SearchVectorField
 from django.db import models, transaction
-from django.utils.timezone import now
-
-from resolwe.permissions.shortcuts import get_objects_for_user
-from resolwe.permissions.utils import assign_contributor_permissions
 
 from .base import BaseModel, BaseQuerySet
-from .utils import DirtyError, validate_schema
+from .utils import DirtyError, bulk_duplicate, validate_schema
 
 
 class BaseCollection(BaseModel):
@@ -62,9 +58,9 @@ class CollectionQuerySet(BaseQuerySet):
     """Query set for ``Collection`` objects."""
 
     @transaction.atomic
-    def duplicate(self, contributor=None):
+    def duplicate(self, contributor):
         """Duplicate (make a copy) ``Collection`` objects."""
-        return [collection.duplicate(contributor=contributor) for collection in self]
+        return bulk_duplicate(collections=self, contributor=contributor)
 
 
 class Collection(BaseCollection):
@@ -102,33 +98,9 @@ class Collection(BaseCollection):
         """Return True if collection is a duplicate."""
         return bool(self.duplicated)
 
-    def duplicate(self, contributor=None):
+    def duplicate(self, contributor):
         """Duplicate (make a copy)."""
-        duplicate = Collection.objects.get(id=self.id)
-        duplicate.pk = None
-        duplicate.slug = None
-        duplicate.name = "Copy of {}".format(self.name)
-        duplicate.duplicated = now()
-        if contributor:
-            duplicate.contributor = contributor
-
-        duplicate.save(force_insert=True)
-
-        assign_contributor_permissions(duplicate)
-
-        # Fields to inherit from original data object.
-        duplicate.created = self.created
-        duplicate.save()
-
-        # Duplicate collection's entities.
-        entities = get_objects_for_user(
-            contributor, "view_entity", self.entity_set.all()
-        )
-        duplicated_entities = entities.duplicate(contributor=contributor)
-        duplicate.entity_set.add(*duplicated_entities)
-
-        # Add duplicated data objects to collection.
-        for duplicated_entity in duplicate.entity_set.all():
-            duplicate.data.add(*duplicated_entity.data.all())
-
-        return duplicate
+        return bulk_duplicate(
+            collections=self._meta.model.objects.filter(pk=self.pk),
+            contributor=contributor,
+        )[0]

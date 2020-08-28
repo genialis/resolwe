@@ -1,22 +1,20 @@
 """Resolwe entity model."""
 from django.contrib.postgres.fields import CICharField
 from django.contrib.postgres.indexes import GinIndex
-from django.core.exceptions import ValidationError
 from django.db import models, transaction
-from django.utils.timezone import now
 
-from resolwe.permissions.shortcuts import get_objects_for_user
-from resolwe.permissions.utils import assign_contributor_permissions, copy_permissions
+from resolwe.permissions.utils import copy_permissions
 
 from .base import BaseModel, BaseQuerySet
 from .collection import BaseCollection
+from .utils import bulk_duplicate
 
 
 class EntityQuerySet(BaseQuerySet):
     """Query set for ``Entity`` objects."""
 
     @transaction.atomic
-    def duplicate(self, contributor=None, inherit_collection=False):
+    def duplicate(self, contributor, inherit_collection=False):
         """Duplicate (make a copy) ``Entity`` objects.
 
         :param contributor: Duplication user
@@ -27,7 +25,11 @@ class EntityQuerySet(BaseQuerySet):
             collection
         :return: A list of duplicated entities
         """
-        return [entity.duplicate(contributor, inherit_collection) for entity in self]
+        return bulk_duplicate(
+            entities=self,
+            contributor=contributor,
+            inherit_collection=inherit_collection,
+        )
 
     @transaction.atomic
     def move_to_collection(self, source_collection, destination_collection):
@@ -77,46 +79,13 @@ class Entity(BaseCollection):
         """Return True if entity is a duplicate."""
         return bool(self.duplicated)
 
-    def duplicate(self, contributor=None, inherit_collection=False):
+    def duplicate(self, contributor, inherit_collection=False):
         """Duplicate (make a copy)."""
-        duplicate = Entity.objects.get(id=self.id)
-        duplicate.pk = None
-        duplicate.slug = None
-        duplicate.name = "Copy of {}".format(self.name)
-        duplicate.duplicated = now()
-        if contributor:
-            duplicate.contributor = contributor
-
-        duplicate.collection = None
-        if inherit_collection:
-            if not contributor.has_perm("edit_collection", self.collection):
-                raise ValidationError(
-                    "You do not have edit permission on collection {}.".format(
-                        self.collection
-                    )
-                )
-            duplicate.collection = self.collection
-
-        duplicate.save(force_insert=True)
-
-        assign_contributor_permissions(duplicate)
-
-        # Override fields that are automatically set on create.
-        duplicate.created = self.created
-        duplicate.save()
-
-        # Duplicate entity's data objects.
-        data = get_objects_for_user(contributor, "view_data", self.data.all())
-        duplicated_data = data.duplicate(
-            contributor, inherit_collection=inherit_collection
-        )
-        duplicate.data.add(*duplicated_data)
-
-        # Permissions
-        assign_contributor_permissions(duplicate)
-        copy_permissions(duplicate.collection, duplicate)
-
-        return duplicate
+        return bulk_duplicate(
+            entities=self._meta.model.objects.filter(pk=self.pk),
+            contributor=contributor,
+            inherit_collection=inherit_collection,
+        )[0]
 
     @transaction.atomic
     def move_to_collection(self, source_collection, destination_collection):
