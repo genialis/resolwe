@@ -80,7 +80,10 @@ class Field:
         if self.choices is not None:
             for choice, label in self.choices:
                 schema.setdefault("choices", []).append(
-                    {"label": label, "value": choice,}
+                    {
+                        "label": label,
+                        "value": choice,
+                    }
                 )
 
         return schema
@@ -102,7 +105,7 @@ class Field:
             choices = [choice for choice, _ in self.choices]
             if value not in choices and not self.allow_custom_choice:
                 raise ValidationError(
-                    "field must be one of: {}".format(", ".join(choices),)
+                    "field must be one of: {}".format(", ".join(choices))
                 )
 
     def clean(self, value):
@@ -425,7 +428,7 @@ class DirField(Field):
                 # TODO: Validate that all refs are strings.
                 raise ValidationError("field's refs element must be a list of strings")
 
-            return DirDescriptor(path, size=size, total_size=total_size, refs=refs,)
+            return DirDescriptor(path, size=size, total_size=total_size, refs=refs)
         elif not isinstance(value, None):
             raise ValidationError("field must be a DirDescriptor, string or a dict")
 
@@ -501,7 +504,7 @@ class ListField(Field):
                     self.inner.validate(element)
                 except ValidationError as error:
                     raise ValidationError(
-                        "invalid element {}: {}".format(index, error.args[0],)
+                        "invalid element {}: {}".format(index, error.args[0])
                     )
 
         super().validate(value)
@@ -797,7 +800,7 @@ class GroupField(Field):
     ):
         """Construct a group field."""
         super().__init__(
-            label=label, required=None, description=description, hidden=hidden,
+            label=label, required=None, description=description, hidden=hidden
         )
 
         self.disabled = disabled

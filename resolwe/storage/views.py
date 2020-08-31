@@ -95,9 +95,12 @@ class DataBrowseView(View):
         elif is_file:
             # Redirect to the resource.
             force_download = strtobool(request.GET.get("force_download", "false"))
-            redirect_url = file_storage.default_storage_location.connector.presigned_url(
-                file_storage.subpath / relative_path, force_download=force_download
+            redirect_url = (
+                file_storage.default_storage_location.connector.presigned_url(
+                    file_storage.subpath / relative_path, force_download=force_download
+                )
             )
+
             return redirect(redirect_url)
         else:
             raise PermissionDenied()

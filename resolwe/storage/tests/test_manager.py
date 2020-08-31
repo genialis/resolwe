@@ -27,15 +27,22 @@ from resolwe.test import TestCase, TransactionTestCase
 CONNECTORS_SETTINGS = {
     "local": {
         "connector": "resolwe.storage.connectors.localconnector.LocalFilesystemConnector",
-        "config": {"priority": 1, "path": "/",},
+        "config": {
+            "priority": 1,
+            "path": "/",
+        },
     },
     "S3": {
         "connector": "resolwe.storage.connectors.s3connector.AwsS3Connector",
         "config": {
             "priority": 100,
             "bucket": "genialis-test-storage",
-            "copy": {"delay": 2,},
-            "delete": {"delay": 5,},
+            "copy": {
+                "delay": 2,
+            },
+            "delete": {
+                "delay": 5,
+            },
             "credentials": "test.json",
         },
     },
@@ -44,7 +51,9 @@ CONNECTORS_SETTINGS = {
         "config": {
             "priority": 200,
             "bucket": "genialis_storage_test",
-            "copy": {"delay": 3,},
+            "copy": {
+                "delay": 3,
+            },
             "delete": {"delay": 5, "min_other_copies": 2},
             "credentials": "test.json",
         },
@@ -93,7 +102,9 @@ class DecisionMakerTest(TestCase):
 
     def test_copy(self):
         storage_location: StorageLocation = StorageLocation.objects.create(
-            file_storage=self.file_storage, url="url", connector_name="local",
+            file_storage=self.file_storage,
+            url="url",
+            connector_name="local",
         )
         FileStorage.objects.filter(pk=self.file_storage.pk).update(
             created=timezone.now() - timedelta(days=2)
@@ -311,13 +322,15 @@ class DecisionMakerOverrideRuleTest(TestCase):
 
         settings["GCS"]["config"]["copy"]["process_type"] = override
         with patch(
-            "resolwe.storage.manager.STORAGE_CONNECTORS", settings,
+            "resolwe.storage.manager.STORAGE_CONNECTORS",
+            settings,
         ):
             self.assertEqual(decision_maker.copy(), [])
 
         settings["GCS"]["config"]["copy"]["process_type"] = override_nonexisting
         with patch(
-            "resolwe.storage.manager.STORAGE_CONNECTORS", settings,
+            "resolwe.storage.manager.STORAGE_CONNECTORS",
+            settings,
         ):
             self.assertEqual(decision_maker.copy(), ["GCS"])
 
@@ -340,13 +353,15 @@ class DecisionMakerOverrideRuleTest(TestCase):
 
         settings["GCS"]["config"]["copy"]["data_slug"] = override
         with patch(
-            "resolwe.storage.manager.STORAGE_CONNECTORS", settings,
+            "resolwe.storage.manager.STORAGE_CONNECTORS",
+            settings,
         ):
             self.assertEqual(decision_maker.copy(), [])
 
         settings["GCS"]["config"]["copy"]["data_slug"] = override_nonexisting
         with patch(
-            "resolwe.storage.manager.STORAGE_CONNECTORS", settings,
+            "resolwe.storage.manager.STORAGE_CONNECTORS",
+            settings,
         ):
             self.assertEqual(decision_maker.copy(), ["GCS"])
 
@@ -371,14 +386,16 @@ class DecisionMakerOverrideRuleTest(TestCase):
         settings["GCS"]["config"]["copy"]["process_type"] = override_process_type
 
         with patch(
-            "resolwe.storage.manager.STORAGE_CONNECTORS", settings,
+            "resolwe.storage.manager.STORAGE_CONNECTORS",
+            settings,
         ):
             self.assertEqual(decision_maker.copy(), ["GCS"])
 
         override_data_slug["test_data"]["delay"] = 10
         override_process_type["test:data:"]["delay"] = 5
         with patch(
-            "resolwe.storage.manager.STORAGE_CONNECTORS", settings,
+            "resolwe.storage.manager.STORAGE_CONNECTORS",
+            settings,
         ):
             self.assertEqual(decision_maker.copy(), [])
 
@@ -460,7 +477,9 @@ class ManagerTest(TransactionTestCase):
             connector_name="local",
             status=StorageLocation.STATUS_DONE,
         )
-        path = ReferencedPath.objects.create(path="testme.txt",)
+        path = ReferencedPath.objects.create(
+            path="testme.txt",
+        )
         path.storage_locations.add(location_local)
         transfer_objects = MagicMock(return_value=None)
         transfer_instance = MagicMock(transfer_objects=transfer_objects)
@@ -496,7 +515,9 @@ class ManagerTest(TransactionTestCase):
             connector_name="local",
             status=StorageLocation.STATUS_DONE,
         )
-        path = ReferencedPath.objects.create(path="testme.txt",)
+        path = ReferencedPath.objects.create(
+            path="testme.txt",
+        )
         path.storage_locations.add(location_local)
         transfer_objects = MagicMock(side_effect=raise_datatransfererror)
         transfer_instance = MagicMock(transfer_objects=transfer_objects)

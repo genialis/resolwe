@@ -30,7 +30,10 @@ class Command(BaseCommand):
         channel_layer = get_channel_layer()
         try:
             async_to_sync(channel_layer.send)(
-                CHANNEL_STORAGE_CLEANUP_WORKER, {"type": TYPE_STORAGE_CLEANUP_RUN,},
+                CHANNEL_STORAGE_CLEANUP_WORKER,
+                {
+                    "type": TYPE_STORAGE_CLEANUP_RUN,
+                },
             )
         except ChannelFull:
             logger.warning(

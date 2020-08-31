@@ -12,5 +12,11 @@ from resolwe.flow.managers import state
 from resolwe.flow.managers.consumer import ManagerConsumer
 
 channel_routing = ProtocolTypeRouter(
-    {"channel": ChannelNameRouter({state.MANAGER_CONTROL_CHANNEL: ManagerConsumer,}),}
+    {
+        "channel": ChannelNameRouter(
+            {
+                state.MANAGER_CONTROL_CHANNEL: ManagerConsumer,
+            }
+        ),
+    }
 )

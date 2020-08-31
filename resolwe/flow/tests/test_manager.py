@@ -31,7 +31,9 @@ class TestManager(ProcessTestCase):
         """Test that manager is run when new object is created."""
         process = Process.objects.filter(slug="test-min").latest()
         data = Data.objects.create(
-            name="Test data", contributor=self.contributor, process=process,
+            name="Test data",
+            contributor=self.contributor,
+            process=process,
         )
 
         data.refresh_from_db()
@@ -132,7 +134,9 @@ class TestManager(ProcessTestCase):
     def test_process_notifications(self):
         process = Process.objects.filter(slug="test-process-notifications").latest()
         data = Data.objects.create(
-            name="Test data", contributor=self.contributor, process=process,
+            name="Test data",
+            contributor=self.contributor,
+            process=process,
         )
 
         data.refresh_from_db()
@@ -156,7 +160,11 @@ class TransactionTestManager(TransactionTestCase):
             contributor=self.contributor,
             type="data:test:",
             input_schema=[
-                {"name": "input_data", "type": "data:test:", "required": False,},
+                {
+                    "name": "input_data",
+                    "type": "data:test:",
+                    "required": False,
+                },
             ],
         )
 

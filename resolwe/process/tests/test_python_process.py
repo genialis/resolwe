@@ -59,7 +59,11 @@ class PythonProcessTest(ProcessTestCase):
             process.requirements,
             {
                 "expression-engine": "jinja",
-                "executor": {"docker": {"image": "resolwe/base:ubuntu-18.04",}},
+                "executor": {
+                    "docker": {
+                        "image": "resolwe/base:ubuntu-18.04",
+                    }
+                },
             },
         )
 
@@ -138,7 +142,10 @@ class PythonProcessTest(ProcessTestCase):
                 "integer": 42,
                 "my_float": 0.42,
                 "my_json": storage.pk,
-                "my_group": {"bar": "my string", "foo": 21,},
+                "my_group": {
+                    "bar": "my string",
+                    "foo": 21,
+                },
             },
         )
 
@@ -166,7 +173,15 @@ class PythonProcessTest(ProcessTestCase):
         # Run with explicitly given inputs.
         data = self.run_process(
             "test-python-process-group-field",
-            {"my_group": {"foo": 123, "bar": "foobar",}, "my_group2": {"foo": 124,},},
+            {
+                "my_group": {
+                    "foo": 123,
+                    "bar": "foobar",
+                },
+                "my_group2": {
+                    "foo": 124,
+                },
+            },
         )
         self.assertFields(data, "out_foo", 123)
         self.assertFields(data, "out_bar", "foobar")
@@ -185,7 +200,12 @@ class PythonProcessTest(ProcessTestCase):
         with self.preparation_stage():
             input_data = self.run_process("test-output-json")
 
-        self.run_process("test-python-process-json", {"data": input_data.pk,})
+        self.run_process(
+            "test-python-process-json",
+            {
+                "data": input_data.pk,
+            },
+        )
 
     @with_docker_executor
     @tag_process("test-non-required-data-inputs")
@@ -194,7 +214,12 @@ class PythonProcessTest(ProcessTestCase):
         with self.preparation_stage():
             input_data = self.run_process("test-output-json")
 
-        self.run_process("test-non-required-data-inputs", {"data": input_data.pk,})
+        self.run_process(
+            "test-non-required-data-inputs",
+            {
+                "data": input_data.pk,
+            },
+        )
 
         data = Data.objects.get(process__slug="test-python-process-json")
         self.assertEqual(data.status, "OK")
@@ -259,10 +284,16 @@ class PythonProcessTest(ProcessTestCase):
             )
             assign_perm("view_relation", self.contributor, relation)
             RelationPartition.objects.create(
-                relation=relation, entity=start.entity, label="start", position=1,
+                relation=relation,
+                entity=start.entity,
+                label="start",
+                position=1,
             )
             RelationPartition.objects.create(
-                relation=relation, entity=end.entity, label="end", position=2,
+                relation=relation,
+                entity=end.entity,
+                label="end",
+                position=2,
             )
 
             # Prepare also another data that is not inside entity and is in another collection
@@ -347,7 +378,10 @@ class PythonProcessDataBySlugTest(ProcessTestCase, LiveServerTestCase):
         assign_perm("view_data", AnonymousUser(), input_data)
 
         data = self.run_process(
-            "test-python-process-data-id-by-slug", {"slug": input_data.slug,}
+            "test-python-process-data-id-by-slug",
+            {
+                "slug": input_data.slug,
+            },
         )
 
         self.assertEqual(data.output["data_id"], input_data.pk)

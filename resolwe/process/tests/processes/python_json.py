@@ -8,7 +8,13 @@ class PythonProcessJson(Process):
     name = "Python Process that uses JSON field"
     process_type = "data:python"
     version = "0.1.2"
-    requirements = {"executor": {"docker": {"image": "resolwe/base:ubuntu-18.04",}}}
+    requirements = {
+        "executor": {
+            "docker": {
+                "image": "resolwe/base:ubuntu-18.04",
+            }
+        }
+    }
 
     class Input:
         """Input fields."""

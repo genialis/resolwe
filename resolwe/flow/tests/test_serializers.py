@@ -14,22 +14,29 @@ class ResolweDictRelatedFieldTest(TestCase):
         super().setUp()
 
         self.process = Process.objects.create(
-            slug="test-process", contributor=self.contributor,
+            slug="test-process",
+            contributor=self.contributor,
         )
         assign_perm("view_process", self.user, self.process)
 
         self.descriptor_schema1 = DescriptorSchema.objects.create(
-            slug="test-schema", contributor=self.contributor, version="1.0.0",
+            slug="test-schema",
+            contributor=self.contributor,
+            version="1.0.0",
         )
         assign_perm("view_descriptorschema", self.user, self.descriptor_schema1)
 
         self.descriptor_schema2 = DescriptorSchema.objects.create(
-            slug="test-schema", contributor=self.contributor, version="2.0.0",
+            slug="test-schema",
+            contributor=self.contributor,
+            version="2.0.0",
         )
         assign_perm("view_descriptorschema", self.user, self.descriptor_schema2)
 
         self.descriptor_schema3 = DescriptorSchema.objects.create(
-            slug="test-schema", contributor=self.contributor, version="3.0.0",
+            slug="test-schema",
+            contributor=self.contributor,
+            version="3.0.0",
         )
 
         self.factory = APIRequestFactory()

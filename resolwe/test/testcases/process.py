@@ -66,9 +66,7 @@ class TestProfiler:
         if not self._file:
             return
 
-        data.update(
-            {"test": self._test.id(),}
-        )
+        data.update({"test": self._test.id()})
 
         self._file.write(json.dumps(data))
         self._file.write("\n")
@@ -175,7 +173,11 @@ class ProcessTestCase(TransactionTestCase):
                 "model": DescriptorSchema,
                 "cache_key": descriptors_paths,
             },
-            {"name": "processes", "model": Process, "cache_key": processes_paths,},
+            {
+                "name": "processes",
+                "model": Process,
+                "cache_key": processes_paths,
+            },
         ]
 
         for schemas in schemas_types:
@@ -245,9 +247,7 @@ class ProcessTestCase(TransactionTestCase):
         :rtype: Collection
 
         """
-        return Collection.objects.create(
-            name="Test collection", contributor=self.admin,
-        )
+        return Collection.objects.create(name="Test collection", contributor=self.admin)
 
     def setUp(self):
         """Initialize test data."""

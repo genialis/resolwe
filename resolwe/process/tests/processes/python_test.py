@@ -53,7 +53,11 @@ class PythonProcess(Process):
     }
     requirements = {
         "expression-engine": "jinja",
-        "executor": {"docker": {"image": "resolwe/base:ubuntu-18.04",}},
+        "executor": {
+            "docker": {
+                "image": "resolwe/base:ubuntu-18.04",
+            }
+        },
     }
 
     class Input:
@@ -265,7 +269,10 @@ class RequirementsProcess(Process):
     version = "0.0.1"
     process_type = "data:python:requirements"
     requirements = {
-        "resources": {"cores": 2, "memory": 4096,},
+        "resources": {
+            "cores": 2,
+            "memory": 4096,
+        },
     }
 
     class Output:
@@ -309,7 +316,10 @@ class ProcessWithChoicesInput(Process):
         string_input = StringField(
             label="Input field",
             allow_custom_choice=True,
-            choices=[("foo", "foo"), ("bar", "bar"),],
+            choices=[
+                ("foo", "foo"),
+                ("bar", "bar"),
+            ],
         )
 
     class Output:

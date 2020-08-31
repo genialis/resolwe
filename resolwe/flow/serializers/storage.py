@@ -23,5 +23,10 @@ class StorageSerializer(ResolweBaseSerializer):
         fields = (
             read_only_fields
             + update_protected_fields
-            + ("data", "json", "name", "slug",)
+            + (
+                "data",
+                "json",
+                "name",
+                "slug",
+            )
         )

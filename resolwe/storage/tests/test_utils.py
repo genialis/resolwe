@@ -41,7 +41,13 @@ class UtilsTest(TestCase):
             to_transfer = utils.get_transfer_object(directory, tmp_path)
             self.assertDictEqual(
                 to_transfer,
-                {"size": 0, "path": "dir/", "md5": "", "crc32c": "", "awss3etag": "",},
+                {
+                    "size": 0,
+                    "path": "dir/",
+                    "md5": "",
+                    "crc32c": "",
+                    "awss3etag": "",
+                },
             )
 
     def test_get_transfer_object_nonexisting(self):

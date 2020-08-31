@@ -232,7 +232,7 @@ class FlowExecutor(LocalFlowExecutor):
             for src, dst in runtime_volume_maps.items():
                 volumes.append(
                     new_volume(
-                        "runtime", "RUNTIME_DIR", dst, [STORAGE_LOCATION["url"], src],
+                        "runtime", "RUNTIME_DIR", dst, [STORAGE_LOCATION["url"], src]
                     )
                 )
 

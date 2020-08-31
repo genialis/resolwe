@@ -282,7 +282,8 @@ class PurgeUnitTest(PurgeTestFieldsMixin, ProcessTestCase):
 
             for filename in not_removed:
                 self.assertIn(
-                    strip_slash(filename), collected,
+                    strip_slash(filename),
+                    collected,
                 )
 
             for filename in removed:

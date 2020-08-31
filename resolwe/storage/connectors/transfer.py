@@ -148,7 +148,7 @@ class Transfer:
 
     def _transfer_chunk(self, url: Path, objects: Iterable[dict]) -> bool:
         """Transfer a single chunk of objects.
-        
+
         :returns: True on success.
         """
         to_connector = self.to_connector.duplicate()

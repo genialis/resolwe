@@ -99,9 +99,7 @@ class SafeEvaluator(asteval.Interpreter):
             # all kinds of builtin functions available.
             symtable = {}
 
-        super().__init__(
-            symtable=symtable, use_numpy=False, no_print=True,
-        )
+        super().__init__(symtable=symtable, use_numpy=False, no_print=True)
 
 
 class ProcessVisitor(ast.NodeVisitor):

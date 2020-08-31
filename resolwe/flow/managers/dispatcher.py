@@ -761,7 +761,10 @@ class Manager:
 
         self._ensure_counter()
         await asyncio.wait(
-            [_barrier(), consumer.run_consumer(),]
+            [
+                _barrier(),
+                consumer.run_consumer(),
+            ]
         )
         self.sync_counter = self._SynchronizationManagerDummy()
 
@@ -869,7 +872,10 @@ class Manager:
             )
 
             self._prepare_context(
-                data, data_dir, runtime_dir, RUNTIME_VOLUME_MAPS=volume_maps,
+                data,
+                data_dir,
+                runtime_dir,
+                RUNTIME_VOLUME_MAPS=volume_maps,
             )
             self._prepare_script(runtime_dir, program)
 

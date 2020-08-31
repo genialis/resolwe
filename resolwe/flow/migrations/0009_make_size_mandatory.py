@@ -13,6 +13,8 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.AlterField(
-            model_name="data", name="size", field=models.BigIntegerField(),
+            model_name="data",
+            name="size",
+            field=models.BigIntegerField(),
         ),
     ]

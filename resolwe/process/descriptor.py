@@ -90,7 +90,11 @@ class ProcessDescriptor:
             "version": self.metadata.version,
             "data_name": "",
             "requirements": {
-                "executor": {"docker": {"image": "resolwe/base:ubuntu-18.04",},},
+                "executor": {
+                    "docker": {
+                        "image": "resolwe/base:ubuntu-18.04",
+                    },
+                },
             },
         }
 
@@ -129,5 +133,7 @@ class ProcessDescriptor:
     def __repr__(self):
         """Return string representation."""
         return "<ProcessDescriptor metadata={} inputs={} outputs={}>".format(
-            repr(self.metadata), repr(dict(self.inputs)), repr(dict(self.outputs)),
+            repr(self.metadata),
+            repr(dict(self.inputs)),
+            repr(dict(self.outputs)),
         )

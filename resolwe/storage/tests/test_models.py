@@ -24,7 +24,10 @@ CONNECTORS_SETTINGS = {
         "config": {
             "priority": 1,
             "path": "/",
-            "delete": {"delay": 2, "min_other_copies": 2,},
+            "delete": {
+                "delay": 2,
+                "min_other_copies": 2,
+            },
         },
     },
     "S3": {
@@ -37,7 +40,10 @@ CONNECTORS_SETTINGS = {
     },
     "GCS": {
         "connector": "resolwe.storage.connectors.googleconnector.GoogleConnector",
-        "config": {"bucket": "genialis-test-storage", "credentials": "test.json",},
+        "config": {
+            "bucket": "genialis-test-storage",
+            "credentials": "test.json",
+        },
     },
 }
 
@@ -219,7 +225,8 @@ class StorageLocationTest(TransactionTestCase):
             storage_location.delete_data()
         self.assertEqual(delete.call_count, 1)
         self.assertCountEqual(
-            delete.call_args_list[0][0][1], ["remove_me.txt", "dir/remove_me.txt"],
+            delete.call_args_list[0][0][1],
+            ["remove_me.txt", "dir/remove_me.txt"],
         )
 
     def test_verify_data_ok(self):
@@ -237,7 +244,9 @@ class StorageLocationTest(TransactionTestCase):
                 return_value=MagicMock(check_url=MagicMock(return_value=True))
             )
             connector_mock.get_hashes = MagicMock(
-                side_effect=[{"md5": "1", "crc32c": "1", "awss3etag": "1"},]
+                side_effect=[
+                    {"md5": "1", "crc32c": "1", "awss3etag": "1"},
+                ]
             )
             verified = storage_location.verify_data()
             self.assertTrue(verified)
@@ -257,7 +266,9 @@ class StorageLocationTest(TransactionTestCase):
                 return_value=MagicMock(check_url=MagicMock(return_value=False))
             )
             connector_mock.get_hashes = MagicMock(
-                side_effect=[{"md5": "1", "crc32c": "1", "awss3etag": "1"},]
+                side_effect=[
+                    {"md5": "1", "crc32c": "1", "awss3etag": "1"},
+                ]
             )
             verified = storage_location.verify_data()
             self.assertFalse(verified)
@@ -277,7 +288,9 @@ class StorageLocationTest(TransactionTestCase):
                 return_value=MagicMock(check_url=MagicMock(return_value=False))
             )
             connector_mock.get_hashes = MagicMock(
-                side_effect=[{"md5": "1", "crc32c": "invalid", "awss3etag": "1"},]
+                side_effect=[
+                    {"md5": "1", "crc32c": "invalid", "awss3etag": "1"},
+                ]
             )
             verified = storage_location.verify_data()
             self.assertFalse(verified)

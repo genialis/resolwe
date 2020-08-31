@@ -12,7 +12,10 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RemoveField(model_name="relationpartition", name="position",),
+        migrations.RemoveField(
+            model_name="relationpartition",
+            name="position",
+        ),
         migrations.AddField(
             model_name="relationpartition",
             name="position",

@@ -226,7 +226,10 @@ class TestingFrameworkTestCase(TestCase):
         correct_structure = {
             "extensionless file": None,
             "text file.txt": None,
-            "dir": {"another file": None, "empty dir.ext": {},},
+            "dir": {
+                "another file": None,
+                "empty dir.ext": {},
+            },
         }
         substructure = copy.deepcopy(correct_structure)
         del substructure["dir"]
@@ -300,10 +303,15 @@ class TestingFrameworkTestCase(TestCase):
         obj_mock = mock.MagicMock()
         obj_mock.pk = "no id"
         obj_mock.output = {
-            "field_name": {"dir": "non-existing directory",},
+            "field_name": {
+                "dir": "non-existing directory",
+            },
         }
         obj_mock.process.output_schema = [
-            {"name": "field_name", "type": "basic:dir:",},
+            {
+                "name": "field_name",
+                "type": "basic:dir:",
+            },
         ]
 
         self.assertRaisesRegex(

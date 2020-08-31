@@ -18,7 +18,9 @@ from resolwe.storage.connectors.utils import get_transfer_object
 from resolwe.test import TestCase
 
 CONNECTORS = {
-    "local": {"path": "CHANGE",},
+    "local": {
+        "path": "CHANGE",
+    },
     "S3": {
         "bucket": "genialis-test-storage",
         "credentials": os.path.join(

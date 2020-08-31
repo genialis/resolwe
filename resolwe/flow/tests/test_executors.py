@@ -159,7 +159,9 @@ class ManagerRunProcessTest(ProcessTestCase):
             contributor=self.contributor,
             type="data:test",
             version=1,
-            run={"language": "invalid",},
+            run={
+                "language": "invalid",
+            },
         )
 
         self.run_process("test-broken", assert_status=Data.STATUS_ERROR)

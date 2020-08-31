@@ -105,7 +105,9 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
         descriptor_schema_1 = DescriptorSchema.objects.create(
             contributor=self.contributor,
         )
-        descriptor_schema_2 = DescriptorSchema.objects.create(contributor=self.user,)
+        descriptor_schema_2 = DescriptorSchema.objects.create(
+            contributor=self.user,
+        )
 
         self.collection.descriptor_schema = descriptor_schema_1
         self.collection.save()
@@ -253,7 +255,10 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
             "collection": {"id": self.collection.pk},
             "type": "group",
             "category": "clones",
-            "partitions": [{"entity": self.entity_3.pk}, {"entity": self.entity_4.pk},],
+            "partitions": [
+                {"entity": self.entity_3.pk},
+                {"entity": self.entity_4.pk},
+            ],
         }
 
         resp = self._post(data, user=self.contributor)
@@ -372,7 +377,10 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
             "collection": {"id": self.collection.pk},
             "type": "group",
             "category": "RePlIcAtEs",
-            "partitions": [{"entity": self.entity_3.pk}, {"entity": self.entity_4.pk},],
+            "partitions": [
+                {"entity": self.entity_3.pk},
+                {"entity": self.entity_4.pk},
+            ],
         }
 
         resp = self._post(data, user=self.contributor)
@@ -410,7 +418,10 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
 
         data = {
-            "partitions": [{"entity": self.entity_3.pk}, {"entity": self.entity_4.pk},],
+            "partitions": [
+                {"entity": self.entity_3.pk},
+                {"entity": self.entity_4.pk},
+            ],
         }
         resp = self._patch(self.relation_group.pk, data, user=self.contributor)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)

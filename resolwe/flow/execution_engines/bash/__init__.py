@@ -77,7 +77,7 @@ class ExecutionEngine(BaseExecutionEngine):
                 return script_template
 
             return self.get_expression_engine(expression_engine).evaluate_block(
-                script_template, inputs, escape=self._escape, safe_wrapper=SafeString,
+                script_template, inputs, escape=self._escape, safe_wrapper=SafeString
             )
         except EvaluationError as error:
             raise ExecutionError("{}".format(error))

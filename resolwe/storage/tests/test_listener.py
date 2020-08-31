@@ -49,7 +49,11 @@ class ListenerTest(TestCase):
 
         async_to_sync_mock.assert_called_once_with(send_reply_mock)
         send_wrapper.assert_called_once_with(
-            {"command": "download_finished", "data_id": -1, "storage_location_id": -2,},
+            {
+                "command": "download_finished",
+                "data_id": -1,
+                "storage_location_id": -2,
+            },
             {"result": "ER"},
         )
 
@@ -664,7 +668,8 @@ class ListenerTest(TestCase):
             ]
         )
         error_logger_mock.assert_called_once_with(
-            "StorageLocation does not exist", extra={"storage_location_id": -2},
+            "StorageLocation does not exist",
+            extra={"storage_location_id": -2},
         )
 
     @patch("resolwe.flow.managers.listener.logger.error")
@@ -715,7 +720,8 @@ class ListenerTest(TestCase):
         self.listener.handle_storage_location_unlock(obj)
         async_to_sync_mock.assert_not_called()
         error_logger_mock.assert_called_once_with(
-            "AccessLog does not exist", extra={"access_log_id": -2},
+            "AccessLog does not exist",
+            extra={"access_log_id": -2},
         )
 
         access_log = AccessLog.objects.create(

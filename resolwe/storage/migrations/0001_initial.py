@@ -128,10 +128,13 @@ class Migration(migrations.Migration):
             field=models.DateTimeField(auto_now_add=True),
         ),
         migrations.AlterUniqueTogether(
-            name="storagelocation", unique_together={("url", "connector_name")},
+            name="storagelocation",
+            unique_together={("url", "connector_name")},
         ),
         migrations.AlterModelManagers(
             name="storagelocation",
-            managers=[("all_objects", django.db.models.manager.Manager()),],
+            managers=[
+                ("all_objects", django.db.models.manager.Manager()),
+            ],
         ),
     ]

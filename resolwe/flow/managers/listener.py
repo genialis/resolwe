@@ -174,7 +174,9 @@ class ExecutorListener:
             added automatically (``reply`` is modified in place).
         """
         reply.update(
-            {ExecutorProtocol.DATA_ID: obj[ExecutorProtocol.DATA_ID],}
+            {
+                ExecutorProtocol.DATA_ID: obj[ExecutorProtocol.DATA_ID],
+            }
         )
         await self._call_redis(
             aioredis.Redis.rpush, self._queue_response_channel(obj), json.dumps(reply)
@@ -253,7 +255,7 @@ class ExecutorListener:
         except Data.DoesNotExist:
             logger.error(
                 "Data object does not exist (handle_get_referenced_files).",
-                extra={"data_id": data_id,},
+                extra={"data_id": data_id},
             )
             self._abort_processing(obj)
             return
@@ -286,7 +288,7 @@ class ExecutorListener:
         except StorageLocation.DoesNotExist:
             logger.error(
                 "StorageLocation object does not exist (handle_get_files_to_download).",
-                extra={"storage_location_id": storage_location_id,},
+                extra={"storage_location_id": storage_location_id},
             )
             self._abort_processing(obj)
             return
@@ -328,7 +330,7 @@ class ExecutorListener:
         except Data.DoesNotExist:
             logger.error(
                 "Data object does not exist (handle_referenced_files).",
-                extra={"data_id": data_id,},
+                extra={"data_id": data_id},
             )
             self._abort_processing(obj)
             return
@@ -351,7 +353,7 @@ class ExecutorListener:
             except Exception:
                 logger.exception(
                     "Exception while saving referenced files (handle_referenced_files).",
-                    extra={"data_id": data_id,},
+                    extra={"data_id": data_id},
                 )
                 self._abort_processing(obj)
                 return
@@ -383,7 +385,7 @@ class ExecutorListener:
             except Exception:
                 logger.exception(
                     "Exception while setting data status to DONE (handle_referenced_files).",
-                    extra={"data_id": data_id,},
+                    extra={"data_id": data_id},
                 )
                 self._abort_processing(obj)
                 return
@@ -498,7 +500,8 @@ class ExecutorListener:
                 },
             )
             async_to_sync(self._send_reply)(
-                obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_ERROR},
+                obj,
+                {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_ERROR},
             )
         else:
             # Add files to the downloaded storage location.
@@ -510,7 +513,8 @@ class ExecutorListener:
             storage_location.status = StorageLocation.STATUS_DONE
             storage_location.save()
             async_to_sync(self._send_reply)(
-                obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK},
+                obj,
+                {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK},
             )
 
     def handle_missing_data_locations(self, obj):
@@ -536,7 +540,7 @@ class ExecutorListener:
         except Data.DoesNotExist:
             logger.error(
                 "Data object does not exist (handle_missing_data_locations).",
-                extra={"data_id": data_id,},
+                extra={"data_id": data_id},
             )
             self._abort_processing(obj)
             return
@@ -615,7 +619,8 @@ class ExecutorListener:
                 extra={"storage_location_id": storage_location_id},
             )
             async_to_sync(self._send_reply)(
-                obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_ERROR},
+                obj,
+                {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_ERROR},
             )
             return
         storage_location = query.get()
@@ -650,7 +655,8 @@ class ExecutorListener:
         if not query.exists():
             # Log error and continue
             logger.error(
-                "AccessLog does not exist", extra={"access_log_id": access_log_id},
+                "AccessLog does not exist",
+                extra={"access_log_id": access_log_id},
             )
         else:
             query.update(finished=now())
@@ -700,7 +706,7 @@ class ExecutorListener:
         except Data.DoesNotExist:
             logger.warning(
                 "Data object does not exist (handle_annotate).",
-                extra={"data_id": data_id,},
+                extra={"data_id": data_id},
             )
             report_failure()
             return
@@ -782,7 +788,7 @@ class ExecutorListener:
         except Data.DoesNotExist:
             logger.warning(
                 "Data object does not exist (handle_update).",
-                extra={"data_id": data_id,},
+                extra={"data_id": data_id},
             )
 
             if not internal_call:
@@ -1004,7 +1010,7 @@ class ExecutorListener:
                 except Data.DoesNotExist:
                     logger.warning(
                         "Data object does not exist (handle_finish).",
-                        extra={"data_id": data_id,},
+                        extra={"data_id": data_id},
                     )
                     async_to_sync(self._send_reply)(
                         obj, {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_ERROR}

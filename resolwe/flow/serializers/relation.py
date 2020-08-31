@@ -51,7 +51,12 @@ class RelationSerializer(ResolweBaseSerializer):
         fields = (
             read_only_fields
             + update_protected_fields
-            + ("collection", "category", "partitions", "unit",)
+            + (
+                "collection",
+                "category",
+                "partitions",
+                "unit",
+            )
         )
 
     def validate_partitions(self, partitions):

@@ -243,7 +243,7 @@ class Manager:
             except Exception:
                 logger.exception(
                     "Error deleting data from StorageLocation instance",
-                    extra={"storage_location_id": delete_location.id,},
+                    extra={"storage_location_id": delete_location.id},
                 )
             delete_location = decide.delete()
 

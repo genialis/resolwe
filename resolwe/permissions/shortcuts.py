@@ -252,7 +252,10 @@ def get_object_perms(obj, user=None):
     public_perms = get_perms(AnonymousUser(), obj)
     if public_perms != []:
         perms_list.append(
-            {"type": "public", "permissions": format_permissions(public_perms),}
+            {
+                "type": "public",
+                "permissions": format_permissions(public_perms),
+            }
         )
 
     return perms_list
@@ -392,7 +395,9 @@ def get_objects_for_user(
         }
         if codenames:
             group_filters.update(
-                {"permission__codename__in": codenames,}
+                {
+                    "permission__codename__in": codenames,
+                }
             )
         groups_obj_perms_queryset = group_model.objects.filter(**group_filters)
         if group_model.objects.is_generic():

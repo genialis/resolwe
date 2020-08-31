@@ -43,7 +43,8 @@ class CollectionPermissionsTest(ResolweAPITestCase):
         assign_perm("owner_collection", self.owner, self.collection)
 
         self.process = Process.objects.create(
-            name="Test process", contributor=self.owner,
+            name="Test process",
+            contributor=self.owner,
         )
 
         self.resource_name = "collection"
@@ -442,7 +443,14 @@ class PermissionsUtilitiesTest(TestCase):
 
     def test_filter_user_permissions(self):
         """Check that user cannot change his own permissions"""
-        data = {"users": {"add": {1: ["view"],}, "remove": {2: ["view", "edit"]}}}
+        data = {
+            "users": {
+                "add": {
+                    1: ["view"],
+                },
+                "remove": {2: ["view", "edit"]},
+            }
+        }
 
         with self.assertRaises(exceptions.PermissionDenied):
             check_user_permissions(data, 1)

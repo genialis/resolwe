@@ -14,10 +14,13 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.RenameModel(
-            old_name="PositionInRelation", new_name="RelationPartition",
+            old_name="PositionInRelation",
+            new_name="RelationPartition",
         ),
         migrations.RenameField(
-            model_name="relation", old_name="label", new_name="category",
+            model_name="relation",
+            old_name="label",
+            new_name="category",
         ),
         migrations.AlterField(
             model_name="relation",
@@ -49,7 +52,8 @@ class Migration(migrations.Migration):
             ),
         ),
         migrations.AlterUniqueTogether(
-            name="relation", unique_together=set([("collection", "category")]),
+            name="relation",
+            unique_together=set([("collection", "category")]),
         ),
         migrations.AddField(
             model_name="relationpartition",
@@ -57,6 +61,7 @@ class Migration(migrations.Migration):
             field=models.CharField(blank=True, db_index=True, max_length=30, null=True),
         ),
         migrations.AlterUniqueTogether(
-            name="relationpartition", unique_together=set([("entity", "relation")]),
+            name="relationpartition",
+            unique_together=set([("entity", "relation")]),
         ),
     ]

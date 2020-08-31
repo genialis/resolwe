@@ -43,7 +43,11 @@ class DataModelNameTest(TransactionTestCase):
             contributor=self.contributor,
             data_name="Process based data name",
             output_schema=[
-                {"name": "stat", "type": "basic:string:", "required": False,}
+                {
+                    "name": "stat",
+                    "type": "basic:string:",
+                    "required": False,
+                }
             ],
             run={"language": "bash", "program": 'echo {"stat": "42"}'},
         )
@@ -76,7 +80,11 @@ class DataModelNameTest(TransactionTestCase):
             requirements={"expression-engine": "jinja"},
             data_name="Process based data name, value: {{src.stat}}",
             input_schema=[
-                {"name": "src", "type": "data:test:first:", "required": False,}
+                {
+                    "name": "src",
+                    "type": "data:test:first:",
+                    "required": False,
+                }
             ],
         )
 
@@ -148,7 +156,9 @@ class DataModelTest(TestCase):
         )
 
         data = Data.objects.create(
-            name="Test data", contributor=self.contributor, process=proc,
+            name="Test data",
+            contributor=self.contributor,
+            process=proc,
         )
 
         data.output = {"output_file": {"file": "output.txt"}}
@@ -176,7 +186,11 @@ class DataModelTest(TestCase):
             type="data:test:dependencies:",
             contributor=self.contributor,
             input_schema=[
-                {"name": "src", "type": "data:test:dependencies:", "required": False,}
+                {
+                    "name": "src",
+                    "type": "data:test:dependencies:",
+                    "required": False,
+                }
             ],
         )
 
@@ -352,7 +366,9 @@ class EntityModelTest(TestCase):
         data = Data.objects.create(
             contributor=self.contributor,
             process=test_process,
-            input={"data_list": [data_1.pk, data_3.pk],},
+            input={
+                "data_list": [data_1.pk, data_3.pk],
+            },
         )
         self.assertEqual(data.entity, data_1.entity)
 
@@ -360,7 +376,9 @@ class EntityModelTest(TestCase):
         data = Data.objects.create(
             contributor=self.contributor,
             process=test_process,
-            input={"data_list": [data_1.pk, data_2.pk],},
+            input={
+                "data_list": [data_1.pk, data_2.pk],
+            },
         )
         self.assertEqual(data.entity, None)
 
@@ -370,7 +388,10 @@ class EntityModelTest(TestCase):
         data = Data.objects.create(
             contributor=self.contributor,
             process=test_process,
-            input={"data": data_1.pk, "data_list": [data_2.pk, data_3.pk],},
+            input={
+                "data": data_1.pk,
+                "data_list": [data_2.pk, data_3.pk],
+            },
         )
         self.assertEqual(data.entity, Entity.objects.last())
         test_process.entity_always_create = False
@@ -382,7 +403,10 @@ class EntityModelTest(TestCase):
         data = Data.objects.create(
             contributor=self.contributor,
             process=test_process,
-            input={"data": data_1.pk, "data_list": [data_2.pk],},
+            input={
+                "data": data_1.pk,
+                "data_list": [data_2.pk],
+            },
         )
         self.assertEqual(data.entity, data_1.entity)
         test_process.entity_input = "data_list"
@@ -390,7 +414,10 @@ class EntityModelTest(TestCase):
         data = Data.objects.create(
             contributor=self.contributor,
             process=test_process,
-            input={"data": data_1.pk, "data_list": [data_2.pk],},
+            input={
+                "data": data_1.pk,
+                "data_list": [data_2.pk],
+            },
         )
         self.assertEqual(data.entity, data_2.entity)
         test_process.entity_input = None
@@ -403,7 +430,9 @@ class EntityModelTest(TestCase):
         data = Data.objects.create(
             contributor=self.contributor,
             process=test_process,
-            input={"data_list": [data_1.pk, data_2.pk],},
+            input={
+                "data_list": [data_1.pk, data_2.pk],
+            },
         )
         self.assertEqual(data.entity, data_1.entity)
         entity_2.type = "sample"
@@ -576,16 +605,23 @@ class GetOrCreateTestCase(APITestCase):
 class DuplicateTestCase(TestCase):
     def test_data_duplicate(self):
         process1 = Process.objects.create(
-            contributor=self.user, type="data:test:first:",
+            contributor=self.user,
+            type="data:test:first:",
         )
         process2 = Process.objects.create(
             contributor=self.user,
-            input_schema=[{"name": "data_field", "type": "data:test:first:"},],
-            output_schema=[{"name": "json_field", "type": "basic:json:"},],
+            input_schema=[
+                {"name": "data_field", "type": "data:test:first:"},
+            ],
+            output_schema=[
+                {"name": "json_field", "type": "basic:json:"},
+            ],
         )
 
         input_data = Data.objects.create(
-            name="Data 1", contributor=self.user, process=process1,
+            name="Data 1",
+            contributor=self.user,
+            process=process1,
         )
         input_data.status = Data.STATUS_DONE
         input_data.save()
@@ -679,12 +715,17 @@ class DuplicateTestCase(TestCase):
 
     def test_data_duplicate_duplicate(self):
         process1 = Process.objects.create(
-            contributor=self.user, type="data:test:first:",
+            contributor=self.user,
+            type="data:test:first:",
         )
         process2 = Process.objects.create(
             contributor=self.user,
-            input_schema=[{"name": "data_field", "type": "data:test:first:"},],
-            output_schema=[{"name": "json_field", "type": "basic:json:"},],
+            input_schema=[
+                {"name": "data_field", "type": "data:test:first:"},
+            ],
+            output_schema=[
+                {"name": "json_field", "type": "basic:json:"},
+            ],
         )
 
         input_data = Data.objects.create(contributor=self.user, process=process1)
@@ -737,7 +778,8 @@ class DuplicateTestCase(TestCase):
 
     def test_input_rewiring(self):
         process1 = Process.objects.create(
-            contributor=self.user, type="data:test:first:",
+            contributor=self.user,
+            type="data:test:first:",
         )
         process2 = Process.objects.create(
             contributor=self.user,
@@ -750,7 +792,9 @@ class DuplicateTestCase(TestCase):
         )
 
         data1 = Data.objects.create(
-            contributor=self.user, process=process1, status=Data.STATUS_DONE,
+            contributor=self.user,
+            process=process1,
+            status=Data.STATUS_DONE,
         )
 
         should_not_be_rewritten = data1.duplicate()
@@ -1134,7 +1178,9 @@ class HydrateFileSizeUnitTest(TestCase):
 
         data.output = {
             "file_list": [
-                {"file": "test_01.tmp",},
+                {
+                    "file": "test_01.tmp",
+                },
                 {"file": "test_02.tmp", "refs": ["ref_file1.tmp"]},
             ]
         }
@@ -1184,13 +1230,17 @@ class StorageModelTestCase(TestCase):
         self.proc = Process.objects.create(
             name="Test process",
             contributor=self.contributor,
-            output_schema=[{"name": "json_field", "type": "basic:json:"},],
+            output_schema=[
+                {"name": "json_field", "type": "basic:json:"},
+            ],
         )
 
     def test_save_storage(self):
         """`basic:json:` fields are stored in Storage"""
         data = Data.objects.create(
-            name="Test data", contributor=self.contributor, process=self.proc,
+            name="Test data",
+            contributor=self.contributor,
+            process=self.proc,
         )
 
         data.output = {"json_field": {"foo": "bar"}}
@@ -1210,7 +1260,9 @@ class StorageModelTestCase(TestCase):
     def test_save_storage_file(self):
         """File is loaded and saved to storage"""
         data = Data.objects.create(
-            name="Test data", contributor=self.contributor, process=self.proc,
+            name="Test data",
+            contributor=self.contributor,
+            process=self.proc,
         )
         data_location = create_data_location()
         data_location.data.add(data)
@@ -1262,7 +1314,9 @@ class StorageModelTestCase(TestCase):
 
     def test_storage_manager(self):
         data = Data.objects.create(
-            name="Test data", contributor=self.contributor, process=self.proc,
+            name="Test data",
+            contributor=self.contributor,
+            process=self.proc,
         )
 
         data.output = {"json_field": {"foo": {"moo": "bar"}}}
@@ -1305,17 +1359,34 @@ class UtilsTestCase(TestCase):
 
         descriptor_schema = DescriptorSchema.objects.create(
             contributor=self.contributor,
-            schema=[{"name": "annotation", "type": "basic:string:",},],
+            schema=[
+                {
+                    "name": "annotation",
+                    "type": "basic:string:",
+                },
+            ],
         )
 
         process = Process.objects.create(
             contributor=self.contributor,
             type="data:test:",
             output_schema=[
-                {"name": "file", "type": "basic:file:",},
-                {"name": "file_list", "type": "list:basic:file:",},
-                {"name": "dir", "type": "basic:dir:",},
-                {"name": "dir_list", "type": "list:basic:dir:",},
+                {
+                    "name": "file",
+                    "type": "basic:file:",
+                },
+                {
+                    "name": "file_list",
+                    "type": "list:basic:file:",
+                },
+                {
+                    "name": "dir",
+                    "type": "basic:dir:",
+                },
+                {
+                    "name": "dir_list",
+                    "type": "list:basic:dir:",
+                },
             ],
             entity_type="sample",
             entity_descriptor_schema="sample",
@@ -1340,13 +1411,18 @@ class UtilsTestCase(TestCase):
                 ],
             },
             descriptor_schema=descriptor_schema,
-            descriptor={"annotation": "my-annotation",},
+            descriptor={
+                "annotation": "my-annotation",
+            },
             size=0,
         )
         data_location = create_data_location()
         data_location.data.add(data)
         input_schema = [
-            {"name": "data", "type": "data:test:",},
+            {
+                "name": "data",
+                "type": "data:test:",
+            },
         ]
         input_ = {"data": data.pk}
         hydrate_input_references(input_, input_schema)
@@ -1534,11 +1610,23 @@ class UtilsTestCase(TestCase):
             {"name": "sample1", "label": "Sample output", "type": "basic:file:"},
             {"name": "sample2", "label": "Sample output", "type": "list:basic:file:"},
             {"name": "sample3", "label": "Sample output", "type": "basic:file:s"},
-            {"name": "sample4", "label": "Sample output", "type": "list:basic:file:s",},
+            {
+                "name": "sample4",
+                "label": "Sample output",
+                "type": "list:basic:file:s",
+            },
             {"name": "sample5", "label": "Sample output", "type": "basic:dir:"},
-            {"name": "sample6", "label": "Sample output", "type": "list:basic:dir:",},
+            {
+                "name": "sample6",
+                "label": "Sample output",
+                "type": "list:basic:dir:",
+            },
             {"name": "sample7", "label": "Sample output", "type": "basic:dir:s"},
-            {"name": "sample8", "label": "Sample output", "type": "list:basic:dir:s",},
+            {
+                "name": "sample8",
+                "label": "Sample output",
+                "type": "list:basic:dir:s",
+            },
         ]
         output = {
             "sample1": {"file": "file1"},
@@ -1560,11 +1648,23 @@ class UtilsTestCase(TestCase):
             {"name": "sample1", "label": "Sample output", "type": "basic:file:"},
             {"name": "sample2", "label": "Sample output", "type": "list:basic:file:"},
             {"name": "sample3", "label": "Sample output", "type": "basic:file:s"},
-            {"name": "sample4", "label": "Sample output", "type": "list:basic:file:s",},
+            {
+                "name": "sample4",
+                "label": "Sample output",
+                "type": "list:basic:file:s",
+            },
             {"name": "sample5", "label": "Sample output", "type": "basic:dir:"},
-            {"name": "sample6", "label": "Sample output", "type": "list:basic:dir:",},
+            {
+                "name": "sample6",
+                "label": "Sample output",
+                "type": "list:basic:dir:",
+            },
             {"name": "sample7", "label": "Sample output", "type": "basic:dir:s"},
-            {"name": "sample8", "label": "Sample output", "type": "list:basic:dir:s",},
+            {
+                "name": "sample8",
+                "label": "Sample output",
+                "type": "list:basic:dir:s",
+            },
         ]
         output = {
             "sample1": {"file": "file1"},

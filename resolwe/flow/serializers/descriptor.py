@@ -26,5 +26,10 @@ class DescriptorSchemaSerializer(ResolweBaseSerializer):
         fields = (
             read_only_fields
             + update_protected_fields
-            + ("description", "name", "schema", "slug",)
+            + (
+                "description",
+                "name",
+                "schema",
+                "slug",
+            )
         )

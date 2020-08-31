@@ -112,7 +112,10 @@ class ResolweProcessOperation(base.Operation):
         return (
             self.__class__.__name__,
             [],
-            {"process": self.process, "schema_type": self.schema_type,},
+            {
+                "process": self.process,
+                "schema_type": self.schema_type,
+            },
         )
 
     def state_forwards(self, app_label, state):
@@ -388,9 +391,7 @@ class ResolweProcessRenameField(ResolweProcessOperation):
         self.new_field = new_field
         self.skip_no_field = skip_no_field
 
-        super().__init__(
-            process=process, schema_type=schema_type,
-        )
+        super().__init__(process=process, schema_type=schema_type)
 
     def deconstruct(self):
         """Deconstruct operation."""
@@ -429,7 +430,8 @@ class ResolweProcessRenameField(ResolweProcessOperation):
             if not self.skip_no_field:
                 raise ValueError(
                     "Unable to rename: there is no field with name '{field}' or '{new_field}'.".format(
-                        field=self.field[-1], new_field=self.new_field,
+                        field=self.field[-1],
+                        new_field=self.new_field,
                     )
                 )
 
@@ -556,16 +558,17 @@ class ResolweProcessChangeType(ResolweProcessOperation):
         self.new_type = new_type
         # TODO: Validate type.
 
-        super().__init__(
-            process=process, schema_type="output",
-        )
+        super().__init__(process=process, schema_type="output")
 
     def deconstruct(self):
         """Deconstruct operation."""
         return (
             self.__class__.__name__,
             [],
-            {"process": self.process, "new_type": self.new_type,},
+            {
+                "process": self.process,
+                "new_type": self.new_type,
+            },
         )
 
     def migrate_process_schema(self, process, schema, from_state):

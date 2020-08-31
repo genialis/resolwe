@@ -52,7 +52,7 @@ class RedisHandler(logging.Handler):
         future = asyncio.ensure_future(
             send_manager_command(
                 ExecutorProtocol.LOG,
-                extra_fields={ExecutorProtocol.LOG_MESSAGE: self.format(record),},
+                extra_fields={ExecutorProtocol.LOG_MESSAGE: self.format(record)},
                 expect_reply=False,
             )
         )
@@ -67,7 +67,9 @@ def configure_logging(emit_list):
         module_base = "executors"
     logging_config = dict(
         version=1,
-        formatters={"json_formatter": {"()": JSONFormatter},},
+        formatters={
+            "json_formatter": {"()": JSONFormatter},
+        },
         handlers={
             "redis": {
                 "class": module_base + ".logger.RedisHandler",
@@ -77,7 +79,10 @@ def configure_logging(emit_list):
             },
             "console": {"class": "logging.StreamHandler", "level": logging.WARNING},
         },
-        root={"handlers": ["redis", "console"], "level": logging.DEBUG,},
+        root={
+            "handlers": ["redis", "console"],
+            "level": logging.DEBUG,
+        },
         loggers={
             # Don't use redis logger to prevent circular dependency.
             module_base

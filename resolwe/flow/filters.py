@@ -87,8 +87,10 @@ class CheckQueryParamsMixin:
         unallowed = set(self.request.query_params.keys()) - allowed_params
 
         if unallowed:
-            msg = "Unsupported parameter(s): {}. Please use a combination of: {}.".format(
-                ", ".join(unallowed), ", ".join(allowed_params),
+            msg = (
+                "Unsupported parameter(s): {}. Please use a combination of: {}.".format(
+                    ", ".join(unallowed), ", ".join(allowed_params)
+                )
             )
             self.form.add_error(field=None, error=ParseError(msg))
 
@@ -222,8 +224,8 @@ class BaseResolweFilter(
         }
 
         filter_overrides = {
-            VersionField: {"filter_class": filters.CharFilter,},
-            ForeignKey: {"filter_class": filters.Filter,},
+            VersionField: {"filter_class": filters.CharFilter},
+            ForeignKey: {"filter_class": filters.Filter},
         }
 
 
@@ -250,7 +252,10 @@ class BaseCollectionFilter(TextFilterMixin, UserFilterMixin, BaseResolweFilter):
 
         fields = {
             **BaseResolweFilter.Meta.fields,
-            **{"description": TEXT_LOOKUPS[:], "descriptor_schema": ["exact"],},
+            **{
+                "description": TEXT_LOOKUPS[:],
+                "descriptor_schema": ["exact"],
+            },
         }
 
 
@@ -297,7 +302,10 @@ class ProcessFilter(BaseResolweFilter):
         model = Process
         fields = {
             **BaseResolweFilter.Meta.fields,
-            **{"is_active": ["exact"], "scheduling_class": ["exact"],},
+            **{
+                "is_active": ["exact"],
+                "scheduling_class": ["exact"],
+            },
         }
 
 
@@ -356,7 +364,11 @@ class RelationFilter(BaseResolweFilter):
 
     def get_always_allowed_arguments(self):
         """Get always allowed query arguments."""
-        return super().get_always_allowed_arguments() + ("entity", "label", "position",)
+        return super().get_always_allowed_arguments() + (
+            "entity",
+            "label",
+            "position",
+        )
 
 
 class OrderingFilter(DrfOrderingFilter):

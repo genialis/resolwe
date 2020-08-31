@@ -30,13 +30,15 @@ class UserGroupTestCase(TestCase):
         self.group2 = Group.objects.create(name="Test group 2")
 
         self.collection = Collection.objects.create(
-            contributor=self.contributor, name="Test collection",
+            contributor=self.contributor,
+            name="Test collection",
         )
 
         # This collection is here to make sure that other permissions
         # don't affect tested queries.
         collection2 = Collection.objects.create(
-            contributor=self.contributor, name="Test collection 2",
+            contributor=self.contributor,
+            name="Test collection 2",
         )
         assign_perm("view_collection", self.contributor, collection2)
         assign_perm("view_collection", self.group1, collection2)
@@ -112,7 +114,8 @@ class ObjectPermsTestCase(TestCase):
         self.anonymous = AnonymousUser()
 
         self.collection = Collection.objects.create(
-            contributor=self.user1, name="Test collection",
+            contributor=self.user1,
+            name="Test collection",
         )
 
     def _sort_perms(self, perms):
@@ -171,7 +174,9 @@ class ObjectPermsTestCase(TestCase):
         self.assertCountEqual(self._sort_perms(expected_perms), self._sort_perms(perms))
 
         assign_perm("view_collection", self.anonymous, self.collection)
-        expected_perms.append({"permissions": ["view"], "type": "public"},)
+        expected_perms.append(
+            {"permissions": ["view"], "type": "public"},
+        )
         perms = get_object_perms(self.collection)
         self.assertCountEqual(self._sort_perms(expected_perms), self._sort_perms(perms))
 
@@ -216,7 +221,9 @@ class ObjectPermsTestCase(TestCase):
         self.assertCountEqual(self._sort_perms(expected_perms), self._sort_perms(perms))
 
         assign_perm("view_collection", self.anonymous, self.collection)
-        expected_perms.append({"permissions": ["view"], "type": "public"},)
+        expected_perms.append(
+            {"permissions": ["view"], "type": "public"},
+        )
         perms = get_object_perms(self.collection, self.user1)
         self.assertCountEqual(self._sort_perms(expected_perms), self._sort_perms(perms))
 
@@ -234,24 +241,36 @@ class StoragePermsTestCase(TestCase):
         )
 
         self.storage1 = self.data.storages.create(
-            name="Test storage", json={}, contributor=self.contributor,
+            name="Test storage",
+            json={},
+            contributor=self.contributor,
         )
 
         self.storage2 = self.data.storages.create(
-            name="Test storage 2", json={}, contributor=self.contributor,
+            name="Test storage 2",
+            json={},
+            contributor=self.contributor,
         )
 
         dummy_data.storages.create(
-            name="Dummy storage", json={}, contributor=self.contributor,
+            name="Dummy storage",
+            json={},
+            contributor=self.contributor,
         )
 
         self.user = get_user_model().objects.create(username="test_user")
         self.group = Group.objects.create(name="test_group")
 
-        self.storage_list_viewset = StorageViewSet.as_view(actions={"get": "list",})
+        self.storage_list_viewset = StorageViewSet.as_view(
+            actions={
+                "get": "list",
+            }
+        )
 
         self.storage_detail_viewset = StorageViewSet.as_view(
-            actions={"get": "retrieve",}
+            actions={
+                "get": "retrieve",
+            }
         )
 
     def test_detail_permissons(self):

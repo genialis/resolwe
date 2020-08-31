@@ -12,5 +12,8 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RemoveField(model_name="process", name="flow_collection",),
+        migrations.RemoveField(
+            model_name="process",
+            name="flow_collection",
+        ),
     ]

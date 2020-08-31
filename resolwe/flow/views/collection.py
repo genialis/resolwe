@@ -37,7 +37,8 @@ class BaseCollectionViewSet(
     qs_descriptor_schema = DescriptorSchema.objects.select_related("contributor")
 
     queryset = Collection.objects.select_related("contributor").prefetch_related(
-        "data", Prefetch("descriptor_schema", queryset=qs_descriptor_schema),
+        "data",
+        Prefetch("descriptor_schema", queryset=qs_descriptor_schema),
     )
 
     filter_class = CollectionFilter

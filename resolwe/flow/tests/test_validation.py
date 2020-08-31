@@ -298,7 +298,11 @@ class ValidationUnitTest(TestCase):
 
     def test_range(self):
         schema = [
-            {"name": "value", "type": "basic:integer:", "range": [0, 5],},
+            {
+                "name": "value",
+                "type": "basic:integer:",
+                "range": [0, 5],
+            },
         ]
 
         instance = {"value": 5}
@@ -316,7 +320,11 @@ class ValidationUnitTest(TestCase):
             validate_schema(instance, schema)
 
         schema = [
-            {"name": "value", "type": "basic:decimal:", "range": [0, 5],},
+            {
+                "name": "value",
+                "type": "basic:decimal:",
+                "range": [0, 5],
+            },
         ]
 
         instance = {"value": 7}
@@ -327,7 +335,11 @@ class ValidationUnitTest(TestCase):
             validate_schema(instance, schema)
 
         schema = [
-            {"name": "value", "type": "list:basic:integer:", "range": [0, 5],},
+            {
+                "name": "value",
+                "type": "list:basic:integer:",
+                "range": [0, 5],
+            },
         ]
 
         instance = {"value": [0, 3, 5]}
@@ -341,7 +353,11 @@ class ValidationUnitTest(TestCase):
             validate_schema(instance, schema)
 
         schema = [
-            {"name": "value", "type": "list:basic:decimal:", "range": [0, 5],},
+            {
+                "name": "value",
+                "type": "list:basic:decimal:",
+                "range": [0, 5],
+            },
         ]
 
         instance = {"value": [0, 3, 7]}
@@ -709,7 +725,12 @@ class ValidationUnitTest(TestCase):
         instance = {"result": {"file": "result_file.txt", "size": 13}}
         validate_schema(instance, schema)
 
-        instance = {"result": {"file_temp": "12345", "file": "result_file.txt",}}
+        instance = {
+            "result": {
+                "file_temp": "12345",
+                "file": "result_file.txt",
+            }
+        }
         validate_schema(instance, schema)
 
         instance = {
@@ -722,7 +743,10 @@ class ValidationUnitTest(TestCase):
         validate_schema(instance, schema)
 
         instance = {
-            "result": {"file": "result_file.txt", "refs": ["01.txt", "02.txt"],}
+            "result": {
+                "file": "result_file.txt",
+                "refs": ["01.txt", "02.txt"],
+            }
         }
         validate_schema(instance, schema)
 
@@ -738,12 +762,20 @@ class ValidationUnitTest(TestCase):
             validate_schema(instance, schema)
 
         # missing `file`
-        instance = {"result": {"file_temp": "12345",}}
+        instance = {
+            "result": {
+                "file_temp": "12345",
+            }
+        }
         with self.assertRaisesRegex(ValidationError, "is not valid"):
             validate_schema(instance, schema)
 
         # wrong file extension
-        instance = {"result": {"file": "result_file.tar.gz",}}
+        instance = {
+            "result": {
+                "file": "result_file.tar.gz",
+            }
+        }
         with self.assertRaisesRegex(
             ValidationError, "File name .* does not match regex"
         ):
@@ -771,7 +803,11 @@ class ValidationUnitTest(TestCase):
         validate_schema(instance, schema)
 
         # missing `dir`
-        instance = {"result": {"refs": ["01.txt", "02.txt"],}}
+        instance = {
+            "result": {
+                "refs": ["01.txt", "02.txt"],
+            }
+        }
         with self.assertRaisesRegex(ValidationError, "is not valid"):
             validate_schema(instance, schema)
 
@@ -973,7 +1009,12 @@ class ValidationUnitTest(TestCase):
         validate_schema(instance, schema)
 
         # wrong extension
-        instance = {"result": [{"file": "result01.txt"}, {"file": "result02.tar.gz"},]}
+        instance = {
+            "result": [
+                {"file": "result01.txt"},
+                {"file": "result02.tar.gz"},
+            ]
+        }
         with self.assertRaisesRegex(
             ValidationError, "File name .* does not match regex"
         ):
@@ -998,7 +1039,9 @@ class ValidationUnitTest(TestCase):
 
         # missing `dir`
         instance = {
-            "result": [{"size": 32156, "refs": ["result01.txt", "result02.txt"]},]
+            "result": [
+                {"size": 32156, "refs": ["result01.txt", "result02.txt"]},
+            ]
         }
         with self.assertRaisesRegex(ValidationError, "is not valid"):
             validate_schema(instance, schema)
@@ -1060,12 +1103,19 @@ class ValidationUnitTest(TestCase):
 
         # wrong description type
         instance = {
-            "test_group": {"result_file": {"file": "results.txt"}, "description": 6,}
+            "test_group": {
+                "result_file": {"file": "results.txt"},
+                "description": 6,
+            }
         }
         with self.assertRaisesRegex(ValidationError, "is not valid"):
             validate_schema(instance, schema)
 
         # missing description
-        instance = {"test_group": {"result_file": {"file": "results.txt"},}}
+        instance = {
+            "test_group": {
+                "result_file": {"file": "results.txt"},
+            }
+        }
         with self.assertRaisesRegex(ValidationError, '"description" not given'):
             validate_schema(instance, schema)

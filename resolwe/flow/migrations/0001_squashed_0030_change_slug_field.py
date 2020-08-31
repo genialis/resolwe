@@ -621,24 +621,31 @@ class Migration(migrations.Migration):
             ),
         ),
         migrations.AlterUniqueTogether(
-            name="storage", unique_together=set([("slug", "version")]),
+            name="storage",
+            unique_together=set([("slug", "version")]),
         ),
         migrations.AlterUniqueTogether(
-            name="relation", unique_together=set([("slug", "version")]),
+            name="relation",
+            unique_together=set([("slug", "version")]),
         ),
         migrations.AlterUniqueTogether(
-            name="process", unique_together=set([("slug", "version")]),
+            name="process",
+            unique_together=set([("slug", "version")]),
         ),
         migrations.AlterUniqueTogether(
-            name="entity", unique_together=set([("slug", "version")]),
+            name="entity",
+            unique_together=set([("slug", "version")]),
         ),
         migrations.AlterUniqueTogether(
-            name="descriptorschema", unique_together=set([("slug", "version")]),
+            name="descriptorschema",
+            unique_together=set([("slug", "version")]),
         ),
         migrations.AlterUniqueTogether(
-            name="data", unique_together=set([("slug", "version")]),
+            name="data",
+            unique_together=set([("slug", "version")]),
         ),
         migrations.AlterUniqueTogether(
-            name="collection", unique_together=set([("slug", "version")]),
+            name="collection",
+            unique_together=set([("slug", "version")]),
         ),
     ]

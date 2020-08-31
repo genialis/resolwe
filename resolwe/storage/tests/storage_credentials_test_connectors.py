@@ -95,7 +95,8 @@ class TestMixin:
             self.assertIn(file_, files)
 
         self.assertEqual(
-            self.connector.get_object_list(self.prefix_name("dir")), ["3"],
+            self.connector.get_object_list(self.prefix_name("dir")),
+            ["3"],
         )
         self.assertEqual(
             self.connector.get_object_list(self.prefix_name("nonexisting_directory")),

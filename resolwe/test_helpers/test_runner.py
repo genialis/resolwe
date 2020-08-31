@@ -340,7 +340,7 @@ class ResolweRunner(DiscoverRunner):
                         "bypassed the regular manager flow in any way.\n"
                         "\n"
                         "Synchronization count: {value} (should be 0)\n"
-                        "".format(value=manager.sync_counter.value,)
+                        "".format(value=manager.sync_counter.value)
                     )
 
                 teardown(*args, **kwargs)

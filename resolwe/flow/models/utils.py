@@ -266,7 +266,9 @@ def validate_data_object(data, skip_missing_data=False):
         data.input, data.process.input_schema, skip_missing_data=skip_missing_data
     )
     validate_schema(
-        data.output, data.process.output_schema, data_location=data.location,
+        data.output,
+        data.process.output_schema,
+        data_location=data.location,
     )
 
 
@@ -605,7 +607,7 @@ def validate_process_subtype(supertype_name, supertype, subtype_name, subtype):
                     if item_required and not subitem_required:
                         errors.append(
                             "Field '{}' is marked as required in '{}' and optional in '{}'.".format(
-                                item["name"], supertype_name, subtype_name,
+                                item["name"], supertype_name, subtype_name
                             )
                         )
                 elif item.get(key, None) != subitem.get(key, None):
@@ -773,7 +775,8 @@ def get_collection_of_input_entities(data):
         data_ids.update([val for val in value if val is not None])
 
     collections = Collection.objects.filter(
-        data__in=list(data_ids), data__entity__isnull=False,
+        data__in=list(data_ids),
+        data__entity__isnull=False,
     ).distinct()
 
     if collections.count() != 1:

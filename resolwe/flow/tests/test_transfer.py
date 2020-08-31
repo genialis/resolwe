@@ -480,7 +480,8 @@ class DownloadDataTest(BasicTestCase):
         self, send_command, transfer_module, commands, expected_result=True
     ):
         with patch.multiple(
-            TRANSFER, **self.get_patches(send_command, transfer_module),
+            TRANSFER,
+            **self.get_patches(send_command, transfer_module),
         ):
             result = run_async(
                 executors.transfer.download_data(self.missing_data.copy())
@@ -524,7 +525,8 @@ class DownloadDataTest(BasicTestCase):
         transfer_module = MagicMock(return_value=transfer)
         self._test_workflow(send_command, transfer_module, commands)
         self.assertEqual(
-            transfer_objects.call_args_list, [call("transfer_url", ["1", "dir/1"])] * 2,
+            transfer_objects.call_args_list,
+            [call("transfer_url", ["1", "dir/1"])] * 2,
         )
 
     def test_download_retry_fail(self):
@@ -548,5 +550,6 @@ class DownloadDataTest(BasicTestCase):
 
         self._test_workflow(send_command, transfer_module, commands, False)
         self.assertEqual(
-            transfer_objects.call_args_list, [call("transfer_url", ["1", "dir/1"])] * 2,
+            transfer_objects.call_args_list,
+            [call("transfer_url", ["1", "dir/1"])] * 2,
         )

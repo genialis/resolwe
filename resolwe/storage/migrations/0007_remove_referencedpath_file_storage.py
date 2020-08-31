@@ -10,5 +10,8 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RemoveField(model_name="referencedpath", name="file_storage",),
+        migrations.RemoveField(
+            model_name="referencedpath",
+            name="file_storage",
+        ),
     ]

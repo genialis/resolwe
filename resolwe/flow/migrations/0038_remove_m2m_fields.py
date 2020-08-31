@@ -13,11 +13,22 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RemoveField(model_name="collection", name="data",),
-        migrations.RemoveField(model_name="entity", name="collections",),
-        migrations.RemoveField(model_name="entity", name="data",),
+        migrations.RemoveField(
+            model_name="collection",
+            name="data",
+        ),
+        migrations.RemoveField(
+            model_name="entity",
+            name="collections",
+        ),
+        migrations.RemoveField(
+            model_name="entity",
+            name="data",
+        ),
         migrations.RenameField(
-            model_name="data", old_name="entity2", new_name="entity",
+            model_name="data",
+            old_name="entity2",
+            new_name="entity",
         ),
         migrations.AlterField(
             model_name="data",

@@ -37,12 +37,16 @@ class DirsProcessTestCase(ProcessTestCase):
             "root dir": {
                 "file binary": None,
                 "text file.txt": None,
-                "nested dir.ext": {"empty dir": {},},
+                "nested dir.ext": {
+                    "empty dir": {},
+                },
             },
         }
 
         partial_structure = {
-            "root dir": {"file binary": None,},
+            "root dir": {
+                "file binary": None,
+            },
         }
 
         sym_link = {

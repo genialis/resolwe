@@ -96,7 +96,8 @@ class CleanupTest(TransactionTestCase):
         )
         cleanup_mock = MagicMock()
         with patch(
-            "resolwe.storage.cleanup.Cleaner._cleanup", cleanup_mock,
+            "resolwe.storage.cleanup.Cleaner._cleanup",
+            cleanup_mock,
         ):
             self.cleaner._process_file_storage(file_storage_mock)
         cleanup_mock.assert_called_once_with("My location")

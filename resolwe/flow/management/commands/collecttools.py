@@ -71,7 +71,8 @@ class Command(BaseCommand):
             "Are you sure you want to do this?\n"
             "\n"
             "Type 'yes' to continue, or 'no' to cancel: ".format(
-                destination=self.destination_path, action=action,
+                destination=self.destination_path,
+                action=action,
             )
         )
 

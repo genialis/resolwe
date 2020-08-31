@@ -33,7 +33,10 @@ class ProjectionTest(TestCase):
             ],
         )
         data_output = {
-            "foo": {"bar": 42, "hello": "world",},
+            "foo": {
+                "bar": 42,
+                "hello": "world",
+            },
             "another": 3,
         }
         self.data_output = data_output
@@ -74,7 +77,11 @@ class ProjectionTest(TestCase):
             data,
             {
                 "entity": {"name": "Test entity"},
-                "process": {"contributor": {"username": "contributor",},},
+                "process": {
+                    "contributor": {
+                        "username": "contributor",
+                    },
+                },
             },
         )
         # Test deep projection: an empty projection means that all fields
@@ -109,4 +116,13 @@ class ProjectionTest(TestCase):
 
         # Test nested projection into JSON.
         data = self.get_projection(["output__foo__bar"])[0]
-        self.assertEqual(data, {"output": {"foo": {"bar": 42,},},})
+        self.assertEqual(
+            data,
+            {
+                "output": {
+                    "foo": {
+                        "bar": 42,
+                    },
+                },
+            },
+        )

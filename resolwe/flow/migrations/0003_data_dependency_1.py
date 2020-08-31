@@ -28,7 +28,9 @@ class Migration(migrations.Migration):
                             ),
                         ),
                     ],
-                    options={"db_table": "flow_data_parents",},
+                    options={
+                        "db_table": "flow_data_parents",
+                    },
                 ),
                 migrations.AlterField(
                     model_name="data",

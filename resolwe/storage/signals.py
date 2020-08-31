@@ -32,4 +32,4 @@ def data_post_delete_handler(sender, instance: Data, using, **kwargs):
             channel_data["file_storage_id"] = instance.location_id
         async_to_sync(channel_layer.send)(CHANNEL_STORAGE_CLEANUP_WORKER, channel_data)
     except ChannelFull:
-        logger.warning("Cannot trigger storage manager run because channel is full.",)
+        logger.warning("Cannot trigger storage manager run because channel is full.")

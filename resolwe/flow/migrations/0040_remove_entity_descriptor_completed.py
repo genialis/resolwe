@@ -10,5 +10,8 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RemoveField(model_name="entity", name="descriptor_completed",),
+        migrations.RemoveField(
+            model_name="entity",
+            name="descriptor_completed",
+        ),
     ]

@@ -44,5 +44,8 @@ class Migration(migrations.Migration):
                 to="flow.Data",
             ),
         ),
-        migrations.AlterModelTable(name="datadependency", table=None,),
+        migrations.AlterModelTable(
+            name="datadependency",
+            table=None,
+        ),
     ]

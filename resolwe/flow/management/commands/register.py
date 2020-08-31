@@ -256,7 +256,7 @@ class Command(BaseCommand):
                     ):
                         self.stderr.write(
                             "Skip processor {}: container image does not match '{}'".format(
-                                slug, settings.FLOW_CONTAINER_VALIDATE_IMAGE,
+                                slug, settings.FLOW_CONTAINER_VALIDATE_IMAGE
                             )
                         )
                         continue

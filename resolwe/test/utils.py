@@ -138,7 +138,9 @@ def with_docker_executor(wrapped=None):
     @wrapt.decorator
     def wrapper(wrapped_method, instance, args, kwargs):
         return unittest.skipUnless(*check_docker())(
-            with_custom_executor(NAME="resolwe.flow.executors.docker",)(wrapped_method)
+            with_custom_executor(
+                NAME="resolwe.flow.executors.docker",
+            )(wrapped_method)
         )(*args, **kwargs)
 
     return wrapper(wrapped)

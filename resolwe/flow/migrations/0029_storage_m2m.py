@@ -20,7 +20,9 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.RenameField(
-            model_name="storage", old_name="data", new_name="data_migration_temporary",
+            model_name="storage",
+            old_name="data",
+            new_name="data_migration_temporary",
         ),
         migrations.AddField(
             model_name="storage",
@@ -28,5 +30,8 @@ class Migration(migrations.Migration):
             field=models.ManyToManyField(related_name="storages", to="flow.Data"),
         ),
         migrations.RunPython(set_data_relation),
-        migrations.RemoveField(model_name="storage", name="data_migration_temporary",),
+        migrations.RemoveField(
+            model_name="storage",
+            name="data_migration_temporary",
+        ),
     ]

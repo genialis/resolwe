@@ -52,7 +52,8 @@ class FileStorage(models.Model):
         """
         whens = [
             models.When(
-                connector_name=connector_name, then=connectors[connector_name].priority,
+                connector_name=connector_name,
+                then=connectors[connector_name].priority,
             )
             for connector_name in connectors
         ]

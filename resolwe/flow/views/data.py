@@ -39,7 +39,9 @@ class DataViewSet(
     qs_collection_ds = DescriptorSchema.objects.select_related("contributor")
     qs_collection = Collection.objects.select_related("contributor")
     qs_collection = qs_collection.prefetch_related(
-        "data", "entity_set", Prefetch("descriptor_schema", queryset=qs_collection_ds),
+        "data",
+        "entity_set",
+        Prefetch("descriptor_schema", queryset=qs_collection_ds),
     )
 
     qs_descriptor_schema = DescriptorSchema.objects.select_related("contributor")
@@ -47,7 +49,9 @@ class DataViewSet(
     qs_entity_col_ds = DescriptorSchema.objects.select_related("contributor")
     qs_entity_col = Collection.objects.select_related("contributor")
     qs_entity_col = qs_entity_col.prefetch_related(
-        "data", "entity_set", Prefetch("descriptor_schema", queryset=qs_entity_col_ds),
+        "data",
+        "entity_set",
+        Prefetch("descriptor_schema", queryset=qs_entity_col_ds),
     )
     qs_entity_ds = DescriptorSchema.objects.select_related("contributor")
     qs_entity = Entity.objects.select_related("contributor")
@@ -105,7 +109,8 @@ class DataViewSet(
             )
 
         duplicated = queryset.duplicate(
-            contributor=request.user, inherit_collection=inherit_collection,
+            contributor=request.user,
+            inherit_collection=inherit_collection,
         )
 
         serializer = self.get_serializer(duplicated, many=True)

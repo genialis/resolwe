@@ -19,7 +19,9 @@ class Migration(migrations.Migration):
                 related_name="data",
             ),
         ),
-        migrations.DeleteModel(name="DataLocation",),
+        migrations.DeleteModel(
+            name="DataLocation",
+        ),
         migrations.AlterField(
             model_name="data",
             name="status",

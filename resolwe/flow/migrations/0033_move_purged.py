@@ -27,5 +27,8 @@ class Migration(migrations.Migration):
             field=models.BooleanField(default=False),
         ),
         migrations.RunPython(mark_purged_locations),
-        migrations.RemoveField(model_name="data", name="purged",),
+        migrations.RemoveField(
+            model_name="data",
+            name="purged",
+        ),
     ]

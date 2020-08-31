@@ -29,7 +29,8 @@ class AccessAPIFromExecutorProcessTestCase(ProcessTestCase, LiveServerTestCase):
 
         """
         collection = Collection.objects.create(
-            name="collection-foo", contributor=self.contributor,
+            name="collection-foo",
+            contributor=self.contributor,
         )
         assign_perm("view_collection", AnonymousUser(), collection)
         return collection
@@ -51,7 +52,11 @@ class AccessAPIFromExecutorProcessTestCase(ProcessTestCase, LiveServerTestCase):
             type="data:test:api-access",
             input_schema=[],
             output_schema=[
-                {"name": "collection-list", "type": "basic:json:", "required": False,},
+                {
+                    "name": "collection-list",
+                    "type": "basic:json:",
+                    "required": False,
+                },
             ],
             run={
                 "language": "bash",

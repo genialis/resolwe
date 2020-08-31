@@ -31,7 +31,9 @@ class ProcessFieldsTagsTest(TransactionTestCase):
             input_schema=[
                 {"name": "test_input", "type": "data:test:inputsinputobject:"},
             ],
-            output_schema=[{"name": "test_file", "type": "basic:file:"},],
+            output_schema=[
+                {"name": "test_file", "type": "basic:file:"},
+            ],
             run={
                 "language": "bash",
                 "program": """
@@ -50,7 +52,9 @@ re-save-file test_file path/to/file.txt
                 {
                     "name": "descriptions",
                     "required": False,
-                    "group": [{"name": "text", "type": "basic:string:"},],
+                    "group": [
+                        {"name": "text", "type": "basic:string:"},
+                    ],
                 }
             ],
         )

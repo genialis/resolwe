@@ -217,7 +217,9 @@ class DataTestCase(ResolweAPITestCase):
     def test_post_contributor_dict_invalid(self):
         with self.assertRaises(exceptions.ValidationError):
             ContributorSerializer().to_internal_value(
-                {"invalid-dictionary": True,}
+                {
+                    "invalid-dictionary": True,
+                }
             )
 
     def test_get_detail(self):

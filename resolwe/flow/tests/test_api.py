@@ -42,17 +42,37 @@ class TestDataViewSetCase(TestCase):
         super().setUp()
 
         self.data_viewset = DataViewSet.as_view(
-            actions={"get": "list", "post": "create",}
+            actions={
+                "get": "list",
+                "post": "create",
+            }
         )
-        self.duplicate_viewset = DataViewSet.as_view(actions={"post": "duplicate",})
+        self.duplicate_viewset = DataViewSet.as_view(
+            actions={
+                "post": "duplicate",
+            }
+        )
         self.move_to_collection_viewset = DataViewSet.as_view(
-            actions={"post": "move_to_collection",}
+            actions={
+                "post": "move_to_collection",
+            }
         )
         self.data_detail_viewset = DataViewSet.as_view(
-            actions={"get": "retrieve", "patch": "partial_update",}
+            actions={
+                "get": "retrieve",
+                "patch": "partial_update",
+            }
         )
-        self.parents_viewset = DataViewSet.as_view(actions={"get": "parents",})
-        self.children_viewset = DataViewSet.as_view(actions={"get": "children",})
+        self.parents_viewset = DataViewSet.as_view(
+            actions={
+                "get": "parents",
+            }
+        )
+        self.children_viewset = DataViewSet.as_view(
+            actions={
+                "get": "children",
+            }
+        )
 
         self.proc = Process.objects.create(
             type="data:test:process",
@@ -67,11 +87,14 @@ class TestDataViewSetCase(TestCase):
         )
 
         self.descriptor_schema = DescriptorSchema.objects.create(
-            slug="test-schema", version="1.0.0", contributor=self.contributor,
+            slug="test-schema",
+            version="1.0.0",
+            contributor=self.contributor,
         )
 
         self.collection = Collection.objects.create(
-            contributor=self.contributor, descriptor_schema=self.descriptor_schema,
+            contributor=self.contributor,
+            descriptor_schema=self.descriptor_schema,
         )
 
         self.entity = Entity.objects.create(
@@ -87,7 +110,9 @@ class TestDataViewSetCase(TestCase):
 
     def test_prefetch(self):
         process_2 = Process.objects.create(contributor=self.user)
-        descriptor_schema_2 = DescriptorSchema.objects.create(contributor=self.user,)
+        descriptor_schema_2 = DescriptorSchema.objects.create(
+            contributor=self.user,
+        )
         collection_2 = Collection.objects.create(
             contributor=self.user, descriptor_schema=descriptor_schema_2
         )
@@ -343,7 +368,9 @@ class TestDataViewSetCase(TestCase):
     def test_change_collection(self):
         # Create data object. Note that an entity is created as well.
         data = Data.objects.create(
-            name="Test data", contributor=self.contributor, process=self.proc,
+            name="Test data",
+            contributor=self.contributor,
+            process=self.proc,
         )
 
         # Move data to some collection
@@ -408,7 +435,10 @@ class TestDataViewSetCase(TestCase):
         # Assert preventing moving data in entity.
         request = factory.post(
             reverse("resolwe-api:data-move-to-collection"),
-            {"ids": [data_in_entity.id], "destination_collection": collection_2.id,},
+            {
+                "ids": [data_in_entity.id],
+                "destination_collection": collection_2.id,
+            },
             format="json",
         )
         force_authenticate(request, self.contributor)
@@ -422,7 +452,10 @@ class TestDataViewSetCase(TestCase):
         # Assert moving data not in entity.
         request = factory.post(
             reverse("resolwe-api:data-move-to-collection"),
-            {"ids": [data_orphan.id], "destination_collection": collection_2.id,},
+            {
+                "ids": [data_orphan.id],
+                "destination_collection": collection_2.id,
+            },
             format="json",
         )
 
@@ -440,7 +473,10 @@ class TestDataViewSetCase(TestCase):
         remove_perm("edit_collection", self.contributor, collection_1)
         request = factory.post(
             reverse("resolwe-api:data-move-to-collection"),
-            {"ids": [data_orphan.id], "destination_collection": collection_1.id,},
+            {
+                "ids": [data_orphan.id],
+                "destination_collection": collection_1.id,
+            },
             format="json",
         )
         force_authenticate(request, self.contributor)
@@ -457,7 +493,10 @@ class TestDataViewSetCase(TestCase):
         remove_perm("edit_collection", self.contributor, collection_2)
         request = factory.post(
             reverse("resolwe-api:data-move-to-collection"),
-            {"ids": [data_orphan.id], "destination_collection": collection_1.id,},
+            {
+                "ids": [data_orphan.id],
+                "destination_collection": collection_1.id,
+            },
             format="json",
         )
         force_authenticate(request, self.contributor)
@@ -600,14 +639,24 @@ class TestCollectionViewSetCase(TestCase):
         )
 
         self.checkslug_viewset = CollectionViewSet.as_view(
-            actions={"get": "slug_exists",}
+            actions={
+                "get": "slug_exists",
+            }
         )
-        self.add_data_viewset = CollectionViewSet.as_view(actions={"post": "add_data",})
+        self.add_data_viewset = CollectionViewSet.as_view(
+            actions={
+                "post": "add_data",
+            }
+        )
         self.remove_data_viewset = CollectionViewSet.as_view(
-            actions={"post": "remove_data",}
+            actions={
+                "post": "remove_data",
+            }
         )
         self.duplicate_viewset = CollectionViewSet.as_view(
-            actions={"post": "duplicate",}
+            actions={
+                "post": "duplicate",
+            }
         )
         self.collection_detail_viewset = CollectionViewSet.as_view(
             actions={
@@ -618,7 +667,10 @@ class TestCollectionViewSetCase(TestCase):
             }
         )
         self.collection_list_viewset = CollectionViewSet.as_view(
-            actions={"get": "list", "post": "create",}
+            actions={
+                "get": "list",
+                "post": "create",
+            }
         )
 
         self.list_url = reverse("resolwe-api:collection-list")
@@ -629,7 +681,9 @@ class TestCollectionViewSetCase(TestCase):
 
     def _create_data(self, data_status=None):
         data = Data.objects.create(
-            name="Test data", contributor=self.contributor, process=self.process,
+            name="Test data",
+            contributor=self.contributor,
+            process=self.process,
         )
 
         if data_status:
@@ -650,7 +704,9 @@ class TestCollectionViewSetCase(TestCase):
         descriptor_schema_1 = DescriptorSchema.objects.create(
             contributor=self.contributor,
         )
-        descriptor_schema_2 = DescriptorSchema.objects.create(contributor=self.user,)
+        descriptor_schema_2 = DescriptorSchema.objects.create(
+            contributor=self.user,
+        )
 
         for _ in range(5):
             collection = Collection.objects.create(
@@ -779,7 +835,8 @@ class TestCollectionViewSetCase(TestCase):
 
     def test_delete(self):
         collection = Collection.objects.create(
-            name="Test collection", contributor=self.contributor,
+            name="Test collection",
+            contributor=self.contributor,
         )
 
         data_1, data_2 = self._create_data(), self._create_data()
@@ -1079,9 +1136,15 @@ class EntityViewSetTest(TestCase):
 
         self.entityviewset = EntityViewSet()
 
-        self.duplicate_viewset = EntityViewSet.as_view(actions={"post": "duplicate",})
+        self.duplicate_viewset = EntityViewSet.as_view(
+            actions={
+                "post": "duplicate",
+            }
+        )
         self.move_to_collection_viewset = EntityViewSet.as_view(
-            actions={"post": "move_to_collection",}
+            actions={
+                "post": "move_to_collection",
+            }
         )
         self.entity_detail_viewset = EntityViewSet.as_view(
             actions={
@@ -1092,7 +1155,10 @@ class EntityViewSetTest(TestCase):
             }
         )
         self.entity_list_viewset = EntityViewSet.as_view(
-            actions={"get": "list", "post": "create",}
+            actions={
+                "get": "list",
+                "post": "create",
+            }
         )
 
         self.detail_url = lambda pk: reverse(
@@ -1101,11 +1167,14 @@ class EntityViewSetTest(TestCase):
 
     def _create_data(self):
         process = Process.objects.create(
-            name="Test process", contributor=self.contributor,
+            name="Test process",
+            contributor=self.contributor,
         )
 
         return Data.objects.create(
-            name="Test data", contributor=self.contributor, process=process,
+            name="Test data",
+            contributor=self.contributor,
+            process=process,
         )
 
     def test_prefetch(self):
@@ -1244,7 +1313,8 @@ class EntityViewSetTest(TestCase):
 
     def test_delete(self):
         entity = Entity.objects.create(
-            name="Test entity", contributor=self.contributor,
+            name="Test entity",
+            contributor=self.contributor,
         )
 
         data_1, data_2 = self._create_data(), self._create_data()

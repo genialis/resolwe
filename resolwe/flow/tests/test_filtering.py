@@ -46,7 +46,11 @@ class BaseViewSetFiltersTest(TestCase):
         )
 
     def setUp(self):
-        self.viewset = self.viewset_class.as_view(actions={"get": "list",})
+        self.viewset = self.viewset_class.as_view(
+            actions={
+                "get": "list",
+            }
+        )
 
     def _check_filter(
         self, query_args, expected, expected_status_code=status.HTTP_200_OK
@@ -59,7 +63,8 @@ class BaseViewSetFiltersTest(TestCase):
         if status.is_success(response.status_code):
             self.assertEqual(len(response.data), len(expected))
             self.assertCountEqual(
-                [item.pk for item in expected], [item["id"] for item in response.data],
+                [item.pk for item in expected],
+                [item["id"] for item in response.data],
             )
         else:
             self.assertEqual(response.status_code, expected_status_code)
@@ -81,7 +86,11 @@ class CollectionViewSetFiltersTest(BaseViewSetFiltersTest):
                 {
                     "name": "company",
                     "group": [
-                        {"name": "name", "type": "basic:string:", "required": False,},
+                        {
+                            "name": "name",
+                            "type": "basic:string:",
+                            "required": False,
+                        },
                         {
                             "name": "departments",
                             "type": "list:basic:string:",
@@ -330,7 +339,11 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
                 {
                     "name": "company",
                     "group": [
-                        {"name": "name", "type": "basic:string:", "required": False,},
+                        {
+                            "name": "name",
+                            "type": "basic:string:",
+                            "required": False,
+                        },
                         {
                             "name": "departments",
                             "type": "list:basic:string:",
@@ -342,7 +355,9 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
         )
 
         cls.collection1 = Collection.objects.create(
-            name="My collection", slug="my-collection", contributor=cls.contributor,
+            name="My collection",
+            slug="my-collection",
+            contributor=cls.contributor,
         )
 
         cls.collection2 = Collection.objects.create(
@@ -510,7 +525,8 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
             self.entities[:1],
         )
         self._check_filter(
-            {"collection__isnull": True}, self.entities[2:],
+            {"collection__isnull": True},
+            self.entities[2:],
         )
 
     def test_filter_collection_name(self):
@@ -605,7 +621,11 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
                 {
                     "name": "company",
                     "group": [
-                        {"name": "name", "type": "basic:string:", "required": False,},
+                        {
+                            "name": "name",
+                            "type": "basic:string:",
+                            "required": False,
+                        },
                         {
                             "name": "departments",
                             "type": "list:basic:string:",
@@ -617,7 +637,9 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
         )
 
         cls.collection1 = Collection.objects.create(
-            name="My collection", slug="my-collection", contributor=cls.contributor,
+            name="My collection",
+            slug="my-collection",
+            contributor=cls.contributor,
         )
 
         cls.collection2 = Collection.objects.create(
@@ -834,7 +856,8 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
             self.data[:1],
         )
         self._check_filter(
-            {"collection__isnull": True}, self.data[2:],
+            {"collection__isnull": True},
+            self.data[2:],
         )
 
     def test_filter_collection_name(self):
@@ -855,14 +878,16 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
         )
         self._check_filter({"entity": "999999"}, [])
         self._check_filter(
-            {"entity__in": "{},{}".format(self.entity1.pk, "999999")}, [self.data[0]],
+            {"entity__in": "{},{}".format(self.entity1.pk, "999999")},
+            [self.data[0]],
         )
         self._check_filter(
             {"entity__in": "{},{}".format(self.entity1.pk, self.entity2.pk, "999999")},
             self.data[:2],
         )
         self._check_filter(
-            {"entity__isnull": True}, self.data[2:],
+            {"entity__isnull": True},
+            self.data[2:],
         )
 
     def test_filter_entity_name(self):
