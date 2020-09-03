@@ -195,7 +195,7 @@ def process_entity(inherit_collection, collection_mapping):
         :rtype: `~resolwe.flow.models.Entity`
 
         """
-        if inherit_collection:
+        if inherit_collection and entity.collection:
             if entity.collection.id in collection_mapping:
                 entity.collection = collection_mapping[entity.collection.pk]
         else:
@@ -239,13 +239,13 @@ def process_data(
         :rtype: `~resolwe.flow.models.Data`
 
         """
-        if inherit_collection:
+        if inherit_collection and datum.collection:
             if datum.collection.id in collection_mapping:
                 datum.collection = collection_mapping[datum.collection.pk]
         else:
             datum.collection = None
 
-        if inherit_entity:
+        if inherit_entity and datum.entity:
             if datum.entity.id in entity_mapping:
                 datum.entity = entity_mapping[datum.entity.pk]
         else:
@@ -310,7 +310,8 @@ def copy_objects(objects, contributor, name_prefix, obj_processor=None):
         # Probably a slug collision occured, try to create objects one by one.
         for obj in new_objects:
             obj.slug = None
-            obj.save()
+            # Call the parent method to skip pre-processing and validation.
+            models.Model.save(obj)
 
     for old, new in zip(objects, new_objects):
         new.created = old.created
