@@ -544,6 +544,8 @@ class Data(BaseModel):
                 self.input, self.process.slug, self.process.version
             )
 
+            validate_schema(self.input, self.process.input_schema)
+
         elif render_name:
             self._render_name()
 

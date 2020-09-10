@@ -373,7 +373,12 @@ class ExecutorListener:
                 if data.status == Data.STATUS_PROCESSING:
                     data.status = Data.STATUS_DONE
                     data.save()
-                    validate_data_object(data)
+                    # Inputs have been validated when data object was created.
+                    # Locks on their storage locations assure that the data
+                    # necessary for computation is available even if input
+                    # Data object was deleted. So it is not necessary to check
+                    # if input data objects still exists at this point.
+                    validate_data_object(data, skip_missing_data=True)
 
             except ValidationError as exc:
                 logger.error(

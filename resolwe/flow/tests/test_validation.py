@@ -199,10 +199,19 @@ class ValidationTest(TestCase):
         ):
             validate_data_object(Data.objects.create(**data))
 
-        # non-existing `Data` object
+        # Non-existing referenced `Data` object on create.
         data["input"] = {"data_object": 631}
         with self.assertRaisesRegex(ValidationError, "`Data` object does not exist"):
-            validate_data_object(Data.objects.create(**data))
+            Data.objects.create(**data)
+
+        # Non-existing `Data` object when status is set to `DONE` should not
+        # raise exception. First make sure the object is created.
+        proc2.input_schema = [{"name": "data_object", "type": "data:referenced:"}]
+        data["input"] = {"data_object": d.pk}
+        d = Data.objects.create(**data)
+        data["input"] = {"data_object": 631}
+        # Now validate with missing input.
+        validate_data_object(d, skip_missing_data=True)
 
     def test_delete_input(self):
         proc1 = Process.objects.create(
