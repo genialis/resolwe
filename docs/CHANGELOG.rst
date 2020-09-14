@@ -6,9 +6,9 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+===================
+24.0.0 - 2020-09-14
+===================
 
 Changed
 -------
@@ -19,6 +19,10 @@ Fixed
 -----
 - Make sure to terminate Docker container before executor exits
 - Speed-up duplication of ``Data`` objects, ``Enteties``, and ``Collections``
+- Lock inputs' storage locations while the process is waiting and processing
+  to make sure that they are not deleted
+- Don't validate input objects when ``Data`` object is marked as done as they
+  may already be deleted at that point
 
 
 ===================
