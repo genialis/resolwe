@@ -16,7 +16,9 @@ Synchronized singleton state container for the manager.
 # resolwe.flow.managers.
 
 import json
+import os
 from collections import namedtuple
+from pathlib import PurePath
 
 import redis
 
@@ -53,6 +55,14 @@ def update_constants():
 
 
 update_constants()
+
+
+class PathEncoder(json.JSONEncoder):
+    """Encode objects of type PurePath as strings."""
+
+    def default(self, obj):
+        """Override default method."""
+        return os.fspath(obj) if isinstance(obj, PurePath) else super().default(obj)
 
 
 class ManagerState:
@@ -176,7 +186,7 @@ class ManagerState:
 
             :param val: The value to be serialized into JSON.
             """
-            val = json.dumps(val)
+            val = json.dumps(val, cls=PathEncoder)
             self.redis.set(self.item_name, val)
 
         def get(self):

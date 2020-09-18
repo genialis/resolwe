@@ -812,7 +812,7 @@ class Manager:
             await consumer.send_event(
                 {
                     WorkerProtocol.COMMAND: WorkerProtocol.COMMUNICATE,
-                    WorkerProtocol.COMMUNICATE_SETTINGS: saved_settings,
+                    WorkerProtocol.COMMUNICATE_SETTINGS: self.state.settings_override,
                     WorkerProtocol.COMMUNICATE_EXTRA: {
                         "data_id": data_id,
                         "executor": executor,

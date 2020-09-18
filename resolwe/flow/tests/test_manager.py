@@ -1,7 +1,10 @@
 # pylint: disable=missing-docstring
 import os
+from pathlib import Path
 
 from asgiref.sync import async_to_sync
+
+from django.test import override_settings
 
 from guardian.shortcuts import assign_perm
 
@@ -95,6 +98,17 @@ class TestManager(ProcessTestCase):
             {d.kind for d in data2.children_dependency.all()},
             {DataDependency.KIND_SUBPROCESS},
         )
+
+    def test_communicate(self):
+        """Make sure communicate can serialize settings.
+
+        When object of PosixPath is used in settings the call to communicate
+        fails due to object not being JSON serializable by default.
+        """
+        with override_settings(FLOW_EXECUTOR={"DATA_DIR": Path("/some/path")}):
+            async_to_sync(manager.communicate)(run_sync=True)
+        # Make sure original settings are saved.
+        async_to_sync(manager.communicate)(run_sync=True)
 
     def test_dependencies(self):
         """Test that manager handles dependencies correctly."""
