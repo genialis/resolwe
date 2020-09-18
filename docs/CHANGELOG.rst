@@ -14,6 +14,11 @@ Added
 -----
 - Support accessing Data name in Python processes through ``self.name``
 
+Changed
+-------
+- Make relations in collection visible to public user if he has view
+  permissions on the collection
+
 
 ===================
 24.0.0 - 2020-09-14

@@ -32,7 +32,7 @@ class RelationViewSet(ResolweCreateModelMixin, viewsets.ModelViewSet):
         )
     )
     serializer_class = RelationSerializer
-    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = (permissions.AllowAny,)
     filterset_class = RelationFilter
     ordering_fields = ("id", "created", "modified")
     ordering = ("id",)
@@ -72,6 +72,24 @@ class RelationViewSet(ResolweCreateModelMixin, viewsets.ModelViewSet):
 
         return queryset
 
+    def _has_edit_permission(self, user, collection):
+        """Return True, if user has edit permission on the collection.
+
+        If user has no view permission it returns the HTTP status code that
+        shoud be sent back to the user.
+        """
+        if not user.has_perm("view_collection", collection):
+            return status.HTTP_404_NOT_FOUND
+
+        elif not user.has_perm("edit_collection", collection):
+            return (
+                status.HTTP_403_FORBIDDEN
+                if user.is_authenticated
+                else status.HTTP_401_UNAUTHORIZED
+            )
+        else:
+            return True
+
     def get_queryset(self):
         """Get queryset and perform custom filtering."""
         return self._filter_queryset(self.queryset)
@@ -93,11 +111,11 @@ class RelationViewSet(ResolweCreateModelMixin, viewsets.ModelViewSet):
         the collection referenced in the ``Relation``.
         """
         instance = self.get_object()
-        if (
-            not request.user.has_perm("edit_collection", instance.collection)
-            and not request.user.is_superuser
-        ):
-            return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+        if not request.user.is_superuser:
+            edit_status = self._has_edit_permission(request.user, instance.collection)
+            if edit_status is not True:
+                return Response(status=edit_status)
 
         return super().update(request, *args, **kwargs)
 
@@ -109,10 +127,9 @@ class RelationViewSet(ResolweCreateModelMixin, viewsets.ModelViewSet):
         """
         instance = self.get_object()
 
-        if (
-            not request.user.has_perm("edit_collection", instance.collection)
-            and not request.user.is_superuser
-        ):
-            return Response(status=status.HTTP_401_UNAUTHORIZED)
+        if not request.user.is_superuser:
+            edit_status = self._has_edit_permission(request.user, instance.collection)
+            if edit_status is not True:
+                return Response(status=edit_status)
 
         return super().destroy(request, *args, **kwargs)

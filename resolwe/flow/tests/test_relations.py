@@ -2,6 +2,7 @@
 import os
 
 from django.apps import apps
+from django.contrib.auth.models import AnonymousUser
 from django.core.management import call_command
 from django.db import DEFAULT_DB_ALIAS, connections
 from django.test.utils import CaptureQueriesContext
@@ -97,6 +98,10 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
 
         assign_perm("view_relation", self.contributor, self.relation_group)
         assign_perm("view_relation", self.contributor, self.relation_series)
+
+        # Public user can view self.relation_group but not
+        # self.relation_partition
+        assign_perm("view_collection", AnonymousUser(), self.collection)
 
     def test_prefetch(self):
         self.relation_group.delete()
@@ -203,6 +208,34 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
             ],
         )
 
+    def test_get_public_user(self):
+        resp = self._get_detail(self.relation_series.pk, user=AnonymousUser())
+        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+
+        resp = self._get_detail(self.relation_group.pk, user=AnonymousUser())
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.data["collection"]["id"], self.collection.pk)
+        self.assertEqual(resp.data["type"], "group")
+        self.assertEqual(resp.data["category"], "replicates")
+        self.assertEqual(resp.data["unit"], None)
+        self.assertCountEqual(
+            resp.data["partitions"],
+            [
+                {
+                    "id": self.group_partiton_1.pk,
+                    "entity": self.entity_1.pk,
+                    "position": None,
+                    "label": None,
+                },
+                {
+                    "id": self.group_partiton_2.pk,
+                    "entity": self.entity_2.pk,
+                    "position": None,
+                    "label": None,
+                },
+            ],
+        )
+
     def test_filtering(self):
         # Filtering by id
         query_params = {"id": self.relation_group.pk}
@@ -260,6 +293,10 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
                 {"entity": self.entity_4.pk},
             ],
         }
+
+        # Anonymous user must not be able to create relations.
+        resp = self._post(data, user=AnonymousUser())
+        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
 
         resp = self._post(data, user=self.contributor)
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
@@ -444,16 +481,39 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
         self.relation_group.refresh_from_db()
         self.assertEqual(self.relation_group.collection, self.collection_2)
 
+    def test_update_public_user(self):
+        # No view permissions.
+        data = {"collection": {"id": self.collection_2.pk}}
+        resp = self._patch(self.relation_series.pk, data, user=AnonymousUser())
+        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+        self.relation_group.refresh_from_db()
+        self.assertEqual(self.relation_group.collection, self.collection)
+
+        # View permissions.
+        data = {"collection": {"id": self.collection_2.pk}}
+        resp = self._patch(self.relation_group.pk, data, user=AnonymousUser())
+        self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.relation_group.refresh_from_db()
+        self.assertEqual(self.relation_group.collection, self.collection)
+
     def test_update_different_user(self):
+        # No view permission.
         data = {"collection": {"id": self.collection_2.pk}}
         resp = self._patch(self.relation_group.pk, data, user=self.user)
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
         self.relation_group.refresh_from_db()
         self.assertEqual(self.relation_group.collection, self.collection)
 
+        # No edit permission.
+        assign_perm("view_collection", self.user, self.collection)
+        resp = self._patch(self.relation_group.pk, data, user=self.user)
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+        self.relation_group.refresh_from_db()
+        self.assertEqual(self.relation_group.collection, self.collection)
+
+        # All permissions.
         assign_contributor_permissions(self.collection, self.user)
         assign_contributor_permissions(self.collection_2, self.user)
-
         resp = self._patch(self.relation_group.pk, data, user=self.user)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.relation_group.refresh_from_db()
@@ -469,13 +529,32 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(Relation.objects.filter(pk=self.relation_group.pk).exists())
 
+    def test_delete_publicuser(self):
+        """Anonymous user must not be able to delete relations."""
+        # No view permissions.
+        resp = self._delete(self.relation_series.pk, user=AnonymousUser())
+        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertTrue(Relation.objects.filter(pk=self.relation_series.pk).exists())
+
+        # No edit permissions.
+        resp = self._delete(self.relation_group.pk, user=AnonymousUser())
+        self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertTrue(Relation.objects.filter(pk=self.relation_group.pk).exists())
+
     def test_delete_different_user(self):
+        # No view permissions, authenticated.
         resp = self._delete(self.relation_group.pk, user=self.user)
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
         self.assertTrue(Relation.objects.filter(pk=self.relation_group.pk).exists())
 
-        assign_contributor_permissions(self.collection, self.user)
+        # No edit permissions, authenticated.
+        assign_perm("view_collection", self.user, self.collection)
+        resp = self._delete(self.relation_group.pk, user=self.user)
+        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(Relation.objects.filter(pk=self.relation_group.pk).exists())
 
+        # Edit & view permissions, authenticated.
+        assign_contributor_permissions(self.collection, self.user)
         resp = self._delete(self.relation_group.pk, user=self.contributor)
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(Relation.objects.filter(pk=self.relation_group.pk).exists())
