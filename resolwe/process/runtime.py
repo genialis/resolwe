@@ -274,6 +274,18 @@ class Process(metaclass=ProcessMeta):
         return dotdict(self._meta.metadata.requirements)
 
     @property
+    def name(self):
+        """Get Data name."""
+        return self._meta.name
+
+    @name.setter
+    def name(self, payload):
+        """Set Data name."""
+        raise NotImplementedError(
+            "Setting Data name from within process is not supported."
+        )
+
+    @property
     def relations(self):
         """Process relations."""
         return [RelationDescriptor.from_dict(data) for data in self._meta.relations]

@@ -316,6 +316,16 @@ class PythonProcessTest(ProcessTestCase):
         self.assertEqual(data.output["relation_partition_label"], "start")
         self.assertEqual(data.output["relation_partition_position"], 1)
 
+    @with_docker_executor
+    @tag_process("data-name-process")
+    def test_data_name(self):
+        """Test self.name property."""
+        with self.preparation_stage():
+            data_input = self.run_process("entity-process")
+
+        data = self.run_process("data-name-process", {"data_input": data_input.id})
+        self.assertEqual(data.output["name"], "Data with entity")
+
 
 class PythonProcessRequirementsTest(ProcessTestCase):
     def setUp(self):

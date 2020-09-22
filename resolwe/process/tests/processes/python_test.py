@@ -370,3 +370,21 @@ class RelationsProcess(Process):
         outputs.relation_partition_position = (
             inputs.data[0].relations[0].partitions[0].position
         )
+
+
+class DataNameProcess(Process):
+    slug = "data-name-process"
+    name = "Data name process"
+    data_name = "{{ data_input | name | default('?') }}"
+    version = "1.0.0"
+    process_type = "data:name"
+    requirements = {"expression-engine": "jinja"}
+
+    class Input:
+        data_input = DataField(data_type="", label="Data input")
+
+    class Output:
+        name = StringField(label="Name")
+
+    def run(self, inputs, outputs):
+        outputs.name = self.name

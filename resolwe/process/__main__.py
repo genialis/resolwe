@@ -18,6 +18,9 @@ if __name__ == "__main__":
         type=str,
         help="Slug of the process to run (required if multiple processes are defined)",
     )
+    parser.add_argument(
+        "--name", type=str, help="Name of processing Data object", default=""
+    )
     parser.add_argument("--inputs", type=str, help="Path to input JSON file")
     parser.add_argument(
         "--requirements", type=str, help="Path to requirements JSON file"
@@ -114,6 +117,7 @@ if __name__ == "__main__":
         if requirements is not None:
             instance._meta.metadata.requirements = requirements
         instance._meta.relations = relations
+        instance._meta.name = args.name
 
         instance.start(inputs)
     except ValidationError as error:

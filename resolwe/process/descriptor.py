@@ -57,6 +57,7 @@ class ProcessDescriptor:
         self.inputs = collections.OrderedDict()
         self.outputs = collections.OrderedDict()
         self.relations = None
+        self.name = None
         self.source = source
 
     def validate(self):

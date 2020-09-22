@@ -58,12 +58,14 @@ class ExecutionEngine(BaseExecutionEngine):
         return (
             'PYTHONPATH="{runtime}" python3 -u -m resolwe.process {program} '
             "--slug {slug} "
+            "--name {name} "
             "--inputs {inputs} "
             "--relations {relations} "
             "--requirements {requirements}".format(
                 runtime=PYTHON_RUNTIME_VOLUME,
                 program=PYTHON_PROGRAM_VOLUME,
                 slug=shlex.quote(data.process.slug),
+                name=shlex.quote(data.name),
                 inputs=PYTHON_INPUTS_VOLUME,
                 relations=PYTHON_RELATIONS_VOLUME,
                 requirements=PYTHON_REQUIREMENTS_VOLUME,
