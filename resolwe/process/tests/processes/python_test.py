@@ -388,3 +388,24 @@ class DataNameProcess(Process):
 
     def run(self, inputs, outputs):
         outputs.name = self.name
+
+
+class ListFieldProcess(Process):
+    slug = "list-field-non-required"
+    name = "Test non-required ListField"
+    version = "0.0.1"
+    process_type = "data:python"
+
+    class Input:
+        list_str = ListField(
+            StringField(), label="Non-required string ListField.", required=False
+        )
+        list_data = ListField(
+            DataField(""), label="Non-required data ListField.", required=False
+        )
+
+    def run(self, inputs, outputs):
+        for _ in inputs.list_str:
+            pass
+        for _ in inputs.list_data:
+            pass

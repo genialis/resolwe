@@ -8,7 +8,7 @@ import urllib
 import resolwe_runtime_utils
 
 from .descriptor import ProcessDescriptor
-from .fields import Field, RelationDescriptor
+from .fields import Field, ListField, RelationDescriptor
 
 try:
     from plumbum import local as Cmd
@@ -66,7 +66,11 @@ class _IoBase:
         return self._data.items()
 
     def __getattr__(self, name):
-        return self._data.get(name, None)
+        fallback = None
+        if isinstance(self._fields.get(name), ListField):
+            fallback = list()
+
+        return self._data.get(name, fallback)
 
     def __setattr__(self, name, value):
         if self.frozen:

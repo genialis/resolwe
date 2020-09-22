@@ -14,6 +14,9 @@ Added
 -----
 - Support accessing Data name in Python processes through ``self.name``
 
+Fixed
+-----
+- Fix an issue with non-required ``ListField``-s in Python processes
 
 ===================
 24.0.0 - 2020-09-14

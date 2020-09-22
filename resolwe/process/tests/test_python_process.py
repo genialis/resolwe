@@ -326,6 +326,12 @@ class PythonProcessTest(ProcessTestCase):
         data = self.run_process("data-name-process", {"data_input": data_input.id})
         self.assertEqual(data.output["name"], "Data with entity")
 
+    @with_docker_executor
+    @tag_process("list-field-non-required")
+    def test_list_field(self):
+        """Test non-required ListField."""
+        self.run_process("list-field-non-required")
+
 
 class PythonProcessRequirementsTest(ProcessTestCase):
     def setUp(self):
