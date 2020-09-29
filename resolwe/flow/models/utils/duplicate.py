@@ -1,15 +1,60 @@
 """Resolwe models duplicate utils."""
 from copy import deepcopy
 
+import wrapt
+
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, models, transaction
+from django.db.models.signals import (
+    m2m_changed,
+    post_delete,
+    post_init,
+    post_save,
+    pre_delete,
+    pre_init,
+    pre_save,
+)
 from django.utils import timezone
 
 from guardian.models import GroupObjectPermission, UserObjectPermission
 
 from resolwe.flow.utils import iterate_fields
+
+
+class DisableSignals:
+    """Context manager that temporary disables Django signals."""
+
+    def __init__(self):
+        """Initialize context manager."""
+        self.stashed_signals = {}
+
+    def __enter__(self):
+        """Disconnect Django signals."""
+        for signal in [
+            pre_init,
+            post_init,
+            pre_save,
+            post_save,
+            pre_delete,
+            post_delete,
+            m2m_changed,
+        ]:
+            self.stashed_signals[signal] = signal.receivers
+            signal.receivers = []
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Reconnect Django signals."""
+        for signal in self.stashed_signals:
+            signal.receivers = self.stashed_signals[signal]
+
+
+@wrapt.decorator
+def disable_signals(wrapped, instance, args, kwargs):
+    """Temporarily disables Django signals in decorated function."""
+    with DisableSignals():
+        return wrapped(*args, **kwargs)
 
 
 def _check_permissions(objects, permission, user):
@@ -327,6 +372,7 @@ def copy_objects(objects, contributor, name_prefix, obj_processor=None):
 
 
 @transaction.atomic
+@disable_signals
 def bulk_duplicate(
     collections=None,
     entities=None,

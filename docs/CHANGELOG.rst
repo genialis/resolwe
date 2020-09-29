@@ -10,6 +10,11 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Changed
+-------
+- **BACKWARD INCOMPATIBLE:** Disconnect signals while duplicating objects to
+  speed up the process and avoid unwanted side-effects
+
 Added
 -----
 - Support accessing Data name in Python processes through ``self.name``
