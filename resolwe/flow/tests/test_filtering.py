@@ -53,11 +53,11 @@ class BaseViewSetFiltersTest(TestCase):
         )
 
     def _check_filter(
-        self, query_args, expected, expected_status_code=status.HTTP_200_OK
+        self, query_args, expected, expected_status_code=status.HTTP_200_OK, user=None
     ):
         """Check that query_args filter to expected queryset."""
         request = factory.get("/", query_args, format="json")
-        force_authenticate(request, self.admin)
+        force_authenticate(request, user or self.admin)
         response = self.viewset(request)
 
         if status.is_success(response.status_code):
@@ -142,7 +142,11 @@ class CollectionViewSetFiltersTest(BaseViewSetFiltersTest):
         cls.collections[2].save()
 
         assign_perm("owner_collection", cls.admin, cls.collections[0])
+        assign_perm("view_collection", cls.user, cls.collections[0])
         assign_perm("owner_collection", cls.admin, cls.collections[1])
+        assign_perm("view_collection", cls.user, cls.collections[1])
+        assign_perm("view_collection", cls.user, cls.collections[2])
+        assign_perm("edit_collection", cls.user, cls.collections[2])
         assign_perm("owner_collection", cls.user, cls.collections[2])
 
         cls.viewset_class = CollectionViewSet
@@ -227,6 +231,11 @@ class CollectionViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter({"owners_name": "admin"}, self.collections[:2])
         # Filter by combination of first and last name.
         self._check_filter({"owners_name": "John Williams"}, [self.collections[2]])
+
+    def test_filter_permission(self):
+        self._check_filter(
+            {"permission": "edit"}, [self.collections[2]], user=self.user
+        )
 
     def test_filter_created(self):
         self._check_filter({"created": "2016-07-30T00:59:00"}, self.collections[:1])
@@ -409,8 +418,12 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
         cls.entities[2].save()
 
         assign_perm("owner_entity", cls.admin, cls.entities[0])
+        assign_perm("view_entity", cls.user, cls.entities[0])
         assign_perm("owner_entity", cls.admin, cls.entities[1])
+        assign_perm("view_entity", cls.user, cls.entities[1])
         assign_perm("owner_entity", cls.user, cls.entities[2])
+        assign_perm("view_entity", cls.user, cls.entities[2])
+        assign_perm("edit_entity", cls.user, cls.entities[2])
 
         cls.viewset_class = EntityViewSet
 
@@ -484,6 +497,9 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter({"owners_name": "admin"}, self.entities[:2])
         # Filter by combination of first and last name.
         self._check_filter({"owners_name": "John Williams"}, [self.entities[2]])
+
+    def test_filter_permission(self):
+        self._check_filter({"permission": "edit"}, [self.entities[2]], user=self.user)
 
     def test_filter_created(self):
         self._check_filter({"created": "2016-07-30T00:59:00"}, self.entities[:1])
@@ -736,8 +752,12 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
         cls.data[2].save()
 
         assign_perm("owner_data", cls.admin, cls.data[0])
+        assign_perm("view_data", cls.user, cls.data[0])
         assign_perm("owner_data", cls.admin, cls.data[1])
+        assign_perm("view_data", cls.user, cls.data[1])
         assign_perm("owner_data", cls.user, cls.data[2])
+        assign_perm("view_data", cls.user, cls.data[2])
+        assign_perm("edit_data", cls.user, cls.data[2])
 
         cls.viewset_class = DataViewSet
 
@@ -801,6 +821,9 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter({"owners_name": "admin"}, self.data[:2])
         # Filter by combination of first and last name.
         self._check_filter({"owners_name": "John Williams"}, [self.data[2]])
+
+    def test_filter_permission(self):
+        self._check_filter({"permission": "edit"}, [self.data[2]], user=self.user)
 
     def test_filter_created(self):
         self._check_filter({"created": "2016-07-30T00:59:00"}, [self.data[0]])

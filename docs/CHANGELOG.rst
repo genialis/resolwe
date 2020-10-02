@@ -13,6 +13,8 @@ Unreleased
 Added
 -----
 - Support accessing Data name in Python processes through ``self.name``
+- Add ``permission`` filter to ``collection``, ``entity`` and  ``data`` that
+  returns only objects on which current user has given permission
 
 Changed
 -------

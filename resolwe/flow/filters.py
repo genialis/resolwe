@@ -10,6 +10,7 @@ from django_filters.filterset import FilterSetMetaclass
 from versionfield import VersionField
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import AnonymousUser
 from django.contrib.postgres.search import SearchQuery, SearchRank
 from django.db.models import F, ForeignKey, Subquery
 
@@ -18,6 +19,7 @@ from rest_framework.exceptions import ParseError
 from rest_framework.filters import OrderingFilter as DrfOrderingFilter
 
 from resolwe.composer import composer
+from resolwe.permissions.utils import get_full_perm
 
 from .models import Collection, Data, DescriptorSchema, Entity, Process, Relation
 
@@ -159,6 +161,13 @@ class UserFilterMixin:
         """Filter queryset by owner's name."""
         return queryset.filter(contributor__in=self._get_user_subquery(value))
 
+    def filter_permission(self, queryset, name, value):
+        """Filter queryset by permissions."""
+        user = self.request.user or AnonymousUser()
+        perm = get_full_perm(value, queryset.model)
+
+        return get_objects_for_user(user, perm, queryset)
+
 
 class TagsFilter(filters.BaseCSVFilter, filters.CharFilter):
     """Filter for tags."""
@@ -244,6 +253,7 @@ class BaseCollectionFilter(TextFilterMixin, UserFilterMixin, BaseResolweFilter):
     contributor_name = filters.CharFilter(method="filter_contributor_name")
     owners = filters.CharFilter(method="filter_owners")
     owners_name = filters.CharFilter(method="filter_owners_name")
+    permission = filters.CharFilter(method="filter_permission")
     tags = TagsFilter()
     text = filters.CharFilter(field_name="search", method="filter_text")
 
@@ -321,6 +331,7 @@ class DataFilter(TextFilterMixin, UserFilterMixin, BaseResolweFilter):
     contributor_name = filters.CharFilter(method="filter_contributor_name")
     owners = filters.CharFilter(method="filter_owners")
     owners_name = filters.CharFilter(method="filter_owners_name")
+    permission = filters.CharFilter(method="filter_permission")
     tags = TagsFilter()
     text = filters.CharFilter(field_name="search", method="filter_text")
     type = filters.CharFilter(field_name="process__type", lookup_expr="startswith")
