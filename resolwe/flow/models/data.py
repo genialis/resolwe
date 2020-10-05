@@ -664,9 +664,11 @@ class DataDependency(models.Model):
     KIND_IO = "io"
     #: child was spawned by the parent
     KIND_SUBPROCESS = "subprocess"
+    KIND_DUPLICATE = "duplicate"
     KIND_CHOICES = (
         (KIND_IO, "Input/output dependency"),
         (KIND_SUBPROCESS, "Subprocess"),
+        (KIND_DUPLICATE, "Duplicate"),
     )
 
     #: child data object

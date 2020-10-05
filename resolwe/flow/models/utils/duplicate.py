@@ -470,6 +470,12 @@ def bulk_duplicate(
     data_dependencies = io_dependencies.union(subprocess_dependencies).distinct()
     _rewire_foreign_key(data_dependencies, Data, pk_mapping)
 
+    # Add duplicate dependencies.
+    DataDependency.objects.bulk_create(
+        DataDependency(parent=old, child=new, kind=DataDependency.KIND_DUPLICATE)
+        for old, new in zip(data, new_data)
+    )
+
     # Copy migration history. Ordering is needed to keep the order of migrations.
     migration_history = DataMigrationHistory.objects.filter(data__in=data_pks).order_by(
         "pk"

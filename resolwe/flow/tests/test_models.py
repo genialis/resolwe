@@ -682,7 +682,9 @@ class DuplicateTestCase(TestCase):
         self.assertAlmostEqual(duplicate.modified, now(), delta=timedelta(seconds=3))
 
         # Assert dependencies.
-        self.assertEqual(DataDependency.objects.count(), 2)
+        self.assertEqual(
+            DataDependency.objects.filter(kind=DataDependency.KIND_IO).count(), 2
+        )
         self.assertTrue(
             DataDependency.objects.filter(
                 kind=DataDependency.KIND_IO, parent=input_data, child=data2
@@ -692,6 +694,18 @@ class DuplicateTestCase(TestCase):
             DataDependency.objects.filter(
                 kind=DataDependency.KIND_IO, parent=input_data, child=duplicate
             ).exists()
+        )
+        self.assertEqual(
+            DataDependency.objects.filter(kind=DataDependency.KIND_DUPLICATE).count(), 1
+        )
+        self.assertTrue(
+            DataDependency.objects.filter(
+                kind=DataDependency.KIND_DUPLICATE, parent=data2, child=duplicate
+            ).exists()
+        )
+        self.assertEqual(
+            DataDependency.objects.filter(kind=DataDependency.KIND_SUBPROCESS).count(),
+            0,
         )
 
         # Assert storage
@@ -756,7 +770,16 @@ class DuplicateTestCase(TestCase):
         self.assertEqual(duplicate.location.id, duplicate_of_duplicate.location.id)
 
         # Assert dependencies.
-        self.assertEqual(DataDependency.objects.count(), 3)
+        self.assertEqual(
+            DataDependency.objects.filter(kind=DataDependency.KIND_IO).count(), 3
+        )
+        self.assertEqual(
+            DataDependency.objects.filter(kind=DataDependency.KIND_DUPLICATE).count(), 2
+        )
+        self.assertEqual(
+            DataDependency.objects.filter(kind=DataDependency.KIND_SUBPROCESS).count(),
+            0,
+        )
         self.assertTrue(
             DataDependency.objects.filter(
                 kind=DataDependency.KIND_IO,
