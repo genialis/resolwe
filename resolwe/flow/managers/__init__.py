@@ -16,7 +16,6 @@ Workflow workload managers.
     :members:
 .. automodule:: resolwe.flow.managers.workload_connectors
 .. automodule:: resolwe.flow.managers.listener
-.. automodule:: resolwe.flow.managers.state
 .. automodule:: resolwe.flow.managers.consumer
     :members:
 .. automodule:: resolwe.flow.managers.utils

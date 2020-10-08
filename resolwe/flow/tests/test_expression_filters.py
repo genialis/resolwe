@@ -1,6 +1,4 @@
 # pylint: disable=missing-docstring
-from asgiref.sync import async_to_sync
-
 from resolwe.flow.expression_engines import EvaluationError
 from resolwe.flow.managers import manager
 from resolwe.flow.models import Data, DescriptorSchema, Process, Storage
@@ -21,8 +19,6 @@ class ProcessFieldsTagsTest(TransactionTestCase):
             contributor=self.contributor,
             process=inputs_input_process,
         )
-
-        async_to_sync(manager.communicate)(run_sync=True)
 
         input_process = Process.objects.create(
             name="Input process",
@@ -67,8 +63,6 @@ re-save-file test_file path/to/file.txt
             descriptor_schema=descriptor_schema,
             descriptor={"descriptions": {"text": "This is test Data object."}},
         )
-
-        async_to_sync(manager.communicate)(run_sync=True)
 
         process = Process.objects.create(
             name="Test template tags",
@@ -154,8 +148,6 @@ save-safe {{ spacy | safe }}
                 "spacy": "this has 'some' spaces",
             },
         )
-
-        async_to_sync(manager.communicate)(run_sync=True)
 
         data.refresh_from_db()
         self.assertEqual(data.output["name"], input_data.name)
