@@ -114,15 +114,13 @@ def with_custom_executor(wrapped=None, **custom_executor_settings):
 
         try:
             with override_settings(FLOW_EXECUTOR=executor_settings):
-                with manager.override_settings(FLOW_EXECUTOR=executor_settings):
-                    # Re-run engine discovery as the settings have changed.
-                    manager.discover_engines()
+                manager.discover_engines()
 
-                    # Re-run the post_register_hook
-                    manager.get_executor().post_register_hook(verbosity=0)
+                # Re-run the post_register_hook
+                manager.get_executor().post_register_hook(verbosity=0)
 
-                    # Run the actual unit test method.
-                    return wrapped_method(*args, **kwargs)
+                # Run the actual unit test method.
+                return wrapped_method(*args, **kwargs)
         finally:
             # Re-run engine discovery as the settings have changed.
             manager.discover_engines()
@@ -183,9 +181,7 @@ def with_resolwe_host(wrapped_method, instance, args, kwargs):
         host=host, port=instance.server_thread.port
     )
     with override_settings(RESOLWE_HOST_URL=resolwe_host_url):
-        with manager.override_settings(RESOLWE_HOST_URL=resolwe_host_url):
-            # Run the actual unit test method.
-            return with_custom_executor(NETWORK="host")(wrapped_method)(*args, **kwargs)
+        return with_custom_executor(NETWORK="host")(wrapped_method)(*args, **kwargs)
 
 
 def generate_process_tag(slug):

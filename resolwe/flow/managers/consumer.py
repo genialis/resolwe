@@ -8,8 +8,8 @@ Manager Channels consumer.
 
 """
 import asyncio
+from contextlib import suppress
 
-import async_timeout
 from channels.consumer import AsyncConsumer
 from channels.layers import get_channel_layer
 from channels.testing import ApplicationCommunicator
@@ -29,13 +29,11 @@ async def send_event(message):
     await get_channel_layer().send(state.MANAGER_CONTROL_CHANNEL, packet)
 
 
-async def run_consumer(timeout=None, dry_run=False):
+async def run_consumer(timeout=None):
     """Run the consumer until it finishes processing.
 
     :param timeout: Set maximum execution time before cancellation, or
         ``None`` (default) for unlimited.
-    :param dry_run: If ``True``, don't actually dispatch messages, just
-        dequeue them. Defaults to ``False``.
     """
     channel = state.MANAGER_CONTROL_CHANNEL
     scope = {
@@ -49,23 +47,14 @@ async def run_consumer(timeout=None, dry_run=False):
 
     async def _consume_loop():
         """Run a loop to consume messages off the channels layer."""
-        while True:
-            message = await channel_layer.receive(channel)
-            if dry_run:
-                continue
-            if message.get("type", {}) == "_resolwe_manager_quit":
-                break
+        message = await channel_layer.receive(channel)
+        while message.get("type", {}) != "_resolwe_manager_quit":
             message.update(scope)
             await app.send_input(message)
+            message = await channel_layer.receive(channel)
 
-    if timeout is None:
-        await _consume_loop()
-    try:
-        # A further grace period to catch late messages.
-        async with async_timeout.timeout(timeout or 1):
-            await _consume_loop()
-    except asyncio.TimeoutError:
-        pass
+    with suppress(asyncio.TimeoutError):
+        await asyncio.wait_for(_consume_loop(), timeout)
 
     await app.wait()
     # Shouldn't flush channels here in case there are more processes

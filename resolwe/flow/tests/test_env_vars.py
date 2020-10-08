@@ -3,7 +3,6 @@ import copy
 
 from django.conf import settings
 
-from resolwe.flow.managers import manager
 from resolwe.flow.models import Data, Process
 from resolwe.test import TransactionTestCase, with_docker_executor
 
@@ -16,7 +15,7 @@ class EnvVarsTest(TransactionTestCase):
             "SET_ENV_TEST": "test_var",
         }
 
-        with manager.override_settings(
+        with self.settings(
             FLOW_EXECUTOR=flow_executor, RESOLWE_HOST_URL="some.special.host"
         ):
             process = Process.objects.create(

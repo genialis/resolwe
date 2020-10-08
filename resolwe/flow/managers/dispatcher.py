@@ -15,14 +15,14 @@ import shlex
 import shutil
 from contextlib import suppress
 from importlib import import_module
+from pathlib import Path, PurePath
+from typing import Dict, List, Optional, Tuple, Union
 
 from asgiref.sync import async_to_sync
 from channels.db import database_sync_to_async
 from channels.exceptions import ChannelFull
-from redis.exceptions import ConnectionError as RedisConnectionError
 
 from django.conf import settings
-from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ImproperlyConfigured, PermissionDenied
 from django.db import IntegrityError, connection, models, transaction
 from django.db.models import OuterRef, Q, Subquery
@@ -30,7 +30,7 @@ from django.utils.timezone import now
 
 from resolwe.flow.engine import InvalidEngineError, load_engines
 from resolwe.flow.execution_engines import ExecutionError
-from resolwe.flow.models import Data, DataDependency, Process
+from resolwe.flow.models import Data, DataDependency, Process, Worker
 from resolwe.flow.models.utils import referenced_files
 from resolwe.storage.connectors import DEFAULT_CONNECTOR_PRIORITY, connectors
 from resolwe.storage.models import (
@@ -40,7 +40,6 @@ from resolwe.storage.models import (
     StorageLocation,
 )
 from resolwe.storage.settings import STORAGE_CONNECTORS, STORAGE_LOCAL_CONNECTOR
-from resolwe.test.utils import is_testing
 from resolwe.utils import BraceMessage as __
 
 from . import consumer, state
@@ -110,147 +109,14 @@ class Manager:
     the process is finally run.
     """
 
-    class _SynchronizationManager:
-        """Context manager which enables transaction-like semantics.
-
-        Once it is entered, exiting will not be possible until all
-        executors have finished, including those that were already
-        running when the context was entered.
-        """
-
-        def __init__(self):
-            """Initialize state."""
-            self.value = 0
-            self.active = False
-            self.condition = asyncio.Condition()
-            self.tag_sequence = []
-
-        async def __aenter__(self):
-            """Begin synchronized execution context."""
-            self.active = True
-            return self
-
-        async def __aexit__(self, exc_type, exc_val, exc_tb):
-            """Wait for executors to finish, then return."""
-            logger.info(
-                __("Waiting for executor count to drop to 0, now it is {}", self.value)
-            )
-
-            await self.condition.acquire()
-            try:
-                await self.condition.wait()
-            finally:
-                self.condition.release()
-            logger.debug(
-                __(
-                    "Sync semaphore dropped to 0, tag sequence was {}.",
-                    self.tag_sequence,
-                )
-            )
-
-            self.active = False
-            return False
-
-        async def reset(self):
-            """Reset the semaphore to 0."""
-            assert not self.active
-            await self.condition.acquire()
-            self.value = 0
-            self.condition.release()
-
-        async def inc(self, tag):
-            """Increase executor count by 1."""
-            await self.condition.acquire()
-            self.value += 1
-            logger.debug(__("Sync semaphore increased to {}, tag {}.", self.value, tag))
-            self.tag_sequence.append(tag + "-up")
-            self.condition.release()
-
-        async def dec(self, tag):
-            """Decrease executor count by 1.
-
-            Return ``True`` if the count dropped to 0 as a result.
-            """
-            ret = False
-            await self.condition.acquire()
-            try:
-                self.value -= 1
-                logger.debug(
-                    __("Sync semaphore decreased to {}, tag {}.", self.value, tag)
-                )
-                self.tag_sequence.append(tag + "-down")
-                ret = self.value == 0
-                if self.active and self.value == 0:
-                    self.condition.notify_all()
-            finally:
-                self.condition.release()
-            return ret
-
-    class _SynchronizationManagerDummy:
-        """Dummy synchronization manager implementation.
-
-        This is a dummy placeholder variant of
-        :class:`~resolwe.flow.managers.dispatcher.Manager._SynchronizationManager`,
-        doing nothing. It's needed so that code async initialization can
-        be done late enough, after code that already syntactically needs
-        the synchronization manager, but doesn't need it to work yet.
-        """
-
-        def __init__(self):
-            self.active = False
-            self.value = 0
-
-        async def inc(self, tag):
-            pass
-
-        async def dec(self, tag):
-            pass
-
-        async def reset(self):
-            pass
-
-    class _SettingsManager:
-        """Context manager for settings overrides.
-
-        Because Django's :func:`~django.test.override_settings` is a
-        context manager, it would make the code awkward if the manager's
-        support for this wasn't also in the form of a context manager.
-        """
-
-        def __init__(self, state_key_prefix, **kwargs):
-            """Prepare the context manager with the given overrides.
-
-            :param state_key_prefix: The Redis key prefix used by
-                :class:`~resolwe.flow.managers.state.ManagerState`.
-            :param kwargs: The settings to override.
-            """
-            self.overrides = kwargs
-            self.old_overrides = None
-            self.state = state.ManagerState(state_key_prefix)
-
-        def __enter__(self):
-            """Begin context with overridden settings."""
-            self.old_overrides = self.state.settings_override
-            # Get a new copy of the settings, so we can modify them
-            merged = self.state.settings_override or {}
-            merged.update(self.overrides)
-            self.state.settings_override = merged
-            return self
-
-        def __exit__(self, exc_type, exc_val, exc_tb):
-            """Clean up the override context."""
-            self.state.settings_override = self.old_overrides
-            return False
-
-    def discover_engines(self, executor=None):
+    def discover_engines(self):
         """Discover configured engines.
 
         :param executor: Optional executor module override
         """
-        if executor is None:
-            executor = getattr(settings, "FLOW_EXECUTOR", {}).get(
-                "NAME", "resolwe.flow.executors.local"
-            )
+        executor = getattr(settings, "FLOW_EXECUTOR", {}).get(
+            "NAME", "resolwe.flow.executors.local"
+        )
         self.executor = self.load_executor(executor)
         logger.info(
             __(
@@ -285,54 +151,18 @@ class Manager:
             )
         )
 
-    def reset(self, keep_state=False):
-        """Reset the shared state and drain Django Channels.
-
-        :param keep_state: If ``True``, do not reset the shared manager
-            state (useful in tests, where the settings overrides need to
-            be kept). Defaults to ``False``.
-        """
-        if not keep_state:
-            self.state = state.ManagerState(state.MANAGER_STATE_PREFIX)
-            self.state.reset()
+    def drain_messages(self):
+        """Drain Django Channel messages."""
+        # TODO: I am not even sure this is needed.
         async_to_sync(consumer.run_consumer)(timeout=1)
-        async_to_sync(self.sync_counter.reset)()
 
     def __init__(self, *args, **kwargs):
         """Initialize arguments."""
         self.discover_engines()
-        self.state = state.ManagerState(state.MANAGER_STATE_PREFIX)
-
-        # Don't call the full self.reset() here, that's only meant for testing
-        # since it also runs a dummy consumer to drain channels.
-        with suppress(RedisConnectionError):
-            # It's awkward to handle documentation and migration testing
-            # any other way.
-            self.state.reset()
-
-        # The number of executors currently running; used for test synchronization.
-        # We need to start out with a dummy object, so that the async
-        # infrastructure isn't started too early. In particular, this handles
-        # counter functions that are called before any actual synchronization
-        # is wanted: in a test, what's called first is the Django signal.
-        # This will call communicate(), which will (has to) first try upping
-        # the counter value; the future that that produces can be scheduled
-        # to the wrong event loop (the application one is started further
-        # down communicate() in the synchronization block), which then
-        # leads to exceedingly obscure crashes further down the line.
-        self.sync_counter = self._SynchronizationManagerDummy()
-
-        # Django's override_settings should be avoided at all cost here
-        # to keep the manager as independent as possible, and in
-        # particular to avoid overriding with dangerous variables, such
-        # as the one controlling Django signal synchronicity. To make
-        # such avoidance possible, all settings lookups in the worker
-        # should use a private dictionary instead of the global
-        # configuration. This variable is maintained around
-        # _data_scan() calls, effectively emulating Django's
-        # settings but having no effect on anything outside the worker
-        # code (in particular, the signal triggers).
-        self.settings_actual = {}
+        # When running in sync mode (usually only for testing) the variable
+        # bellow is set.
+        self._sync_finished_event = None
+        self._messages_processing = 0
 
         # Ensure there is only one manager instance per process. This
         # is required as other parts of the code access the global
@@ -383,7 +213,7 @@ class Manager:
 
         super().__init__(*args, **kwargs)
 
-    def _marshal_settings(self):
+    def _marshal_settings(self) -> dict:
         """Marshal Django settings into a serializable object.
 
         :return: The serialized settings.
@@ -391,19 +221,27 @@ class Manager:
         """
         result = {}
         for key in dir(settings):
-            if any(map(key.startswith, ["FLOW_", "RESOLWE_", "CELERY_"])):
+            if any(
+                map(
+                    key.startswith,
+                    [
+                        "FLOW_",
+                        "RESOLWE_",
+                        "CELERY_",
+                        "KUBERNETES",
+                    ],
+                )
+            ):
                 result[key] = getattr(settings, key)
-        return result
+        # TODO: this is q&d solution for serializing Path objects.
+        return json.loads(json.dumps(result, default=str))
 
-    def _include_environment_variables(self, program, executor_vars):
-        """Define environment variables."""
+    def _include_environment_variables(self, program: str, executor_vars: dict) -> str:
+        """Include environment variables in program."""
         env_vars = {
-            "RESOLWE_HOST_URL": self.settings_actual.get(
-                "RESOLWE_HOST_URL", "localhost"
-            ),
+            "RESOLWE_HOST_URL": getattr(settings, "RESOLWE_HOST_URL", "localhost"),
         }
-
-        set_env = self.settings_actual.get("FLOW_EXECUTOR", {}).get("SET_ENV", {})
+        set_env = getattr(settings, "FLOW_EXECUTOR", {}).get("SET_ENV", {})
         env_vars.update(executor_vars)
         env_vars.update(set_env)
 
@@ -413,7 +251,7 @@ class Manager:
         ]
         return os.linesep.join(export_commands) + os.linesep + program
 
-    def run(self, data, runtime_dir, argv):
+    def run(self, data: Data, runtime_dir: Path, argv):
         """Select a concrete connector and run the process through it.
 
         :param data: The :class:`~resolwe.flow.models.Data` object that
@@ -431,11 +269,11 @@ class Manager:
 
         data.scheduled = now()
         data.save(update_fields=["scheduled"])
-
-        async_to_sync(self.sync_counter.inc)("executor")
         return self.connectors[class_name].submit(data, runtime_dir, argv)
 
-    def _get_per_data_dir(self, dir_base, subpath):
+    def _get_per_data_dir(
+        self, dir_base: Union[PurePath, str], subpath: Union[PurePath, str]
+    ) -> Path:
         """Extend the given base directory with a per-data component.
 
         The method creates a private path for the
@@ -453,14 +291,10 @@ class Manager:
             object.
         :rtype: str
         """
-        # Use Django settings here, because the state must be preserved
-        # across events. This also implies the directory settings can't
-        # be patched outside the manager and then just sent along in the
-        # command packets.
-        result = self.settings_actual.get("FLOW_EXECUTOR", {}).get(dir_base, "")
-        return os.path.join(result, subpath)
+        result = Path(getattr(settings, "FLOW_EXECUTOR", {}).get(dir_base, ""))
+        return result / subpath
 
-    def _prepare_data_dir(self, data):
+    def _prepare_data_dir(self, data: Data) -> Path:
         """Prepare destination directory where the data will live.
 
         :param data: The :class:`~resolwe.flow.models.Data` object for
@@ -469,8 +303,13 @@ class Manager:
         :rtype: str
         """
         logger.debug(__("Preparing data directory for Data with id {}.", data.id))
-
         with transaction.atomic():
+            # Create Worker object and set its status to preparing if needed.
+            # Listener already creates Worker objects when spawning new data
+            # objects.
+            if not Worker.objects.filter(data=data).exists():
+                Worker.objects.get_or_create(data=data, status=Worker.STATUS_PREPARING)
+
             file_storage = FileStorage.objects.create()
             # Create StorageLocation with default connector.
             # We must also specify status since it is Uploading by default.
@@ -488,15 +327,22 @@ class Manager:
                 referenced_path.storage_locations.add(data_location)
 
         output_path = self._get_per_data_dir("DATA_DIR", data_location.url)
-        dir_mode = self.settings_actual.get("FLOW_EXECUTOR", {}).get(
-            "DATA_DIR_MODE", 0o755
+        logger.debug("Dispatcher creating data dir %s.", output_path)
+        logger.debug(
+            "Prepared location %s for data with id %d: %s.",
+            data.location,
+            data.id,
+            output_path,
         )
-        os.mkdir(output_path, mode=dir_mode)
-        # os.mkdir is not guaranteed to set the given mode
-        os.chmod(output_path, dir_mode)
+        dir_mode = getattr(settings, "FLOW_EXECUTOR", {}).get("DATA_DIR_MODE", 0o755)
+        output_path.mkdir(mode=dir_mode, parents=True)
+        logger.debug("Before sleep")
+        # import time
+        # time.sleep(60)
+        logger.debug("After sleep")
         return output_path
 
-    def _prepare_context(self, data, data_dir, runtime_dir, **kwargs):
+    def _prepare_context(self, data: Data, data_dir: Path, runtime_dir: Path, **kwargs):
         """Prepare settings and constants JSONs for the executor.
 
         Settings and constants provided by other ``resolwe`` modules and
@@ -517,15 +363,17 @@ class Manager:
         files = {}
         secrets = {}
         data_id = data.id
-        secrets_dir = os.path.join(runtime_dir, ExecutorFiles.SECRETS_DIR)
+        secrets_dir = runtime_dir / ExecutorFiles.SECRETS_DIR
 
         settings_dict = {}
-        settings_dict["DATA_DIR"] = data_dir
+        settings_dict["DATA_DIR"] = os.fspath(data_dir)
         settings_dict["REDIS_CHANNEL_PAIR"] = state.MANAGER_EXECUTOR_CHANNELS
         files[ExecutorFiles.EXECUTOR_SETTINGS] = settings_dict
 
+        logger.debug("Preparing context for data with id %d.", data_id)
+        logger.debug("Data %d location: %s.", data_id, data.location)
         django_settings = {}
-        django_settings.update(self.settings_actual)
+        django_settings.update(self._marshal_settings())
         django_settings.update(kwargs)
         files[ExecutorFiles.DJANGO_SETTINGS] = django_settings
 
@@ -562,26 +410,34 @@ class Manager:
                 if os.path.isfile(src_credentials):
                     with open(src_credentials, "r") as f:
                         secrets[base_credentials_name] = f.read()
-                connector_config["credentials"] = os.path.join(
-                    secrets_dir, base_credentials_name
+                connector_config["credentials"] = os.fspath(
+                    secrets_dir / base_credentials_name
                 )
         django_settings["STORAGE_CONNECTORS"] = connectors_settings
 
         # Extend the settings with whatever the executor wants.
+        logger.debug(
+            "Extending settings for data %d, location %s.", data_id, data.location
+        )
         self.executor.extend_settings(data_id, files, secrets)
 
-        # Save the settings into the various files in the runtime dir.
+        # Save the settings into the various files in the settings subdir of
+        # the runtime dir.
+        settings_subdir = ExecutorFiles.SETTINGS_SUBDIR
+        (runtime_dir / settings_subdir).mkdir(exist_ok=True)
+
         settings_dict[ExecutorFiles.FILE_LIST_KEY] = list(files.keys())
         for file_name in files:
-            file_path = os.path.join(runtime_dir, file_name)
-            with open(file_path, "wt") as json_file:
+            file_path = runtime_dir / settings_subdir / file_name
+            with file_path.open("wt") as json_file:
                 json.dump(files[file_name], json_file, cls=SettingsJSONifier)
 
         # Save the secrets in the runtime dir, with permissions to prevent listing the given
         # directory.
-        os.makedirs(secrets_dir, mode=0o300)
+        logger.debug("Creating secrets dir: %s.", os.fspath(secrets_dir))
+        secrets_dir.mkdir(mode=0o300)
         for file_name, value in secrets.items():
-            file_path = os.path.join(secrets_dir, file_name)
+            file_path = secrets_dir / file_name
 
             # Set umask to 0 to ensure that we set the correct permissions.
             old_umask = os.umask(0)
@@ -597,7 +453,7 @@ class Manager:
             finally:
                 os.umask(old_umask)
 
-    def _prepare_executor(self, data, executor):
+    def _prepare_executor(self, data: Data) -> Tuple[str, Path]:
         """Copy executor sources into the destination directory.
 
         :param data: The :class:`~resolwe.flow.models.Data` object being
@@ -615,34 +471,37 @@ class Manager:
         # Both of these imports are here only to get the packages' paths.
         import resolwe.flow.executors as executor_package
 
-        exec_dir = os.path.dirname(inspect.getsourcefile(executor_package))
+        source_file = inspect.getsourcefile(executor_package)
+        assert source_file is not None
+        exec_dir = Path(source_file).parent
         dest_dir = self._get_per_data_dir(
             "RUNTIME_DIR", data.location.default_storage_location.subpath
         )
-        dest_package_dir = os.path.join(dest_dir, "executors")
+        dest_package_dir = dest_dir / "executors"
         shutil.copytree(exec_dir, dest_package_dir)
-        dir_mode = self.settings_actual.get("FLOW_EXECUTOR", {}).get(
-            "RUNTIME_DIR_MODE", 0o755
-        )
-        os.chmod(dest_dir, dir_mode)
+        dir_mode = getattr(settings, "FLOW_EXECUTOR", {}).get("RUNTIME_DIR_MODE", 0o755)
+        dest_dir.chmod(dir_mode)
 
+        executor = getattr(settings, "FLOW_EXECUTOR", {}).get(
+            "NAME", "resolwe.flow.executors.local"
+        )
         class_name = executor.rpartition(".executors.")[-1]
         return ".{}".format(class_name), dest_dir
 
-    def _prepare_storage_connectors(self, runtime_dir):
+    def _prepare_storage_connectors(self, runtime_dir: Path):
         """Copy connectors inside executors package."""
         import resolwe.storage.connectors as connectors_package
 
-        exec_dir = os.path.dirname(inspect.getsourcefile(connectors_package))
-        dest_dir = os.path.join(runtime_dir, "executors")
-        dest_package_dir = os.path.join(dest_dir, "connectors")
+        source_file = inspect.getsourcefile(connectors_package)
+        assert source_file is not None
+        exec_dir = Path(source_file).parent
+        dest_dir = runtime_dir / "executors"
+        dest_package_dir = dest_dir / "connectors"
         shutil.copytree(exec_dir, dest_package_dir)
-        dir_mode = self.settings_actual.get("FLOW_EXECUTOR", {}).get(
-            "RUNTIME_DIR_MODE", 0o755
-        )
-        os.chmod(dest_dir, dir_mode)
+        dir_mode = getattr(settings, "FLOW_EXECUTOR", {}).get("RUNTIME_DIR_MODE", 0o755)
+        dest_dir.chmod(dir_mode)
 
-    def _prepare_script(self, dest_dir, program):
+    def _prepare_script(self, dest_dir: Path, program: str) -> str:
         """Copy the script into the destination directory.
 
         :param dest_dir: The target directory where the script will be
@@ -652,124 +511,135 @@ class Manager:
         :rtype: str
         """
         script_name = ExecutorFiles.PROCESS_SCRIPT
-        dest_file = os.path.join(dest_dir, script_name)
-        with open(dest_file, "wt") as dest_file_obj:
+        dest_file = dest_dir / script_name
+        with dest_file.open("wt") as dest_file_obj:
             dest_file_obj.write(program)
-        os.chmod(dest_file, 0o700)
+        dest_file.chmod(0o700)
         return script_name
 
-    def override_settings(self, **kwargs):
-        """Override global settings within the calling context.
+    async def handle_control_event(self, message: dict):
+        """Handle the control event.
 
-        :param kwargs: The settings overrides. Same use as for
-            :func:`django.test.override_settings`.
-        """
-        return self._SettingsManager(self.state.key_prefix, **kwargs)
+        The method is called from the channels layer when there is nome change
+        either in the state of the Data object of the executors have finished
+        with processing.
 
-    async def handle_control_event(self, message):
-        """Handle an event from the Channels layer.
+        When running in sync state check that all database objects are in
+        final state before raising the execution_barrier.
 
         Channels layer callback, do not call directly.
         """
+
+        def workers_finished():
+            unfinished_workers = Worker.objects.exclude(
+                status__in=Worker.FINAL_STATUSES
+            )
+            return not (unfinished_workers.exists())  # or unfinished_data.exists())
+
         cmd = message[WorkerProtocol.COMMAND]
-        logger.debug(__("Manager worker got channel command '{}'.", cmd))
+        logger.debug(__("Manager worker got channel command '{}'.", message))
 
-        # Prepare settings for use; Django overlaid by state overlaid by
-        # anything immediate in the current packet.
-        immediates = {}
-        if cmd == WorkerProtocol.COMMUNICATE:
-            immediates = message.get(WorkerProtocol.COMMUNICATE_SETTINGS, {}) or {}
-        override = self.state.settings_override or {}
-        override.update(immediates)
-        self.settings_actual = self._marshal_settings()
-        self.settings_actual.update(override)
-
-        if cmd == WorkerProtocol.COMMUNICATE:
-            try:
+        try:
+            if cmd == WorkerProtocol.COMMUNICATE:
                 await database_sync_to_async(self._data_scan)(
                     **message[WorkerProtocol.COMMUNICATE_EXTRA]
                 )
-            except Exception:
-                logger.exception(
-                    "Unknown error occured while processing communicate control command."
-                )
-                raise
-            finally:
-                await self.sync_counter.dec("communicate")
 
-        elif cmd == WorkerProtocol.FINISH:
-            try:
-                data_id = message[WorkerProtocol.DATA_ID]
+            def purge_secrets_and_local_data(data_id: int) -> Data:
+                """Purge secrets and return the Data object.
+
+                :raises Data.DoesNotExist: when Data object does not exist.
+                :raises FileStorage.DoesNotExist: when FileStorage object does not
+                    exist.
+
+                """
+                data = Data.objects.get(pk=data_id)
+                with suppress(Worker.DoesNotExist):
+                    worker = Worker.objects.get(data=data)
+                    worker.status = Worker.STATUS_COMPLETED
+                    worker.save()
                 data_location = FileStorage.objects.get(
                     data__id=data_id
                 ).default_storage_location
 
-                if not getattr(settings, "FLOW_MANAGER_KEEP_DATA", False):
-                    try:
+                def handle_error(func, path, exc_info):
+                    """Handle permission errors while removing data directories."""
+                    if isinstance(exc_info[1], PermissionError):
+                        with suppress(FileNotFoundError):
+                            os.chmod(path, 0o700)
+                            shutil.rmtree(path)
 
-                        def handle_error(func, path, exc_info):
-                            """Handle permission errors while removing data directories."""
-                            if isinstance(exc_info[1], PermissionError):
-                                os.chmod(path, 0o700)
-                                shutil.rmtree(path)
-
-                        # Remove secrets directory, but leave the rest of the runtime directory
-                        # intact. Runtime directory will be removed during data purge, when the
-                        # data object is removed.
-                        secrets_dir = os.path.join(
-                            self._get_per_data_dir(
-                                "RUNTIME_DIR",
-                                data_location.url,  # TODO Gregor: fix entire fetching data logic
-                            ),
-                            ExecutorFiles.SECRETS_DIR,
-                        )
-                        shutil.rmtree(secrets_dir, onerror=handle_error)
-                    except OSError:
-                        logger.exception(
-                            "Manager exception while removing data runtime directory."
-                        )
-
-                if message[WorkerProtocol.FINISH_SPAWNED]:
-                    await database_sync_to_async(self._data_scan)(
-                        **message[WorkerProtocol.FINISH_COMMUNICATE_EXTRA]
+                secrets_dir = (
+                    self._get_per_data_dir(
+                        "RUNTIME_DIR",
+                        str(data_location.subpath),
                     )
-            except Exception:
-                logger.exception(
-                    "Unknown error occured while processing finish control command.",
-                    extra={"data_id": data_id},
+                    / ExecutorFiles.SECRETS_DIR
                 )
-                raise
-            finally:
-                await self.sync_counter.dec("executor")
+                shutil.rmtree(secrets_dir, onerror=handle_error)
 
-        elif cmd == WorkerProtocol.ABORT:
-            await self.sync_counter.dec("executor")
+                local_data = self._get_per_data_dir(
+                    "DATA_DIR", str(data_location.subpath) + "_work"
+                )
+                if local_data.is_dir():
+                    shutil.rmtree(local_data)
 
-        else:
-            logger.error(__("Ignoring unknown manager control command '{}'.", cmd))
+                return data
 
-    def _ensure_counter(self):
-        """Ensure the sync counter is a valid non-dummy object."""
-        if not isinstance(self.sync_counter, self._SynchronizationManager):
-            self.sync_counter = self._SynchronizationManager()
+            if cmd in [WorkerProtocol.FINISH, WorkerProtocol.ABORT]:
+                self._messages_processing += 1
+                data_id = message.get(WorkerProtocol.DATA_ID)
+                if data_id is not None:
+                    with suppress(
+                        Data.DoesNotExist,
+                        Process.DoesNotExist,
+                        FileStorage.DoesNotExist,
+                        AttributeError,
+                    ):
+                        data = await database_sync_to_async(
+                            purge_secrets_and_local_data
+                        )(data_id)
+                        # Run the cleanup.
+                        process_scheduling = self.scheduling_class_map[
+                            data.process.scheduling_class
+                        ]
+                        if "DISPATCHER_MAPPING" in getattr(
+                            settings, "FLOW_MANAGER", {}
+                        ):
+                            class_name = settings.FLOW_MANAGER["DISPATCHER_MAPPING"][
+                                process_scheduling
+                            ]
+                        else:
+                            class_name = getattr(settings, "FLOW_MANAGER", {}).get(
+                                "NAME", DEFAULT_CONNECTOR
+                            )
+                        self.connectors[class_name].cleanup(data_id)
+        except Exception:
+            logger.exception(
+                "Unknown error occured while processing communicate control command."
+            )
+            raise
+        finally:
+            self._messages_processing -= 1
+            # No additional messages are being procesed.
+            # Check if workers are finished with the processing.
+            logger.debug("Dispatcher checking final condition")
+            logger.debug("Message counter: %d", self._messages_processing)
+
+            if self._sync_finished_event is not None and self._messages_processing == 0:
+                if await database_sync_to_async(workers_finished)():
+                    self._sync_finished_event.set()
 
     async def execution_barrier(self):
         """Wait for executors to finish.
 
         At least one must finish after this point to avoid a deadlock.
         """
+        assert self._sync_finished_event is not None
+        await self._sync_finished_event.wait()
+        self._sync_finished_event = None
 
-        async def _barrier():
-            """Enter the sync block and exit the app afterwards."""
-            async with self.sync_counter:
-                pass
-            await consumer.exit_consumer()
-
-        self._ensure_counter()
-        await asyncio.wait([_barrier(), consumer.run_consumer()])
-        self.sync_counter = self._SynchronizationManagerDummy()
-
-    async def communicate(self, data_id=None, run_sync=False, save_settings=True):
+    async def communicate(self, data_id=None, run_sync=False):
         """Scan database for resolving Data objects and process them.
 
         This is submitted as a task to the manager's channel workers.
@@ -778,20 +648,14 @@ class Manager:
             children) should be processes. If it is not given, all
             resolving objects are processed.
         :param run_sync: If ``True``, wait until all processes spawned
-            from this point on have finished processing. If no processes
-            are spawned, this results in a deadlock, since counts are
-            handled on process finish.
-        :param save_settings: If ``True``, save the current Django
-            settings context to the global state. This should never be
-            ``True`` for "automatic" calls, such as from Django signals,
-            which can be invoked from inappropriate contexts (such as in
-            the listener). For user code, it should be left at the
-            default value. The saved settings are in effect until the
-            next such call.
+            from this point on have finished processing.
         """
-        executor = getattr(settings, "FLOW_EXECUTOR", {}).get(
-            "NAME", "resolwe.flow.executors.local"
-        )
+        first_sync_call = False
+        if run_sync and self._sync_finished_event is None:
+            first_sync_call = True
+            self._sync_finished_event = asyncio.Event()
+
+        self._messages_processing += 1
         logger.debug(
             __(
                 "Manager sending communicate command on '{}' triggered by Data with id {}.",
@@ -799,23 +663,12 @@ class Manager:
                 data_id,
             )
         )
-
-        saved_settings = self.state.settings_override
-        if save_settings:
-            saved_settings = self._marshal_settings()
-            self.state.settings_override = saved_settings
-
-        if run_sync:
-            self._ensure_counter()
-        await self.sync_counter.inc("communicate")
         try:
             await consumer.send_event(
                 {
                     WorkerProtocol.COMMAND: WorkerProtocol.COMMUNICATE,
-                    WorkerProtocol.COMMUNICATE_SETTINGS: self.state.settings_override,
                     WorkerProtocol.COMMUNICATE_EXTRA: {
                         "data_id": data_id,
-                        "executor": executor,
                     },
                 }
             )
@@ -823,9 +676,8 @@ class Manager:
             logger.exception(
                 "ChannelFull error occurred while sending communicate message."
             )
-            await self.sync_counter.dec("communicate")
 
-        if run_sync and not self.sync_counter.active:
+        if first_sync_call:
             logger.debug(
                 __(
                     "Manager on channel '{}' entering synchronization block.",
@@ -840,7 +692,7 @@ class Manager:
                 )
             )
 
-    def _lock_inputs_local_storage_locations(self, data):
+    def _lock_inputs_local_storage_locations(self, data: Data):
         """Lock storage locations for inputs.
 
         Lock storage locations of inputs so they are not deleted while data
@@ -892,7 +744,7 @@ class Manager:
             ]
         )
 
-    def _data_execute(self, data, program, executor):
+    def _data_execute(self, data: Data, program: str):
         """Execute the Data object.
 
         The activities carried out here include target directory
@@ -905,6 +757,8 @@ class Manager:
             execution engine evaluation.
         :param executor: The executor to use for this object.
         """
+        # Notify dispatcher if there is nothing to do so it can check whether
+        # conditions for raising runtime barrier are fulfilled.
         if not program:
             return
 
@@ -914,8 +768,10 @@ class Manager:
         try:
             executor_env_vars = self.get_executor().get_environment_variables()
             program = self._include_environment_variables(program, executor_env_vars)
+            logger.debug("Preaparing")
             data_dir = self._prepare_data_dir(data)
-            executor_module, runtime_dir = self._prepare_executor(data, executor)
+            logger.debug("Executor")
+            executor_module, runtime_dir = self._prepare_executor(data)
             self._prepare_storage_connectors(runtime_dir)
             self._lock_inputs_local_storage_locations(data)
 
@@ -933,7 +789,7 @@ class Manager:
             argv = [
                 "/bin/bash",
                 "-c",
-                self.settings_actual.get("FLOW_EXECUTOR", {}).get(
+                getattr(settings, "FLOW_EXECUTOR", {}).get(
                     "PYTHON", "/usr/bin/env python"
                 )
                 + " -m executors "
@@ -943,6 +799,9 @@ class Manager:
             data.status = Data.STATUS_ERROR
             data.process_error.append("Permission denied for process: {}".format(error))
             data.save()
+            if hasattr(data, "worker"):
+                data.worker.status = Worker.STATUS_ERROR_PREPARING
+                data.worker.save()
             return
         except OSError as err:
             logger.error(
@@ -952,15 +811,16 @@ class Manager:
                     err,
                 )
             )
+            if hasattr(data, "worker"):
+                data.worker.status = Worker.STATUS_ERROR_PREPARING
+                data.worker.save()
             return
 
         # Hand off to the run() method for execution.
         logger.info(__("Running {}", runtime_dir))
         self.run(data, runtime_dir, argv)
 
-    def _data_scan(
-        self, data_id=None, executor="resolwe.flow.executors.local", **kwargs
-    ):
+    def _data_scan(self, data_id: Optional[int] = None, **kwargs):
         """Scan for new Data objects and execute them.
 
         :param data_id: Optional id of Data object which (+ its
@@ -971,7 +831,7 @@ class Manager:
             discovered in this pass.
         """
 
-        def process_data_object(data):
+        def process_data_object(data: Data):
             """Process a single data object."""
             # Lock for update. Note that we want this transaction to be as short as possible in
             # order to reduce contention and avoid deadlocks. This is why we do not lock all
@@ -990,6 +850,10 @@ class Manager:
                 data.process_error.append("One or more inputs have status ERROR")
                 data.process_rc = 1
                 data.save()
+                if hasattr(data, "worker"):
+                    data.worker.status = Worker.STATUS_ERROR_PREPARING
+                    data.worker.save(update_fields=["status"])
+
                 return
 
             elif dep_status != Data.STATUS_DONE:
@@ -1010,6 +874,10 @@ class Manager:
                         "Error in process script: {}".format(error)
                     )
                     data.save()
+                    if hasattr(data, "worker"):
+                        data.worker.status = Worker.STATUS_ERROR_PREPARING
+                        data.worker.save(update_fields=["status"])
+
                     return
 
                 # Set allocated resources:
@@ -1017,9 +885,9 @@ class Manager:
                 data.process_memory = resource_limits["memory"]
                 data.process_cores = resource_limits["cores"]
             else:
-                # If there is no run section, then we should not try to run anything. But the
-                # program must not be set to None as then the process will be stuck in waiting
-                # state.
+                # If there is no run section, then we should not try to run
+                # anything. But the program must not be set to None as then
+                # the process will be stuck in waiting state.
                 program = ""
 
             if data.status != Data.STATUS_DONE:
@@ -1032,7 +900,7 @@ class Manager:
             transaction.on_commit(
                 # Make sure the closure gets the right values here, since they're
                 # changed in the loop.
-                lambda d=data, p=program: self._data_execute(d, p, executor)
+                lambda d=data, p=program: self._data_execute(d, p)
             )
 
         logger.debug(
@@ -1041,16 +909,6 @@ class Manager:
                 data_id,
             )
         )
-
-        if is_testing():
-            # NOTE: This is a work-around for Django issue #10827
-            # (https://code.djangoproject.com/ticket/10827), same as in
-            # TestCaseHelpers._pre_setup(). Because the worker is running
-            # independently, it must clear the cache on its own.
-            ContentType.objects.clear_cache()
-
-            # Ensure settings overrides apply
-            self.discover_engines(executor=executor)
 
         try:
             queryset = Data.objects.filter(status=Data.STATUS_RESOLVING)
@@ -1123,30 +981,30 @@ class Manager:
         """Return an executor instance."""
         return self.executor
 
-    def get_expression_engine(self, name):
+    def get_expression_engine(self, name: str):
         """Return an expression engine instance."""
         try:
             return self.expression_engines[name]
         except KeyError:
             raise InvalidEngineError("Unsupported expression engine: {}".format(name))
 
-    def get_execution_engine(self, name):
+    def get_execution_engine(self, name: str):
         """Return an execution engine instance."""
         try:
             return self.execution_engines[name]
         except KeyError:
             raise InvalidEngineError("Unsupported execution engine: {}".format(name))
 
-    def load_executor(self, executor_name):
+    def load_executor(self, executor_name: str):
         """Load process executor."""
         executor_name = executor_name + ".prepare"
         module = import_module(executor_name)
         return module.FlowExecutorPreparer()
 
-    def load_expression_engines(self, engines):
+    def load_expression_engines(self, engines: List[Union[Dict, str]]):
         """Load expression engines."""
         return load_engines(self, "ExpressionEngine", "expression_engines", engines)
 
-    def load_execution_engines(self, engines):
+    def load_execution_engines(self, engines: List[Union[Dict, str]]):
         """Load execution engines."""
         return load_engines(self, "ExecutionEngine", "execution_engines", engines)

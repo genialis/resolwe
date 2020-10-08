@@ -1,9 +1,11 @@
 # pylint: disable=missing-docstring
+import copy
 import os
 from pathlib import Path
 
 from asgiref.sync import async_to_sync
 
+from django.conf import settings
 from django.test import override_settings
 
 from guardian.shortcuts import assign_perm
@@ -105,10 +107,15 @@ class TestManager(ProcessTestCase):
         When object of PosixPath is used in settings the call to communicate
         fails due to object not being JSON serializable by default.
         """
-        with override_settings(FLOW_EXECUTOR={"DATA_DIR": Path("/some/path")}):
-            async_to_sync(manager.communicate)(run_sync=True)
-        # Make sure original settings are saved.
-        async_to_sync(manager.communicate)(run_sync=True)
+        flow_executor = copy.deepcopy(settings.FLOW_EXECUTOR)
+        flow_executor["DATA_DIR"] = Path(flow_executor["DATA_DIR"])
+        with override_settings(FLOW_EXECUTOR=flow_executor):
+            process = Process.objects.filter(slug="test-min").latest()
+            Data.objects.create(
+                name="Test data",
+                contributor=self.contributor,
+                process=process,
+            )
 
     def test_dependencies(self):
         """Test that manager handles dependencies correctly."""
@@ -210,7 +217,10 @@ class TransactionTestManager(TransactionTestCase):
 
         self.assertEqual(Data.objects.filter(status=Data.STATUS_RESOLVING).count(), 4)
 
-        # Process only one object.
+        # Allow unfinished data objects to exist when checking for execution
+        # barrier condition in the dispatcher.
+        manager._barrier_only_workers = True
+
         async_to_sync(manager.communicate)(data_id=data_1.pk, run_sync=True)
 
         data_1.refresh_from_db()
@@ -231,3 +241,4 @@ class TransactionTestManager(TransactionTestCase):
         async_to_sync(manager.communicate)(run_sync=True)
 
         self.assertEqual(Data.objects.filter(status=Data.STATUS_RESOLVING).count(), 0)
+        manager._barrier_only_workers = False

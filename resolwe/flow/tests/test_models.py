@@ -49,7 +49,7 @@ class DataModelNameTest(TransactionTestCase):
                     "required": False,
                 }
             ],
-            run={"language": "bash", "program": 'echo {"stat": "42"}'},
+            run={"language": "bash", "program": "echo test"},
         )
 
         data = Data.objects.create(contributor=self.contributor, process=process)
@@ -86,6 +86,7 @@ class DataModelNameTest(TransactionTestCase):
                     "required": False,
                 }
             ],
+            run={"language": "bash", "program": "echo test"},
         )
 
         with transaction.atomic():
@@ -153,6 +154,12 @@ class DataModelTest(TestCase):
         self.assertEqual(data.name[-3:], "...")
 
     def test_hydrate_file_size(self):
+        """Hydrate file size.
+
+        NOTE: It is no longer called every time the data object is saved os it
+        needs to be called explicitly. The sizes are calculated and  reported
+        by the communication container when object processing is done.
+        """
         proc = Process.objects.create(
             name="Test process",
             contributor=self.contributor,
@@ -174,14 +181,13 @@ class DataModelTest(TestCase):
         os.makedirs(dir_path)
 
         with self.assertRaises(ValidationError):
-            data.save()
+            hydrate_size(data)
 
         file_path = os.path.join(dir_path, "output.txt")
         with open(file_path, "w") as fn:
             fn.write("foo bar")
 
-        data.save()
-
+        hydrate_size(data)
         self.assertEqual(data.output["output_file"]["size"], 7)
 
     def test_dependencies_single(self):
@@ -1424,18 +1430,6 @@ class UtilsTestCase(TestCase):
             status=Data.STATUS_ERROR,
             process=process,
             # Workaround for skipping the validation.
-            output={
-                "file": {"file": "some-file", "refs": ["ref1"]},
-                "file_list": [
-                    {"file": "some-file", "refs": ["ref2"]},
-                    {"file": "another-file"},
-                ],
-                "dir": {"dir": "some-dir", "refs": ["ref3"]},
-                "dir_list": [
-                    {"dir": "some-dir", "refs": ["ref4"]},
-                    {"dir": "another-dir"},
-                ],
-            },
             descriptor_schema=descriptor_schema,
             descriptor={
                 "annotation": "my-annotation",
@@ -1444,6 +1438,20 @@ class UtilsTestCase(TestCase):
         )
         data_location = create_data_location()
         data_location.data.add(data)
+        data.output = {
+            "file": {"file": "some-file", "refs": ["ref1"]},
+            "file_list": [
+                {"file": "some-file", "refs": ["ref2"]},
+                {"file": "another-file"},
+            ],
+            "dir": {"dir": "some-dir", "refs": ["ref3"]},
+            "dir_list": [
+                {"dir": "some-dir", "refs": ["ref4"]},
+                {"dir": "another-dir"},
+            ],
+        }
+        data.save()
+
         input_schema = [
             {
                 "name": "data",
@@ -1453,7 +1461,11 @@ class UtilsTestCase(TestCase):
         input_ = {"data": data.pk}
         hydrate_input_references(input_, input_schema)
 
-        path_prefix = data.location.get_path()
+        # TODO: why this worked?
+        # path_prefix = data.location.get_path()
+        from resolwe.flow.managers import manager
+
+        path_prefix = manager.get_executor().resolve_data_path(data=data)
 
         self.assertEqual(
             input_["data"]["__descriptor"], {"annotation": "my-annotation"}

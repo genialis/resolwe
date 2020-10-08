@@ -29,7 +29,7 @@ from django.utils.crypto import get_random_string
 # negating anything we do here with Django's override_settings.
 import resolwe.test.testcases.setting_overrides as resolwe_settings
 from resolwe.flow.finders import get_finders
-from resolwe.flow.managers import manager, state
+from resolwe.flow.managers import manager, state, consumer
 from resolwe.flow.managers.listener import ExecutorListener
 from resolwe.storage.connectors import connectors
 from resolwe.storage.settings import STORAGE_CONNECTORS, STORAGE_LOCAL_CONNECTOR
@@ -166,11 +166,38 @@ def _prepare_settings():
         get_random_string(length=6),
         os.path.basename(resolwe_settings.FLOW_EXECUTOR_SETTINGS["DATA_DIR"]),
     )
-    return override_settings(
+
+    hosts = list(
+        settings.FLOW_EXECUTOR.get("LISTENER_CONNECTION", {})
+        .get("hosts", {"local": "127.0.0.1"})
+        .values()
+    )
+    protocol = settings.FLOW_EXECUTOR.get("LISTENER_CONNECTION", {}).get(
+        "protocol", "tcp"
+    )
+    min_port = settings.FLOW_EXECUTOR.get("LISTENER_CONNECTION", {}).get("min_port")
+    max_port = settings.FLOW_EXECUTOR.get("LISTENER_CONNECTION", {}).get("max_port")
+
+    zmq_context: zmq.asyncio.Context = zmq.asyncio.Context.instance()
+    zmq_socket: zmq.asyncio.Socket = zmq_context.socket(zmq.ROUTER)
+
+    host = hosts[0]
+    port = zmq_socket.bind_to_random_port(
+        f"{protocol}://{host}", min_port=min_port, max_port=max_port
+    )
+    for host in hosts[1:]:
+        zmq_socket.bind(f"{protocol}://{host}:{port}")
+
+    # Set the port in the settings.
+    resolwe_settings.FLOW_EXECUTOR_SETTINGS["LISTENER_CONNECTION"]["port"] = port
+
+    overrides = override_settings(
         CELERY_ALWAYS_EAGER=True,
         FLOW_EXECUTOR=resolwe_settings.FLOW_EXECUTOR_SETTINGS,
         FLOW_MANAGER=resolwe_settings.FLOW_MANAGER_SETTINGS,
     )
+
+    return overrides
 
 
 def _custom_worker_init(django_init_worker):
@@ -234,21 +261,26 @@ async def _run_on_infrastructure(meth, *args, **kwargs):
             with patch("resolwe.storage.settings.STORAGE_CONNECTORS", storage_config):
                 connectors.recreate_connectors()
                 await database_sync_to_async(_manager_setup)()
-                with AtScopeExit(manager.state.destroy_channels):
-                    redis_params = getattr(settings, "FLOW_MANAGER", {}).get(
-                        "REDIS_CONNECTION", {}
-                    )
-                    listener = ExecutorListener(redis_params=redis_params)
-                    await listener.clear_queue()
-                    async with listener:
-                        try:
-                            with override_settings(FLOW_MANAGER_SYNC_AUTO_CALLS=True):
-                                result = await database_sync_to_async(meth)(
-                                    *args, **kwargs
-                                )
-                            return result
-                        finally:
-                            listener.terminate()
+                hosts = settings.FLOW_EXECUTOR["LISTENER_CONNECTION"]["hosts"]
+                port = settings.FLOW_EXECUTOR["LISTENER_CONNECTION"]["port"]
+                protocol = settings.FLOW_EXECUTOR["LISTENER_CONNECTION"]["protocol"]
+                listener = ExecutorListener(
+                    hosts=hosts, port=port, protocol=protocol, zmq_socket=zmq_socket
+                )
+                async with listener:
+                    try:
+                        with override_settings(FLOW_MANAGER_SYNC_AUTO_CALLS=True):
+                            consumer_future = asyncio.ensure_future(
+                                consumer.run_consumer()
+                            )
+                            result = await database_sync_to_async(meth)(*args, **kwargs)
+                            await consumer.exit_consumer()
+                            await consumer_future
+                        return result
+                    except Exception as e:
+                        logger.exception("Exception while running test")
+                    finally:
+                        logger.debug("test_runner: Terminating listener")
 
 
 def _run_manager(meth, *args, **kwargs):
@@ -333,16 +365,6 @@ class ResolweRunner(DiscoverRunner):
 
             def wrapper(*args, **kwargs):
                 """Validate manager state on teardown."""
-                if manager.sync_counter.value != 0:
-                    case.fail(
-                        "Test has outstanding manager processes. Ensure that all processes have "
-                        "completed or that you have reset the state manually in case you have "
-                        "bypassed the regular manager flow in any way.\n"
-                        "\n"
-                        "Synchronization count: {value} (should be 0)\n"
-                        "".format(value=manager.sync_counter.value)
-                    )
-
                 teardown(*args, **kwargs)
 
             return wrapper

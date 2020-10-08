@@ -64,6 +64,11 @@ class ExecutorProtocol:
 class ExecutorFiles:
     """Various files used by the executor."""
 
+    # Base runtime subdirectory where settings will be stored.
+    SETTINGS_SUBDIR = "settings"
+    # Base runtime subdirectory where socket files will be.
+    SOCKETS_SUBDIR = "sockets"
+
     FILE_LIST_KEY = "serialized_files"
 
     EXECUTOR_SETTINGS = "settings.json"
@@ -77,3 +82,8 @@ class ExecutorFiles:
     PROCESS_SCRIPT = "process_script.sh"
 
     SECRETS_DIR = "secrets"
+
+    STARTUP_PROCESSING_SCRIPT = "startup_processing_container.py"
+    STARTUP_COMMUNICATION_SCRIPT = "startup_communication_container.py"
+    SOCKET_UTILS = "socket_utils.py"
+    CONSTANTS = "constants.py"
