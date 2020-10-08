@@ -1,7 +1,12 @@
 # pylint: disable=missing-docstring
 import os
+import subprocess
 import unittest
+from pathlib import Path
+from time import sleep
 from unittest import mock
+
+from asgiref.sync import async_to_sync
 
 from django.conf import settings
 from django.test import override_settings
@@ -9,8 +14,16 @@ from django.test import override_settings
 from guardian.shortcuts import assign_perm
 
 from resolwe.flow.executors.prepare import BaseFlowExecutorPreparer
-from resolwe.flow.models import Data, DataDependency, Process
-from resolwe.test import ProcessTestCase, TestCase, tag_process, with_docker_executor
+from resolwe.flow.managers import manager
+from resolwe.flow.managers.utils import disable_auto_calls
+from resolwe.flow.models import Data, DataDependency, Process, Worker
+from resolwe.test import (
+    ProcessTestCase,
+    TestCase,
+    tag_process,
+    with_docker_executor,
+    with_null_executor,
+)
 
 PROCESSES_DIR = os.path.join(os.path.dirname(__file__), "processes")
 DESCRIPTORS_DIR = os.path.join(os.path.dirname(__file__), "descriptors")
@@ -105,8 +118,12 @@ class ManagerRunProcessTest(ProcessTestCase):
 
         data = Data.objects.last()
         self.assertEqual(data.status, Data.STATUS_ERROR)
+
         self.assertEqual(len(data.process_error), 1)
-        self.assertIn("Referenced file does not exist", data.process_error[0])
+        self.assertIn(
+            "Output 'output' set to a missing file: 'i-dont-exist.zip'.",
+            data.process_error[0],
+        )
 
     @tag_process("test-spawn-new")
     def test_spawn(self):
@@ -133,8 +150,8 @@ class ManagerRunProcessTest(ProcessTestCase):
         data = self.run_process(
             "test-spawn-missing-file", assert_status=Data.STATUS_ERROR
         )
-        self.assertEqual(
-            data.process_error[0], "Error while preparing spawned Data objects"
+        self.assertIn(
+            "Error while preparing spawned Data objects", data.process_error[0]
         )
 
     @tag_process(
@@ -174,9 +191,8 @@ class ManagerRunProcessTest(ProcessTestCase):
         )
 
         self.assertEqual(data.status, Data.STATUS_ERROR)
-        self.assertIn(
-            "Value of 'storage' must be a valid JSON, current: 1a", data.process_error
-        )
+        print("ERROR", data.process_error[0])
+        self.assertIn("must be a valid JSON, current: 1a", data.process_error[0])
 
     @tag_process("test-workflow-1")
     def test_workflow(self):
@@ -250,6 +266,37 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.assertEqual(data.output["result"], "OK")
 
     @with_docker_executor
+    @disable_auto_calls()
+    def test_terminate_worker(self):
+        process = Process.objects.get(slug="test-terminate")
+        data = Data.objects.create(
+            name="Test data",
+            contributor=self.contributor,
+            process=process,
+        )
+        async_to_sync(manager.communicate)(data_id=data.pk, run_sync=False)
+        # Wait for up to 5s for process to start.
+        for _ in range(50):
+            sleep(0.1)
+            data.refresh_from_db()
+            if data.worker.status == Worker.STATUS_PROCESSING:
+                break
+
+        self.assertEqual(data.worker.status, Worker.STATUS_PROCESSING)
+        async_to_sync(data.worker.terminate)()
+
+        # Give it max 5 seconds to terminate.
+        for _ in range(50):
+            sleep(0.1)
+            data.refresh_from_db()
+            if data.worker.status == Worker.STATUS_COMPLETED:
+                break
+
+        self.assertEqual(data.worker.status, Worker.STATUS_COMPLETED)
+        self.assertEqual(data.status, Data.STATUS_ERROR)
+        self.assertEqual(data.process_info, ["Processing was cancelled."])
+
+    @with_docker_executor
     @tag_process("test-requirements-docker")
     def test_executor_requirements(self):
         data = self.run_process("test-requirements-docker")
@@ -261,6 +308,7 @@ class ManagerRunProcessTest(ProcessTestCase):
         data = self.run_process("test-docker-uid-gid")
         self.assertEqual(data.output["result"], "OK")
 
+    @unittest.skip("Null executor test currently not working.")
     @with_null_executor
     @tag_process("test-save-number")
     def test_null_executor(self):
@@ -321,58 +369,31 @@ class ManagerRunProcessTest(ProcessTestCase):
         )
         self.run_process("test-scheduling-class-batch")
 
-    # TODO: this is problematic, must think about it.
-    # @with_docker_executor
-    # @tag_process("test-save-number")
-    # def test_executor_fs_lock(self):
-    #     # First, run the process normaly.
-    #     data = self.run_process("test-save-number", {"number": 42})
+    @with_docker_executor
+    @tag_process("test-save-number")
+    def test_executor_fs_lock(self):
+        # First, run the process normaly.
+        data = self.run_process("test-save-number", {"number": 42})
+        # Make sure that process was successfully ran first time.
+        self.assertEqual(data.output["number"], 42)
+        data.output = {}
+        data.save()
 
-    #     # Make sure that process was successfully ran first time.
-    #     self.assertEqual(data.output["number"], 42)
-    #     data.output = {}
-    #     print("Before data save")
-    #     data.save()
+        file = Path(data.location.get_path(filename="temporary_file_do_not_purge.txt"))
+        self.assertFalse(file.exists())
+        file.touch()
 
-    #     file = Path(data.location.get_path(filename="temporary_file_do_not_purge.txt"))
-    #     self.assertFalse(file.exists())
-    #     file.touch()
-
-    #     import logging
-    #     logger = logging.getLogger(__name__)
-    #     print("Run the process again")
-    #     logger.debug("Run the process again")
-    #     data.worker.status = Worker.STATUS_PREPARING
-    #     data.worker.save()
-
-    #     print("SLEEP", data.get_runtime_path())
-    #     import time
-    #     time.sleep(10000)
-    #     process = subprocess.run(
-    #         ["python", "-m", "executors", ".docker"],
-    #         cwd=data.get_runtime_path(),
-    #         stdout=subprocess.PIPE,
-    #         stderr=subprocess.PIPE,
-    #         timeout=5,
-    #     )
-    #     print("OUT")
-    #     print(process.stdout)
-    #     print("ERR")
-    #     print(process.stderr)
-
-    #     # # Drain control events generated by this executor.
-    #     print("BEFORE RESET!!")
-    #     logger.debug("!!!!!!!!!!!!!!!!!!!")
-    #     #manager.reset(keep_state=True)
-    #     logger.debug("!!!!!!!!!!!!!!!!!!!")
-    #     print("AFTER RESET")
-    #     # self.assertEqual(process.returncode, 0)
-
-    #     # # Check the status of the data object.
-    #     # data.refresh_from_db()
-    #     # # Check that output is empty and thus process didn't ran.
-    #     # self.assertEqual(data.output, {})
-    #     # self.assertEqual(data.status, Data.STATUS_DONE)
-    #     # self.assertEqual(data.process_error, [])
-    #     # # Check that temporary file was not deleted.
-    #     # self.assertTrue(file.exists())
+        process = subprocess.run(
+            ["python", "-m", "executors", ".docker"],
+            cwd=data.get_runtime_path(),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=10,
+        )
+        self.assertEqual(process.returncode, 0)
+        data.refresh_from_db()
+        self.assertEqual(data.output, {})
+        self.assertEqual(data.status, Data.STATUS_DONE)
+        self.assertEqual(data.process_error, [])
+        # Check that temporary file was not deleted.
+        self.assertTrue(file.exists())

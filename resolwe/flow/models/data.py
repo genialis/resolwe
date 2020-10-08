@@ -263,6 +263,7 @@ class Data(BaseModel):
     STATUS_ERROR = "ER"
     #: data object is in dirty state
     STATUS_DIRTY = "DR"
+    # Assumption (in listener): ordered from least to most problematic.
     STATUS_CHOICES = (
         (STATUS_UPLOADING, "Uploading"),
         (STATUS_RESOLVING, "Resolving"),

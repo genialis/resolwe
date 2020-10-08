@@ -31,7 +31,7 @@
     expression-engine: jinja
     executor:
       docker:
-        image: resolwe/base:fedora-31
+        image: resolwe/gregor:ubuntu-18.04
   version: 1.0.0
   type: data:test:annotate
   flow_collection: sample
@@ -46,7 +46,7 @@
     expression-engine: jinja
     executor:
       docker:
-        image: resolwe/base:fedora-31
+        image: resolwe/gregor:ubuntu-18.04
   version: 1.0.0
   type: data:test:annotate
   flow_collection: sample
@@ -61,7 +61,7 @@
     expression-engine: jinja
     executor:
       docker:
-        image: resolwe/base:fedora-31
+        image: resolwe/gregor:ubuntu-18.04
   version: 1.0.0
   type: data:test:annotate
   flow_collection: sample
@@ -76,7 +76,7 @@
     expression-engine: jinja
     executor:
       docker:
-        image: resolwe/base:fedora-31
+        image: resolwe/gregor:ubuntu-18.04
   version: 1.0.0
   type: data:test:annotate
   run:
@@ -90,7 +90,7 @@
     expression-engine: jinja
     executor:
       docker:
-        image: resolwe/base:fedora-31
+        image: resolwe/gregor:ubuntu-18.04
   version: 1.0.0
   type: data:test:annotate
   flow_collection: sample
@@ -112,7 +112,7 @@
   run:
     language: bash
     program: |
-      echo "{\"output\":{\"file\":\"i-dont-exist.zip\"}}"
+      re-save-file output i-dont-exist.zip
 
 - slug: test-process-notifications
   name: Test process notifications
@@ -386,10 +386,23 @@
   run:
     program: |
       if grep -Fq "docker" /proc/1/cgroup; then
-        echo '{"result": "OK"}'
+        re-save result OK
       else
-        echo '{"result": "ERROR: Not running in Docker."}'
+        re-save result "ERROR: Not running in Docker."
       fi
+
+- slug: test-terminate
+  name: Looooong running process
+  version: 1.0.0
+  type: "data:test:min"
+  output:
+    - name: result
+      label: Result
+      type: basic:string
+  run:
+    program: |
+      sleep 100000
+
 
 - slug: test-requirements-docker
   name: Minimalistic Processor
@@ -406,9 +419,9 @@
   run:
     program: |
       if [ -f /test-requirements-docker ]; then
-        echo '{"result": "OK"}'
+        re-save result OK
       else
-        echo '{"result": "ERROR: Incorrect Docker image used."}'
+        re-save result "ERROR: Incorrect Docker image used."
       fi
 
 - slug: test-save-number
@@ -464,10 +477,11 @@
       set +x
 
       # Allocate around 200 MB.
-      for index in $(seq 310); do
-        value=$(seq -w -s '' $index $(($index + 100000)))
-        eval array$index=$value
-      done
+      yes | tr \\n x | head -c $((1024*1024*200)) | grep n
+      #for index in $(seq 310); do
+      #  value=$(seq -w -s '' $index $(($index + 100000)))
+      #  eval array$index=$value
+      #done
 
 - slug: test-memory-resource-noalloc
   name: Test memory resource (no allocation)
@@ -615,9 +629,9 @@
     program: |
       # Check if we are running as non-root.
       if [[ $UID == 0 || $GID == 0 ]]; then
-        echo '{"result": "ERROR: Running as root."}'
+        re-save result "ERROR: Running as root."
       else
-        echo '{"result": "OK"}'
+        re-save result OK
       fi
 
       # Ensure that we can resolve both our user and group names.

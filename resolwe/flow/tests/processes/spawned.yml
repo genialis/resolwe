@@ -9,7 +9,7 @@
     language: bash
     program: |
       touch foo.bar
-      echo 'run {"process": "test-save-file", "input": {"input_file": "foo.bar"}}'
+      re-run test-save-file '{"input_file":"foo.bar"}'
 
 
 - slug: test-spawn-new
@@ -24,7 +24,7 @@
     program: |
       touch foo.bar
       re-export foo.bar
-      echo 'run {"process": "test-save-file", "input": {"input_file": "foo.bar"}}'
+      re-run test-save-file '{"input_file": "foo.bar"}'
 
 
 - slug: test-save-file

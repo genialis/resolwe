@@ -166,8 +166,6 @@ def with_resolwe_host(wrapped_method, instance, args, kwargs):
         Django server in the background.
 
     """
-    from resolwe.flow.managers import manager  # To prevent circular imports.
-
     if not hasattr(instance, "server_thread"):
         raise AttributeError(
             "with_resolwe_host decorator must be used with a "

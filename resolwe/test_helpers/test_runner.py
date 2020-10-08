@@ -15,9 +15,9 @@ import subprocess
 import sys
 from unittest.mock import patch
 
+import yaml
 import zmq
 import zmq.asyncio
-import yaml
 from channels.db import database_sync_to_async
 
 from django.conf import settings
@@ -31,8 +31,7 @@ from django.utils.crypto import get_random_string
 # negating anything we do here with Django's override_settings.
 import resolwe.test.testcases.setting_overrides as resolwe_settings
 from resolwe.flow.finders import get_finders
-from resolwe.flow.managers import manager, state, consumer
-from resolwe.flow.managers.listener import ExecutorListener
+from resolwe.flow.managers import consumer, listener, manager, state
 from resolwe.storage.connectors import connectors
 from resolwe.storage.settings import STORAGE_CONNECTORS, STORAGE_LOCAL_CONNECTOR
 from resolwe.test.utils import generate_process_tag
@@ -63,30 +62,6 @@ class TestingContext:
         return False
 
 
-class AtScopeExit:
-    """Utility class for calling a function once a context exits."""
-
-    def __init__(self, call, *args, **kwargs):
-        """Construct a context manager and save arguments.
-
-        :param call: The callable to call on exit.
-        :param args: Positional arguments for the callable.
-        :param kwargs: Keyword arguments for the callable.
-        """
-        self.call = call
-        self.args = args
-        self.kwargs = kwargs
-
-    def __enter__(self):
-        """Enter the ``with`` context."""
-        return self
-
-    def __exit__(self, *args, **kwargs):
-        """Exit the context and call the saved callable."""
-        self.call(*self.args, **self.kwargs)
-        return False
-
-
 def _manager_setup():
     """Execute setup operations common to serial and parallel testing.
 
@@ -97,7 +72,7 @@ def _manager_setup():
         return
     TESTING_CONTEXT["manager_reset"] = True
     state.update_constants()
-    manager.reset()
+    manager.drain_messages()
 
 
 def _sequence_paths(paths):
@@ -122,9 +97,10 @@ def _sequence_paths(paths):
         # meaning A could not possibly have succeeded with data/test_1.
         seq += 1
         created = []
+        hashseed = os.environ.get("PYTHONHASHSEED", "")
 
         for base_path in paths:
-            path = os.path.join(base_path, "test_{}".format(seq))
+            path = os.path.join(base_path, "test_{}_{}".format(hashseed, seq))
             try:
                 os.makedirs(path)
                 created.append(path)
@@ -183,8 +159,12 @@ def _prepare_settings():
     protocol = settings.FLOW_EXECUTOR.get("LISTENER_CONNECTION", {}).get(
         "protocol", "tcp"
     )
-    min_port = settings.FLOW_EXECUTOR.get("LISTENER_CONNECTION", {}).get("min_port")
-    max_port = settings.FLOW_EXECUTOR.get("LISTENER_CONNECTION", {}).get("max_port")
+    min_port = settings.FLOW_EXECUTOR.get("LISTENER_CONNECTION", {}).get(
+        "min_port", 50000
+    )
+    max_port = settings.FLOW_EXECUTOR.get("LISTENER_CONNECTION", {}).get(
+        "max_port", 60000
+    )
 
     zmq_context: zmq.asyncio.Context = zmq.asyncio.Context.instance()
     zmq_socket: zmq.asyncio.Socket = zmq_context.socket(zmq.ROUTER)
@@ -205,8 +185,6 @@ def _prepare_settings():
         FLOW_MANAGER=resolwe_settings.FLOW_MANAGER_SETTINGS,
     )
     return (overrides, zmq_socket)
-
-    return overrides
 
 
 def _custom_worker_init(django_init_worker):
@@ -274,9 +252,10 @@ async def _run_on_infrastructure(meth, *args, **kwargs):
                 hosts = settings.FLOW_EXECUTOR["LISTENER_CONNECTION"]["hosts"]
                 port = settings.FLOW_EXECUTOR["LISTENER_CONNECTION"]["port"]
                 protocol = settings.FLOW_EXECUTOR["LISTENER_CONNECTION"]["protocol"]
-                listener = ExecutorListener(
-                    hosts=hosts, port=port, protocol=protocol, zmq_socket=zmq_socket
-                )
+                listener.hosts = hosts
+                listener.port = port
+                listener.protocol = protocol
+                listener.zmq_socket = zmq_socket
                 async with listener:
                     try:
                         with override_settings(FLOW_MANAGER_SYNC_AUTO_CALLS=True):
@@ -287,7 +266,7 @@ async def _run_on_infrastructure(meth, *args, **kwargs):
                             await consumer.exit_consumer()
                             await consumer_future
                         return result
-                    except Exception as e:
+                    except Exception:
                         logger.exception("Exception while running test")
                     finally:
                         logger.debug("test_runner: Terminating listener")

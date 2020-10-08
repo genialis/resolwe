@@ -11,7 +11,7 @@ class PythonProcessDataIdBySlug(Process):
     requirements = {
         "executor": {
             "docker": {
-                "image": "resolwe/base:ubuntu-18.04",
+                "image": "resolwe/gregor:ubuntu-18.04",
             }
         },
         "resources": {
