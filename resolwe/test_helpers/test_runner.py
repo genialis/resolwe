@@ -15,6 +15,8 @@ import subprocess
 import sys
 from unittest.mock import patch
 
+import zmq
+import zmq.asyncio
 import yaml
 from channels.db import database_sync_to_async
 
@@ -155,12 +157,18 @@ def _create_test_dirs():
 
 
 def _prepare_settings():
-    """Prepare and apply settings overrides needed for testing."""
+    """Prepare and apply settings/port overrides needed for testing.
+
+    Override necessary settings and binds to a free port that will be used in
+    listener.
+
+    :returns: tuple (overrides, port).
+    """
     # Override container name prefix setting.
     resolwe_settings.FLOW_EXECUTOR_SETTINGS[
         "CONTAINER_NAME_PREFIX"
     ] = "{}_{}_{}".format(
-        resolwe_settings.FLOW_EXECUTOR_SETTINGS.get("CONTAINER_NAME_PREFIX", "resolwe"),
+        getattr(settings, "FLOW_EXECUTOR", {}).get("CONTAINER_NAME_PREFIX", "resolwe"),
         # NOTE: This is necessary to avoid container name clashes when tests are run from
         # different Resolwe code bases on the same system (e.g. on a CI server).
         get_random_string(length=6),
@@ -196,6 +204,7 @@ def _prepare_settings():
         FLOW_EXECUTOR=resolwe_settings.FLOW_EXECUTOR_SETTINGS,
         FLOW_MANAGER=resolwe_settings.FLOW_MANAGER_SETTINGS,
     )
+    return (overrides, zmq_socket)
 
     return overrides
 
@@ -253,7 +262,8 @@ async def _run_on_infrastructure(meth, *args, **kwargs):
     """
     with TestingContext():
         _create_test_dirs()
-        with _prepare_settings():
+        overrides, zmq_socket = _prepare_settings()
+        with overrides:
             storage_config = copy.deepcopy(STORAGE_CONNECTORS)
             storage_config[STORAGE_LOCAL_CONNECTOR]["config"][
                 "path"
