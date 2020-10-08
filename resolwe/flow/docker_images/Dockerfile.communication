@@ -1,0 +1,19 @@
+FROM docker.io/python:3.9-alpine as common
+LABEL MAINTAINER Resolwe authors https://github.com/genialis/resolwe
+
+
+FROM common as builder
+WORKDIR /install
+RUN apk add --update --no-cache build-base libffi-dev zeromq-dev openssl-dev
+RUN pip install --upgrade pip
+RUN pip install --prefix=/install --no-warn-script-location \
+    ipython setuptools wheel wrapt crcmod google-cloud-storage boto3 pyzmq
+
+
+FROM common
+COPY --from=builder /install /usr/local
+RUN apk add --update --no-cache zeromq
+COPY flow/executors /executors
+COPY flow/managers/protocol.py /executors/protocol.py
+COPY storage/connectors /executors/connectors
+COPY flow/executors/startup_communication_container.py /startup.py
