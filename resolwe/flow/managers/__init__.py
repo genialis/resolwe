@@ -23,7 +23,9 @@ Workflow workload managers.
 
 """
 from .dispatcher import Manager
+from .listener import ExecutorListener
 
 __all__ = ("manager",)
 
 manager = Manager()
+listener = ExecutorListener()

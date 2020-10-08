@@ -11,9 +11,8 @@ Command to run on local machine::
 """
 
 import asyncio
-from signal import SIGINT, SIGTERM, signal
+from signal import SIGINT, SIGTERM
 
-from django.conf import settings
 from django.core.management.base import BaseCommand
 
 from resolwe.flow.managers.listener import ExecutorListener
@@ -35,25 +34,20 @@ class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
         """Run the executor listener. This method never returns."""
-        listener = ExecutorListener(
-            redis_params=getattr(settings, "FLOW_MANAGER", {}).get(
-                "REDIS_CONNECTION", {}
-            )
-        )
-
-        def _killer(signum, frame):
-            """Kill the listener on receipt of a signal."""
-            listener.terminate()
-
-        signal(SIGINT, _killer)
-        signal(SIGTERM, _killer)
 
         async def _runner():
             """Run the listener instance."""
-            if kwargs["clear_queue"]:
-                await listener.clear_queue()
+
+            listener = ExecutorListener()
+
+            async def _killer():
+                """Kill the listener on receipt of a signal."""
+                listener.terminate()
+
+            loop.add_signal_handler(SIGINT, lambda: asyncio.create_task(_killer()))
+            loop.add_signal_handler(SIGTERM, lambda: asyncio.create_task(_killer()))
             async with listener:
-                pass
+                await listener.run()
 
         loop = asyncio.new_event_loop()
         loop.run_until_complete(_runner())
