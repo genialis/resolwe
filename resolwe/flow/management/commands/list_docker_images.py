@@ -18,7 +18,7 @@ import yaml
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
-from resolwe.flow.executors.docker.constants import DEFAULT_CONTAINER_IMAGE
+from resolwe.flow.executors.constants import DEFAULT_CONTAINER_IMAGE
 from resolwe.flow.models import Process
 
 logger = logging.getLogger(__name__)

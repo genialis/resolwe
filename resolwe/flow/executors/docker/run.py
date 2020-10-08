@@ -5,22 +5,20 @@
 
 """
 # pylint: disable=logging-format-interpolation
-import asyncio
 import json
 import logging
 import os
-import shlex
-import tempfile
 import time
-from asyncio import subprocess
+from pathlib import Path
+from typing import Dict, Optional, Tuple, Union
 
+import docker
+
+from .. import constants
 from ..global_settings import PROCESS_META, SETTINGS, STORAGE_LOCATION
 from ..local.run import FlowExecutor as LocalFlowExecutor
 from ..protocol import ExecutorFiles
-from . import constants
 from .seccomp import SECCOMP_POLICY
-
-DOCKER_START_TIMEOUT = 60
 
 # Limits of containers' access to memory. We set the limit to ensure
 # processes are stable and do not get killed by OOM signal.
@@ -39,50 +37,216 @@ class FlowExecutor(LocalFlowExecutor):
     def __init__(self, *args, **kwargs):
         """Initialize attributes."""
         super().__init__(*args, **kwargs)
-
-        self.container_name_prefix = None
-        self.tools_volumes = None
-        self.temporary_files = []
+        container_name_prefix = SETTINGS.get("FLOW_EXECUTOR", {}).get(
+            "CONTAINER_NAME_PREFIX", "resolwe"
+        )
+        self.container_name = self._generate_container_name(container_name_prefix)
+        self.tools_volumes = []
         self.command = SETTINGS.get("FLOW_DOCKER_COMMAND", "docker")
+        self.runtime_dir = Path(SETTINGS["FLOW_EXECUTOR"].get("RUNTIME_DIR", ""))
 
-    def _generate_container_name(self):
-        """Generate unique container name."""
-        return "{}_{}".format(self.container_name_prefix, self.data_id)
+    # Setup Docker volumes.
+    def _new_volume(
+        self,
+        kind: str,
+        base_dir_name: Optional[str],
+        mount_point: Union[str, Path],
+        path: Union[str, Path] = "",
+        read_only: bool = True,
+    ) -> Tuple[str, Dict[str, str]]:
+        """Generate a new volume entry.
+
+        :param kind: Kind of volume, which is used for getting extra options from
+            settings (the ``FLOW_DOCKER_VOLUME_EXTRA_OPTIONS`` setting)
+        :param base_dir_name: Name of base directory setting for volume source path
+        :param volume: Destination volume mount point
+        :param path: Optional additional path atoms appended to source path
+        :param read_only: True to make the volume read-only
+        """
+        options = set(
+            SETTINGS.get("FLOW_DOCKER_VOLUME_EXTRA_OPTIONS", {})
+            .get(kind, "")
+            .split(",")
+        ).difference(["", "ro", "rw"])
+        options.add("ro" if read_only else "rw")
+
+        base_path = Path(SETTINGS["FLOW_EXECUTOR"].get(base_dir_name, ""))
+        return (
+            os.fspath(base_path / path),
+            {
+                "bind": os.fspath(mount_point),
+                "mode": ",".join(options),
+            },
+        )
+
+    def _communicator_volumes(self) -> Dict:
+        """Prepare volumes for communicator container."""
+        storage_url = Path(STORAGE_LOCATION["url"])
+        communicator_volumes = [
+            self._new_volume(
+                "data",
+                "DATA_DIR",
+                constants.DATA_VOLUME,
+                storage_url,
+                read_only=False,
+            ),
+            self._new_volume(
+                "data_all", "DATA_DIR", constants.DATA_ALL_VOLUME, read_only=False
+            ),
+            self._new_volume(
+                "secrets",
+                "RUNTIME_DIR",
+                constants.SECRETS_VOLUME,
+                storage_url / ExecutorFiles.SECRETS_DIR,
+            ),
+            self._new_volume(
+                "settings",
+                "RUNTIME_DIR",
+                "/settings",
+                storage_url / ExecutorFiles.SETTINGS_SUBDIR,
+            ),
+            self._new_volume(
+                "sockets",
+                "RUNTIME_DIR",
+                constants.SOCKETS_VOLUME,
+                storage_url / ExecutorFiles.SOCKETS_SUBDIR,
+                read_only=False,
+            ),
+        ]
+        return dict(communicator_volumes)
+
+    def _processing_volumes(self) -> Dict:
+        """Prepare volumes for processing container."""
+        storage_url = Path(STORAGE_LOCATION["url"])
+
+        # Create local data dir.
+        base_path = Path(SETTINGS["FLOW_EXECUTOR"].get("DATA_DIR", ""))
+        local_data = base_path / f"{storage_url}_work"
+        local_data.mkdir()
+
+        processing_volumes = [
+            self._new_volume(
+                "data",
+                "DATA_DIR",
+                constants.DATA_VOLUME,
+                storage_url,
+                read_only=False,
+            ),
+            self._new_volume(
+                "data_local",
+                "DATA_DIR",
+                constants.DATA_LOCAL_VOLUME,
+                f"{storage_url}_work",
+                read_only=False,
+            ),
+            self._new_volume("data_all", "DATA_DIR", constants.DATA_ALL_VOLUME),
+            self._new_volume(
+                "upload", "UPLOAD_DIR", constants.UPLOAD_VOLUME, read_only=False
+            ),
+            self._new_volume(
+                "secrets",
+                "RUNTIME_DIR",
+                constants.SECRETS_VOLUME,
+                storage_url / ExecutorFiles.SECRETS_DIR,
+            ),
+            self._new_volume(
+                "sockets",
+                "RUNTIME_DIR",
+                constants.SOCKETS_VOLUME,
+                storage_url / ExecutorFiles.SOCKETS_SUBDIR,
+                read_only=False,
+            ),
+            self._new_volume(
+                "socket_utils",
+                "RUNTIME_DIR",
+                "/socket_utils.py",
+                storage_url / "executors" / ExecutorFiles.SOCKET_UTILS,
+            ),
+            self._new_volume(
+                "socket_utils",
+                "RUNTIME_DIR",
+                "/start.py",
+                storage_url / "executors" / ExecutorFiles.STARTUP_PROCESSING_SCRIPT,
+            ),
+            self._new_volume(
+                "constants",
+                "RUNTIME_DIR",
+                "/constants.py",
+                storage_url / "executors" / ExecutorFiles.CONSTANTS,
+            ),
+        ]
+
+        # Generate dummy passwd and create mappings for it. This is required because some tools
+        # inside the container may try to lookup the given UID/GID and will crash if they don't
+        # exist. So we create minimal user/group files.
+
+        passwd_path = self.runtime_dir / storage_url / "passwd"
+        group_path = self.runtime_dir / storage_url / "group"
+
+        with passwd_path.open("wt") as passwd_file:
+            passwd_file.write(
+                "root:x:0:0:root:/root:/bin/bash\n"
+                + f"user:x:{os.getuid()}:{os.getgid()}:user:/:/bin/bash\n"
+            )
+        with group_path.open("wt") as group_file:
+            group_file.write("root:x:0:\n" + f"user:x:{os.getgid()}:user\n")
+
+        processing_volumes += [
+            self._new_volume("users", None, "/etc/passwd", passwd_path),
+            self._new_volume("users", None, "/etc/group", group_path),
+        ]
+
+        # Create volumes for tools.
+        processing_volumes += [
+            self._new_volume(
+                "tools",
+                None,
+                Path("/usr/local/bin/resolwe") / str(index),
+                Path(tool),
+            )
+            for index, tool in enumerate(self.get_tools_paths())
+        ]
+
+        # Create volumes for runtime (all read-only).
+        processing_volumes += [
+            self._new_volume(
+                "runtime",
+                "RUNTIME_DIR",
+                dst,
+                storage_url / src,
+            )
+            for src, dst in SETTINGS.get("RUNTIME_VOLUME_MAPS", {}).items()
+        ]
+
+        # Add any extra volumes verbatim.
+        processing_volumes += SETTINGS.get("FLOW_DOCKER_EXTRA_VOLUMES", [])
+        return dict(processing_volumes)
 
     async def start(self):
         """Start process execution."""
-        # arguments passed to the Docker command
-        command_args = {
-            "command": self.command,
-            "container_image": self.requirements.get(
-                "image", constants.DEFAULT_CONTAINER_IMAGE
-            ),
-        }
-
-        # Get limit defaults.
-        limit_defaults = SETTINGS.get("FLOW_PROCESS_RESOURCE_DEFAULTS", {})
-
-        # Set resource limits.
-        limits = []
-        # Specify CPU limits. Default docker container is unlimited (0.000)
-        # Available in Docker 1.13 and higher.
-        limits.append("--cpus={:.1f}".format(self.process["resource_limits"]["cores"]))
-
-        # Some SWAP is needed to avoid OOM signal. Swappiness is low to prevent
-        # extensive usage of SWAP (this would reduce the performance).
         memory = (
             self.process["resource_limits"]["memory"] + DOCKER_MEMORY_HARD_LIMIT_BUFFER
         )
         memory_swap = int(memory * DOCKER_MEMORY_SWAP_RATIO)
+        network = "bridge"
+        if "network" in self.resources:
+            # Configure Docker network mode for the container (if specified).
+            # By default, current Docker versions use the 'bridge' mode which
+            # creates a network stack on the default Docker bridge.
+            network = SETTINGS.get("FLOW_EXECUTOR", {}).get("NETWORK", "")
 
-        limits.append("--memory={}m".format(memory))
-        limits.append("--memory-swap={}m".format(memory_swap))
-        limits.append(
-            "--memory-reservation={}m".format(self.process["resource_limits"]["memory"])
+        if not SETTINGS.get("FLOW_DOCKER_DISABLE_SECCOMP", False):
+            security_options = [f"seccomp={json.dumps(SECCOMP_POLICY)}"]
+        else:
+            security_options = []
+
+        processing_image = self.requirements.get(
+            "image", constants.DEFAULT_CONTAINER_IMAGE
         )
-        limits.append("--memory-swappiness={}".format(DOCKER_MEMORY_SWAPPINESS))
-
-        # Set ulimits for interactive processes to prevent them from running too long.
+        communicator_image = SETTINGS.get(
+            "DOCKER_COMMUNICATOR_IMAGE", "resolwe/com:python-3.8"
+        )
+        ulimits = []
         if (
             self.process["scheduling_class"]
             == PROCESS_META["SCHEDULING_CLASS_INTERACTIVE"]
@@ -91,327 +255,116 @@ class FlowExecutor(LocalFlowExecutor):
             # Note: Ulimit does not work as expected on multithreaded processes
             # Limit is increased by factor 1.2 for processes with 2-8 threads.
             # TODO: This should be changed for processes with over 8 threads.
-            cpu_time_interactive = limit_defaults.get("cpu_time_interactive", 30)
-            limits.append("--ulimit cpu={}".format(int(cpu_time_interactive * 1.2)))
-
-        command_args["limits"] = " ".join(limits)
-
-        # set container name
-        self.container_name_prefix = SETTINGS.get("FLOW_EXECUTOR", {}).get(
-            "CONTAINER_NAME_PREFIX", "resolwe"
-        )
-        command_args["container_name"] = "--name={}".format(
-            self._generate_container_name()
-        )
-
-        if "network" in self.resources:
-            # Configure Docker network mode for the container (if specified).
-            # By default, current Docker versions use the 'bridge' mode which
-            # creates a network stack on the default Docker bridge.
-            network = SETTINGS.get("FLOW_EXECUTOR", {}).get("NETWORK", "")
-            command_args["network"] = "--net={}".format(network) if network else ""
-        else:
-            # No network if not specified.
-            command_args["network"] = "--net=none"
-
-        # Security options.
-        security = []
-
-        # Generate and set seccomp policy to limit syscalls.
-        policy_file = tempfile.NamedTemporaryFile(mode="w")
-        json.dump(SECCOMP_POLICY, policy_file)
-        policy_file.file.flush()
-        if not SETTINGS.get("FLOW_DOCKER_DISABLE_SECCOMP", False):
-            security.append("--security-opt seccomp={}".format(policy_file.name))
-        self.temporary_files.append(policy_file)
-
-        # Drop all capabilities and only add ones that are needed.
-        security.append("--cap-drop=all")
-
-        command_args["security"] = " ".join(security)
-
-        # Setup Docker volumes.
-        def new_volume(kind, base_dir_name, volume, path=None, read_only=True):
-            """Generate a new volume entry.
-
-            :param kind: Kind of volume, which is used for getting extra options from
-                settings (the ``FLOW_DOCKER_VOLUME_EXTRA_OPTIONS`` setting)
-            :param base_dir_name: Name of base directory setting for volume source path
-            :param volume: Destination volume mount point
-            :param path: Optional additional path atoms appended to source path
-            :param read_only: True to make the volume read-only
-            """
-            if path is None:
-                path = []
-
-            path = [str(atom) for atom in path]
-
-            options = set(
-                SETTINGS.get("FLOW_DOCKER_VOLUME_EXTRA_OPTIONS", {})
-                .get(kind, "")
-                .split(",")
-            )
-            options.discard("")
-            # Do not allow modification of read-only option.
-            options.discard("ro")
-            options.discard("rw")
-
-            if read_only:
-                options.add("ro")
-            else:
-                options.add("rw")
-
-            return {
-                "src": os.path.join(
-                    SETTINGS["FLOW_EXECUTOR"].get(base_dir_name, ""), *path
-                ),
-                "dest": volume,
-                "options": ",".join(options),
-            }
-
-        volumes = [
-            new_volume(
-                "data",
-                "DATA_DIR",
-                constants.DATA_VOLUME,
-                [STORAGE_LOCATION["url"]],
-                read_only=False,
-            ),
-            new_volume("data_all", "DATA_DIR", constants.DATA_ALL_VOLUME),
-            new_volume(
-                "upload", "UPLOAD_DIR", constants.UPLOAD_VOLUME, read_only=False
-            ),
-            new_volume(
-                "secrets",
-                "RUNTIME_DIR",
-                constants.SECRETS_VOLUME,
-                [STORAGE_LOCATION["url"], ExecutorFiles.SECRETS_DIR],
-            ),
-        ]
-
-        # Generate dummy passwd and create mappings for it. This is required because some tools
-        # inside the container may try to lookup the given UID/GID and will crash if they don't
-        # exist. So we create minimal user/group files.
-        passwd_file = tempfile.NamedTemporaryFile(mode="w")
-        passwd_file.write("root:x:0:0:root:/root:/bin/bash\n")
-        passwd_file.write(
-            "user:x:{}:{}:user:/:/bin/bash\n".format(os.getuid(), os.getgid())
-        )
-        passwd_file.file.flush()
-        self.temporary_files.append(passwd_file)
-
-        group_file = tempfile.NamedTemporaryFile(mode="w")
-        group_file.write("root:x:0:\n")
-        group_file.write("user:x:{}:user\n".format(os.getgid()))
-        group_file.file.flush()
-        self.temporary_files.append(group_file)
-
-        volumes += [
-            new_volume("users", None, "/etc/passwd", [passwd_file.name]),
-            new_volume("users", None, "/etc/group", [group_file.name]),
-        ]
-
-        # Create volumes for tools.
-        # NOTE: To prevent processes tampering with tools, all tools are mounted read-only
-        self.tools_volumes = []
-        for index, tool in enumerate(self.get_tools_paths()):
-            self.tools_volumes.append(
-                new_volume(
-                    "tools",
-                    None,
-                    os.path.join("/usr/local/bin/resolwe", str(index)),
-                    [tool],
-                )
+            cpu_time_interactive = SETTINGS.get(
+                "FLOW_PROCESS_RESOURCE_DEFAULTS", {}
+            ).get("cpu_time_interactive", 30)
+            ulimits.append(
+                docker.types.Ulimit(name="cpu", hard=int(cpu_time_interactive * 1.2))
             )
 
-        volumes += self.tools_volumes
-
-        # Create volumes for runtime (all read-only).
-        runtime_volume_maps = SETTINGS.get("RUNTIME_VOLUME_MAPS", None)
-        if runtime_volume_maps:
-            for src, dst in runtime_volume_maps.items():
-                volumes.append(
-                    new_volume(
-                        "runtime", "RUNTIME_DIR", dst, [STORAGE_LOCATION["url"], src]
-                    )
-                )
-
-        # Add any extra volumes verbatim.
-        volumes += SETTINGS.get("FLOW_DOCKER_EXTRA_VOLUMES", [])
+        storage_url = Path(STORAGE_LOCATION["url"])
 
         # Make sure that tmp dir exists.
         os.makedirs(constants.TMPDIR, mode=0o755, exist_ok=True)
-
-        # Create Docker --volume parameters from volumes.
-        command_args["volumes"] = " ".join(
-            [
-                '--volume="{src}":"{dest}":{options}'.format(**volume)
-                for volume in volumes
-            ]
+        # Make sure that sockets dir exists.
+        os.makedirs(
+            self.runtime_dir / storage_url / ExecutorFiles.SOCKETS_SUBDIR, exist_ok=True
         )
 
-        # Set working directory to the data volume.
-        command_args["workdir"] = "--workdir={}".format(constants.DATA_VOLUME)
+        logger.debug("Checking existence of docker image: {}".format(processing_image))
 
-        # Change user inside the container.
-        command_args["user"] = "--user={}:{}".format(os.getuid(), os.getgid())
-
-        # A non-login Bash shell should be used here (a subshell will be spawned later).
-        command_args["shell"] = "/bin/bash"
-
-        # Check if image exists locally. If not, command will exit with non-zero returncode
-        check_command = "{command} image inspect {container_image}".format(
-            **command_args
+        listener_settings = SETTINGS.get("FLOW_EXECUTOR", {}).get(
+            "LISTENER_CONNECTION", {}
         )
+        environment = {
+            "CONTAINER_TIMEOUT": constants.CONTAINER_TIMEOUT,
+            "SOCKETS_VOLUME": constants.SOCKETS_VOLUME,
+            "COMMUNICATION_PROCESSING_SOCKET": constants.COMMUNICATION_PROCESSING_SOCKET,
+            "SCRIPT_SOCKET": constants.SCRIPT_SOCKET,
+            "LISTENER_IP": listener_settings.get("hosts", {}).get(
+                "docker", "127.0.0.1"
+            ),
+            "LISTENER_PORT": listener_settings.get("port", 53893),
+            "LISTENER_PROTOCOL": listener_settings.get("protocol", "tcp"),
+            "DATA_ID": self.data_id,
+            "LOCATION_SUBPATH": os.fspath(storage_url),
+            "DATA_LOCAL_VOLUME": os.fspath(constants.DATA_LOCAL_VOLUME),
+            "DATA_ALL_VOLUME": os.fspath(constants.DATA_ALL_VOLUME),
+            "DATA_VOLUME": os.fspath(constants.DATA_VOLUME),
+            "UPLOAD_DIR": os.fspath(constants.UPLOAD_VOLUME),
+            "SECRETS_DIR": os.fspath(constants.SECRETS_VOLUME),
+            "RUNNING_IN_CONTAINER": 1,
+            "RUNNING_IN_DOCKER": 1,
+            "FLOW_MANAGER_KEEP_DATA": SETTINGS.get("FLOW_MANAGER_KEEP_DATA", False),
+        }
 
-        logger.debug(
-            "Checking existence of docker image: {}".format(
-                command_args["container_image"]
-            )
-        )
+        communication_arguments = {
+            "auto_remove": True,
+            "volumes": self._communicator_volumes(),
+            "command": ["/usr/local/bin/python", "/startup.py"],
+            "image": communicator_image,
+            "name": f"{self.container_name}-communicator",
+            "detach": True,
+            "cpu_quota": 100000,  # TODO: how much?
+            "mem_limit": f"4000m",  # TODO: how much?
+            "mem_reservation": f"200m",
+            "network_mode": network,
+            "cap_drop": ["all"],
+            "security_opt": security_options,
+            "user": f"{os.getuid()}:{os.getgid()}",
+            "environment": environment,
+        }
+        processing_arguments = {
+            "auto_remove": True,
+            "volumes": self._processing_volumes(),
+            "command": ["/usr/bin/python3", "/start.py"],
+            "image": processing_image,
+            "network_mode": f"container:{self.container_name}-communicator",
+            "working_dir": os.fspath(constants.DATA_LOCAL_VOLUME),
+            "detach": True,
+            "cpu_quota": self.process["resource_limits"]["cores"] * (10 ** 6),
+            "mem_limit": f"{memory}m",
+            "mem_reservation": f"{self.process['resource_limits']['memory']}m",
+            "mem_swappiness": DOCKER_MEMORY_SWAPPINESS,
+            "memswap_limit": f"{memory_swap}m",
+            "name": self.container_name,
+            "cap_drop": ["all"],
+            "security_opt": security_options,
+            "user": f"{os.getuid()}:{os.getgid()}",
+            "ulimits": ulimits,
+            "environment": environment,
+        }
 
-        check_proc = await subprocess.create_subprocess_exec(
-            *shlex.split(check_command), stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
-        await check_proc.communicate()
+        logger.info("Starting processing: %s", processing_arguments)
+        logger.info("Starting com: %s", processing_arguments)
 
-        if check_proc.returncode != 0:
-            pull_command = "{command} pull {container_image}".format(**command_args)
+        client = docker.from_env()
+        try:
+            client.images.get(processing_image)
+        except docker.errors.ImageNotFound:
+            try:
+                client.images.pull(processing_image)
+            except docker.errors.APIError:
+                logger.exception("Docker API error")
+                raise RuntimeError("Docker API error")
+        except docker.errors.APIError:
+            logger.exception("Docker API error")
+            raise RuntimeError("Docker API error")
 
-            logger.info(
-                "Pulling docker image: {}".format(command_args["container_image"])
-            )
-
-            pull_proc = await subprocess.create_subprocess_exec(
-                *shlex.split(pull_command),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
-            _, stderr = await pull_proc.communicate()
-
-            if pull_proc.returncode != 0:
-                error_msg = "Docker failed to pull {} image.".format(
-                    command_args["container_image"]
-                )
-                if stderr:
-                    error_msg = "\n".join([error_msg, stderr.decode("utf-8")])
-                raise RuntimeError(error_msg)
-
-        docker_command = (
-            "{command} run --rm --interactive {container_name} {network} {volumes} {limits} "
-            "{security} {workdir} {user} {container_image} {shell}".format(
-                **command_args
-            )
-        )
-
-        logger.info("Starting docker container with command: {}".format(docker_command))
         start_time = time.time()
 
-        # Workaround for pylint issue #1469
-        # (https://github.com/PyCQA/pylint/issues/1469).
-        self.proc = await subprocess.create_subprocess_exec(
-            *shlex.split(docker_command),
-            limit=4 * (2 ** 20),  # 4MB buffer size for line buffering
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-        )
+        # Create docker client from environment.
+        # Make sure the enviroment is set up correctly.
 
-        stdout = []
+        response = client.containers.run(**communication_arguments)
+        logger.debug("Com response: %s.", response)
 
-        async def wait_for_container():
-            """Wait for Docker container to start to avoid blocking the code that uses it."""
-            self.proc.stdin.write(("echo PING" + os.linesep).encode("utf-8"))
-            await self.proc.stdin.drain()
-            while True:
-                line = await self.proc.stdout.readline()
-                stdout.append(line)
-                if line.rstrip() == b"PING":
-                    break
-                if self.proc.stdout.at_eof():
-                    raise RuntimeError()
-
-        try:
-            await asyncio.wait_for(wait_for_container(), timeout=DOCKER_START_TIMEOUT)
-        except (asyncio.TimeoutError, RuntimeError):
-            error_msg = "Docker container has not started for {} seconds.".format(
-                DOCKER_START_TIMEOUT
-            )
-            stdout = "".join([line.decode("utf-8") for line in stdout if line])
-            if stdout:
-                error_msg = "\n".join([error_msg, stdout])
-            raise RuntimeError(error_msg)
+        response = client.containers.run(**processing_arguments)
+        logger.debug("Proccessing response: %s.", response)
 
         end_time = time.time()
         logger.info(
-            "It took {:.2f}s for Docker container to start".format(
+            "It took {:.2f}s for Docker containers to start".format(
                 end_time - start_time
             )
         )
-
-        self.stdout = self.proc.stdout
-
-    async def run_script(self, script):
-        """Execute the script and save results."""
-        # Create a Bash command to add all the tools to PATH.
-        tools_paths = ":".join([map_["dest"] for map_ in self.tools_volumes])
-        add_tools_path = "export PATH=$PATH:{}".format(tools_paths)
-        # Spawn another child bash, to avoid running anything as PID 1, which has special
-        # signal handling (e.g., cannot be SIGKILL-ed from inside).
-        # A login Bash shell is needed to source /etc/profile.
-        bash_line = "/bin/bash --login; exit $?" + os.linesep
-        script = (
-            os.linesep.join(["set -x", "set +B", add_tools_path, script]) + os.linesep
-        )
-        self.proc.stdin.write(bash_line.encode("utf-8"))
-        await self.proc.stdin.drain()
-        self.proc.stdin.write(script.encode("utf-8"))
-        await self.proc.stdin.drain()
-        self.proc.stdin.close()
-
-    async def run(self, *args, **kwargs):
-        """Run the script and make sure Docker container terminates at the end."""
-        ret = await super().run(*args, **kwargs)
-        await self._terminate_docker()
-
-        return ret
-
-    async def end(self):
-        """End process execution."""
-        try:
-            await self.proc.wait()
-        finally:
-            # Cleanup temporary files.
-            for temporary_file in self.temporary_files:
-                temporary_file.close()
-            self.temporary_files = []
-
-        return self.proc.returncode
-
-    async def _terminate_docker(self):
-        """Terminate docker container that runs the process."""
-        # Workaround for pylint issue #1469
-        # (https://github.com/PyCQA/pylint/issues/1469).
-        cmd = await subprocess.create_subprocess_exec(
-            *shlex.split(
-                "{} rm -f {}".format(self.command, self._generate_container_name()),
-            ),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        await cmd.wait()
-
-        return cmd
-
-    async def terminate(self):
-        """Terminate a running script."""
-        result = await self._terminate_docker()
-
-        if result.returncode != 0:
-            logger.error(
-                "Error while removing docker container: {}\n\n{}".format(
-                    self._generate_container_name(), await result.stderr.read()
-                )
-            )
-
-        await super().terminate()
