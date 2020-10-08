@@ -7,9 +7,12 @@ import socket
 import sys
 from logging.config import dictConfig
 
-from .global_settings import DATA, STORAGE_LOCATION
-from .manager_commands import send_manager_command
-from .protocol import ExecutorProtocol
+import zmq
+import zmq.asyncio
+
+from .global_settings import DATA, SETTINGS, STORAGE_LOCATION
+from .socket_utils import Message
+from .zeromq_utils import ZMQCommunicator
 
 
 class JSONFormatter(logging.Formatter):
@@ -29,37 +32,56 @@ class JSONFormatter(logging.Formatter):
         # Exception and Traceback cannot be serialized.
         data["exc_info"] = None
 
-        # Ensure logging message is instantiated to a string.
-        data["msg"] = str(data["msg"])
-
-        return json.dumps(data)
+        return json.dumps(data, default=str)
 
 
-class RedisHandler(logging.Handler):
+class ZeromqHandler(logging.Handler):
     """Publish messages to Redis channel."""
 
-    def __init__(self, emit_list, **kwargs):
+    def __init__(self, **kwargs):
         """Construct a handler instance.
 
         :param emit_list: The list to add emit futures into, so they can
             be waited on in the executor main function.
         """
-        self.emit_list = emit_list
+        self.communicator = self.open_listener_connection(DATA["id"])
+        asyncio.ensure_future(self.communicator.start_listening())
         super().__init__(**kwargs)
+
+    def open_listener_connection(self, data_id: int) -> ZMQCommunicator:
+        """Connect to the listener service.
+
+        We are using data id as identity. This implies only one process per
+        data object at any given point in time can be running.
+        """
+        zmq_context = zmq.asyncio.Context.instance()
+        zmq_socket = zmq_context.socket(zmq.DEALER)
+        zmq_socket.setsockopt(zmq.IDENTITY, f"e{data_id}".encode())
+
+        listener_settings = SETTINGS.get("FLOW_EXECUTOR", {}).get(
+            "LISTENER_CONNECTION", {}
+        )
+
+        LISTENER_IP = listener_settings.get("hosts", {}).get("docker", "127.0.0.1")
+        LISTENER_PROTOCOL = listener_settings.get("protocol", "tcp")
+        LISTENER_PORT = listener_settings.get("port", 53893)
+
+        connect_string = f"{LISTENER_PROTOCOL}://{LISTENER_IP}:{LISTENER_PORT}"
+        zmq_socket.connect(connect_string)
+
+        null_logger = logging.getLogger("Docker executor<->Listener")
+        null_logger.handlers = []
+
+        return ZMQCommunicator(zmq_socket, "docker logger", null_logger)
 
     def emit(self, record):
         """Send log message to the listener."""
-        future = asyncio.ensure_future(
-            send_manager_command(
-                ExecutorProtocol.LOG,
-                extra_fields={ExecutorProtocol.LOG_MESSAGE: self.format(record)},
-                expect_reply=False,
-            )
+        asyncio.ensure_future(
+            self.communicator.send_command(Message.command("log", self.format(record)))
         )
-        self.emit_list.append(future)
 
 
-def configure_logging(emit_list):
+def configure_logging():
     """Configure logging to send log records to the master."""
     if "sphinx" in sys.modules:
         module_base = "resolwe.flow.executors"
@@ -71,20 +93,19 @@ def configure_logging(emit_list):
             "json_formatter": {"()": JSONFormatter},
         },
         handlers={
-            "redis": {
-                "class": module_base + ".logger.RedisHandler",
+            "zeromq": {
+                "class": module_base + ".logger.ZeromqHandler",
                 "formatter": "json_formatter",
                 "level": logging.INFO,
-                "emit_list": emit_list,
             },
             "console": {"class": "logging.StreamHandler", "level": logging.WARNING},
         },
         root={
-            "handlers": ["redis", "console"],
+            "handlers": ["zeromq", "console"],
             "level": logging.DEBUG,
         },
         loggers={
-            # Don't use redis logger to prevent circular dependency.
+            # Don't use zeromq logger to prevent circular dependency.
             module_base
             + ".manager_comm": {
                 "level": "INFO",
@@ -93,5 +114,4 @@ def configure_logging(emit_list):
             },
         },
     )
-
     dictConfig(logging_config)
