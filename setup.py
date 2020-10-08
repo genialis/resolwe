@@ -45,6 +45,7 @@ setuptools.setup(
         "channels_redis~=2.4.1",
         # Storage requirement for computing hashes.
         "crcmod",
+        "kubernetes~=11.0.0",
         "Django~=2.2.0",
         "djangorestframework~=3.9.0",
         "django-filter~=2.0.0",
