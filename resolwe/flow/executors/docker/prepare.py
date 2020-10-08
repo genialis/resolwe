@@ -8,14 +8,13 @@ Preparation
     :members:
 
 """
-
 import os
 
 from django.conf import settings
 from django.core.management import call_command
 
+from .. import constants
 from ..prepare import BaseFlowExecutorPreparer
-from . import constants
 
 
 class FlowExecutorPreparer(BaseFlowExecutorPreparer):
@@ -56,8 +55,9 @@ class FlowExecutorPreparer(BaseFlowExecutorPreparer):
         if filename is None:
             return constants.UPLOAD_VOLUME
 
-        return os.path.join(constants.UPLOAD_VOLUME, filename)
+        return constants.UPLOAD_VOLUME / filename
 
     def get_environment_variables(self):
         """Return dict of environment variables that will be added to executor."""
-        return {"TMPDIR": os.path.join(constants.DATA_VOLUME, constants.TMPDIR)}
+
+        return {"TMPDIR": os.fspath(constants.DATA_LOCAL_VOLUME / constants.TMPDIR)}
