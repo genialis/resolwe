@@ -1,12 +1,10 @@
 """Transfer missing files to executor."""
 import logging
 import os
-import sys
 import time
 
-from .global_settings import DATA_META
-from .manager_commands import send_manager_command
 from .protocol import ExecutorProtocol
+from .socket_utils import BaseCommunicator, Message
 
 logger = logging.getLogger(__name__)
 
@@ -15,63 +13,43 @@ try:
     from .connectors import Transfer, connectors
     from .connectors.exceptions import DataTransferError
 except ImportError:
-    logger.exception("Unable to import 'connectors' module")
+    from resolwe.storage.connectors import Transfer, connectors
+    from resolwe.storage.connectors.exceptions import DataTransferError
 
 
 DOWNLOAD_WAITING_TIMEOUT = 60  # in seconds
 RETRIES = 5
 
 
-async def _notify_abort(reason):
-    """Notify listener that worker is aborting processing due to error."""
-    await send_manager_command(
-        ExecutorProtocol.UPDATE,
-        extra_fields={
-            ExecutorProtocol.UPDATE_CHANGESET: {
-                "process_error": [reason],
-                "status": DATA_META["STATUS_ERROR"],
-            }
-        },
-    )
-    await send_manager_command(ExecutorProtocol.ABORT, expect_reply=False)
+async def transfer_data(communicator: BaseCommunicator):
+    """Transfer missing data.
+
+    :raises RuntimeError: on failure.
+    """
+    if not await _transfer_data(communicator):
+        raise RuntimeError("Failed to transfer data")
 
 
-async def transfer_data():
-    """Transfer missing data, terminate script on failure."""
-    try:
-        abort_reason = None
-        if not await _transfer_data():
-            abort_reason = "Error while transfering data."
-    except RuntimeError:
-        abort_reason = "Communication error: data object or its location is missing."
-    finally:
-        if abort_reason:
-            await _notify_abort(abort_reason)
-            sys.exit(1)
-
-
-async def _transfer_data():
+async def _transfer_data(communicator: BaseCommunicator):
     """Fetch missing data.
 
     Get a list of missing storage locations from the manager fetch
     data using appropriate storage connectors.
     """
-    result = await send_manager_command(ExecutorProtocol.MISSING_DATA_LOCATIONS)
-    data_to_transfer = result[ExecutorProtocol.STORAGE_DATA_LOCATIONS]
+    response = await communicator.send_command(
+        Message.command(ExecutorProtocol.MISSING_DATA_LOCATIONS, "")
+    )
 
+    data_to_transfer = response.message_data
     to_connector = connectors["local"]
     base_path = to_connector.base_path
-    data_downloading = []
+
+    data_downloading: list = []
 
     # Notify manager to change status of the data object.
     if data_to_transfer:
-        await send_manager_command(
-            ExecutorProtocol.UPDATE,
-            extra_fields={
-                ExecutorProtocol.UPDATE_CHANGESET: {
-                    "status": DATA_META["STATUS_PREPARING"]
-                }
-            },
+        await communicator.send_command(
+            Message.command("update_status", "PP")  # TODO: DATA_META before
         )
     # Start downloading data.
     while data_to_transfer or data_downloading:
@@ -83,14 +61,16 @@ async def _transfer_data():
                     storage_location_id
                 )
             )
-            reply = await send_manager_command(
-                ExecutorProtocol.DOWNLOAD_STARTED,
-                extra_fields={
-                    ExecutorProtocol.STORAGE_LOCATION_ID: storage_location_id,
-                    ExecutorProtocol.DOWNLOAD_STARTED_LOCK: True,
-                },
+            response = await communicator.send_command(
+                Message.command(
+                    ExecutorProtocol.DOWNLOAD_STARTED,
+                    {
+                        ExecutorProtocol.STORAGE_LOCATION_ID: storage_location_id,
+                        ExecutorProtocol.DOWNLOAD_STARTED_LOCK: True,
+                    },
+                )
             )
-            result = reply[ExecutorProtocol.DOWNLOAD_RESULT]
+            result = response.message_data
             # There are three options:
             # - download is already finished
             # - we can start downloading
@@ -106,7 +86,7 @@ async def _transfer_data():
                 dest_dir = os.path.join(base_path, missing_data["url"])
                 os.makedirs(dest_dir, exist_ok=True)
                 # Download data will abort or finish the download
-                if not await download_data(missing_data):
+                if not await download_data(missing_data, communicator):
                     logger.error(
                         "Download for data with id {} aborted".format(
                             missing_data["data_id"]
@@ -129,23 +109,24 @@ async def _transfer_data():
             for download in data_downloading:
                 storage_location_id = download["to_storage_location_id"]
                 # Query for the status of the download
-                reply = await send_manager_command(
-                    ExecutorProtocol.DOWNLOAD_STARTED,
-                    extra_fields={
-                        ExecutorProtocol.STORAGE_LOCATION_ID: storage_location_id,
-                        ExecutorProtocol.DOWNLOAD_STARTED_LOCK: False,
-                    },
+                response = await communicator.send_command(
+                    Message.command(
+                        ExecutorProtocol.DOWNLOAD_STARTED,
+                        {
+                            ExecutorProtocol.STORAGE_LOCATION_ID: storage_location_id,
+                            ExecutorProtocol.DOWNLOAD_STARTED_LOCK: False,
+                        },
+                    )
                 )
-                result = reply[ExecutorProtocol.DOWNLOAD_RESULT]
                 # We have 3 options:
                 # - download was aborted, we can restart it
                 # - download is still in progress
                 # - download finished
-                if result == ExecutorProtocol.DOWNLOAD_STARTED:
+                if response.message_data == ExecutorProtocol.DOWNLOAD_STARTED:
                     # We can start the download
                     data_to_transfer.append(download)
                     logger.debug("Remote download {} was aborted".format(download))
-                elif result == ExecutorProtocol.DOWNLOAD_IN_PROGRESS:
+                elif response.message_data == ExecutorProtocol.DOWNLOAD_IN_PROGRESS:
                     # Download is still in progress, wait
                     data_downloading_new.append(download)
                     logger.debug("Download {} is still in progress".format(download))
@@ -153,7 +134,7 @@ async def _transfer_data():
     return True
 
 
-async def download_data(missing_data: dict) -> bool:
+async def download_data(missing_data: dict, communicator: BaseCommunicator) -> bool:
     """Download missing data for one data object.
 
     :returns: status of the transfer: True for success, False for failure.
@@ -170,41 +151,41 @@ async def download_data(missing_data: dict) -> bool:
             from_connector = connectors[missing_data["connector_name"]]
             from_storage_location_id = missing_data["from_storage_location_id"]
             to_storage_location_id = missing_data["to_storage_location_id"]
+            logger.debug(
+                "Locking storage location with id {}".format(from_storage_location_id)
+            )
 
             if objects is None:
-                response = await send_manager_command(
-                    ExecutorProtocol.GET_FILES_TO_DOWNLOAD,
-                    extra_fields={
-                        ExecutorProtocol.STORAGE_LOCATION_ID: from_storage_location_id,
-                    },
+                response = await communicator.send_command(
+                    Message.command(
+                        ExecutorProtocol.GET_FILES_TO_DOWNLOAD, from_storage_location_id
+                    )
                 )
-                objects = response[ExecutorProtocol.REFERENCED_FILES]
+                objects = response.message_data
 
             t = Transfer(from_connector, to_connector)
             t.transfer_objects(missing_data["url"], objects)
-            await send_manager_command(
-                ExecutorProtocol.DOWNLOAD_FINISHED,
-                extra_fields={
-                    ExecutorProtocol.STORAGE_LOCATION_ID: to_storage_location_id
-                },
+            await communicator.send_command(
+                Message.command(
+                    ExecutorProtocol.DOWNLOAD_FINISHED,
+                    to_storage_location_id,
+                )
             )
             return True
         except DataTransferError:
             logger.exception(
-                "Data transfer error downloading data with id {}, retry {} out of".format(
+                "Data transfer error downloading data with id {}, retry {}/{}".format(
                     data_id, retry, RETRIES
                 )
             )
         except Exception:
             logger.exception(
-                "Unknown error downloading data with id {}, retry {} out of".format(
+                "Unknown error downloading data with id {}, retry {}/{}".format(
                     data_id, retry, RETRIES
                 )
             )
     # None od the retries has been successfull, abort the download.
-    await send_manager_command(
-        ExecutorProtocol.DOWNLOAD_ABORTED,
-        expect_reply=False,
-        extra_fields={ExecutorProtocol.STORAGE_LOCATION_ID: to_storage_location_id},
+    await communicator.send_command(
+        Message.command(ExecutorProtocol.DOWNLOAD_ABORTED, to_storage_location_id)
     )
     return False
