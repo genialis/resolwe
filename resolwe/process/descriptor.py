@@ -51,7 +51,7 @@ class ProcessDescriptor:
             """Return string representation."""
             return repr(self.__dict__)
 
-    def __init__(self, source=None):
+    def __init__(self, source=None, parent_process=None):
         """Construct a new process descriptor."""
         self.metadata = ProcessDescriptor.Metadata()
         self.inputs = collections.OrderedDict()
@@ -59,6 +59,7 @@ class ProcessDescriptor:
         self.relations = None
         self.name = None
         self.source = source
+        self.parent_process = parent_process
 
     def validate(self):
         """Validate process descriptor."""
