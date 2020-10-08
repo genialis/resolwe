@@ -288,6 +288,7 @@ SECCOMP_POLICY = {
         {"name": "signalfd4", "action": "SCMP_ACT_ALLOW", "args": []},
         {"name": "sigreturn", "action": "SCMP_ACT_ALLOW", "args": []},
         {"name": "socketpair", "action": "SCMP_ACT_ALLOW", "args": []},
+        {"name": "socketcall", "action": "SCMP_ACT_ALLOW", "args": []},
         {"name": "splice", "action": "SCMP_ACT_ALLOW", "args": []},
         {"name": "stat", "action": "SCMP_ACT_ALLOW", "args": []},
         {"name": "stat64", "action": "SCMP_ACT_ALLOW", "args": []},
@@ -351,15 +352,30 @@ SECCOMP_POLICY = {
             "args": [
                 {
                     "index": 0,
-                    "value": 12,  # AF_INET
+                    "value": 1,  # AF_UNIX
+                    "valueTwo": 0,
+                    "op": "SCMP_CMP_EQ",
+                }
+            ],
+        },
+        {
+            "name": "socket",
+            "action": "SCMP_ACT_ALLOW",
+            "args": [
+                {
+                    "index": 0,
+                    "value": 2,  # AF_INET
                     "valueTwo": 0,
                     "op": "SCMP_CMP_EQ",
                 },
                 {
                     "index": 1,
                     "value": 1,  # SOCK_STREAM
-                    "valueTwo": 0,
-                    "op": "SCMP_CMP_EQ",
+                    "valueTwo": 1,
+                    # This needs to be masked since python automatically adds
+                    # flags when creating socket in Linux.
+                    # See https://bugs.python.org/issue32331 for more details.
+                    "op": "SCMP_CMP_MASKED_EQ",
                 },
                 {
                     "index": 2,
