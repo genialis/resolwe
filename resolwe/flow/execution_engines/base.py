@@ -34,3 +34,4 @@ class BaseExecutionEngine(BaseEngine):
         and values are paths under which these should be made available
         to the executing program. All volumes will be read-only.
         """
+        return {}
