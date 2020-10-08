@@ -5,9 +5,9 @@ import sys
 from functools import partial
 from unittest.mock import MagicMock, call, patch
 
-from resolwe.flow import executors
+from resolwe.flow.executors import transfer
+from resolwe.flow.executors.socket_utils import Message, Response, ResponseStatus
 from resolwe.flow.managers.protocol import ExecutorProtocol
-from resolwe.flow.models import Data
 from resolwe.storage import connectors
 from resolwe.storage.connectors.exceptions import DataTransferError
 from resolwe.test import TestCase
@@ -27,8 +27,8 @@ async def send(rules, command, extra_fields=None, expect_reply=True):
     rule_index = rules[0]
     rules[0] += 1
     expected, response = rules[rule_index]
-    if [command, extra_fields] != expected:
-        return {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_ERROR}
+    if command != expected:
+        return Response(ResponseStatus.ERROR.value, "ERROR")
     else:
         if callable(response):
             return response()
@@ -77,43 +77,30 @@ class SettingsJSONifier(json.JSONEncoder):
 
 MODULES_PATCH = {"resolwe.flow.executors.connectors": connectors, "sphinx": MagicMock()}
 TRANSFER = "resolwe.flow.executors.transfer"
-TRANSFER_PATCHES = {
-    "DATA_META": {
-        k: getattr(Data, k)
-        for k in dir(Data)
-        if k.startswith("STATUS_") and isinstance(getattr(Data, k), str)
-    }
-}
 
 
 class BasicTestCase(TestCase):
     RESULT_ERROR = {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_ERROR}
-    RESULT_OK = {ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK}
-    DOWNLOAD_STARTED = {
-        ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK,
-        ExecutorProtocol.DOWNLOAD_RESULT: ExecutorProtocol.DOWNLOAD_STARTED,
-    }
-    DOWNLOAD_IN_PROGRESS = {
-        ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK,
-        ExecutorProtocol.DOWNLOAD_RESULT: ExecutorProtocol.DOWNLOAD_IN_PROGRESS,
-    }
-    DOWNLOAD_FINISHED = {
-        ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK,
-        ExecutorProtocol.DOWNLOAD_RESULT: ExecutorProtocol.DOWNLOAD_FINISHED,
-    }
-    ACCESS_LOG = {
-        ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK,
-        ExecutorProtocol.STORAGE_ACCESS_LOG_ID: 1,
-    }
+    RESULT_OK = Response(ResponseStatus.OK.value, "OK")
+    DOWNLOAD_STARTED = Response(
+        ResponseStatus.OK.value, ExecutorProtocol.DOWNLOAD_STARTED
+    )
+    DOWNLOAD_IN_PROGRESS = Response(
+        ResponseStatus.OK.value, ExecutorProtocol.DOWNLOAD_IN_PROGRESS
+    )
+    DOWNLOAD_FINISHED = Response(
+        ResponseStatus.OK.value, ExecutorProtocol.DOWNLOAD_FINISHED
+    )
+    ACCESS_LOG = Response(ResponseStatus.OK.value, 1)
 
 
 @patch.dict(sys.modules, MODULES_PATCH)
-@patch.multiple(TRANSFER, **TRANSFER_PATCHES)
 class TransfersTest(BasicTestCase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
     def setUp(self):
+        self.communicator_mock = MagicMock()
         self.missing_data = [
             {
                 "connector_name": "CONNECTOR",
@@ -123,50 +110,44 @@ class TransfersTest(BasicTestCase):
                 "to_storage_location_id": 2,
             }
         ]
-        self.DOWNLOAD_STARTED_LOCK = [
-            ExecutorProtocol.DOWNLOAD_STARTED,
+        self.DOWNLOAD_STARTED_LOCK = Message.command(
+            "download_started",
             {
                 ExecutorProtocol.STORAGE_LOCATION_ID: 2,
                 ExecutorProtocol.DOWNLOAD_STARTED_LOCK: True,
             },
-        ]
-        self.DOWNLOAD_STARTED_NO_LOCK = [
-            ExecutorProtocol.DOWNLOAD_STARTED,
+        )
+        self.DOWNLOAD_STARTED_NO_LOCK = Message.command(
+            "download_started",
             {
                 ExecutorProtocol.STORAGE_LOCATION_ID: 2,
                 ExecutorProtocol.DOWNLOAD_STARTED_LOCK: False,
             },
-        ]
-        self.MISSING_DATA = [
-            ExecutorProtocol.MISSING_DATA_LOCATIONS,
-            None,
-        ]
-        self.MISSING_DATA_RESPONSE = {
-            ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK,
-            ExecutorProtocol.STORAGE_DATA_LOCATIONS: self.missing_data.copy(),
-        }
+        )
+        self.MISSING_DATA = Message.command(ExecutorProtocol.MISSING_DATA_LOCATIONS, "")
+
+        self.MISSING_DATA_RESPONSE = Response(
+            ResponseStatus.OK.value, self.missing_data.copy()
+        )
 
         return super().setUp()
 
     def _test_workflow(self, send_command, download_command, commands, result):
+        self.communicator_mock.send_command = send_command
         with patch.multiple(
-            TRANSFER, **self.get_patches(send_command, download_command)
+            TRANSFER,
+            **self.get_patches(send_command, download_command),
         ):
-            result = run_async(executors.transfer._transfer_data())
+            result = run_async(transfer._transfer_data(self.communicator_mock))
         self.assertEqual(send_command.call_count, len(commands) - 1)
         expected_args_list = []
-        for data, _ in commands[1:]:
-            command, extra_fields = data
-            if extra_fields is not None:
-                expected_args_list.append(call(command, extra_fields=extra_fields))
-            else:
-                expected_args_list.append(call(command))
+        for message, _ in commands[1:]:
+            expected_args_list.append(call(message))
         self.assertEqual(expected_args_list, send_command.call_args_list)
         return result
 
     def get_patches(self, send_command, download_command=None):
         patches = {
-            "send_manager_command": send_command,
             "DOWNLOAD_WAITING_TIMEOUT": 0,
         }
         if download_command is not None:
@@ -174,38 +155,39 @@ class TransfersTest(BasicTestCase):
         return patches
 
     def test_no_transfer(self):
-        self.MISSING_DATA_RESPONSE = {
-            ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK,
-            ExecutorProtocol.STORAGE_DATA_LOCATIONS: [],
-        }
+        self.MISSING_DATA_RESPONSE = Response(ResponseStatus.OK.value, [])
         send_command = MagicMock(
             side_effect=[
                 coroutine(self.MISSING_DATA_RESPONSE),
                 coroutine(self.RESULT_OK),
             ]
         )
-        with patch.multiple(TRANSFER, send_manager_command=send_command):
-            run_async(executors.transfer._transfer_data())
-        send_command.assert_called_once_with("missing_data_locations")
+        self.communicator_mock.send_command = send_command
+        run_async(transfer._transfer_data(self.communicator_mock))
+        send_command.assert_called_once_with(
+            Message.command("missing_data_locations", "")
+        )
 
     def test_transfer_download(self):
         commands = [
             1,
             (self.MISSING_DATA, self.MISSING_DATA_RESPONSE),
-            (["update", {"changeset": {"status": "PP"}}], self.RESULT_OK),
+            (Message.command("update_status", "PP"), self.RESULT_OK),
             (self.DOWNLOAD_STARTED_LOCK, self.DOWNLOAD_STARTED),
         ]
         send_command = MagicMock(side_effect=partial(send, commands))
         download_command = MagicMock(return_value=coroutine(True))
         result = self._test_workflow(send_command, download_command, commands, True)
         self.assertTrue(result)
-        download_command.assert_called_once_with(self.missing_data[0])
+        download_command.assert_called_once_with(
+            self.missing_data[0], self.communicator_mock
+        )
 
     def test_transfer_wait_download(self):
         commands = [
             1,
             (self.MISSING_DATA, self.MISSING_DATA_RESPONSE),
-            (["update", {"changeset": {"status": "PP"}}], self.RESULT_OK),
+            (Message.command("update_status", "PP"), self.RESULT_OK),
             (self.DOWNLOAD_STARTED_LOCK, self.DOWNLOAD_IN_PROGRESS),
             (self.DOWNLOAD_STARTED_NO_LOCK, self.DOWNLOAD_STARTED),
             (self.DOWNLOAD_STARTED_LOCK, self.DOWNLOAD_STARTED),
@@ -214,13 +196,15 @@ class TransfersTest(BasicTestCase):
         send_command = MagicMock(side_effect=partial(send, commands))
         result = self._test_workflow(send_command, download_command, commands, True)
         self.assertTrue(result)
-        download_command.assert_called_once_with(self.missing_data[0])
+        download_command.assert_called_once_with(
+            self.missing_data[0], self.communicator_mock
+        )
 
     def test_transfer_wait_download_long(self):
         commands = [
             1,
             (self.MISSING_DATA, self.MISSING_DATA_RESPONSE),
-            (["update", {"changeset": {"status": "PP"}}], self.RESULT_OK),
+            (Message.command("update_status", "PP"), self.RESULT_OK),
             (self.DOWNLOAD_STARTED_LOCK, self.DOWNLOAD_IN_PROGRESS),
             (self.DOWNLOAD_STARTED_NO_LOCK, self.DOWNLOAD_STARTED),
             (self.DOWNLOAD_STARTED_LOCK, self.DOWNLOAD_IN_PROGRESS),
@@ -235,26 +219,30 @@ class TransfersTest(BasicTestCase):
         send_command = MagicMock(side_effect=partial(send, commands))
         result = self._test_workflow(send_command, download_command, commands, True)
         self.assertTrue(result)
-        download_command.assert_called_once_with(self.missing_data[0])
+        download_command.assert_called_once_with(
+            self.missing_data[0], self.communicator_mock
+        )
 
     def test_transfer_failed(self):
         commands = [
             1,
             (self.MISSING_DATA, self.MISSING_DATA_RESPONSE),
-            (["update", {"changeset": {"status": "PP"}}], self.RESULT_OK),
+            (Message.command("update_status", "PP"), self.RESULT_OK),
             (self.DOWNLOAD_STARTED_LOCK, self.DOWNLOAD_STARTED),
         ]
         download_command = MagicMock(return_value=coroutine(False))
         send_command = MagicMock(side_effect=partial(send, commands))
         result = self._test_workflow(send_command, download_command, commands, True)
         self.assertFalse(result)
-        download_command.assert_called_once_with(self.missing_data[0])
+        download_command.assert_called_once_with(
+            self.missing_data[0], self.communicator_mock
+        )
 
     def test_transfer_downloaded(self):
         commands = [
             1,
             (self.MISSING_DATA, self.MISSING_DATA_RESPONSE),
-            (["update", {"changeset": {"status": "PP"}}], self.RESULT_OK),
+            (Message.command("update_status", "PP"), self.RESULT_OK),
             (self.DOWNLOAD_STARTED_LOCK, self.DOWNLOAD_FINISHED),
         ]
         download_command = MagicMock(return_value=coroutine(True))
@@ -267,7 +255,7 @@ class TransfersTest(BasicTestCase):
         commands = [
             1,
             (self.MISSING_DATA, self.MISSING_DATA_RESPONSE),
-            (["update", {"changeset": {"status": "PP"}}], self.RESULT_OK),
+            (Message.command("update_status", "PP"), self.RESULT_OK),
             (self.DOWNLOAD_STARTED_LOCK, self.DOWNLOAD_IN_PROGRESS),
             (self.DOWNLOAD_STARTED_NO_LOCK, self.DOWNLOAD_FINISHED),
         ]
@@ -294,18 +282,17 @@ class TransfersTest(BasicTestCase):
                 "to_storage_location_id": 2,
             },
         ]
-        self.MISSING_DATA_RESPONSE = {
-            ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK,
-            ExecutorProtocol.STORAGE_DATA_LOCATIONS: self.missing_data.copy(),
-        }
+        self.MISSING_DATA_RESPONSE = Response(
+            ResponseStatus.OK.value, self.missing_data.copy()
+        )
         commands = [
             1,
             (self.MISSING_DATA, self.MISSING_DATA_RESPONSE),
-            (["update", {"changeset": {"status": "PP"}}], self.RESULT_OK),
+            (Message.command("update_status", "PP"), self.RESULT_OK),
             (self.DOWNLOAD_STARTED_LOCK, self.DOWNLOAD_STARTED),
             (self.DOWNLOAD_STARTED_LOCK, self.DOWNLOAD_STARTED),
         ]
-        download_command = MagicMock(side_effect=lambda e: coroutine(True))
+        download_command = MagicMock(side_effect=lambda a, b: coroutine(True))
         send_command = MagicMock(side_effect=partial(send, commands))
         result = self._test_workflow(send_command, download_command, commands, True)
         self.assertTrue(result)
@@ -328,19 +315,18 @@ class TransfersTest(BasicTestCase):
                 "to_storage_location_id": 2,
             },
         ]
-        self.MISSING_DATA_RESPONSE = {
-            ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK,
-            ExecutorProtocol.STORAGE_DATA_LOCATIONS: self.missing_data.copy(),
-        }
+        self.MISSING_DATA_RESPONSE = Response(
+            ResponseStatus.OK.value, self.missing_data.copy()
+        )
         commands = [
             1,
             (self.MISSING_DATA, self.MISSING_DATA_RESPONSE),
-            (["update", {"changeset": {"status": "PP"}}], self.RESULT_OK),
+            (Message.command("update_status", "PP"), self.RESULT_OK),
             (self.DOWNLOAD_STARTED_LOCK, self.DOWNLOAD_IN_PROGRESS),
             (self.DOWNLOAD_STARTED_LOCK, self.DOWNLOAD_STARTED),
             (self.DOWNLOAD_STARTED_NO_LOCK, self.DOWNLOAD_FINISHED),
         ]
-        download_command = MagicMock(side_effect=lambda e: coroutine(True))
+        download_command = MagicMock(side_effect=lambda a, b: coroutine(True))
         send_command = MagicMock(side_effect=partial(send, commands))
         result = self._test_workflow(send_command, download_command, commands, True)
         self.assertTrue(result)
@@ -353,7 +339,7 @@ class TransfersTest(BasicTestCase):
         commands = [
             1,
             (self.MISSING_DATA, self.MISSING_DATA_RESPONSE),
-            (["update", {"changeset": {"status": "PP"}}], self.RESULT_OK),
+            (Message.command("update_status", "PP"), self.RESULT_OK),
             (self.DOWNLOAD_STARTED_LOCK, self.DOWNLOAD_STARTED),
         ]
         download_command = MagicMock(return_value=coroutine(True))
@@ -363,59 +349,33 @@ class TransfersTest(BasicTestCase):
         download_command.assert_not_called()
 
     def test_outer_command_success(self):
-        send_manager_command = MagicMock()
         _transfer_data = MagicMock(return_value=coroutine(True))
         patches = {
             "_transfer_data": _transfer_data,
-            "send_manager_command": send_manager_command,
         }
         with patch.multiple(TRANSFER, **patches):
-            result = run_async(executors.transfer.transfer_data())
+            result = run_async(transfer.transfer_data(self.communicator_mock))
         self.assertIsNone(result)
         _transfer_data.assert_called_once()
-        send_manager_command.assert_not_called()
+        self.communicator_mock.assert_not_called()
 
     def test_outer_command_failure(self):
-        send_manager_command = MagicMock()
-        commands = [
-            1,
-            (
-                [
-                    "update",
-                    {
-                        "changeset": {
-                            "process_error": ["Error while transfering data."],
-                            "status": Data.STATUS_ERROR,
-                        }
-                    },
-                ],
-                self.RESULT_OK,
-            ),
-            (["abort", {}], self.RESULT_OK),
-        ]
-        send_manager_command = MagicMock(side_effect=partial(send, commands))
-
         _transfer_data = MagicMock(return_value=coroutine(False))
         patches = {
             "_transfer_data": _transfer_data,
-            "send_manager_command": send_manager_command,
         }
         with patch.multiple(TRANSFER, **patches):
-            with self.assertRaises(SystemExit) as context_manager:
-                run_async(executors.transfer.transfer_data())
-        self.assertEqual(context_manager.exception.code, 1)
+            with self.assertRaises(RuntimeError) as context_manager:
+                run_async(transfer.transfer_data(self.communicator_mock))
+
+        self.assertEqual(str(context_manager.exception), "Failed to transfer data")
         _transfer_data.assert_called_once()
-        calls = [
-            call(commands[1][0][0], extra_fields=commands[1][0][1]),
-            call(commands[2][0][0], expect_reply=False),
-        ]
-        self.assertEqual(send_manager_command.call_args_list, calls)
 
 
 @patch.dict(sys.modules, MODULES_PATCH)
-@patch.multiple(TRANSFER, **TRANSFER_PATCHES)
 class DownloadDataTest(BasicTestCase):
     def setUp(self):
+        self.communicator_mock = MagicMock()
         self.missing_data = {
             "connector_name": "S3",
             "url": "transfer_url",
@@ -423,28 +383,21 @@ class DownloadDataTest(BasicTestCase):
             "from_storage_location_id": 1,
             "to_storage_location_id": 2,
         }
-        self.COMMAND_DOWNLOAD_FINISHED = [
-            ExecutorProtocol.DOWNLOAD_FINISHED,
-            {ExecutorProtocol.STORAGE_LOCATION_ID: 2},
-        ]
-        self.COMMAND_DOWNLOAD_ABORTED = [
-            ExecutorProtocol.DOWNLOAD_ABORTED,
-            {ExecutorProtocol.STORAGE_LOCATION_ID: 2},
-        ]
-        self.COMMAND_GET_FILES = [
-            ExecutorProtocol.GET_FILES_TO_DOWNLOAD,
-            {ExecutorProtocol.STORAGE_LOCATION_ID: 1},
-        ]
-        self.FILES_LIST = {
-            ExecutorProtocol.RESULT: ExecutorProtocol.RESULT_OK,
-            ExecutorProtocol.REFERENCED_FILES: ["1", "dir/1"],
-        }
+        self.COMMAND_DOWNLOAD_FINISHED = Message.command(
+            ExecutorProtocol.DOWNLOAD_FINISHED, 2
+        )
+        self.COMMAND_DOWNLOAD_ABORTED = Message.command(
+            ExecutorProtocol.DOWNLOAD_ABORTED, 2
+        )
+        self.COMMAND_GET_FILES = Message.command(
+            ExecutorProtocol.GET_FILES_TO_DOWNLOAD, 1
+        )
+        self.FILES_LIST = Response(ResponseStatus.OK.value, ["1", "dir/1"])
 
         return super().setUp()
 
     def get_patches(self, send_command, transfer_module):
         patches = {
-            "send_manager_command": send_command,
             "Transfer": transfer_module,
             "DataTransferError": DataTransferError,
             "RETRIES": 2,
@@ -455,22 +408,19 @@ class DownloadDataTest(BasicTestCase):
         self.assertEqual(send_command.call_count, len(commands) - 1)
         expected_args_list = []
         for i in range(1, len(commands)):
-            command, extra_fields = commands[i][0]
-            kwargs = {"extra_fields": extra_fields}
-            if command in (ExecutorProtocol.DOWNLOAD_ABORTED,):
-                kwargs["expect_reply"] = False
-            expected_args_list.append(call(command, **kwargs))
+            expected_args_list.append(call(commands[i][0]))
         self.assertEqual(expected_args_list, send_command.call_args_list)
 
     def _test_workflow(
         self, send_command, transfer_module, commands, expected_result=True
     ):
+        self.communicator_mock.send_command = send_command
         with patch.multiple(
             TRANSFER,
             **self.get_patches(send_command, transfer_module),
         ):
             result = run_async(
-                executors.transfer.download_data(self.missing_data.copy())
+                transfer.download_data(self.missing_data.copy(), self.communicator_mock)
             )
         self.assertEqual(result, expected_result)
         self._test_workflow_calls(send_command, commands)

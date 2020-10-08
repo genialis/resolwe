@@ -9,7 +9,7 @@
     expression-engine: jinja
     executor:
       docker:
-        image: resolwe/base:ubuntu-18.04
+        image: resolwe/gregor:ubuntu-18.04
   data_name: '{{ src.file|default("?") }}'
   version: 0.0.1
   type: data:dir

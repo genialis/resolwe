@@ -1,16 +1,10 @@
 # pylint: disable=missing-docstring
 import os
-import shutil
-import tempfile
-from unittest.mock import MagicMock
 
-from django.contrib.auth import get_user_model
 from django.test import override_settings
 from django.utils.crypto import get_random_string
 
-from resolwe.flow.executors.collect import collect_and_purge
-from resolwe.flow.models import DescriptorSchema, Process
-from resolwe.flow.models.utils import referenced_files
+from resolwe.flow.models import Process
 from resolwe.test import ProcessTestCase
 
 
@@ -217,124 +211,22 @@ re-save-dir-list sample_dir_list dir1:ref2 dir2 dir3
                 run={"language": "bash", "program": script_setup + "\n" + script_save},
             )
         )
-
         self.assertFilesRemoved(data, *removed)
         self.assertFilesNotRemoved(data, *not_removed)
 
         # Test descriptor.
-        descriptor_schema = DescriptorSchema.objects.create(
-            slug=get_random_string(6), contributor=self.admin, schema=[field_schema]
-        )
-        data = self.create_and_run_processor(
-            processor=dict(
-                input_schema=[],
-                output_schema=[],
-                run={"language": "bash", "program": script_setup},
-            ),
-            descriptor_schema=descriptor_schema,
-            descriptor={"sample": field_value},
-        )
+        # descriptor_schema = DescriptorSchema.objects.create(
+        #     slug=get_random_string(6), contributor=self.admin, schema=[field_schema]
+        # )
+        # data = self.create_and_run_processor(
+        #     processor=dict(
+        #         input_schema=[],
+        #         output_schema=[],
+        #         run={"language": "bash", "program": script_setup},
+        #     ),
+        #     descriptor_schema=descriptor_schema,
+        #     descriptor={"sample": field_value},
+        # )
 
-        self.assertFilesRemoved(data, *removed)
-        self.assertFilesNotRemoved(data, *not_removed)
-
-
-class PurgeUnitTest(PurgeTestFieldsMixin, ProcessTestCase):
-    def assertFieldWorks(
-        self, field_type, field_value, script_setup, script_save, removed, not_removed
-    ):
-        """
-        Checks that a field is handled correctly by `get_purge_files` under a
-        simulated Data object.
-        """
-
-        field_schema = {"name": "sample", "label": "Sample output", "type": field_type}
-
-        # Test simulated operation.
-        simulated_root = tempfile.mkdtemp()
-        try:
-            for filename in removed + not_removed:
-                directory, basename = os.path.split(filename)
-                if directory:
-                    try:
-                        os.makedirs(os.path.join(simulated_root, directory))
-                    except OSError:
-                        pass
-
-                if basename:
-                    with open(os.path.join(simulated_root, filename), "w"):
-                        pass
-
-            data_mock = MagicMock(
-                output={"sample": field_value},
-                process=MagicMock(output_schema=[field_schema]),
-                descriptor={},
-                descriptor_schema=[],
-            )
-            refs = referenced_files(data_mock)
-            collected, deleted = collect_and_purge(simulated_root, refs)
-
-            def strip_slash(filename):
-                return filename[:-1] if filename[-1] == "/" else filename
-
-            collected = [strip_slash(e) for e in collected]
-            deleted = [strip_slash(e) for e in deleted]
-
-            for filename in not_removed:
-                self.assertIn(
-                    strip_slash(filename),
-                    collected,
-                )
-
-            for filename in removed:
-                filename = strip_slash(filename)
-                self.assertNotIn(filename, collected)
-                self.assertIn(filename, deleted)
-                deleted.remove(filename)
-
-            # Ensure that nothing more is removed.
-            self.assertEqual(len(deleted), 0)
-        finally:
-            shutil.rmtree(simulated_root)
-
-    def create_test_file(self, location, filename):
-        """
-        Creates an empty file in the proper directory, so that a file can be used
-        as a reference in the Data object's output/descriptor.
-        """
-        root = location.get_path()
-        try:
-            os.makedirs(root)
-            self.test_files.add(root)
-        except OSError:
-            pass
-
-        filename = location.get_path(filename=filename)
-        with open(filename, "w"):
-            self.test_files.add(filename)
-
-    def setUp(self):
-        super().setUp()
-
-        self.test_files = set()
-
-        self.user = get_user_model().objects.create(username="test_user")
-        processor = Process.objects.create(
-            name="Test process",
-            contributor=self.user,
-            output_schema=[{"name": "sample", "type": "basic:file:"}],
-        )
-        self.data = {
-            "name": "Test data",
-            "contributor": self.user,
-            "process": processor,
-        }
-
-    def tearDown(self):
-        for filename in self.test_files:
-            if os.path.isfile(filename):
-                os.remove(filename)
-            elif os.path.isdir(filename):
-                shutil.rmtree(filename)
-
-        super().tearDown()
+        # self.assertFilesRemoved(data, *removed)
+        # self.assertFilesNotRemoved(data, *not_removed)

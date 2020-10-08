@@ -11,7 +11,7 @@ class PythonProcessJson(Process):
     requirements = {
         "executor": {
             "docker": {
-                "image": "resolwe/base:ubuntu-18.04",
+                "image": "resolwe/gregor:ubuntu-18.04",
             }
         }
     }
@@ -26,4 +26,4 @@ class PythonProcessJson(Process):
 
     def run(self, inputs, outputs):
         print("Input data:", inputs.data)
-        print("Input data:", inputs.data.storage)
+        print("Input data:", inputs.data.storages)

@@ -1,8 +1,9 @@
 # pylint: disable=missing-docstring
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import patch
 
-from resolwe.flow.managers.listener import ExecutorListener
+from resolwe.flow.executors.socket_utils import Message, Response, ResponseStatus
+from resolwe.flow.managers.listener import Processor
 from resolwe.flow.managers.protocol import ExecutorProtocol
 from resolwe.flow.models import Data, DataDependency
 from resolwe.storage.models import FileStorage, ReferencedPath, StorageLocation
@@ -14,7 +15,7 @@ class ListenerTest(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        cls.listener = ExecutorListener()
+        cls.processor = Processor(b"1", 1, None)
         cls.file_storage = FileStorage.objects.get(id=1)
         cls.storage_location = StorageLocation.objects.create(
             file_storage=cls.file_storage, connector_name="GCS", status="OK"
@@ -24,62 +25,24 @@ class ListenerTest(TestCase):
         )
         cls.storage_location.files.add(cls.path)
 
-    @patch("resolwe.flow.managers.listener.ExecutorListener._send_reply")
-    @patch("resolwe.flow.managers.listener.async_to_sync")
-    def test_handle_download_finished_missing_storage_location(
-        self, async_to_sync_mock, send_reply_mock
-    ):
-        obj = {
-            "command": ExecutorProtocol.DOWNLOAD_FINISHED,
-            "data_id": -1,
-            "storage_location_id": -2,
-        }
-        send_wrapper = MagicMock()
-        async_to_sync_mock.return_value = send_wrapper
-        with patch(
-            "resolwe.storage.models.FileStorage.default_storage_location",
-            self.storage_location,
-        ):
-            self.listener.handle_download_finished(obj)
+    def test_handle_download_finished_missing_storage_location(self):
+        obj = Message.command(ExecutorProtocol.DOWNLOAD_FINISHED, -2)
+        with self.assertRaises(StorageLocation.DoesNotExist):
+            self.processor.handle_download_finished(obj)
 
-        async_to_sync_mock.assert_called_once_with(send_reply_mock)
-        send_wrapper.assert_called_once_with(
-            {
-                "command": "download_finished",
-                "data_id": -1,
-                "storage_location_id": -2,
-            },
-            {"result": "ER"},
-        )
-
-    @patch("resolwe.flow.managers.listener.ExecutorListener._send_reply")
-    @patch("resolwe.flow.managers.listener.async_to_sync")
-    def test_handle_download_finished(self, async_to_sync_mock, send_reply_mock):
+    def test_handle_download_finished(self):
         storage_location = StorageLocation.objects.create(
             file_storage=self.file_storage, connector_name="local"
         )
-        obj = {
-            "command": ExecutorProtocol.DOWNLOAD_FINISHED,
-            "data_id": 1,
-            "storage_location_id": storage_location.id,
-        }
-        send_wrapper = MagicMock()
-        async_to_sync_mock.return_value = send_wrapper
+        obj = Message.command(ExecutorProtocol.DOWNLOAD_FINISHED, storage_location.id)
 
         with patch(
             "resolwe.storage.models.FileStorage.default_storage_location",
             self.storage_location,
         ):
-            self.listener.handle_download_finished(obj)
+            response = self.processor.handle_download_finished(obj)
 
-        send_wrapper.assert_called_once_with(
-            {
-                "command": "download_finished",
-                "data_id": 1,
-                "storage_location_id": storage_location.id,
-            },
-            {"result": "OK"},
-        )
+        self.assertEqual(response.response_status, ResponseStatus.OK)
         storage_location.refresh_from_db()
         self.assertEqual(storage_location.status, StorageLocation.STATUS_DONE)
         self.assertEqual(storage_location.files.count(), 1)
@@ -89,357 +52,140 @@ class ListenerTest(TestCase):
         self.assertEqual(file.crc32c, "crc")
         self.assertEqual(file.awss3etag, "aws")
 
-    @patch("resolwe.flow.managers.listener.logger.error")
-    def test_handle_download_aborted_missing_storage_location(self, error_logger_mock):
-        obj = {
-            "command": ExecutorProtocol.DOWNLOAD_ABORTED,
-            "data_id": -1,
-            "storage_location_id": -2,
-        }
+    def test_handle_download_aborted_missing_storage_location(self):
+        obj = Message.command(ExecutorProtocol.DOWNLOAD_ABORTED, -2)
+        response = self.processor.handle_download_aborted(obj)
+        self.assertEqual(response.response_status, ResponseStatus.OK)
 
-        self.listener.handle_download_aborted(obj)
-        error_logger_mock.assert_called_once_with(
-            "StorageLocation for data does not exist",
-            extra={"storage_location_id": -2, "data_id": -1},
-        )
-
-    @patch("resolwe.flow.managers.listener.logger.error")
-    def test_handle_download_aborted(self, error_logger_mock):
+    def test_handle_download_aborted(self):
         storage_location = StorageLocation.objects.create(
             file_storage=self.file_storage,
             connector_name="local",
             status=StorageLocation.STATUS_UPLOADING,
         )
-        obj = {
-            "command": ExecutorProtocol.DOWNLOAD_ABORTED,
-            "data_id": -1,
-            "storage_location_id": storage_location.id,
-        }
-        self.listener.handle_download_aborted(obj)
-        error_logger_mock.assert_not_called()
+        obj = Message.command(ExecutorProtocol.DOWNLOAD_ABORTED, storage_location.id)
+        self.processor.handle_download_aborted(obj)
+
         storage_location.refresh_from_db()
         self.assertEqual(storage_location.status, StorageLocation.STATUS_PREPARING)
 
-    @patch("resolwe.flow.managers.listener.consumer.send_event")
-    @patch("resolwe.flow.managers.listener.logger.error")
-    @patch("resolwe.flow.managers.listener.ExecutorListener._send_reply")
-    @patch("resolwe.flow.managers.listener.async_to_sync")
-    def test_handle_download_started_no_location(
-        self, async_to_sync_mock, send_reply_mock, error_logger_mock, send_event_mock
-    ):
-        obj = {
-            "command": ExecutorProtocol.DOWNLOAD_STARTED,
-            "data_id": -1,
-            "storage_location_id": -2,
-            "download_started_lock": True,
-        }
-        self.listener.handle_download_started(obj)
-
-        async_to_sync_mock.assert_has_calls(
-            [
-                call(send_reply_mock),
-                call()(
-                    {
-                        "command": "download_started",
-                        "data_id": -1,
-                        "storage_location_id": -2,
-                        "download_started_lock": True,
-                    },
-                    {"result": "ER"},
-                ),
-                call(send_event_mock),
-                call()(
-                    {
-                        "command": "abort_data",
-                        "data_id": -1,
-                        "communicate_kwargs": {
-                            "executor": "resolwe.flow.executors.local"
-                        },
-                    }
-                ),
-            ]
+    def test_handle_download_started_no_location(self):
+        obj = Message.command(
+            ExecutorProtocol.DOWNLOAD_STARTED,
+            {
+                "storage_location_id": -2,
+                "download_started_lock": True,
+            },
         )
-        error_logger_mock.assert_called_once_with(
-            "StorageLocation for downloaded data does not exist",
-            extra={"storage_location_id": -2},
-        )
+        with self.assertRaises(StorageLocation.DoesNotExist):
+            self.processor.handle_download_started(obj)
 
-    @patch("resolwe.flow.managers.listener.consumer.send_event")
-    @patch("resolwe.flow.managers.listener.logger.error")
-    @patch("resolwe.flow.managers.listener.ExecutorListener._send_reply")
-    @patch("resolwe.flow.managers.listener.async_to_sync")
-    def test_handle_download_started_ok_no_lock_preparing(
-        self, async_to_sync_mock, send_reply_mock, error_logger_mock, send_event_mock
-    ):
+    def test_handle_download_started_ok_no_lock_preparing(self):
         storage_location = StorageLocation.objects.create(
             file_storage=self.file_storage, connector_name="local"
         )
 
-        obj = {
-            "command": ExecutorProtocol.DOWNLOAD_STARTED,
-            "data_id": -1,
-            "storage_location_id": storage_location.id,
-            "download_started_lock": False,
-        }
-        self.listener.handle_download_started(obj)
-
-        async_to_sync_mock.assert_has_calls(
-            [
-                call(send_reply_mock),
-                call()(
-                    {
-                        "command": "download_started",
-                        "data_id": -1,
-                        "storage_location_id": storage_location.id,
-                        "download_started_lock": False,
-                    },
-                    {"result": "OK", "download_result": "download_started"},
-                ),
-            ]
+        obj = Message.command(
+            ExecutorProtocol.DOWNLOAD_STARTED,
+            {
+                "storage_location_id": storage_location.id,
+                "download_started_lock": False,
+            },
         )
-        error_logger_mock.assert_not_called()
+        response = self.processor.handle_download_started(obj)
+        self.assertEqual(
+            response, Response(ResponseStatus.OK.value, "download_started")
+        )
         storage_location.refresh_from_db()
         self.assertEqual(storage_location.status, StorageLocation.STATUS_PREPARING)
 
-    @patch("resolwe.flow.managers.listener.consumer.send_event")
-    @patch("resolwe.flow.managers.listener.logger.error")
-    @patch("resolwe.flow.managers.listener.ExecutorListener._send_reply")
-    @patch("resolwe.flow.managers.listener.async_to_sync")
-    def test_handle_download_started_ok_no_lock_uploading(
-        self, async_to_sync_mock, send_reply_mock, error_logger_mock, send_event_mock
-    ):
+    def test_handle_download_started_ok_no_lock_uploading(self):
         storage_location = StorageLocation.objects.create(
             file_storage=self.file_storage,
             connector_name="local",
             status=StorageLocation.STATUS_UPLOADING,
         )
-        obj = {
-            "command": ExecutorProtocol.DOWNLOAD_STARTED,
-            "data_id": -1,
-            "storage_location_id": storage_location.id,
-            "download_started_lock": False,
-        }
-
-        self.listener.handle_download_started(obj)
-
-        async_to_sync_mock.assert_has_calls(
-            [
-                call(send_reply_mock),
-                call()(
-                    {
-                        "command": "download_started",
-                        "data_id": -1,
-                        "storage_location_id": storage_location.id,
-                        "download_started_lock": False,
-                    },
-                    {"result": "OK", "download_result": "download_in_progress"},
-                ),
-            ]
+        obj = Message.command(
+            ExecutorProtocol.DOWNLOAD_STARTED,
+            {
+                "storage_location_id": storage_location.id,
+                "download_started_lock": False,
+            },
         )
-        error_logger_mock.assert_not_called()
+
+        response = self.processor.handle_download_started(obj)
+        self.assertEqual(
+            response, Response(ResponseStatus.OK.value, "download_in_progress")
+        )
         storage_location.refresh_from_db()
         self.assertEqual(storage_location.status, StorageLocation.STATUS_UPLOADING)
 
-    @patch("resolwe.flow.managers.listener.consumer.send_event")
-    @patch("resolwe.flow.managers.listener.logger.error")
-    @patch("resolwe.flow.managers.listener.ExecutorListener._send_reply")
-    @patch("resolwe.flow.managers.listener.async_to_sync")
-    def test_handle_download_started_ok_no_lock_done(
-        self, async_to_sync_mock, send_reply_mock, error_logger_mock, send_event_mock
-    ):
+    def test_handle_download_started_ok_no_lock_done(self):
         storage_location = StorageLocation.objects.create(
             file_storage=self.file_storage,
             connector_name="local",
             status=StorageLocation.STATUS_DONE,
         )
-        obj = {
-            "command": ExecutorProtocol.DOWNLOAD_STARTED,
-            "data_id": -1,
-            "storage_location_id": storage_location.id,
-            "download_started_lock": False,
-        }
-        self.listener.handle_download_started(obj)
-        async_to_sync_mock.assert_has_calls(
-            [
-                call(send_reply_mock),
-                call()(
-                    {
-                        "command": "download_started",
-                        "data_id": -1,
-                        "storage_location_id": storage_location.id,
-                        "download_started_lock": False,
-                    },
-                    {"result": "OK", "download_result": "download_finished"},
-                ),
-            ]
+        obj = Message.command(
+            ExecutorProtocol.DOWNLOAD_STARTED,
+            {
+                "storage_location_id": storage_location.id,
+                "download_started_lock": False,
+            },
         )
-        error_logger_mock.assert_not_called()
+        response = self.processor.handle_download_started(obj)
+        self.assertEqual(
+            response, Response(ResponseStatus.OK.value, "download_finished")
+        )
         storage_location.refresh_from_db()
         self.assertEqual(storage_location.status, StorageLocation.STATUS_DONE)
 
-    @patch("resolwe.flow.managers.listener.consumer.send_event")
-    @patch("resolwe.flow.managers.listener.logger.error")
-    @patch("resolwe.flow.managers.listener.ExecutorListener._send_reply")
-    @patch("resolwe.flow.managers.listener.async_to_sync")
-    def test_handle_download_started_ok_lock(
-        self, async_to_sync_mock, send_reply_mock, error_logger_mock, send_event_mock
-    ):
+    def test_handle_download_started_ok_lock(self):
         storage_location = StorageLocation.objects.create(
             file_storage=self.file_storage, connector_name="local"
         )
 
-        obj = {
-            "command": ExecutorProtocol.DOWNLOAD_STARTED,
-            "data_id": -1,
-            "storage_location_id": storage_location.id,
-            "download_started_lock": True,
-        }
-        self.listener.handle_download_started(obj)
-
-        async_to_sync_mock.assert_has_calls(
-            [
-                call(send_reply_mock),
-                call()(
-                    {
-                        "command": "download_started",
-                        "data_id": -1,
-                        "storage_location_id": storage_location.id,
-                        "download_started_lock": True,
-                    },
-                    {"result": "OK", "download_result": "download_started"},
-                ),
-            ]
+        obj = Message.command(
+            ExecutorProtocol.DOWNLOAD_STARTED,
+            {
+                "storage_location_id": storage_location.id,
+                "download_started_lock": True,
+            },
         )
-        error_logger_mock.assert_not_called()
+        response = self.processor.handle_download_started(obj)
+        self.assertEqual(
+            response, Response(ResponseStatus.OK.value, "download_started")
+        )
         storage_location.refresh_from_db()
         self.assertEqual(storage_location.status, StorageLocation.STATUS_UPLOADING)
 
-    @patch("resolwe.flow.managers.listener.consumer.send_event")
-    @patch("resolwe.flow.managers.listener.logger.error")
-    @patch("resolwe.flow.managers.listener.ExecutorListener._send_reply")
-    @patch("resolwe.flow.managers.listener.async_to_sync")
-    def test_handle_get_files_to_download_missing_storage_location(
-        self, async_to_sync_mock, send_reply_mock, error_logger_mock, send_event_mock
-    ):
-        obj = {
-            "command": ExecutorProtocol.GET_FILES_TO_DOWNLOAD,
-            "data_id": -1,
-            "storage_location_id": -2,
-        }
-        self.listener.handle_get_files_to_download(obj)
-        async_to_sync_mock.assert_has_calls(
-            [
-                call(send_reply_mock),
-                call()(
-                    {
-                        "command": "get_files_to_download",
-                        "data_id": -1,
-                        "storage_location_id": -2,
-                    },
-                    {"result": "ER"},
-                ),
-                call(send_event_mock),
-                call()(
-                    {
-                        "command": "abort_data",
-                        "data_id": -1,
-                        "communicate_kwargs": {
-                            "executor": "resolwe.flow.executors.local"
-                        },
-                    }
-                ),
-            ]
-        )
-        error_logger_mock.assert_called_once_with(
-            "StorageLocation object does not exist (handle_get_files_to_download).",
-            extra={"storage_location_id": -2},
-        )
+    def test_handle_get_files_to_download_missing_storage_location(self):
+        obj = Message.command(ExecutorProtocol.GET_FILES_TO_DOWNLOAD, -2)
+        response = self.processor.handle_get_files_to_download(obj)
+        self.assertEqual(response, Response(ResponseStatus.OK.value, []))
 
-    @patch("resolwe.flow.managers.listener.consumer.send_event")
-    @patch("resolwe.flow.managers.listener.logger.error")
-    @patch("resolwe.flow.managers.listener.ExecutorListener._send_reply")
-    @patch("resolwe.flow.managers.listener.async_to_sync")
-    def test_handle_get_files_to_download(
-        self, async_to_sync_mock, send_reply_mock, error_logger_mock, send_event_mock
-    ):
-        obj = {
-            "command": ExecutorProtocol.GET_FILES_TO_DOWNLOAD,
-            "data_id": -1,
-            "storage_location_id": self.storage_location.id,
-        }
-        self.listener.handle_get_files_to_download(obj)
-        async_to_sync_mock.assert_has_calls(
+    def test_handle_get_files_to_download(self):
+        obj = Message.command(
+            ExecutorProtocol.GET_FILES_TO_DOWNLOAD, self.storage_location.id
+        )
+        response = self.processor.handle_get_files_to_download(obj)
+        expected = Response(
+            ResponseStatus.OK.value,
             [
-                call(send_reply_mock),
-                call()(
-                    {
-                        "command": "get_files_to_download",
-                        "data_id": -1,
-                        "storage_location_id": self.storage_location.id,
-                    },
-                    {
-                        "result": "OK",
-                        "referenced_files": [
-                            {
-                                "id": self.path.id,
-                                "path": "test.me",
-                                "size": -1,
-                                "md5": "md5",
-                                "crc32c": "crc",
-                                "awss3etag": "aws",
-                            }
-                        ],
-                    },
-                ),
-            ]
+                {
+                    "id": self.path.id,
+                    "path": "test.me",
+                    "size": -1,
+                    "md5": "md5",
+                    "crc32c": "crc",
+                    "awss3etag": "aws",
+                }
+            ],
         )
+        self.assertEqual(response, expected)
 
-    @patch("resolwe.flow.managers.listener.consumer.send_event")
-    @patch("resolwe.flow.managers.listener.logger.error")
-    @patch("resolwe.flow.managers.listener.ExecutorListener._send_reply")
-    @patch("resolwe.flow.managers.listener.async_to_sync")
-    def test_handle_get_referenced_files_missing_data(
-        self, async_to_sync_mock, send_reply_mock, error_logger_mock, send_event_mock
-    ):
-        obj = {
-            "command": ExecutorProtocol.GET_REFERENCED_FILES,
-            "data_id": -1,
-        }
-        self.listener.handle_get_referenced_files(obj)
-        async_to_sync_mock.assert_has_calls(
-            [
-                call(send_reply_mock),
-                call()(
-                    {"command": "get_referenced_files", "data_id": -1}, {"result": "ER"}
-                ),
-                call(send_event_mock),
-                call()(
-                    {
-                        "command": "abort_data",
-                        "data_id": -1,
-                        "communicate_kwargs": {
-                            "executor": "resolwe.flow.executors.local"
-                        },
-                    }
-                ),
-            ]
-        )
-        error_logger_mock.assert_called_once_with(
-            "Data object does not exist (handle_get_referenced_files).",
-            extra={"data_id": -1},
-        )
-
-    @patch("resolwe.flow.managers.listener.consumer.send_event")
-    @patch("resolwe.flow.managers.listener.logger.error")
-    @patch("resolwe.flow.managers.listener.ExecutorListener._send_reply")
-    @patch("resolwe.flow.managers.listener.async_to_sync")
-    def test_handle_get_referenced_files(
-        self, async_to_sync_mock, send_reply_mock, error_logger_mock, send_event_mock
-    ):
-        obj = {
-            "command": ExecutorProtocol.GET_REFERENCED_FILES,
-            "data_id": 1,
-        }
+    def test_handle_get_referenced_files(self):
+        obj = Message.command(ExecutorProtocol.GET_REFERENCED_FILES, "")
         storage_location = StorageLocation.objects.create(
             file_storage=self.file_storage,
             connector_name="local",
@@ -455,115 +201,37 @@ class ListenerTest(TestCase):
         data.output = {"output_file": {"file": "output.txt"}}
         data.save()
 
-        self.listener.handle_get_referenced_files(obj)
-        async_to_sync_mock.assert_has_calls(
+        response = self.processor.handle_get_referenced_files(obj)
+        expected = Response(
+            ResponseStatus.OK.value,
             [
-                call(send_reply_mock),
-                call()(
-                    {"command": "get_referenced_files", "data_id": 1},
-                    {
-                        "result": "OK",
-                        "referenced_files": [
-                            "jsonout.txt",
-                            "stderr.txt",
-                            "stdout.txt",
-                            "output.txt",
-                        ],
-                    },
-                ),
-            ]
+                "jsonout.txt",
+                "stderr.txt",
+                "stdout.txt",
+                "output.txt",
+            ],
         )
-        error_logger_mock.assert_not_called()
+        self.assertEqual(response, expected)
 
-    @patch("resolwe.flow.managers.listener.consumer.send_event")
-    @patch("resolwe.flow.managers.listener.logger.error")
-    @patch("resolwe.flow.managers.listener.ExecutorListener._send_reply")
-    @patch("resolwe.flow.managers.listener.async_to_sync")
-    def test_handle_missing_data_locations_missing_data(
-        self, async_to_sync_mock, send_reply_mock, error_logger_mock, send_event_mock
-    ):
-        obj = {
-            "command": ExecutorProtocol.MISSING_DATA_LOCATIONS,
-            "data_id": -1,
-        }
-        self.listener.handle_missing_data_locations(obj)
-        async_to_sync_mock.assert_has_calls(
-            [
-                call(send_reply_mock),
-                call()(
-                    {"command": "missing_data_locations", "data_id": -1},
-                    {"result": "ER"},
-                ),
-                call(send_event_mock),
-                call()(
-                    {
-                        "command": "abort_data",
-                        "data_id": -1,
-                        "communicate_kwargs": {
-                            "executor": "resolwe.flow.executors.local"
-                        },
-                    }
-                ),
-            ]
-        )
-        error_logger_mock.assert_called_once_with(
-            "Data object does not exist (handle_missing_data_locations).",
-            extra={"data_id": -1},
-        )
+    def test_handle_missing_data_locations_missing_data(self):
+        obj = Message.command(ExecutorProtocol.MISSING_DATA_LOCATIONS, "")
+        response = self.processor.handle_missing_data_locations(obj)
+        self.assertEqual(response, Response(ResponseStatus.OK.value, []))
 
-    @patch("resolwe.flow.managers.listener.consumer.send_event")
-    @patch("resolwe.flow.managers.listener.logger.error")
-    @patch("resolwe.flow.managers.listener.ExecutorListener._send_reply")
-    @patch("resolwe.flow.managers.listener.async_to_sync")
-    def test_handle_missing_data_locations_missing_storage_location(
-        self, async_to_sync_mock, send_reply_mock, error_logger_mock, send_event_mock
-    ):
-        obj = {
-            "command": ExecutorProtocol.MISSING_DATA_LOCATIONS,
-            "data_id": 1,
-        }
+    def test_handle_missing_data_locations_missing_storage_location(self):
+        obj = Message.command(ExecutorProtocol.MISSING_DATA_LOCATIONS, "")
         parent = Data.objects.get(id=2)
         child = Data.objects.get(id=1)
         DataDependency.objects.create(
             parent=parent, child=child, kind=DataDependency.KIND_IO
         )
-        self.listener.handle_missing_data_locations(obj)
-        async_to_sync_mock.assert_has_calls(
-            [
-                call(send_reply_mock),
-                call()(
-                    {"command": "missing_data_locations", "data_id": 1},
-                    {"result": "ER"},
-                ),
-                call(send_event_mock),
-                call()(
-                    {
-                        "command": "abort_data",
-                        "data_id": 1,
-                        "communicate_kwargs": {
-                            "executor": "resolwe.flow.executors.local"
-                        },
-                    }
-                ),
-            ]
-        )
-        error_logger_mock.assert_called_once_with(
-            "No storage location exists (handle_get_missing_data_locations).",
-            extra={"data_id": 1, "file_storage_id": 2},
-        )
+        response = self.processor.handle_missing_data_locations(obj)
+        expected = Response(ResponseStatus.ERROR.value, "No storage location exists")
+        self.assertEqual(response, expected)
         self.assertEqual(StorageLocation.all_objects.count(), 1)
 
-    @patch("resolwe.flow.managers.listener.consumer.send_event")
-    @patch("resolwe.flow.managers.listener.logger.error")
-    @patch("resolwe.flow.managers.listener.ExecutorListener._send_reply")
-    @patch("resolwe.flow.managers.listener.async_to_sync")
-    def test_handle_missing_data_locations_none(
-        self, async_to_sync_mock, send_reply_mock, error_logger_mock, send_event_mock
-    ):
-        obj = {
-            "command": ExecutorProtocol.MISSING_DATA_LOCATIONS,
-            "data_id": 1,
-        }
+    def test_handle_missing_data_locations_none(self):
+        obj = Message.command(ExecutorProtocol.MISSING_DATA_LOCATIONS, "")
         parent = Data.objects.get(id=2)
         child = Data.objects.get(id=1)
         DataDependency.objects.create(
@@ -575,30 +243,13 @@ class ListenerTest(TestCase):
             status=StorageLocation.STATUS_DONE,
             url="url",
         )
-        self.listener.handle_missing_data_locations(obj)
-        async_to_sync_mock.assert_has_calls(
-            [
-                call(send_reply_mock),
-                call()(
-                    {"command": "missing_data_locations", "data_id": 1},
-                    {"result": "OK", "storage_data_locations": []},
-                ),
-            ]
-        )
-        error_logger_mock.assert_not_called()
+        response = self.processor.handle_missing_data_locations(obj)
+        expected = Response(ResponseStatus.OK.value, [])
+        self.assertEqual(response, expected)
         self.assertEqual(StorageLocation.all_objects.count(), 2)
 
-    @patch("resolwe.flow.managers.listener.consumer.send_event")
-    @patch("resolwe.flow.managers.listener.logger.error")
-    @patch("resolwe.flow.managers.listener.ExecutorListener._send_reply")
-    @patch("resolwe.flow.managers.listener.async_to_sync")
-    def test_handle_missing_data_locations(
-        self, async_to_sync_mock, send_reply_mock, error_logger_mock, send_event_mock
-    ):
-        obj = {
-            "command": ExecutorProtocol.MISSING_DATA_LOCATIONS,
-            "data_id": 1,
-        }
+    def test_handle_missing_data_locations(self):
+        obj = Message.command(ExecutorProtocol.MISSING_DATA_LOCATIONS, "")
         parent = Data.objects.get(id=2)
         child = Data.objects.get(id=1)
         DataDependency.objects.create(
@@ -610,27 +261,19 @@ class ListenerTest(TestCase):
             status=StorageLocation.STATUS_DONE,
             url="url",
         )
-        self.listener.handle_missing_data_locations(obj)
+        response = self.processor.handle_missing_data_locations(obj)
         self.assertEqual(StorageLocation.all_objects.count(), 3)
         created = StorageLocation.all_objects.last()
-        async_to_sync_mock.assert_has_calls(
+        expected = Response(
+            ResponseStatus.OK.value,
             [
-                call(send_reply_mock),
-                call()(
-                    {"command": "missing_data_locations", "data_id": child.id},
-                    {
-                        "result": "OK",
-                        "storage_data_locations": [
-                            {
-                                "connector_name": "not_local",
-                                "url": "url",
-                                "data_id": child.id,
-                                "to_storage_location_id": created.id,
-                                "from_storage_location_id": storage_location.id,
-                            }
-                        ],
-                    },
-                ),
-            ]
+                {
+                    "connector_name": "not_local",
+                    "url": "url",
+                    "data_id": child.id,
+                    "to_storage_location_id": created.id,
+                    "from_storage_location_id": storage_location.id,
+                }
+            ],
         )
-        error_logger_mock.assert_not_called()
+        self.assertEqual(response, expected)

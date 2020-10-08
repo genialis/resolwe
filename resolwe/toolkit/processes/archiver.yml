@@ -5,7 +5,7 @@
     expression-engine: jinja
     executor:
       docker:
-        image: resolwe/archiver:1.0.0
+        image: resolwe/archiver:2.0.0
     resources:
       cores: 1
       memory: 1024

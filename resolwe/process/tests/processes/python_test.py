@@ -55,7 +55,7 @@ class PythonProcess(Process):
         "expression-engine": "jinja",
         "executor": {
             "docker": {
-                "image": "resolwe/base:ubuntu-18.04",
+                "image": "resolwe/gregor:ubuntu-18.04",
             }
         },
     }
@@ -121,7 +121,7 @@ class PythonProcess(Process):
         print("Input data descriptor:", inputs.input_data.descriptor)
         print("Group bar:", inputs.my_group.bar)
         print("Group foo:", inputs.my_group.foo)
-        print("Entity name of the input:", inputs.input_entity_data.entity_name)
+        print("Entity name of the input:", inputs.input_entity_data.entity.name)
         print("Docker image:", self.requirements.executor.docker.image)
 
         if inputs.my_optional:
@@ -135,7 +135,7 @@ class PythonProcess(Process):
                 "inputs.my_group.group_optional_no_default should not exist."
             )
 
-        if inputs.input_entity_data.optional:
+        if inputs.input_entity_data.output.optional:
             raise AttributeError("inputs.list_string_output.optional should not exist.")
 
         try:
@@ -145,7 +145,7 @@ class PythonProcess(Process):
                 pass
 
         try:
-            inputs.input_entity_data.invalid_field
+            inputs.input_entity_data.output.invalid_field
         except AttributeError as err:
             if "DataField has no member invalid_field" in str(err):
                 pass
@@ -161,7 +161,7 @@ class PythonProcess(Process):
         outputs.list_file_output = ["test/testfile.txt", "testfile2.txt"]
         outputs.dir_output = "test/"
         outputs.input_data_name = inputs.input_data.name
-        outputs.input_entity_name = inputs.input_entity_data.entity_name
+        outputs.input_entity_name = inputs.input_entity_data.entity.name
         outputs.docker_image = self.requirements.executor.docker.image
         outputs.string_output = "OK"
         outputs.list_string_output = ["foo", "bar"]
