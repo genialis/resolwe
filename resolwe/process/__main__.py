@@ -1,46 +1,44 @@
 """Python process runner utility."""
 import argparse
 import inspect
-import json
+import logging
 import os
 import sys
 from importlib import import_module
+from pathlib import Path
+from typing import Dict, Type
 
 from .descriptor import ValidationError
-from .runtime import Inputs, Process
+from .models import Data
+from .runtime import Process
+
+# Id of the Data object we are processing.
+DATA_ID = int(os.getenv("DATA_ID", "-1"))
+logger = logging.getLogger(__name__)
+
 
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser(description="Run a Resolwe Python proces")
     parser.add_argument("filename", type=str, help="Python process filename to run")
-    parser.add_argument(
-        "--slug",
-        type=str,
-        help="Slug of the process to run (required if multiple processes are defined)",
-    )
-    parser.add_argument(
-        "--name", type=str, help="Name of processing Data object", default=""
-    )
-    parser.add_argument("--inputs", type=str, help="Path to input JSON file")
-    parser.add_argument(
-        "--requirements", type=str, help="Path to requirements JSON file"
-    )
-    parser.add_argument("--relations", type=str, help="Path to relations JSON file")
     args = parser.parse_args()
+
+    # Get the data object.
+    data = Data(DATA_ID)
 
     # Switch to target directory to import the module.
     try:
-        filename = os.path.realpath(args.filename)
-        start_dir = os.getcwd()
-        os.chdir(os.path.dirname(filename))
-        module, _ = os.path.splitext(os.path.basename(filename))
-        module = import_module(module, __package__)
+        filename = Path(args.filename).resolve()
+        start_dir = Path.cwd()
+        os.chdir(filename.parent)
+        module = import_module(filename.stem, __package__)
         os.chdir(start_dir)
     except (OSError, ImportError):
-        print("ERROR: Failed to load Python process from '{}'.".format(args.filename))
+        logger.exception("Failed to load Python process from %s.", args.filename)
         sys.exit(1)
 
-    processes = {}
+    # Mapping between the process slug and the class containing the process
+    # definition.
+    processes: Dict[str, Type[Process]] = {}
     for variable in dir(module):
         value = getattr(module, variable)
         if (
@@ -49,77 +47,23 @@ if __name__ == "__main__":
             or not issubclass(value, Process)
         ):
             continue
-
         processes[value._meta.metadata.slug] = value
 
-    if args.slug:
-        try:
-            process = processes[args.slug]
-        except KeyError:
-            print("Found the following processes in module '{}':".format(args.module))
-            print("")
-            for slug, process in processes.items():
-                print("  {} ({})".format(slug, process._meta.metadata.name))
-            print("")
-
-            print("ERROR: Unable to find process '{}'.".format(args.slug))
-            sys.exit(1)
-    elif len(processes) == 1:
-        process = next(iter(processes.values()))
-    else:
+    try:
+        process = processes[data.process.slug]
+    except KeyError:
         print("Found the following processes in module '{}':".format(args.module))
         print("")
         for slug, process in processes.items():
-            print("  {} ({})".format(slug, process._meta.metadata.name))
+            print("  {} ({})".format(slug, getattr(process, "name")))
         print("")
 
-        print("ERROR: Unable to determine which process to run. Pass --slug option.")
+        print("ERROR: Unable to find process '{}'.".format(data.process.slug))
         sys.exit(1)
-
-    # Prepare process inputs.
-    try:
-        inputs = Inputs(process._meta.inputs)
-        if args.inputs:
-            with open(args.inputs) as inputs_file:
-                data = json.load(inputs_file)
-
-            for key, value in data.items():
-                setattr(inputs, key, value)
-    except ValidationError as error:
-        print("ERROR: Input field validation failed: {}".format(error.args[0]))
-        sys.exit(1)
-
-    # Prepare process requirements.
-    requirements = None
-    try:
-        if args.requirements:
-            with open(args.requirements) as requirements_file:
-                requirements = json.load(requirements_file)
-    except Exception as error:
-        print("ERROR: Requirements failed to load: {}".format(str(error)))
-        sys.exit(1)
-
-    # Prepare relations.
-    relations = None
-    try:
-        if args.relations:
-            with open(args.relations) as relations_file:
-                relations = json.load(relations_file)
-    except Exception as error:
-        print("ERROR: Relations failed to load: {}".format(str(error)))
-        sys.exit(1)
-
-    # TODO: Configure logging.
 
     # Start the process.
-    instance = process()
     try:
-        if requirements is not None:
-            instance._meta.metadata.requirements = requirements
-        instance._meta.relations = relations
-        instance._meta.name = args.name
-
-        instance.start(inputs)
+        process(data).start()
     except ValidationError as error:
         print("ERROR: Output field validation failed: {}".format(error.args[0]))
         sys.exit(1)

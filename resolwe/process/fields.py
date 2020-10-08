@@ -1,12 +1,81 @@
 """Process input or output fields."""
 import collections
-import json
+import glob
+import gzip
+import os
+import re
+import shlex
+import shutil
+import subprocess
+import tarfile
+import zlib
+from itertools import chain
+from pathlib import Path
+from typing import Dict, Iterable, List, Optional, Type, Union
 
-import resolwe_runtime_utils
+import requests
+
+from .communicator import communicator
+
+DATA_LOCAL_VOLUME = Path(os.environ.get("DATA_LOCAL_VOLUME", "/data_local"))
+DATA_VOLUME = Path(os.environ.get("DATA_VOLUME", "/data"))
+DATA_ALL_VOLUME = Path(os.environ.get("DATA_ALL_VOLUME", "/data_all"))
+
+
+def _get_dir_size(path):
+    """Get directory size.
+
+    :param path: a Path object pointing to the directory.
+    :type path: pathlib.Path
+    """
+    return sum(
+        file_.stat().st_size for file_ in Path(path).rglob("*") if file_.is_file()
+    )
+
+
+def copy_file_or_dir(entries: Iterable[Union[str, Path]]):
+    """Copy file and all its references to data_volume.
+
+    The entry is a path relative to the DATA_LOCAL_VOLUME (our working
+    directory). It must be copied to the DATA_VOLUME on the shared
+    filesystem.
+    """
+    for entry in entries:
+        source = Path(entry)
+        destination = DATA_VOLUME / source
+        destination.parent.mkdir(exist_ok=True, parents=True)
+        if source.is_dir():
+            if not destination.exists():
+                shutil.copytree(source, destination)
+            else:
+                # If destination directory exists the copytree will fail.
+                # In such case perform a recursive call with entries in
+                # the source directory as arguments.
+                #
+                # TODO: fix when we support Python 3.8 and later. See
+                # dirs_exist_ok argument to copytree method.
+                copy_file_or_dir(source.glob("*"))
+        elif source.is_file():
+            destination.parent.mkdir(exist_ok=True, parents=True)
+            # Use copy2 to preserve file metadata, such as file creation
+            # and modification times.
+            shutil.copy2(source, destination)
 
 
 class ValidationError(Exception):
     """Field value validation error."""
+
+
+# ------Import file attributes ----------.
+class ImportedFormat:
+    """Import destination file format."""
+
+    EXTRACTED = "extracted"
+    COMPRESSED = "compressed"
+    BOTH = "both"
+
+
+# ----------------------------------
 
 
 class Field:
@@ -28,7 +97,7 @@ class Field:
     ):
         """Construct a field descriptor."""
         self.name = None
-        self.process = None
+        self.process: Optional["resolwe.process.descriptor.ProcessDescriptor"] = None
         self.label = label
         self.required = required
         self.description = description
@@ -36,6 +105,21 @@ class Field:
         self.choices = choices
         self.allow_custom_choice = allow_custom_choice
         self.hidden = hidden
+
+    @property
+    def _descriptor_field_name(self):
+        """Get descriptor field name."""
+        return f"{self.name}"
+
+    def __get__(self, obj, objtype=None):
+        """Make field a descriptor."""
+        return self if obj is None else obj._get_field_data(self)
+
+    def __set__(self, obj, value):
+        """Make field a descriptor."""
+        if obj is not None:
+            return
+        obj._set_field_data(self, value)
 
     def get_field_type(self):
         """Return this field's type."""
@@ -93,8 +177,11 @@ class Field:
         return {}
 
     def to_output(self, value):
-        """Convert value to process output format."""
-        return json.loads(resolwe_runtime_utils.save(self.name, value))
+        """Convert value to process output format.
+
+        :returns: dict {name, value}.
+        """
+        return value
 
     def validate(self, value):
         """Validate field value."""
@@ -177,10 +264,6 @@ class IntegerField(Field):
             except (TypeError, ValueError):
                 raise ValidationError("field must be an integer")
 
-    def to_output(self, value):
-        """Convert value to process output format."""
-        return json.loads(resolwe_runtime_utils.save(self.name, str(value)))
-
 
 class FloatField(Field):
     """Float field."""
@@ -195,10 +278,6 @@ class FloatField(Field):
                 return float(value)
             except (TypeError, ValueError):
                 raise ValidationError("field must be a float")
-
-    def to_output(self, value):
-        """Convert value to process output format."""
-        return json.loads(resolwe_runtime_utils.save(self.name, str(value)))
 
 
 class DateField(Field):
@@ -258,6 +337,36 @@ class UrlField(Field):
         return "basic:url:{}".format(self.url_type)
 
 
+class DownloadUrlField(UrlField):
+    """Subclass of UrlField."""
+
+    field_type = "basic:url:download"
+
+    def __init__(self, *args, **kwargs):
+        """Init."""
+        super().__init__(UrlField.DOWNLOAD, *args, **kwargs)
+
+
+class ViewUrlField(UrlField):
+    """Subclass of UrlField."""
+
+    field_type = "basic:url:view"
+
+    def __init__(self, *args, **kwargs):
+        """Init."""
+        super().__init__(UrlField.VIEW, *args, **kwargs)
+
+
+class LinkUrlField(UrlField):
+    """Subclass of UrlField."""
+
+    field_type = "basic:url:link"
+
+    def __init__(self, *args, **kwargs):
+        """Init."""
+        super().__init__(UrlField.LINK, *args, **kwargs)
+
+
 class SecretField(Field):
     """Secret field."""
 
@@ -267,6 +376,8 @@ class SecretField(Field):
 class FileDescriptor:
     """Descriptor for accessing files."""
 
+    CHUNK_SIZE = 10_000_000  # 10 Mbytes
+
     def __init__(
         self,
         path,
@@ -275,6 +386,7 @@ class FileDescriptor:
         is_remote=False,
         file_temp=None,
         refs=None,
+        file_field: Optional["FileField"] = None,
     ):
         """Construct a file descriptor."""
         self.path = path
@@ -282,6 +394,7 @@ class FileDescriptor:
         self.total_size = total_size
         self.is_remote = is_remote
         self.file_temp = file_temp
+        self.file_field = file_field
         if refs is None:
             refs = []
         self.refs = refs
@@ -294,19 +407,242 @@ class FileDescriptor:
         :param progress_to: Final progress value
         :return: Destination file path (if extracted and compressed, extracted path given)
         """
-        if not hasattr(resolwe_runtime_utils, "import_file"):
-            raise RuntimeError("Requires resolwe-runtime-utils >= 2.0.0")
-
         if imported_format is None:
-            imported_format = resolwe_runtime_utils.ImportedFormat.BOTH
+            imported_format = ImportedFormat.BOTH
 
-        return resolwe_runtime_utils.import_file(
-            src=self.file_temp,
-            file_name=self.path,
-            imported_format=imported_format,
-            progress_from=progress_from,
-            progress_to=progress_to,
-        )
+        src = self.file_temp
+        file_name = self.path
+
+        if progress_to is not None:
+            if not isinstance(progress_from, float) or not isinstance(
+                progress_to, float
+            ):
+                raise ValueError("Progress_from and progress_to must be float")
+
+            if progress_from < 0 or progress_from > 1:
+                raise ValueError("Progress_from must be between 0 and 1")
+
+            if progress_to < 0 or progress_to > 1:
+                raise ValueError("Progress_to must be between 0 and 1")
+
+            if progress_from >= progress_to:
+                raise ValueError("Progress_to must be higher than progress_from")
+
+        print("Importing and compressing {}...".format(file_name))
+
+        def importGz():
+            """Import gzipped file.
+
+            The file_name must have .gz extension.
+            """
+            if imported_format != ImportedFormat.COMPRESSED:  # Extracted file required
+                with open(file_name[:-3], "wb") as f_out, gzip.open(src, "rb") as f_in:
+                    try:
+                        shutil.copyfileobj(f_in, f_out, FileDescriptor.CHUNK_SIZE)
+                    except zlib.error:
+                        raise ValueError(
+                            "Invalid gzip file format: {}".format(file_name)
+                        )
+
+            else:  # Extracted file not-required
+                # Verify the compressed file.
+                with gzip.open(src, "rb") as f:
+                    try:
+                        while f.read(FileDescriptor.CHUNK_SIZE) != b"":
+                            pass
+                    except zlib.error:
+                        raise ValueError(
+                            "Invalid gzip file format: {}".format(file_name)
+                        )
+
+            if imported_format != ImportedFormat.EXTRACTED:  # Compressed file required
+                try:
+                    shutil.copyfile(src, file_name)
+                except shutil.SameFileError:
+                    pass  # Skip copy of downloaded files
+
+            if imported_format == ImportedFormat.COMPRESSED:
+                return file_name
+            else:
+                return file_name[:-3]
+
+        def import7z():
+            """Import compressed file in various formats.
+
+            Supported extensions: .bz2, .zip, .rar, .7z, .tar.gz, and .tar.bz2.
+            """
+            extracted_name, _ = os.path.splitext(file_name)
+            destination_name = extracted_name
+            temp_dir = "temp_{}".format(extracted_name)
+
+            # TODO: is this a problem? The 7z binary must be present.
+            cmd = "7z x -y -o{} {}".format(shlex.quote(temp_dir), shlex.quote(src))
+            try:
+                subprocess.check_call(cmd, shell=True)
+            except subprocess.CalledProcessError as err:
+                if err.returncode == 2:
+                    raise ValueError("Failed to extract file: {}".format(file_name))
+                else:
+                    raise
+
+            paths = os.listdir(temp_dir)
+            if len(paths) == 1 and os.path.isfile(os.path.join(temp_dir, paths[0])):
+                # Single file in archive.
+                temp_file = os.path.join(temp_dir, paths[0])
+
+                if (
+                    imported_format != ImportedFormat.EXTRACTED
+                ):  # Compressed file required
+                    with open(temp_file, "rb") as f_in, gzip.open(
+                        extracted_name + ".gz", "wb"
+                    ) as f_out:
+                        shutil.copyfileobj(f_in, f_out, FileDescriptor.CHUNK_SIZE)
+
+                if (
+                    imported_format != ImportedFormat.COMPRESSED
+                ):  # Extracted file required
+                    shutil.move(temp_file, "./{}".format(extracted_name))
+
+                    if extracted_name.endswith(".tar"):
+                        with tarfile.open(extracted_name) as tar:
+                            tar.extractall()
+
+                        os.remove(extracted_name)
+                        destination_name, _ = os.path.splitext(extracted_name)
+                else:
+                    destination_name = extracted_name + ".gz"
+            else:
+                # Directory or several files in archive.
+                if (
+                    imported_format != ImportedFormat.EXTRACTED
+                ):  # Compressed file required
+                    with tarfile.open(extracted_name + ".tar.gz", "w:gz") as tar:
+                        for fname in glob.glob(os.path.join(temp_dir, "*")):
+                            tar.add(fname, os.path.basename(fname))
+
+                if (
+                    imported_format != ImportedFormat.COMPRESSED
+                ):  # Extracted file required
+                    for path in os.listdir(temp_dir):
+                        shutil.move(os.path.join(temp_dir, path), "./{}".format(path))
+                else:
+                    destination_name = extracted_name + ".tar.gz"
+
+            shutil.rmtree(temp_dir)
+            return destination_name
+
+        def importUncompressed():
+            """Import uncompressed file."""
+            if imported_format != ImportedFormat.EXTRACTED:  # Compressed file required
+                with open(src, "rb") as f_in, gzip.open(
+                    file_name + ".gz", "wb"
+                ) as f_out:
+                    shutil.copyfileobj(f_in, f_out, FileDescriptor.CHUNK_SIZE)
+
+            if imported_format != ImportedFormat.COMPRESSED:  # Extracted file required
+                try:
+                    print(f"Got {file_name}.")
+                    print(f"CWD: {os.getcwd()}.")
+                    shutil.copyfile(src, file_name)
+                except shutil.SameFileError:
+                    pass  # Skip copy of downloaded files
+
+            return (
+                file_name + ".gz"
+                if imported_format == ImportedFormat.COMPRESSED
+                else file_name
+            )
+
+        # Large file download from Google Drive requires cookie and token.
+        try:
+            response = None
+            if re.match(
+                r"^https://drive.google.com/[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]$",
+                src,
+            ):
+                session = requests.Session()
+                response = session.get(src, stream=True)
+
+                token = None
+                for key, value in response.cookies.items():
+                    if key.startswith("download_warning"):
+                        token = value
+                        break
+
+                if token is not None:
+                    params = {"confirm": token}
+                    response = session.get(src, params=params, stream=True)
+
+            elif re.match(
+                r"^(https?|ftp)://[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]$",
+                src,
+            ):
+                response = requests.get(src, stream=True)
+        except requests.exceptions.ConnectionError:
+            raise requests.exceptions.ConnectionError(
+                "Could not connect to {}".format(src)
+            )
+
+        if response:
+            with open(file_name, "wb") as f:
+                total = response.headers.get("content-length")
+                total = float(total) if total else None
+                downloaded = 0
+                current_progress = 0
+                for content in response.iter_content(
+                    chunk_size=FileDescriptor.CHUNK_SIZE
+                ):
+                    f.write(content)
+
+                    if total is not None and progress_to is not None:
+                        downloaded += len(content)
+                        progress_span = progress_to - progress_from
+                        next_progress = (
+                            progress_from + progress_span * downloaded / total
+                        )
+                        next_progress = round(next_progress, 2)
+
+                        if next_progress > current_progress:
+                            if (
+                                self.file_field is not None
+                                and self.file_field.process is not None
+                            ):
+                                print(f"Reporting progress: {next_progress}")
+                                communicator.progress(next_progress)
+                            current_progress = next_progress
+
+            # Check if a temporary file exists.
+            if not os.path.isfile(file_name):
+                raise ValueError("Downloaded file not found {}".format(file_name))
+
+            src = file_name
+        else:
+            # If scr is file it needs to have upload directory prepended.
+            upload_dir = Path(os.environ.get("UPLOAD_DIR", "/upload"))
+            src_path = upload_dir / src
+            if not src_path.is_file():
+                raise ValueError(f"Source file not found {src}")
+            src = os.fspath(src_path)
+
+        # Decide which import should be used.
+        if re.search(r"\.(bz2|zip|rar|7z|tgz|tar\.gz|tar\.bz2)$", file_name):
+            destination_file_name = import7z()
+        elif file_name.endswith(".gz"):
+            destination_file_name = importGz()
+        else:
+            destination_file_name = importUncompressed()
+
+        if (
+            progress_to is not None
+            and self.file_field is not None
+            and self.file_field.process is not None
+        ):
+            print(f"Reporting finall progress: {progress_to}")
+            print(self.file_field)
+            print(self.file_field.process)
+            communicator.progress(progress_to)
+
+        return destination_file_name
 
     def __repr__(self):
         """Return string representation."""
@@ -323,9 +659,11 @@ class FileField(Field):
         if isinstance(value, FileDescriptor):
             return value
         elif isinstance(value, str):
-            return FileDescriptor(value)
+            return FileDescriptor(value, file_field=self)
         elif isinstance(value, dict):
             try:
+                # TODO: here we have to hydrate, get the whole path.
+                # TODO: make in nicer than hardcoded.
                 path = value["file"]
             except KeyError:
                 raise ValidationError("dictionary must contain a 'file' element")
@@ -361,15 +699,32 @@ class FileField(Field):
                 is_remote=is_remote,
                 file_temp=file_temp,
                 refs=refs,
+                file_field=self,
             )
         elif not isinstance(value, None):
             raise ValidationError("field must be a FileDescriptor, string or a dict")
 
     def to_output(self, value):
-        """Convert value to process output format."""
-        return json.loads(
-            resolwe_runtime_utils.save_file(self.name, value.path, *value.refs)
-        )
+        """Convert value to process output format.
+
+        Also copy the referenced file to the data volume.
+        """
+        data = {"file": value.path, "size": Path(value.path).stat().st_size}
+        if value.refs:
+            missing_refs = [
+                ref
+                for ref in value.refs
+                if not (Path(ref).is_file() or Path(ref).is_dir())
+            ]
+            if missing_refs:
+                raise Exception(
+                    "Output '{}' set to missing references: '{}'.".format(
+                        self.name, ", ".join(missing_refs)
+                    )
+                )
+            data["refs"] = value.refs
+        copy_file_or_dir(chain(data.get("refs", []), (data["file"],)))
+        return data
 
 
 class FileHtmlField(FileField):
@@ -434,9 +789,23 @@ class DirField(Field):
 
     def to_output(self, value):
         """Convert value to process output format."""
-        return json.loads(
-            resolwe_runtime_utils.save_dir(self.name, value.path, *value.refs)
-        )
+        data = {"dir": value.path, "size": _get_dir_size(Path(value.path))}
+        if value.refs:
+            missing_refs = [
+                ref
+                for ref in value.refs
+                if not (Path(ref).is_file() or Path(ref).is_dir())
+            ]
+            if missing_refs:
+                raise Exception(
+                    "Output '{}' set to missing references: '{}'.".format(
+                        self.name, ", ".join(missing_refs)
+                    )
+                )
+            data["refs"] = value.refs
+
+        copy_file_or_dir(chain(data.get("refs", []), (data["dir"],)))
+        return data
 
 
 class JsonField(Field):
@@ -444,10 +813,49 @@ class JsonField(Field):
 
     field_type = "basic:json"
 
+    def __init__(self, *args, **kwargs):
+        """JSON field init."""
+        self._model_instance = None
+        super().__init__(*args, **kwargs)
+
+    def __get__(self, obj, objtype=None):
+        """Override parent method."""
+        self._model_instance = obj
+        return super().__get__(obj, objtype)
+
     def to_python(self, value):
         """Convert value if needed."""
-        if value is not None:
-            return json.loads(json.dumps(value))
+        from .models import JSONDescriptor
+
+        if isinstance(value, JSONDescriptor):
+            return value
+
+        elif isinstance(value, dict) and self._model_instance is not None:
+            schema = None
+            if self._model_instance._model_name == "Data":
+                if self.name in [
+                    "input",
+                    "output",
+                ]:
+                    schema_name = f"{self.name}_schema"
+                    schema = getattr(self._model_instance.process, schema_name)
+                if self.name == "descriptor":
+                    model_schema = self._model_instance.descriptor_schema
+                    if model_schema is not None:
+                        schema = model_schema.schema
+
+            return JSONDescriptor(
+                self._model_instance,
+                self.name,
+                cache=value,
+                field_schema=schema,
+            )
+        else:
+            return super().to_python(value)
+
+    def to_output(self, value):
+        """Convect to output format."""
+        raise RuntimeError("Only fields of JSON property can be set.")
 
 
 class ListField(Field):
@@ -477,6 +885,9 @@ class ListField(Field):
 
     def to_python(self, value):
         """Convert value if needed."""
+        # A hack for ManyToMany with one relation.
+        if isinstance(value, int):
+            value = [value]
         return [self.inner.to_python(v) for v in value]
 
     def to_schema(self):
@@ -487,7 +898,7 @@ class ListField(Field):
 
     def to_output(self, value):
         """Convert value to process output format."""
-        return {self.name: [self.inner.to_output(v)[self.name] for v in value]}
+        return [self.inner.to_output(v) for v in value]
 
     def get_field_type(self):
         """Return this field's type."""
@@ -570,128 +981,45 @@ class RelationDescriptor:
         )
 
 
-class DataDescriptor:
-    """Descriptor for accessing data objects."""
+def fields_from_schema(schema: List[dict]) -> Dict[str, Field]:
+    """Get fields from schema (input or output)."""
+    fields: Dict[str, Field] = dict()
+    field: Optional[Field] = None
+    for field_descriptor in schema:
+        field_name = field_descriptor["name"]
+        field_type = field_descriptor["type"].rstrip(":")
 
-    def __init__(self, data_id, field, cache):
-        """Construct a data descriptor.
-
-        :param data_id: Data object primary key
-        :param field: Field this descriptor is for
-        :param cache: Optional cached object to use
-        """
-        # Calling __setattr__ on parent class  as it is overridden in this one
-        super().__setattr__("_data_id", data_id)
-        super().__setattr__("_field", field)
-
-        # Map output fields to a valid Python process syntax.
-        for field_descriptor in cache["__output_schema"]:
-            field_name = field_descriptor["name"]
-
-            if field_name not in cache:
-                # Non-required fields may be missing.
-                cache[field_name] = None
-                continue
-
-            field_type = field_descriptor["type"].rstrip(":")
-
-            if field_type.startswith("list:"):
+        if field_type.startswith("list:"):
+            if field_type.startswith("list:data"):
+                field_class = DataField
+            else:
                 field_class = ALL_FIELDS_MAP[field_type[len("list:") :]]
-                extra_kwargs = {}
-                if issubclass(field_class, DataField):
-                    extra_kwargs["data_type"] = field_type[len("list:data:") :]
-                field = ListField(field_class(**extra_kwargs))
+            extra_kwargs: dict = field_descriptor
+            if issubclass(field_class, DataField):
+                extra_kwargs["data_type"] = field_type[len("list:data:") :]
+            field = ListField(field_class(**extra_kwargs))
+        else:
+            if field_type.startswith("data:"):
+                field_class = DataField
             else:
                 field_class = ALL_FIELDS_MAP[field_type]
-                extra_kwargs = {}
-                if issubclass(field_class, DataField):
-                    extra_kwargs["data_type"] = field_type[len("data:") :]
-                field = field_class(**extra_kwargs)
+            extra_kwargs = {}
+            if issubclass(field_class, DataField):
+                extra_kwargs["data_type"] = field_type[len("data:") :]
+            if issubclass(field_class, GroupField):
+                group_schema = field_descriptor["group"]
+                field_group = fields_from_schema(group_schema)
 
-            value = cache[field_name]
-            value = field.clean(value)
-            cache[field_name] = value
+                class FieldGroup:
+                    def __init__(self, values):
+                        self.__dict__.update(values)
 
-        super().__setattr__("_cache", cache)
-
-    def _populate_cache(self):
-        """Fetch data object from the backend if needed."""
-        if self._data_id is None:
-            return
-
-        if self._cache is None:
-            # TODO: Implement fetching via the protocol once available.
-            raise NotImplementedError
-
-    def _get(self, key):
-        """Return given key from cache."""
-        # Relations are not stored in self._cache by default since they
-        # are not accessible at the initialization stage.
-        if key == "__relations" and "__relations" not in self._cache:
-            self._cache["__relations"] = self.get_relations()
-            super().__setattr__("_cache", self._cache)
-
-        self._populate_cache()
-        if key not in self._cache:
-            raise AttributeError("DataField has no member {}".format(key))
-
-        return self._cache[key]
-
-    @property
-    def id(self):
-        """Primary key of this data object."""
-        return self._data_id
-
-    @property
-    def type(self):
-        """Type of this data object."""
-        return self._get("__type")
-
-    @property
-    def descriptor(self):
-        """Descriptor of this data object."""
-        return self._get("__descriptor")
-
-    @property
-    def name(self):
-        """Get this data name."""
-        return self._get("__name")
-
-    @property
-    def entity_id(self):
-        """Entity id."""
-        return self._get("__entity_id")
-
-    @property
-    def entity_name(self):
-        """Entity name."""
-        return self._get("__entity_name")
-
-    @property
-    def relations(self):
-        """Relations."""
-        return self._get("__relations")
-
-    def get_relations(self):
-        """Get this data's relations."""
-        relations = set()
-        for relation in self._field.process.relations:
-            for partition in relation["partitions"]:
-                if partition["entity_id"] == self.entity_id:
-                    relations.add(RelationDescriptor.from_dict(relation))
-        return list(relations)
-
-    def __getattr__(self, key):
-        """Get attribute."""
-        return self._get(key)
-
-    def __setattr__(self, key, value):
-        """Set attribute."""
-        raise AttributeError("inputs are read-only")
-
-    def __repr__(self):
-        """Return string representation."""
-        return "<DataDescriptor id={}>".format(self._data_id)
+                fg = FieldGroup(field_group)
+                extra_kwargs["field_group"] = fg
+            field = field_class(**extra_kwargs)
+        fields[field_name] = field
+        field.name = field_name
+    return fields
 
 
 class DataField(Field):
@@ -750,23 +1078,19 @@ class DataField(Field):
 
     def to_python(self, value):
         """Convert value if needed."""
-        cache = None
+        from .models import Data
+
         if value is None:
             return None
 
-        if isinstance(value, DataDescriptor):
+        if isinstance(value, Data):
             return value
-        elif isinstance(value, dict):
-            # Allow pre-hydrated data objects.
-            cache = value
-            try:
-                value = cache["__id"]
-            except KeyError:
-                raise ValidationError("dictionary must contain an '__id' element")
-        else:
-            raise ValidationError("field must be a DataDescriptor or dict")
 
-        return DataDescriptor(value, self, cache)
+        elif isinstance(value, int):
+            return Data(value)
+
+        else:
+            raise ValidationError("field must be a DataDescriptor or int")
 
 
 class GroupDescriptor:
@@ -862,6 +1186,9 @@ ALL_FIELDS = [
     FloatField,
     DateField,
     DateTimeField,
+    DownloadUrlField,
+    ViewUrlField,
+    LinkUrlField,
     UrlField,
     SecretField,
     FileField,
@@ -873,7 +1200,9 @@ ALL_FIELDS = [
     GroupField,
 ]
 
-ALL_FIELDS_MAP = {field.field_type: field for field in ALL_FIELDS}
+ALL_FIELDS_MAP: Dict[str, Type[Field]] = {
+    field.field_type: field for field in ALL_FIELDS
+}
 
 
 def get_available_fields():
