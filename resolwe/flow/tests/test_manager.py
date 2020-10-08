@@ -219,8 +219,6 @@ class TransactionTestManager(TransactionTestCase):
 
         # Allow unfinished data objects to exist when checking for execution
         # barrier condition in the dispatcher.
-        manager._barrier_only_workers = True
-
         async_to_sync(manager.communicate)(data_id=data_1.pk, run_sync=True)
 
         data_1.refresh_from_db()
@@ -241,4 +239,3 @@ class TransactionTestManager(TransactionTestCase):
         async_to_sync(manager.communicate)(run_sync=True)
 
         self.assertEqual(Data.objects.filter(status=Data.STATUS_RESOLVING).count(), 0)
-        manager._barrier_only_workers = False

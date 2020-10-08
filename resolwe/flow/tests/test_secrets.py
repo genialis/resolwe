@@ -57,16 +57,3 @@ class SecretsProcessTest(ProcessTestCase):
             "test-secrets-echo", input_={"token": {"handle": self.secret_handle}}
         )
         self.assertEqual(data.output["secret"], self.secret_value)
-
-    @tag_process("test-secrets-echo")
-    def test_secret_local_executor(self):
-        data = self.run_process(
-            "test-secrets-echo",
-            input_={"token": {"handle": self.secret_handle}},
-            assert_status=Data.STATUS_ERROR,
-        )
-        self.assertIn(
-            "Permission denied for process: Process which requires access to secrets cannot be run "
-            "using the local executor",
-            data.process_error,
-        )
