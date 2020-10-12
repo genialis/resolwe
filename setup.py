@@ -36,6 +36,9 @@ setuptools.setup(
     },
     python_requires=">=3.6, <3.9",
     install_requires=[
+        # XXX: Temporarily pin asgiref to 3.2.x since testing framework freezes
+        # with version 3.3.x
+        "asgiref~=3.2.10",
         "asteval~=0.9.12",
         "async-timeout~=3.0.0",
         "channels~=2.4.0",
