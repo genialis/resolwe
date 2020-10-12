@@ -27,9 +27,7 @@ def purge_data_dependencies(apps, schema_editor):
             pk if Data.objects.filter(pk=pk).exists() else None for pk in parent_pks
         ]
 
-        for dependency in DataDependency.objects.filter(
-            child=data.id, kind=DataDependency.KIND_IO
-        ):
+        for dependency in DataDependency.objects.filter(child=data.id, kind="io"):
             parent_pk = dependency.parent.pk if dependency.parent else None
             if parent_pk in parent_pks:
                 parent_pks.remove(parent_pk)
