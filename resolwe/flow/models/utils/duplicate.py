@@ -458,16 +458,15 @@ def bulk_duplicate(
     _rewire_foreign_key(storage_relations, Data, pk_mapping)
 
     # Copy data dependencies.
-    # I/O dependencies are referenced in child's inputs, so it only make
-    # sense to copy parent dependencies.
-    io_dependencies = DataDependency.objects.filter(
-        kind=DataDependency.KIND_IO, child__in=data_pks
+    # We only inherit parent dependencies to keep track of the Data object's
+    # source. Child dependencies reflect later actions that don't directly
+    # depend on the current object, so copying them would only make unnecessary
+    # noise. Duplicate dependencies are not copied to keep a simple chain with
+    # links only to direct predecessors.
+    data_dependencies = DataDependency.objects.filter(
+        kind__in=[DataDependency.KIND_IO, DataDependency.KIND_SUBPROCESS],
+        child__in=data_pks,
     )
-    # Only copy subprocess dependencies in-between copied Data objects.
-    subprocess_dependencies = DataDependency.objects.filter(
-        kind=DataDependency.KIND_SUBPROCESS, parent__in=data_pks, child__in=data_pks
-    )
-    data_dependencies = io_dependencies.union(subprocess_dependencies).distinct()
     _rewire_foreign_key(data_dependencies, Data, pk_mapping)
 
     # Add duplicate dependencies.
