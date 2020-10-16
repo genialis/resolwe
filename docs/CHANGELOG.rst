@@ -6,12 +6,16 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+===================
+25.0.0 - 2020-10-16
+===================
 
 Added
 -----
+- **BACKWARD INCOMPATIBLE:** Only copy parent relations when duplicating
+  ``Data`` objects
+- Add duplicate data dependency to indicate from which object the ``Data``
+  object was duplicated
 - Support accessing Data name in Python processes through ``self.name``
 - Add ``permission`` filter to ``collection``, ``entity`` and  ``data`` that
   returns only objects on which current user has given permission
