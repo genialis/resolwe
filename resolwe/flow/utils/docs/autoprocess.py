@@ -38,6 +38,7 @@ from docutils.parsers.rst import Directive
 from sphinx import addnodes
 
 from resolwe.flow.utils import iterate_schema
+from resolwe.process.parser import SafeParser
 
 PROCESS_CACHE = None
 
@@ -77,7 +78,7 @@ def get_processes(process_dir, base_source_uri):
         return PROCESS_CACHE
 
     all_process_files = []
-    process_file_extensions = ["*.yaml", "*.yml"]
+    process_file_extensions = ["*.yaml", "*.yml", "*.py"]
     for root, _, filenames in os.walk(process_dir):
         for extension in process_file_extensions:
             for filename in fnmatch.filter(filenames, extension):
@@ -90,13 +91,18 @@ def get_processes(process_dir, base_source_uri):
 
     processes = []
     for process_file in all_process_files:
-        processes_in_file = read_yaml_file(process_file)
-        for process in processes_in_file:
-            # This section finds the line in file where the
-            # defintion of the process starts. (there are
-            # multiple process definition in some files).
-            startline = get_process_definition_start(process_file, process["slug"])
+        if process_file.endswith(".py"):
+            parser = SafeParser(open(process_file).read())
+            processes_startlines = [
+                (p.to_schema(), p.metadata.lineno) for p in parser.parse()
+            ]
+        else:
+            processes_startlines = []
+            for p in read_yaml_file(process_file):
+                startline = get_process_definition_start(process_file, p["slug"])
+                processes_startlines.append((p, startline))
 
+        for process, startline in processes_startlines:
             # Put together URL to starting line of process definition.
             process["source_uri"] = (
                 base_source_uri

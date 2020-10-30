@@ -178,6 +178,7 @@ class ProcessVisitor(ast.NodeVisitor):
             return
 
         descriptor = ProcessDescriptor(source=self.source)
+        descriptor.metadata.lineno = node.lineno
 
         # Available embedded classes.
         embedded_class_fields = {
