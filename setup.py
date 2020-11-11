@@ -46,6 +46,7 @@ setuptools.setup(
         # Storage requirement for computing hashes.
         "crcmod",
         "kubernetes~=11.0.0",
+        "docker~=4.4.0",
         "Django~=2.2.0",
         "djangorestframework~=3.9.0",
         "django-filter~=2.0.0",
@@ -66,6 +67,7 @@ setuptools.setup(
         # has requirement urllib3<1.25,>=1.21.1
         "urllib3~=1.24.2",
         "wrapt~=1.11.1",
+        "pyzmq~=19.0.2",
     ],
     extras_require={
         # XXX: Temporarily pin docutils to 0.15.2 (last before 0.16) since botocore3 depends

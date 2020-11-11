@@ -78,7 +78,7 @@ DATABASES = {
         "PASSWORD": pgpass,
         "HOST": pghost,
         "PORT": pgport,
-        "TEST": {"NAME": pgname + "_test"},
+        "TEST": {"NAME": pgname + "_test" + os.environ.get("PYTHONHASHSEED", "")},
     }
 }
 
@@ -91,7 +91,6 @@ REDIS_CONNECTION = {
 LISTENER_CONNECTION = {
     "hosts": {
         "docker": "172.17.0.1",
-        "kubernetes": "172.31.9.107"
     },
     "port": int(os.environ.get("RESOLWE_LISTENER_SERVICE_PORT", 53893)),
     "min_port": 50000,
@@ -100,15 +99,12 @@ LISTENER_CONNECTION = {
 }
 
 DOCKER_COMMUNICATOR_IMAGE = "resolwe/com:python-3.8"
-# DOCKER_COMMUNICATOR_IMAGE = "resolwe/gregor:ubuntu-18.04"
-
 
 # Used to determine IP for kubernetes executor to connect to.
-KUBERNETES = {
-    "minikube": False,
-    "minikube_command": "minikube",
+KUBERNETES_SETTINGS = {
     "efs_mount": "/storage/genialis",
-    "efs_claim_name": "efs-claim"
+    "efs_claim_name": "efs-claim",
+    "namespace": "default",
 }
 
 ASGI_APPLICATION = "resolwe.flow.routing.channel_routing"
@@ -130,8 +126,7 @@ CELERY_ACCEPT_CONTENT = [CELERY_TASK_SERIALIZER]
 STATIC_URL = "/static/"
 
 FLOW_EXECUTOR = {
-    "NAME": "resolwe.flow.executors.kubernetes",
-    # 'NAME': 'resolwe.flow.executors.docker',
+    "NAME": "resolwe.flow.executors.docker",
     "DATA_DIR": os.path.join(PROJECT_ROOT, ".test_data"),
     "UPLOAD_DIR": os.path.join(PROJECT_ROOT, ".test_upload"),
     "RUNTIME_DIR": os.path.join(PROJECT_ROOT, ".test_runtime"),

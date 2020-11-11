@@ -314,7 +314,7 @@ class FlowExecutor(LocalFlowExecutor):
             environment["LISTENER_IP"] = "host.docker.internal"
 
         communication_arguments = {
-            "auto_remove": True,
+            "auto_remove": False,
             "volumes": self._communicator_volumes(),
             "command": ["/usr/local/bin/python", "/startup.py"],
             "image": communicator_image,
@@ -330,7 +330,7 @@ class FlowExecutor(LocalFlowExecutor):
             "environment": environment,
         }
         processing_arguments = {
-            "auto_remove": True,
+            "auto_remove": False,
             "volumes": self._processing_volumes(),
             "command": ["python3", "/start.py"],
             "image": processing_image,
