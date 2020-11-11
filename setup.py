@@ -66,6 +66,9 @@ setuptools.setup(
         # has requirement urllib3<1.25,>=1.21.1
         "urllib3~=1.24.2",
         "wrapt~=1.11.1",
+        # TODO: bind to specific version
+        "pyzmq",
+        "docker",
     ],
     extras_require={
         # XXX: Temporarily pin docutils to 0.15.2 (last before 0.16) since botocore3 depends

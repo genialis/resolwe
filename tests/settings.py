@@ -78,7 +78,7 @@ DATABASES = {
         "PASSWORD": pgpass,
         "HOST": pghost,
         "PORT": pgport,
-        "TEST": {"NAME": pgname + "_test"},
+        "TEST": {"NAME": pgname + "_test" + os.environ.get("PYTHONHASHSEED", "")},
     }
 }
 
@@ -91,7 +91,7 @@ REDIS_CONNECTION = {
 LISTENER_CONNECTION = {
     "hosts": {
         "docker": "172.17.0.1",
-        "kubernetes": "172.31.9.107"
+        # "kubernetes": "172.31.9.107"
     },
     "port": int(os.environ.get("RESOLWE_LISTENER_SERVICE_PORT", 53893)),
     "min_port": 50000,
@@ -130,8 +130,7 @@ CELERY_ACCEPT_CONTENT = [CELERY_TASK_SERIALIZER]
 STATIC_URL = "/static/"
 
 FLOW_EXECUTOR = {
-    "NAME": "resolwe.flow.executors.kubernetes",
-    # 'NAME': 'resolwe.flow.executors.docker',
+    'NAME': 'resolwe.flow.executors.docker',
     "DATA_DIR": os.path.join(PROJECT_ROOT, ".test_data"),
     "UPLOAD_DIR": os.path.join(PROJECT_ROOT, ".test_upload"),
     "RUNTIME_DIR": os.path.join(PROJECT_ROOT, ".test_runtime"),
@@ -277,7 +276,7 @@ LOGGING = {
             "class": "logging.handlers.RotatingFileHandler",
             "filename": debug_file_path,
             "formatter": "standard",
-            "maxBytes": 1024 * 1024 * 10,  # 10 MB
+            #"maxBytes": 1024 * 1024 * 10,  # 10 MB
         },
     },
     "loggers": {
