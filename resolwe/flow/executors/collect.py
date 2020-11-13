@@ -119,7 +119,7 @@ def hydrate_size(output_files_dirs: dict, base_path: Path):
     return output, data_size
 
 
-async def collect_files(communicator: BaseCommunicator):
+async def collect_files(communicator: BaseCommunicator, keep_data=False):
     """Collect files produced by the worker.
 
     They are neatly prepared in the DATA_VOLUME. When keep_data is true
