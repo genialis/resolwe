@@ -3,8 +3,10 @@
 import asyncio
 import logging
 import os
+import shutil
 import sys
 from contextlib import suppress
+from distutils.util import strtobool
 from pathlib import Path
 from typing import Optional
 
@@ -22,6 +24,8 @@ from executors.socket_utils import (
 from executors.transfer import transfer_data
 from executors.zeromq_utils import ZMQCommunicator
 
+# Keep data settings.
+KEEP_DATA = bool(strtobool(os.environ.get("FLOW_MANAGER_KEEP_DATA", "False")))
 
 # Socket used to connect with the processing container.
 SOCKETS_PATH = Path(os.getenv("SOCKETS_VOLUME", "/sockets"))
@@ -222,34 +226,29 @@ class Manager:
                 )
             raise
 
-    async def collect_produced_files(self):
+    async def collect_produced_files(self) -> bool:
         """Collect files produced by the worker.
 
-        Keep only files that are referenced in the data model.
-        Log error re-raise exception on failure.
+        When exception occurs it is caught, logged and sent to the listener.
 
-        :raises: RuntimeError on failure.
+        :returns: True on success, False on failure.
         """
         try:
             logger.debug("Collecting files")
             await collect_files(self.listener_communicator, KEEP_DATA)
             logger.debug("Collected files")
         except RuntimeError:
-            with suppress(Exception):
-                await self.listener_communicator.send_command(
-                    Message.command(
-                        "process_log",
-                        {"error": ["Error transfering missing data."]},
-                    )
-                )
-            raise
+            logger.exception("Error collecting files")
+            return False
+        else:
+            return True
 
     async def start(self) -> int:
         """Start the main program."""
         try:
             return_code = 1
             await self.start_processing_socket()
-            logger.debug("Waiting for processing container to connect")
+            logger.debug("Waiting for the processing container to connect")
             self.listener_communicator = await self.open_listener_connection()
 
             try:
@@ -305,7 +304,6 @@ class Manager:
                 if not KEEP_DATA:
                     purge_secrets()
 
-                logger.debug("Collecting files")
                 if await self.collect_produced_files() is False:
                     if return_code == 0:
                         return_code = 1
@@ -344,4 +342,5 @@ if __name__ == "__main__":
     result = loop.run_until_complete(manager.start())
     logger.debug("Return code: %s", result)
     loop.close()
+    logger.debug("Executor Loop closed")
     sys.exit(result)
