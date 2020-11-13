@@ -255,10 +255,6 @@ class Manager:
         try:
             return_code = 1
             await self.start_processing_socket()
-<<<<<<< HEAD
-            logger.debug("Waiting for processing container to connect")
-=======
->>>>>>> 2c9f6f3 (Startup scripts)
             self.listener_communicator = await self.open_listener_connection()
             try:
                 logger.debug("Waiting for the processing container to connect")
@@ -314,33 +310,6 @@ class Manager:
                         )
                     )
 
-                logger.debug("Collecting files")
-                if await self.collect_produced_files() is False:
-                    if return_code == 0:
-                        return_code = 1
-
-                # Notify listener that the processing is finished.
-                with suppress(Exception):
-                    print("Waiting for listener to finish.")
-                    await listener.finish(return_code)
-                    print("Listener finished")
-
-                # Send processing container the terminate command.
-                with suppress(Exception):
-                    print("Awaiting processing container to terminate.")
-                    await processing.terminate()
-                    print("Processing container terminated.")
-
-                print("Stop communication.")
-                listener.stop_communicate()
-                processing.stop_communicate()
-                print("Communication stopped.")
-
-                print("Awaiting tasks to finish.")
-                await listener_task
-                print("Listener task finished.")
-                await processing_task
-                print("Processing task finished.")
         except Exception:
             logger.exception("While running communication container")
 
