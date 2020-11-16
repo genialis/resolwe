@@ -6,12 +6,12 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+===================
+25.1.0 - 2020-11-16
+===================
 
-Changed
--------
+Added
+-----
 - Support Python processes in Sphinx ``autoprocess*::`` directive
 
 
