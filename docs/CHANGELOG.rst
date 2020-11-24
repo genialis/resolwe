@@ -6,6 +6,16 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Fixed
+-----
+- Allow retrieval of Storage object that was linked to more than one ``Data``
+  object
+
+
 ===================
 25.1.0 - 2020-11-16
 ===================
