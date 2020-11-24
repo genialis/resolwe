@@ -76,3 +76,6 @@ class Connector(BaseConnector):
                     err,
                 )
             )
+
+    def cleanup(self, data_id: int):
+        """Cleanup."""
