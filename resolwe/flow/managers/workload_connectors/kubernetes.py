@@ -743,3 +743,13 @@ class Connector(BaseConnector):
                 repr(argv),
             )
         )
+
+    def cleanup(self, data_id: int):
+        """Remove the EBS storage used by the executor."""
+        kubernetes.config.load_kube_config()
+        core_api = kubernetes.client.CoreV1Api()
+        ebs_claim_name = self._ebs_claim_name(data_id)
+        logger.debug("Kubernetes: removing claim %s.", ebs_claim_name)
+        core_api.delete_namespaced_persistent_volume_claim(
+            name=ebs_claim_name, namespace="default"
+        )

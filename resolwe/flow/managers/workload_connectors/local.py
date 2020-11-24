@@ -33,3 +33,6 @@ class Connector(BaseConnector):
             )
         )
         subprocess.Popen(argv, cwd=runtime_dir, stdin=subprocess.DEVNULL).wait()
+
+    def cleanup(self, data_id: int):
+        """Cleanup."""
