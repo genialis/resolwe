@@ -254,6 +254,14 @@ TEST_PROCESS_PROFILE = False
 # logging debugging messages to to a file.
 debug_file_path = os.environ.get("RESOLWE_LOG_FILE", os.devnull)
 
+github_actions = os.environ.get("GITHUB_ACTIONS") == "true"
+console_level = "WARNING"
+default_logger_handlers = ["file"]
+
+if github_actions:
+    console_level = "DEBUG"
+    default_logger_handlers = ["console", "file"]
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -265,7 +273,7 @@ LOGGING = {
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
-            "level": "WARNING",
+            "level": console_level,
             "formatter": "standard",
         },
         "file": {
@@ -277,7 +285,7 @@ LOGGING = {
     },
     "loggers": {
         "": {
-            "handlers": ["file"],
+            "handlers": default_logger_handlers,
             "level": "DEBUG",
         },
     },
