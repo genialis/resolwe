@@ -506,7 +506,7 @@ class ManagerTest(TransactionTestCase):
         self.assertIsNotNone(access_log.finished)
 
     def test_transfer_failed(self):
-        def raise_datatransfererror():
+        def raise_datatransfererror(*args, **kwargs):
             raise DataTransferError()
 
         FileStorage.objects.filter(pk=self.file_storage1.pk).update(

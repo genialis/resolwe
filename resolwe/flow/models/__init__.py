@@ -111,6 +111,7 @@ from .migrations import DataMigrationHistory, ProcessMigrationHistory
 from .process import Process
 from .secret import Secret
 from .storage import Storage
+from .worker import Worker
 
 __all__ = (
     "Collection",
@@ -126,4 +127,5 @@ __all__ = (
     "RelationType",
     "Secret",
     "Storage",
+    "Worker",
 )

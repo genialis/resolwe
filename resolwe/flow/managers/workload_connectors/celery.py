@@ -55,3 +55,6 @@ class Connector(BaseConnector):
             )
         )
         celery_run.apply_async((data.id, runtime_dir, argv), queue=queue)
+
+    def cleanup(self, data_id: int):
+        """Cleanup."""

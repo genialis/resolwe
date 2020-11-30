@@ -5,8 +5,6 @@
 """
 import logging
 
-from ..manager_commands import send_manager_command
-from ..protocol import ExecutorProtocol
 from ..run import BaseFlowExecutor
 
 logger = logging.getLogger(__name__)
@@ -23,4 +21,4 @@ class FlowExecutor(BaseFlowExecutor):
 
     async def run(self, data_id, script, log_file, json_file):
         """Do nothing :)."""
-        await send_manager_command(ExecutorProtocol.FINISH)
+        pass

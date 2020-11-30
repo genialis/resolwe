@@ -1,5 +1,6 @@
 """Global settings for Flow executor."""
 import json
+import os
 import sys
 
 from .protocol import ExecutorFiles
@@ -7,12 +8,17 @@ from .protocol import ExecutorFiles
 DESERIALIZED_FILES = {}
 
 if "sphinx" not in sys.modules:
-    with open(ExecutorFiles.EXECUTOR_SETTINGS, "rt") as _settings_file:
+    with open(
+        os.path.join(ExecutorFiles.SETTINGS_SUBDIR, ExecutorFiles.EXECUTOR_SETTINGS),
+        "rt",
+    ) as _settings_file:
         DESERIALIZED_FILES[ExecutorFiles.EXECUTOR_SETTINGS] = json.load(_settings_file)
         for _file_name in DESERIALIZED_FILES[ExecutorFiles.EXECUTOR_SETTINGS][
             ExecutorFiles.FILE_LIST_KEY
         ]:
-            with open(_file_name, "rt") as _json_file:
+            with open(
+                os.path.join(ExecutorFiles.SETTINGS_SUBDIR, _file_name), "rt"
+            ) as _json_file:
                 DESERIALIZED_FILES[_file_name] = json.load(_json_file)
 else:
     DESERIALIZED_FILES = {

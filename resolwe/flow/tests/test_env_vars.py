@@ -1,9 +1,10 @@
 # pylint: disable=missing-docstring
 import copy
+from pathlib import Path
 
 from django.conf import settings
 
-from resolwe.flow.managers import manager
+from resolwe.flow.executors.constants import DATA_LOCAL_VOLUME, TMPDIR
 from resolwe.flow.models import Data, Process
 from resolwe.test import TransactionTestCase, with_docker_executor
 
@@ -16,7 +17,7 @@ class EnvVarsTest(TransactionTestCase):
             "SET_ENV_TEST": "test_var",
         }
 
-        with manager.override_settings(
+        with self.settings(
             FLOW_EXECUTOR=flow_executor, RESOLWE_HOST_URL="some.special.host"
         ):
             process = Process.objects.create(
@@ -49,7 +50,7 @@ re-save tmpdir $TMPDIR
 
             # update output
             data = Data.objects.get(pk=data.pk)
-
+            tmp_path = DATA_LOCAL_VOLUME / TMPDIR
             self.assertEqual(data.output["resolweapihost"], "some.special.host")
             self.assertEqual(data.output["setenvtest"], "test_var")
-            self.assertEqual(data.output["tmpdir"], "/data/.tmp")
+            self.assertEqual(Path(data.output["tmpdir"]), tmp_path)

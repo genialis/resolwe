@@ -263,6 +263,7 @@ class Data(BaseModel):
     STATUS_ERROR = "ER"
     #: data object is in dirty state
     STATUS_DIRTY = "DR"
+    # Assumption (in listener): ordered from least to most problematic.
     STATUS_CHOICES = (
         (STATUS_UPLOADING, "Uploading"),
         (STATUS_RESOLVING, "Resolving"),
@@ -546,16 +547,15 @@ class Data(BaseModel):
 
             validate_schema(self.input, self.process.input_schema)
 
-        elif render_name:
-            self._render_name()
-
-        self.save_storage(self.output, self.process.output_schema)
-
-        if self.status != Data.STATUS_ERROR:
             hydrate_size(self)
             # If only specified fields are updated (e.g. in executor), size needs to be added
             if "update_fields" in kwargs:
                 kwargs["update_fields"].append("size")
+
+        elif render_name:
+            self._render_name()
+
+        self.save_storage(self.output, self.process.output_schema)
 
         render_descriptor(self)
 

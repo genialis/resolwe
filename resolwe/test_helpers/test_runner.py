@@ -16,6 +16,8 @@ import sys
 from unittest.mock import patch
 
 import yaml
+import zmq
+import zmq.asyncio
 from channels.db import database_sync_to_async
 
 from django.conf import settings
@@ -29,7 +31,7 @@ from django.utils.crypto import get_random_string
 # negating anything we do here with Django's override_settings.
 import resolwe.test.testcases.setting_overrides as resolwe_settings
 from resolwe.flow.finders import get_finders
-from resolwe.flow.managers import manager, state
+from resolwe.flow.managers import consumer, manager, state
 from resolwe.flow.managers.listener import ExecutorListener
 from resolwe.storage.connectors import connectors
 from resolwe.storage.settings import STORAGE_CONNECTORS, STORAGE_LOCAL_CONNECTOR
@@ -61,30 +63,6 @@ class TestingContext:
         return False
 
 
-class AtScopeExit:
-    """Utility class for calling a function once a context exits."""
-
-    def __init__(self, call, *args, **kwargs):
-        """Construct a context manager and save arguments.
-
-        :param call: The callable to call on exit.
-        :param args: Positional arguments for the callable.
-        :param kwargs: Keyword arguments for the callable.
-        """
-        self.call = call
-        self.args = args
-        self.kwargs = kwargs
-
-    def __enter__(self):
-        """Enter the ``with`` context."""
-        return self
-
-    def __exit__(self, *args, **kwargs):
-        """Exit the context and call the saved callable."""
-        self.call(*self.args, **self.kwargs)
-        return False
-
-
 def _manager_setup():
     """Execute setup operations common to serial and parallel testing.
 
@@ -95,7 +73,7 @@ def _manager_setup():
         return
     TESTING_CONTEXT["manager_reset"] = True
     state.update_constants()
-    manager.reset()
+    manager.drain_messages()
 
 
 def _sequence_paths(paths):
@@ -120,9 +98,10 @@ def _sequence_paths(paths):
         # meaning A could not possibly have succeeded with data/test_1.
         seq += 1
         created = []
+        hashseed = os.environ.get("PYTHONHASHSEED", "")
 
         for base_path in paths:
-            path = os.path.join(base_path, "test_{}".format(seq))
+            path = os.path.join(base_path, "test_{}_{}".format(hashseed, seq))
             try:
                 os.makedirs(path)
                 created.append(path)
@@ -155,22 +134,58 @@ def _create_test_dirs():
 
 
 def _prepare_settings():
-    """Prepare and apply settings overrides needed for testing."""
+    """Prepare and apply settings/port overrides needed for testing.
+
+    Override necessary settings and binds to a free port that will be used in
+    listener.
+
+    :returns: tuple (overrides, port).
+    """
     # Override container name prefix setting.
     resolwe_settings.FLOW_EXECUTOR_SETTINGS[
         "CONTAINER_NAME_PREFIX"
     ] = "{}_{}_{}".format(
-        resolwe_settings.FLOW_EXECUTOR_SETTINGS.get("CONTAINER_NAME_PREFIX", "resolwe"),
+        getattr(settings, "FLOW_EXECUTOR", {}).get("CONTAINER_NAME_PREFIX", "resolwe"),
         # NOTE: This is necessary to avoid container name clashes when tests are run from
         # different Resolwe code bases on the same system (e.g. on a CI server).
         get_random_string(length=6),
         os.path.basename(resolwe_settings.FLOW_EXECUTOR_SETTINGS["DATA_DIR"]),
     )
-    return override_settings(
+
+    hosts = list(
+        settings.FLOW_EXECUTOR.get("LISTENER_CONNECTION", {})
+        .get("hosts", {"local": "127.0.0.1"})
+        .values()
+    )
+    protocol = settings.FLOW_EXECUTOR.get("LISTENER_CONNECTION", {}).get(
+        "protocol", "tcp"
+    )
+    min_port = settings.FLOW_EXECUTOR.get("LISTENER_CONNECTION", {}).get(
+        "min_port", 50000
+    )
+    max_port = settings.FLOW_EXECUTOR.get("LISTENER_CONNECTION", {}).get(
+        "max_port", 60000
+    )
+
+    zmq_context: zmq.asyncio.Context = zmq.asyncio.Context.instance()
+    zmq_socket: zmq.asyncio.Socket = zmq_context.socket(zmq.ROUTER)
+
+    host = hosts[0]
+    port = zmq_socket.bind_to_random_port(
+        f"{protocol}://{host}", min_port=min_port, max_port=max_port
+    )
+    for host in hosts[1:]:
+        zmq_socket.bind(f"{protocol}://{host}:{port}")
+
+    # Set the port in the settings.
+    resolwe_settings.FLOW_EXECUTOR_SETTINGS["LISTENER_CONNECTION"]["port"] = port
+
+    overrides = override_settings(
         CELERY_ALWAYS_EAGER=True,
         FLOW_EXECUTOR=resolwe_settings.FLOW_EXECUTOR_SETTINGS,
         FLOW_MANAGER=resolwe_settings.FLOW_MANAGER_SETTINGS,
     )
+    return (overrides, zmq_socket)
 
 
 def _custom_worker_init(django_init_worker):
@@ -226,7 +241,8 @@ async def _run_on_infrastructure(meth, *args, **kwargs):
     """
     with TestingContext():
         _create_test_dirs()
-        with _prepare_settings():
+        overrides, zmq_socket = _prepare_settings()
+        with overrides:
             storage_config = copy.deepcopy(STORAGE_CONNECTORS)
             storage_config[STORAGE_LOCAL_CONNECTOR]["config"][
                 "path"
@@ -234,21 +250,26 @@ async def _run_on_infrastructure(meth, *args, **kwargs):
             with patch("resolwe.storage.settings.STORAGE_CONNECTORS", storage_config):
                 connectors.recreate_connectors()
                 await database_sync_to_async(_manager_setup)()
-                with AtScopeExit(manager.state.destroy_channels):
-                    redis_params = getattr(settings, "FLOW_MANAGER", {}).get(
-                        "REDIS_CONNECTION", {}
-                    )
-                    listener = ExecutorListener(redis_params=redis_params)
-                    await listener.clear_queue()
-                    async with listener:
-                        try:
-                            with override_settings(FLOW_MANAGER_SYNC_AUTO_CALLS=True):
-                                result = await database_sync_to_async(meth)(
-                                    *args, **kwargs
-                                )
-                            return result
-                        finally:
-                            listener.terminate()
+                hosts = settings.FLOW_EXECUTOR["LISTENER_CONNECTION"]["hosts"]
+                port = settings.FLOW_EXECUTOR["LISTENER_CONNECTION"]["port"]
+                protocol = settings.FLOW_EXECUTOR["LISTENER_CONNECTION"]["protocol"]
+                listener = ExecutorListener(
+                    hosts=hosts, port=port, protocol=protocol, zmq_socket=zmq_socket
+                )
+                async with listener:
+                    try:
+                        with override_settings(FLOW_MANAGER_SYNC_AUTO_CALLS=True):
+                            consumer_future = asyncio.ensure_future(
+                                consumer.run_consumer()
+                            )
+                            result = await database_sync_to_async(meth)(*args, **kwargs)
+                            await consumer.exit_consumer()
+                            await consumer_future
+                        return result
+                    except Exception:
+                        logger.exception("Exception while running test")
+                    finally:
+                        logger.debug("test_runner: Terminating listener")
 
 
 def _run_manager(meth, *args, **kwargs):
@@ -333,16 +354,6 @@ class ResolweRunner(DiscoverRunner):
 
             def wrapper(*args, **kwargs):
                 """Validate manager state on teardown."""
-                if manager.sync_counter.value != 0:
-                    case.fail(
-                        "Test has outstanding manager processes. Ensure that all processes have "
-                        "completed or that you have reset the state manually in case you have "
-                        "bypassed the regular manager flow in any way.\n"
-                        "\n"
-                        "Synchronization count: {value} (should be 0)\n"
-                        "".format(value=manager.sync_counter.value)
-                    )
-
                 teardown(*args, **kwargs)
 
             return wrapper
@@ -370,7 +381,9 @@ class ResolweRunner(DiscoverRunner):
         keep_data_override = override_settings(FLOW_MANAGER_KEEP_DATA=self.keep_data)
         keep_data_override.__enter__()
 
+        logger.debug("Running suite: %d", self.parallel)
         if self.parallel > 1:
+            logger.debug("Parallel > 1")
             return super().run_suite(suite, **kwargs)
 
         return _run_manager(super().run_suite, suite, **kwargs)

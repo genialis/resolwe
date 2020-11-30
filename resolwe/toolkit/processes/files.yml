@@ -9,7 +9,8 @@
     expression-engine: jinja
     executor:
       docker:
-        image: resolwe/base:fedora-31
+        #image: resolwe/base:fedora-31
+        image: resolwe/gregor:ubuntu-18.04
     resources:
       cores: 1
       memory: 1024
@@ -43,7 +44,8 @@
     expression-engine: jinja
     executor:
       docker:
-        image: resolwe/base:fedora-31
+        # image: resolwe/base:fedora-31
+        image: resolwe/gregor:ubuntu-18.04
     resources:
       cores: 1
       memory: 1024
@@ -80,7 +82,7 @@
     expression-engine: jinja
     executor:
       docker:
-        image: resolwe/upload-tab-file:1.0.0
+        image: resolwe/upload-tab-file:2.0.0
     resources:
       cores: 1
       memory: 1024

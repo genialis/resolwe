@@ -1,18 +1,9 @@
 """An execution engine for Python processes."""
-import copy
 import inspect
-import json
 import os
-import shlex
 import shutil
 
 from resolwe.flow.execution_engines.base import BaseExecutionEngine
-from resolwe.flow.models.utils import (
-    get_collection_of_input_entities,
-    hydrate_input_references,
-    hydrate_input_uploads,
-    serialize_collection_relations,
-)
 from resolwe.process.parser import SafeParser
 
 PYTHON_RUNTIME_DIRNAME = "python_runtime"
@@ -21,17 +12,6 @@ PYTHON_RUNTIME_VOLUME = os.path.join(PYTHON_RUNTIME_ROOT, PYTHON_RUNTIME_DIRNAME
 PYTHON_PROGRAM_ROOT = "/"
 PYTHON_PROGRAM_FILENAME = "python_process.py"
 PYTHON_PROGRAM_VOLUME = os.path.join(PYTHON_PROGRAM_ROOT, PYTHON_PROGRAM_FILENAME)
-PYTHON_INPUTS_FILENAME = "inputs.json"
-PYTHON_INPUTS_ROOT = "/"
-PYTHON_INPUTS_VOLUME = os.path.join(PYTHON_INPUTS_ROOT, PYTHON_INPUTS_FILENAME)
-PYTHON_RELATIONS_FILENAME = "relations.json"
-PYTHON_RELATIONS_ROOT = "/"
-PYTHON_RELATIONS_VOLUME = os.path.join(PYTHON_RELATIONS_ROOT, PYTHON_RELATIONS_FILENAME)
-PYTHON_REQUIREMENTS_FILENAME = "requirements.json"
-PYTHON_REQUIREMENTS_ROOT = "/"
-PYTHON_REQUIREMENTS_VOLUME = os.path.join(
-    PYTHON_INPUTS_ROOT, PYTHON_REQUIREMENTS_FILENAME
-)
 
 
 class ExecutionEngine(BaseExecutionEngine):
@@ -55,21 +35,9 @@ class ExecutionEngine(BaseExecutionEngine):
 
     def evaluate(self, data):
         """Evaluate the code needed to compute a given Data object."""
-        return (
-            'PYTHONPATH="{runtime}" python3 -u -m resolwe.process {program} '
-            "--slug {slug} "
-            "--name {name} "
-            "--inputs {inputs} "
-            "--relations {relations} "
-            "--requirements {requirements}".format(
-                runtime=PYTHON_RUNTIME_VOLUME,
-                program=PYTHON_PROGRAM_VOLUME,
-                slug=shlex.quote(data.process.slug),
-                name=shlex.quote(data.name),
-                inputs=PYTHON_INPUTS_VOLUME,
-                relations=PYTHON_RELATIONS_VOLUME,
-                requirements=PYTHON_REQUIREMENTS_VOLUME,
-            )
+        return 'PYTHONPATH="{runtime}" python3 -u -m resolwe.process {program} '.format(
+            runtime=PYTHON_RUNTIME_VOLUME,
+            program=PYTHON_PROGRAM_VOLUME,
         )
 
     def prepare_runtime(self, runtime_dir, data):
@@ -91,53 +59,12 @@ class ExecutionEngine(BaseExecutionEngine):
             file.write(source)
         os.chmod(program_path, 0o755)
 
-        # Write serialized inputs.
-        inputs = copy.deepcopy(data.input)
-        hydrate_input_references(inputs, data.process.input_schema)
-        hydrate_input_uploads(inputs, data.process.input_schema)
-        inputs_path = os.path.join(runtime_dir, PYTHON_INPUTS_FILENAME)
-
-        # XXX: Skip serialization of LazyStorageJSON. We should support
-        # LazyStorageJSON in Python processes on the new communication protocol
-        def default(obj):
-            """Get default value."""
-            class_name = obj.__class__.__name__
-            if class_name == "LazyStorageJSON":
-                return ""
-
-            raise TypeError(f"Object of type {class_name} is not JSON serializable")
-
-        with open(inputs_path, "w") as file:
-            json.dump(inputs, file, default=default)
-
-        # Write serialized requirements.
-        # Include special 'requirements' variable in the context.
-        requirements = copy.deepcopy(data.process.requirements)
-        # Inject default values and change resources according to
-        # the current Django configuration.
-        requirements["resources"] = data.process.get_resource_limits()
-        requirements_path = os.path.join(runtime_dir, PYTHON_REQUIREMENTS_FILENAME)
-
-        with open(requirements_path, "w") as file:
-            json.dump(requirements, file)
-
-        # Write serialized relations
-        relations = {}
-        if "relations" in requirements:
-            collection = get_collection_of_input_entities(data)
-            relations = serialize_collection_relations(collection)
-        relations_path = os.path.join(runtime_dir, PYTHON_RELATIONS_FILENAME)
-
-        with open(relations_path, "w") as file:
-            json.dump(relations, file)
+        # TODO: storage (type json) was hydrated before, now it is not.
 
         # Generate volume maps required to expose needed files.
         volume_maps = {
             PYTHON_RUNTIME_DIRNAME: PYTHON_RUNTIME_VOLUME,
             PYTHON_PROGRAM_FILENAME: PYTHON_PROGRAM_VOLUME,
-            PYTHON_INPUTS_FILENAME: PYTHON_INPUTS_VOLUME,
-            PYTHON_RELATIONS_FILENAME: PYTHON_RELATIONS_VOLUME,
-            PYTHON_REQUIREMENTS_FILENAME: PYTHON_REQUIREMENTS_VOLUME,
         }
 
         return volume_maps

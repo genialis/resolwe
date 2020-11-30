@@ -66,7 +66,7 @@ class AccessAPIFromExecutorProcessTestCase(ProcessTestCase, LiveServerTestCase):
                 # its progress since it can interfere with parsing of JSON on
                 # process' standard output
                 "program": r"""
-echo "{\"collection-list\": $(curl --silent --show-error $RESOLWE_HOST_URL/api/collection)}"
+re-save collection-list "$(curl --silent --show-error $RESOLWE_HOST_URL/api/collection)"
 """,
             },
         )
@@ -88,14 +88,6 @@ echo "{\"collection-list\": $(curl --silent --show-error $RESOLWE_HOST_URL/api/c
         collection_list = Storage.objects.get(data=data).json
         self.assertEqual(len(collection_list), 1)
         self.assertEqual(collection_list[0]["slug"], self.collection.slug)
-
-    @unittest.skipUnless(*check_installed("curl"))
-    @with_resolwe_host
-    @tag_process("test-accessing-api-from-process")
-    def test_access_api_from_local_executor_process(self):
-        """Test if a process running via local executor can access API."""
-        data = self.run_process(self.process.slug)
-        self.check_results(data)
 
     @unittest.skipUnless(*check_installed("curl"))
     @tag_process("test-accessing-api-from-process")
