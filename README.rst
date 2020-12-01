@@ -4,7 +4,7 @@ Resolwe
 
 |build| |coverage| |docs| |black| |pypi_version| |pypi_pyversions| |pypi_downloads|
 
-.. |build| image:: https://github.com/genialis/resolwe/workflows/build/badge.svg?branch=master
+.. |build| image:: https://github.com/genialis/resolwe/workflows/Resolwe CI/badge.svg?branch=master
     :target: https://github.com/genialis/resolwe/actions?query=branch%3Amaster
     :alt: Build Status
 
