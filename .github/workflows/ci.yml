@@ -25,11 +25,11 @@ jobs:
           - tox-env: py38
             python-version: 3.8
           - tox-env: linters
-            python-version: 3.6
+            python-version: 3.8
           - tox-env: packaging
-            python-version: 3.6
+            python-version: 3.8
           - tox-env: migrations
-            python-version: 3.6
+            python-version: 3.8
 
     services:
       postgres: 
