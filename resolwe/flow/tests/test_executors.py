@@ -276,8 +276,6 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.assertEqual(data.input["number"], 19)
         self.assertEqual(data.output, {})
 
-    # TODO: Debug why the 'test-memory-resource-alloc' process doesn't end with and error on Travis
-    @unittest.skipIf(os.environ.get("TRAVIS", "") == "true", "Fails on Travis CI")
     @with_docker_executor
     @tag_process("test-memory-resource-alloc", "test-memory-resource-noalloc")
     def test_memory_resource(self):
