@@ -249,6 +249,9 @@ class ManagerRunProcessTest(ProcessTestCase):
         # self.collection now contains workflow and two "normal" data objects
         self.assertEqual(self.collection.data.all().count(), 3)
 
+    @unittest.skipIf(
+        os.environ.get("GITHUB_ACTIONS", "") == "true", "Fails on Github Actions"
+    )
     @with_docker_executor
     @tag_process("test-docker")
     def test_run_in_docker(self):
@@ -276,6 +279,9 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.assertEqual(data.input["number"], 19)
         self.assertEqual(data.output, {})
 
+    @unittest.skipIf(
+        os.environ.get("GITHUB_ACTIONS", "") == "true", "Fails on Github Actions"
+    )
     @with_docker_executor
     @tag_process("test-memory-resource-alloc", "test-memory-resource-noalloc")
     def test_memory_resource(self):
