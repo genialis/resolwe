@@ -15,6 +15,10 @@ Fixed
 - Allow retrieval of Storage object that was linked to more than one ``Data``
   object
 
+Added
+-----
+- Add support for Python 3.9
+
 
 ===================
 25.1.0 - 2020-11-16
