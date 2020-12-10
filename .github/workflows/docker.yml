@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: [fedora-33, ubuntu-20.04]
+        image: [fedora-33, ubuntu-20.04, upload-tab-file, archiver]
         include:
           - image: fedora-33
             context: resolwe/toolkit/docker_images/base/
@@ -20,6 +20,14 @@ jobs:
             context: resolwe/toolkit/docker_images/base/
             file: resolwe/toolkit/docker_images/base/Dockerfile.ubuntu-20.04
             tags: resolwe/base:ubuntu-20.04
+          - image: upload-tab-file
+            context: resolwe/toolkit/docker_images/upload-tab-file/
+            file: resolwe/toolkit/docker_images/upload-tab-file/Dockerfile
+            tags: resolwe/upload-tab-file:latest
+          - image: archiver
+            context: resolwe/toolkit/docker_images/archiver/
+            file: resolwe/toolkit/docker_images/archiver/Dockerfile
+            tags: resolwe/archiver:latest
 
     steps:
       - uses: actions/checkout@v2
