@@ -15,6 +15,10 @@ Fixed
 - Allow retrieval of Storage object that was linked to more than one ``Data``
   object
 
+Changed
+-------
+- Migrate docker images to Fedora 33 and Ubuntu 20.04
+
 
 ===================
 25.1.0 - 2020-11-16

@@ -1,4 +1,4 @@
-FROM docker.io/ubuntu:18.04
+FROM docker.io/fedora:33
 
 LABEL MAINTAINER Resolwe authors https://github.com/genialis/resolwe
 
@@ -7,10 +7,8 @@ COPY re-import.sh /re-import.sh
 # XXX: Remove this after Resolwe learns how to mount re-* tools into every container
 COPY curlprogress.py /usr/local/bin/
 
-RUN apt-get update && \
-    # Install Python 3, curl and p7zip-full, the latter two needed by re-import.
-    apt-get install -y --no-install-recommends python3 python3-distutils python3-pip python3-plumbum curl p7zip-full && \
-    # Install Resolwe Runtime Utils
+
+RUN dnf install -y --setopt=tsflags=nodocs python-pip && \
     pip3 install resolwe-runtime-utils && \
     # XXX: Remove this hack after obsoleting re-checkrc
     echo 're-checkrc() { _re-checkrc $? "$@"; }' >> /etc/profile.d/resolwe-base.sh && \
@@ -20,8 +18,5 @@ RUN apt-get update && \
     rm /re-import.sh && \
     # XXX: Remove this after Resolwe learns how to mount re-* tools into every container
     chmod +x /usr/local/bin/curlprogress.py && \
-    # Cleanup.
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    rm -rf /root/.cache/pip && \
-    rm -rf /tmp/*
+    # Cleanup
+    dnf clean all
