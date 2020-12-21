@@ -1376,7 +1376,6 @@ class ExecutorListener:
 
         Doesn't return until :meth:`terminate` is called.
         """
-        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ", self.protocol, self.hosts, self.port)
         logger.info(
             __(
                 f"Starting Resolwe listener on  '{self.protocol}://{self.hosts}:{self.port}'."

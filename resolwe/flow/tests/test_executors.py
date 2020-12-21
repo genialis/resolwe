@@ -2,6 +2,7 @@
 import os
 import subprocess
 import unittest
+from contextlib import suppress
 from pathlib import Path
 from time import sleep
 from unittest import mock
@@ -279,8 +280,9 @@ class ManagerRunProcessTest(ProcessTestCase):
         for _ in range(50):
             sleep(0.1)
             data.refresh_from_db()
-            if data.worker.status == Worker.STATUS_PROCESSING:
-                break
+            with suppress(Data.worker.RelatedObjectDoesNotExist):
+                if data.worker.status == Worker.STATUS_PROCESSING:
+                    break
 
         self.assertEqual(data.worker.status, Worker.STATUS_PROCESSING)
         async_to_sync(data.worker.terminate)()
