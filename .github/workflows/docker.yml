@@ -28,7 +28,7 @@ jobs:
             context: resolwe/toolkit/docker_images/archiver/
             file: resolwe/toolkit/docker_images/archiver/Dockerfile
             tags: resolwe/archiver:latest
-          - image: "Communication container"
+          - image: communication
             context: resolwe/
             file: resolwe/flow/docker_images/Dockerfile.communication
             tags: resolwe/com:python-3.9
