@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: [fedora-33, ubuntu-20.04, upload-tab-file, archiver]
+        image: [fedora-33, ubuntu-20.04, upload-tab-file, archiver, communication]
         include:
           - image: fedora-33
             context: resolwe/toolkit/docker_images/base/
