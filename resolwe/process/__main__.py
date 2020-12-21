@@ -27,6 +27,9 @@ if __name__ == "__main__":
 
     # Switch to target directory to import the module.
     try:
+        # Insert empty string as first path argument due to the issue
+        # https://bugs.python.org/issue33053
+        sys.path.insert(0, "")
         filename = Path(args.filename).resolve()
         start_dir = Path.cwd()
         os.chdir(filename.parent)
