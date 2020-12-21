@@ -11,7 +11,7 @@ class PythonProcessJson(Process):
     requirements = {
         "executor": {
             "docker": {
-                "image": "resolwe/gregor:ubuntu-18.04",
+                "image": "resolwe/base:ubuntu-20.04",
             }
         }
     }

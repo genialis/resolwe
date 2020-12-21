@@ -31,7 +31,7 @@
     expression-engine: jinja
     executor:
       docker:
-        image: resolwe/gregor:ubuntu-18.04
+        image: resolwe/base:ubuntu-20.04
   version: 1.0.0
   type: data:test:annotate
   flow_collection: sample
@@ -46,7 +46,7 @@
     expression-engine: jinja
     executor:
       docker:
-        image: resolwe/gregor:ubuntu-18.04
+        image: resolwe/base:ubuntu-20.04
   version: 1.0.0
   type: data:test:annotate
   flow_collection: sample
@@ -61,7 +61,7 @@
     expression-engine: jinja
     executor:
       docker:
-        image: resolwe/gregor:ubuntu-18.04
+        image: resolwe/base:ubuntu-20.04
   version: 1.0.0
   type: data:test:annotate
   flow_collection: sample
@@ -76,7 +76,7 @@
     expression-engine: jinja
     executor:
       docker:
-        image: resolwe/gregor:ubuntu-18.04
+        image: resolwe/base:ubuntu-20.04
   version: 1.0.0
   type: data:test:annotate
   run:
@@ -90,7 +90,7 @@
     expression-engine: jinja
     executor:
       docker:
-        image: resolwe/gregor:ubuntu-18.04
+        image: resolwe/base:ubuntu-20.04
   version: 1.0.0
   type: data:test:annotate
   flow_collection: sample

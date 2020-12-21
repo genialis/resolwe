@@ -17,5 +17,4 @@ SCRIPT_SOCKET = "_socket2.s"
 TMPDIR = ".tmp"
 
 # Container image used if no image is specified.
-DEFAULT_CONTAINER_IMAGE = "resolwe/gregor:ubuntu-18.04"
-# DEFAULT_CONTAINER_IMAGE = "resolwe/base:ubuntu-18.04"
+DEFAULT_CONTAINER_IMAGE = "resolwe/base:ubuntu-20.04"

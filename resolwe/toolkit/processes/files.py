@@ -16,7 +16,7 @@ class UploadFile(Process):
         "expression-engine": "jinja",
         "executor": {
             "docker": {
-                "image": "resolwebio/base:ubuntu-18.04",
+                "image": "resolwebio/base:ubuntu-20.04",
             },
         },
         "resources": {
