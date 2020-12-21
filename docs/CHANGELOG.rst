@@ -12,8 +12,8 @@ Unreleased
 
 Changed
 -------
-- **BACKWARD INCOMPATIBLE:** Remove ``resolwe/upload-tab-file`` Docker
-  image
+- **BACKWARD INCOMPATIBLE:** Remove ``resolwe/upload-tab-file`` and
+  ``resolwe/archiver`` Docker images
 
 
 ===================

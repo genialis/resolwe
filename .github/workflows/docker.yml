@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: [fedora-33, ubuntu-20.04, archiver, communication]
+        image: [fedora-33, ubuntu-20.04, communication]
         include:
           - image: fedora-33
             context: resolwe/toolkit/docker_images/base/
@@ -20,10 +20,6 @@ jobs:
             context: resolwe/toolkit/docker_images/base/
             file: resolwe/toolkit/docker_images/base/Dockerfile.ubuntu-20.04
             tags: resolwe/base:ubuntu-20.04
-          - image: archiver
-            context: resolwe/toolkit/docker_images/archiver/
-            file: resolwe/toolkit/docker_images/archiver/Dockerfile
-            tags: resolwe/archiver:latest
           - image: communication
             context: resolwe/
             file: resolwe/flow/docker_images/Dockerfile.communication
