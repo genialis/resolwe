@@ -14,6 +14,8 @@ Changed
 -------
 - **BACKWARD INCOMPATIBLE:** Remove ``resolwe/upload-tab-file`` and
   ``resolwe/archiver`` Docker images
+- **BACKWARD INCOMPATIBLE:** Remove obsolete processes: ``archiver``,
+  ``upload-tab-file`` and ``upload-image-file``
 
 
 ===================

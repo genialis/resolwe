@@ -30,6 +30,7 @@ recursive-include resolwe/process/tests/workflows *.yml
 recursive-include resolwe/test/tests *.py
 recursive-include resolwe/test/tests/files *
 recursive-include resolwe/test/tests/processes *.yml
+recursive-include resolwe/toolkit/processes *.py *.yml
 recursive-include resolwe/toolkit/tests *.py
 recursive-include resolwe/toolkit/tests/files *
 recursive-include resolwe/storage/tests *.py
