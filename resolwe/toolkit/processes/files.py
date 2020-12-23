@@ -1,4 +1,6 @@
 """Upload file process."""
+from pathlib import Path
+
 from resolwe.process import FileField, Process, SchedulingClass
 
 
@@ -9,7 +11,7 @@ class UploadFile(Process):
     name = "File"
     process_type = "data:file"
     data_name = '{{ src.file|default("?") }}'
-    version = "1.1.0"
+    version = "1.1.1"
     category = "Import"
     description = "Import any other file format such as a pdf."
     requirements = {
@@ -39,5 +41,12 @@ class UploadFile(Process):
 
     def run(self, inputs, outputs):
         """Upload file."""
-        input_file = inputs.src.import_file(imported_format="extracted")
-        outputs.file = input_file
+        supported_suffixes = [".gz", ".bz2", ".zip", ".rar", ".7z"]
+        input_file = Path(inputs.src.import_file())
+
+        if Path(f"{input_file}.tar.gz").is_file():
+            outputs.file = f"{input_file}.tar.gz"
+        elif Path(inputs.src.path).suffix in supported_suffixes:
+            outputs.file = f"{input_file}.gz"
+        else:
+            outputs.file = f"{input_file}"
