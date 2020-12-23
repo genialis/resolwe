@@ -31,6 +31,7 @@ setuptools.setup(
             "flow/migrations/*.sql",
             "flow/static/flow/*.json",
             "toolkit/processes/**.yml",
+            "toolkit/processes/**.py",
             "toolkit/tools/**.py",
         ]
     },
