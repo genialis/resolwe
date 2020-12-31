@@ -808,76 +808,89 @@ class BaseCommunicator:
             await asyncio.sleep(min_sleep_interval)
 
     async def _watchdog(self):
-        """Wotches and reports peer status changes."""
-        to_remove_interval = int(
-            self._max_heartbeats_skipped * self._heartbeat_interval
-            + self._heartbeat_interval / 2
-        )
-        while True:
-            failed_peers = set()
-            recovered_peers = set()
-            degraded_peers = set()
-            sleep_interval = self._heartbeat_interval + 5
-            # Check all peers for which heartbeats were sent and not responded.
-            for identity, timestamp in self._last_heartbeat.items():
-                last_seen = self._known_peers[identity]
-                self.logger.debug(
-                    "Watchdog (%s) observing peer %s", self.name, identity
-                )
-                self.logger.debug("Last peer activity: %s.", last_seen)
-                self.logger.debug("Last peer heartbeat sent: %s.", timestamp)
-                self.logger.debug("Since last ping: %d", now() - timestamp)
-                self.logger.debug("Since last seen: %d", now() - last_seen)
-                self.logger.debug(
-                    "Until to remove: %d", last_seen + to_remove_interval - now()
-                )
-                self.logger.debug("To remove interval: %d", to_remove_interval)
-                # Message received after heartbeat was sent.
-                # If peer was in degraded state before move it to recovered.
-                if last_seen > timestamp:
-                    recovered_peers.add(identity)
-                # Peer is unresponsive.
-                elif now() - last_seen > to_remove_interval:
-                    failed_peers.add(identity)
-                    continue
-                # Peer failed to answer for 2 heartbeat intervals, entering
-                # degraded state.
-                elif (
-                    now() - last_seen > 2 * self._heartbeat_interval
-                    and identity not in self._degraded_peers
-                ):
-                    degraded_peers.add(identity)
-
-                till_next_heartbeat = int(timestamp + self._heartbeat_interval - now())
-                till_remove = int(last_seen + to_remove_interval - now())
-
-                sleep_interval = min(
-                    sleep_interval, till_remove, till_next_heartbeat
-                ) + random.uniform(2, 5)
-            self.logger.debug(
-                "Watchdog (%s) adjusting sleep interval: %d", self.name, sleep_interval
+        """Watches and reports peer status changes."""
+        try:
+            to_remove_interval = int(
+                self._max_heartbeats_skipped * self._heartbeat_interval
+                + self._heartbeat_interval / 2
             )
+            while True:
+                failed_peers = set()
+                recovered_peers = set()
+                degraded_peers = set()
+                sleep_interval = self._heartbeat_interval + 5
+                # Check all peers for which heartbeats were sent and not responded.
+                for identity, timestamp in self._last_heartbeat.items():
+                    last_seen = self._known_peers[identity]
+                    self.logger.debug(
+                        "Watchdog (%s) observing peer %s", self.name, identity
+                    )
+                    self.logger.debug("Last peer activity: %s.", last_seen)
+                    self.logger.debug("Last peer heartbeat sent: %s.", timestamp)
+                    self.logger.debug("Since last ping: %d", now() - timestamp)
+                    self.logger.debug("Since last seen: %d", now() - last_seen)
+                    self.logger.debug(
+                        "Until to remove: %d", last_seen + to_remove_interval - now()
+                    )
+                    self.logger.debug("To remove interval: %d", to_remove_interval)
+                    # Message received after heartbeat was sent.
+                    # If peer was in degraded state before move it to recovered.
+                    if last_seen > timestamp:
+                        recovered_peers.add(identity)
+                    # Peer is unresponsive.
+                    elif now() - last_seen > to_remove_interval:
+                        failed_peers.add(identity)
+                        continue
+                    # Peer failed to answer for 2 heartbeat intervals, entering
+                    # degraded state.
+                    elif (
+                        now() - last_seen > 2 * self._heartbeat_interval
+                        and identity not in self._degraded_peers
+                    ):
+                        degraded_peers.add(identity)
 
-            for recovered_peer in recovered_peers:
-                del self._last_heartbeat[recovered_peer]
-                if recovered_peer in self._degraded_peers:
-                    self.logger.debug("Peer %s recovering.", recovered_peer)
-                    self._degraded_peers.remove(recovered_peer)
-                    await self._status_changed(recovered_peer, PeerStatus.RESPONSIVE)
-            for failed_peer in failed_peers:
-                self.logger.debug("Peer %s entering unresponsive state.", failed_peer)
-                del self._known_peers[failed_peer]
-                del self._last_heartbeat[failed_peer]
-                await self._status_changed(failed_peer, PeerStatus.UNRESPONSIVE)
+                    till_next_heartbeat = int(
+                        timestamp + self._heartbeat_interval - now()
+                    )
+                    till_remove = int(last_seen + to_remove_interval - now())
 
-            for degraded_peer in degraded_peers:
-                self.logger.debug("Peer %s entering degraded state.", degraded_peer)
-                self._degraded_peers.add(degraded_peer)
-                await self._status_changed(degraded_peer, PeerStatus.DEGRADED)
-            self.logger.debug(
-                "Watchdog (%s) sleeping for %d seconds.", self.name, sleep_interval
-            )
-            await asyncio.sleep(sleep_interval)
+                    sleep_interval = min(
+                        sleep_interval, till_remove, till_next_heartbeat
+                    ) + random.uniform(2, 5)
+                self.logger.debug(
+                    "Watchdog (%s) adjusting sleep interval: %d",
+                    self.name,
+                    sleep_interval,
+                )
+
+                for recovered_peer in recovered_peers:
+                    del self._last_heartbeat[recovered_peer]
+                    if recovered_peer in self._degraded_peers:
+                        self.logger.debug("Peer %s recovering.", recovered_peer)
+                        self._degraded_peers.remove(recovered_peer)
+                        await self._status_changed(
+                            recovered_peer, PeerStatus.RESPONSIVE
+                        )
+                for failed_peer in failed_peers:
+                    self.logger.debug(
+                        "Peer %s entering unresponsive state.", failed_peer
+                    )
+                    del self._known_peers[failed_peer]
+                    del self._last_heartbeat[failed_peer]
+                    await self._status_changed(failed_peer, PeerStatus.UNRESPONSIVE)
+
+                for degraded_peer in degraded_peers:
+                    self.logger.debug("Peer %s entering degraded state.", degraded_peer)
+                    self._degraded_peers.add(degraded_peer)
+                    await self._status_changed(degraded_peer, PeerStatus.DEGRADED)
+                self.logger.debug(
+                    "Watchdog (%s) sleeping for %d seconds.", self.name, sleep_interval
+                )
+                await asyncio.sleep(sleep_interval)
+        except asyncio.CancelledError:
+            logger.info("Watchdog shutting down.")
+        except:
+            logger.exception("Unhandled exception in watchdog.")
 
     async def start_listening(self):
         """Start listening for messages.
