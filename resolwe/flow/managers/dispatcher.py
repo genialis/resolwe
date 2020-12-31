@@ -270,7 +270,7 @@ class Manager:
 
         data.scheduled = now()
         data.save(update_fields=["scheduled"])
-        return self.connectors[class_name].submit(data, runtime_dir, argv)
+        return self.connectors[class_name].submit(data, os.fspath(runtime_dir), argv)
 
     def _get_per_data_dir(
         self, dir_base: Union[PurePath, str], subpath: Union[PurePath, str]
@@ -367,7 +367,7 @@ class Manager:
         files[ExecutorFiles.EXECUTOR_SETTINGS] = settings_dict
 
         logger.debug(__("Preparing context for data with id {}.", data_id))
-        logger.debug(__("Data %d location: {}.", data_id, data.location))
+        logger.debug(__("Data {} location id: {}.", data_id, data.location))
         django_settings = {}
         django_settings.update(self._marshal_settings())
         django_settings.update(kwargs)
@@ -672,6 +672,10 @@ class Manager:
             logger.exception(
                 "ChannelFull error occurred while sending communicate message."
             )
+        except:
+            logger.exception(
+                "Unknown error occurred while sending communicate message."
+            )
 
         if first_sync_call:
             logger.debug(
@@ -899,7 +903,7 @@ class Manager:
 
         logger.debug(
             __(
-                "Manager processing communicate command triggered by Data with id {}.",
+                "Manager processing data scan triggered by Data with id {}.",
                 data_id,
             )
         )
