@@ -44,8 +44,8 @@ class Command(BaseCommand):
                 """Kill the listener on receipt of a signal."""
                 listener.terminate()
 
-            loop.add_signal_handler(SIGINT, lambda: asyncio.create_task(_killer()))
-            loop.add_signal_handler(SIGTERM, lambda: asyncio.create_task(_killer()))
+            loop.add_signal_handler(SIGINT, lambda: asyncio.ensure_future(_killer()))
+            loop.add_signal_handler(SIGTERM, lambda: asyncio.ensure_future(_killer()))
             async with listener:
                 await listener.run()
 
