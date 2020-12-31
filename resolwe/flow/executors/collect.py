@@ -27,7 +27,6 @@ logger = logging.getLogger(__name__)
 
 def collect(base_path: str) -> Set[str]:
     """Collect all files in the given directory."""
-
     collected = set()
     for root, _, files in os.walk(base_path):
         if root != base_path:
@@ -128,33 +127,31 @@ async def collect_files(communicator: BaseCommunicator, keep_data=False):
     :raises RuntimeError: on failure.
     """
     loop = asyncio.get_event_loop()
-
     try:
         base_dir = constants.DATA_VOLUME
         with concurrent.futures.ThreadPoolExecutor() as pool:
-            collected = await loop.run_in_executor(pool, collect, base_dir)
+            collected_objects = await loop.run_in_executor(pool, collect, base_dir)
+            collected_objects = [
+                await loop.run_in_executor(
+                    pool, get_transfer_object, base_dir / object_, base_dir
+                )
+                for object_ in collected_objects
+            ]
+            await communicator.send_command(
+                Message.command("referenced_files", collected_objects)
+            )
 
-        collected_objects = [
-            get_transfer_object(base_dir / object_, base_dir) for object_ in collected
-        ]
+            # Update output sizes and entire data object size.
+            response = await communicator.send_command(
+                Message.command("get_output_files_dirs", "")
+            )
 
-        await communicator.send_command(
-            Message.command("referenced_files", collected_objects)
-        )
-
-        # Update output sizes and entire data object size.
-        response = await communicator.send_command(
-            Message.command("get_output_files_dirs", "")
-        )
-
-        with concurrent.futures.ThreadPoolExecutor() as pool:
             output, data_size = await loop.run_in_executor(
                 pool, hydrate_size, response.message_data, base_dir
             )
 
-        if output:
-            await communicator.send_command(Message.command("update_output", output))
-            await communicator.send_command(Message.command("set_data_size", data_size))
+        await communicator.send_command(Message.command("update_output", output))
+        await communicator.send_command(Message.command("set_data_size", data_size))
 
     except Exception as ex:
         logger.exception("Error collecting files")
