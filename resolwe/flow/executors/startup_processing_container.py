@@ -30,7 +30,7 @@ JSON_LOG_PATH = DATA_VOLUME / "jsonout.txt"
 KEEP_DATA = bool(strtobool(os.environ.get("FLOW_MANAGER_KEEP_DATA", "False")))
 
 # Read configuration from environmental variables.
-COMMUNICATION_CONTAINER_TIMEOUT = int(os.environ.get("CONTAINER_TIMEOUT", 300))
+COMMUNICATION_CONTAINER_TIMEOUT = int(os.environ.get("CONTAINER_TIMEOUT", 600))
 SOCKETS_PATH = Path(os.environ.get("SOCKETS_VOLUME", "/sockets"))
 COMMUNICATION_SOCKET = SOCKETS_PATH / os.environ.get(
     "COMMUNICATION_PROCESSING_SOCKET", "_socket1.s"

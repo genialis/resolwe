@@ -9,7 +9,7 @@ SECRETS_VOLUME = Path("/secrets")
 SETTINGS_VOLUME = Path("/settings")
 SOCKETS_VOLUME = Path("/sockets")
 
-CONTAINER_TIMEOUT = 300
+CONTAINER_TIMEOUT = 600
 # Where socket files are stored inside container.
 COMMUNICATION_PROCESSING_SOCKET = "_socket1.s"
 SCRIPT_SOCKET = "_socket2.s"
