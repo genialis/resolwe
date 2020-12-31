@@ -98,7 +98,7 @@ LISTENER_CONNECTION = {
     "protocol": "tcp",
 }
 
-DOCKER_COMMUNICATOR_IMAGE = "resolwe/com:python-3.8"
+DOCKER_COMMUNICATOR_IMAGE = "resolwe/com:python-3.9"
 
 # Used to determine IP for kubernetes executor to connect to.
 KUBERNETES_SETTINGS = {

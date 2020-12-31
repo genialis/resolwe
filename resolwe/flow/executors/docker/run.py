@@ -256,7 +256,7 @@ class FlowExecutor(LocalFlowExecutor):
             "image", constants.DEFAULT_CONTAINER_IMAGE
         )
         communicator_image = SETTINGS.get(
-            "DOCKER_COMMUNICATOR_IMAGE", "resolwe/com:python-3.8"
+            "DOCKER_COMMUNICATOR_IMAGE", "resolwe/com:python-3.9"
         )
         ulimits = []
         if (

@@ -546,7 +546,7 @@ class Connector(BaseConnector):
             ] = "localhost/profiles/seccomp.json"
 
         communicator_image = getattr(
-            settings, "DOCKER_COMMUNICATOR_IMAGE", "resolwe/com:python-3.8"
+            settings, "DOCKER_COMMUNICATOR_IMAGE", "resolwe/com:python-3.9"
         )
 
         requirements = data.process.requirements.get("executor", {}).get("docker", {})
