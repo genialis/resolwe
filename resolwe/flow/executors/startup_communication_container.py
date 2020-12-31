@@ -230,9 +230,7 @@ class Manager:
         :raises: RuntimeError on failure.
         """
         try:
-            logger.debug("Collecting files")
             await collect_files(self.listener_communicator)
-            logger.debug("Collected files")
             return True
         except RuntimeError:
             with suppress(Exception):
@@ -322,8 +320,12 @@ class Manager:
                     return_code = 1
 
             # Notify listener that the processing is finished.
-            with suppress(Exception):
+            try:
                 await listener.finish(return_code)
+            except RuntimeError:
+                logger.exception("Error sending finish command.")
+            except:
+                logger.exception("Unknown error sending finish command.")
 
             listener.stop_communicate()
             processing.stop_communicate()
