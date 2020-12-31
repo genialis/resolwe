@@ -8,12 +8,15 @@ Manager Channels consumer.
 
 """
 import asyncio
+import logging
 
 from channels.consumer import AsyncConsumer
 from channels.layers import get_channel_layer
 from channels.testing import ApplicationCommunicator
 
 from . import state
+
+logger = logging.getLogger(__name__)
 
 
 async def send_event(message):
@@ -96,7 +99,11 @@ class ManagerConsumer(AsyncConsumer):
 
     async def control_event(self, message):
         """Forward control events to the manager dispatcher."""
-        await self.manager.handle_control_event(message["content"])
+        logger.debug("control_event got message %s", message)
+        try:
+            await self.manager.handle_control_event(message["content"])
+        except:
+            logger.exception("control_event exception.")
 
 
 class ListenerConsumer(AsyncConsumer):
