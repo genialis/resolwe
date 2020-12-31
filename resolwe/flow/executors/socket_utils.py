@@ -550,8 +550,11 @@ class BaseCommunicator:
 
         self._uuid_to_event: Dict[str, EventWithResponse] = dict()
 
-        # TODO: this can get preety big, purge at certain times.
+        # Keep two lists of received messages. After 10 minutes move current
+        # messages to older list and discard older messages. So the list
+        # of received messages will not become too large.
         self._uuids_received: Set[str] = set()
+        self._uuids_received_old: Set[str] = set()
         # When no message has been exchanged with the peer for
         # _heartbeat_interval seconds the heartbeat message is sent.
         self._heartbeat_interval = 60
@@ -567,6 +570,17 @@ class BaseCommunicator:
         self.peer_status_changed = peer_status_changed
         self._heartbeat_messages_future: Optional[asyncio.Future] = None
         self._watchdog_future: Optional[asyncio.Future] = None
+        self._recycle_uuids_future: Optional[asyncio.Future] = None
+
+    async def _recycle_received_uuids(self, timeout: int = 600):
+        """Recycle the list of received messages uuids.
+
+        Move received messages to the old list and discard old ones.
+        """
+        while True:
+            self._uuids_received_old = self._uuids_received
+            self._uuids_received = set()
+            await asyncio.sleep(timeout)
 
     async def _receive_message(self) -> Optional[Tuple[PeerIdentity, Message]]:
         """Receive a single message.
@@ -684,6 +698,7 @@ class BaseCommunicator:
         assert self._listening_future is None
         assert self._heartbeat_messages_future is None
         assert self._watchdog_future is None
+        assert self._recycle_uuids_future is None
 
         self._terminating.clear()
 
@@ -692,6 +707,9 @@ class BaseCommunicator:
             self._send_heartbeat_messages()
         )
         self._watchdog_future = asyncio.ensure_future(self._watchdog())
+        self._recycle_uuids_future = asyncio.ensure_future(
+            self._recycle_received_uuids()
+        )
 
         self.logger.debug("Communicator %s: entering context.", self.name)
         return self
@@ -702,6 +720,8 @@ class BaseCommunicator:
         assert self._heartbeat_messages_future is not None
         assert self._watchdog_future is not None
         assert self._listening_future is not None
+        assert self._recycle_uuids_future is not None
+
         self._terminating.set()
         with suppress(asyncio.TimeoutError):
             await asyncio.wait_for(
@@ -709,14 +729,19 @@ class BaseCommunicator:
             )
         self._watchdog_future.cancel()
         self._heartbeat_messages_future.cancel()
+        self._recycle_uuids_future.cancel()
         self._watchdog_future = None
         self._listening_future = None
         self._listening_future = None
+        self.logger.debug("Communicator %s: leaving context.", self.name)
 
     def _message_status(self, message_uuid: str) -> MessageStatus:
         """Get status of message with the given UUID."""
         self.logger.debug("Checking for message status: %s.", message_uuid)
-        if message_uuid in self._uuids_received:
+        if (
+            message_uuid in self._uuids_received
+            or message_uuid in self._uuids_received_old
+        ):
             return MessageStatus.RECEIVED
         else:
             return MessageStatus.UNKNOWN
