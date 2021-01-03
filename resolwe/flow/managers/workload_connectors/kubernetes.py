@@ -195,9 +195,11 @@ class Connector(BaseConnector):
                 "metadata": {"name": configmap_name},
                 "data": data,
             }
-            core_api.create_namespaced_config_map(
-                body=configmap_description, namespace=self.kubernetes_namespace
-            )
+            # The configmap might have already been created in the meantime.
+            with suppress(kubernetes.client.rest.ApiException):
+                core_api.create_namespaced_config_map(
+                    body=configmap_description, namespace=self.kubernetes_namespace
+                )
 
         return configmap_name
 
