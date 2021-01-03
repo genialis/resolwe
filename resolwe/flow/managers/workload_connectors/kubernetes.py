@@ -543,7 +543,7 @@ class Connector(BaseConnector):
             # mount my /tmp directory to the /seccomp directory in minikube.
             annotations[
                 "seccomp.security.alpha.kubernetes.io/pod"
-            ] = "localhost/profiles/seccomp.json"
+            ] = "runtime/default"
 
         communicator_image = getattr(
             settings, "DOCKER_COMMUNICATOR_IMAGE", "resolwe/com:python-3.9"
