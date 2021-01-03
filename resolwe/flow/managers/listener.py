@@ -1069,6 +1069,10 @@ class ListenerProtocol(BaseProtocol):
         )
         self._executor_preparer = self._load_executor_preparer()
 
+        self._parallel_commands_counter = 0
+        self._max_parallel_commands = 10
+        self._parallel_commands_semaphore: Optional[asyncio.Semaphore] = None
+
     def handle_log(
         self, message: Message[Union[str, bytes, bytearray]]
     ) -> Response[str]:
@@ -1153,30 +1157,56 @@ class ListenerProtocol(BaseProtocol):
         self, peer_identity: PeerIdentity, received_message: Message
     ):
         """Process command."""
-        response = await self._get_response(peer_identity, received_message)
-        try:
-            assert received_message.sent_timestamp is not None
-            response_time = time.time() - received_message.sent_timestamp
-            self.logger.debug(__("Response time: {}", response_time))
-            await self.communicator.send_response(response, peer_identity)
-
-        except RuntimeError:
-            # When unable to send message just log the error. Peer will be
-            # removed by the watchdog later on.
-            self.logger.exception(
-                "Protocol: error sending response to {received_message}."
+        if self._parallel_commands_semaphore is None:
+            self._parallel_commands_semaphore = asyncio.Semaphore(
+                self._max_parallel_commands
             )
-        # Remove peer and nudge manager on "finish" command.
-        if received_message.command_name == "finish":
-            peer = self.peers[peer_identity]
-            self.remove_peer(peer_identity)
 
-            # Worker status must be updated in the dispatcher to avoid
-            # synchronization issues while testing (if status is updated here
-            # another message might raise runtime barrier before our message
-            # reaches the dispatcher.
-            with suppress(Data.DoesNotExist):
-                await peer.notify_dispatcher_finish_async()
+        self.logger.debug(
+            __("Internal semaphore count: {}", self._parallel_commands_semaphore._value)
+        )
+        async with self._parallel_commands_semaphore:
+            self._parallel_commands_counter += 1
+            self.logger.debug(
+                __("Processing {} commands", self._parallel_commands_counter)
+            )
+            response = await self._get_response(peer_identity, received_message)
+            try:
+                assert received_message.sent_timestamp is not None
+                response_time = time.time() - received_message.sent_timestamp
+                self.logger.debug(__("Response time: {}", response_time))
+                await self.communicator.send_response(response, peer_identity)
+
+            except RuntimeError:
+                # When unable to send message just log the error. Peer will be
+                # removed by the watchdog later on.
+                self.logger.exception(
+                    __("Protocol: error sending response to {}.", received_message)
+                )
+            try:
+                # Remove peer and nudge manager on "finish" command.
+                if received_message.command_name == "finish":
+                    peer = self.peers[peer_identity]
+                    self.remove_peer(peer_identity)
+
+                    # Worker status must be updated in the dispatcher to avoid
+                    # synchronization issues while testing (if status is updated here
+                    # another message might raise runtime barrier before our message
+                    # reaches the dispatcher.
+                    with suppress(Data.DoesNotExist):
+                        await peer.notify_dispatcher_finish_async()
+            except:
+                logger.exception(
+                    __("Error processing 'finish' for peer {}", peer_identity)
+                )
+            finally:
+                self._parallel_commands_counter -= 1
+                logger.debug(
+                    __(
+                        "Finished processing command, {} remaining.",
+                        self._parallel_commands_counter,
+                    )
+                )
 
     async def process_command(
         self, peer_identity: PeerIdentity, received_message: Message
