@@ -716,6 +716,7 @@ class Connector(BaseConnector):
         core_api = kubernetes.client.CoreV1Api()
         ebs_claim_name = self._ebs_claim_name(data_id)
         logger.debug("Kubernetes: removing claim %s.", ebs_claim_name)
-        core_api.delete_namespaced_persistent_volume_claim(
-            name=ebs_claim_name, namespace=self.kubernetes_namespace
-        )
+        with suppress(kubernetes.client.rest.ApiException):
+            core_api.delete_namespaced_persistent_volume_claim(
+                name=ebs_claim_name, namespace=self.kubernetes_namespace
+            )
