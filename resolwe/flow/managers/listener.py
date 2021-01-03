@@ -17,6 +17,7 @@ import json
 import logging
 import os
 import shlex
+import threading
 import time
 from contextlib import suppress
 from importlib import import_module
@@ -656,7 +657,6 @@ class Processor(PythonProcessMixin):
         The response is the id of the created object.
         """
         export_files_mapper = message.message_data["export_files_mapper"]
-        # TODO: is this refresh needed??
         self.data.refresh_from_db()
 
         try:
@@ -1072,6 +1072,7 @@ class ListenerProtocol(BaseProtocol):
         self._parallel_commands_counter = 0
         self._max_parallel_commands = 10
         self._parallel_commands_semaphore: Optional[asyncio.Semaphore] = None
+        self._get_program_lock = threading.Lock()
 
     def handle_log(
         self, message: Message[Union[str, bytes, bytearray]]
@@ -1211,38 +1212,46 @@ class ListenerProtocol(BaseProtocol):
     async def process_command(
         self, peer_identity: PeerIdentity, received_message: Message
     ):
-        """Override process command."""
+        """Override process command in socket_utils."""
         # Make it run in the background so another message can be processed.
         asyncio.ensure_future(self._process_command(peer_identity, received_message))
 
     def get_program(self, data: Data) -> str:
         """Get a program for given data object."""
-        execution_engine_name = data.process.run.get("language", None)
-        program = [self._get_execution_engine(execution_engine_name).evaluate(data)]
-        # TODO: should executor be changed? Definitely for tests (from case to case).
-        # Should I use file prepared by the Dispatcher (that takes care of that)?
-        env_vars = self.get_executor().get_environment_variables()
-        settings_env_vars = {
-            "RESOLWE_HOST_URL": getattr(settings, "RESOLWE_HOST_URL", "localhost"),
-        }
-        additional_env_vars = getattr(settings, "FLOW_EXECUTOR", {}).get("SET_ENV", {})
-        env_vars.update(settings_env_vars)
-        env_vars.update(additional_env_vars)
-        export_commands = [
-            "export {}={}".format(key, shlex.quote(value))
-            for key, value in env_vars.items()
-        ]
+        # When multiple get_script commands run in parallel the string
+        # escaping will be fragile at best. Process this command here
+        # without offloading it to the listener.
+        with self._get_program_lock:
+            execution_engine_name = data.process.run.get("language", None)
+            program = [self._get_execution_engine(execution_engine_name).evaluate(data)]
+            # TODO: should executor be changed? Definitely for tests (from case to case).
+            # Should I use file prepared by the Dispatcher (that takes care of that)?
+            env_vars = self.get_executor().get_environment_variables()
+            settings_env_vars = {
+                "RESOLWE_HOST_URL": getattr(settings, "RESOLWE_HOST_URL", "localhost"),
+            }
+            additional_env_vars = getattr(settings, "FLOW_EXECUTOR", {}).get(
+                "SET_ENV", {}
+            )
+            env_vars.update(settings_env_vars)
+            env_vars.update(additional_env_vars)
+            export_commands = [
+                "export {}={}".format(key, shlex.quote(value))
+                for key, value in env_vars.items()
+            ]
 
-        # Paths for Resolwe tools.
-        tools_num = len(self._executor_preparer.get_tools_paths())
-        tools_paths = ":".join(f"/usr/local/bin/resolwe/{i}" for i in range(tools_num))
-        export_commands += [f"export PATH=$PATH:{tools_paths}"]
+            # Paths for Resolwe tools.
+            tools_num = len(self._executor_preparer.get_tools_paths())
+            tools_paths = ":".join(
+                f"/usr/local/bin/resolwe/{i}" for i in range(tools_num)
+            )
+            export_commands += [f"export PATH=$PATH:{tools_paths}"]
 
-        # Disable brace expansion and set echo.
-        echo_commands = ["set -x +B"]
+            # Disable brace expansion and set echo.
+            echo_commands = ["set -x +B"]
 
-        commands = echo_commands + export_commands + program
-        return os.linesep.join(commands)
+            commands = echo_commands + export_commands + program
+            return os.linesep.join(commands)
 
     def _get_execution_engine(self, name):
         """Return an execution engine instance."""
