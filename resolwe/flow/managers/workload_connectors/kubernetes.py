@@ -493,9 +493,18 @@ class Connector(BaseConnector):
         requests["cpu"] = limits.pop("cores")
         limits["cpu"] = requests["cpu"] + 1
 
-        requests["memory"] = limits["memory"] * (10 ** 6)
-        limits["memory"] += KUBERNETES_MEMORY_HARD_LIMIT_BUFFER
+        # The memory in the database is stored in megabytes but the kubertenes
+        # requires memory in bytes.
+        # We request 10% less memory than stored in the database and set limit
+        # at 10% more plus KUBERNETES_MEMORY_HARD_LIMIT_BUFFER. The processes
+        # usually require 16GB, 32GB... and since the node usualy has 64GB of
+        # memory and some of it is consumed by the system processes only one
+        # process process that requires 32GB can run on a node instead of 2.
+
+        requests["memory"] = 0.9 * limits["memory"]
+        limits["memory"] = 1.1 * limits["memory"] + KUBERNETES_MEMORY_HARD_LIMIT_BUFFER
         limits["memory"] *= 10 ** 6
+        requests["memory"] *= 10 ** 6
 
         ebs_claim_name = self._ebs_claim_name(data.id)
         ebs_claim_size = limits.get(
@@ -543,9 +552,7 @@ class Connector(BaseConnector):
             #
             # The file is transfered to kubelets with daemonset ? Currently I
             # mount my /tmp directory to the /seccomp directory in minikube.
-            annotations[
-                "seccomp.security.alpha.kubernetes.io/pod"
-            ] = "runtime/default"
+            annotations["seccomp.security.alpha.kubernetes.io/pod"] = "runtime/default"
 
         communicator_image = getattr(
             settings, "DOCKER_COMMUNICATOR_IMAGE", "resolwe/com:python-3.9"
