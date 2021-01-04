@@ -64,23 +64,17 @@ setuptools.setup(
         "resolwe-runtime-utils~=2.1.0",
         "shellescape~=3.4.1",
         "Sphinx>=1.5.1, <1.7.0",
-        # XXX: Temporarily pin urllib to 1.24.x, since requests 2.21.0
-        # has requirement urllib3<1.25,>=1.21.1
-        "urllib3~=1.24.2",
         "wrapt~=1.11.1",
-        "pyzmq~=19.0.2",
+        "pyzmq~=20.0.0",
     ],
     extras_require={
-        # XXX: Temporarily pin docutils to 0.15.2 (last before 0.16) since botocore3 depends
-        # on docutils<0.16 and pip tries to install 0.16.
         "storage_s3": [
-            "boto3~=1.12.7",
+            "boto3~=1.16.47",
             "crcmod",
-            "docutils~=0.15.2",
         ],
         "storage_gcs": [
             "crcmod",
-            "google-cloud-storage~=1.28.1",
+            "google-cloud-storage~=1.35.0",
         ],
         "docs": [
             "sphinx_rtd_theme",
