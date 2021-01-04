@@ -316,12 +316,6 @@ class Connector(BaseConnector):
                 "subPath": os.fspath(location_subpath),
                 "readOnly": False,
             },
-            # {
-            #     "name": "fsx-root",
-            #     "mountPath": constants.DATA_VOLUME,
-            #     "subPath": os.fspath(location_subpath),
-            #     "readOnly": False,
-            # },
             {
                 "name": "efs-root",
                 "mountPath": os.fspath(constants.UPLOAD_VOLUME),
@@ -503,13 +497,11 @@ class Connector(BaseConnector):
 
         requests["memory"] = 0.9 * limits["memory"]
         limits["memory"] = 1.1 * limits["memory"] + KUBERNETES_MEMORY_HARD_LIMIT_BUFFER
-        limits["memory"] *= 10 ** 6
-        requests["memory"] *= 10 ** 6
+        limits["memory"] *= 2 ** 20  # 2 ** 20 = mebibyte
+        requests["memory"] *= 2 ** 20
 
         ebs_claim_name = self._ebs_claim_name(data.id)
-        ebs_claim_size = limits.get(
-            "storage", 100 * ((2 ** 10) ** 3)
-        )  # Default 100Gi bytes
+        ebs_claim_size = limits.pop("storage", 100) * (2 ** 30)  # Default 100 gibibytes
 
         # TODO: no ulimits on kubernetes??
         # See https://github.com/kubernetes/kubernetes/issues/3595

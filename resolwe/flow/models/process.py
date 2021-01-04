@@ -201,6 +201,9 @@ class Process(BaseModel):
             - ``memory``: Memory usage limit, in MB. Defaults to 4096 if
               not otherwise specified in the resource requirements.
             - ``cores``: Core count limit. Defaults to 1.
+            - ``storage``: Size (in giga bytes = 1_000_000_000 bytes) of
+              temporary volume used for processing in kubernetes. Defaults to
+              100Gb.
 
         :rtype: dict
         """
@@ -228,5 +231,9 @@ class Process(BaseModel):
                 )
             )
         limits["memory"] = memory
+
+        limits["storage"] = limit_overrides.get("storage", {}).get(
+            self.slug, int(resources.get("storage", limit_defaults.get("storage", 100)))
+        )
 
         return limits
