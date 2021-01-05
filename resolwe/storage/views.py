@@ -1,4 +1,5 @@
 """Storage application views."""
+import re
 from datetime import datetime
 from distutils.util import strtobool
 from pathlib import Path
@@ -122,3 +123,31 @@ class DataBrowseView(View):
             return JsonResponse(response, safe=False)
         else:
             raise PermissionDenied()
+
+
+class UriResolverView(DataBrowseView):
+    """Get resolved and signed URLs for a given list of URIs."""
+
+    def get(
+        self, request: HttpRequest, *args: Union[str, int], **kwargs: Union[str, int]
+    ) -> HttpResponse:
+        """Get resolved and signed URLs for a given list of URIs."""
+
+        response_data = {}
+
+        for uri in request.GET.getlist("uris", []):
+            match = re.match(r"(\d+)/(.+)", uri).group(1, 2)
+            if not match:
+                response_data[uri] = ""
+                continue
+            data_id = int(match.group(1))
+            relative_path = Path(match.group(2))
+            datum = self._get_datum(data_id)
+
+            response = self._get_response(datum, relative_path)[0]
+            if response:
+                response_data[uri] = response
+            else:
+                raise PermissionDenied()
+
+        return HttpResponse(response_data)
