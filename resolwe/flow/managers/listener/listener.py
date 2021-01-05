@@ -21,23 +21,18 @@ import threading
 import time
 from contextlib import suppress
 from importlib import import_module
-from typing import Any, Dict, List, MutableMapping, Optional, Tuple, Union
+from typing import Any, Dict, List, MutableMapping, Optional, Union
 
 import zmq
 import zmq.asyncio
 from asgiref.sync import async_to_sync
 from channels.db import database_sync_to_async
 
-from django.apps import apps
 from django.conf import settings
-from django.contrib.postgres.fields.jsonb import JSONField
 from django.core.exceptions import ValidationError
-from django.db import transaction
-from django.urls import reverse
 from django.utils.timezone import now
 
 from django_priority_batch import PrioritizedBatcher
-from guardian.shortcuts import get_objects_for_user
 
 from resolwe.flow.engine import BaseEngine, InvalidEngineError, load_engines
 from resolwe.flow.executors.socket_utils import (
@@ -49,272 +44,25 @@ from resolwe.flow.executors.socket_utils import (
     ResponseStatus,
 )
 from resolwe.flow.executors.zeromq_utils import ZMQCommunicator
-from resolwe.flow.models import (
-    Collection,
-    Data,
-    DataDependency,
-    Process,
-    Storage,
-    Worker,
-)
-from resolwe.flow.models.utils import (
-    referenced_files,
-    serialize_collection_relations,
-    validate_data_object,
-)
-from resolwe.flow.utils import dict_dot, iterate_fields
-from resolwe.storage.models import AccessLog, ReferencedPath, StorageLocation
-from resolwe.storage.settings import STORAGE_LOCAL_CONNECTOR
+from resolwe.flow.managers import consumer
+from resolwe.flow.managers.protocol import WorkerProtocol
+from resolwe.flow.models import Data, Worker
+from resolwe.storage.models import AccessLog
 from resolwe.utils import BraceMessage as __
 
-from . import consumer
-from .protocol import ExecutorProtocol, WorkerProtocol
+# Register basic and python process plugin by importing them.
+from .basic_commands_plugin import (  # noqa: F401 pylint:disable = unused-import
+    BasicCommands,
+)
+from .plugin import plugin_manager
+from .python_process_plugin import (  # noqa: F401 pylint:disable = unused-import
+    PythonProcess,
+)
 
 logger = logging.getLogger(__name__)
 
 
-class PythonProcessMixin:
-    """Handler methods for Python processes."""
-
-    ALLOWED_MODELS_C = ["Collection", "Entity", "Data"]
-    ALLOWED_MODELS_RW = ["Data", "Process", "Entity", "Collection", "Storage"]
-    WRITE_FIELDS = {"Data.name", "Data.output", "Data.descriptor"}
-
-    def _has_permission(self, model, model_pk: int, permission_name: str):
-        """Check if contributor has requested permissions.
-
-        :raises RuntimeError: with detailed explanation when check fails.
-        """
-        object_ = model.objects.filter(pk=model_pk)
-        filtered_object = get_objects_for_user(
-            self.contributor,
-            [permission_name],
-            object_,
-        )
-        if not filtered_object:
-            if object_:
-                raise RuntimeError(
-                    f"No permissions: {model._meta.model_name} with id {model_pk}."
-                )
-            else:
-                raise RuntimeError(
-                    f"Object {model._meta.model_name} with id {model_pk} not found."
-                )
-
-    def _can_modify_data(self, **model_data: Dict[str, Any]):
-        """Check if user has the permission to create a Data object.
-
-        User can always create a data object but also need edit permission
-        to the collection for example.
-
-        :raises RuntimeError: witd detailed description when user can not
-            create Data object.
-        """
-        can_set = {
-            "process_id",
-            "output",
-            "input",
-            "tags",
-            "entity_id",
-            "collection_id",
-        }
-        not_allowed_keys = set(model_data.keys()) - can_set
-        if not_allowed_keys:
-            message = f"Not allowed to set {','.join(not_allowed_keys)} not allowed."
-            raise RuntimeError(message)
-
-        # Check process permissions.
-        self._has_permission(Process, model_data["process_id"], "view_process")
-
-        if "entity_id" in model_data:
-            # Check entity permissions.
-            self._has_permission(Process, model_data["entity_id"], "edit_entity")
-
-        if "collection_id" in model_data:
-            # Check collection permissions.
-            self._has_permission(
-                Collection, model_data["collection_id"], "edit_collection"
-            )
-
-    def handle_create_object(
-        self, message: Message[Tuple[str, Dict[str, Any]]]
-    ) -> Response[int]:
-        """Create and return the new object id."""
-        model_name, model_data = message.message_data
-        assert (
-            model_name in self.ALLOWED_MODELS_C
-        ), f"Not allowed to create model {model_name}."
-
-        model = apps.get_model("flow", model_name)
-        if model_name == "Data":
-            self._can_modify_data(**model_data)
-        model_data["contributor"] = self.contributor
-        created = model.objects.create(**model_data)
-        return message.respond_ok(created.id)
-
-    def handle_filter_objects(
-        self, message: Message[Tuple[str, Dict[str, Any]]]
-    ) -> Response[List[int]]:
-        """Create and return the new object id."""
-        model_name, filters = message.message_data
-        assert (
-            model_name in self.ALLOWED_MODELS_RW
-        ), f"Not allowed to access {model_name}."
-
-        # TODO: storages!!!
-        model = apps.get_model("flow", model_name)
-        permission_name = f"{model_name.lower()}_view"
-        model_instances = get_objects_for_user(
-            self.contributor,
-            [permission_name],
-            model.objects.filter(**filters),
-        )
-        return message.respond_ok(list(model_instances.values_list("id", flat=True)))
-
-    def handle_update_model_fields(
-        self, message: Message[Tuple[str, int, Dict[str, Any]]]
-    ) -> Response[str]:
-        """Update the value for the given fields.
-
-        The received message format is
-        (model name, primary key, mapping from field names to field values).
-
-        Field name can be given in dot notation for JSON fields.
-        """
-        model_name, model_pk, mapping = message.message_data
-        assert (
-            model_name in self.ALLOWED_MODELS_RW
-        ), f"Access to the model {model_name} not allowed."
-        permission_name = f"{model_name.lower()}_edit"
-        if model_name == "Data" and model_pk == self.data_id:
-            model_instance = self.data
-            model = Data
-        else:
-            model = apps.get_model("flow", model_name)
-            if model_name == "Storage":
-                model_instance = Storage.objects.get(pk=model_pk)
-                data_objects = get_objects_for_user(
-                    self.contributor, ["data_edit"], model_instance.data
-                )
-                if not data_objects.exists():
-                    raise RuntimeError(f"Access to Storage with id {model_pk} denied.")
-            else:
-
-                model_instance = get_objects_for_user(
-                    self.contributor,
-                    [permission_name],
-                    model.objects.filter(pk=model_pk),
-                ).get()
-        for field_name, field_value in mapping.items():
-            logger.debug(
-                __(
-                    "Updating field: {} with value: {}",
-                    model._meta.get_field(field_name),
-                    field_value,
-                )
-            )
-            if isinstance(model._meta.get_field(field_name), JSONField):
-                instance_value = getattr(model_instance, field_name)
-                for key, value in field_value.items():
-                    dict_dot(instance_value, key, value)
-            else:
-                setattr(model_instance, field_name, field_value)
-        model_instance.save(update_fields=mapping.keys())
-        return message.respond_ok("OK")
-
-    def handle_get_model_fields_details(
-        self, message: Message[str]
-    ) -> Response[Dict[str, Tuple[str, Optional[str]]]]:
-        """Get the field names and types for the given model.
-
-        The response is a dictionary which maps names to types.
-        """
-        model = apps.get_model("flow", message.message_data)
-        response = {}
-        for field in model._meta.get_fields():
-            related_model = None
-            if field.is_relation:
-                related_model = field.related_model._meta.label.split(".")[1]
-            response[field.name] = (
-                field.get_internal_type(),
-                not field.null,
-                related_model,
-            )
-        return message.respond_ok(response)
-
-    def handle_get_relations(self, message: Message[int]) -> Response[List[dict]]:
-        """Get relations for the given collection object."""
-        collection = get_objects_for_user(
-            self.contributor,
-            "view_collection",
-            Collection.objects.filter(id=message.message_data),
-        ).get()
-
-        return message.respond_ok(serialize_collection_relations(collection))
-
-    def handle_get_model_fields(
-        self, message: Message[Tuple[str, int, List[str]]]
-    ) -> Response[Dict[str, Any]]:
-        """Return the value of the given model for the given fields.
-
-        The received message format is
-        (model_name, primary_key, list_of_fields).
-
-        In case of JSON field the field name can contain underscores to get
-        only the part of the JSON we are interested in.
-        """
-        model_name, model_pk, field_names = message.message_data
-        assert model_name in self.ALLOWED_MODELS_RW
-        permission_name = f"{model_name.lower()}_view"
-        model = apps.get_model("flow", model_name)
-
-        filtered_object = get_objects_for_user(
-            self.contributor, [permission_name], model.objects.filter(pk=model_pk)
-        )
-        values = filtered_object.values(*field_names)
-        # NOTE: non JSON serializable fields are NOT supported. If such field
-        # is requested the exception will be handled one level above and
-        # response with status error will be returned.
-        if values.count() == 1:
-            values = values.get()
-        return message.respond_ok(values)
-
-    def handle_get_process_requirements(self, message: Message[int]) -> Response[dict]:
-        """Return the requirements for the process with the given id."""
-        process_id = message.message_data
-        filtered_process = get_objects_for_user(
-            self.contributor, ["process_view"], Process.objects.filter(pk=process_id)
-        )
-        process_requirements, process_slug = filtered_process.values_list(
-            "requirements", "slug"
-        ).get()
-        resources = process_requirements.get("resources", {})
-
-        # Get limit defaults and overrides.
-        limit_defaults = getattr(settings, "FLOW_PROCESS_RESOURCE_DEFAULTS", {})
-        limit_overrides = getattr(settings, "FLOW_PROCESS_RESOURCE_OVERRIDES", {})
-
-        limits = {}
-        limits["cores"] = int(resources.get("cores", 1))
-        max_cores = getattr(settings, "FLOW_PROCESS_MAX_CORES", None)
-        if max_cores:
-            limits["cores"] = min(limits["cores"], max_cores)
-
-        memory = limit_overrides.get("memory", {}).get(process_slug, None)
-        if memory is None:
-            memory = int(
-                resources.get(
-                    "memory",
-                    # If no memory resource is configured, check settings.
-                    limit_defaults.get("memory", 4096),
-                )
-            )
-        limits["memory"] = memory
-        process_requirements["resources"] = limits
-        return message.respond_ok(process_requirements)
-
-
-class Processor(PythonProcessMixin):
+class Processor:
     """Class respresents instance of one connected worker."""
 
     def __init__(
@@ -330,11 +78,11 @@ class Processor(PythonProcessMixin):
         :raises ValueError: when identity is not in the correct format.
         :raises Data.DoesNotExist: when Data object is not found.
         """
+        self.peer_identity = peer_identity
         self.data_id = int(peer_identity)
         self._data: Optional[Data] = None
         self._worker: Optional[Worker] = None
         self._listener = listener
-
         self.expected_sequence_number = starting_sequence_number
         self.return_code = 0
 
@@ -533,7 +281,7 @@ class Processor(PythonProcessMixin):
 
         command_name = message.command_name
         handler_name = f"handle_{command_name}"
-        handler = getattr(self, handler_name, None)
+        handler = plugin_manager.get_handler(command_name)
         if not handler:
             error = f"No command handler for '{command_name}'."
             self._log_error(error, save_to_data_object=False)
@@ -559,7 +307,7 @@ class Processor(PythonProcessMixin):
         self.expected_sequence_number = message.sequence_number + 1
         try:
             with PrioritizedBatcher.global_instance():
-                result = handler(message)
+                result = handler(message, self)
                 # Set status of the response to ERROR when data object status
                 # is Data.STATUS_ERROR. Such response will trigger terminate
                 # procedure in the processing container and stop processing.
@@ -650,375 +398,6 @@ class Processor(PythonProcessMixin):
                 },
             }
         )
-
-    def handle_run(self, message: Message[dict]) -> Response[List[int]]:
-        """Handle spawning new data object.
-
-        The response is the id of the created object.
-        """
-        export_files_mapper = message.message_data["export_files_mapper"]
-        self.data.refresh_from_db()
-
-        try:
-            data = message.message_data["data"]
-            logger.debug(__("Spawning new data object from dict: {}", data))
-
-            data["contributor"] = self.data.contributor
-            data["process"] = Process.objects.filter(slug=data["process"]).latest()
-            data["tags"] = self.data.tags
-            data["collection"] = self.data.collection
-            data["subprocess_parent"] = self.data
-
-            with transaction.atomic():
-                for field_schema, fields in iterate_fields(
-                    data.get("input", {}), data["process"].input_schema
-                ):
-                    type_ = field_schema["type"]
-                    name = field_schema["name"]
-                    value = fields[name]
-
-                    if type_ == "basic:file:":
-                        fields[name] = self.hydrate_spawned_files(
-                            export_files_mapper, value
-                        )
-                    elif type_ == "list:basic:file:":
-                        fields[name] = [
-                            self.hydrate_spawned_files(export_files_mapper, fn)
-                            for fn in value
-                        ]
-                created_object = Data.objects.create(**data)
-        except Exception:
-            self._log_exception(
-                f"Error while preparing spawned Data objects for process '{self.data.process.slug}'"
-            )
-            return message.respond_error("Error creating new Data object.")
-        else:
-            return message.respond_ok(created_object.id)
-
-    def handle_update_rc(self, message: Message[dict]) -> Response[str]:
-        """Update return code.
-
-        When return code is chaned from zero to non-zero value the Data object
-        status is set to ERROR.
-
-        :args: data contains at least key rc and possibly key error.
-        """
-        return_code = message.message_data["rc"]
-        if return_code not in (0, self.return_code):
-            changes: dict = {"process_rc": self.return_code}
-            if self.return_code == 0:
-                error_details = message.message_data.get("error", "Unspecified error")
-                changes["status"] = Data.STATUS_ERROR
-                changes["process_error"] = self.data.process_error
-                changes["process_error"].append(error_details)
-            self.return_code = return_code
-            self._update_data(changes)
-        return message.respond_ok("OK")
-
-    def handle_get_output_files_dirs(self, message: Message[str]) -> Response[dict]:
-        """Get the output for file and dir fields.
-
-        The sent dictionary has field names as its keys and tuple filed_type,
-        field_value for its values.
-        """
-
-        def is_file_or_dir(field_type: str) -> bool:
-            """Is file or directory."""
-            return "basic:file" in field_type or "basic:dir" in field_type
-
-        output = dict()
-        for field_schema, fields in iterate_fields(
-            self.data.output, self.data.process.output_schema
-        ):
-            if is_file_or_dir(field_schema["type"]):
-                name = field_schema["name"]
-                output[name] = (field_schema["type"], fields[name])
-
-        return message.respond_ok(output)
-
-    def handle_finish(self, message: Message[Dict]) -> Response[str]:
-        """Handle an incoming ``Data`` finished processing request."""
-        # with transaction.atomic():
-        # TODO: relavant?
-        # Data wrap up happens last, so that any triggered signals
-        # already see the spawned children. What the children themselves
-        # see is guaranteed by the transaction we're in.
-
-        # The worker is finished with processing.
-        process_rc = int(message.message_data.get("rc", 1))
-        changeset = {
-            "process_progress": 100,
-            "finished": now(),
-        }
-        if process_rc != 0:
-            changeset["process_rc"] = process_rc
-            if self.data.status != Data.STATUS_ERROR:
-                changeset["status"] = Data.STATUS_ERROR
-                self.data.process_error.append(
-                    message.message_data.get("error", "Process return code is not 0")
-                )
-                changeset["process_error"] = self.data.process_error
-        elif self.data.status != Data.STATUS_ERROR:
-            changeset["status"] = Data.STATUS_DONE
-
-        self._update_data(changeset)
-
-        # Only validate objects with DONE status. Validating objects in ERROR
-        # status will only cause unnecessary errors to be displayed.
-        if self.data.status == Data.STATUS_DONE:
-            validate_data_object(self.data)
-        return message.respond_ok("OK")
-
-    def handle_get_referenced_files(self, message: Message) -> Response[List]:
-        """Get a list of files referenced by the data object.
-
-        The list also depends on the Data object itself, more specifically on
-        its output field. So the method is not idempotent.
-        """
-        return message.respond_ok(referenced_files(self.data))
-
-    def handle_missing_data_locations(
-        self, message: Message
-    ) -> Response[Union[str, List[Dict[str, Any]]]]:
-        """Handle an incoming request to get missing data locations."""
-        missing_data = []
-        dependencies = (
-            Data.objects.filter(
-                children_dependency__child=self.data,
-                children_dependency__kind=DataDependency.KIND_IO,
-            )
-            .exclude(location__isnull=True)
-            .exclude(pk=self.data.id)
-            .distinct()
-        )
-
-        for parent in dependencies:
-            file_storage = parent.location
-            if not file_storage.has_storage_location(STORAGE_LOCAL_CONNECTOR):
-                from_location = file_storage.default_storage_location
-                if from_location is None:
-                    self._log_exception(
-                        "No storage location exists (handle_get_missing_data_locations).",
-                        extra={"file_storage_id": file_storage.id},
-                    )
-                    return message.respond_error("No storage location exists")
-
-                to_location = StorageLocation.all_objects.get_or_create(
-                    file_storage=file_storage,
-                    url=from_location.url,
-                    connector_name=STORAGE_LOCAL_CONNECTOR,
-                )[0]
-                missing_data.append(
-                    {
-                        "connector_name": from_location.connector_name,
-                        "url": from_location.url,
-                        "data_id": self.data.id,
-                        "to_storage_location_id": to_location.id,
-                        "from_storage_location_id": from_location.id,
-                    }
-                )
-                # Set last modified time so it does not get deleted.
-                from_location.last_update = now()
-                from_location.save()
-        return message.respond_ok(missing_data)
-
-    def handle_referenced_files(self, message: Message[List[dict]]) -> Response[str]:
-        """Store  a list of files and directories produced by the worker."""
-        file_storage = self.data.location
-        # At this point default_storage_location will always be local.
-        local_location = file_storage.default_storage_location
-        with transaction.atomic():
-            try:
-                referenced_paths = [
-                    ReferencedPath(**object_) for object_ in message.message_data
-                ]
-                ReferencedPath.objects.filter(storage_locations=local_location).delete()
-                ReferencedPath.objects.bulk_create(referenced_paths)
-                local_location.files.add(*referenced_paths)
-                local_location.status = StorageLocation.STATUS_DONE
-                local_location.save()
-            except Exception:
-                self._log_exception("Error saving referenced files")
-                self._abort_processing()
-                return message.respond_error("Error saving referenced files")
-
-        return message.respond_ok("OK")
-
-    def hydrate_spawned_files(
-        self,
-        exported_files_mapper: Dict[str, str],
-        filename: str,
-    ):
-        """Pop the given file's map from the exported files mapping.
-
-        :param exported_files_mapper: The dict of file mappings this
-            process produced.
-        :param filename: The filename to format and remove from the
-            mapping.
-        :return: The formatted mapping between the filename and
-            temporary file path.
-        :rtype: dict
-        """
-        if filename not in exported_files_mapper:
-            raise KeyError(
-                "Use 're-export' to prepare the file for spawned process: {}".format(
-                    filename
-                )
-            )
-        return {"file_temp": exported_files_mapper.pop(filename), "file": filename}
-
-    def handle_update_status(self, message: Message[str]) -> Response[str]:
-        """Update data status."""
-        new_status = self._choose_worst_status(message.message_data, self.data.status)
-        if new_status != self.data.status:
-            self._update_data({"status": new_status})
-            if new_status == Data.STATUS_ERROR:
-                # TODO: should we log this?
-                logger.error(
-                    __(
-                        "Error occured while running process '{}' (handle_update).",
-                        self.data.process.slug,
-                    ),
-                    extra={
-                        "data_id": self.data.id,
-                        "api_url": "{}{}".format(
-                            getattr(settings, "RESOLWE_HOST_URL", ""),
-                            reverse(
-                                "resolwe-api:data-detail", kwargs={"pk": self.data.id}
-                            ),
-                        ),
-                    },
-                )
-        return message.respond_ok(new_status)
-
-    def handle_get_data_by_slug(self, message: Message[str]) -> Response[int]:
-        """Get data id by slug."""
-        return message.respond_ok(Data.objects.get(slug=message.message_data).id)
-
-    def handle_set_data_size(self, message: Message[int]) -> Response[str]:
-        """Set size of data object."""
-        assert isinstance(message.message_data, int)
-        self._update_data({"size": message.message_data})
-        return message.respond_ok("OK")
-
-    def handle_update_output(self, message: Message[Dict[str, Any]]) -> Response[str]:
-        """Update data output."""
-        for key, val in message.message_data.items():
-            dict_dot(self.data.output, key, val)
-        with transaction.atomic():
-            self._update_data({"output": self.data.output})
-            storage_location = self.data.location.default_storage_location
-            ReferencedPath.objects.filter(storage_locations=storage_location).delete()
-            referenced_paths = [
-                ReferencedPath(path=path)
-                for path in referenced_files(self.data, include_descriptor=False)
-            ]
-            ReferencedPath.objects.bulk_create(referenced_paths)
-            storage_location.files.add(*referenced_paths)
-
-        return message.respond_ok("OK")
-
-    def handle_get_files_to_download(
-        self, message: Message[int]
-    ) -> Response[Union[str, List[dict]]]:
-        """Get a list of files belonging to a given storage location object."""
-        return message.respond_ok(
-            list(
-                ReferencedPath.objects.filter(
-                    storage_locations=message.message_data
-                ).values()
-            )
-        )
-
-    def handle_download_started(self, message: Message[dict]) -> Response[str]:
-        """Handle an incoming request to start downloading data.
-
-        We have to check if the download for given StorageLocation object has
-        already started.
-        """
-        storage_location_id = message.message_data[ExecutorProtocol.STORAGE_LOCATION_ID]
-        lock = message.message_data.get(ExecutorProtocol.DOWNLOAD_STARTED_LOCK, False)
-        with transaction.atomic():
-            query = StorageLocation.all_objects.select_for_update().filter(
-                pk=storage_location_id
-            )
-            location_status = query.values_list("status", flat=True).get()
-            return_status = {
-                StorageLocation.STATUS_PREPARING: ExecutorProtocol.DOWNLOAD_STARTED,
-                StorageLocation.STATUS_UPLOADING: ExecutorProtocol.DOWNLOAD_IN_PROGRESS,
-                StorageLocation.STATUS_DONE: ExecutorProtocol.DOWNLOAD_FINISHED,
-            }[location_status]
-
-            if location_status == StorageLocation.STATUS_PREPARING and lock:
-                query.update(status=StorageLocation.STATUS_UPLOADING)
-
-        return message.respond_ok(return_status)
-
-    def handle_download_aborted(self, message: Message[int]) -> Response[str]:
-        """Handle an incoming download aborted request.
-
-        Since download is aborted it does not matter if the location does
-        exist or not so we do an update with only one SQL query.
-        """
-        StorageLocation.all_objects.filter(pk=message.message_data).update(
-            status=StorageLocation.STATUS_PREPARING
-        )
-        return message.respond_ok("OK")
-
-    def handle_download_finished(self, message: Message[int]) -> Response[str]:
-        """Handle an incoming download finished request."""
-        storage_location = StorageLocation.all_objects.get(pk=message.message_data)
-        # Add files to the downloaded storage location.
-        default_storage_location = (
-            storage_location.file_storage.default_storage_location
-        )
-        with transaction.atomic():
-            storage_location.files.add(*default_storage_location.files.all())
-            storage_location.status = StorageLocation.STATUS_DONE
-            storage_location.save()
-        return message.respond_ok("OK")
-
-    def handle_annotate(self, message: Message[dict]) -> Response[str]:
-        """Handle an incoming ``Data`` object annotate request."""
-
-        if self.data.entity is None:
-            raise RuntimeError(
-                f"No entity to annotate for process '{self.data.process.slug}'"
-            )
-
-        for key, val in message.message_data.items():
-            dict_dot(self.data.entity.descriptor, key, val)
-
-        self.data.entity.save()
-        return message.respond_ok("OK")
-
-    def handle_process_log(self, message: Message[dict]) -> Response[str]:
-        """Handle an process log request."""
-        changeset = dict()
-        for key, values in message.message_data.items():
-            data_key = f"process_{key}"
-            max_length = Data._meta.get_field(data_key).base_field.max_length
-            changeset[data_key] = getattr(self.data, data_key)
-            if isinstance(values, str):
-                values = [values]
-            for i, entry in enumerate(values):
-                if len(entry) > max_length:
-                    values[i] = entry[: max_length - 3] + "..."
-            changeset[data_key].extend(values)
-        if "process_error" in changeset:
-            changeset["status"] = Data.STATUS_ERROR
-
-        self._update_data(changeset)
-        return message.respond_ok("OK")
-
-    def handle_progress(self, message: Message[float]) -> Response[str]:
-        """Handle a progress change request."""
-        self._update_data({"process_progress": message.message_data})
-        return message.respond_ok("OK")
-
-    def handle_get_script(self, message: Message[str]) -> Response[str]:
-        """Return script for the current Data object."""
-        return message.respond_ok(self._listener.get_program(self.data))
 
 
 class ListenerProtocol(BaseProtocol):
