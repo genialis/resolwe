@@ -1,9 +1,8 @@
 """Storage application views."""
-
 from datetime import datetime
 from distutils.util import strtobool
 from pathlib import Path
-from typing import Union
+from typing import List, Optional, Union
 
 import pytz
 
@@ -49,6 +48,53 @@ class DataBrowseView(View):
             data["type"] = "directory"
         return data
 
+    def _get_datum(self, data_id: int) -> Data:
+        """Get datum with given id and check it's permissions."""
+        # Check permissions and load requested data object.
+        data = get_objects_for_user(
+            self.request.user, "view_data", Data.objects.filter(pk=data_id)
+        )
+        # Send response with status 403 when requested data object does not exists.
+        if not data.exists():
+            raise PermissionDenied()
+
+        return data.get()
+
+    def _resolve_dir(self, relative_path: Path, file_storage: FileStorage) -> List:
+        """Resolve directory."""
+        # Empty path evaluates to "."
+        regex_path = relative_path.as_posix() + "/" if relative_path != Path() else ""
+        # Show only entries in this directory.
+        regex = "^{}[^/]+/?$".format(regex_path)
+        return [
+            self._path_to_dict(path, regex_path)
+            for path in file_storage.files.filter(path__regex=regex)
+        ]
+
+    def _resolve_file(self, relative_path: Path, file_storage: FileStorage) -> str:
+        """Resolve file URI and return signed url."""
+        # Redirect to the resource.
+        force_download = strtobool(self.request.GET.get("force_download", "false"))
+        return file_storage.default_storage_location.connector.presigned_url(
+            file_storage.subpath / relative_path, force_download=force_download
+        )
+
+    def _get_response(self, datum: Data, relative_path: Path) -> Optional[(str, bool)]:
+        """Return a (response, is_file) tuple."""
+        file_storage: FileStorage = datum.location
+
+        if (
+            relative_path == Path()
+            or file_storage.files.filter(path=relative_path.as_posix() + "/").exists()
+        ):
+            # If directory
+            return (self._resolve_dir(relative_path, file_storage), False)
+        elif file_storage.files.filter(path=relative_path.as_posix()).exists():
+            # If file
+            return (self._resolve_file(relative_path, file_storage), True)
+        else:
+            return None, False
+
     def get(
         self, request: HttpRequest, *args: Union[str, int], **kwargs: Union[str, int]
     ) -> HttpResponse:
@@ -66,41 +112,11 @@ class DataBrowseView(View):
         data_id = kwargs.get("data_id")
         relative_path = Path(kwargs.get("uri", ""))
 
-        # Check permissions and load requested data object.
-        data_qset = get_objects_for_user(
-            self.request.user, "view_data", Data.objects.filter(pk=data_id)
-        )
-        # Send response with status 403 when requested data object does not exists.
-        if not data_qset.exists():
-            raise PermissionDenied()
-
-        file_storage: FileStorage = data_qset.get().location
-        is_dir = (
-            relative_path == Path()
-            or file_storage.files.filter(path=relative_path.as_posix() + "/").exists()
-        )
-        is_file = file_storage.files.filter(path=relative_path.as_posix()).exists()
-        if is_dir:
-            # Empty path evaluates to "."
-            regex_path = (
-                relative_path.as_posix() + "/" if relative_path != Path() else ""
-            )
-            # Show only entries in this directory.
-            regex = "^{}[^/]+/?$".format(regex_path)
-            data = [
-                self._path_to_dict(path, regex_path)
-                for path in file_storage.files.filter(path__regex=regex)
-            ]
-            return JsonResponse(data, safe=False)
-        elif is_file:
-            # Redirect to the resource.
-            force_download = strtobool(request.GET.get("force_download", "false"))
-            redirect_url = (
-                file_storage.default_storage_location.connector.presigned_url(
-                    file_storage.subpath / relative_path, force_download=force_download
-                )
-            )
-
-            return redirect(redirect_url)
+        datum = self._get_datum(data_id)
+        response, is_file = self._get_response(datum, relative_path)
+        if is_file:
+            return redirect(response)
+        elif response:
+            return JsonResponse(response, safe=False)
         else:
             raise PermissionDenied()
