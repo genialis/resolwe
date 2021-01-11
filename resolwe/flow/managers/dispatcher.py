@@ -30,6 +30,7 @@ from django.utils.timezone import now
 
 from resolwe.flow.engine import InvalidEngineError, load_engines
 from resolwe.flow.execution_engines import ExecutionError
+from resolwe.flow.executors.constants import DATA_ALL_VOLUME, SECRETS_VOLUME
 from resolwe.flow.models import Data, DataDependency, Process, Worker
 from resolwe.flow.models.utils import referenced_files
 from resolwe.storage.connectors import DEFAULT_CONNECTOR_PRIORITY, connectors
@@ -361,6 +362,7 @@ class Manager:
         secrets = {}
         data_id = data.id
         secrets_dir = runtime_dir / ExecutorFiles.SECRETS_DIR
+        container_secrets_dir = SECRETS_VOLUME
 
         settings_dict = {}
         settings_dict["DATA_DIR"] = os.fspath(data_dir)
@@ -392,6 +394,8 @@ class Manager:
         connectors_settings = copy.deepcopy(STORAGE_CONNECTORS)
         # Local connector in executor in always named 'local'.
         connectors_settings["local"] = connectors_settings.pop(STORAGE_LOCAL_CONNECTOR)
+        # Download is done inside container to a DATA_ALL_VOLUME.
+        connectors_settings["local"]["config"]["path"] = os.fspath(DATA_ALL_VOLUME)
         for connector_settings in connectors_settings.values():
             # Fix class name for inclusion in the executor.
             klass = connector_settings["connector"]
@@ -407,7 +411,7 @@ class Manager:
                     with open(src_credentials, "r") as f:
                         secrets[base_credentials_name] = f.read()
                 connector_config["credentials"] = os.fspath(
-                    secrets_dir / base_credentials_name
+                    container_secrets_dir / base_credentials_name
                 )
         django_settings["STORAGE_CONNECTORS"] = connectors_settings
 
@@ -431,7 +435,7 @@ class Manager:
         # Save the secrets in the runtime dir, with permissions to prevent listing the given
         # directory.
         logger.debug(__("Creating secrets dir: {}.", os.fspath(secrets_dir)))
-        secrets_dir.mkdir(mode=0o300)
+        secrets_dir.mkdir(mode=0o700)
         for file_name, value in secrets.items():
             file_path = secrets_dir / file_name
 
