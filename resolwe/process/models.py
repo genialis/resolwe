@@ -32,22 +32,21 @@ class ModelField(Field):
 
     field_type = "model"
 
-    def __init__(self, related_model_name: str, *args, **kwargs):
+    def __init__(self, full_model_name: str, *args, **kwargs):
         """Initialize."""
         super().__init__(*args, **kwargs)
-        self.related_model_name = related_model_name
-        self.label = related_model_name
+        self.full_model_name = full_model_name
+        self.app_name, self.related_model_name = full_model_name.split(".")
+        self.label = full_model_name
+        self.known_models = RegisteredModels()
 
     def to_python(self, value):
         """Return the python object representing the field."""
         if isinstance(value, Model):
             return value
         if isinstance(value, int):
-            known = globals()
-            if self.related_model_name in known:
-                return known[self.related_model_name](value)
-            else:
-                return Model(self.related_model_name, value)
+            model_class = self.known_models.get_model(self.full_model_name)
+            return model_class(value)
         return super().to_python(value)
 
     def to_output(self, value):
@@ -112,6 +111,7 @@ class JSONDescriptor(MutableMapping[str, Any]):
         """Initialization."""
         self._model = model
         self._model_name = self._model._model_name
+        self._app_name = self._model._app_name
         self._field_name = field_name
         self._pk = self._model._pk
         self._cache: Dict[str, Any] = dict()
@@ -123,7 +123,7 @@ class JSONDescriptor(MutableMapping[str, Any]):
                 # JSON fields in schema are actually specias since they
                 # represent the storage model.
                 if field.get_field_type() == "basic:json":
-                    field = ModelField(related_model_name="Storage")
+                    field = ModelField(full_model_name="flow.Storage")
                 field.contribute_to_class(self, self._fields, field_name)
         # Create cache if initial data is given.
         if cache is not None:
@@ -142,7 +142,7 @@ class JSONDescriptor(MutableMapping[str, Any]):
         json_data = (
             json_data
             or communicator.get_model_fields(
-                self._model_name, self._pk, [self._field_name]
+                self._app_name, self._model_name, self._pk, [self._field_name]
             )[self._field_name]
         )
         if self._fields is not None:
@@ -189,7 +189,10 @@ class JSONDescriptor(MutableMapping[str, Any]):
             value = self._fields[key].clean(value)
             to_output = self._fields[key].to_output(value)
         communicator.update_model_fields(
-            self._model_name, self._pk, {self._field_name: {key: to_output}}
+            self._app_name,
+            self._model_name,
+            self._pk,
+            {self._field_name: {key: to_output}},
         )
         self._cache[key] = value
 
@@ -221,7 +224,8 @@ class ModelMetaclass(type):
         model: Type[Model] = type.__new__(mcs, name, bases, namespace)
         fields: Dict[str, Field] = {}
         if name != "Model" and communicator is not None:
-            fields_details = communicator.get_model_fields_details(name)
+            app_name = model._app_name
+            fields_details = communicator.get_model_fields_details(app_name, name)
             for field_name in fields_details:
                 field_type, required, related_model_name = fields_details[field_name]
                 if field_type in FIELDS_MAP:
@@ -230,7 +234,7 @@ class ModelMetaclass(type):
                         id_field = IntegerField()
                         id_field.contribute_to_class(model, fields, f"{field_name}_id")
                         setattr(model, f"{field_name}_id", id_field)
-                        kwargs["related_model_name"] = related_model_name
+                        kwargs["full_model_name"] = related_model_name
                     if field_type == "ManyToManyField":
                         kwargs["inner"] = ModelField(related_model_name)
                     field_class = FIELDS_MAP[field_type]
@@ -261,10 +265,12 @@ class JSONModelEncoder(json.JSONEncoder):
 class Model(metaclass=ModelMetaclass):
     """Base django model."""
 
-    def __init__(self, model_name: str, pk: int):
+    _app_name = "App name"
+    _model_name = "Model name"
+
+    def __init__(self, pk: int):
         """Initialization."""
         self._pk = pk
-        self._model_name = model_name
         self._cache: Dict[str, Any] = {"id": pk}
 
     def __str__(self):
@@ -275,7 +281,10 @@ class Model(metaclass=ModelMetaclass):
         """Set the value of the field."""
         self._cache[field.name] = value
         communicator.update_model_fields(
-            self._model_name, self._pk, {field.name: field.to_output(value)}
+            self._app_name,
+            self._model_name,
+            self._pk,
+            {field.name: field.to_output(value)},
         )
 
     def _get_field_data(self, field: Field) -> Any:
@@ -286,7 +295,7 @@ class Model(metaclass=ModelMetaclass):
         """
         if field.name not in self._cache:
             result = communicator.get_model_fields(
-                self._model_name, self._pk, [field.name]
+                self._app_name, self._model_name, self._pk, [field.name]
             )
             if len(result) > 1:
                 result = [e[field.name] for e in result]
@@ -294,6 +303,42 @@ class Model(metaclass=ModelMetaclass):
                 result = result[field.name]
             self._cache[field.name] = field.clean(result)
         return self._cache[field.name]
+
+    @classmethod
+    def __init_subclass__(cls: Type["Model"], **kwargs):
+        """Register class."""
+        super().__init_subclass__(**kwargs)
+        RegisteredModels().register_model(cls)
+
+
+class RegisteredModels:
+    """Registered Python process models."""
+
+    __instance = None  #  A single instance of this class
+    _known_models: Dict[str, Type["Model"]] = dict()
+
+    @classmethod
+    def __new__(cls, *args, **kwargs):
+        """Create or return singleton."""
+        if RegisteredModels.__instance is None:
+            RegisteredModels.__instance = super().__new__(cls)
+
+        return RegisteredModels.__instance
+
+    def get_model(self, full_model_name: str) -> Type["Model"]:
+        """Get the registered model."""
+        return self._known_models.get(full_model_name, Model)
+
+    def register_model(self, model_class: Type["Model"]):
+        """Add new model class.
+
+        :raises AssertionError: when model is already registered.
+        """
+        full_model_name = f"{model_class._app_name}.{model_class._model_name}"
+        assert (
+            full_model_name not in self._known_models
+        ), f"Model named {full_model_name} already registered."
+        self._known_models[full_model_name] = model_class
 
 
 class ObjectsManager:
@@ -303,10 +348,11 @@ class ObjectsManager:
         """Initialize."""
         self._model = model
         self._model_name = model_name
+        self._app_name = model._app_name
 
     def filter(self, **filters: Dict[str, Any]) -> List[Model]:
         """Create a filter of all objects that fit criteria."""
-        pks = communicator.filter_objects(self._model_name, filters)
+        pks = communicator.filter_objects(self._app_name, self._model_name, filters)
         return [self._model(pk) for pk in pks]
 
     def exists(self, **filters: Dict[str, Any]) -> List[int]:
@@ -315,7 +361,7 @@ class ObjectsManager:
         If no such object exists empty list is returned.
         Else list of ids that fit the criteria is returned.
         """
-        return communicator.filter_objects(self._model_name, filters)
+        return communicator.filter_objects(self._app_name, self._model_name, filters)
 
     def get(self, **filters: Dict[str, Any]) -> Model:
         """Get a single model based on filters.
@@ -323,7 +369,7 @@ class ObjectsManager:
         :raises RuntimeError: when different than one objects match the given
             criteria.
         """
-        pks = communicator.filter_objects(self._model_name, filters)
+        pks = communicator.filter_objects(self._app_name, self._model_name, filters)
         if len(pks) != 1:
             raise RuntimeError("Not only one object meats the given criteria.")
         return self._model(pks[0])
@@ -351,33 +397,29 @@ class ObjectsManager:
 class Process(Model):
     """Process model."""
 
-    def __init__(self, object_id: int):
-        """Initialization."""
-        super().__init__(self.__class__.__name__, object_id)
+    _app_name = "flow"
+    _model_name = "Process"
 
 
 class Entity(Model):
     """Entity model."""
 
-    def __init__(self, object_id: int):
-        """Initialization."""
-        super().__init__(self.__class__.__name__, object_id)
+    _app_name = "flow"
+    _model_name = "Entity"
 
 
 class Storage(Model):
     """Storage model."""
 
-    def __init__(self, object_id: int):
-        """Initialization."""
-        super().__init__(self.__class__.__name__, object_id)
+    _app_name = "flow"
+    _model_name = "Storage"
 
 
 class Collection(Model):
     """Collection model."""
 
-    def __init__(self, object_id: int):
-        """Initialization."""
-        super().__init__(self.__class__.__name__, object_id)
+    _app_name = "flow"
+    _model_name = "Collection"
 
     @property
     def relations(self):
@@ -390,9 +432,8 @@ class Collection(Model):
 class Data(Model):
     """Data object."""
 
-    def __init__(self, object_id: int):
-        """Initialization."""
-        super().__init__(self.__class__.__name__, object_id)
+    _app_name = "flow"
+    _model_name = "Data"
 
     @classmethod
     def from_slug(self, slug: str) -> "Data":
