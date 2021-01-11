@@ -9,6 +9,7 @@ import asteval
 from . import runtime
 from .descriptor import Persistence, ProcessDescriptor, SchedulingClass
 from .fields import get_available_fields
+from .runtimes import python_runtimes_manager
 
 
 class StaticMetadata:
@@ -68,8 +69,8 @@ class StaticDictMetadata(StaticMetadata):
             value = json.loads(json.dumps(value))
             if not isinstance(value, dict):
                 raise TypeError
-        except (TypeError, ValueError):
-            raise TypeError("must be serializable")
+        except (TypeError, ValueError) as exception:
+            raise TypeError("must be serializable") from exception
 
         return value
 
@@ -109,6 +110,7 @@ class ProcessVisitor(ast.NodeVisitor):
         """Construct process AST visitor."""
         self.source = source
         self.processes = []
+        self.base_classes = set()
 
         super().__init__()
 
@@ -165,10 +167,15 @@ class ProcessVisitor(ast.NodeVisitor):
         for base in node.bases:
             # Cover `from resolwe.process import ...`.
             if isinstance(base, ast.Name) and isinstance(base.ctx, ast.Load):
-                base = getattr(runtime, base.id, None)
+                base = python_runtimes_manager.registered_class(base.id)
+                if base is not None:
+                    self.base_classes.add(base.__name__)
+
             # Cover `from resolwe import process`.
             elif isinstance(base, ast.Attribute) and isinstance(base.ctx, ast.Load):
-                base = getattr(runtime, base.attr, None)
+                base = python_runtimes_manager.registered_class(base.attr)
+                if base is not None:
+                    self.base_classes.add(base.__name__)
             else:
                 continue
 
@@ -235,7 +242,16 @@ class SafeParser:
         :return: A list of discovered process descriptors
         """
         root = ast.parse(self._source)
-
         visitor = ProcessVisitor(source=self._source)
         visitor.visit(root)
         return visitor.processes
+
+    def base_classes(self):
+        """Parse process.
+
+        :return: A list of the base classes for the processes.
+        """
+        root = ast.parse(self._source)
+        visitor = ProcessVisitor(source=self._source)
+        visitor.visit(root)
+        return visitor.base_classes
