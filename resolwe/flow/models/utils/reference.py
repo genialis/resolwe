@@ -51,7 +51,7 @@ def referenced_files(data, include_descriptor=True):
     :return: referenced files and directories.
     :rtype: List[str]
     """
-    special_files = ["jsonout.txt", "stderr.txt", "stdout.txt"]
+    special_files = ["jsonout.txt", "stdout.txt"]
 
     output = data.output
     output_schema = data.process.output_schema

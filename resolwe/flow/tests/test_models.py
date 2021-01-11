@@ -1553,7 +1553,6 @@ class UtilsTestCase(TestCase):
         )
         refs = referenced_files(data_mock)
         refs.remove("jsonout.txt")
-        refs.remove("stderr.txt")
         refs.remove("stdout.txt")
         return refs
 
@@ -1722,7 +1721,6 @@ class UtilsTestCase(TestCase):
         )
         refs = referenced_files(data_mock)
         refs.remove("jsonout.txt")
-        refs.remove("stderr.txt")
         refs.remove("stdout.txt")
 
         refs = self._test_referenced_files(field_schema, output)
@@ -1753,6 +1751,5 @@ class UtilsTestCase(TestCase):
         )
         refs = referenced_files(data_mock)
         refs.remove("jsonout.txt")
-        refs.remove("stderr.txt")
         refs.remove("stdout.txt")
         self.assertSetEqual(set(refs), {"file1", "file2"})
