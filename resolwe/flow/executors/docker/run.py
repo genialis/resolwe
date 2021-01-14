@@ -275,8 +275,6 @@ class FlowExecutor(LocalFlowExecutor):
                 docker.types.Ulimit(name="cpu", soft=cpu_limit, hard=cpu_limit)
             )
 
-        # Make sure that tmp dir exists.
-        os.makedirs(constants.TMPDIR, mode=0o755, exist_ok=True)
         # Make sure that sockets dir exists.
         os.makedirs(
             self.runtime_dir / storage_url / ExecutorFiles.SOCKETS_SUBDIR, exist_ok=True
