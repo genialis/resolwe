@@ -130,7 +130,9 @@ async def collect_files(communicator: BaseCommunicator, keep_data=False):
     try:
         base_dir = constants.DATA_VOLUME
         with concurrent.futures.ThreadPoolExecutor() as pool:
-            collected_objects = await loop.run_in_executor(pool, collect, base_dir)
+            collected_objects = await loop.run_in_executor(
+                pool, collect, os.fspath(base_dir)
+            )
             collected_objects = [
                 await loop.run_in_executor(
                     pool, get_transfer_object, base_dir / object_, base_dir
