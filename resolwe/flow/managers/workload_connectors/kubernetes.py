@@ -439,19 +439,6 @@ class Connector(BaseConnector):
             logger.error("Stdout or jsonout file already exists, aborting.")
             return
 
-        # Make sure that tmp dir exists.
-        os.makedirs(
-            self.data_dir / location_subpath / constants.TMPDIR,
-            mode=0o755,
-            exist_ok=True,
-        )
-        # Make sure that sockets dir exists.
-        os.makedirs(
-            self.runtime_dir / location_subpath / ExecutorFiles.SOCKETS_SUBDIR,
-            mode=0o755,
-            exist_ok=True,
-        )
-
         # Create kubernetes API every time otherwise it will time out
         # eventually and raise API exception.
         kubernetes.config.load_kube_config()
