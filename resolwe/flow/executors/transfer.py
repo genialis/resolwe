@@ -1,7 +1,8 @@
 """Transfer missing files to executor."""
+import asyncio
+import concurrent
 import logging
 import os
-import time
 
 from .protocol import ExecutorProtocol
 from .socket_utils import BaseCommunicator, Message
@@ -103,7 +104,7 @@ async def _transfer_data(communicator: BaseCommunicator):
 
         elif data_downloading:
             logger.debug("Waiting for downloads %s to finish", data_downloading)
-            time.sleep(DOWNLOAD_WAITING_TIMEOUT)
+            await asyncio.sleep(DOWNLOAD_WAITING_TIMEOUT)
             data_downloading_new = []
             for download in data_downloading:
                 storage_location_id = download["to_storage_location_id"]
@@ -160,8 +161,14 @@ async def download_data(missing_data: dict, communicator: BaseCommunicator) -> b
                 )
                 objects = response.message_data
 
-            t = Transfer(from_connector, to_connector)
-            t.transfer_objects(missing_data["url"], objects)
+            # Execute long running task in a threadpool.
+            loop = asyncio.get_event_loop()
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                t = Transfer(from_connector, to_connector)
+                await loop.run_in_executor(
+                    pool, t.transfer_objects, missing_data["url"], objects
+                )
+
             await communicator.send_command(
                 Message.command(
                     ExecutorProtocol.DOWNLOAD_FINISHED,
