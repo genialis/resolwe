@@ -5,6 +5,7 @@ import shutil
 
 from resolwe.flow.execution_engines.base import BaseExecutionEngine
 from resolwe.process.parser import SafeParser
+from resolwe.process.runtimes import python_runtimes_manager
 
 PYTHON_RUNTIME_DIRNAME = "python_runtime"
 PYTHON_RUNTIME_ROOT = "/"
@@ -28,7 +29,6 @@ class ExecutionEngine(BaseExecutionEngine):
         """
         if not path.lower().endswith(".py"):
             return []
-
         parser = SafeParser(open(path).read())
         processes = parser.parse()
         return [process.to_schema() for process in processes]
@@ -41,30 +41,35 @@ class ExecutionEngine(BaseExecutionEngine):
         )
 
     def prepare_runtime(self, runtime_dir, data):
-        """Prepare runtime directory."""
-        # Copy over Python process runtime (resolwe.process).
-        import resolwe.process as runtime_package
+        """Prepare runtime directory.
 
-        src_dir = os.path.dirname(inspect.getsourcefile(runtime_package))
-        dest_package_dir = os.path.join(
-            runtime_dir, PYTHON_RUNTIME_DIRNAME, "resolwe", "process"
-        )
-        shutil.copytree(src_dir, dest_package_dir)
-        os.chmod(dest_package_dir, 0o755)
+        Preparation consists of:
+        1. Iterating over registered python process runtimes and copy them to
+           python runtime subdirectory of the runtime_dir.
+        2. Copying the source code (aka program) to the file inside runtime
+           directory.
+        3. Returning mapping between Python runtimes and Python program.
+        """
+        source = data.process.run.get("program", "")
+        parser = SafeParser(source)
+        for base_class_name in parser.base_classes():
+            for module in python_runtimes_manager.necessary_modules(base_class_name):
+                src_dir = os.path.dirname(inspect.getsourcefile(module))
+                dest_package_dir = os.path.join(
+                    runtime_dir, PYTHON_RUNTIME_DIRNAME, *module.__name__.split(".")
+                )
+                shutil.copytree(src_dir, dest_package_dir)
+                os.chmod(dest_package_dir, 0o755)
 
         # Write python source file.
-        source = data.process.run.get("program", "")
         program_path = os.path.join(runtime_dir, PYTHON_PROGRAM_FILENAME)
         with open(program_path, "w") as file:
             file.write(source)
         os.chmod(program_path, 0o755)
-
-        # TODO: storage (type json) was hydrated before, now it is not.
 
         # Generate volume maps required to expose needed files.
         volume_maps = {
             PYTHON_RUNTIME_DIRNAME: PYTHON_RUNTIME_VOLUME,
             PYTHON_PROGRAM_FILENAME: PYTHON_PROGRAM_VOLUME,
         }
-
         return volume_maps
