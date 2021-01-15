@@ -244,8 +244,6 @@ class ModelMetaclass(type):
                     setattr(model, field_name, field)
 
             model.fields = fields
-            model.objects = ObjectsManager(model, name)
-
         return model
 
 
@@ -268,11 +266,82 @@ class Model(metaclass=ModelMetaclass):
 
     _app_name = "App name"
     _model_name = "Model name"
+    # A default list of extra fields that are returned on filter call.
+    _filter_response_fields = []
 
     def __init__(self, pk: int):
         """Initialization."""
         self._pk = pk
         self._cache: Dict[str, Any] = {"id": pk}
+
+    @classmethod
+    def filter(cls, **filters: Dict[str, Any]) -> List["Model"]:
+        """Return a list of all objects that fit criteria."""
+        # Make sure attributes have 'id' in the first place.
+        attributes = filters.pop("__fields", None)
+        attributes = attributes or cls._filter_response_fields
+        attributes = ["id"] + [
+            attribute for attribute in attributes if attribute != "id"
+        ]
+
+        objects = communicator.filter_objects(
+            cls._app_name, cls._model_name, filters, attributes
+        )
+        models = []
+        for entry in objects:
+            model = cls(entry[0])
+            for field_name, value in zip(attributes[1:], entry[1:]):
+                field = model.fields[field_name]
+                model._cache[field_name] = field.clean(value)
+            models.append(model)
+        return models
+
+    @classmethod
+    def exists(cls, **filters: Dict[str, Any]) -> List[int]:
+        """Check if objects that fit criteria exists.
+
+        If no such object exists empty list is returned.
+        Else list of ids that fit the criteria is returned.
+        """
+        return [
+            e[0]
+            for e in communicator.filter_objects(
+                cls._app_name, cls._model_name, filters, ["id"]
+            )
+        ]
+
+    @classmethod
+    def get(cls, **filters: Dict[str, Any]) -> "Model":
+        """Get a single model based on filters.
+
+        :raises RuntimeError: when different than one objects match the given
+            criteria.
+        """
+        pks = communicator.filter_objects(
+            cls._app_name, cls._model_name, filters, ["id"]
+        )
+        if len(pks) != 1:
+            raise RuntimeError("Exactly one object should match the given criteria.")
+        return cls(pks[0][0])
+
+    @classmethod
+    def create(cls, **object_data: Dict[str, Any]) -> int:
+        """Create object with the given data.
+
+        If creation was successfull return its id.
+        """
+        mappings = []
+        for field_name in object_data:
+            field = cls.fields.get(field_name)
+            if field is not None and field.get_field_type() == "model":
+                mappings.append(
+                    (field_name, f"{field_name}_id", object_data[field_name].id)
+                )
+        for old_name, new_name, new_value in mappings:
+            del object_data[old_name]
+            object_data[new_name] = new_value
+        communicator.encoder = JSONModelEncoder
+        return cls(communicator.create_object(cls._model_name, object_data))
 
     def __str__(self):
         """Return a string representation."""
@@ -315,7 +384,8 @@ class Model(metaclass=ModelMetaclass):
 class RegisteredModels:
     """Registered Python process models."""
 
-    __instance = None  #  A single instance of this class
+    #  A single instance of this class.
+    __instance = None
     _known_models: Dict[str, Type["Model"]] = dict()
 
     @classmethod
@@ -340,59 +410,6 @@ class RegisteredModels:
             full_model_name not in self._known_models
         ), f"Model named {full_model_name} already registered."
         self._known_models[full_model_name] = model_class
-
-
-class ObjectsManager:
-    """Class for filtering and creating new objects."""
-
-    def __init__(self, model: Type[Model], model_name: str):
-        """Initialize."""
-        self._model = model
-        self._model_name = model_name
-        self._app_name = model._app_name
-
-    def filter(self, **filters: Dict[str, Any]) -> List[Model]:
-        """Create a filter of all objects that fit criteria."""
-        pks = communicator.filter_objects(self._app_name, self._model_name, filters)
-        return [self._model(pk) for pk in pks]
-
-    def exists(self, **filters: Dict[str, Any]) -> List[int]:
-        """Check if objects that fit criteria exists.
-
-        If no such object exists empty list is returned.
-        Else list of ids that fit the criteria is returned.
-        """
-        return communicator.filter_objects(self._app_name, self._model_name, filters)
-
-    def get(self, **filters: Dict[str, Any]) -> Model:
-        """Get a single model based on filters.
-
-        :raises RuntimeError: when different than one objects match the given
-            criteria.
-        """
-        pks = communicator.filter_objects(self._app_name, self._model_name, filters)
-        if len(pks) != 1:
-            raise RuntimeError("Not only one object meats the given criteria.")
-        return self._model(pks[0])
-
-    def create(self, **object_data: Dict[str, Any]) -> int:
-        """Create object with the given data.
-
-        If creation was successfull return its id.
-        """
-        mappings = []
-        for field_name in object_data:
-            field = self._model.fields.get(field_name)
-            if field is not None and field.get_field_type() == "model":
-                mappings.append(
-                    (field_name, f"{field_name}_id", object_data[field_name].id)
-                )
-        for old_name, new_name, new_value in mappings:
-            del object_data[old_name]
-            object_data[new_name] = new_value
-        print("Creating object: ", object_data)
-        communicator.encoder = JSONModelEncoder
-        return self._model(communicator.create_object(self._model_name, object_data))
 
 
 class Process(Model):
@@ -437,7 +454,7 @@ class Data(Model):
     _model_name = "Data"
 
     @classmethod
-    def from_slug(self, slug: str) -> "Data":
+    def from_slug(cls, slug: str) -> "Data":
         """Get Data object from slug."""
         return Data(communicator.get_data_by_slug(slug))
 
