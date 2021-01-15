@@ -541,8 +541,6 @@ class FileDescriptor:
 
             if imported_format != ImportedFormat.COMPRESSED:  # Extracted file required
                 try:
-                    print(f"Got {file_name}.")
-                    print(f"CWD: {os.getcwd()}.")
                     shutil.copyfile(src, file_name)
                 except shutil.SameFileError:
                     pass  # Skip copy of downloaded files
@@ -638,8 +636,6 @@ class FileDescriptor:
             and self.file_field.process is not None
         ):
             print(f"Reporting finall progress: {progress_to}")
-            print(self.file_field)
-            print(self.file_field.process)
             communicator.progress(progress_to)
 
         return destination_file_name
