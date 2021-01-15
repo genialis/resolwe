@@ -186,6 +186,8 @@ FLOW_PROCESSES_FINDERS = (
     "resolwe.flow.finders.AppDirectoriesFinder",
 )
 
+FLOW_PROCESSES_RUNTIMES = ("resolwe.process.runtime.Process",)
+
 FLOW_DOCKER_VOLUME_EXTRA_OPTIONS = {
     "data": "Z",
     "data_all": "z",
@@ -255,11 +257,11 @@ TEST_PROCESS_PROFILE = False
 debug_file_path = os.environ.get("RESOLWE_LOG_FILE", os.devnull)
 
 github_actions = os.environ.get("GITHUB_ACTIONS") == "true"
-console_level = "WARNING"
+CONSOLE_LEVEL = "WARNING"
 default_logger_handlers = ["file"]
 
 if github_actions:
-    console_level = "DEBUG"
+    CONSOLE_LEVEL = "DEBUG"
     default_logger_handlers = ["console", "file"]
 
 LOGGING = {
@@ -273,7 +275,7 @@ LOGGING = {
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
-            "level": console_level,
+            "level": CONSOLE_LEVEL,
             "formatter": "standard",
         },
         "file": {

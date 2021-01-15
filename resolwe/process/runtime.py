@@ -12,6 +12,7 @@ from .models import Data, JSONDescriptor
 PROCESS_INPUTS_NAME = "Input"
 # Outputs class name.
 PROCESS_OUTPUTS_NAME = "Output"
+logger = logging.getLogger(__name__)
 
 
 class ProcessMeta(type):
@@ -23,7 +24,9 @@ class ProcessMeta(type):
 
     def __new__(mcs, name, bases, namespace, **kwargs):
         """Create new process class."""
-        if namespace["__module__"] == "resolwe.process.runtime":
+        # If this an abstract process (ie the parent class for real processes)
+        # construct and return its instance immediatelly.
+        if "_abstract" in namespace:
             return type.__new__(mcs, name, bases, namespace)
 
         # Generate a runtime version of the process descriptor.
@@ -56,7 +59,18 @@ class ProcessMeta(type):
 
 
 class Process(metaclass=ProcessMeta):
-    """Resolwe process."""
+    """Resolwe process.
+
+    This is the base class from which all other python processes must inherit.
+    When one wants to create an abstract python process (a process which is
+    not automatically registered in the Process database table) the class
+    attribute `_abstract` must be set to True.
+    """
+
+    # Mark it an abstract process: such processes are not registered in the
+    # database and are parents for actual processes.
+    # Make sure to add this class property to all process parent classes.
+    _abstract = True
 
     def __init__(self, data: Data):
         """Construct a new process instance."""

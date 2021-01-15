@@ -48,6 +48,7 @@ if __name__ == "__main__":
             value == Process
             or not inspect.isclass(value)
             or not issubclass(value, Process)
+            or "_abstract" in value.__dict__
         ):
             continue
         processes[value._meta.metadata.slug] = value
