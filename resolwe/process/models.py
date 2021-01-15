@@ -65,6 +65,7 @@ FIELDS_MAP = {
     "AutoField": IntegerField,
     "VersionField": StringField,
     "CharField": StringField,
+    "TextField": StringField,
     "DateTimeField": DateTimeField,
     "ForeignKey": ModelField,
     "ManyToManyField": ListField,
