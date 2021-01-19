@@ -488,7 +488,7 @@ class Connector(BaseConnector):
         requests["memory"] *= 2 ** 20
 
         ebs_claim_name = self._ebs_claim_name(data.id)
-        ebs_claim_size = limits.pop("storage", 100) * (2 ** 30)  # Default 100 gibibytes
+        ebs_claim_size = limits.pop("storage", 200) * (2 ** 30)  # Default 200 gibibytes
 
         # TODO: no ulimits on kubernetes??
         # See https://github.com/kubernetes/kubernetes/issues/3595
