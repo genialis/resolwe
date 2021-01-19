@@ -7,5 +7,18 @@ at runtime, properly subclass
 :meth:`~resolwe.flow.executors.prepare.BaseFlowExecutorPreparer.extend_settings`
 method.
 """
+from resolwe.flow.models import Worker
 
-from ..prepare import BaseFlowExecutorPreparer as FlowExecutorPreparer  # noqa: F401
+from ..prepare import BaseFlowExecutorPreparer  # noqa: F401
+
+
+class FlowExecutorPreparer(BaseFlowExecutorPreparer):
+    """Specialized manager assist for the null executor."""
+
+    def prepare_for_execution(self, data):
+        """Prepare the data object for the execution.
+
+        Mark worker object as done.
+        """
+        data.worker.status = Worker.STATUS_COMPLETED
+        data.worker.save()

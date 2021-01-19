@@ -27,6 +27,13 @@ logger = logging.getLogger(__name__)
 class BaseFlowExecutorPreparer:
     """Represents the preparation functionality of the executor."""
 
+    def prepare_for_execution(self, data):
+        """Prepare the data object for the execution.
+
+        This is mostly needed for the null executor to change the status of
+        the data and worker object to done.
+        """
+
     def extend_settings(self, data_id, files, secrets):
         """Extend the settings the manager will serialize.
 

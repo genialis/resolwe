@@ -797,6 +797,7 @@ class Manager:
                 + " -m executors "
                 + executor_module,
             ]
+            self.executor.prepare_for_execution(data)
         except PermissionDenied as error:
             data.status = Data.STATUS_ERROR
             data.process_error.append("Permission denied for process: {}".format(error))
