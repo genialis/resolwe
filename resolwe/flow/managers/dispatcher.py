@@ -635,9 +635,12 @@ class Manager:
 
         At least one must finish after this point to avoid a deadlock.
         """
+        consumer_future = asyncio.ensure_future(consumer.run_consumer())
         assert self._sync_finished_event is not None
         await self._sync_finished_event.wait()
         self._sync_finished_event = None
+        await consumer.exit_consumer()
+        await consumer_future
 
     async def communicate(self, data_id=None, run_sync=False):
         """Scan database for resolving Data objects and process them.

@@ -31,7 +31,7 @@ from django.utils.crypto import get_random_string
 # negating anything we do here with Django's override_settings.
 import resolwe.test.testcases.setting_overrides as resolwe_settings
 from resolwe.flow.finders import get_finders
-from resolwe.flow.managers import consumer, listener, manager, state
+from resolwe.flow.managers import listener, manager, state
 from resolwe.storage.connectors import connectors
 from resolwe.storage.settings import STORAGE_CONNECTORS, STORAGE_LOCAL_CONNECTOR
 from resolwe.test.utils import generate_process_tag
@@ -259,12 +259,7 @@ async def _run_on_infrastructure(meth, *args, **kwargs):
                 async with listener:
                     try:
                         with override_settings(FLOW_MANAGER_SYNC_AUTO_CALLS=True):
-                            consumer_future = asyncio.ensure_future(
-                                consumer.run_consumer()
-                            )
                             result = await database_sync_to_async(meth)(*args, **kwargs)
-                            await consumer.exit_consumer()
-                            await consumer_future
                         return result
                     except Exception:
                         logger.exception("Exception while running test")

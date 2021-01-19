@@ -1,6 +1,7 @@
 # pylint: disable=missing-docstring
 import os
 import subprocess
+import threading
 import unittest
 from contextlib import suppress
 from pathlib import Path
@@ -275,7 +276,13 @@ class ManagerRunProcessTest(ProcessTestCase):
             contributor=self.contributor,
             process=process,
         )
-        async_to_sync(manager.communicate)(data_id=data.pk, run_sync=False)
+
+        def start_processing(data):
+            async_to_sync(manager.communicate)(data_id=data.pk, run_sync=True)
+
+        processing_thread = threading.Thread(target=start_processing, args=(data,))
+        processing_thread.start()
+
         # Wait for up to 5s for process to start.
         for _ in range(50):
             sleep(0.1)
@@ -297,6 +304,8 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.assertEqual(data.worker.status, Worker.STATUS_COMPLETED)
         self.assertEqual(data.status, Data.STATUS_ERROR)
         self.assertEqual(data.process_info, ["Processing was cancelled."])
+        processing_thread.join(timeout=10)
+        self.assertFalse(processing_thread.is_alive())
 
     @with_docker_executor
     @tag_process("test-requirements-docker")
