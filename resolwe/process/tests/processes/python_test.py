@@ -15,6 +15,7 @@ from resolwe.process import (
     StringField,
     UrlField,
 )
+from resolwe.process.models import Collection
 
 
 class EntityProcess(Process):
@@ -388,3 +389,56 @@ class DataNameProcess(Process):
 
     def run(self, inputs, outputs):
         outputs.name = self.name
+
+
+class CreateCollection(Process):
+    slug = "create-collection"
+    name = "Create collection"
+    data_name = "{{ data_input | name | default('?') }}"
+    version = "1.0.0"
+    process_type = "data:name"
+    requirements = {"expression-engine": "jinja"}
+
+    class Input:
+        collection_name = StringField(label="Collection name")
+
+    def run(self, inputs, outputs):
+        Collection.create(name=inputs.collection_name)
+
+
+class GetCollection(Process):
+    slug = "get-collection"
+    name = "Get collection"
+    data_name = "{{ data_input | name | default('?') }}"
+    version = "1.0.0"
+    process_type = "data:name"
+    requirements = {"expression-engine": "jinja"}
+
+    class Input:
+        collection_name = StringField(label="Collection name")
+
+    class Output:
+        collection_slug = StringField(label="Collection slug")
+
+    def run(self, inputs, outputs):
+        collection = Collection.get(name=inputs.collection_name)
+        outputs.collection_slug = collection.slug
+
+
+class FilterCollection(Process):
+    slug = "filter-collection"
+    name = "Filter collection"
+    data_name = "{{ data_input | name | default('?') }}"
+    version = "1.0.0"
+    process_type = "data:name"
+    requirements = {"expression-engine": "jinja"}
+
+    class Input:
+        collection_name = StringField(label="Collection name")
+
+    class Output:
+        number_of_collections = IntegerField(label="Number of collections")
+
+    def run(self, inputs, outputs):
+        collections = Collection.filter(name=inputs.collection_name)
+        outputs.number_of_collections = len(collections)

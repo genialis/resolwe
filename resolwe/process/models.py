@@ -341,7 +341,9 @@ class Model(metaclass=ModelMetaclass):
             del object_data[old_name]
             object_data[new_name] = new_value
         communicator.encoder = JSONModelEncoder
-        return cls(communicator.create_object(cls._model_name, object_data))
+        return cls(
+            communicator.create_object(cls._app_name, cls._model_name, object_data)
+        )
 
     def __str__(self):
         """Return a string representation."""

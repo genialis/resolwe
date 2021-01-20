@@ -326,6 +326,41 @@ class PythonProcessTest(ProcessTestCase):
         data = self.run_process("data-name-process", {"data_input": data_input.id})
         self.assertEqual(data.output["name"], "Data with entity")
 
+    @with_docker_executor
+    @tag_process("create-collection")
+    def test_create_collection(self):
+        """Test process that creates object"""
+        collection_name = "Python process collection"
+        self.assertFalse(Collection.objects.filter(name=collection_name).exists())
+        self.run_process("create-collection", {"collection_name": collection_name})
+        Collection.objects.get(name=collection_name)
+
+    @with_docker_executor
+    @tag_process("filter-collection")
+    def test_filter_collection(self):
+        """Test process that filters object"""
+        collection_name = "Python process collection"
+        number_of_collections = 2
+        self.assertFalse(Collection.objects.filter(name=collection_name).exists())
+        for _ in range(number_of_collections):
+            Collection.objects.create(name=collection_name, contributor=self.user)
+        data = self.run_process(
+            "filter-collection", {"collection_name": collection_name}
+        )
+        self.assertEqual(data.output["number_of_collections"], number_of_collections)
+
+    @with_docker_executor
+    @tag_process("get-collection")
+    def test_get_collection(self):
+        """Test process that gets object"""
+        collection_name = "Python process collection"
+        self.assertFalse(Collection.objects.filter(name=collection_name).exists())
+        collection = Collection.objects.create(
+            name=collection_name, contributor=self.user
+        )
+        data = self.run_process("get-collection", {"collection_name": collection_name})
+        self.assertEqual(data.output["collection_slug"], collection.slug)
+
 
 class PythonProcessRequirementsTest(ProcessTestCase):
     def setUp(self):
