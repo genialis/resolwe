@@ -361,6 +361,19 @@ class PythonProcessTest(ProcessTestCase):
         data = self.run_process("get-collection", {"collection_name": collection_name})
         self.assertEqual(data.output["collection_slug"], collection.slug)
 
+    @with_docker_executor
+    @tag_process("create-data")
+    def test_create_data(self):
+        """Test process that creates data object."""
+        collection_name = "Python process collection"
+        data_name = "Data name"
+        self.assertFalse(Collection.objects.filter(name=collection_name).exists())
+        self.run_process(
+            "create-data", {"collection_name": collection_name, "data_name": data_name}
+        )
+        Collection.objects.get(name=collection_name)
+        Data.objects.get(name=data_name)
+
 
 class PythonProcessRequirementsTest(ProcessTestCase):
     def setUp(self):

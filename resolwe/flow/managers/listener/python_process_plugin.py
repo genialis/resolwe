@@ -146,9 +146,7 @@ class ExposeData(ExposeObjectPlugin):
                     f"Object {model._meta.model_name} with id {model_pk} not found."
                 )
 
-    def can_create(
-        self, user: UserClass, model_instance: Model, model_data: Dict
-    ) -> bool:
+    def can_create(self, user: UserClass, model_data: Dict) -> bool:
         """Can user update the given model instance."""
         allowed_fields = {
             "process_id",

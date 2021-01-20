@@ -15,7 +15,8 @@ from resolwe.process import (
     StringField,
     UrlField,
 )
-from resolwe.process.models import Collection
+from resolwe.process.models import Collection, Data
+from resolwe.process.models import Process as ProcessM
 
 
 class EntityProcess(Process):
@@ -442,3 +443,24 @@ class FilterCollection(Process):
     def run(self, inputs, outputs):
         collections = Collection.filter(name=inputs.collection_name)
         outputs.number_of_collections = len(collections)
+
+
+class CreateData(Process):
+    slug = "create-data"
+    name = "Create data object"
+    data_name = "{{ data_input | name | default('?') }}"
+    version = "1.0.0"
+    process_type = "data:name"
+    requirements = {"expression-engine": "jinja"}
+
+    class Input:
+        data_name = StringField(label="Data name")
+        collection_name = StringField(label="Collection name")
+
+    def run(self, inputs, outputs):
+        process = ProcessM.get(slug="create-collection")
+        Data.create(
+            process=process,
+            name=inputs.data_name,
+            input={"collection_name": inputs.collection_name},
+        )
