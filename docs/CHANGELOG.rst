@@ -6,9 +6,9 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+===================
+26.0.0 - 2021-01-20
+===================
 
 Changed
 -------
@@ -16,6 +16,34 @@ Changed
   ``resolwe/archiver`` Docker images
 - **BACKWARD INCOMPATIBLE:** Remove obsolete processes: ``archiver``,
   ``upload-tab-file`` and ``upload-image-file``
+- **BACKWARD INCOMPATIBLE:** Python process syntax has changed: all the
+  attributes of Data object are now available in Python process and therefore
+  accessing outputs using syntax ``data_object.output_name`` is no longer
+  valid since ``output_name`` could be the name of the attribute. The new
+  syntax is ``data_object.output.output_name``.
+- **BACKWARD INCOMPATIBLE:** Communication between the processing script
+  and listener has changed from printing to stdout to sending messages over
+  sockets. Messages printed to stdout or sent using old version of the
+  ``resolwe-runtime-utils`` (YAML processes) are no longer processed. YAML
+  processes need new version of ``resolwe-runtime-utils`` while Python
+  processes require a rewrite to the new syntax and Python version 3.4 or
+  higher in the container (``resolwe-runtime-utils`` package is no longer
+  needed).
+- Use Github Actions to run the tests
+- Listener communicates with containers through ZeroMQ instead of Redis
+- Start two containers for each process instead of one: the second one is
+  used to communicate with the listener
+- Move settings for Python processes from files to environmental variables
+
+Added
+-----
+- Add Kubernetes workload connector
+- Support running process instant termination
+- Support registering custom command handlers in listener and exposing data
+  objects (possibly defined in other Django applications) to Python processes
+- Support Django-like syntax in Python processes to create, filter or access
+  attributes of the exposed data objects
+- Support creating new base classes for Python processes
 
 
 ===================
