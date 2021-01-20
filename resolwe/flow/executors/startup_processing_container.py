@@ -253,17 +253,21 @@ class ProtocolHandler:
         proc.stdin.close()
         logger.debug("Script sent to stdin.")
 
-        with STDOUT_LOG_PATH.open("bw") as stdout_file:
-            received = yield from proc.stdout.readline()
-            while received:
-                stdout_file.write(received)
+        try:
+            with STDOUT_LOG_PATH.open("bw") as stdout_file:
                 received = yield from proc.stdout.readline()
-                stdout_file.flush()
-
-        yield from proc.wait()
-        assert proc.returncode is not None
-        logger.debug("Script finished with rc %d.", proc.returncode)
-        return proc.returncode
+                while received:
+                    stdout_file.write(received)
+                    received = yield from proc.stdout.readline()
+                    stdout_file.flush()
+        except asyncio.CancelledError:
+            # Task was cancelled: terminate the running subprocess immediately.
+            proc.kill()
+        finally:
+            yield from proc.wait()
+            assert proc.returncode is not None
+            logger.debug("Script finished with rc %d.", proc.returncode)
+            return proc.returncode
 
 
 class Communicator:
@@ -431,7 +435,11 @@ class ProcessingManager:
                     # Terminate the script on ERROR response.
                     if response["type_data"] == "ERR":
                         logger.debug("Response with error status received, terminating")
+                        # Terminate the script and wait for termination.
+                        # Otherwise script may continue to run and produce
+                        # hard to debug error messages.
                         self.protocol_handler.terminate_script()
+                        yield from self.protocol_handler._script_finishing.wait()
                         break
                     else:
                         yield from communicator.send_data(response)
