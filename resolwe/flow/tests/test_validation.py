@@ -78,7 +78,7 @@ class ValidationTest(TestCase):
         self.assertEqual(data.descriptor_dirty, True)
 
         data.descriptor = {"description": 42}
-        with self.assertRaisesRegex(ValidationError, "is not valid"):
+        with self.assertRaisesRegex(ValidationError, "is not of type"):
             data.save()
 
     def test_validate_collection_descriptor(self):
@@ -104,7 +104,7 @@ class ValidationTest(TestCase):
         self.assertEqual(collection.descriptor_dirty, True)
 
         collection.descriptor = {"description": 42}
-        with self.assertRaisesRegex(ValidationError, "is not valid"):
+        with self.assertRaisesRegex(ValidationError, "is not of type"):
             collection.save()
 
     def test_validate_entity_descriptor(self):
@@ -130,7 +130,7 @@ class ValidationTest(TestCase):
         self.assertEqual(entity.descriptor_dirty, True)
 
         entity.descriptor = {"description": 42}
-        with self.assertRaisesRegex(ValidationError, "is not valid"):
+        with self.assertRaisesRegex(ValidationError, "is not of type"):
             entity.save()
 
     def test_referenced_storage(self):
@@ -533,7 +533,7 @@ class ValidationUnitTest(TestCase):
         validate_schema(instance, schema)
 
         instance = {"string": 42, "text": 42}
-        with self.assertRaisesRegex(ValidationError, "is not valid"):
+        with self.assertRaisesRegex(ValidationError, "is not of type"):
             validate_schema(instance, schema)
 
     def test_boolean_field(self):
@@ -546,15 +546,15 @@ class ValidationUnitTest(TestCase):
         validate_schema(instance, schema)
 
         instance = {"true": "true", "false": "false"}
-        with self.assertRaisesRegex(ValidationError, "is not valid"):
+        with self.assertRaisesRegex(ValidationError, "does not match"):
             validate_schema(instance, schema)
 
         instance = {"true": 1, "false": 0}
-        with self.assertRaisesRegex(ValidationError, "is not valid"):
+        with self.assertRaisesRegex(ValidationError, "does not match"):
             validate_schema(instance, schema)
 
         instance = {"true": "foo", "false": "bar"}
-        with self.assertRaisesRegex(ValidationError, "is not valid"):
+        with self.assertRaisesRegex(ValidationError, "does not match"):
             validate_schema(instance, schema)
 
     def test_integer_field(self):
@@ -566,11 +566,11 @@ class ValidationUnitTest(TestCase):
         validate_schema(instance, schema)
 
         instance = {"value": 42.0}
-        with self.assertRaisesRegex(ValidationError, "is not valid"):
+        with self.assertRaisesRegex(ValidationError, "does not match"):
             validate_schema(instance, schema)
 
         instance = {"value": "forty-two"}
-        with self.assertRaisesRegex(ValidationError, "is not valid"):
+        with self.assertRaisesRegex(ValidationError, "does not match"):
             validate_schema(instance, schema)
 
     def test_decimal_field(self):
@@ -585,7 +585,7 @@ class ValidationUnitTest(TestCase):
         validate_schema(instance, schema)
 
         instance = {"value": "forty-two"}
-        with self.assertRaisesRegex(ValidationError, "is not valid"):
+        with self.assertRaisesRegex(ValidationError, "does not match"):
             validate_schema(instance, schema)
 
     def test_date_field(self):
@@ -597,23 +597,23 @@ class ValidationUnitTest(TestCase):
         validate_schema(instance, schema)
 
         instance = {"date": "2000/01/01"}
-        with self.assertRaisesRegex(ValidationError, "is not valid"):
+        with self.assertRaisesRegex(ValidationError, "does not match"):
             validate_schema(instance, schema)
 
         instance = {"date": "31 04 2000"}
-        with self.assertRaisesRegex(ValidationError, "is not valid"):
+        with self.assertRaisesRegex(ValidationError, "does not match"):
             validate_schema(instance, schema)
 
         instance = {"date": "21.06.2000"}
-        with self.assertRaisesRegex(ValidationError, "is not valid"):
+        with self.assertRaisesRegex(ValidationError, "does not match"):
             validate_schema(instance, schema)
 
         instance = {"date": "2000-1-1"}
-        with self.assertRaisesRegex(ValidationError, "is not valid"):
+        with self.assertRaisesRegex(ValidationError, "does not match"):
             validate_schema(instance, schema)
 
         instance = {"date": "2000 apr 8"}
-        with self.assertRaisesRegex(ValidationError, "is not valid"):
+        with self.assertRaisesRegex(ValidationError, "does not match"):
             validate_schema(instance, schema)
 
     def test_datetime_field(self):
@@ -629,18 +629,18 @@ class ValidationUnitTest(TestCase):
             validate_schema(instance, schema)
 
         instance = {"date": "2000/06/21 2:03"}
-        with self.assertRaisesRegex(ValidationError, "is not valid"):
+        with self.assertRaisesRegex(ValidationError, "does not match"):
             validate_schema(instance, schema)
 
         instance = {"date": "2000-06-21 2:3"}  # XXX: Is this ok?
         validate_schema(instance, schema)
 
         instance = {"date": "2000-06-21"}
-        with self.assertRaisesRegex(ValidationError, "is not valid"):
+        with self.assertRaisesRegex(ValidationError, "does not match"):
             validate_schema(instance, schema)
 
         instance = {"date": "2000-06-21 12pm"}
-        with self.assertRaisesRegex(ValidationError, "is not valid"):
+        with self.assertRaisesRegex(ValidationError, "does not match"):
             validate_schema(instance, schema)
 
     def test_data_field(self):
@@ -723,7 +723,7 @@ class ValidationUnitTest(TestCase):
         # data `id` shouldn't be string
         instance = {"data_list": "1"}
 
-        with self.assertRaisesRegex(ValidationError, "is not valid"):
+        with self.assertRaisesRegex(ValidationError, "does not match"):
             validate_schema(instance, schema)
 
     def test_file_field(self):
@@ -767,7 +767,7 @@ class ValidationUnitTest(TestCase):
                 "file": "result_file.txt",
             }
         }
-        with self.assertRaisesRegex(ValidationError, "is not valid"):
+        with self.assertRaisesRegex(ValidationError, "is not of type"):
             validate_schema(instance, schema)
 
         # missing `file`
@@ -776,7 +776,7 @@ class ValidationUnitTest(TestCase):
                 "file_temp": "12345",
             }
         }
-        with self.assertRaisesRegex(ValidationError, "is not valid"):
+        with self.assertRaisesRegex(ValidationError, "does not match"):
             validate_schema(instance, schema)
 
         # wrong file extension
@@ -817,7 +817,7 @@ class ValidationUnitTest(TestCase):
                 "refs": ["01.txt", "02.txt"],
             }
         }
-        with self.assertRaisesRegex(ValidationError, "is not valid"):
+        with self.assertRaisesRegex(ValidationError, "does not match"):
             validate_schema(instance, schema)
 
     def test_url_field(self):
@@ -848,7 +848,7 @@ class ValidationUnitTest(TestCase):
             {"name": "webpage", "type": "basic:url:"},
         ]
         instance = {"webpage": {"url": "http://www.genialis.com"}}
-        with self.assertRaisesRegex(ValidationError, "is not valid"):
+        with self.assertRaisesRegex(ValidationError, "does not match"):
             validate_schema(instance, schema)
 
     def test_json_field(self):
@@ -856,7 +856,7 @@ class ValidationUnitTest(TestCase):
 
         # json not saved in `Storage`
         instance = {"big_dict": {"foo": "bar"}}
-        with self.assertRaisesRegex(ValidationError, "is not valid"):
+        with self.assertRaisesRegex(ValidationError, "does not match"):
             validate_schema(instance, schema)
 
         with patch("resolwe.flow.models.storage.Storage") as storage_mock:
@@ -893,11 +893,11 @@ class ValidationUnitTest(TestCase):
         validate_schema(instance, schema)
 
         instance = {"list": ""}
-        with self.assertRaisesRegex(ValidationError, "is not valid"):
+        with self.assertRaisesRegex(ValidationError, "does not match"):
             validate_schema(instance, schema)
 
         instance = {"list": "foo bar"}
-        with self.assertRaisesRegex(ValidationError, "is not valid"):
+        with self.assertRaisesRegex(ValidationError, "does not match"):
             validate_schema(instance, schema)
 
     def test_list_integer_field(self):
@@ -909,15 +909,15 @@ class ValidationUnitTest(TestCase):
         validate_schema(instance, schema)
 
         instance = {"value": 42}
-        with self.assertRaisesRegex(ValidationError, "is not valid"):
+        with self.assertRaisesRegex(ValidationError, "does not match"):
             validate_schema(instance, schema)
 
         instance = {"value": [42, 43.0]}
-        with self.assertRaisesRegex(ValidationError, "is not valid"):
+        with self.assertRaisesRegex(ValidationError, "is not of type"):
             validate_schema(instance, schema)
 
         instance = {"value": [42, "43"]}
-        with self.assertRaisesRegex(ValidationError, "is not valid"):
+        with self.assertRaisesRegex(ValidationError, "is not of type"):
             validate_schema(instance, schema)
 
     def test_list_data_field(self):
@@ -1052,7 +1052,7 @@ class ValidationUnitTest(TestCase):
                 {"size": 32156, "refs": ["result01.txt", "result02.txt"]},
             ]
         }
-        with self.assertRaisesRegex(ValidationError, "is not valid"):
+        with self.assertRaisesRegex(ValidationError, "is not of type"):
             validate_schema(instance, schema)
 
     def test_list_url_field(self):
@@ -1072,7 +1072,7 @@ class ValidationUnitTest(TestCase):
         validate_schema(instance, schema)
 
         instance = {"webpage": {"url": "http://www.dictyexpress.org"}}
-        with self.assertRaisesRegex(ValidationError, "is not valid"):
+        with self.assertRaisesRegex(ValidationError, "does not match"):
             validate_schema(instance, schema)
 
     def test_groups(self):
@@ -1117,7 +1117,7 @@ class ValidationUnitTest(TestCase):
                 "description": 6,
             }
         }
-        with self.assertRaisesRegex(ValidationError, "is not valid"):
+        with self.assertRaisesRegex(ValidationError, "is not of type"):
             validate_schema(instance, schema)
 
         # missing description

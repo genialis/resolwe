@@ -58,7 +58,7 @@ setuptools.setup(
         "django-fernet-fields~=0.6",
         "django-priority-batch >=3.0a1, ==3.*",
         "Jinja2~=2.11.3",
-        "jsonschema~=2.6.0",
+        "jsonschema~=3.2.0",
         "plumbum~=1.7.0",
         "psycopg2-binary~=2.8.6",
         "PyYAML~=5.4.1",
