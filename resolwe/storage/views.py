@@ -135,8 +135,8 @@ class UriResolverView(DataBrowseView):
 
         response_data = {}
 
-        for uri in request.GET.getlist("uris", []):
-            match = re.match(r"(\d+)/(.+)", uri).group(1, 2)
+        for uri in request.GET.getlist("uri", []):
+            match = re.match(r"(\d+)/(.+)", uri)
             if not match:
                 response_data[uri] = ""
                 continue
@@ -150,4 +150,4 @@ class UriResolverView(DataBrowseView):
             else:
                 raise PermissionDenied()
 
-        return HttpResponse(response_data)
+        return JsonResponse(response_data)
