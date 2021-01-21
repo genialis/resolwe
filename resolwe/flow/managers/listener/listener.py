@@ -269,7 +269,9 @@ class Processor:
 
         Peer should terminate by itself and send finish message back to us.
         """
-        await database_sync_to_async(self._save_error)("Processing was cancelled.")
+        await database_sync_to_async(self._save_error, thread_sensitive=False)(
+            "Processing was cancelled."
+        )
         # Ignore the possible timeout.
         with suppress(RuntimeError):
             await self._listener.communicator.send_command(
@@ -563,7 +565,9 @@ class ListenerProtocol(BaseProtocol):
 
         peer = self.peers[peer_identity]
         try:
-            response = await database_sync_to_async(peer.process_command)(message)
+            response = await database_sync_to_async(
+                peer.process_command, thread_sensitive=False
+            )(message)
         except:
             logger.exception("Error in process_command method.")
             return message.respond("Error processing command", ResponseStatus.ERROR)

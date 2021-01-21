@@ -41,11 +41,11 @@ setuptools.setup(
     install_requires=[
         # XXX: Temporarily pin asgiref to 3.2.x since testing framework freezes
         # with version 3.3.x
-        "asgiref~=3.2.10",
+        "asgiref~=3.3.1",
         "asteval~=0.9.23",
         "async-timeout~=3.0.0",
-        "channels~=2.4.0",
-        "channels_redis~=2.4.1",
+        "channels~=3.0.3",
+        "channels_redis~=3.2.0",
         # Storage requirement for computing hashes.
         "crcmod",
         "kubernetes~=12.0.1",

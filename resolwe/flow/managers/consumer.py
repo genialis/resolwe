@@ -42,13 +42,13 @@ async def run_consumer(timeout=None):
         "type": "control_event",
         "channel": manager_channel,
     }
-    manager_app = ApplicationCommunicator(ManagerConsumer, manager_scope)
+    manager_app = ApplicationCommunicator(ManagerConsumer(), manager_scope)
 
     listener_channel = state.LISTENER_CONTROL_CHANNEL
     listener_scope = {
         "channel": listener_channel,
     }
-    listener_app = ApplicationCommunicator(ListenerConsumer, listener_scope)
+    listener_app = ApplicationCommunicator(ListenerConsumer(), listener_scope)
 
     channel_layer = get_channel_layer()
 
@@ -95,7 +95,6 @@ class ManagerConsumer(AsyncConsumer):
         from . import manager
 
         self.manager = manager
-        super().__init__(*args, **kwargs)
 
     async def control_event(self, message):
         """Forward control events to the manager dispatcher."""
@@ -115,7 +114,6 @@ class ListenerConsumer(AsyncConsumer):
         from . import listener
 
         self.listener = listener
-        super().__init__(*args, **kwargs)
 
     async def terminate_worker_event(self, message):
         """Forward control events to the manager dispatcher."""

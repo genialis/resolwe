@@ -260,7 +260,15 @@ async def _run_on_infrastructure(meth, *args, **kwargs):
                 async with listener:
                     try:
                         with override_settings(FLOW_MANAGER_SYNC_AUTO_CALLS=True):
-                            result = await database_sync_to_async(meth)(*args, **kwargs)
+                            # Run the test in the new thread instead on the
+                            # main thread (default). If test is started on the
+                            # main thread then database_sync_to_async calls
+                            # will wait indefinitely (they share the same
+                            # thread) for the test to finish creating the
+                            # infinite loop.
+                            result = await database_sync_to_async(
+                                meth, thread_sensitive=False
+                            )(*args, **kwargs)
                         return result
                     except Exception:
                         logger.exception("Exception while running test")
