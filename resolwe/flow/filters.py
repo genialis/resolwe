@@ -15,7 +15,6 @@ from django.contrib.postgres.search import SearchQuery, SearchRank
 from django.db.models import F, ForeignKey, Subquery
 
 from guardian.shortcuts import get_objects_for_user
-from rest_framework.exceptions import ParseError
 from rest_framework.filters import OrderingFilter as DrfOrderingFilter
 
 from resolwe.composer import composer
@@ -94,7 +93,7 @@ class CheckQueryParamsMixin:
                     ", ".join(unallowed), ", ".join(allowed_params)
                 )
             )
-            self.form.add_error(field=None, error=ParseError(msg))
+            self.form.add_error(field=None, error=msg)
 
     def is_valid(self):
         """Validate filterset."""

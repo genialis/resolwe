@@ -52,7 +52,7 @@ setuptools.setup(
         "docker~=4.4.4",
         "Django~=2.2.0",
         "djangorestframework~=3.12.2",
-        "django-filter~=2.0.0",
+        "django-filter~=2.4.0",
         "django-guardian~=1.5.0",
         "django-versionfield2~=0.5.0",
         "django-fernet-fields~=0.6",
