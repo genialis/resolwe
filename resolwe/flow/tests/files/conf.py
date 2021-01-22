@@ -14,3 +14,6 @@ autoprocess_process_dir = os.path.normpath(
 autoprocess_source_base_url = (
     "https://github.com/genialis/resolwe-bio/blob/master/resolwe_bio/processes/"
 )
+
+# The master toctree document.
+master_doc = "contents"

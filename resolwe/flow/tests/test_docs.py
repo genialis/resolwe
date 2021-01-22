@@ -13,7 +13,7 @@ Current implementation of tests only checks that:
 import os
 import shutil
 
-from sphinx import build_main
+from sphinx.cmd.build import build_main
 
 from resolwe.test import TestCase
 
@@ -35,7 +35,6 @@ class TestAutoporocess(TestCase):
 
     def test_build_ok(self):
         args = [
-            "build_sphinx",
             "-E",  # Dont use a saved environment but rebuild it completely.
             "-q",  # Do not output anything on standard output, only write warnings and errors to standard error.
             "-w{}".format(

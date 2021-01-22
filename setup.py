@@ -65,8 +65,8 @@ setuptools.setup(
         "redis~=3.5.3",
         "resolwe-runtime-utils~=3.0.0",
         "shellescape~=3.8.1",
-        "Sphinx>=1.5.1, <1.7.0",
-        "beautifulsoup4~=4.9.3"
+        "beautifulsoup4~=4.9.3",
+        "Sphinx~=3.5.3",
         "wrapt~=1.12.1",
         "pyzmq~=22.0.3",
     ],
