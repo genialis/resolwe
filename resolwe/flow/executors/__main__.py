@@ -81,5 +81,7 @@ if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     configure_logging()
     loop.run_until_complete(_run_executor())
-    loop.run_until_complete(_close_tasks(asyncio.Task.all_tasks()))
+    # TODO: remove asyncio.Task.all_tasks when we stop supporting Python 3.6.
+    all_tasks = getattr(asyncio, "all_tasks", None) or asyncio.Task.all_tasks
+    loop.run_until_complete(_close_tasks(all_tasks(loop=loop)))
     loop.close()

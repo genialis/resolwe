@@ -35,9 +35,7 @@ setuptools.setup(
             "toolkit/tools/**.py",
         ]
     },
-    python_requires=">=3.6, <3.9",
-    # Keep versions bellow in sync with versions specified in 
-    # resolwe/flow/docker_images/Dockerfile.commutication .
+    python_requires=">=3.6, <3.10",
     install_requires=[
         # XXX: Temporarily pin asgiref to 3.2.x since testing framework freezes
         # with version 3.3.x
@@ -117,6 +115,7 @@ setuptools.setup(
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
     ],
     keywords="resolwe dataflow django",
 )
