@@ -685,8 +685,8 @@ class Connector(BaseConnector):
                                 "image": communicator_image,
                                 "imagePullPolicy": "Always",
                                 "resources": {
-                                    "limits": {"cpu": 0.5, "memory": "1024M"},
-                                    "requests": {"memory": "256M"},
+                                    "limits": {"cpu": 1, "memory": "1024M"},
+                                    "requests": {"memory": "256M", "cpu": 0.1},
                                 },
                                 # TODO: uncomment after test
                                 "securityContext": security_context,
