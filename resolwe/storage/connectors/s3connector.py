@@ -184,6 +184,7 @@ class AwsS3Connector(BaseStorageConnector):
         # since hash check fails.
         url = os.fspath(url)
         head = self.client.head_object(Bucket=self.bucket_name, Key=url)
+        content_type = head["ResponseMetadata"]["HTTPHeaders"]["content-type"]
         meta = head["Metadata"]
         hashes = {k: v for (k, v) in hashes.items() if k not in self.hash_propery}
         meta.update(hashes)
@@ -195,7 +196,11 @@ class AwsS3Connector(BaseStorageConnector):
             copy_source,
             self.bucket_name,
             url,
-            ExtraArgs={"Metadata": meta, "MetadataDirective": "REPLACE"},
+            ExtraArgs={
+                "Metadata": meta,
+                "MetadataDirective": "REPLACE",
+                "ContentType": content_type,
+            },
         )
 
     @property
