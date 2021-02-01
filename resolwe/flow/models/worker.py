@@ -1,4 +1,5 @@
 """Worker data model representing the state of the executor."""
+from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
 from django.db import models
@@ -33,7 +34,7 @@ class Worker(models.Model):
     )
     status = models.CharField(max_length=2, choices=STATUS_CHOICES)
 
-    async def terminate(self):
+    def terminate(self):
         """Terminate the running worker."""
         assert (
             self.status == self.STATUS_PROCESSING
@@ -45,7 +46,7 @@ class Worker(models.Model):
         }
         from resolwe.flow.managers.state import LISTENER_CONTROL_CHANNEL
 
-        await get_channel_layer().send(LISTENER_CONTROL_CHANNEL, packet)
+        async_to_sync(get_channel_layer().send)(LISTENER_CONTROL_CHANNEL, packet)
 
     def __str__(self):
         """Return the string representation."""

@@ -28,6 +28,7 @@ Changed
 Added
 -----
 - Make automatic removal of Docker containers configurable
+- Terminate processing immediately when data object is deleted
 
 
 ===================

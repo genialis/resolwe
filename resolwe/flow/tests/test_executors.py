@@ -292,7 +292,7 @@ class ManagerRunProcessTest(ProcessTestCase):
                     break
 
         self.assertEqual(data.worker.status, Worker.STATUS_PROCESSING)
-        async_to_sync(data.worker.terminate)()
+        data.worker.terminate()
 
         # Give it max 5 seconds to terminate.
         for _ in range(50):

@@ -3,8 +3,6 @@ import copy
 import enum
 import json
 import logging
-import os
-from contextlib import suppress
 
 from django.conf import settings
 from django.contrib.postgres.fields import ArrayField, JSONField
@@ -31,6 +29,7 @@ from .utils import (
     render_descriptor,
     render_template,
 )
+from .worker import Worker
 
 # Compatibility for Python < 3.5.
 if not hasattr(json, "JSONDecodeError"):
@@ -533,9 +532,11 @@ class Data(BaseModel):
 
     def delete(self, *args, **kwargs):
         """Delete the data model."""
+        if hasattr(self, "worker"):
+            if self.worker.status not in Worker.FINAL_STATUSES:
+                self.worker.terminate()
         # Store ids in memory as relations are also deleted with the Data object.
         storage_ids = list(self.storages.values_list("pk", flat=True))
-
         super().delete(*args, **kwargs)
 
         Storage.objects.filter(pk__in=storage_ids, data=None).delete()
