@@ -10,6 +10,10 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Fixed
+-----
+- Fixed progress reporting in Python processes
+
 Changed
 -------
 - Download input data in init container

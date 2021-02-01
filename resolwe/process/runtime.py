@@ -112,9 +112,10 @@ class Process(metaclass=ProcessMeta):
     def progress(self, progress: float):
         """Report process progress.
 
-        :param progress: A float between 0 and 1 denoting the progress
+        :raises AssertionError: when float is not between 0 and 1.
         """
-        communicator.progress(progress)
+        assert 0 <= progress <= 1, "Progress must be a float between 0 and 1."
+        communicator.progress(round(progress * 100))
 
     def _process_log(self, log: Dict[str, List[str]]):
         """Send process log.
