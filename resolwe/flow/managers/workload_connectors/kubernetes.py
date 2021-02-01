@@ -602,7 +602,7 @@ class Connector(BaseConnector):
             annotations["seccomp.security.alpha.kubernetes.io/pod"] = "runtime/default"
 
         communicator_image = getattr(
-            settings, "DOCKER_COMMUNICATOR_IMAGE", "resolwe/com:python-3.9"
+            settings, "FLOW_DOCKER_COMMUNICATOR_IMAGE", "resolwe/com:python-3.9"
         )
 
         requirements = data.process.requirements.get("executor", {}).get("docker", {})
