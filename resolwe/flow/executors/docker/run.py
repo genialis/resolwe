@@ -317,6 +317,7 @@ class FlowExecutor(LocalFlowExecutor):
             "SOCKETS_VOLUME": constants.SOCKETS_VOLUME,
             "COMMUNICATION_PROCESSING_SOCKET": constants.COMMUNICATION_PROCESSING_SOCKET,
             "SCRIPT_SOCKET": constants.SCRIPT_SOCKET,
+            "UPLOAD_FILE_SOCKET": constants.UPLOAD_FILE_SOCKET,
             "LISTENER_IP": listener_settings.get("hosts", {}).get(
                 "docker", "127.0.0.1"
             ),
@@ -333,6 +334,7 @@ class FlowExecutor(LocalFlowExecutor):
             "RUNNING_IN_DOCKER": 1,
             "FLOW_MANAGER_KEEP_DATA": SETTINGS.get("FLOW_MANAGER_KEEP_DATA", False),
             "DATA_ALL_VOLUME_SHARED": True,
+            "DESCRIPTOR_CHUNK_SIZE": 100,
             # Must init container set permissions.
             "INIT_SET_PERMISSIONS": False,
         }

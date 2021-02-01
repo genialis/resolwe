@@ -12,6 +12,7 @@ from resolwe.flow.managers.protocol import ExecutorProtocol
 from resolwe.flow.models import Data, DataDependency, Process
 from resolwe.flow.models.utils import referenced_files, validate_data_object
 from resolwe.flow.utils import dict_dot, iterate_fields
+from resolwe.storage.connectors.hasher import StreamHasher
 from resolwe.storage.models import ReferencedPath, StorageLocation
 from resolwe.storage.settings import STORAGE_LOCAL_CONNECTOR
 from resolwe.utils import BraceMessage as __
@@ -69,7 +70,7 @@ class BasicCommands(ListenerPlugin):
             manager._log_exception(
                 f"Error while preparing spawned Data objects for process '{manager.data.process.slug}'"
             )
-            return message.respond_error("Error creating new Data object.")
+            return message.respond_error([])
         else:
             return message.respond_ok(created_object.id)
 
@@ -122,13 +123,6 @@ class BasicCommands(ListenerPlugin):
         self, message: Message[Dict], manager: "Processor"
     ) -> Response[str]:
         """Handle an incoming ``Data`` finished processing request."""
-        # with transaction.atomic():
-        # TODO: relavant?
-        # Data wrap up happens last, so that any triggered signals
-        # already see the spawned children. What the children themselves
-        # see is guaranteed by the transaction we're in.
-
-        # The worker is finished with processing.
         process_rc = int(message.message_data.get("rc", 1))
         changeset = {
             "process_progress": 100,
@@ -146,6 +140,10 @@ class BasicCommands(ListenerPlugin):
             changeset["status"] = Data.STATUS_DONE
 
         manager._update_data(changeset)
+
+        local_location = manager.data.location.default_storage_location
+        local_location.status = StorageLocation.STATUS_DONE
+        local_location.save()
 
         # Only validate objects with DONE status. Validating objects in ERROR
         # status will only cause unnecessary errors to be displayed.
@@ -211,24 +209,40 @@ class BasicCommands(ListenerPlugin):
     def handle_referenced_files(
         self, message: Message[List[dict]], manager: "Processor"
     ) -> Response[str]:
-        """Store  a list of files and directories produced by the worker."""
-        file_storage = manager.data.location
-        # At this point default_storage_location will always be local.
-        local_location = file_storage.default_storage_location
+        """Store  a list of files and directories produced by the worker.
+
+        The files are a list of dictionaries with keys 'path', 'size' and
+        hashes.
+        """
+        update_fields = ["size"] + StreamHasher.KNOWN_HASH_TYPES
+        storage_location = manager.data.location.default_storage_location
+        referenced_files = message.message_data
+        paths = {
+            referenced_file["path"]: referenced_file
+            for referenced_file in referenced_files
+        }
+        updated_paths = set()
         with transaction.atomic():
-            try:
-                referenced_paths = [
-                    ReferencedPath(**object_) for object_ in message.message_data
-                ]
-                ReferencedPath.objects.filter(storage_locations=local_location).delete()
-                ReferencedPath.objects.bulk_create(referenced_paths)
-                local_location.files.add(*referenced_paths)
-                local_location.status = StorageLocation.STATUS_DONE
-                local_location.save()
-            except Exception:
-                manager._log_exception("Error saving referenced files")
-                manager._abort_processing()
-                return message.respond_error("Error saving referenced files")
+            # Bulk update existing paths.
+            database_paths = ReferencedPath.objects.filter(
+                storage_locations=storage_location, path__in=paths.keys()
+            )
+            for database_path in database_paths:
+                updated_paths.add(database_path.path)
+                for key, value in paths[database_path.path].items():
+                    setattr(database_path, key, value)
+            ReferencedPath.objects.bulk_update(database_paths, update_fields)
+            logger.debug("Updated %s.", database_paths.values())
+
+            # Bulk insert new paths.
+            created_paths = [
+                ReferencedPath(**referenced_file)
+                for referenced_file in referenced_files
+                if referenced_file["path"] not in updated_paths
+            ]
+            ReferencedPath.objects.bulk_create(created_paths)
+            storage_location.files.add(*created_paths)
+            logger.debug("Created %s.", [e.path for e in created_paths])
 
         return message.respond_ok("OK")
 
@@ -308,18 +322,6 @@ class BasicCommands(ListenerPlugin):
                 manager.save_storage(key, val)
         with transaction.atomic():
             manager._update_data({"output": manager.data.output})
-            storage_location = manager.data.location.default_storage_location
-            if storage_location.status != StorageLocation.STATUS_DONE:
-                ReferencedPath.objects.filter(
-                    storage_locations=storage_location
-                ).delete()
-                referenced_paths = [
-                    ReferencedPath(path=path)
-                    for path in referenced_files(manager.data, include_descriptor=False)
-                ]
-                ReferencedPath.objects.bulk_create(referenced_paths)
-                storage_location.files.add(*referenced_paths)
-
         return message.respond_ok("OK")
 
     def handle_get_files_to_download(

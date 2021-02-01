@@ -9,9 +9,9 @@ import shutil
 import subprocess
 import tarfile
 import zlib
-from itertools import chain
+from itertools import zip_longest
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Type, Union
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Type, Union
 
 import requests
 
@@ -20,6 +20,9 @@ from .communicator import communicator
 DATA_LOCAL_VOLUME = Path(os.environ.get("DATA_LOCAL_VOLUME", "/data_local"))
 DATA_VOLUME = Path(os.environ.get("DATA_VOLUME", "/data"))
 DATA_ALL_VOLUME = Path(os.environ.get("DATA_ALL_VOLUME", "/data_all"))
+
+# Upload files in batches of 1000.
+UPLOAD_FILE_BATCH_SIZE = 1000
 
 
 def _get_dir_size(path):
@@ -33,33 +36,78 @@ def _get_dir_size(path):
     )
 
 
-def copy_file_or_dir(entries: Iterable[Union[str, Path]]):
-    """Copy file and all its references to data_volume.
+def collect_entry(
+    entry: Union[Path, str], references: List[Union[Path, str]]
+) -> Tuple[int, int]:
+    """Get the size of the entry and its references and upload them.
 
-    The entry is a path relative to the DATA_LOCAL_VOLUME (our working
-    directory). It must be copied to the DATA_VOLUME on the shared
-    filesystem.
+    The entry and its references are uploaded to the chosen storage connector.
+
+    NOTE: This process may take considerable amount of time.
+
+    :args entry: file or directory that is being collected.
+    :args references: references belonging to the entry.
     """
-    for entry in entries:
-        source = Path(entry)
-        destination = DATA_VOLUME / source
-        destination.parent.mkdir(exist_ok=True, parents=True)
-        if source.is_dir():
-            if not destination.exists():
-                shutil.copytree(source, destination)
+
+    def grouper(iterable: Iterable, n: int, fillvalue=None):
+        """Collect data into fixed-length chunks or blocks.
+
+        See https://docs.python.org/3/library/itertools.html#itertools-recipes.
+        """
+        args = [iter(iterable)] * n
+        return zip_longest(*args, fillvalue=fillvalue)
+
+    def get_entries_size(
+        entries: Iterable[Path], processed_files: Set[Path], processed_dirs: Set[Path]
+    ) -> int:
+        """Get the total size of the entries.
+
+        Traverse all the files and add their sizes. Skip already processed
+        fles: is a common case that the file itself is also referenced under
+        references for instance.
+
+        :raises RuntimeError: when one of the entris is neither file nor
+            directory.
+        """
+        total_size = 0
+        for entry in entries:
+            if entry_path in processed_files:
+                continue
+            elif entry.is_dir():
+                processed_dirs.add(entry)
+                total_size += get_entries_size(
+                    entry.glob("*"), processed_files, processed_dirs
+                )
+            elif entry.is_file():
+                total_size += entry.stat().st_size
+                processed_files.add(entry)
             else:
-                # If destination directory exists the copytree will fail.
-                # In such case perform a recursive call with entries in
-                # the source directory as arguments.
-                #
-                # TODO: fix when we support Python 3.8 and later. See
-                # dirs_exist_ok argument to copytree method.
-                copy_file_or_dir(source.glob("*"))
-        elif source.is_file():
-            destination.parent.mkdir(exist_ok=True, parents=True)
-            # Use copy2 to preserve file metadata, such as file creation
-            # and modification times.
-            shutil.copy2(source, destination)
+                raise RuntimeError(
+                    f"While collecting entries: {entry} must be either file of directory."
+                )
+
+        return total_size
+
+    assert communicator is not None, "Communicator should not be None."
+    processed_files: Set[Path] = set()
+    processed_dirs: Set[Path] = set()
+    entry_path = Path(entry)
+    entry_size = get_entries_size([entry_path], processed_files, processed_dirs)
+    references_size = get_entries_size(
+        (Path(reference) for reference in references), processed_files, processed_dirs
+    )
+    # Upload files in chunks. Avoid creation of a giant
+    # list when number of referenced files is huge: its size could be
+    # over half a milion in special cases.
+    for group in grouper(processed_files, UPLOAD_FILE_BATCH_SIZE):
+        communicator.upload_files(
+            [os.fspath(entry) for entry in group if entry is not None]
+        )
+    for group in grouper(processed_dirs, UPLOAD_FILE_BATCH_SIZE):
+        communicator.upload_dirs(
+            [os.fspath(entry) for entry in group if entry is not None]
+        )
+    return (entry_size, references_size)
 
 
 class ValidationError(Exception):
@@ -705,7 +753,7 @@ class FileField(Field):
 
         Also copy the referenced file to the data volume.
         """
-        data = {"file": value.path, "size": Path(value.path).stat().st_size}
+        data = {"file": value.path}
         if value.refs:
             missing_refs = [
                 ref
@@ -719,7 +767,10 @@ class FileField(Field):
                     )
                 )
             data["refs"] = value.refs
-        copy_file_or_dir(chain(data.get("refs", []), (data["file"],)))
+
+        entry_size, refs_size = collect_entry(data["file"], data.get("refs", []))
+        data["size"] = entry_size
+        data["total_size"] = entry_size + refs_size
         return data
 
 
@@ -785,7 +836,7 @@ class DirField(Field):
 
     def to_output(self, value):
         """Convert value to process output format."""
-        data = {"dir": value.path, "size": _get_dir_size(Path(value.path))}
+        data = {"dir": value.path}
         if value.refs:
             missing_refs = [
                 ref
@@ -800,7 +851,9 @@ class DirField(Field):
                 )
             data["refs"] = value.refs
 
-        copy_file_or_dir(chain(data.get("refs", []), (data["dir"],)))
+        entry_size, refs_size = collect_entry(data["dir"], data.get("refs", []))
+        data["size"] = entry_size
+        data["total_size"] = entry_size + refs_size
         return data
 
 

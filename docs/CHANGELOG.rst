@@ -15,6 +15,9 @@ Changed
 - Download input data in init container
 - Storage objects are sent to the listener over socket instead of using files
   on the shared filesystem
+- Make it possible to run the platform without shared filesystem. All inputs
+  for processed data object are prepared in input container and all outputs are
+  uploaded to the chosen storage connector when they are referenced.
 
 
 ===================

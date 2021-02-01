@@ -84,6 +84,7 @@ class Connector(BaseConnector):
             "SOCKETS_VOLUME": os.fspath(constants.SOCKETS_VOLUME),
             "COMMUNICATION_PROCESSING_SOCKET": constants.COMMUNICATION_PROCESSING_SOCKET,
             "SCRIPT_SOCKET": constants.SCRIPT_SOCKET,
+            "UPLOAD_FILE_SOCKET": constants.UPLOAD_FILE_SOCKET,
             "LISTENER_IP": listener_settings.get("hosts", {}).get(
                 "kubernetes", "127.0.0.1"
             ),
@@ -105,6 +106,8 @@ class Connector(BaseConnector):
             "RUNNING_IN_KUBERNETES": 1,
             "GENIALIS_UID": os.getuid(),
             "GENIALIS_GID": os.getgid(),
+            "DESCRIPTOR_CHUNK_SIZE": 100,
+            "UPLOAD_CONNECTOR_NAME": self._get_upload_connector_name(data),
             # Is the DATA_ALL volume shared between containers. This is needed
             # in init container to know how to download missing data.
             "DATA_ALL_VOLUME_SHARED": False,
@@ -115,6 +118,14 @@ class Connector(BaseConnector):
         return [
             {"name": name, "value": str(value)} for name, value in environment.items()
         ]
+
+    def _get_upload_connector_name(self, data: Data) -> str:
+        """Get the connector for data upload.
+
+        Read the connector name from the StorageLocation class created by the
+        dispatcher.
+        """
+        return data.location.default_storage_location.connector_name
 
     def _prepare_secrets(self, secrets: Dict[str, str]) -> Dict[str, str]:
         """Base64 encode every value and transform it to string.

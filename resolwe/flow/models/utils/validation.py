@@ -263,9 +263,7 @@ def validate_data_object(data, skip_missing_data=False):
     validate_schema(
         data.input, data.process.input_schema, skip_missing_data=skip_missing_data
     )
-    validate_schema(
-        data.output, data.process.output_schema, data_location=data.location
-    )
+    validate_schema(data.output, data.process.output_schema)
 
 
 def validate_process_subtype(supertype_name, supertype, subtype_name, subtype):

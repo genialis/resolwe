@@ -296,6 +296,16 @@ class Manager:
         result = Path(getattr(settings, "FLOW_EXECUTOR", {}).get(dir_base, ""))
         return result / subpath
 
+    def _get_upload_connector_name(self) -> str:
+        """Return storage connector that will be used for new data object.
+
+        The current implementation returns the connector with the lowest
+        priority.
+        """
+        return min(
+            (connector.priority, connector.name) for connector in connectors.values()
+        )[1]
+
     def _prepare_data_dir(self, data: Data) -> Path:
         """Prepare destination directory where the data will live.
 
@@ -311,13 +321,13 @@ class Manager:
                 Worker.objects.get_or_create(data=data, status=Worker.STATUS_PREPARING)
 
             file_storage = FileStorage.objects.create()
-            # Create StorageLocation with default connector.
-            # We must also specify status since it is Uploading by default.
+            # Data produced by the processing container will be uploaded to the
+            # created location.
             data_location = StorageLocation.objects.create(
                 file_storage=file_storage,
                 url=str(file_storage.id),
                 status=StorageLocation.STATUS_PREPARING,
-                connector_name=STORAGE_LOCAL_CONNECTOR,
+                connector_name=self._get_upload_connector_name(),
             )
             file_storage.data.add(data)
 
