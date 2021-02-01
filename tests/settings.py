@@ -201,6 +201,8 @@ FLOW_DOCKER_VOLUME_EXTRA_OPTIONS = {
 FLOW_DOCKER_AUTOREMOVE = True
 FLOW_DOCKER_EXTRA_VOLUMES = []
 
+FLOW_DOCKER_COMMUNICATOR_IMAGE = "resolwe/com:python-3.9dev"
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework.authentication.SessionAuthentication",
