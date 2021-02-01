@@ -139,7 +139,7 @@ def async_retry(
 def send_data(
     s: socket.SocketType,
     data: dict,
-    size_bytes: int = 5,
+    size_bytes: int = 8,
     encoder: Optional[Type[json.JSONEncoder]] = None,
 ):
     """Send data over socket.
@@ -151,11 +151,9 @@ def send_data(
     :raises: exception on failure.
     """
     message = json.dumps(data, cls=encoder).encode()
-    message_length = "{length:0{size}d}".format(
-        length=len(message), size=size_bytes
-    ).encode("utf-8")
-    bytes_to_send = message_length + message
-    s.sendall(bytes_to_send)
+    message_length = len(message).to_bytes(size_bytes, byteorder="big")
+    s.sendall(message_length)
+    s.sendall(message)
 
 
 def read_bytes(s: socket.SocketType, message_size: int) -> bytes:
@@ -750,7 +748,10 @@ class BaseCommunicator:
     async def _status_changed(self, peer: PeerIdentity, status: PeerStatus):
         """Notify (if possible) of the peer status change."""
         if self.peer_status_changed is not None:
-            await self.peer_status_changed(peer, status)
+            try:
+                await self.peer_status_changed(peer, status)
+            except:
+                self.logger.exception("Exception in peer_status_changed.")
 
     async def _get_peer_message_status(
         self, message_uuid: str, identity: bytes = b""
