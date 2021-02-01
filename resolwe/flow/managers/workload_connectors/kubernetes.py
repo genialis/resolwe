@@ -534,6 +534,8 @@ class Connector(BaseConnector):
 
         requests["cpu"] = limits.pop("cores")
         limits["cpu"] = requests["cpu"] + 1
+        # Overcommit CPU by 20%.
+        requests["cpu"] *= 0.8
 
         # The memory in the database is stored in megabytes but the kubertenes
         # requires memory in bytes.
