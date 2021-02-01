@@ -412,52 +412,6 @@ class Data(BaseModel):
         self._original_name = self.name
         self._original_output = self.output
 
-    def save_storage(self, instance, schema):
-        """Save basic:json values to a Storage collection."""
-        for field_schema, fields, path in iterate_fields(instance, schema, ""):
-            name = field_schema["name"]
-            value = fields[name]
-            if field_schema.get("type", "").startswith("basic:json:"):
-                if value and not self.pk:
-                    raise ValidationError(
-                        "Data object must be `created` before creating `basic:json:` fields"
-                    )
-
-                if isinstance(value, int):
-                    # already in Storage
-                    continue
-
-                if isinstance(value, str):
-                    file_path = self.location.get_path(filename=value)
-                    if os.path.isfile(file_path):
-                        try:
-                            with open(file_path) as file_handler:
-                                value = json.load(file_handler)
-                        except json.JSONDecodeError:
-                            with open(file_path) as file_handler:
-                                content = file_handler.read()
-                                content = content.rstrip()
-                                raise ValidationError(
-                                    "Value of '{}' must be a valid JSON, current: {}".format(
-                                        name, content
-                                    )
-                                )
-
-                existing_storage_pk = None
-                with suppress(KeyError):
-                    existing_storage_pk = dict_dot(self._original_output, path)
-
-                if isinstance(existing_storage_pk, int):
-                    self.storages.filter(pk=existing_storage_pk).update(json=value)
-                    fields[name] = existing_storage_pk
-                else:
-                    storage = self.storages.create(
-                        name="Storage for data id {}".format(self.pk),
-                        contributor=self.contributor,
-                        json=value,
-                    )
-                    fields[name] = storage.pk
-
     def resolve_secrets(self):
         """Retrieve handles for all basic:secret: fields on input.
 
@@ -554,8 +508,6 @@ class Data(BaseModel):
 
         elif render_name:
             self._render_name()
-
-        self.save_storage(self.output, self.process.output_schema)
 
         render_descriptor(self)
 

@@ -117,7 +117,7 @@ class Field:
 
     def __set__(self, obj, value):
         """Make field a descriptor."""
-        if obj is not None:
+        if obj is None:
             return
         obj._set_field_data(self, value)
 
@@ -823,23 +823,25 @@ class JsonField(Field):
         """Convert value if needed."""
         from .models import JSONDescriptor
 
+        descriptor_fields = {"flow.Data": {"input", "output", "descriptor"}}
+
         if isinstance(value, JSONDescriptor):
             return value
 
-        elif isinstance(value, dict) and self._model_instance is not None:
-            schema = None
-            if self._model_instance._model_name == "Data":
-                if self.name in [
-                    "input",
-                    "output",
-                ]:
-                    schema_name = f"{self.name}_schema"
-                    schema = getattr(self._model_instance.process, schema_name)
-                if self.name == "descriptor":
-                    model_schema = self._model_instance.descriptor_schema
-                    if model_schema is not None:
-                        schema = model_schema.schema
+        elif self._model_instance is not None and self.name in descriptor_fields.get(
+            self._model_instance.full_model_name, set()
+        ):
+            if self.name in ["input", "output"]:
+                schema_name = f"{self.name}_schema"
+                schema = getattr(self._model_instance.process, schema_name)
+            if self.name == "descriptor":
+                schema = self._model_instance.descriptor_schema
+                if schema is None:
+                    return super().to_python(value)
 
+            assert (
+                schema is not None
+            ), f"Schema for field {self.name} on model {self._model_instance} is None"
             return JSONDescriptor(
                 self._model_instance,
                 self.name,
@@ -850,8 +852,8 @@ class JsonField(Field):
             return super().to_python(value)
 
     def to_output(self, value):
-        """Convect to output format."""
-        raise RuntimeError("Only fields of JSON property can be set.")
+        """Convert to output format."""
+        return value
 
 
 class ListField(Field):
@@ -881,9 +883,12 @@ class ListField(Field):
 
     def to_python(self, value):
         """Convert value if needed."""
-        # A hack for ManyToMany with one relation.
+        # ManyToMany with one relation.
         if isinstance(value, int):
             value = [value]
+        # ManyToMany without relations.
+        if value is None:
+            value = []
         return [self.inner.to_python(v) for v in value]
 
     def to_schema(self):

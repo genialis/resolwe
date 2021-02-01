@@ -39,7 +39,6 @@ class PythonProcessCommunicator:
         self,
         command_name: str,
         data: Any,
-        size_bytes: int = 5,
     ) -> Response:
         """Send data and return the response.
 

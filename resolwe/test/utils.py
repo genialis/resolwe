@@ -6,18 +6,22 @@ Resolwe Test Helpers and Decorators
 
 """
 import functools
+import json
 import os
 import shlex
 import shutil
 import subprocess
 import unittest
+from contextlib import suppress
 from sys import platform
 
 import wrapt
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.test import override_settings, tag
 
+from resolwe.flow.utils import dict_dot, iterate_fields
 from resolwe.storage.models import FileStorage, StorageLocation
 from resolwe.storage.settings import STORAGE_LOCAL_CONNECTOR
 
@@ -33,6 +37,55 @@ __all__ = (
 )
 
 TAG_PROCESS = "resolwe.process"
+
+
+def save_storage(data):
+    """Parse output field and create Storage objects if needed."""
+    for field_schema, fields, path in iterate_fields(
+        data.output, data.process.output_schema, ""
+    ):
+        name = field_schema["name"]
+        value = fields[name]
+        if field_schema.get("type", "").startswith("basic:json:"):
+            if value and not data.pk:
+                raise ValidationError(
+                    "Data object must be `created` before creating `basic:json:` fields"
+                )
+
+            if isinstance(value, int):
+                # already in Storage
+                continue
+
+            if isinstance(value, str):
+                file_path = data.location.get_path(filename=value)
+                if os.path.isfile(file_path):
+                    try:
+                        with open(file_path) as file_handler:
+                            value = json.load(file_handler)
+                    except json.JSONDecodeError:
+                        with open(file_path) as file_handler:
+                            content = file_handler.read()
+                            content = content.rstrip()
+                            raise ValidationError(
+                                "Value of '{}' must be a valid JSON, current: {}".format(
+                                    name, content
+                                )
+                            )
+
+            existing_storage_pk = None
+            with suppress(KeyError):
+                existing_storage_pk = dict_dot(data._original_output, path)
+
+            if isinstance(existing_storage_pk, int):
+                data.storages.filter(pk=existing_storage_pk).update(json=value)
+                fields[name] = existing_storage_pk
+            else:
+                storage = data.storages.create(
+                    name="Storage for data id {}".format(data.pk),
+                    contributor=data.contributor,
+                    json=value,
+                )
+                fields[name] = storage.pk
 
 
 def create_data_location(subpath=None):

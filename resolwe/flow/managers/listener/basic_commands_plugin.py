@@ -302,7 +302,10 @@ class BasicCommands(ListenerPlugin):
     ) -> Response[str]:
         """Update data output."""
         for key, val in message.message_data.items():
-            dict_dot(manager.data.output, key, val)
+            if key not in manager.storage_fields:
+                dict_dot(manager.data.output, key, val)
+            else:
+                manager.save_storage(key, val)
         with transaction.atomic():
             manager._update_data({"output": manager.data.output})
             storage_location = manager.data.location.default_storage_location

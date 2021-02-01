@@ -1,3 +1,6 @@
+import json
+from pathlib import Path
+
 from resolwe import process
 from resolwe.process import (
     Cmd,
@@ -464,3 +467,25 @@ class CreateData(Process):
             name=inputs.data_name,
             input={"collection_name": inputs.collection_name},
         )
+
+
+class TestStorage(Process):
+    slug = "storage-objects-test"
+    name = "Test working with storage objects"
+    data_name = "{{ data_input | name | default('?') }}"
+    version = "1.0.0"
+    process_type = "data:name"
+    requirements = {"expression-engine": "jinja"}
+
+    class Output:
+        output_string = JsonField(label="Output string")
+        output_file = JsonField(label="Output file")
+
+    def run(self, inputs, outputs):
+        # Test update of storage objects.
+        outputs.output_string = ["first", "valid", "json"]
+        outputs.output_string = ["valid", "json"]
+        # Test storage objects are read from file (it it exists).
+        json_filename = "json_file.out"
+        Path(json_filename).write_text(json.dumps(["valid", "json", "file"]))
+        outputs.output_file = json_filename

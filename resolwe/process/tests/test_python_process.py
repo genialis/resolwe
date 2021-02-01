@@ -16,6 +16,7 @@ from resolwe.flow.models import (
     Relation,
     RelationPartition,
     RelationType,
+    Storage,
 )
 from resolwe.test import (
     ProcessTestCase,
@@ -334,6 +335,17 @@ class PythonProcessTest(ProcessTestCase):
         self.assertFalse(Collection.objects.filter(name=collection_name).exists())
         self.run_process("create-collection", {"collection_name": collection_name})
         Collection.objects.get(name=collection_name)
+
+    @with_docker_executor
+    @tag_process("storage-objects-test")
+    def test_storage_objects(self):
+        """Test storage access from python process."""
+        data = self.run_process("storage-objects-test")
+        self.assertEquals(data.storages.count(), 2)
+        storage_string = Storage.objects.get(pk=data.output["output_string"])
+        self.assertEqual(storage_string.json, ["valid", "json"])
+        storage_file = Storage.objects.get(pk=data.output["output_file"])
+        self.assertEqual(storage_file.json, ["valid", "json", "file"])
 
     @with_docker_executor
     @tag_process("filter-collection")

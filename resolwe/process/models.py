@@ -14,7 +14,6 @@ from .fields import (
     ListField,
     RelationDescriptor,
     StringField,
-    copy_file_or_dir,
     fields_from_schema,
 )
 
@@ -56,8 +55,7 @@ class ModelField(Field):
         if isinstance(value, Model):
             return value.id
         if self.related_model_name == "Storage" and isinstance(value, str):
-            if Path(value).is_file():
-                copy_file_or_dir([value])
+            return value
         return super().to_output(value)
 
 
@@ -105,7 +103,7 @@ class JSONDescriptor(MutableMapping[str, Any]):
         self,
         model: "Model",
         field_name: str,
-        field_schema: Optional[List[Dict]] = None,
+        field_schema: List[Dict],
         read_only=False,
         cache: Optional[Dict[str, Any]] = None,
     ):
@@ -116,16 +114,14 @@ class JSONDescriptor(MutableMapping[str, Any]):
         self._field_name = field_name
         self._pk = self._model._pk
         self._cache: Dict[str, Any] = dict()
-        self._fields: Optional[Dict[str, Field]] = None
         self._read_only = read_only
-        if field_schema is not None:
-            self._fields = dict()
-            for field_name, field in fields_from_schema(field_schema).items():
-                # JSON fields in schema are actually specias since they
-                # represent the storage model.
-                if field.get_field_type() == "basic:json":
-                    field = ModelField(full_model_name="flow.Storage")
-                field.contribute_to_class(self, self._fields, field_name)
+        self._fields: Dict[str, Field] = dict()
+        for field_name, field in fields_from_schema(field_schema).items():
+            # JSON fields in schema are special since they represent the
+            # storage model.
+            if field.get_field_type() == "basic:json":
+                field = ModelField(full_model_name="flow.Storage")
+            field.contribute_to_class(self, self._fields, field_name)
         # Create cache if initial data is given.
         if cache is not None:
             self.refresh_cache(cache)
@@ -146,17 +142,14 @@ class JSONDescriptor(MutableMapping[str, Any]):
                 self._app_name, self._model_name, self._pk, [self._field_name]
             )[self._field_name]
         )
-        if self._fields is not None:
-            for field_name, field in self._fields.items():
-                if field_name in json_data:
-                    self._cache[field_name] = hydrate_if_needed(
-                        field.clean(json_data[field_name]),
-                        self._model,
-                        self._field_name,
-                        field,
-                    )
-        else:
-            self._cache = json_data
+        for field_name, field in self._fields.items():
+            if field_name in json_data:
+                self._cache[field_name] = hydrate_if_needed(
+                    field.clean(json_data[field_name]),
+                    self._model,
+                    self._field_name,
+                    field,
+                )
 
     def __getattr__(self, key):
         """Allow dot syntax."""
@@ -182,19 +175,39 @@ class JSONDescriptor(MutableMapping[str, Any]):
         """Set the value for the given key."""
         if self._read_only:
             raise ValueError("Cannot change read-only mapping.")
+        if key not in self._fields:
+            raise AttributeError(f"No field named {key}")
+        to_output = None
+        field = self._fields[key]
+        if getattr(field, "related_model_name", None) == "Storage":
+            # Check if JSON must be read from the file.
+            if isinstance(value, str):
+                json_file = Path(value)
+                if json_file.is_file():
+                    value = json.loads(json_file.read_text())
+            storage = getattr(self, key)
+            if storage is None:
+                storage = Storage.create(
+                    json=value,
+                    name="Storage for data id {}".format(self._pk),
+                    contributor=self._model.contributor,
+                )
+                storage.data += [self._model]
+                value = storage
+                to_output = storage.id
+            else:
+                storage.json = value
+        else:
+            value = field.clean(value)
+            to_output = field.to_output(value)
 
-        to_output = value
-        if self._fields is not None:
-            if key not in self._fields:
-                raise AttributeError(f"No field named {key}")
-            value = self._fields[key].clean(value)
-            to_output = self._fields[key].to_output(value)
-        communicator.update_model_fields(
-            self._app_name,
-            self._model_name,
-            self._pk,
-            {self._field_name: {key: to_output}},
-        )
+        if to_output is not None:
+            communicator.update_model_fields(
+                self._app_name,
+                self._model_name,
+                self._pk,
+                {self._field_name: {key: to_output}},
+            )
         self._cache[key] = value
 
     def __len__(self) -> int:
@@ -273,6 +286,11 @@ class Model(metaclass=ModelMetaclass):
         """Initialization."""
         self._pk = pk
         self._cache: Dict[str, Any] = {"id": pk}
+
+    @property
+    def full_model_name(self):
+        """Return the full model name."""
+        return f"{self._app_name}.{self._model_name}"
 
     @classmethod
     def filter(cls, **filters: Dict[str, Any]) -> List["Model"]:
@@ -433,6 +451,13 @@ class Storage(Model):
 
     _app_name = "flow"
     _model_name = "Storage"
+
+
+class User(Model):
+    """User model."""
+
+    _app_name = "auth"
+    _model_name = "User"
 
 
 class Collection(Model):

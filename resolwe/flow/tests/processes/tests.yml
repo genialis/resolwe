@@ -595,6 +595,23 @@
       echo "1a" >> storage.json
       re-save storage storage.json
 
+- slug: test-save-storage
+  name: Save json to storage
+  version: 1.0.0
+  type: "data:test:brokenstorage"
+  input:
+    - name: json
+      label: Json to save to storage
+      type: basic:json
+  output:
+    - name: storage
+      label: Storage
+      type: basic:json
+  run:
+    program: |
+      echo {{ jnos }}" >> storage.json
+      re-save storage storage.json
+
 - slug: test-docker-image-versioning
   name: Test process Docker image versioning
   version: 1.0.1

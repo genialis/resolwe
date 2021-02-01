@@ -1,6 +1,4 @@
 # pylint: disable=missing-docstring,too-many-lines
-import io
-import json
 import os
 import shutil
 from datetime import timedelta
@@ -27,12 +25,7 @@ from resolwe.flow.models.data import Data, DataDependency, hydrate_size, render_
 from resolwe.flow.models.utils import hydrate_input_references, referenced_files
 from resolwe.flow.views import DataViewSet
 from resolwe.test import TestCase, TransactionTestCase
-from resolwe.test.utils import create_data_location
-
-try:
-    import builtins  # py3
-except ImportError:
-    import __builtin__ as builtins  # py2
+from resolwe.test.utils import create_data_location, save_storage
 
 
 class DataModelNameTest(TransactionTestCase):
@@ -647,7 +640,9 @@ class DuplicateTestCase(TestCase):
         data_location.data.add(data2)
         data2.output = {"json_field": {"foo": "bar"}}
         data2.status = Data.STATUS_DONE
+        save_storage(data2)
         data2.save()
+
         data2.migration_history.create(migration="migration_1")
         data2.migration_history.create(migration="migration_2")
 
@@ -751,7 +746,6 @@ class DuplicateTestCase(TestCase):
                 {"name": "json_field", "type": "basic:json:"},
             ],
         )
-
         input_data = Data.objects.create(contributor=self.user, process=process1)
 
         data = Data.objects.create(
@@ -761,6 +755,7 @@ class DuplicateTestCase(TestCase):
         data_location.data.add(data)
         data.output = {"json_field": {"foo": "bar"}}
         data.status = Data.STATUS_DONE
+        save_storage(data)
         data.save()
         data.migration_history.create(migration="migration_1")
 
@@ -1258,7 +1253,6 @@ class HydrateFileSizeUnitTest(TestCase):
 class StorageModelTestCase(TestCase):
     def setUp(self):
         super().setUp()
-
         self.proc = Process.objects.create(
             name="Test process",
             contributor=self.contributor,
@@ -1266,54 +1260,6 @@ class StorageModelTestCase(TestCase):
                 {"name": "json_field", "type": "basic:json:"},
             ],
         )
-
-    def test_save_storage(self):
-        """`basic:json:` fields are stored in Storage"""
-        data = Data.objects.create(
-            name="Test data",
-            contributor=self.contributor,
-            process=self.proc,
-        )
-
-        data.output = {"json_field": {"foo": "bar"}}
-        data.save()
-        first_storage = data.output["json_field"]
-
-        data.output = {"json_field": {"foo": "bar"}}
-        data.status = Data.STATUS_DONE
-        data.save()
-
-        self.assertEqual(Storage.objects.count(), 1)
-        storage = Storage.objects.first()
-        self.assertEqual(data.output["json_field"], storage.pk)
-        # Make sure that the storage is updated and not replaced.
-        self.assertEqual(first_storage, storage.pk)
-
-    def test_save_storage_file(self):
-        """File is loaded and saved to storage"""
-        data = Data.objects.create(
-            name="Test data",
-            contributor=self.contributor,
-            process=self.proc,
-        )
-        data_location = create_data_location()
-        data_location.data.add(data)
-
-        data.output = {"json_field": "json.txt"}
-        data.status = Data.STATUS_DONE
-
-        json_file = io.StringIO(json.dumps({"foo": "bar"}))
-
-        isfile_mock = MagicMock(return_value=True)
-        open_mock = MagicMock(return_value=json_file)
-        with patch.object(os.path, "isfile", isfile_mock):
-            with patch.object(builtins, "open", open_mock):
-                data.save()
-
-        self.assertEqual(Storage.objects.count(), 1)
-        storage = Storage.objects.first()
-        self.assertEqual(data.output["json_field"], storage.pk)
-        self.assertEqual(storage.json, {"foo": "bar"})
 
     def test_delete_data(self):
         """Orphaned storages are deleted when data object is deleted"""
@@ -1350,9 +1296,9 @@ class StorageModelTestCase(TestCase):
             contributor=self.contributor,
             process=self.proc,
         )
-
         data.output = {"json_field": {"foo": {"moo": "bar"}}}
         data.status = Data.STATUS_DONE
+        save_storage(data)
         data.save()
 
         # Annotation with specific JSON field.

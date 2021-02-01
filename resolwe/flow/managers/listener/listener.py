@@ -21,7 +21,7 @@ import threading
 import time
 from contextlib import suppress
 from importlib import import_module
-from typing import Any, Dict, List, MutableMapping, Optional, Union
+from typing import Any, Dict, List, MutableMapping, Optional, Set, Union
 
 import zmq
 import zmq.asyncio
@@ -46,7 +46,8 @@ from resolwe.flow.executors.socket_utils import (
 from resolwe.flow.executors.zeromq_utils import ZMQCommunicator
 from resolwe.flow.managers import consumer
 from resolwe.flow.managers.protocol import WorkerProtocol
-from resolwe.flow.models import Data, Worker
+from resolwe.flow.models import Data, Storage, Worker
+from resolwe.flow.utils import iterate_schema
 from resolwe.storage.models import AccessLog
 from resolwe.utils import BraceMessage as __
 
@@ -79,6 +80,7 @@ class Processor:
         self.data_id = int(peer_identity)
         self._data: Optional[Data] = None
         self._worker: Optional[Worker] = None
+        self._storage_fields: Optional[Set[str]] = None
         self._listener = listener
         self.expected_sequence_number = starting_sequence_number
         self.return_code = 0
@@ -116,6 +118,39 @@ class Processor:
         if self._worker is None:
             self._worker = Worker.objects.get(data=self.data)
         return self._worker
+
+    @property
+    def storage_fields(self) -> Set[str]:
+        """Get the names of storage fields in schema."""
+        if self._storage_fields is None:
+            self._storage_fields = {
+                field_name
+                for schema, _, field_name in iterate_schema(
+                    self.data.output, self.data.process.output_schema
+                )
+                if schema["type"].startswith("basic:json:")
+            }
+        return self._storage_fields
+
+    def save_storage(self, key: str, content: str, data: Optional[Data] = None):
+        """Save storage to data object.
+
+        It is the responsibility of the caller to save the changes to the Data
+        object.
+        """
+        data = data or self.data
+        if key in data.output:
+            storage = Storage.objects.get(pk=data.output[key])
+            storage.json = content
+            storage.save()
+        else:
+            storage = Storage.objects.create(
+                json=content,
+                name="Storage for data id {}".format(data.pk),
+                contributor=data.contributor,
+            )
+            storage.data.add(data)
+            data.output[key] = storage.pk
 
     def _unlock_all_inputs(self):
         """Unlock all data objects that were locked by the given data.

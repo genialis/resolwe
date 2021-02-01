@@ -176,7 +176,7 @@ def read_bytes(s: socket.SocketType, message_size: int) -> bytes:
     return message
 
 
-def receive_data(s: socket.SocketType, size_bytes: int = 5) -> Optional[Dict]:
+def receive_data(s: socket.SocketType, size_bytes: int = 8) -> Optional[Dict]:
     """Recieve data over the given socket.
 
     :param size_bytes: how first many bytes in message are dedicated to the
@@ -185,7 +185,7 @@ def receive_data(s: socket.SocketType, size_bytes: int = 5) -> Optional[Dict]:
     message = read_bytes(s, size_bytes)
     if not message:
         return None
-    message_size = int(message)
+    message_size = int.from_bytes(message, byteorder="big")
 
     message = read_bytes(s, message_size)
     assert len(message) == message_size
@@ -197,7 +197,7 @@ async def async_send_data(
     writer: asyncio.StreamWriter,
     data: dict,
     identity: Optional[bytes] = None,
-    size_bytes: int = 5,
+    size_bytes: int = 8,
 ):
     """Send data over socket.
 
@@ -209,13 +209,14 @@ async def async_send_data(
     :raises: exception on failure.
     """
     message = json.dumps(data).encode("utf-8")
-    message_size = f"{len(message):0{size_bytes}}".encode("utf-8")
-    writer.write(message_size + message)
+    message_size = len(message).to_bytes(size_bytes, byteorder="big")
+    writer.write(message_size)
+    writer.write(message)
     await writer.drain()
 
 
 async def async_receive_data(
-    reader: asyncio.StreamReader, size_bytes: int = 5
+    reader: asyncio.StreamReader, size_bytes: int = 8
 ) -> Optional[Tuple[PeerIdentity, Any]]:
     """Receive data from the reader.
 
@@ -229,7 +230,7 @@ async def async_receive_data(
         (None with socket) and the second tuple is the received message.
     """
     received = await reader.readexactly(size_bytes)
-    message_size = int(received)
+    message_size = int.from_bytes(received, byteorder="big")
     received = await reader.readexactly(message_size)
     assert len(received) == message_size
     return (b"", json.loads(received.decode("utf-8")))

@@ -13,6 +13,8 @@ Unreleased
 Changed
 -------
 - Download input data in init container
+- Storage objects are sent to the listener over socket instead of using files
+  on the shared filesystem
 
 
 ===================

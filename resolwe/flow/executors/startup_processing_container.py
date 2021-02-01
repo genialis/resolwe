@@ -289,9 +289,10 @@ class Communicator:
             message size (pre-padded with zeros).
         :raises: exception on failure.
         """
-        message = json.dumps(data).encode("utf-8")
-        message_size = "{:0{}}".format(len(message), size_bytes).encode("utf-8")
-        self.writer.write(message_size + message)
+        payload = json.dumps(data).encode("utf-8")
+        size = len(payload).to_bytes(size_bytes, byteorder="big")
+        self.writer.write(size)
+        self.writer.write(payload)
         yield from self.writer.drain()
         logger.debug("Send data: %s", data)
 
@@ -414,31 +415,46 @@ class ProcessingManager:
                 message = yield from communicator.receive_data()
                 while message:
                     json_file.write(json.dumps(message) + os.linesep)
-                    logger.debug("Processing script sent message: %s.", message)
-                    command = message["type_data"]
-                    if command == "export_files":
-                        yield from self._handle_export_files(message["data"])
-                        response = respond(message, "OK", "")
-                    elif command == "run":
-                        message["data"] = {
-                            "data": message["data"],
-                            "export_files_mapper": self.exported_files_mapper,
-                        }
-                        response = yield from self.protocol_handler.send_command(
-                            message
-                        )
-                    else:
-                        response = yield from self.protocol_handler.send_command(
-                            message
-                        )
+                    self.log_files_need_upload = True
+                logger.debug("Processing script sent message: %s.", message)
+                command = message["type_data"]
+                if command == "export_files":
+                    yield from self._handle_export_files(message["data"])
+                    response = respond(message, "OK", "")
+                elif command == "upload_files":
+                    # Connect to the upload socket.
+                    filenames = message["data"]
+                    logger.debug("Sending filedescriptors.")
+                    # This can block, run in a thread maybe?
+                    logger.debug("Names: %s", filenames)
 
-                    # Terminate the script on ERROR response.
-                    if response["type_data"] == "ERR":
-                        logger.debug("Response with error status received, terminating")
-                        # Terminate the script and wait for termination.
-                        # Otherwise script may continue to run and produce
-                        # hard to debug error messages.
-                        self.protocol_handler.terminate_script()
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                        if not (
+                            yield from loop.run_in_executor(
+                                pool, self.send_file_descriptors, filenames
+                            )
+                        ):
+                            raise RuntimeError("Error sending filedescriptors.")
+                    logger.debug("Print descriptors sent.")
+                    response = respond(message, "OK", "")
+
+                elif command == "run":
+                    message["data"] = {
+                        "data": message["data"],
+                        "export_files_mapper": self.exported_files_mapper,
+                    }
+                    response = yield from self.protocol_handler.send_command(message)
+                else:
+                    response = yield from self.protocol_handler.send_command(message)
+
+                # Terminate the script on ERROR response.
+                if response["type_data"] == "ERR":
+                    logger.debug("Response with error status received, terminating")
+                    # Terminate the script and wait for termination.
+                    # Otherwise script may continue to run and produce
+                    # hard to debug error messages.
+                    self.protocol_handler.terminate_script()
+                    if self.protocol_handler._script_finishing is not None:
                         yield from self.protocol_handler._script_finishing.wait()
                         break
                     else:

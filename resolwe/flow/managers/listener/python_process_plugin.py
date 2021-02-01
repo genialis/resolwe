@@ -7,10 +7,10 @@ from django.apps import apps
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.postgres.fields.jsonb import JSONField
-from django.db.models import Model, QuerySet
+from django.db.models import ManyToManyField, Model, QuerySet
 
 from resolwe.flow.executors.socket_utils import Message, Response
-from resolwe.flow.models import Collection, Data, Process
+from resolwe.flow.models import Collection, Data, Process, Storage
 from resolwe.flow.models.utils import serialize_collection_relations
 from resolwe.flow.utils import dict_dot
 from resolwe.permissions.shortcuts import get_objects_for_user
@@ -49,17 +49,21 @@ class PermissionManager:
         """Query permission manager if it can handle given model."""
         return full_model_name in self._plugins
 
-    def can_create(self, user, full_model_name, attributes) -> bool:
+    def can_create(self, user, full_model_name, attributes):
         """Query if user can create the given model.
 
+        :raises RuntimeError: if user does not have permissions to create the
+            given model.
         :raises KeyError: if permission manager has no plugin registered for
             the given model.
         """
         return self._plugins[full_model_name].can_create(user, attributes)
 
-    def can_update(self, user, full_model_name, model_instance, attributes) -> bool:
+    def can_update(self, user, full_model_name, model_instance, attributes):
         """Query if user can update the given model.
 
+        :raises RuntimeError: if user does not have permissions to update the
+            given model.
         :raises KeyError: if permission manager has no plugin registered for
             the given model.
         """
@@ -75,9 +79,11 @@ class PermissionManager:
         """
         return self._plugins[full_model_name].filter_objects(user, queryset)
 
-    def can_read(self, user, full_model_name) -> bool:
+    def can_read(self, user, full_model_name):
         """Query if user can read the metadata of the given model.
 
+        :raises RuntimeError: if user does not have permissions to read the
+            given model.
         :raises KeyError: if permission manager has no plugin registered for
             the given model.
         """
@@ -92,24 +98,43 @@ class ExposeObjectPlugin(metaclass=abc.ABCMeta):
 
     full_model_name = "app_label.model_name"
 
-    def can_create(self, user: UserClass, attributes: dict) -> bool:
-        """Can user create the model with given attributes."""
-        return False
+    def can_create(self, user: UserClass, attributes: dict):
+        """Can user create the model with given attributes.
 
-    def can_update(
-        self, user: UserClass, model_instance: Model, attributes: Dict
-    ) -> bool:
-        """Can user update the given model instance."""
-        return False
+        :raises RuntimeError: if user does not have permissions to create the
+            given model.
+        """
+        raise RuntimeError(
+            (
+                f"User {user} has no permission to create model"
+                f"{self.full_model_name} with attributes {attributes}."
+            )
+        )
+
+    def can_update(self, user: UserClass, model_instance: Model, attributes: Dict):
+        """Can user update the given model instance.
+
+        :raises RuntimeError: when user does not have permissions to update
+            the given model.
+        """
+        raise RuntimeError(
+            (
+                f"User {user} has no permission to update model"
+                f"{self.full_model_name} with attributes {attributes}."
+            )
+        )
 
     def filter_objects(self, user: UserClass, queryset: QuerySet) -> QuerySet:
         """Filter the objects for the given user."""
         permission_name = f"view_{self.full_model_name.split('.')[1].lower()}"
         return get_objects_for_user(user, permission_name, queryset)
 
-    def can_read(self, user: UserClass) -> bool:
-        """Can read model structural info."""
-        return True
+    def can_read(self, user: UserClass):
+        """Can read model structural info.
+
+        :raises RuntimeError: when user does not have permissions to access
+            the given model.
+        """
 
     @classmethod
     def __init_subclass__(cls: Type["ExposeObjectPlugin"], **kwargs):
@@ -147,7 +172,11 @@ class ExposeData(ExposeObjectPlugin):
                 )
 
     def can_create(self, user: UserClass, model_data: Dict) -> bool:
-        """Can user update the given model instance."""
+        """Can user update the given model instance.
+
+        :raises RuntimeError: if user does not have permissions to create the
+            given model.
+        """
         allowed_fields = {
             "process_id",
             "output",
@@ -174,10 +203,12 @@ class ExposeData(ExposeObjectPlugin):
                 user, Collection, model_data["collection_id"], "edit_collection"
             )
 
-    def can_update(
-        self, user: UserClass, model_instance: Model, model_data: Dict
-    ) -> bool:
-        """Can user update the given model instance."""
+    def can_update(self, user: UserClass, model_instance: Model, model_data: Dict):
+        """Can user update the given model instance.
+
+        :raises RuntimeError: when user does not have permissions to update
+            the given model.
+        """
         allowed_fields = {
             "output",
             "tags",
@@ -204,6 +235,19 @@ class ExposeData(ExposeObjectPlugin):
             )
 
 
+class ExposeUser(ExposeObjectPlugin):
+    """Expose the User model.
+
+    Used to read contributor data.
+    """
+
+    full_model_name = "auth.User"
+
+    def filter_objects(self, user: UserClass, queryset: QuerySet) -> QuerySet:
+        """Filter the objects for the given user."""
+        return queryset.filter(pk=user.pk)
+
+
 class ExposeEntity(ExposeObjectPlugin):
     """Expose the Entity model."""
 
@@ -227,6 +271,34 @@ class ExposeStorage(ExposeObjectPlugin):
 
     # TODO: permission based on permission on Data object.
     full_model_name = "flow.Storage"
+
+    def can_create(self, user: UserClass, attributes: dict):
+        """Can user create the model with given attributes.
+
+        :raises RuntimeError: when user does not have permissions to create
+            the given model.
+        """
+
+    def can_update(self, user: UserClass, model_instance: Storage, model_data: Dict):
+        """Can user update the given Storage object.
+
+        :raises RuntimeError: when user does not have permissions to update
+            the given model.
+        """
+        processed_data_ids = set()
+        # User must have permission to modify all the data objects this object belongs to.
+        for data in model_instance.data.all():
+            permission_manager.can_update(user, "flow.Data", data, {"output": {}})
+            processed_data_ids.add(data.pk)
+
+        # When adding storage to Data objects check permissions to modify the
+        # data objects. Since permission checks are slow only process the data
+        # objects that were not processed above.
+        for data_id in model_data.get("data", []):
+            if data_id not in processed_data_ids:
+                permission_manager.can_update(
+                    user, "flow.Data", Data.objects.get(pk=data_id), {"output": {}}
+                )
 
 
 class PythonProcess(ListenerPlugin):
@@ -366,14 +438,37 @@ class PythonProcess(ListenerPlugin):
             manager.contributor, full_model_name, model_instance, mapping
         )
 
+        # Update all fields except m2m.
+        update_fields = []
         for field_name, field_value in mapping.items():
-            if isinstance(model._meta.get_field(field_name), JSONField):
+            # Not exactly sure how to handle this. Output is a JSONField and is
+            # only updated, other JSON fields should probably be replaced.
+            # Compromise: when update is a dict, then only values in dict are
+            # updates, else replaced.
+            if isinstance(model._meta.get_field(field_name), JSONField) and isinstance(
+                field_value, dict
+            ):
+                update_fields.append(field_name)
                 current_value = getattr(model_instance, field_name)
                 for key, value in field_value.items():
                     dict_dot(current_value, key, value)
+            elif isinstance(model._meta.get_field(field_name), ManyToManyField):
+                assert isinstance(
+                    field_value, list
+                ), "Only lists may be assigned to many-to-many relations"
+                field = getattr(model_instance, field_name)
+                field_value_set = set(field_value)
+                current_objects = set(field.all().values_list("pk", flat=True))
+                objects_to_add = field_value_set - current_objects
+                objects_to_remove = current_objects - field_value_set
+                if objects_to_remove:
+                    field.remove(*objects_to_remove)
+                if objects_to_add:
+                    field.add(*objects_to_add)
             else:
+                update_fields.append(field_name)
                 setattr(model_instance, field_name, field_value)
-        model_instance.save(update_fields=mapping.keys())
+        model_instance.save(update_fields=update_fields)
         return message.respond_ok("OK")
 
     def handle_get_model_fields_details(
