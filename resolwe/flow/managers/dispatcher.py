@@ -596,6 +596,21 @@ class Manager:
 
                 return data
 
+            def cleanup(data: Data):
+                """Run the cleanup."""
+                process_scheduling = self.scheduling_class_map[
+                    data.process.scheduling_class
+                ]
+                if "DISPATCHER_MAPPING" in getattr(settings, "FLOW_MANAGER", {}):
+                    class_name = settings.FLOW_MANAGER["DISPATCHER_MAPPING"][
+                        process_scheduling
+                    ]
+                else:
+                    class_name = getattr(settings, "FLOW_MANAGER", {}).get(
+                        "NAME", DEFAULT_CONNECTOR
+                    )
+                self.connectors[class_name].cleanup(data_id)
+
             if cmd in [WorkerProtocol.FINISH, WorkerProtocol.ABORT]:
                 self._messages_processing += 1
                 data_id = message.get(WorkerProtocol.DATA_ID)
@@ -610,20 +625,7 @@ class Manager:
                             purge_secrets_and_local_data
                         )(data_id)
                         # Run the cleanup.
-                        process_scheduling = self.scheduling_class_map[
-                            data.process.scheduling_class
-                        ]
-                        if "DISPATCHER_MAPPING" in getattr(
-                            settings, "FLOW_MANAGER", {}
-                        ):
-                            class_name = settings.FLOW_MANAGER["DISPATCHER_MAPPING"][
-                                process_scheduling
-                            ]
-                        else:
-                            class_name = getattr(settings, "FLOW_MANAGER", {}).get(
-                                "NAME", DEFAULT_CONNECTOR
-                            )
-                        self.connectors[class_name].cleanup(data_id)
+                        await database_sync_to_async(cleanup)(data)
         except Exception:
             logger.exception(
                 "Unknown error occured while processing communicate control command."
