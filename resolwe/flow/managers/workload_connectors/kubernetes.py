@@ -285,8 +285,6 @@ class Connector(BaseConnector):
                 "mountPath": os.fspath(constants.SETTINGS_VOLUME),
                 "readOnly": True,
             },
-            # Secrets are purged by the communicaiton container so they must
-            # not be mounted read only.
             {
                 "name": "secrets-volume",
                 "mountPath": os.fspath(constants.SECRETS_VOLUME),
