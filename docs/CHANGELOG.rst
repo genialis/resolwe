@@ -19,6 +19,10 @@ Changed
   for processed data object are prepared in input container and all outputs are
   uploaded to the chosen storage connector when they are referenced.
 
+Added
+-----
+- Make automatic removal of Docker containers configurable
+
 
 ===================
 26.0.0 - 2021-01-20

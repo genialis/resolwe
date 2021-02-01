@@ -339,6 +339,7 @@ class FlowExecutor(LocalFlowExecutor):
             "INIT_SET_PERMISSIONS": False,
         }
 
+        autoremove = SETTINGS.get("FLOW_DOCKER_AUTOREMOVE", False)
         # Docker on MacOSX usus different settings
         if platform.system() == "Darwin":
             environment["LISTENER_IP"] = "host.docker.internal"
@@ -358,7 +359,7 @@ class FlowExecutor(LocalFlowExecutor):
             "environment": environment,
         }
         communication_arguments = {
-            "auto_remove": True,
+            "auto_remove": autoremove,
             "volumes": self._communicator_volumes(),
             "command": ["/usr/local/bin/python", "/startup.py"],
             "image": communicator_image,
@@ -374,7 +375,7 @@ class FlowExecutor(LocalFlowExecutor):
             "environment": environment,
         }
         processing_arguments = {
-            "auto_remove": True,
+            "auto_remove": autoremove,
             "volumes": self._processing_volumes(),
             "command": ["python3", "/start.py"],
             "image": processing_image,
