@@ -329,6 +329,9 @@ class ListenerProtocol(BaseProtocol):
         response = await self.communicator.send_command(
             Message.command("get_script", "")
         )
+        if response.response_status == ResponseStatus.ERROR:
+            raise RuntimeError("Response status error while fetching script.")
+
         return response.message_data
 
     async def finish(self, return_code: int):
