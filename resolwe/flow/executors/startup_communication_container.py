@@ -563,12 +563,10 @@ class Manager:
             logger.debug("Terminating upload thread.")
             upload_thread.terminate()
             upload_thread.join()
-            if not KEEP_DATA:
-                purge_secrets()
-
-            if not await self.collect_produced_files():
-                if return_code == 0:
-                    return_code = 1
+            # Secrets are read-only in kubernetes.
+            if not RUNNING_IN_KUBERNETES:
+                if not KEEP_DATA:
+                    purge_secrets()
 
             # Notify listener that the processing is finished.
             try:
