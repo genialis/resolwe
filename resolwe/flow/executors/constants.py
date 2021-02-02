@@ -18,6 +18,3 @@ SCRIPT_SOCKET = "_socket2.s"
 UPLOAD_FILE_SOCKET = "_upload_socket.s"
 
 TMPDIR = ".tmp"
-
-# Container image used if no image is specified.
-DEFAULT_CONTAINER_IMAGE = "resolwe/base:ubuntu-20.04"

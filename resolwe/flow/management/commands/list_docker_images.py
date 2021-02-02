@@ -18,7 +18,6 @@ import yaml
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
-from resolwe.flow.executors.constants import DEFAULT_CONTAINER_IMAGE
 from resolwe.flow.models import Process
 
 logger = logging.getLogger(__name__)
@@ -78,7 +77,9 @@ class Command(BaseCommand):
         )
 
         # Add the default image.
-        unique_docker_images.add(DEFAULT_CONTAINER_IMAGE)
+        unique_docker_images.add(
+            settings.FLOW_DOCKER_DEFAULT_PROCESSING_CONTAINER_IMAGE
+        )
 
         # Pull images if requested or just output the list in specified format
         if options["pull"]:

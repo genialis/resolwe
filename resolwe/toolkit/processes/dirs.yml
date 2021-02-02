@@ -7,9 +7,6 @@
   name: Directory
   requirements:
     expression-engine: jinja
-    executor:
-      docker:
-        image: resolwe/base:ubuntu-20.04
   data_name: '{{ src.file|default("?") }}'
   version: 0.1.0
   type: data:dir

@@ -9,11 +9,6 @@ class PythonProcessDataIdBySlug(Process):
     version = "1.0.0"
     process_type = "data:python:dataidbyslug"
     requirements = {
-        "executor": {
-            "docker": {
-                "image": "resolwe/base:ubuntu-20.04",
-            }
-        },
         "resources": {
             "network": True,
         },

@@ -280,7 +280,7 @@ class FlowExecutor(LocalFlowExecutor):
             security_options.append(f"seccomp={json.dumps(SECCOMP_POLICY)}")
 
         processing_image = self.requirements.get(
-            "image", constants.DEFAULT_CONTAINER_IMAGE
+            "image", SETTINGS["FLOW_DOCKER_DEFAULT_PROCESSING_CONTAINER_IMAGE"]
         )
         communicator_image = SETTINGS.get(
             "FLOW_DOCKER_COMMUNICATOR_IMAGE", "resolwe/com:python-3.9"

@@ -98,7 +98,6 @@ LISTENER_CONNECTION = {
     "protocol": "tcp",
 }
 
-DOCKER_COMMUNICATOR_IMAGE = "resolwe/com:python-3.9"
 
 # Used to determine IP for kubernetes executor to connect to.
 KUBERNETES_SETTINGS = {
@@ -202,6 +201,7 @@ FLOW_DOCKER_AUTOREMOVE = True
 FLOW_DOCKER_EXTRA_VOLUMES = []
 
 FLOW_DOCKER_COMMUNICATOR_IMAGE = "resolwe/com:python-3.9dev"
+FLOW_DOCKER_DEFAULT_PROCESSING_CONTAINER_IMAGE = "resolwe/base:ubuntu-20.04dev"
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (

@@ -631,7 +631,8 @@ class Connector(BaseConnector):
                                 "[^0-9a-zA-Z._\-]+",
                                 "_",
                                 requirements.get(
-                                    "image", constants.DEFAULT_CONTAINER_IMAGE
+                                    "image",
+                                    settings.FLOW_DOCKER_DEFAULT_PROCESSING_CONTAINER_IMAGE,
                                 ),
                             ),
                         },
@@ -665,7 +666,8 @@ class Connector(BaseConnector):
                             {
                                 "name": container_name,
                                 "image": requirements.get(
-                                    "image", constants.DEFAULT_CONTAINER_IMAGE
+                                    "image",
+                                    settings.FLOW_DOCKER_DEFAULT_PROCESSING_CONTAINER_IMAGE,
                                 ),
                                 "resources": {"limits": limits, "requests": requests},
                                 # TODO: uncomment after test

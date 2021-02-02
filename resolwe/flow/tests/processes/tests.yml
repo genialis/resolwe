@@ -29,9 +29,6 @@
   name: Basic annotation test
   requirements:
     expression-engine: jinja
-    executor:
-      docker:
-        image: resolwe/base:ubuntu-20.04
   version: 1.0.0
   type: data:test:annotate
   flow_collection: sample
@@ -44,9 +41,6 @@
   name: Annotation sets invalid option
   requirements:
     expression-engine: jinja
-    executor:
-      docker:
-        image: resolwe/base:ubuntu-20.04
   version: 1.0.0
   type: data:test:annotate
   flow_collection: sample
@@ -59,9 +53,6 @@
   name: Annotation sets invalid type
   requirements:
     expression-engine: jinja
-    executor:
-      docker:
-        image: resolwe/base:ubuntu-20.04
   version: 1.0.0
   type: data:test:annotate
   flow_collection: sample
@@ -74,9 +65,6 @@
   name: Annotation without entity
   requirements:
     expression-engine: jinja
-    executor:
-      docker:
-        image: resolwe/base:ubuntu-20.04
   version: 1.0.0
   type: data:test:annotate
   run:
@@ -88,9 +76,6 @@
   name: Annotation missing field
   requirements:
     expression-engine: jinja
-    executor:
-      docker:
-        image: resolwe/base:ubuntu-20.04
   version: 1.0.0
   type: data:test:annotate
   flow_collection: sample
