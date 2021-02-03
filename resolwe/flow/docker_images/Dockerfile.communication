@@ -6,8 +6,9 @@ FROM common as builder
 WORKDIR /install
 RUN apk add --update --no-cache build-base libffi-dev zeromq-dev openssl-dev
 RUN pip install --upgrade pip
+# Keep the versions bellow in sync with versions in setup.py.
 RUN pip install --prefix=/install --no-warn-script-location \
-    ipython setuptools wheel wrapt crcmod google-cloud-storage boto3 pyzmq
+    wrapt~=1.11.1 crcmod google-cloud-storage~=1.35.0 boto3~=1.16.47 pyzmq~=20.0.0
 
 
 FROM common

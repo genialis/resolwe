@@ -36,6 +36,8 @@ setuptools.setup(
         ]
     },
     python_requires=">=3.6, <3.9",
+    # Keep versions bellow in sync with versions specified in 
+    # resolwe/flow/docker_images/Dockerfile.commutication .
     install_requires=[
         # XXX: Temporarily pin asgiref to 3.2.x since testing framework freezes
         # with version 3.3.x
