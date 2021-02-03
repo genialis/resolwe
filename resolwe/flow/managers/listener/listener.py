@@ -50,14 +50,11 @@ from resolwe.flow.models import Data, Worker
 from resolwe.storage.models import AccessLog
 from resolwe.utils import BraceMessage as __
 
-# Register basic and python process plugin by importing them.
-from .basic_commands_plugin import (  # noqa: F401 pylint:disable = unused-import
-    BasicCommands,
-)
+# Register plugins by importing them.
+from .basic_commands_plugin import BasicCommands  # noqa: F401
+from .init_container_plugin import InitContainerPlugin  # noqa: F401
 from .plugin import plugin_manager
-from .python_process_plugin import (  # noqa: F401 pylint:disable = unused-import
-    PythonProcess,
-)
+from .python_process_plugin import PythonProcess  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -237,10 +234,14 @@ class Processor:
 
         Peer should terminate by itself and send finish message back to us.
         """
-        await self._listener.communicator.send_command(
-            Message.command("terminate", ""),
-            peer_identity=str(self.data_id).encode(),
-        )
+        await database_sync_to_async(self._save_error)("Processing was cancelled.")
+        # Ignore the possible timeout.
+        with suppress(RuntimeError):
+            await self._listener.communicator.send_command(
+                Message.command("terminate", ""),
+                peer_identity=str(self.data_id).encode(),
+                response_timeout=1,
+            )
 
     async def peer_not_responding(self):
         """Peer is not responding, abort the processing.

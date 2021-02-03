@@ -303,7 +303,7 @@ class ManagerRunProcessTest(ProcessTestCase):
 
         self.assertEqual(data.worker.status, Worker.STATUS_COMPLETED)
         self.assertEqual(data.status, Data.STATUS_ERROR)
-        self.assertEqual(data.process_info, ["Processing was cancelled."])
+        self.assertEqual(data.process_error[0], "Processing was cancelled.")
         processing_thread.join(timeout=10)
         self.assertFalse(processing_thread.is_alive())
 

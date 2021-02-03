@@ -80,6 +80,33 @@ class FlowExecutor(LocalFlowExecutor):
             },
         )
 
+    def _init_volumes(self) -> Dict:
+        """Prepare volumes for init container."""
+        storage_url = Path(STORAGE_LOCATION["url"])
+
+        # Create local data dir.
+        base_path = Path(SETTINGS["FLOW_EXECUTOR"].get("DATA_DIR", ""))
+        local_data = base_path / f"{storage_url}_work"
+        local_data.mkdir(exist_ok=True)
+
+        return dict(
+            [
+                self._new_volume("data_all", "DATA_DIR", constants.DATA_ALL_VOLUME),
+                self._new_volume(
+                    "secrets",
+                    "RUNTIME_DIR",
+                    constants.SECRETS_VOLUME,
+                    storage_url / ExecutorFiles.SECRETS_DIR,
+                ),
+                self._new_volume(
+                    "settings",
+                    "RUNTIME_DIR",
+                    "/settings",
+                    storage_url / ExecutorFiles.SETTINGS_SUBDIR,
+                ),
+            ]
+        )
+
     def _communicator_volumes(self) -> Dict:
         """Prepare volumes for communicator container."""
         storage_url = Path(STORAGE_LOCATION["url"])
@@ -123,7 +150,7 @@ class FlowExecutor(LocalFlowExecutor):
         # Create local data dir.
         base_path = Path(SETTINGS["FLOW_EXECUTOR"].get("DATA_DIR", ""))
         local_data = base_path / f"{storage_url}_work"
-        local_data.mkdir()
+        local_data.mkdir(exist_ok=True)
 
         processing_volumes = [
             self._new_volume(
@@ -305,12 +332,29 @@ class FlowExecutor(LocalFlowExecutor):
             "RUNNING_IN_CONTAINER": 1,
             "RUNNING_IN_DOCKER": 1,
             "FLOW_MANAGER_KEEP_DATA": SETTINGS.get("FLOW_MANAGER_KEEP_DATA", False),
+            "DATA_ALL_VOLUME_SHARED": True,
+            # Must init container set permissions.
+            "INIT_SET_PERMISSIONS": False,
         }
 
         # Docker on MacOSX usus different settings
         if platform.system() == "Darwin":
             environment["LISTENER_IP"] = "host.docker.internal"
 
+        init_arguments = {
+            "auto_remove": autoremove,
+            "volumes": self._init_volumes(),
+            "command": ["/usr/local/bin/python3", "-m", "executors.init_container"],
+            "image": communicator_image,
+            "name": f"{self.container_name}-init",
+            "detach": True,
+            "cpu_quota": 1000000,
+            "mem_limit": f"4000m",
+            "mem_reservation": f"200m",
+            "network_mode": network,
+            "user": f"{os.getuid()}:{os.getgid()}",
+            "environment": environment,
+        }
         communication_arguments = {
             "auto_remove": True,
             "volumes": self._communicator_volumes(),
@@ -347,27 +391,44 @@ class FlowExecutor(LocalFlowExecutor):
             "ulimits": ulimits,
             "environment": environment,
         }
-        logger.info("Starting processing: %s", processing_arguments)
-        logger.info("Starting com: %s", processing_arguments)
 
         client = docker.from_env()
+        # Pull all the images.
         try:
             try:
+                logger.debug("Pulling processing image %s.", processing_image)
                 client.images.get(processing_image)
             except docker.errors.ImageNotFound:
                 client.images.pull(processing_image)
+            try:
+                logger.debug("Pulling communicator image %s.", communicator_image)
+                client.images.get(communicator_image)
+            except docker.errors.ImageNotFound:
+                client.images.pull(communicator_image)
 
         except docker.errors.APIError:
             logger.exception("Docker API error")
             raise RuntimeError("Docker API error")
         start_time = time.time()
 
-        # Create docker client from environment.
-        # Make sure the enviroment is set up correctly.
+        logger.debug("Starting init container: %s", init_arguments)
 
+        response = client.containers.run(**init_arguments)
+        logger.debug("Init response: %s.", response)
+        init_container_exit_code = response.wait()["StatusCode"]
+
+        if init_container_exit_code != 0:
+            logger.error(
+                "Init container exit code was %s instead of 0, aborting.",
+                init_container_exit_code,
+            )
+            return
+
+        logger.debug("Starting communication container: %s", processing_arguments)
         response = client.containers.run(**communication_arguments)
         logger.debug("Com response: %s.", response)
 
+        logger.debug("Starting processing container: %s", processing_arguments)
         response = client.containers.run(**processing_arguments)
         logger.debug("Proccessing response: %s.", response)
 

@@ -24,7 +24,7 @@ from django.conf import settings
 from resolwe.flow.executors import constants
 from resolwe.flow.executors.prepare import BaseFlowExecutorPreparer
 from resolwe.flow.executors.protocol import ExecutorFiles
-from resolwe.flow.models import Data
+from resolwe.flow.models import Data, DataDependency
 from resolwe.utils import BraceMessage as __
 
 from .base import BaseConnector
@@ -95,6 +95,7 @@ class Connector(BaseConnector):
             "DATA_ALL_VOLUME": os.fspath(constants.DATA_ALL_VOLUME),
             "DATA_VOLUME": os.fspath(constants.DATA_VOLUME),
             "UPLOAD_VOLUME": os.fspath(constants.UPLOAD_VOLUME),
+            "INPUTS_VOLUME": os.fspath(constants.INPUTS_VOLUME),
             "SECRETS_DIR": os.fspath(constants.SECRETS_VOLUME),
             "TMP_DIR": os.fspath(constants.TMPDIR),
             "FLOW_MANAGER_KEEP_DATA": getattr(
@@ -102,6 +103,13 @@ class Connector(BaseConnector):
             ),
             "RUNNING_IN_CONTAINER": 1,
             "RUNNING_IN_KUBERNETES": 1,
+            "GENIALIS_UID": os.getuid(),
+            "GENIALIS_GID": os.getgid(),
+            # Is the DATA_ALL volume shared between containers. This is needed
+            # in init container to know how to download missing data.
+            "DATA_ALL_VOLUME_SHARED": False,
+            # Must init container set permissions.
+            "INIT_SET_PERMISSIONS": True,
         }
 
         return [
@@ -135,9 +143,9 @@ class Connector(BaseConnector):
             "data": self._dict_from_directory(directory),
         }
 
-    def _ebs_claim_name(self, data_id: int) -> str:
+    def _ebs_claim_name(self, type_: str, data_id: int) -> str:
         """Get EBS claim name."""
-        return f"pvc-{data_id}"
+        return f"pvc-{type_}-{data_id}"
 
     def _get_files_configmap_name(self, location_subpath: Path, core_api: Any):
         """Get or create configmap for files.
@@ -208,7 +216,8 @@ class Connector(BaseConnector):
         secrets_name: str,
         configmap_name: str,
         efs_claim_name: str,
-        ebs_claim_name: str,
+        ebs_local_claim_name: str,
+        ebs_input_data_claim_name: str,
         location_subpath: Path,
         core_api: Any,
     ) -> list:
@@ -236,7 +245,11 @@ class Connector(BaseConnector):
             },
             {
                 "name": "ebs-root",
-                "persistentVolumeClaim": {"claimName": ebs_claim_name},
+                "persistentVolumeClaim": {"claimName": ebs_local_claim_name},
+            },
+            {
+                "name": "ebs-input-data",
+                "persistentVolumeClaim": {"claimName": ebs_input_data_claim_name},
             },
             {"name": "sockets-volume", "emptyDir": {}},
         ]
@@ -285,12 +298,37 @@ class Connector(BaseConnector):
         ]
         return mount_points
 
-    def _fix_permissions_mountpoints(self):
-        """Prepare mountpoints for fix permissions init container."""
+    def _init_container_mountpoints(self):
+        """Prepare mountpoints for init container.
+
+        It needs local EBS volume to set permissions and settings & secrets to
+        transfer input data.
+        """
         return [
+            {
+                "name": "efs-root",
+                "mountPath": os.fspath(constants.DATA_ALL_VOLUME),
+                "subPath": os.fspath(self.efs_data_dir),
+                "readOnly": False,
+            },
             {
                 "name": "ebs-root",
                 "mountPath": os.fspath(constants.DATA_LOCAL_VOLUME),
+                "readOnly": False,
+            },
+            {
+                "name": "ebs-input-data",
+                "mountPath": os.fspath(constants.INPUTS_VOLUME),
+                "readOnly": False,
+            },
+            {
+                "name": "settings-volume",
+                "mountPath": os.fspath(constants.SETTINGS_VOLUME),
+                "readOnly": True,
+            },
+            {
+                "name": "secrets-volume",
+                "mountPath": os.fspath(constants.SECRETS_VOLUME),
                 "readOnly": False,
             },
         ]
@@ -299,9 +337,8 @@ class Connector(BaseConnector):
         """Mountpoints for processing container."""
         mount_points = [
             {
-                "name": "efs-root",
+                "name": "ebs-input-data",
                 "mountPath": os.fspath(constants.DATA_ALL_VOLUME),
-                "subPath": os.fspath(self.efs_data_dir),
                 "readOnly": True,
             },
             {
@@ -428,6 +465,21 @@ class Connector(BaseConnector):
         logger.debug(f"Kubernetes fix permissions command: {command}.")
         return shlex.split(command)
 
+    def _data_inputs_size(self, data: Data, safety_buffer: int = 2 ** 20) -> int:
+        """Get the size of data inputs.
+
+        :returns: the size of the input data in bytes.
+        """
+        input_data_ids = (
+            DataDependency.objects.filter(child=data, kind=DataDependency.KIND_IO)
+            .values_list("parent", flat=True)
+            .distinct()
+        )
+        inputs_size = sum(
+            Data.objects.get(pk=data_id).size for data_id in input_data_ids
+        )
+        return inputs_size + safety_buffer
+
     def start(self, data: Data):
         """Start process execution.
 
@@ -487,8 +539,13 @@ class Connector(BaseConnector):
         limits["memory"] *= 2 ** 20  # 2 ** 20 = mebibyte
         requests["memory"] *= 2 ** 20
 
-        ebs_claim_name = self._ebs_claim_name(data.id)
-        ebs_claim_size = limits.pop("storage", 200) * (2 ** 30)  # Default 200 gibibytes
+        ebs_local_claim_name = self._ebs_claim_name("local", data.pk)
+        ebs_local_claim_size = limits.pop("storage", 200) * (
+            2 ** 30
+        )  # Default 200 gibibytes
+
+        ebs_input_data_claim_name = self._ebs_claim_name("inputs", data.pk)
+        ebs_input_data_claim_size = self._data_inputs_size(data)
 
         # TODO: no ulimits on kubernetes??
         # See https://github.com/kubernetes/kubernetes/issues/3595
@@ -575,18 +632,21 @@ class Connector(BaseConnector):
                             secrets_name,
                             configmap_name,
                             efs_claim_name,
-                            ebs_claim_name,
+                            ebs_local_claim_name,
+                            ebs_input_data_claim_name,
                             location_subpath,
                             core_api,
                         ),
                         "initContainers": [
                             {
-                                "name": f"{container_name}-fix-permissions",
-                                "image": "busybox",
-                                "imagePullPolicy": "IfNotPresent",
-                                "command": self._fix_permissions(),
+                                "name": f"{container_name}-init",
+                                "image": communicator_image,
+                                "imagePullPolicy": "Always",
+                                "workingDir": "/",
+                                "command": ["/usr/local/bin/python3"],
+                                "args": ["-m", "executors.init_container"],
                                 "securityContext": {"privileged": True},
-                                "volumeMounts": self._fix_permissions_mountpoints(),
+                                "volumeMounts": self._init_container_mountpoints(),
                                 "env": self._prepare_environment(data),
                             },
                         ],
@@ -637,7 +697,13 @@ class Connector(BaseConnector):
         start_time = time.time()
 
         core_api.create_namespaced_persistent_volume_claim(
-            body=self._persistent_ebs_claim(ebs_claim_name, ebs_claim_size),
+            body=self._persistent_ebs_claim(ebs_local_claim_name, ebs_local_claim_size),
+            namespace=self.kubernetes_namespace,
+        )
+        core_api.create_namespaced_persistent_volume_claim(
+            body=self._persistent_ebs_claim(
+                ebs_input_data_claim_name, ebs_input_data_claim_size
+            ),
             namespace=self.kubernetes_namespace,
         )
 
@@ -702,9 +768,12 @@ class Connector(BaseConnector):
         """Remove the EBS storage used by the executor."""
         kubernetes.config.load_kube_config()
         core_api = kubernetes.client.CoreV1Api()
-        ebs_claim_name = self._ebs_claim_name(data_id)
-        logger.debug("Kubernetes: removing claim %s.", ebs_claim_name)
-        with suppress(kubernetes.client.rest.ApiException):
-            core_api.delete_namespaced_persistent_volume_claim(
-                name=ebs_claim_name, namespace=self.kubernetes_namespace
-            )
+        claim_names = [
+            self._ebs_claim_name(type_, data_id) for type_ in ["local", "inputs"]
+        ]
+        for ebs_claim_name in claim_names:
+            logger.debug("Kubernetes: removing claim %s.", ebs_claim_name)
+            with suppress(kubernetes.client.rest.ApiException):
+                core_api.delete_namespaced_persistent_volume_claim(
+                    name=ebs_claim_name, namespace=self.kubernetes_namespace
+                )

@@ -32,7 +32,7 @@ class Connector(BaseConnector):
                 repr(argv),
             )
         )
-        subprocess.Popen(argv, cwd=runtime_dir, stdin=subprocess.DEVNULL).wait()
+        subprocess.Popen(argv, cwd=runtime_dir, stdin=subprocess.DEVNULL)
 
     def cleanup(self, data_id: int):
         """Cleanup."""

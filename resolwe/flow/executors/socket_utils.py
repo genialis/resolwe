@@ -807,6 +807,14 @@ class BaseCommunicator:
             )
             await asyncio.sleep(min_sleep_interval)
 
+    def suspend_heartbeat(self, peer_identity: PeerIdentity):
+        """Temporary suspend heartbeat from the peer.
+
+        The heartbeats are resumed on the first message received from the peer.
+        """
+        self._last_heartbeat.pop(peer_identity, None)
+        self._known_peers.pop(peer_identity, None)
+
     async def _watchdog(self):
         """Watches and reports peer status changes."""
         try:
