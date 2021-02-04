@@ -259,6 +259,13 @@ class ExposeCollection(ExposeObjectPlugin):
 
     full_model_name = "flow.Collection"
 
+    def can_create(self, user: UserClass, attributes: dict):
+        """Can user update the given model instance.
+
+        :raises RuntimeError: if user does not have permissions to create the
+            given model.
+        """
+
 
 class ExposeProcess(ExposeObjectPlugin):
     """Expose the Process model."""
