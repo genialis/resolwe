@@ -7,6 +7,7 @@ from resolwe.flow.managers.listener.basic_commands_plugin import BasicCommands
 from resolwe.flow.managers.listener.listener import Processor
 from resolwe.flow.managers.protocol import ExecutorProtocol
 from resolwe.flow.models import Data, DataDependency
+from resolwe.storage.connectors.baseconnector import BaseStorageConnector
 from resolwe.storage.models import FileStorage, ReferencedPath, StorageLocation
 from resolwe.test import TestCase
 
@@ -181,6 +182,7 @@ class ListenerTest(TestCase):
                     "md5": "md5",
                     "crc32c": "crc",
                     "awss3etag": "aws",
+                    "chunk_size": BaseStorageConnector.CHUNK_SIZE,
                 }
             ],
         )

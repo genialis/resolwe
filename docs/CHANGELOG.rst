@@ -14,6 +14,7 @@ Fixed
 -----
 - Fixed progress reporting in Python processes
 - Do not override content-type of S3 object when storing hashes
+- Support upload of files larger than 80G to AWS S3
 
 Changed
 -------

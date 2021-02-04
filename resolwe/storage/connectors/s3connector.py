@@ -62,16 +62,17 @@ class AwsS3Connector(BaseStorageConnector):
         return getattr(self, name)
 
     @validate_url
-    def push(self, stream, url):
+    def push(self, stream, url, chunk_size=BaseStorageConnector.CHUNK_SIZE):
         """Push data from the stream to the given URL."""
         url = os.fspath(url)
         mime_type = mimetypes.guess_type(url)[0]
         extra_args = {} if mime_type is None else {"ContentType": mime_type}
+        extra_args["Metadata"] = {"_upload_chunk_size": str(chunk_size)}
         self.client.upload_fileobj(
             stream,
             self.bucket_name,
             url,
-            Config=self._get_transfer_config(),
+            Config=self._get_transfer_config(chunk_size),
             ExtraArgs=extra_args,
         )
 
@@ -91,17 +92,22 @@ class AwsS3Connector(BaseStorageConnector):
             bucket.delete_objects(Delete={"Objects": objects, "Quiet": True})
 
     @validate_url
-    def get(self, url, stream):
+    def get(self, url, stream, chunk_size=BaseStorageConnector.CHUNK_SIZE):
         """Get data from the given URL and write it into the given stream."""
+        chunk_size = max(chunk_size, self.multipart_threshold)
         self.client.download_fileobj(
-            self.bucket_name, os.fspath(url), stream, Config=self._get_transfer_config()
+            self.bucket_name,
+            os.fspath(url),
+            stream,
+            Config=self._get_transfer_config(chunk_size),
         )
 
-    def _get_transfer_config(self):
+    def _get_transfer_config(self, chunk_size=BaseStorageConnector.CHUNK_SIZE):
         """Get transfer config object."""
+        chunk_size = max(chunk_size, self.multipart_threshold)
         return boto3.s3.transfer.TransferConfig(
             multipart_threshold=self.multipart_threshold,
-            multipart_chunksize=self.multipart_chunksize,
+            multipart_chunksize=chunk_size,
             use_threads=self.use_threads,
         )
 
@@ -186,6 +192,7 @@ class AwsS3Connector(BaseStorageConnector):
         head = self.client.head_object(Bucket=self.bucket_name, Key=url)
         content_type = head["ResponseMetadata"]["HTTPHeaders"]["content-type"]
         meta = head["Metadata"]
+        chunk_size = int(meta["_upload_chunk_size"])
         hashes = {k: v for (k, v) in hashes.items() if k not in self.hash_propery}
         meta.update(hashes)
         copy_source = {
@@ -201,6 +208,7 @@ class AwsS3Connector(BaseStorageConnector):
                 "MetadataDirective": "REPLACE",
                 "ContentType": content_type,
             },
+            Config=self._get_transfer_config(chunk_size),
         )
 
     @property

@@ -139,14 +139,14 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
         return self.exists(url)
 
     @abc.abstractmethod
-    def push(self, stream: BinaryIO, url: Union[str, PathLike]):
+    def push(
+        self, stream: BinaryIO, url: Union[str, PathLike], chunk_size: int = CHUNK_SIZE
+    ):
         """Push data from the stream to the given URL.
 
         :param stream: given stream.
-        :type stream: BinaryIO
-
         :param url: where the data in the stream will be stored.
-        :type url: str
+        :param chunk_size: the chunk_size to use.
         """
         raise NotImplementedError
 
@@ -189,16 +189,14 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get(self, url: Union[str, PathLike], stream: BinaryIO):
+    def get(
+        self, url: Union[str, PathLike], stream: BinaryIO, chunk_size: int = CHUNK_SIZE
+    ):
         """Get data from the given URL and write it into the given stream.
 
         :param url: URL of the object.
-        :type url: str
-
         :param stream: stream to write data into.
-        :type stream: BinaryIO
-
-        :rtype: None
+        :param chunk_size: the chunk size to use.
         """
         raise NotImplementedError
 

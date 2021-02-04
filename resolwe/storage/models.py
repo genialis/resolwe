@@ -2,16 +2,14 @@
 import logging
 import os
 from pathlib import PurePath
-from typing import TYPE_CHECKING, Iterable, List, Optional, Union
+from typing import Iterable, List, Optional, Union
 
 from django.db import models
 
 from resolwe.storage.connectors import DEFAULT_CONNECTOR_PRIORITY, connectors
+from resolwe.storage.connectors.baseconnector import BaseStorageConnector
 from resolwe.storage.connectors.transfer import Transfer
 from resolwe.storage.connectors.utils import paralelize
-
-if TYPE_CHECKING:
-    from resolwe.storage.connectors.baseconnector import BaseStorageConnector
 
 logger = logging.getLogger(__name__)
 
@@ -362,8 +360,11 @@ class ReferencedPath(models.Model):
     #: CRC32C hexadecimal hash
     crc32c = models.CharField(max_length=8, null=False, blank=False)
 
-    #: CRC32C hexadecimal hash
+    #: Etag hexadecimal hash
     awss3etag = models.CharField(max_length=50, null=False, blank=False)
+
+    #: Chunk size used for Etag computation.
+    chunk_size = models.IntegerField(default=BaseStorageConnector.CHUNK_SIZE)
 
     @property
     def file_storage(self) -> Optional[FileStorage]:

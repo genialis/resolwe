@@ -104,7 +104,7 @@ class Transfer:
 
         :param objects: the list of objects to transfer. Each object is
             represented with the dictionary containing at least keys "path",
-            "size", "md5", "crc32c", "awss3etag".
+            "size", "md5", "crc32c", "awss3etag", "chunk_size".
             All values for key "path" must be relative with respect to the
             argument url.
 
@@ -197,6 +197,7 @@ class Transfer:
         :returns: True on success.
         """
         to_base_url = Path(to_base_url)
+        chunk_size = object_.get("chunk_size", BaseStorageConnector.CHUNK_SIZE)
         # Duplicate connectors for thread safety.
         to_connector = to_connector or self.to_connector.duplicate()
         from_connector = from_connector or self.from_connector.duplicate()
@@ -222,12 +223,12 @@ class Transfer:
         # When object can be open directly as stream do it.
         if from_connector.can_open_stream:
             stream = from_connector.open_stream(from_url, "rb")
-            to_connector.push(stream, to_base_url / to_url)
+            to_connector.push(stream, to_base_url / to_url, chunk_size=chunk_size)
             stream.close()
 
         elif to_connector.can_open_stream:
             stream = to_connector.open_stream(to_base_url / to_url, "wb")
-            from_connector.get(from_url, stream)
+            from_connector.get(from_url, stream, chunk_size=chunk_size)
             stream.close()
         # Otherwise create out own stream and use threads to transfer data.
         else:
@@ -242,10 +243,16 @@ class Transfer:
             )
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 download_task = executor.submit(
-                    from_connector.get, from_url, data_stream
+                    from_connector.get,
+                    from_url,
+                    data_stream,
+                    chunk_size=chunk_size,
                 )
                 upload_task = executor.submit(
-                    to_connector.push, data_stream, to_base_url / to_url
+                    to_connector.push,
+                    data_stream,
+                    to_base_url / to_url,
+                    chunk_size=chunk_size,
                 )
                 download_task.add_done_callback(partial(future_done, data_stream))
                 futures = (download_task, upload_task)
@@ -275,9 +282,6 @@ class Transfer:
             raise DataTransferError()
 
         # Store computed hashes as metadata for later use.
-        # Value "_upload_chunk_size" not a hash but is set to know the value
-        # of upload_chunk_size that was used for awss3etag computation.
-        hashes["_upload_chunk_size"] = str(to_connector.CHUNK_SIZE)
         to_connector.set_hashes(to_base_url / to_url, hashes)
 
         return True

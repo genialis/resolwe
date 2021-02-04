@@ -37,23 +37,23 @@ class LocalFilesystemConnector(BaseStorageConnector):
                 shutil.rmtree(os.fspath(self.base_path / url))
 
     @validate_url
-    def push(self, stream, url):
+    def push(self, stream, url, chunk_size=BaseStorageConnector.CHUNK_SIZE):
         """Push data from the stream to the given URL."""
         data_remaining = True
         path = self.base_path / url
         path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("wb", self.CHUNK_SIZE) as f:
+        with path.open("wb", chunk_size) as f:
             while data_remaining:
-                data = stream.read(self.CHUNK_SIZE)
+                data = stream.read(chunk_size)
                 f.write(data)
-                data_remaining = len(data) == self.CHUNK_SIZE
+                data_remaining = len(data) == chunk_size
 
     @validate_url
-    def get(self, url, stream):
+    def get(self, url, stream, chunk_size=BaseStorageConnector.CHUNK_SIZE):
         """Get data from the given URL and write it into the given stream."""
         path = self.base_path / url
-        with path.open("rb", self.CHUNK_SIZE) as f:
-            for chunk in iter(lambda: f.read(self.CHUNK_SIZE), b""):
+        with path.open("rb", chunk_size) as f:
+            for chunk in iter(lambda: f.read(chunk_size), b""):
                 stream.write(chunk)
 
     @property

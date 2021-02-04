@@ -65,19 +65,15 @@ class GoogleConnector(BaseStorageConnector):
                         blob.delete()
 
     @validate_url
-    def push(self, stream, url, hash_type=None, data_hash=None):
+    def push(self, stream, url, chunk_size=BaseStorageConnector.CHUNK_SIZE):
         """Push data from the stream to the given URL."""
         url = os.fspath(url)
         mime_type = mimetypes.guess_type(url)[0]
         blob = self.bucket.blob(url)
-        if hash_type is not None:
-            assert hash_type in self.supported_hash
-            prop = self.hash_propery[hash_type]
-            setattr(blob, prop, data_hash)
         blob.upload_from_file(stream, content_type=mime_type)
 
     @validate_url
-    def get(self, url, stream):
+    def get(self, url, stream, chunk_size=BaseStorageConnector.CHUNK_SIZE):
         """Get data from the given URL and write it into the given stream."""
         blob = self.bucket.blob(os.fspath(url))
         blob.download_to_file(stream)
