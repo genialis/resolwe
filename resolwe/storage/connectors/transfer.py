@@ -177,7 +177,9 @@ class Transfer:
         :param from_base_url: base url on from_connector.
 
         :param object_: object to transfer. It must be a dictionary containing
-            at least keys "path", "md5", "crc32c", "size" and "awss3etag".
+            at least keys "path", "md5", "crc32c", "size" and "awss3etag". It
+            can also contain key "chunk_size" that specifies a custom
+            chunk_size to use for upload / download.
 
         :param to_base_url: base url on to_connector.
 
