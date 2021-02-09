@@ -12,6 +12,7 @@ import operator
 import shlex
 import subprocess
 import threading
+import time
 
 import yaml
 
@@ -98,11 +99,19 @@ class Command(BaseCommand):
 
             # Pull each image
             for img in unique_docker_images:
-                ret = subprocess.run(
-                    shlex.split("{} pull {}".format(docker, img)),
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                )
+                retry = 1
+                max_retries = 2
+                while retry <= max_retries:
+                    ret = subprocess.run(
+                        shlex.split("{} pull {}".format(docker, img)),
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                    )
+                    if ret.returncode != 0:
+                        retry += 1
+                        time.sleep(1)
+                    else:
+                        break
 
                 # Update set of pulled images.
                 with PULLED_IMAGES_LOCK:
