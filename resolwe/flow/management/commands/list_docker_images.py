@@ -78,7 +78,11 @@ class Command(BaseCommand):
 
         # Add the default image.
         unique_docker_images.add(
-            settings.FLOW_DOCKER_DEFAULT_PROCESSING_CONTAINER_IMAGE
+            getattr(
+                settings,
+                "FLOW_DOCKER_DEFAULT_PROCESSING_CONTAINER_IMAGE",
+                "public.ecr.aws/s4q6j6e8/resolwe/base:ubuntu-20.04",
+            )
         )
 
         # Pull images if requested or just output the list in specified format

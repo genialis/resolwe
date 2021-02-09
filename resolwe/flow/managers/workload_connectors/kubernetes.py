@@ -602,7 +602,9 @@ class Connector(BaseConnector):
             annotations["seccomp.security.alpha.kubernetes.io/pod"] = "runtime/default"
 
         communicator_image = getattr(
-            settings, "FLOW_DOCKER_COMMUNICATOR_IMAGE", "resolwe/com:python-3.9"
+            settings,
+            "FLOW_DOCKER_COMMUNICATOR_IMAGE",
+            "public.ecr.aws/s4q6j6e8/resolwe/com:latest",
         )
 
         requirements = data.process.requirements.get("executor", {}).get("docker", {})
@@ -632,7 +634,11 @@ class Connector(BaseConnector):
                                 "_",
                                 requirements.get(
                                     "image",
-                                    settings.FLOW_DOCKER_DEFAULT_PROCESSING_CONTAINER_IMAGE,
+                                    getattr(
+                                        settings,
+                                        "FLOW_DOCKER_DEFAULT_PROCESSING_CONTAINER_IMAGE",
+                                        "public.ecr.aws/s4q6j6e8/resolwe/base:ubuntu-20.04",
+                                    ),
                                 ),
                             ),
                         },
@@ -667,7 +673,11 @@ class Connector(BaseConnector):
                                 "name": container_name,
                                 "image": requirements.get(
                                     "image",
-                                    settings.FLOW_DOCKER_DEFAULT_PROCESSING_CONTAINER_IMAGE,
+                                    getattr(
+                                        settings,
+                                        "FLOW_DOCKER_DEFAULT_PROCESSING_CONTAINER_IMAGE",
+                                        "public.ecr.aws/s4q6j6e8/resolwe/base:ubuntu-20.04",
+                                    ),
                                 ),
                                 "resources": {"limits": limits, "requests": requests},
                                 # TODO: uncomment after test

@@ -25,6 +25,7 @@ Changed
   for processed data object are prepared in input container and all outputs are
   uploaded to the chosen storage connector when they are referenced.
 - Overcommit CPU in kubertenes processing container by 20%
+- Move docker images from Docker Hub to Amazon ECR
 
 Added
 -----

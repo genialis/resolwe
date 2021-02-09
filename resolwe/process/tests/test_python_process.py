@@ -62,7 +62,7 @@ class PythonProcessTest(ProcessTestCase):
                 "expression-engine": "jinja",
                 "executor": {
                     "docker": {
-                        "image": "resolwe/base:ubuntu-20.04dev",
+                        "image": "public.ecr.aws/s4q6j6e8/resolwe/base:ubuntu-20.04"
                     }
                 },
             },
@@ -162,7 +162,10 @@ class PythonProcessTest(ProcessTestCase):
         self.assertEqual(data.output["dir_output"], {"dir": "test/"})
         self.assertEqual(data.output["input_data_name"], "bar")
         self.assertEqual(data.output["input_entity_name"], "Data with entity")
-        self.assertEqual(data.output["docker_image"], "resolwe/base:ubuntu-20.04dev")
+        self.assertEqual(
+            data.output["docker_image"],
+            "public.ecr.aws/s4q6j6e8/resolwe/base:ubuntu-20.04",
+        )
         self.assertEqual(data.name, "Foo: bar")
 
         entity = Entity.objects.get(data=data)

@@ -280,10 +280,15 @@ class FlowExecutor(LocalFlowExecutor):
             security_options.append(f"seccomp={json.dumps(SECCOMP_POLICY)}")
 
         processing_image = self.requirements.get(
-            "image", SETTINGS["FLOW_DOCKER_DEFAULT_PROCESSING_CONTAINER_IMAGE"]
+            "image",
+            SETTINGS.get(
+                "FLOW_DOCKER_DEFAULT_PROCESSING_CONTAINER_IMAGE",
+                "public.ecr.aws/s4q6j6e8/resolwe/base:ubuntu-20.04",
+            ),
         )
         communicator_image = SETTINGS.get(
-            "FLOW_DOCKER_COMMUNICATOR_IMAGE", "resolwe/com:python-3.9"
+            "FLOW_DOCKER_COMMUNICATOR_IMAGE",
+            "public.ecr.aws/s4q6j6e8/resolwe/com:latest",
         )
         ulimits = []
         if (
