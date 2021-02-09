@@ -227,7 +227,7 @@ class ProtocolHandler:
                         pool,
                         self.manager.send_file_descriptors,
                         [
-                            os.fspath(file_)
+                            str(file_)
                             for file_ in Path("./").rglob("*")
                             if file_.is_file()
                         ],
@@ -403,7 +403,7 @@ class ProcessingManager:
             # Connect to the upload socket.
             self.upload_socket = socket.socket(family=socket.AF_UNIX)
             logger.debug("Connecting upload socket to: %s.", UPLOAD_FILE_SOCKET)
-            self.upload_socket.connect(os.fspath(UPLOAD_FILE_SOCKET))
+            self.upload_socket.connect(str(UPLOAD_FILE_SOCKET))
             logger.debug("Upload socket connected %s.", UPLOAD_FILE_SOCKET)
 
             # Accept network connections from the processing script.
@@ -476,8 +476,7 @@ class ProcessingManager:
             for i in range(0, len(filenames), DESCRIPTOR_CHUNK_SIZE):
                 try:
                     processing_filenames = [
-                        os.fspath(file_)
-                        for file_ in filenames[i : i + DESCRIPTOR_CHUNK_SIZE]
+                        str(file_) for file_ in filenames[i : i + DESCRIPTOR_CHUNK_SIZE]
                     ]
                     logger.debug(
                         "Sending file descriptors for files: %s", processing_filenames
@@ -618,7 +617,7 @@ if __name__ == "__main__":
     tmp_path = DATA_LOCAL_VOLUME / TMP_DIR
     if not tmp_path.is_dir():
         (DATA_LOCAL_VOLUME / TMP_DIR).mkdir()
-    os.chdir(os.fspath(DATA_LOCAL_VOLUME))
+    os.chdir(str(DATA_LOCAL_VOLUME))
 
     # Create log files.
     STDOUT_LOG_PATH.touch()
