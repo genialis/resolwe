@@ -12,6 +12,7 @@ import operator
 import shlex
 import subprocess
 import threading
+import time
 
 import yaml
 
@@ -98,19 +99,24 @@ class Command(BaseCommand):
 
             # Pull each image
             for img in unique_docker_images:
-                ret = subprocess.run(
-                    shlex.split("{} pull {}".format(docker, img)),
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                )
+                max_retries = 2
+                for _ in range(max_retries):
+                    ret = subprocess.run(
+                        shlex.split("{} pull {}".format(docker, img)),
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                    )
+                    if ret.returncode == 0:
+                        break
+                    time.sleep(1)
 
                 # Update set of pulled images.
                 with PULLED_IMAGES_LOCK:
                     PULLED_IMAGES.add(img)
 
                 if ret.returncode != 0:
-                    errmsg = "Failed to pull Docker image '{}': {}!".format(
-                        img, ret.stdout
+                    errmsg = "Failed to pull Docker image '{}': '{}'.".format(
+                        img, ret.stdout.decode()
                     )
 
                     if not options["ignore_pull_errors"]:
