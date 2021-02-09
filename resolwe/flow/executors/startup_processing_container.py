@@ -413,7 +413,7 @@ class ProcessingManager:
             )
 
             # Update log files.
-            update_logs_future = asyncio.ensure_future(self.update_log_files_timer())
+            update_logs_future = create_task(self.update_log_files_timer())
 
             # Await messages from the communication controler. The command
             # stops when socket is closed or communication is stopped.
