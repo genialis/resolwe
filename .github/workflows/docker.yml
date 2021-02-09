@@ -23,7 +23,7 @@ jobs:
           - image: communication
             context: resolwe/
             file: resolwe/flow/docker_images/Dockerfile.communication
-            tags: resolwe/com:python-3.9
+            tags: resolwe/com:latest
 
     steps:
       - uses: actions/checkout@v2
