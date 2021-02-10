@@ -344,6 +344,7 @@ class FlowExecutor(LocalFlowExecutor):
             "DESCRIPTOR_CHUNK_SIZE": 100,
             # Must init container set permissions.
             "INIT_SET_PERMISSIONS": False,
+            "UPLOAD_CONNECTOR_NAME": SETTINGS.get("UPLOAD_CONNECTOR_NAME", "local"),
         }
 
         autoremove = SETTINGS.get("FLOW_DOCKER_AUTOREMOVE", False)
