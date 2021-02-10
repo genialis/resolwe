@@ -99,7 +99,7 @@ class Command(BaseCommand):
 
             # Pull each image
             for img in unique_docker_images:
-                max_retries = 2
+                max_retries = 10
                 for _ in range(max_retries):
                     ret = subprocess.run(
                         shlex.split("{} pull {}".format(docker, img)),
