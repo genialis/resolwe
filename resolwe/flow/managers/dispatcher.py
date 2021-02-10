@@ -424,6 +424,7 @@ class Manager:
                     container_secrets_dir / base_credentials_name
                 )
         django_settings["STORAGE_CONNECTORS"] = connectors_settings
+        django_settings["UPLOAD_CONNECTOR_NAME"] = self._get_upload_connector_name()
 
         # Extend the settings with whatever the executor wants.
         logger.debug(
