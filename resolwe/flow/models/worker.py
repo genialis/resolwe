@@ -36,9 +36,10 @@ class Worker(models.Model):
 
     def terminate(self):
         """Terminate the running worker."""
-        assert (
-            self.status == self.STATUS_PROCESSING
-        ), "Can only terminate running processes."
+
+        # Can only terminate running processes.
+        if self.status != self.STATUS_PROCESSING:
+            return
 
         packet = {
             "type": "terminate_worker_event",  # This is used as the method name in the consumer.
