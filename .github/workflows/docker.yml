@@ -3,6 +3,9 @@ name: Build Docker Images
 on:
   push:
     branches: master
+  tags:
+    - "[0-9]+.[0-9]+.[0-9]+*"
+  
 
 jobs:
   build:
@@ -10,28 +13,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: [fedora-33, ubuntu-20.04, upload-tab-file, archiver, communication]
+        image: [fedora-33, ubuntu-20.04, communication]
         include:
           - image: fedora-33
             context: resolwe/toolkit/docker_images/base/
             file: resolwe/toolkit/docker_images/base/Dockerfile.fedora-33
-            tags: resolwe/base:fedora-33
+            tags: resolwe/base:fedora-33dev
           - image: ubuntu-20.04
             context: resolwe/toolkit/docker_images/base/
             file: resolwe/toolkit/docker_images/base/Dockerfile.ubuntu-20.04
-            tags: resolwe/base:ubuntu-20.04
-          - image: upload-tab-file
-            context: resolwe/toolkit/docker_images/upload-tab-file/
-            file: resolwe/toolkit/docker_images/upload-tab-file/Dockerfile
-            tags: resolwe/upload-tab-file:latest
-          - image: archiver
-            context: resolwe/toolkit/docker_images/archiver/
-            file: resolwe/toolkit/docker_images/archiver/Dockerfile
-            tags: resolwe/archiver:latest
+            tags: resolwe/base:ubuntu-20.04dev
           - image: communication
             context: resolwe/
             file: resolwe/flow/docker_images/Dockerfile.communication
-            tags: resolwe/com:python-3.9
+            tags: resolwe/com:latest
+
     steps:
       - uses: actions/checkout@v2
       - name: Set up QEMU
@@ -43,7 +39,39 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Build and push Fedora 33 base image
+      - name: Build and push ${{ matrix.image }} image
+        uses: docker/build-push-action@v2
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          tags: ${{ matrix.tags }}
+          push: true
+
+  tagged:
+    runs-on: ubuntu-20.04
+    if: "startsWith(github.ref, 'refs/tags')"
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [communication]
+        include:
+          - image: communication
+            context: resolwe/
+            file: resolwe/flow/docker_images/Dockerfile.communication
+            tags: resolwe/com:${GITHUB_REF#refs/tags/}
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build and push ${{ matrix.image }} image
         uses: docker/build-push-action@v2
         with:
           context: ${{ matrix.context }}
