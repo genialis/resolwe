@@ -91,7 +91,9 @@ class FlowExecutor(LocalFlowExecutor):
 
         return dict(
             [
-                self._new_volume("data_all", "DATA_DIR", constants.DATA_ALL_VOLUME),
+                self._new_volume(
+                    "data_all", "DATA_DIR", constants.DATA_ALL_VOLUME, read_only=False
+                ),
                 self._new_volume(
                     "secrets",
                     "RUNTIME_DIR",
