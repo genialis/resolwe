@@ -14,12 +14,15 @@ import shlex
 import time
 from base64 import b64encode
 from contextlib import suppress
+from math import ceil
 from pathlib import Path
 from typing import Any, Dict, List
 
 import kubernetes
 
 from django.conf import settings
+from django.db.models import Sum
+from django.db.models.functions import Coalesce
 
 from resolwe.flow.executors import constants
 from resolwe.flow.executors.prepare import BaseFlowExecutorPreparer
@@ -474,20 +477,21 @@ class Connector(BaseConnector):
         logger.debug(f"Kubernetes fix permissions command: {command}.")
         return shlex.split(command)
 
-    def _data_inputs_size(self, data: Data, safety_buffer: int = 2 ** 20) -> int:
+    def _data_inputs_size(self, data: Data, safety_buffer: int = 2 ** 30) -> int:
         """Get the size of data inputs.
 
         :returns: the size of the input data in bytes.
         """
-        input_data_ids = (
-            DataDependency.objects.filter(child=data, kind=DataDependency.KIND_IO)
-            .values_list("parent", flat=True)
-            .distinct()
+        inputs_size = (
+            Data.objects.filter(
+                children_dependency__child=data,
+                children_dependency__kind=DataDependency.KIND_IO,
+            )
+            .aggregate(total_size=Coalesce(Sum("size"), 0))
+            .get("total_size")
         )
-        inputs_size = sum(
-            Data.objects.get(pk=data_id).size for data_id in input_data_ids
-        )
-        return inputs_size + safety_buffer
+        assert isinstance(inputs_size, int)
+        return ceil((inputs_size + safety_buffer) / (2 ** 30)) * (2 ** 30)
 
     def start(self, data: Data):
         """Start process execution.
