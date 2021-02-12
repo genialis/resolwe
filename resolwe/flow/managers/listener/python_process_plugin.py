@@ -296,6 +296,13 @@ class ExposeStorage(ExposeObjectPlugin):
             permission_manager.can_update(user, "flow.Data", data, {"output": {}})
             processed_data_ids.add(data.pk)
 
+        # Only contributor can modify Storage object if it is orphaned.
+        if not processed_data_ids and model_instance.contributor != user:
+            raise RuntimeError(
+                "Only contributor can modify unassigned Storage object with "
+                f"id {model_instance.pk}, modification attempted as {user}."
+            )
+
         # When adding storage to Data objects check permissions to modify the
         # data objects. Since permission checks are slow only process the data
         # objects that were not processed above.
@@ -304,6 +311,24 @@ class ExposeStorage(ExposeObjectPlugin):
                 permission_manager.can_update(
                     user, "flow.Data", Data.objects.get(pk=data_id), {"output": {}}
                 )
+
+    def filter_objects(self, user: UserClass, queryset: QuerySet) -> QuerySet:
+        """Filter the objects for the given user.
+
+        Snorage objects are special: we have to check if user has permission on
+        the data model. The permission name must be given in the form
+        'app_label.permission_name' otherwise wrong content type is infered
+        it the get_objects_for_user method.
+        """
+        permission_name = "flow." + get_full_perm("view", Data)
+        perms_filter = "data__pk__in"
+        return (
+            get_objects_for_user(
+                user, permission_name, queryset, perms_filter=perms_filter
+            )
+            .distinct()
+            .union(queryset.filter(contributor=user))
+        )
 
 
 class PythonProcess(ListenerPlugin):
