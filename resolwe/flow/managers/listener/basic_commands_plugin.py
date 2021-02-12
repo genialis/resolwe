@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, Union
 
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Sum
+from django.db.models.functions import Coalesce
 from django.urls import reverse
 from django.utils.timezone import now
 
@@ -139,6 +141,9 @@ class BasicCommands(ListenerPlugin):
         elif manager.data.status != Data.STATUS_ERROR:
             changeset["status"] = Data.STATUS_DONE
 
+        changeset["size"] = manager.data.location.files.aggregate(
+            size=Coalesce(Sum("size"), 0)
+        ).get("size")
         manager._update_data(changeset)
 
         local_location = manager.data.location.default_storage_location
