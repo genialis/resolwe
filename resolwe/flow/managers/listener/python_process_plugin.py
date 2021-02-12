@@ -50,7 +50,7 @@ class PermissionManager:
         """Query permission manager if it can handle given model."""
         return full_model_name in self._plugins
 
-    def can_create(self, user, full_model_name, attributes):
+    def can_create(self, user, full_model_name, attributes, data):
         """Query if user can create the given model.
 
         :raises RuntimeError: if user does not have permissions to create the
@@ -58,9 +58,9 @@ class PermissionManager:
         :raises KeyError: if permission manager has no plugin registered for
             the given model.
         """
-        return self._plugins[full_model_name].can_create(user, attributes)
+        return self._plugins[full_model_name].can_create(user, attributes, data)
 
-    def can_update(self, user, full_model_name, model_instance, attributes):
+    def can_update(self, user, full_model_name, model_instance, attributes, data):
         """Query if user can update the given model.
 
         :raises RuntimeError: if user does not have permissions to update the
@@ -69,18 +69,18 @@ class PermissionManager:
             the given model.
         """
         return self._plugins[full_model_name].can_update(
-            user, model_instance, attributes
+            user, model_instance, attributes, data
         )
 
-    def filter_objects(self, user, full_model_name, queryset) -> QuerySet:
+    def filter_objects(self, user, full_model_name, queryset, data) -> QuerySet:
         """Filter the objects for the given user.
 
         :raises KeyError: if permission manager has no plugin registered for
             the given model.
         """
-        return self._plugins[full_model_name].filter_objects(user, queryset)
+        return self._plugins[full_model_name].filter_objects(user, queryset, data)
 
-    def can_read(self, user, full_model_name):
+    def can_read(self, user, full_model_name, data):
         """Query if user can read the metadata of the given model.
 
         :raises RuntimeError: if user does not have permissions to read the
@@ -88,7 +88,7 @@ class PermissionManager:
         :raises KeyError: if permission manager has no plugin registered for
             the given model.
         """
-        return self._plugins[full_model_name].can_read(user)
+        return self._plugins[full_model_name].can_read(user, data)
 
 
 permission_manager = PermissionManager()
@@ -99,7 +99,7 @@ class ExposeObjectPlugin(metaclass=abc.ABCMeta):
 
     full_model_name = "app_label.model_name"
 
-    def can_create(self, user: UserClass, attributes: dict):
+    def can_create(self, user: UserClass, attributes: dict, data: Data):
         """Can user create the model with given attributes.
 
         :raises RuntimeError: if user does not have permissions to create the
@@ -112,7 +112,9 @@ class ExposeObjectPlugin(metaclass=abc.ABCMeta):
             )
         )
 
-    def can_update(self, user: UserClass, model_instance: Model, attributes: Dict):
+    def can_update(
+        self, user: UserClass, model_instance: Model, attributes: Dict, data: Data
+    ):
         """Can user update the given model instance.
 
         :raises RuntimeError: when user does not have permissions to update
@@ -125,12 +127,14 @@ class ExposeObjectPlugin(metaclass=abc.ABCMeta):
             )
         )
 
-    def filter_objects(self, user: UserClass, queryset: QuerySet) -> QuerySet:
+    def filter_objects(
+        self, user: UserClass, queryset: QuerySet, data: Data
+    ) -> QuerySet:
         """Filter the objects for the given user."""
         permission_name = get_full_perm("view", queryset.model)
         return get_objects_for_user(user, permission_name, queryset)
 
-    def can_read(self, user: UserClass):
+    def can_read(self, user: UserClass, data: Data):
         """Can read model structural info.
 
         :raises RuntimeError: when user does not have permissions to access
@@ -173,7 +177,7 @@ class ExposeData(ExposeObjectPlugin):
                     f"Object {model._meta.model_name} with id {model_pk} not found."
                 )
 
-    def can_create(self, user: UserClass, model_data: Dict):
+    def can_create(self, user: UserClass, model_data: Dict, data: Data):
         """Can user update the given model instance.
 
         :raises RuntimeError: if user does not have permissions to create the
@@ -203,7 +207,9 @@ class ExposeData(ExposeObjectPlugin):
             # Check collection permissions.
             self._has_permission(user, Collection, model_data["collection_id"], "edit")
 
-    def can_update(self, user: UserClass, model_instance: Data, model_data: Dict):
+    def can_update(
+        self, user: UserClass, model_instance: Data, model_data: Dict, data: Data
+    ):
         """Can user update the given model instance.
 
         :raises RuntimeError: when user does not have permissions to update
@@ -232,6 +238,18 @@ class ExposeData(ExposeObjectPlugin):
             # Check collection permissions.
             self._has_permission(user, Collection, model_data["collection_id"], "edit")
 
+    def filter_objects(
+        self, user: UserClass, queryset: QuerySet, data: Data
+    ) -> QuerySet:
+        """Filter the objects for the given user."""
+        inputs = queryset.filter(id__in=data.parents.all())
+        permission_name = get_full_perm("view", queryset.model)
+        return (
+            get_objects_for_user(user, permission_name, queryset)
+            .distinct()
+            .union(inputs)
+        )
+
 
 class ExposeUser(ExposeObjectPlugin):
     """Expose the User model.
@@ -241,7 +259,9 @@ class ExposeUser(ExposeObjectPlugin):
 
     full_model_name = "auth.User"
 
-    def filter_objects(self, user: UserClass, queryset: QuerySet) -> QuerySet:
+    def filter_objects(
+        self, user: UserClass, queryset: QuerySet, data: Data
+    ) -> QuerySet:
         """Filter the objects for the given user."""
         return queryset.filter(pk=user.pk)
 
@@ -257,7 +277,7 @@ class ExposeCollection(ExposeObjectPlugin):
 
     full_model_name = "flow.Collection"
 
-    def can_create(self, user: UserClass, attributes: dict):
+    def can_create(self, user: UserClass, attributes: dict, data: Data):
         """Can user update the given model instance.
 
         :raises RuntimeError: if user does not have permissions to create the
@@ -270,6 +290,18 @@ class ExposeProcess(ExposeObjectPlugin):
 
     full_model_name = "flow.Process"
 
+    def filter_objects(
+        self, user: UserClass, queryset: QuerySet, data: Data
+    ) -> QuerySet:
+        """Filter the objects for the given user."""
+        processes_of_inputs = queryset.filter(data__in=data.parents.all())
+        permission_name = get_full_perm("view", queryset.model)
+        return (
+            get_objects_for_user(user, permission_name, queryset)
+            .distinct()
+            .union(processes_of_inputs)
+        )
+
 
 class ExposeStorage(ExposeObjectPlugin):
     """Expose the Storage model."""
@@ -277,14 +309,16 @@ class ExposeStorage(ExposeObjectPlugin):
     # TODO: permission based on permission on Data object.
     full_model_name = "flow.Storage"
 
-    def can_create(self, user: UserClass, attributes: dict):
+    def can_create(self, user: UserClass, attributes: dict, data: Data):
         """Can user create the model with given attributes.
 
         :raises RuntimeError: when user does not have permissions to create
             the given model.
         """
 
-    def can_update(self, user: UserClass, model_instance: Storage, model_data: Dict):
+    def can_update(
+        self, user: UserClass, model_instance: Storage, model_data: Dict, data: Data
+    ):
         """Can user update the given Storage object.
 
         :raises RuntimeError: when user does not have permissions to update
@@ -293,7 +327,7 @@ class ExposeStorage(ExposeObjectPlugin):
         processed_data_ids = set()
         # User must have permission to modify all the data objects this object belongs to.
         for data in model_instance.data.all():
-            permission_manager.can_update(user, "flow.Data", data, {"output": {}})
+            permission_manager.can_update(user, "flow.Data", data, {"output": {}}, data)
             processed_data_ids.add(data.pk)
 
         # Only contributor can modify Storage object if it is orphaned.
@@ -309,10 +343,16 @@ class ExposeStorage(ExposeObjectPlugin):
         for data_id in model_data.get("data", []):
             if data_id not in processed_data_ids:
                 permission_manager.can_update(
-                    user, "flow.Data", Data.objects.get(pk=data_id), {"output": {}}
+                    user,
+                    "flow.Data",
+                    Data.objects.get(pk=data_id),
+                    {"output": {}},
+                    data,
                 )
 
-    def filter_objects(self, user: UserClass, queryset: QuerySet) -> QuerySet:
+    def filter_objects(
+        self, user: UserClass, queryset: QuerySet, data: Data
+    ) -> QuerySet:
         """Filter the objects for the given user.
 
         Snorage objects are special: we have to check if user has permission on
@@ -356,7 +396,7 @@ class PythonProcess(ListenerPlugin):
         app_name, model_name, model_data = message.message_data
         full_model_name = f"{app_name}.{model_name}"
         self._permission_manager.can_create(
-            manager.contributor, full_model_name, model_data
+            manager.contributor, full_model_name, model_data, manager.data
         )
         model = apps.get_model(app_name, model_name)
         model_data["contributor"] = manager.contributor
@@ -373,7 +413,10 @@ class PythonProcess(ListenerPlugin):
         full_model_name = f"{app_name}.{model_name}"
         model = apps.get_model(app_name, model_name)
         filtered_objects = self._permission_manager.filter_objects(
-            manager.contributor, full_model_name, model.objects.filter(**filters)
+            manager.contributor,
+            full_model_name,
+            model.objects.filter(**filters),
+            manager.data,
         )
         return message.respond_ok(list(filtered_objects.values_list(*attributes)))
 
@@ -402,7 +445,7 @@ class PythonProcess(ListenerPlugin):
             model_instance = model.objects.filter(pk=model_pk).get()
 
         self._permission_manager.can_update(
-            manager.contributor, full_model_name, model_instance, mapping
+            manager.contributor, full_model_name, model_instance, mapping, manager.data
         )
 
         # Update all fields except m2m.
@@ -450,7 +493,9 @@ class PythonProcess(ListenerPlugin):
         app_name, model_name = message.message_data
         full_model_name = f"{app_name}.{model_name}"
 
-        self._permission_manager.can_read(manager.contributor, full_model_name)
+        self._permission_manager.can_read(
+            manager.contributor, full_model_name, manager.data
+        )
         model = apps.get_model(app_name, model_name)
         response = {}
         for field in model._meta.get_fields():
@@ -480,7 +525,10 @@ class PythonProcess(ListenerPlugin):
 
         model = apps.get_model(app_name, model_name)
         filtered_objects = self._permission_manager.filter_objects(
-            manager.contributor, full_model_name, model.objects.filter(pk=model_pk)
+            manager.contributor,
+            full_model_name,
+            model.objects.filter(pk=model_pk),
+            manager.data,
         )
         values = filtered_objects.values(*field_names)
         # NOTE: non JSON serializable fields are NOT supported. If such field
