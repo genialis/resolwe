@@ -14,6 +14,7 @@ from resolwe.flow.models import Collection, Data, Process, Storage
 from resolwe.flow.models.utils import serialize_collection_relations
 from resolwe.flow.utils import dict_dot
 from resolwe.permissions.shortcuts import get_objects_for_user
+from resolwe.permissions.utils import get_full_perm
 from resolwe.utils import BraceMessage as __
 
 from .plugin import ListenerPlugin
@@ -126,7 +127,7 @@ class ExposeObjectPlugin(metaclass=abc.ABCMeta):
 
     def filter_objects(self, user: UserClass, queryset: QuerySet) -> QuerySet:
         """Filter the objects for the given user."""
-        permission_name = f"view_{self.full_model_name.split('.')[1].lower()}"
+        permission_name = get_full_perm("view", queryset.model)
         return get_objects_for_user(user, permission_name, queryset)
 
     def can_read(self, user: UserClass):
@@ -149,16 +150,17 @@ class ExposeData(ExposeObjectPlugin):
     full_model_name = "flow.Data"
 
     def _has_permission(
-        self, user: UserClass, model: Model, model_pk: int, permission_name: str
+        self, user: UserClass, model: Type[Model], model_pk: int, permission_name: str
     ):
         """Check if contributor has requested permissions.
 
         :raises RuntimeError: with detailed explanation when check fails.
         """
+        full_permission_name = get_full_perm(permission_name, model)
         object_ = model.objects.filter(pk=model_pk)
         filtered_object = get_objects_for_user(
             user,
-            [permission_name],
+            [full_permission_name],
             object_,
         )
         if not filtered_object:
@@ -171,7 +173,7 @@ class ExposeData(ExposeObjectPlugin):
                     f"Object {model._meta.model_name} with id {model_pk} not found."
                 )
 
-    def can_create(self, user: UserClass, model_data: Dict) -> bool:
+    def can_create(self, user: UserClass, model_data: Dict):
         """Can user update the given model instance.
 
         :raises RuntimeError: if user does not have permissions to create the
@@ -191,19 +193,17 @@ class ExposeData(ExposeObjectPlugin):
             raise RuntimeError(f"Not allowed to set {','.join(not_allowed_keys)}.")
 
         # Check process permissions.
-        self._has_permission(user, Process, model_data["process_id"], "view_process")
+        self._has_permission(user, Process, model_data["process_id"], "view")
 
         if "entity_id" in model_data:
             # Check entity permissions.
-            self._has_permission(user, Process, model_data["entity_id"], "edit_entity")
+            self._has_permission(user, Process, model_data["entity_id"], "edit")
 
         if "collection_id" in model_data:
             # Check collection permissions.
-            self._has_permission(
-                user, Collection, model_data["collection_id"], "edit_collection"
-            )
+            self._has_permission(user, Collection, model_data["collection_id"], "edit")
 
-    def can_update(self, user: UserClass, model_instance: Model, model_data: Dict):
+    def can_update(self, user: UserClass, model_instance: Data, model_data: Dict):
         """Can user update the given model instance.
 
         :raises RuntimeError: when user does not have permissions to update
@@ -222,17 +222,15 @@ class ExposeData(ExposeObjectPlugin):
             raise RuntimeError(f"Not allowed to set {','.join(not_allowed_keys)}.")
 
         # Check permission to modify the Data object.
-        self._has_permission(user, Data, model_instance.id, "edit_data")
+        self._has_permission(user, Data, model_instance.id, "edit")
 
         if "entity_id" in model_data:
             # Check entity permissions.
-            self._has_permission(user, Process, model_data["entity_id"], "edit_entity")
+            self._has_permission(user, Process, model_data["entity_id"], "edit")
 
         if "collection_id" in model_data:
             # Check collection permissions.
-            self._has_permission(
-                user, Collection, model_data["collection_id"], "edit_collection"
-            )
+            self._has_permission(user, Collection, model_data["collection_id"], "edit")
 
 
 class ExposeUser(ExposeObjectPlugin):
@@ -321,69 +319,6 @@ class PythonProcess(ListenerPlugin):
         """Initialize plugin."""
         self._permission_manager = permission_manager
         super().__init__()
-
-    def _has_permission(self, model, model_pk: int, permission_name: str, contributor):
-        """Check if contributor has requested permissions.
-
-        :raises RuntimeError: with detailed explanation when check fails.
-        """
-        object_ = model.objects.filter(pk=model_pk)
-        filtered_object = get_objects_for_user(
-            contributor,
-            [permission_name],
-            object_,
-        )
-        if not filtered_object:
-            if object_:
-                raise RuntimeError(
-                    f"No permissions: {model._meta.model_name} with id {model_pk}."
-                )
-            else:
-                raise RuntimeError(
-                    f"Object {model._meta.model_name} with id {model_pk} not found."
-                )
-
-    def _can_modify_data(self, contributor, **model_data: Dict[str, Any]):
-        """Check if user has the permission to modify a Data object.
-
-        User can always create a data object but also need edit permission
-        to the collection for example.
-
-        :raises RuntimeError: witd detailed description when user can not
-            create Data object.
-        """
-        can_set = {
-            "process_id",
-            "output",
-            "input",
-            "tags",
-            "entity_id",
-            "collection_id",
-        }
-        not_allowed_keys = set(model_data.keys()) - can_set
-        if not_allowed_keys:
-            message = f"Not allowed to set {','.join(not_allowed_keys)} not allowed."
-            raise RuntimeError(message)
-
-        # Check process permissions.
-        self._has_permission(
-            Process, model_data["process_id"], "view_process", contributor
-        )
-
-        if "entity_id" in model_data:
-            # Check entity permissions.
-            self._has_permission(
-                Process, model_data["entity_id"], "edit_entity", contributor
-            )
-
-        if "collection_id" in model_data:
-            # Check collection permissions.
-            self._has_permission(
-                Collection,
-                model_data["collection_id"],
-                "edit_collection",
-                contributor,
-            )
 
     def handle_create_object(
         self, message: Message[Tuple[str, Dict[str, Any]]], manager: "Processor"
@@ -538,7 +473,7 @@ class PythonProcess(ListenerPlugin):
         """Get relations for the given collection object."""
         collection = get_objects_for_user(
             manager.contributor,
-            "view_collection",
+            get_full_perm("view", Collection),
             Collection.objects.filter(id=message.message_data),
         ).get()
         return message.respond_ok(serialize_collection_relations(collection))
@@ -549,7 +484,9 @@ class PythonProcess(ListenerPlugin):
         """Return the requirements for the process with the given id."""
         process_id = message.message_data
         filtered_process = get_objects_for_user(
-            manager.contributor, ["process_view"], Process.objects.filter(pk=process_id)
+            manager.contributor,
+            get_full_perm("view", Process),
+            Process.objects.filter(pk=process_id),
         )
         process_requirements, process_slug = filtered_process.values_list(
             "requirements", "slug"
