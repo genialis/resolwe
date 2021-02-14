@@ -68,6 +68,7 @@ setuptools.setup(
         "Sphinx>=1.5.1, <1.7.0",
         "wrapt~=1.11.1",
         "pyzmq~=20.0.0",
+        "beautifulsoup4~=4.9.3"
     ],
     extras_require={
         "storage_s3": [
