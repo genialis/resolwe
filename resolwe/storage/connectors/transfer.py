@@ -11,13 +11,13 @@ import wrapt
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from requests.exceptions import ReadTimeout
 
+from .baseconnector import BaseStorageConnector
 from .circular_buffer import CircularBuffer
 from .exceptions import DataTransferError
 from .utils import paralelize
 
 if TYPE_CHECKING:
     from os import PathLike
-    from .baseconnector import BaseStorageConnector
 
 try:
     from google.api_core.exceptions import ServiceUnavailable
