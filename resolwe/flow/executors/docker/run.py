@@ -6,6 +6,7 @@
 """
 # pylint: disable=logging-format-interpolation
 import asyncio
+import functools
 import json
 import logging
 import os
@@ -13,7 +14,7 @@ import platform
 import time
 from contextlib import suppress
 from pathlib import Path
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, Optional, Tuple, Type, Union
 
 import docker
 
@@ -30,6 +31,47 @@ DOCKER_MEMORY_SWAP_RATIO = 2
 DOCKER_MEMORY_SWAPPINESS = 1
 
 logger = logging.getLogger(__name__)
+
+
+def retry(
+    max_retries: int = 3,
+    retry_exceptions: Tuple[Type[Exception], ...] = (
+        docker.errors.ImageNotFound,
+        docker.errors.APIError,
+    ),
+    min_sleep: int = 1,
+    max_sleep: int = 10,
+):
+    """Try to call decorated method max_retries times before giving up.
+
+    The calls are retried when function raises exception in retry_exceptions.
+
+    :param max_retries: maximal number of calls before giving up.
+    :param retry_exceptions: retry call if one of these exceptions is raised.
+    :param min_sleep: minimal sleep between calls (in seconds).
+    :param max_sleep: maximal sleep between calls (in seconds).
+    :returns: return value of the called method.
+    :raises: the last exceptions raised by the method call if none of the
+      retries were successfull.
+    """
+
+    def decorator_retry(func):
+        @functools.wraps(func)
+        def wrapper_retry(*args, **kwargs):
+            last_error: Exception = Exception("Retry failed")
+            sleep: int = 0
+            for retry in range(max_retries):
+                try:
+                    time.sleep(sleep)
+                    return func(*args, **kwargs)
+                except retry_exceptions as err:
+                    sleep = min(max_sleep, min_sleep * (2 ** retry))
+                    last_error = err
+            raise last_error
+
+        return wrapper_retry
+
+    return decorator_retry
 
 
 class FlowExecutor(LocalFlowExecutor):
@@ -405,6 +447,11 @@ class FlowExecutor(LocalFlowExecutor):
             "environment": environment,
         }
 
+        @retry(max_retries=5)
+        def transfer_image(client, image_name):
+            """Transfer missing image, retry 5 times."""
+            client.images.pull(image_name)
+
         client = docker.from_env()
         # Pull all the images.
         try:
@@ -412,12 +459,12 @@ class FlowExecutor(LocalFlowExecutor):
                 logger.debug("Pulling processing image %s.", processing_image)
                 client.images.get(processing_image)
             except docker.errors.ImageNotFound:
-                client.images.pull(processing_image)
+                transfer_image(client, processing_image)
             try:
                 logger.debug("Pulling communicator image %s.", communicator_image)
                 client.images.get(communicator_image)
             except docker.errors.ImageNotFound:
-                client.images.pull(communicator_image)
+                transfer_image(client, communicator_image)
 
         except docker.errors.APIError:
             logger.exception("Docker API error")
