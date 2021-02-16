@@ -16,7 +16,6 @@ import uuid
 from contextlib import suppress
 from distutils.util import strtobool
 from pathlib import Path
-from threading import Lock
 
 # The directory where local processing is done.
 DATA_LOCAL_VOLUME = Path(os.environ.get("DATA_LOCAL_VOLUME", "/data_local"))
@@ -222,16 +221,9 @@ class ProtocolHandler:
             yield from self.manager.upload_log_files()
 
             if KEEP_DATA:
-                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                    yield from loop.run_in_executor(
-                        pool,
-                        self.manager.send_file_descriptors,
-                        [
-                            str(file_)
-                            for file_ in Path("./").rglob("*")
-                            if file_.is_file()
-                        ],
-                    )
+                yield from self.manager.send_file_descriptors(
+                    [str(file_) for file_ in Path("./").rglob("*") if file_.is_file()]
+                )
 
             response = respond(message, "OK", self.return_code)
             yield from self.communicator.send_data(response)
@@ -284,9 +276,10 @@ class ProtocolHandler:
         try:
             received = yield from proc.stdout.readline()
             while received:
-                with STDOUT_LOG_PATH.open("ab") as stdout_file:
-                    stdout_file.write(received)
-                    self.manager.log_files_need_upload = True
+                with (yield from self.manager._uploading_log_files_lock):
+                    with STDOUT_LOG_PATH.open("ab") as stdout_file:
+                        stdout_file.write(received)
+                        self.manager.log_files_need_upload = True
                 received = yield from proc.stdout.readline()
         except asyncio.CancelledError:
             # Task was cancelled: terminate the running subprocess immediately.
@@ -345,7 +338,7 @@ class ProcessingManager:
     It starts network servers and executes the received script.
     """
 
-    def __init__(self):
+    def __init__(self, loop):
         """Initialization."""
         self.worker_reader = None  # type: Optional[asyncio.StreamReader] # noqa: F821
         self.worker_writer = None  # type: Optional[asyncio.StreamWriter] # noqa: F821
@@ -353,8 +346,10 @@ class ProcessingManager:
         self.worker_connected = asyncio.Event()
         self.exported_files_mapper = dict()  # type: Dict[str, str] # noqa: F821
         self.upload_socket = None
-        self._send_file_descriptors_lock = Lock()
+        self._uploading_log_files_lock = asyncio.Lock(loop=loop)
+        self._send_file_descriptors_lock = asyncio.Lock(loop=loop)
         self.log_files_need_upload = True
+        self.loop = loop
 
     @asyncio.coroutine
     def _wait_for_communication_container(self, path):
@@ -456,13 +451,15 @@ class ProcessingManager:
                     for log_file in [STDOUT_LOG_PATH, JSON_LOG_PATH]
                 ]
                 logger.debug("Updating log files %s.", relative_log_paths)
-                self.send_file_descriptors(relative_log_paths)
+                with (yield from self._uploading_log_files_lock):
+                    yield from self.send_file_descriptors(relative_log_paths)
                 self.log_files_need_upload = False
             else:
                 logger.debug("No upload needed for log files.")
         except:
             logger.debug("Error uploading log files")
 
+    @asyncio.coroutine
     def send_file_descriptors(self, filenames):
         # type: (Union[List[str], PurePath],) -> bool  # noqa: F821
         """Send file descriptors over UNIX sockets.
@@ -470,48 +467,51 @@ class ProcessingManager:
         Code is based on the sample in manual
         https://docs.python.org/3/library/socket.html#socket.socket.sendmsg .
 
+        :raises RuntimeError: on failure.
         :returns: the hashes of the files filedescritors describe.
         """
-        with self._send_file_descriptors_lock:
-            for i in range(0, len(filenames), DESCRIPTOR_CHUNK_SIZE):
-                try:
+
+        def send_chunk(processing_filenames):
+            """Send all processing_filenames at once.
+
+            :raises RuntimeError: on failure.
+            """
+            logger.debug("Sending file descriptors for files: %s", processing_filenames)
+            filenames_payload = json.dumps(processing_filenames).encode()
+            self.upload_socket.sendall(
+                len(filenames_payload).to_bytes(8, byteorder="big")
+            )
+            logger.debug("Filename payload: %s", filenames_payload)
+            # File handlers must be created before file descriptors otherwise garbage
+            # collector will kick in and close handlers. Handlers will be closed
+            # automatically when function completes.
+            file_handlers = [open(filename, "rb") for filename in processing_filenames]
+            file_descriptors = [file_handler.fileno() for file_handler in file_handlers]
+            logger.debug("Sending file descriptors: %s", file_descriptors)
+            self.upload_socket.sendmsg(
+                [filenames_payload],
+                [
+                    (
+                        socket.SOL_SOCKET,
+                        socket.SCM_RIGHTS,
+                        array.array("i", file_descriptors),
+                    )
+                ],
+            )
+            if self.upload_socket.recv(1) == b"0":
+                raise RuntimeError(f"Error sending filenames {processing_filenames}.")
+
+        logger.debug("Sending start")
+        with (yield from self._send_file_descriptors_lock):
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                for i in range(0, len(filenames), DESCRIPTOR_CHUNK_SIZE):
                     processing_filenames = [
                         str(file_) for file_ in filenames[i : i + DESCRIPTOR_CHUNK_SIZE]
                     ]
-                    logger.debug(
-                        "Sending file descriptors for files: %s", processing_filenames
+                    yield from self.loop.run_in_executor(
+                        pool, send_chunk, processing_filenames
                     )
-
-                    filenames_payload = json.dumps(processing_filenames).encode()
-                    self.upload_socket.sendall(
-                        len(filenames_payload).to_bytes(8, byteorder="big")
-                    )
-                    logger.debug("Filename payload: %s", filenames_payload)
-                    # File handlers must be created before file descriptors otherwise garbage
-                    # collector will kick in and close handlers. Handlers will be closed
-                    # automatically when function completes.
-                    file_handlers = [
-                        open(filename, "rb") for filename in processing_filenames
-                    ]
-                    file_descriptors = [
-                        file_handler.fileno() for file_handler in file_handlers
-                    ]
-                    logger.debug("Sending file descriptors: %s", file_descriptors)
-                    self.upload_socket.sendmsg(
-                        [filenames_payload],
-                        [
-                            (
-                                socket.SOL_SOCKET,
-                                socket.SCM_RIGHTS,
-                                array.array("i", file_descriptors),
-                            )
-                        ],
-                    )
-                    if self.upload_socket.recv(1) == b"0":
-                        return False
-                except:
-                    logger.exception("Exception sending file descriptors.")
-        return True
+        logger.debug("Sending finished")
 
     @asyncio.coroutine
     def _handle_processing_script_connection(self, reader, writer):
@@ -530,9 +530,10 @@ class ProcessingManager:
 
             message = yield from communicator.receive_data()
             while message:
-                with JSON_LOG_PATH.open("at") as json_file:
-                    json_file.write(json.dumps(message) + os.linesep)
-                    self.log_files_need_upload = True
+                with (yield from self._uploading_log_files_lock):
+                    with JSON_LOG_PATH.open("at") as json_file:
+                        json_file.write(json.dumps(message) + os.linesep)
+                        self.log_files_need_upload = True
                 logger.debug("Processing script sent message: %s.", message)
                 command = message["type_data"]
                 if command == "export_files":
@@ -544,14 +545,7 @@ class ProcessingManager:
                     logger.debug("Sending filedescriptors.")
                     # This can block, run in a thread maybe?
                     logger.debug("Names: %s", filenames)
-
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                        if not (
-                            yield from loop.run_in_executor(
-                                pool, self.send_file_descriptors, filenames
-                            )
-                        ):
-                            raise RuntimeError("Error sending filedescriptors.")
+                    yield from self.send_file_descriptors(filenames)
                     logger.debug("Print descriptors sent.")
                     response = respond(message, "OK", "")
                 elif command == "run":
@@ -597,10 +591,10 @@ def sig_term_handler(processing_manager):
 
 
 @asyncio.coroutine
-def start_processing_container():
+def start_processing_container(loop):
     # type: () -> None
     """Start the processing manager and set SIGINT handler."""
-    processing_manager = ProcessingManager()
+    processing_manager = ProcessingManager(loop)
     manager_future = create_task(processing_manager.run())
 
     asyncio.get_event_loop().add_signal_handler(
@@ -626,6 +620,6 @@ if __name__ == "__main__":
     # Replace the code bellow with asyncio.run when we no longer have to
     # support python 3.6.
     loop = asyncio.get_event_loop()
-    return_code = loop.run_until_complete(start_processing_container())
+    return_code = loop.run_until_complete(start_processing_container(loop))
     loop.close()
     sys.exit(return_code)
