@@ -5,11 +5,13 @@
 
 """
 # pylint: disable=logging-format-interpolation
+import asyncio
 import json
 import logging
 import os
 import platform
 import time
+from contextlib import suppress
 from pathlib import Path
 from typing import Dict, Optional, Tuple, Union
 
@@ -420,32 +422,32 @@ class FlowExecutor(LocalFlowExecutor):
         except docker.errors.APIError:
             logger.exception("Docker API error")
             raise RuntimeError("Docker API error")
+
+        loop = asyncio.get_event_loop()
         start_time = time.time()
-
         logger.debug("Starting init container: %s", init_arguments)
+        init_container = client.containers.run(**init_arguments)
+        init_container_status = await loop.run_in_executor(None, init_container.wait)
 
-        response = client.containers.run(**init_arguments)
-        logger.debug("Init response: %s.", response)
-        init_container_exit_code = response.wait()["StatusCode"]
-
-        if init_container_exit_code != 0:
+        if init_container_status["StatusCode"] != 0:
             logger.error(
                 "Init container exit code was %s instead of 0, aborting.",
-                init_container_exit_code,
+                init_container_status["StatusCode"],
             )
             return
 
         logger.debug("Starting communication container: %s", processing_arguments)
-        response = client.containers.run(**communication_arguments)
-        logger.debug("Com response: %s.", response)
+        communication_container = client.containers.run(**communication_arguments)
 
         logger.debug("Starting processing container: %s", processing_arguments)
-        response = client.containers.run(**processing_arguments)
-        logger.debug("Proccessing response: %s.", response)
-
+        processing_container = client.containers.run(**processing_arguments)
         end_time = time.time()
         logger.info(
             "It took {:.2f}s for Docker containers to start".format(
                 end_time - start_time
             )
         )
+        with suppress(docker.errors.NotFound):
+            await loop.run_in_executor(None, communication_container.wait)
+        with suppress(docker.errors.NotFound):
+            await loop.run_in_executor(None, processing_container.wait)
