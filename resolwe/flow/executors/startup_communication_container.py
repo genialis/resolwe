@@ -172,13 +172,14 @@ class FakeConnector(BaseStorageConnector):
 class Uploader(threading.Thread):
     """Upload referenced files to remote location."""
 
-    def __init__(self, manager: "Manager", loop: asyncio.BaseEventLoop):
+    def __init__(self, manager: "Manager", loop: asyncio.AbstractEventLoop):
         """Initialization."""
         super().__init__()
         self._terminating = False
         self.to_connector = connectors[UPLOAD_CONNECTOR_NAME].duplicate()
         self.manager = manager
         self.loop = loop
+        self.ready = threading.Event()
 
     def receive_file_descriptors(self, sock: socket.SocketType) -> dict[str, Any]:
         """Receive file descriptors.
@@ -219,7 +220,7 @@ class Uploader(threading.Thread):
         server_socket.settimeout(PROCESSING_CONTAINER_TIMEOUT)
         server_socket.bind(os.fspath(UPLOAD_FILE_SOCKET))
         server_socket.listen()
-        logger.debug("Upload socket started: %s.", os.fspath(UPLOAD_FILE_SOCKET))
+        self.ready.set()
         # Wait for the connection up to PROCESSING_CONTAINER_TIMEOUT seconds.
         # If it fails, the socket will be closed and process terminated if
         # it will try to save some files as outputs.
@@ -503,6 +504,10 @@ class Manager:
             logger.debug("Starting upload thread")
             upload_thread = Uploader(self, asyncio.get_running_loop())
             upload_thread.start()
+            # Wait up to 60 seconds for uploader to get ready.
+            if not upload_thread.ready.wait(60):
+                logger.error("Upload thread failed to start, terminating.")
+                raise RuntimeError("Upload thread failed to start.")
 
             await self.start_processing_socket()
             self.listener_communicator = await self.open_listener_connection()
@@ -549,13 +554,18 @@ class Manager:
                 return_code = await self._process_script_task
                 self._process_script_task = None
 
-            except RuntimeError:
+            except RuntimeError as runtime_exception:
                 logger.exception("Error processing script.")
                 with suppress(Exception):
                     await self.listener_communicator.send_command(
                         Message.command(
                             "process_log",
-                            {"error": ["Runtime error in communication container."]},
+                            {
+                                "error": [
+                                    "Runtime error in communication container: "
+                                    f"{runtime_exception}."
+                                ]
+                            },
                         )
                     )
 
