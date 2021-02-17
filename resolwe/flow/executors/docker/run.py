@@ -472,7 +472,6 @@ class FlowExecutor(LocalFlowExecutor):
 
         loop = asyncio.get_event_loop()
         start_time = time.time()
-        logger.debug("Starting init container: %s", init_arguments)
         init_container = client.containers.run(**init_arguments)
         init_container_status = await loop.run_in_executor(None, init_container.wait)
 
@@ -483,10 +482,8 @@ class FlowExecutor(LocalFlowExecutor):
             )
             return
 
-        logger.debug("Starting communication container: %s", processing_arguments)
         communication_container = client.containers.run(**communication_arguments)
 
-        logger.debug("Starting processing container: %s", processing_arguments)
         processing_container = client.containers.run(**processing_arguments)
         end_time = time.time()
         logger.info(
