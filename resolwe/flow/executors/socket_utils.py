@@ -1304,7 +1304,7 @@ class BaseProtocol:
                         )
             except:
                 self.logger.exception("Exception while running communicate.")
-                self._abort_with_error("Exception while running communicate.")
+                await self._abort_with_error("Exception while running communicate.")
         self.logger.debug(
             "Communicator %s stopped communicating", self.communicator.name
         )
