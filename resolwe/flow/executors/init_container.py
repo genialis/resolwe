@@ -13,7 +13,6 @@ import sys
 from contextlib import suppress
 from distutils.util import strtobool
 from pathlib import Path
-from typing import Optional
 
 import zmq
 import zmq.asyncio
@@ -128,41 +127,24 @@ def _get_communicator() -> ZMQCommunicator:
 class InitProtocol(BaseProtocol):
     """Protocol class."""
 
-    def __init__(
-        self,
-        communicator: BaseCommunicator,
-        logger: logging.Logger,
-    ):
-        """Initialization."""
-        super().__init__(communicator, logger)
-        self._transfering_task: Optional[asyncio.Task] = None
-        self._terminated = False
-
     async def post_terminate(self, message: Message, identity: PeerIdentity):
         """Handle post-terminate command."""
-        logger.debug("Post terminate.")
-        self._terminated = True
-        if self._transfering_task is not None:
-            self._transfering_task.cancel()
+        logger.debug("Init container received terminate request, terminating.")
+        await error("Init container received terminating request.", self.communicator)
+        for task in asyncio.all_tasks():
+            task.cancel()
 
     async def transfer_missing_data(self):
         """Transfer missing data.
 
-        Transfer missing data depends on whether data is downloaded to a shared
-        filesystem or not.
-
-        :raises Exception: on error.
+        :raises RuntimeError: when data transfer error occurs.
         """
-        # Notify listener the data is being transfered.
         await self.communicator.send_command(Message.command("update_status", "PP"))
         if DATA_ALL_VOLUME_SHARED:
             transfering_coroutine = transfer_data(self.communicator)
         else:
             transfering_coroutine = transfer_inputs(self.communicator)
-        if not self._terminated:
-            await transfering_coroutine
-        else:
-            raise RuntimeError("Container terminated.")
+        await transfering_coroutine
 
 
 async def error(error_message: str, communicator: BaseCommunicator):
@@ -178,31 +160,29 @@ async def error(error_message: str, communicator: BaseCommunicator):
         await communicator.send_command(Message.command("finish", {}))
 
 
-async def main() -> int:
+async def main():
     """Start the main program.
 
-    :returns: the return code of the script.
+    :raises RuntimeError: when runtime error occurs.
+    :raises asyncio.exceptions.CancelledError: when task is terminated.
     """
+    if SET_PERMISSIONS:
+        set_permissions()
+    protocol = InitProtocol(_get_communicator(), logger)
+    communicate_task = asyncio.ensure_future(protocol.communicate())
     try:
-        return_code = 0
-        if SET_PERMISSIONS:
-            set_permissions()
-        protocol = InitProtocol(_get_communicator(), logger)
-        communicate_task = asyncio.ensure_future(protocol.communicate())
         await protocol.transfer_missing_data()
-    except:
-        return_code = 1
-        logger.exception("Exception in init container.")
-    finally:
-        if return_code == 1:
-            await error("Error in init container.", protocol.communicator)
-        protocol.stop_communicate()
-        with suppress(asyncio.TimeoutError):
-            await asyncio.wait_for(communicate_task, timeout=10)
-
-    return return_code
+    except DataTransferError as error:
+        error(f"Data transfer error in init container: {error}", protocol.communicator)
+    protocol.stop_communicate()
+    with suppress(asyncio.TimeoutError):
+        await asyncio.wait_for(communicate_task, timeout=10)
 
 
 if __name__ == "__main__":
     logger.debug("Starting the main program.")
-    sys.exit(asyncio.run(main()))
+    try:
+        asyncio.run(main())
+    except:
+        logger.debug("Exception in init container.")
+        sys.exit(1)
