@@ -504,7 +504,7 @@ class ListenerProtocol(BaseProtocol):
                 }
         """
         record_dict = json.loads(message.message_data)
-        record_dict["msg"] = record_dict["msg"]
+        record_dict["args"] = tuple(record_dict["args"])
 
         executors_dir = os.path.join(
             os.path.dirname(os.path.dirname(__file__)), "executors"
