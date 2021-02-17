@@ -294,8 +294,8 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.assertEqual(data.worker.status, Worker.STATUS_PROCESSING)
         data.worker.terminate()
 
-        # Give it max 5 seconds to terminate.
-        for _ in range(50):
+        # Give it max 10 seconds to terminate.
+        for _ in range(100):
             sleep(0.1)
             data.refresh_from_db()
             if data.worker.status == Worker.STATUS_COMPLETED:
