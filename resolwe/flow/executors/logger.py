@@ -45,6 +45,7 @@ class ZeromqHandler(logging.Handler):
             be waited on in the executor main function.
         """
         self.communicator = self.open_listener_connection(DATA["id"])
+        self.loop = asyncio.get_event_loop()
         asyncio.ensure_future(self.communicator.start_listening())
         super().__init__(**kwargs)
 
@@ -76,8 +77,9 @@ class ZeromqHandler(logging.Handler):
 
     def emit(self, record):
         """Send log message to the listener."""
-        asyncio.ensure_future(
-            self.communicator.send_command(Message.command("log", self.format(record)))
+        asyncio.run_coroutine_threadsafe(
+            self.communicator.send_command(Message.command("log", self.format(record))),
+            self.loop,
         )
 
 
@@ -96,7 +98,7 @@ def configure_logging():
             "zeromq": {
                 "class": module_base + ".logger.ZeromqHandler",
                 "formatter": "json_formatter",
-                "level": logging.INFO,
+                "level": logging.DEBUG,
             },
             "console": {"class": "logging.StreamHandler", "level": logging.WARNING},
         },
