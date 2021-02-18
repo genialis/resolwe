@@ -1,15 +1,20 @@
 """Resolwe storage model."""
+import copy
 import logging
 import os
+from datetime import datetime, timedelta
 from pathlib import PurePath
 from typing import Iterable, List, Optional, Union
 
 from django.db import models
+from django.utils.timezone import now
 
+from resolwe.flow.models import Data
 from resolwe.storage.connectors import DEFAULT_CONNECTOR_PRIORITY, connectors
 from resolwe.storage.connectors.baseconnector import BaseStorageConnector
 from resolwe.storage.connectors.transfer import Transfer
 from resolwe.storage.connectors.utils import paralelize
+from resolwe.storage.settings import STORAGE_CONNECTORS
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +96,193 @@ class LocationsDoneManager(models.Manager):
     def get_queryset(self) -> models.QuerySet:
         """Override default queryset."""
         return super().get_queryset().filter(status="OK")
+
+    def _preprocess_delay(self, delay: Optional[int]) -> int:
+        """Preprocess delay according to rules.
+
+        1. When delay is None return 0. Entries without explicit delay are
+            processed immediately.
+        2. When delay is negative return the number of days between the
+            current date and 1900. There should be no object created before
+            1900 so this means no object will be processed.
+        3. Otherwise return the delay.
+        """
+        if delay is None:
+            return 0
+        assert isinstance(delay, int), "Delay should be integer or None"
+        if delay < 0:
+            return (datetime.now() - datetime(1900, 1, 1)).days
+        else:
+            return delay
+
+    def to_delete(self, connector_name: str) -> models.QuerySet:
+        """Get a queryset of locations that must be deleted.
+
+        :returns: a queryset of FileStorage objects whose StorageLocations objects
+            belonging to the given connector must be deleted.
+        """
+
+        location_settings = copy.deepcopy(STORAGE_CONNECTORS.get(connector_name, {}))
+        rules: dict = location_settings.get("config", {}).get("delete", {})
+
+        if not rules:
+            return FileStorage.objects.none()
+
+        process_overrides = rules.pop("process_type", {})
+        data_slug_overrides = rules.pop("data_slug", {})
+
+        whens = [
+            models.When(
+                data__slug=data_slug,
+                then=timedelta(days=self._preprocess_delay(override_rule.get("delay"))),
+            )
+            for data_slug, override_rule in data_slug_overrides.items()
+        ]
+        whens += [
+            models.When(
+                data__process__type__startswith=process_type,
+                then=timedelta(days=self._preprocess_delay(override_rule.get("delay"))),
+            )
+            for process_type, override_rule in process_overrides.items()
+        ]
+
+        connectors_priority_whens = [
+            models.When(
+                connector_name=connector_name,
+                then=connectors[connector_name].priority,
+            )
+            for connector_name in connectors
+        ]
+
+        min_other_copies = rules.get("min_other_copies", 1)
+        default_delay = self._preprocess_delay(rules.get("delay"))
+
+        return (
+            FileStorage.objects.filter(
+                data__status=Data.STATUS_DONE,
+                created__lt=now()  # type: ignore
+                - models.Case(
+                    *whens,
+                    default=timedelta(days=default_delay),
+                    output_field=models.DurationField(),
+                ),
+            )
+            .annotate(
+                all_locations_count=models.Count(
+                    "storage_locations",
+                    filter=models.Q(
+                        storage_locations__status=StorageLocation.STATUS_DONE
+                    ),
+                    distinct=True,
+                )
+            )
+            .annotate(
+                open_logs=models.Exists(
+                    AccessLog.objects.filter(
+                        storage_location__file_storage=models.OuterRef("id"),
+                        storage_location__connector_name=connector_name,
+                        finished__isnull=True,
+                    )
+                ),
+                accessed_lately=models.Exists(
+                    StorageLocation.objects.filter(
+                        file_storage=models.OuterRef("id"),
+                        connector_name=connector_name,
+                        last_update__gt=now()  # type: ignore
+                        - models.Case(
+                            *whens,
+                            default=timedelta(days=default_delay),
+                            output_field=models.DurationField(),
+                        ),
+                    )
+                ),
+                default_connector=models.functions.Coalesce(
+                    models.Subquery(
+                        StorageLocation.objects.filter(
+                            file_storage=models.OuterRef("id"),
+                            status=StorageLocation.STATUS_DONE,
+                        )
+                        .annotate(
+                            priority=models.Case(
+                                *connectors_priority_whens,
+                                default=DEFAULT_CONNECTOR_PRIORITY,
+                                output_field=models.IntegerField(),
+                            )
+                        )
+                        .order_by("priority")
+                        .values_list("connector_name", flat=True)[:1]
+                    ),
+                    models.Value(""),
+                ),
+            )
+            .filter(
+                all_locations_count__gt=min_other_copies,
+                open_logs=False,
+                accessed_lately=False,
+                storage_locations__status=StorageLocation.STATUS_DONE,
+                storage_locations__connector_name=connector_name,
+            )
+            .exclude(default_connector=connector_name)
+            .distinct()
+        )
+
+    def to_copy(self, connector_name: str) -> models.QuerySet:
+        """Get a queryset of locations that must be copied.
+
+        :returns: a queryset of FileStorage objects for which a new copy of
+            StorageLocation object belonging to the given connector must be
+            created.
+        """
+        location_settings = copy.deepcopy(STORAGE_CONNECTORS.get(connector_name, {}))
+        rules: dict = location_settings.get("config", {}).get("copy", {})
+
+        if not rules:
+            return FileStorage.objects.none()
+
+        process_overrides = rules.pop("process_type", {})
+        data_slug_overrides = rules.pop("data_slug", {})
+
+        whens = [
+            models.When(
+                data__slug=data_slug,
+                then=timedelta(days=self._preprocess_delay(override_rule.get("delay"))),
+            )
+            for data_slug, override_rule in data_slug_overrides.items()
+        ]
+        whens += [
+            models.When(
+                data__process__type__startswith=process_type,
+                then=timedelta(days=self._preprocess_delay(override_rule.get("delay"))),
+            )
+            for process_type, override_rule in process_overrides.items()
+        ]
+
+        default_delay = self._preprocess_delay(rules.get("delay"))
+
+        return (
+            FileStorage.objects.filter(data__status=Data.STATUS_DONE)
+            .filter(
+                created__lt=now()  # type: ignore
+                - models.Case(
+                    *whens,
+                    default=timedelta(days=default_delay),
+                    output_field=models.DurationField(),
+                )
+            )
+            .annotate(
+                any_location_exists=models.Exists(
+                    StorageLocation.objects.filter(file_storage=models.OuterRef("id"))
+                ),
+                to_location_exists=models.Exists(
+                    StorageLocation.objects.filter(
+                        file_storage=models.OuterRef("id"),
+                        connector_name=connector_name,
+                    )
+                ),
+            )
+            .filter(any_location_exists=True, to_location_exists=False)
+            .distinct()
+        )
 
 
 class AllLocationsManager(models.Manager):

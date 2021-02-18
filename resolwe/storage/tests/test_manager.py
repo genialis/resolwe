@@ -3,7 +3,7 @@ import copy
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from threading import Event
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 from django.db import connection, transaction
 from django.utils import timezone
@@ -15,7 +15,7 @@ from resolwe.storage.connectors import (
     LocalFilesystemConnector,
 )
 from resolwe.storage.connectors.exceptions import DataTransferError
-from resolwe.storage.manager import DecisionMaker, Manager
+from resolwe.storage.manager import Manager
 from resolwe.storage.models import (
     AccessLog,
     FileStorage,
@@ -69,7 +69,7 @@ CONNECTORS = {
 
 @patch("resolwe.storage.models.connectors", CONNECTORS)
 @patch("resolwe.storage.manager.connectors", CONNECTORS)
-@patch("resolwe.storage.manager.STORAGE_CONNECTORS", CONNECTORS_SETTINGS)
+@patch("resolwe.storage.models.STORAGE_CONNECTORS", CONNECTORS_SETTINGS)
 class DecisionMakerTest(TestCase):
     fixtures = [
         "storage_processes.yaml",
@@ -78,7 +78,6 @@ class DecisionMakerTest(TestCase):
 
     def setUp(self):
         self.file_storage: FileStorage = FileStorage.objects.get(pk=1)
-        self.decision_maker = DecisionMaker(self.file_storage)
         super().setUp()
 
     def test_norule(self):
@@ -94,11 +93,13 @@ class DecisionMakerTest(TestCase):
         storage_location.refresh_from_db()
         self.file_storage.refresh_from_db()
         with patch(
-            "resolwe.storage.manager.STORAGE_CONNECTORS",
+            "resolwe.storage.models.STORAGE_CONNECTORS",
             {"local": CONNECTORS_SETTINGS["local"]},
         ):
-            self.assertEqual(self.decision_maker.copy(), [])
-            self.assertIsNone(self.decision_maker.delete())
+            self.assertEqual(StorageLocation.objects.to_copy("local").count(), 0)
+            self.assertEqual(StorageLocation.objects.to_copy("S3").count(), 0)
+            self.assertEqual(StorageLocation.objects.to_delete("local").count(), 0)
+            self.assertEqual(StorageLocation.objects.to_delete("S3").count(), 0)
 
     def test_copy(self):
         storage_location: StorageLocation = StorageLocation.objects.create(
@@ -110,20 +111,22 @@ class DecisionMakerTest(TestCase):
             created=timezone.now() - timedelta(days=2)
         )
         self.file_storage.refresh_from_db()
-        self.assertEqual(self.decision_maker.copy(), [])
+
+        self.assertEqual(StorageLocation.objects.to_copy("S3").count(), 0)
 
         storage_location.status = StorageLocation.STATUS_DONE
         storage_location.save()
-        self.assertEqual(self.decision_maker.copy(), ["S3"])
+        self.assertEqual(StorageLocation.objects.to_copy("S3").get(), self.file_storage)
+        self.assertEqual(StorageLocation.objects.to_copy("GCS").count(), 0)
 
         FileStorage.objects.filter(pk=self.file_storage.pk).update(
             created=timezone.now() - timedelta(days=3)
         )
         self.file_storage.refresh_from_db()
-        copies = self.decision_maker.copy()
-        self.assertEqual(len(copies), 2)
-        self.assertIn("S3", copies)
-        self.assertIn("GCS", copies)
+        self.assertEqual(StorageLocation.objects.to_copy("S3").get(), self.file_storage)
+        self.assertEqual(
+            StorageLocation.objects.to_copy("GCS").get(), self.file_storage
+        )
 
     def test_copy_negative_delay(self):
         StorageLocation.objects.create(
@@ -139,10 +142,16 @@ class DecisionMakerTest(TestCase):
 
         connectors_settings = copy.deepcopy(CONNECTORS_SETTINGS)
         connectors_settings["S3"]["config"]["copy"]["delay"] = -1
-        with patch("resolwe.storage.manager.STORAGE_CONNECTORS", connectors_settings):
-            copies = self.decision_maker.copy()
-        self.assertEqual(len(copies), 1)
-        self.assertIn("GCS", copies)
+        with patch("resolwe.storage.models.STORAGE_CONNECTORS", connectors_settings):
+            self.assertEqual(StorageLocation.objects.to_copy("S3").count(), 0)
+            self.assertEqual(
+                StorageLocation.objects.to_copy("GCS").get(), self.file_storage
+            )
+
+        connectors_settings["GCS"]["config"]["copy"]["delay"] = -1
+        with patch("resolwe.storage.models.STORAGE_CONNECTORS", connectors_settings):
+            self.assertEqual(StorageLocation.objects.to_copy("S3").count(), 0)
+            self.assertEqual(StorageLocation.objects.to_copy("GCS").count(), 0)
 
     def test_delete_last(self):
         location_s3 = StorageLocation.objects.create(
@@ -154,7 +163,7 @@ class DecisionMakerTest(TestCase):
         StorageLocation.objects.filter(pk=location_s3.pk).update(
             last_update=timezone.now() - timedelta(days=30)
         )
-        self.assertIsNone(self.decision_maker.delete())
+        self.assertEqual(StorageLocation.objects.to_delete("S3").count(), 0)
 
     def test_delete_early(self):
         location_s3 = StorageLocation.objects.create(
@@ -172,7 +181,8 @@ class DecisionMakerTest(TestCase):
         StorageLocation.objects.filter(pk=location_s3.pk).update(
             last_update=timezone.now() - timedelta(days=4)
         )
-        self.assertIsNone(self.decision_maker.delete())
+        self.assertEqual(StorageLocation.objects.to_delete("S3").count(), 0)
+        self.assertEqual(StorageLocation.objects.to_delete("GCS").count(), 0)
 
     def test_delete(self):
         location_s3: StorageLocation = StorageLocation.objects.create(
@@ -191,15 +201,24 @@ class DecisionMakerTest(TestCase):
             last_update=timezone.now() - timedelta(days=5)
         )
         access_log = AccessLog.objects.create(storage_location=location_s3)
-        self.assertIsNone(self.decision_maker.delete())
+        self.assertEqual(StorageLocation.objects.to_delete("local").count(), 0)
+        self.assertEqual(StorageLocation.objects.to_delete("GCS").count(), 0)
+        self.assertEqual(StorageLocation.objects.to_delete("S3").count(), 0)
 
         access_log.delete()
-        self.assertEqual(self.decision_maker.delete(), location_s3)
+        self.assertEqual(StorageLocation.objects.to_delete("local").count(), 0)
+        self.assertEqual(StorageLocation.objects.to_delete("GCS").count(), 0)
+
+        self.assertEqual(
+            StorageLocation.objects.to_delete("S3").get(), self.file_storage
+        )
 
         StorageLocation.objects.filter(pk=location_s3.pk).update(
             status=StorageLocation.STATUS_DELETING
         )
-        self.assertIsNone(self.decision_maker.delete())
+        self.assertEqual(StorageLocation.objects.to_delete("local").count(), 0)
+        self.assertEqual(StorageLocation.objects.to_delete("GCS").count(), 0)
+        self.assertEqual(StorageLocation.objects.to_delete("S3").count(), 0)
 
     def test_delete_negative_delay(self):
         location_s3 = StorageLocation.objects.create(
@@ -219,8 +238,10 @@ class DecisionMakerTest(TestCase):
         )
         connectors_settings = copy.deepcopy(CONNECTORS_SETTINGS)
         connectors_settings["S3"]["config"]["delete"]["delay"] = -1
-        with patch("resolwe.storage.manager.STORAGE_CONNECTORS", connectors_settings):
-            self.assertIsNone(self.decision_maker.delete())
+        with patch("resolwe.storage.models.STORAGE_CONNECTORS", connectors_settings):
+            self.assertEqual(StorageLocation.objects.to_delete("local").count(), 0)
+            self.assertEqual(StorageLocation.objects.to_delete("GCS").count(), 0)
+            self.assertEqual(StorageLocation.objects.to_delete("S3").count(), 0)
 
     def test_delete_mincopy(self):
         StorageLocation.objects.create(
@@ -238,19 +259,29 @@ class DecisionMakerTest(TestCase):
         StorageLocation.objects.filter(pk=location_gcs.pk).update(
             last_update=timezone.now() - timedelta(days=5)
         )
-        self.assertIsNone(self.decision_maker.delete())
+        self.assertEqual(StorageLocation.objects.to_delete("local").count(), 0)
+        self.assertEqual(StorageLocation.objects.to_delete("GCS").count(), 0)
+        self.assertEqual(StorageLocation.objects.to_delete("S3").count(), 0)
+
         storage_location = StorageLocation.objects.create(
             file_storage=self.file_storage,
             url="url",
             connector_name="GCS1",
             status=StorageLocation.STATUS_DELETING,
         )
-        self.assertIsNone(self.decision_maker.delete())
+        self.assertEqual(StorageLocation.objects.to_delete("local").count(), 0)
+        self.assertEqual(StorageLocation.objects.to_delete("GCS").count(), 0)
+        self.assertEqual(StorageLocation.objects.to_delete("S3").count(), 0)
+
         storage_location.status = StorageLocation.STATUS_DONE
         storage_location.save()
-        self.assertEqual(self.decision_maker.delete(), location_gcs)
+        self.assertEqual(StorageLocation.objects.to_delete("local").count(), 0)
+        self.assertEqual(
+            StorageLocation.objects.to_delete("GCS").get(), self.file_storage
+        )
+        self.assertEqual(StorageLocation.objects.to_delete("S3").count(), 0)
 
-    def test_delete_priority(self):
+    def test_delete_extended(self):
         location_gcs = StorageLocation.objects.create(
             file_storage=self.file_storage,
             url="url",
@@ -270,7 +301,9 @@ class DecisionMakerTest(TestCase):
             last_update=timezone.now() - timedelta(days=5)
         )
         # Do not delete location with highest priority.
-        self.assertIsNone(self.decision_maker.delete())
+        self.assertEqual(StorageLocation.objects.to_delete("local").count(), 0)
+        self.assertEqual(StorageLocation.objects.to_delete("GCS").count(), 0)
+        self.assertEqual(StorageLocation.objects.to_delete("S3").count(), 0)
 
         StorageLocation.objects.create(
             file_storage=self.file_storage,
@@ -285,15 +318,29 @@ class DecisionMakerTest(TestCase):
                 "S3": MagicMock(priority=CONNECTORS["S3"].priority),
             },
         ):
-            self.assertEqual(self.decision_maker.delete(), location_gcs)
+            self.assertEqual(StorageLocation.objects.to_delete("local").count(), 0)
+            self.assertEqual(
+                StorageLocation.objects.to_delete("GCS").get(), self.file_storage
+            )
+            self.assertEqual(
+                StorageLocation.objects.to_delete("S3").get(), self.file_storage
+            )
+
             location_gcs.delete()
-            self.assertEqual(self.decision_maker.delete(), location_s3)
+            self.assertEqual(StorageLocation.objects.to_delete("local").count(), 0)
+            self.assertEqual(StorageLocation.objects.to_delete("GCS").count(), 0)
+            self.assertEqual(
+                StorageLocation.objects.to_delete("S3").get(), self.file_storage
+            )
+
             location_s3.delete()
-            self.assertIsNone(self.decision_maker.delete())
+            self.assertEqual(StorageLocation.objects.to_delete("local").count(), 0)
+            self.assertEqual(StorageLocation.objects.to_delete("GCS").count(), 0)
+            self.assertEqual(StorageLocation.objects.to_delete("S3").count(), 0)
 
 
 @patch("resolwe.storage.manager.connectors", CONNECTORS)
-@patch("resolwe.storage.manager.STORAGE_CONNECTORS", CONNECTORS_SETTINGS)
+@patch("resolwe.storage.models.STORAGE_CONNECTORS", CONNECTORS_SETTINGS)
 class DecisionMakerOverrideRuleTest(TestCase):
     fixtures = [
         "storage_processes.yaml",
@@ -308,7 +355,6 @@ class DecisionMakerOverrideRuleTest(TestCase):
         super().setUp()
 
     def test_override_process_type(self):
-        decision_maker = DecisionMaker(self.file_storage1)
         settings = copy.deepcopy(CONNECTORS_SETTINGS)
         override = {"data:test": {"delay": 10}}
         override_nonexisting = {"data:nonexisting": {"delay": 10}}
@@ -322,24 +368,34 @@ class DecisionMakerOverrideRuleTest(TestCase):
             connector_name="S3",
             status=StorageLocation.STATUS_DONE,
         )
-        self.assertEqual(decision_maker.copy(), ["GCS"])
+
+        self.assertEqual(StorageLocation.objects.to_copy("local").count(), 0)
+        self.assertEqual(
+            StorageLocation.objects.to_copy("GCS").get(), self.file_storage1
+        )
+        self.assertEqual(StorageLocation.objects.to_copy("S3").count(), 0)
 
         settings["GCS"]["config"]["copy"]["process_type"] = override
         with patch(
-            "resolwe.storage.manager.STORAGE_CONNECTORS",
+            "resolwe.storage.models.STORAGE_CONNECTORS",
             settings,
         ):
-            self.assertEqual(decision_maker.copy(), [])
+            self.assertEqual(StorageLocation.objects.to_copy("local").count(), 0)
+            self.assertEqual(StorageLocation.objects.to_copy("S3").count(), 0)
+            self.assertEqual(StorageLocation.objects.to_copy("GCS").count(), 0)
 
         settings["GCS"]["config"]["copy"]["process_type"] = override_nonexisting
         with patch(
-            "resolwe.storage.manager.STORAGE_CONNECTORS",
+            "resolwe.storage.models.STORAGE_CONNECTORS",
             settings,
         ):
-            self.assertEqual(decision_maker.copy(), ["GCS"])
+            self.assertEqual(StorageLocation.objects.to_copy("local").count(), 0)
+            self.assertEqual(
+                StorageLocation.objects.to_copy("GCS").get(), self.file_storage1
+            )
+            self.assertEqual(StorageLocation.objects.to_copy("S3").count(), 0)
 
     def test_override_data_slug(self):
-        decision_maker = DecisionMaker(self.file_storage1)
         settings = copy.deepcopy(CONNECTORS_SETTINGS)
         override = {"test_data": {"delay": 10}}
         override_nonexisting = {"data_nonexisting": {"delay": 10}}
@@ -353,24 +409,33 @@ class DecisionMakerOverrideRuleTest(TestCase):
             connector_name="S3",
             status=StorageLocation.STATUS_DONE,
         )
-        self.assertEqual(decision_maker.copy(), ["GCS"])
+        self.assertEqual(StorageLocation.objects.to_copy("local").count(), 0)
+        self.assertEqual(StorageLocation.objects.to_copy("S3").count(), 0)
+        self.assertEqual(
+            StorageLocation.objects.to_copy("GCS").get(), self.file_storage1
+        )
 
         settings["GCS"]["config"]["copy"]["data_slug"] = override
         with patch(
-            "resolwe.storage.manager.STORAGE_CONNECTORS",
+            "resolwe.storage.models.STORAGE_CONNECTORS",
             settings,
         ):
-            self.assertEqual(decision_maker.copy(), [])
+            self.assertEqual(StorageLocation.objects.to_copy("local").count(), 0)
+            self.assertEqual(StorageLocation.objects.to_copy("S3").count(), 0)
+            self.assertEqual(StorageLocation.objects.to_copy("GCS").count(), 0)
 
         settings["GCS"]["config"]["copy"]["data_slug"] = override_nonexisting
         with patch(
-            "resolwe.storage.manager.STORAGE_CONNECTORS",
+            "resolwe.storage.models.STORAGE_CONNECTORS",
             settings,
         ):
-            self.assertEqual(decision_maker.copy(), ["GCS"])
+            self.assertEqual(StorageLocation.objects.to_copy("local").count(), 0)
+            self.assertEqual(StorageLocation.objects.to_copy("S3").count(), 0)
+            self.assertEqual(
+                StorageLocation.objects.to_copy("GCS").get(), self.file_storage1
+            )
 
     def test_override_priority(self):
-        decision_maker = DecisionMaker(self.file_storage1)
         settings = copy.deepcopy(CONNECTORS_SETTINGS)
         override_process_type = {"test:data:": {"delay": 10}}
         override_data_slug = {"test_data": {"delay": 5}}
@@ -384,28 +449,39 @@ class DecisionMakerOverrideRuleTest(TestCase):
             connector_name="S3",
             status=StorageLocation.STATUS_DONE,
         )
-        self.assertEqual(decision_maker.copy(), ["GCS"])
+
+        self.assertEqual(StorageLocation.objects.to_copy("local").count(), 0)
+        self.assertEqual(StorageLocation.objects.to_copy("S3").count(), 0)
+        self.assertEqual(
+            StorageLocation.objects.to_copy("GCS").get(), self.file_storage1
+        )
 
         settings["GCS"]["config"]["copy"]["data_slug"] = override_data_slug
         settings["GCS"]["config"]["copy"]["process_type"] = override_process_type
 
         with patch(
-            "resolwe.storage.manager.STORAGE_CONNECTORS",
+            "resolwe.storage.models.STORAGE_CONNECTORS",
             settings,
         ):
-            self.assertEqual(decision_maker.copy(), ["GCS"])
+            self.assertEqual(StorageLocation.objects.to_copy("local").count(), 0)
+            self.assertEqual(StorageLocation.objects.to_copy("S3").count(), 0)
+            self.assertEqual(
+                StorageLocation.objects.to_copy("GCS").get(), self.file_storage1
+            )
 
         override_data_slug["test_data"]["delay"] = 10
         override_process_type["test:data:"]["delay"] = 5
         with patch(
-            "resolwe.storage.manager.STORAGE_CONNECTORS",
+            "resolwe.storage.models.STORAGE_CONNECTORS",
             settings,
         ):
-            self.assertEqual(decision_maker.copy(), [])
+            self.assertEqual(StorageLocation.objects.to_copy("local").count(), 0)
+            self.assertEqual(StorageLocation.objects.to_copy("S3").count(), 0)
+            self.assertEqual(StorageLocation.objects.to_copy("GCS").count(), 0)
 
 
+@patch("resolwe.storage.models.STORAGE_CONNECTORS", CONNECTORS_SETTINGS)
 @patch("resolwe.storage.manager.connectors", CONNECTORS)
-@patch("resolwe.storage.manager.STORAGE_CONNECTORS", CONNECTORS_SETTINGS)
 @patch("resolwe.storage.models.connectors", CONNECTORS)
 class ManagerTest(TransactionTestCase):
     fixtures = [
@@ -421,15 +497,19 @@ class ManagerTest(TransactionTestCase):
         super().setUp()
 
     def test_process(self):
-        process_filestorage_mock = MagicMock()
+        process_copy_mock = MagicMock()
+        process_delete_mock = MagicMock()
         with patch(
-            "resolwe.storage.manager.Manager._process_file_storage",
-            process_filestorage_mock,
+            "resolwe.storage.manager.Manager.process_copy",
+            process_copy_mock,
         ):
-            self.manager.process()
-        self.assertEqual(process_filestorage_mock.call_count, 2)
-        self.assertIn(call(self.file_storage1), process_filestorage_mock.call_args_list)
-        self.assertIn(call(self.file_storage2), process_filestorage_mock.call_args_list)
+            with patch(
+                "resolwe.storage.manager.Manager.process_delete",
+                process_delete_mock,
+            ):
+                self.manager.process()
+        self.assertEqual(process_copy_mock.call_count, 1)
+        self.assertEqual(process_delete_mock.call_count, 1)
 
     def test_skip_locked(self):
         rows_locked = Event()
@@ -444,31 +524,65 @@ class ManagerTest(TransactionTestCase):
 
         def task_b():
             rows_locked.wait()
+            self.manager = Manager()
             self.manager.process()
             manager_finished.set()
             connection.close()
 
-        process_filestorage_mock = MagicMock()
-        with patch(
-            "resolwe.storage.manager.Manager._process_file_storage",
-            process_filestorage_mock,
+        process_copy_mock = MagicMock()
+        process_delete_mock = MagicMock()
+        copy = MagicMock(return_value=FileStorage.objects.all())
+        delete = MagicMock(return_value=FileStorage.objects.all())
+
+        with patch.multiple(
+            "resolwe.storage.models.LocationsDoneManager",
+            to_delete=delete,
+            to_copy=copy,
         ):
-            with ThreadPoolExecutor() as executor:
-                executor.submit(task_a, [self.file_storage1.id, self.file_storage2.id])
-                executor.submit(task_b)
-        process_filestorage_mock.assert_not_called()
+            with patch.multiple(
+                "resolwe.storage.manager.Manager",
+                copy_single_location=process_copy_mock,
+                delete_single_location=process_delete_mock,
+            ):
+                with ThreadPoolExecutor() as executor:
+                    executor.submit(
+                        task_a, [self.file_storage1.id, self.file_storage2.id]
+                    )
+                    executor.submit(task_b)
+
+        process_copy_mock.assert_not_called()
+        process_delete_mock.assert_not_called()
 
         rows_locked.clear()
         manager_finished.clear()
-        process_filestorage_mock = MagicMock()
-        with patch(
-            "resolwe.storage.manager.Manager._process_file_storage",
-            process_filestorage_mock,
+        process_copy_mock = MagicMock()
+        process_delete_mock = MagicMock()
+        copy = MagicMock(
+            return_value=FileStorage.objects.filter(pk=self.file_storage1.pk)
+        )
+        delete = MagicMock(
+            side_effect=[
+                FileStorage.objects.filter(pk=self.file_storage2.pk),
+                FileStorage.objects.none(),
+                FileStorage.objects.none(),
+            ]
+        )
+        with patch.multiple(
+            "resolwe.storage.models.LocationsDoneManager",
+            to_delete=delete,
+            to_copy=copy,
         ):
-            with ThreadPoolExecutor() as executor:
-                executor.submit(task_a, [self.file_storage1.id])
-                executor.submit(task_b)
-        process_filestorage_mock.assert_called_once_with(self.file_storage2)
+            with patch.multiple(
+                "resolwe.storage.manager.Manager",
+                copy_single_location=process_copy_mock,
+                delete_single_location=process_delete_mock,
+            ):
+                with ThreadPoolExecutor() as executor:
+                    executor.submit(task_a, [self.file_storage1.id])
+                    executor.submit(task_b)
+
+        process_copy_mock.assert_not_called()
+        process_delete_mock.assert_called_once_with(self.file_storage2, "local")
 
     def test_transfer(self):
         FileStorage.objects.filter(pk=self.file_storage1.pk).update(
@@ -489,7 +603,7 @@ class ManagerTest(TransactionTestCase):
         transfer_instance = MagicMock(transfer_objects=transfer_objects)
         transfer_module = MagicMock(return_value=transfer_instance)
         with patch("resolwe.storage.models.Transfer", transfer_module):
-            self.manager._process_file_storage(self.file_storage1)
+            self.manager.process_copy()
         transfer_objects.assert_called_once()
         self.assertEqual(len(transfer_objects.call_args[0]), 2)
         arg1, arg2 = transfer_objects.call_args[0]
@@ -534,7 +648,7 @@ class ManagerTest(TransactionTestCase):
             },
         ):
             with patch("resolwe.storage.models.Transfer", transfer_module):
-                self.manager._process_file_storage(self.file_storage1)
+                self.manager.process_copy()
         transfer_objects.assert_called_once()
         self.assertEqual(len(transfer_objects.call_args[0]), 2)
         arg1, arg2 = transfer_objects.call_args[0]
@@ -556,43 +670,52 @@ class ManagerTest(TransactionTestCase):
             status=StorageLocation.STATUS_DONE,
         )
         # Do not delete.
-        copy = MagicMock(return_value=[])
-        delete = MagicMock(return_value=None)
-        decision_maker = MagicMock(copy=copy, delete=delete)
-        DecisionMaker = MagicMock(return_value=decision_maker)
-        with patch("resolwe.storage.manager.DecisionMaker", DecisionMaker):
-            self.manager._process_file_storage(self.file_storage1)
-        copy.assert_called_once_with()
-        delete.assert_called_once_with()
+        process_copy_mock = MagicMock()
+        process_delete_mock = MagicMock()
+        copy = MagicMock(return_value=FileStorage.objects.none())
+        delete = MagicMock(return_value=FileStorage.objects.none())
+        with patch.multiple(
+            "resolwe.storage.models.LocationsDoneManager",
+            to_delete=delete,
+            to_copy=copy,
+        ):
+            with patch.multiple(
+                "resolwe.storage.manager.Manager",
+                copy_single_location=process_copy_mock,
+                delete_single_location=process_delete_mock,
+            ):
+                self.manager = Manager()
+                self.manager.process()
+        self.assertEqual(copy.call_count, 3)
+        self.assertEqual(delete.call_count, 3)
+        process_copy_mock.assert_not_called()
+        process_delete_mock.assert_not_called()
 
         # Delete location_local.
         delete_data = MagicMock()
         location_local.delete_data = delete_data()
-        copy = MagicMock(return_value=[])
-        delete = MagicMock(side_effect=[location_local, None])
-        decision_maker = MagicMock(copy=copy, delete=delete)
-        DecisionMaker = MagicMock(return_value=decision_maker)
-        with patch("resolwe.storage.manager.DecisionMaker", DecisionMaker):
-            self.manager._process_file_storage(self.file_storage1)
-        copy.assert_called_once_with()
-        self.assertEqual(delete.call_count, 2)
-        delete_data.assert_called_once_with()
+        copy = MagicMock(return_value=FileStorage.objects.none())
+        delete = MagicMock(
+            side_effect=[
+                FileStorage.objects.filter(pk=location_local.file_storage.pk),
+                FileStorage.objects.none(),
+                FileStorage.objects.none(),
+            ]
+        )
 
-    def test_delete_failed(self):
-        # Error while deleting location, do not fall into endless loop.
-        delete_location = MagicMock()
-        location_local_mock = MagicMock(
-            spec=StorageLocation, delete=delete_location, connector_name="local"
-        )
-        file_storage_mock = MagicMock(
-            spec=FileStorage, default_storage_location=location_local_mock
-        )
-        copy = MagicMock(return_value=[])
-        delete = MagicMock(return_value=location_local_mock)
-        decision_maker = MagicMock(copy=copy, delete=delete)
-        DecisionMaker = MagicMock(return_value=decision_maker)
-        with patch("resolwe.storage.manager.DecisionMaker", DecisionMaker):
-            self.manager._process_file_storage(file_storage_mock)
-        copy.assert_called_once_with()
-        self.assertEqual(delete.call_count, 2)
-        delete_location.assert_called_once_with()
+        with patch.multiple(
+            "resolwe.storage.models.LocationsDoneManager",
+            to_delete=delete,
+            to_copy=copy,
+        ):
+            with patch.multiple(
+                "resolwe.storage.manager.Manager",
+                copy_single_location=process_copy_mock,
+                delete_single_location=process_delete_mock,
+            ):
+                self.manager = Manager()
+                self.manager.process()
+        self.assertEqual(copy.call_count, 3)
+        process_copy_mock.assert_not_called()
+        delete_data.assert_called_once_with()
+        self.assertEqual(process_delete_mock.call_count, 1)
