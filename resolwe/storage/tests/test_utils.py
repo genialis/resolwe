@@ -30,6 +30,7 @@ class UtilsTest(TestCase):
                     "md5": "9638a76565e9f1f15443421c5605d8ce",
                     "crc32c": "5e29c10c",
                     "awss3etag": "9638a76565e9f1f15443421c5605d8ce",
+                    "chunk_size": 8 * 1024 * 1024,
                 },
             )
 

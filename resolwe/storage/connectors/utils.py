@@ -36,6 +36,22 @@ def get_transfer_object(
         If file_ argument does not point to a file/directory None is
         returned.
     """
+
+    def get_chunk_size(file_size: int):
+        """Chose chunk size for S3.
+
+        The chunk_size must be such that the file_size fits in at most 10_000
+        chunks. See
+        https://docs.aws.amazon.com/AmazonS3/latest/dev/mpuoverview.html
+        for additional information about this hard limit.
+
+        Min chunk size must be 8 mega bytes. This is also the threshold for
+        multipart uploads.
+        """
+        min_chunk_size = 8 * 1024 * 1024
+        needed_chunk_size = int(file_size / 10000) + 1
+        return max(min_chunk_size, needed_chunk_size)
+
     path = Path(file_)
     if not (path.is_file() or path.is_dir()):
         return None
@@ -48,6 +64,8 @@ def get_transfer_object(
     if path.is_dir():
         file_transfer_data["path"] = os.path.join(file_transfer_data["path"], "")
         file_transfer_data["size"] = 0
+    else:
+        file_transfer_data["chunk_size"] = get_chunk_size(file_transfer_data["size"])
 
     file_transfer_data.update(compute_hashes(path))
     return file_transfer_data
