@@ -57,8 +57,7 @@ class KubernetesTestCase(TestCase):
         self.assertEqual(label, sanitizer(label))
 
         too_long_label = "this-is-a-valid-label" * 10
-        self.assertEqual("..." + too_long_label[-60:], sanitizer(too_long_label))
-
+        self.assertEqual(too_long_label[-63:], sanitizer(too_long_label))
         weird_label = "invalid/label with .some*weird'characters"
         self.assertEqual(
             "invalid_label_with_.some_weird_characters", sanitizer(weird_label)
@@ -68,3 +67,6 @@ class KubernetesTestCase(TestCase):
         self.assertEqual(
             "2must_start_and_end_with_alphanumeric_character", sanitizer(label)
         )
+
+        label = "_" * 100 + "I am too long"
+        self.assertEqual("I_am_too_long", sanitizer(label))

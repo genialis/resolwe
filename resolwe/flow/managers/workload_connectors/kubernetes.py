@@ -503,7 +503,7 @@ class Connector(BaseConnector):
         max_length = 63
         replaced = re.sub("[^0-9a-zA-Z._\-]+", "_", label).strip("-_.")
         if len(replaced) > max_length:
-            return f"...{replaced[-(max_length-3):]}"
+            return replaced[-max_length:].strip("-_.")
         return replaced
 
     def start(self, data: Data):
