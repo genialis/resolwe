@@ -363,6 +363,7 @@ class ProcessTestCase(TransactionTestCase):
         descriptor_schema=None,
         verbosity=0,
         tags=None,
+        contributor=None,
     ):
         """Run the specified process with the given inputs.
 
@@ -495,7 +496,7 @@ class ProcessTestCase(TransactionTestCase):
 
         data = Data.objects.create(
             input=input_,
-            contributor=self.admin,
+            contributor=contributor or self.admin,
             process=process,
             slug=get_random_string(length=6),
             tags=tags or [],

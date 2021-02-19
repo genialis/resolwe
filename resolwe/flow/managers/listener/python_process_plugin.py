@@ -7,10 +7,10 @@ from django.apps import apps
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.postgres.fields.jsonb import JSONField
-from django.db.models import ManyToManyField, Model, QuerySet
+from django.db.models import ForeignKey, ManyToManyField, Model, QuerySet
 
 from resolwe.flow.executors.socket_utils import Message, Response
-from resolwe.flow.models import Collection, Data, Process, Storage
+from resolwe.flow.models import Collection, Data, Entity, Process, Storage
 from resolwe.flow.models.utils import serialize_collection_relations
 from resolwe.flow.utils import dict_dot
 from resolwe.permissions.shortcuts import get_objects_for_user
@@ -99,6 +99,30 @@ class ExposeObjectPlugin(metaclass=abc.ABCMeta):
 
     full_model_name = "app_label.model_name"
 
+    def _has_permission(
+        self, user: UserClass, model: Type[Model], model_pk: int, permission_name: str
+    ):
+        """Check if contributor has requested permissions.
+
+        :raises RuntimeError: with detailed explanation when check fails.
+        """
+        full_permission_name = get_full_perm(permission_name, model)
+        object_ = model.objects.filter(pk=model_pk)
+        filtered_object = get_objects_for_user(
+            user,
+            [full_permission_name],
+            object_,
+        )
+        if not filtered_object:
+            if object_:
+                raise RuntimeError(
+                    f"No permissions: {model._meta.model_name} with id {model_pk}."
+                )
+            else:
+                raise RuntimeError(
+                    f"Object {model._meta.model_name} with id {model_pk} not found."
+                )
+
     def can_create(self, user: UserClass, attributes: dict, data: Data):
         """Can user create the model with given attributes.
 
@@ -153,30 +177,6 @@ class ExposeData(ExposeObjectPlugin):
 
     full_model_name = "flow.Data"
 
-    def _has_permission(
-        self, user: UserClass, model: Type[Model], model_pk: int, permission_name: str
-    ):
-        """Check if contributor has requested permissions.
-
-        :raises RuntimeError: with detailed explanation when check fails.
-        """
-        full_permission_name = get_full_perm(permission_name, model)
-        object_ = model.objects.filter(pk=model_pk)
-        filtered_object = get_objects_for_user(
-            user,
-            [full_permission_name],
-            object_,
-        )
-        if not filtered_object:
-            if object_:
-                raise RuntimeError(
-                    f"No permissions: {model._meta.model_name} with id {model_pk}."
-                )
-            else:
-                raise RuntimeError(
-                    f"Object {model._meta.model_name} with id {model_pk} not found."
-                )
-
     def can_create(self, user: UserClass, model_data: Dict, data: Data):
         """Can user update the given model instance.
 
@@ -188,7 +188,9 @@ class ExposeData(ExposeObjectPlugin):
             "output",
             "input",
             "tags",
+            "entity",
             "entity_id",
+            "collection",
             "collection_id",
             "name",
         }
@@ -219,7 +221,9 @@ class ExposeData(ExposeObjectPlugin):
             "output",
             "tags",
             "entity_id",
+            "entity",
             "collection_id",
+            "collection",
             "name",
             "descriptor",
         }
@@ -232,7 +236,7 @@ class ExposeData(ExposeObjectPlugin):
 
         if "entity_id" in model_data:
             # Check entity permissions.
-            self._has_permission(user, Process, model_data["entity_id"], "edit")
+            self._has_permission(user, Entity, model_data["entity_id"], "edit")
 
         if "collection_id" in model_data:
             # Check collection permissions.
@@ -270,6 +274,33 @@ class ExposeEntity(ExposeObjectPlugin):
     """Expose the Entity model."""
 
     full_model_name = "flow.Entity"
+
+    def can_create(self, user: UserClass, attributes: dict, data: Data):
+        """Can user update the given model instance.
+
+        :raises RuntimeError: if user does not have permissions to create the
+            given model.
+        """
+
+    def can_update(
+        self, user: UserClass, model_instance: Data, model_data: Dict, data: Data
+    ):
+        """Can user update the given model instance.
+
+        :raises RuntimeError: when user does not have permissions to update
+            the given model.
+        """
+        allowed_fields = {
+            "description",
+            "tags",
+            "name",
+        }
+        not_allowed_keys = set(model_data.keys()) - allowed_fields
+        if not_allowed_keys:
+            raise RuntimeError(f"Not allowed to set {','.join(not_allowed_keys)}.")
+
+        # Check permission to modify the Entity object.
+        self._has_permission(user, Entity, model_instance.id, "edit")
 
 
 class ExposeCollection(ExposeObjectPlugin):
@@ -455,14 +486,13 @@ class PythonProcess(ListenerPlugin):
             # only updated, other JSON fields should probably be replaced.
             # Compromise: when update is a dict, then only values in dict are
             # updates, else replaced.
-            if isinstance(model._meta.get_field(field_name), JSONField) and isinstance(
-                field_value, dict
-            ):
+            field_meta = model._meta.get_field(field_name)
+            if isinstance(field_meta, JSONField) and isinstance(field_value, dict):
                 update_fields.append(field_name)
                 current_value = getattr(model_instance, field_name)
                 for key, value in field_value.items():
                     dict_dot(current_value, key, value)
-            elif isinstance(model._meta.get_field(field_name), ManyToManyField):
+            elif isinstance(field_meta, ManyToManyField):
                 assert isinstance(
                     field_value, list
                 ), "Only lists may be assigned to many-to-many relations"
@@ -475,6 +505,11 @@ class PythonProcess(ListenerPlugin):
                     field.remove(*objects_to_remove)
                 if objects_to_add:
                     field.add(*objects_to_add)
+            # Set ID directly when setting foreign key relations.
+            elif isinstance(field_meta, ForeignKey):
+                field_name = f"{field_name}_id"
+                update_fields.append(field_name)
+                setattr(model_instance, field_name, field_value)
             else:
                 update_fields.append(field_name)
                 setattr(model_instance, field_name, field_value)

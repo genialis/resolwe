@@ -18,7 +18,7 @@ from resolwe.process import (
     StringField,
     UrlField,
 )
-from resolwe.process.models import Collection, Data
+from resolwe.process.models import Collection, Data, Entity
 from resolwe.process.models import Process as ProcessM
 
 
@@ -289,6 +289,7 @@ class RequirementsProcess(Process):
     def run(self, inputs, outputs):
         outputs.cores = self.requirements["resources"]["cores"]
         outputs.memory = self.requirements["resources"]["memory"]
+        outputs.cores = self.requirements["resources"]["cores"]
 
         print("Cores:", outputs.cores)
         print("Memory:", outputs.memory)
@@ -467,6 +468,43 @@ class CreateData(Process):
             name=inputs.data_name,
             input={"collection_name": inputs.collection_name},
         )
+
+
+class CreateEntityTags(Process):
+    slug = "assign-entity-tags"
+    name = "Create entity tags"
+    data_name = "{{ data_input | name | default('?') }}"
+    version = "1.0.0"
+    process_type = "data:name"
+    requirements = {"expression-engine": "jinja"}
+
+    class Input:
+        data_name = StringField(label="Data name")
+        sample_name = StringField(label="Collection name")
+        tags = ListField(StringField(), label="My tags")
+
+    def run(self, inputs, outputs):
+        sample = Entity.create(name=inputs.sample_name)
+        sample.tags = inputs.tags
+        self.data.name = inputs.data_name
+        self.data.entity = sample
+
+
+class ChangeEntityName(Process):
+    slug = "change-entity-name"
+    name = "Rename entity"
+    data_name = "{{ data_input | name | default('?') }}"
+    version = "1.0.0"
+    process_type = "data:name"
+    requirements = {"expression-engine": "jinja"}
+
+    class Input:
+        entity_id = IntegerField(label="Entity id")
+        entity_name = StringField(label="New entity name")
+
+    def run(self, inputs, outputs):
+        entity = Entity.get(pk=inputs.entity_id)
+        entity.name = inputs.entity_name
 
 
 class TestStorage(Process):

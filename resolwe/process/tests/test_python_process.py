@@ -389,6 +389,70 @@ class PythonProcessTest(ProcessTestCase):
         Collection.objects.get(name=collection_name)
         Data.objects.get(name=data_name)
 
+    @with_docker_executor
+    @tag_process("assign-entity-tags")
+    def test_assign_tags_entity(self):
+        """Assign tags to entity."""
+        data = self.run_process(
+            "assign-entity-tags",
+            {
+                "data_name": "data_name",
+                "sample_name": "sample_name",
+                "tags": ["first", "second"],
+            },
+        )
+        self.assertEqual(data.name, "data_name")
+        self.assertEqual(data.entity.name, "sample_name")
+        self.assertEqual(data.entity.tags, ["first", "second"])
+
+    @with_docker_executor
+    @tag_process("change-entity-name")
+    def test_change_entity_name(self):
+        """Assign tags to entity."""
+
+        entity = Entity.objects.create(name="Entity", contributor=self.user)
+        process = Process.objects.get(slug="change-entity-name")
+        assign_perm("view_process", self.user, process)
+
+        data = self.run_process(
+            "change-entity-name",
+            {"entity_id": entity.pk, "entity_name": "New entity name"},
+            contributor=self.user,
+            assert_status=Data.STATUS_ERROR,
+        )
+        self.assertEqual(
+            data.process_error,
+            ["No objects match the given criteria or no permission to read object."],
+        )
+        entity.refresh_from_db()
+        self.assertEqual(entity.name, "Entity")
+
+        assign_perm("view_entity", self.user, entity)
+        data = self.run_process(
+            "change-entity-name",
+            {"entity_id": entity.pk, "entity_name": "New entity name"},
+            contributor=self.user,
+            assert_status=Data.STATUS_ERROR,
+        )
+        self.assertEqual(len(data.process_error), 1)
+
+        self.assertTrue(
+            f"No edit permission for entity with id {entity.pk}."
+            in data.process_error[0]
+        )
+        entity.refresh_from_db()
+        self.assertEqual(entity.name, "Entity")
+
+        assign_perm("edit_entity", self.user, entity)
+        data = self.run_process(
+            "change-entity-name",
+            {"entity_id": entity.pk, "entity_name": "New entity name"},
+            contributor=self.user,
+        )
+        self.assertEqual(len(data.process_error), 0)
+        entity.refresh_from_db()
+        self.assertEqual(entity.name, "New entity name")
+
 
 class PythonProcessRequirementsTest(ProcessTestCase):
     def setUp(self):
