@@ -1,10 +1,12 @@
 # pylint: disable=missing-docstring
+from functools import partial
 from unittest.mock import patch
 
 from django.core.exceptions import ValidationError
 
 from rest_framework.response import Response
 
+from resolwe.flow.managers.workload_connectors.kubernetes import Connector
 from resolwe.flow.models import Data, Process
 from resolwe.flow.utils import get_data_checksum
 from resolwe.flow.utils.exceptions import resolwe_exception_handler
@@ -44,4 +46,25 @@ class ExceptionsTestCase(TestCase):
         checksum = get_data_checksum(data.input, process.slug, process.version)
         self.assertEqual(
             checksum, "ca322c2bb48b58eea3946e624fe6cfdc53c2cc12478465b6f0ca2d722e280c4c"
+        )
+
+
+class KubernetesTestCase(TestCase):
+    def test_kubernetes_label_sanitizer(self):
+        sanitizer = partial(getattr(Connector, "_sanitize_kubernetes_label"), None)
+
+        label = "this-is-a-valid-label"
+        self.assertEqual(label, sanitizer(label))
+
+        too_long_label = "this-is-a-valid-label" * 10
+        self.assertEqual("..." + too_long_label[-60:], sanitizer(too_long_label))
+
+        weird_label = "invalid/label with .some*weird'characters"
+        self.assertEqual(
+            "invalid_label_with_.some_weird_characters", sanitizer(weird_label)
+        )
+
+        label = "*/.2must start and end with alphanumeric character_"
+        self.assertEqual(
+            "2must_start_and_end_with_alphanumeric_character", sanitizer(label)
         )

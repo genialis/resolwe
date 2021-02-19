@@ -493,6 +493,19 @@ class Connector(BaseConnector):
         assert isinstance(inputs_size, int)
         return ceil((inputs_size + safety_buffer) / (2 ** 30)) * (2 ** 30)
 
+    def _sanitize_kubernetes_label(self, label: str) -> str:
+        """Make sure kubernetes label complies with the rules.
+
+        See the URL bellow for details.
+
+        https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+        """
+        max_length = 63
+        replaced = re.sub("[^0-9a-zA-Z._\-]+", "_", label).strip("-_.")
+        if len(replaced) > max_length:
+            return f"...{replaced[-(max_length-3):]}"
+        return replaced
+
     def start(self, data: Data):
         """Start process execution.
 
@@ -612,6 +625,16 @@ class Connector(BaseConnector):
         )
 
         requirements = data.process.requirements.get("executor", {}).get("docker", {})
+        processing_container_image = str(
+            requirements.get(
+                "image",
+                getattr(
+                    settings,
+                    "FLOW_DOCKER_DEFAULT_PROCESSING_CONTAINER_IMAGE",
+                    "public.ecr.aws/s4q6j6e8/resolwe/base:ubuntu-20.04",
+                ),
+            ),
+        )
 
         job_description = {
             "apiVersion": "batch/v1",
@@ -629,21 +652,12 @@ class Connector(BaseConnector):
                         "name": job_name,
                         "labels": {
                             "app": "resolwe",
-                            "data_id": str(data.id),
-                            "process": re.sub(
-                                "[^0-9a-zA-Z._\-]+", "_", data.process.slug
+                            "data_id": str(data.pk),
+                            "process": self._sanitize_kubernetes_label(
+                                data.process.slug
                             ),
-                            "image": re.sub(
-                                "[^0-9a-zA-Z._\-]+",
-                                "_",
-                                requirements.get(
-                                    "image",
-                                    getattr(
-                                        settings,
-                                        "FLOW_DOCKER_DEFAULT_PROCESSING_CONTAINER_IMAGE",
-                                        "public.ecr.aws/s4q6j6e8/resolwe/base:ubuntu-20.04",
-                                    ),
-                                ),
+                            "image": self._sanitize_kubernetes_label(
+                                processing_container_image
                             ),
                         },
                         "annotations": annotations,
@@ -675,14 +689,7 @@ class Connector(BaseConnector):
                         "containers": [
                             {
                                 "name": container_name,
-                                "image": requirements.get(
-                                    "image",
-                                    getattr(
-                                        settings,
-                                        "FLOW_DOCKER_DEFAULT_PROCESSING_CONTAINER_IMAGE",
-                                        "public.ecr.aws/s4q6j6e8/resolwe/base:ubuntu-20.04",
-                                    ),
-                                ),
+                                "image": processing_container_image,
                                 "resources": {"limits": limits, "requests": requests},
                                 # TODO: uncomment after test
                                 "securityContext": security_context,
