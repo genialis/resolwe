@@ -202,7 +202,12 @@ class HTMLPreprocessorView(DataBrowseView):
             from_connector.get(subpath / relative_path, stream)
             stream.seek(0)
             soup = BeautifulSoup(stream)
-            tags_attributes = {"a": "href", "link": "href", "script": "src"}
+            tags_attributes = {
+                "a": "href",
+                "link": "href",
+                "script": "src",
+                "img": "src",
+            }
             for tag in soup.findAll(list(tags_attributes.keys())):
                 attribute = tags_attributes[tag.name]
                 if attribute in tag.attrs:
