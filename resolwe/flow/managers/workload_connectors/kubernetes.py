@@ -500,11 +500,24 @@ class Connector(BaseConnector):
 
         https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
         """
+        registry = ""
+        image_name = label
         max_length = 63
-        replaced = re.sub("[^0-9a-zA-Z._\-]+", "_", label).strip("-_.")
-        if len(replaced) > max_length:
-            return replaced[-max_length:].strip("-_.")
-        return replaced
+        if "/" in label:
+            possible_registry, possible_image_name = label.split("/", maxsplit=1)
+            if "." in possible_registry or ":" in possible_registry:
+                registry = possible_registry
+                image_name = possible_image_name
+
+        sanitized_image_name = re.sub("[^0-9a-zA-Z._\-]+", "_", image_name).strip("-_.")
+        if len(sanitized_image_name) > max_length:
+            logger.warning(__("Label %s is too long and was truncated.", label))
+            sanitized_image_name = sanitized_image_name[-max_length:].strip("-_.")
+
+        if registry:
+            return f"{registry}/{sanitized_image_name}"
+        else:
+            return sanitized_image_name
 
     def start(self, data: Data):
         """Start process execution.
