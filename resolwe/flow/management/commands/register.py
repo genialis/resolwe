@@ -397,8 +397,8 @@ class Command(BaseCommand):
         latest_version_processes = Process.objects.order_by(
             "slug", "-version"
         ).distinct("slug")
-        Process.objects.filter(data__exact=None).difference(
-            latest_version_processes
+        Process.objects.filter(data__exact=None).exclude(
+            id__in=latest_version_processes
         ).delete()
 
         # Deactivate retired processes which have data

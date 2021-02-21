@@ -4,7 +4,6 @@ import pkgutil
 from importlib import import_module
 
 from django.core.exceptions import ImproperlyConfigured
-from django.utils._os import upath
 
 
 class InvalidEngineError(Exception):
@@ -75,7 +74,7 @@ def load_engines(
         except ImportError as ex:
             # The engine wasn't found. Display a helpful error message listing all possible
             # (built-in) engines.
-            engine_dir = os.path.join(os.path.dirname(upath(__file__)), base_module)
+            engine_dir = os.path.join(os.path.dirname(__file__), base_module)
 
             try:
                 builtin_engines = [

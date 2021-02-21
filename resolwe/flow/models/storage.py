@@ -1,5 +1,4 @@
 """Resolwe storage model."""
-from django.contrib.postgres.fields import JSONField
 from django.db import models
 
 from .base import BaseModel, BaseQuerySet
@@ -43,7 +42,7 @@ class Storage(BaseModel):
     data = models.ManyToManyField("Data", related_name="storages")
 
     #: actual JSON stored
-    json = JSONField()
+    json = models.JSONField()
 
     #: storage manager
     objects = StorageManager.from_queryset(BaseQuerySet)()

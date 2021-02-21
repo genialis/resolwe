@@ -5,7 +5,7 @@ import json
 import logging
 
 from django.conf import settings
-from django.contrib.postgres.fields import ArrayField, JSONField
+from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.indexes import GinIndex
 from django.contrib.postgres.search import SearchVectorField
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -343,10 +343,10 @@ class Data(BaseModel):
     process_error = ArrayField(models.CharField(max_length=255), default=list)
 
     #: actual inputs used by the process
-    input = JSONField(default=dict)
+    input = models.JSONField(default=dict)
 
     #: actual outputs of the process
-    output = JSONField(default=dict)
+    output = models.JSONField(default=dict)
 
     #: total size of data's outputs in bytes
     size = models.BigIntegerField()
@@ -357,7 +357,7 @@ class Data(BaseModel):
     )
 
     #: actual descriptor
-    descriptor = JSONField(default=dict)
+    descriptor = models.JSONField(default=dict)
 
     #: indicate whether `descriptor` doesn't match `descriptor_schema` (is dirty)
     descriptor_dirty = models.BooleanField(default=False)

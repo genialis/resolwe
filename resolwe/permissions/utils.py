@@ -32,7 +32,7 @@ def get_full_perm(perm, obj):
 
     Permission is returned in the format of ``<action>_<object_type>``.
     """
-    ctype = ContentType.objects.get_for_model(obj)
+    ctype = ContentType.objects.get_for_model(obj).name
     # Camel case class names are converted into a space-separated
     # content types, so spaces have to be removed.
     ctype = str(ctype).replace(" ", "")

@@ -13,7 +13,6 @@ from importlib import import_module
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
-from django.utils._os import upath
 
 permissions_classes = {}
 
@@ -38,9 +37,7 @@ def get_permissions_class(permissions_name=None):
         except ImportError as ex:
             # The permissions module wasn't found. Display a helpful error
             # message listing all possible (built-in) permissions classes.
-            permissions_dir = os.path.join(
-                os.path.dirname(upath(__file__)), "..", "perms"
-            )
+            permissions_dir = os.path.join(os.path.dirname(__file__), "..", "perms")
             permissions_dir = os.path.normpath(permissions_dir)
 
             try:

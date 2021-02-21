@@ -1,5 +1,4 @@
 """Resolwe migration history models."""
-from django.contrib.postgres.fields import JSONField
 from django.db import models
 
 
@@ -18,7 +17,7 @@ class MigrationHistoryBase(models.Model):
     created = models.DateTimeField(auto_now_add=True)
 
     #: migration-specific metadata
-    metadata = JSONField(default=dict)
+    metadata = models.JSONField(default=dict)
 
     def __str__(self):
         """Format model name."""

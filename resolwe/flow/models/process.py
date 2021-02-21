@@ -1,6 +1,5 @@
 """Reslowe process model."""
 from django.conf import settings
-from django.contrib.postgres.fields import JSONField
 from django.contrib.postgres.indexes import GinIndex
 from django.core.validators import RegexValidator
 from django.db import models
@@ -102,7 +101,7 @@ class Process(BaseModel):
     #: template for name of Data object created with Process
     data_name = models.CharField(max_length=200, null=True, blank=True)
 
-    input_schema = JSONField(blank=True, default=list)
+    input_schema = models.JSONField(blank=True, default=list)
     """
     process input schema (describes input parameters, form layout **"Inputs"** for :attr:`Data.input`)
 
@@ -114,7 +113,7 @@ class Process(BaseModel):
 
     """
 
-    output_schema = JSONField(blank=True, default=list)
+    output_schema = models.JSONField(blank=True, default=list)
     """
     process output schema (describes output JSON, form layout **"Results"** for :attr:`Data.output`)
 
@@ -168,7 +167,7 @@ class Process(BaseModel):
     ``entity_descriptor_schema`` fields.
     """
 
-    run = JSONField(default=dict)
+    run = models.JSONField(default=dict)
     """
     process command and environment description for internal use
 
@@ -180,7 +179,7 @@ class Process(BaseModel):
 
     """
 
-    requirements = JSONField(default=dict)
+    requirements = models.JSONField(default=dict)
     """
     process requirements
     """

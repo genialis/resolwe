@@ -1,5 +1,5 @@
 """Resolwe collection model."""
-from django.contrib.postgres.fields import ArrayField, JSONField
+from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.indexes import GinIndex
 from django.contrib.postgres.search import SearchVectorField
 from django.db import models, transaction
@@ -19,7 +19,7 @@ class BaseCollection(BaseModel):
     #: detailed description
     description = models.TextField(blank=True)
 
-    settings = JSONField(default=dict)
+    settings = models.JSONField(default=dict)
 
     #: collection descriptor schema
     descriptor_schema = models.ForeignKey(
@@ -27,7 +27,7 @@ class BaseCollection(BaseModel):
     )
 
     #: collection descriptor
-    descriptor = JSONField(default=dict)
+    descriptor = models.JSONField(default=dict)
 
     #: indicate whether `descriptor` doesn't match `descriptor_schema` (is dirty)
     descriptor_dirty = models.BooleanField(default=False)

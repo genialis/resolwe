@@ -1,5 +1,4 @@
 """Resolwe descriptor schema model."""
-from django.contrib.postgres.fields import JSONField
 from django.db import models
 
 from .base import BaseModel
@@ -22,4 +21,4 @@ class DescriptorSchema(BaseModel):
     description = models.TextField(blank=True)
 
     #: user descriptor schema represented as a JSON object
-    schema = JSONField(default=list)
+    schema = models.JSONField(default=list)

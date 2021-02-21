@@ -90,7 +90,7 @@ class ResolwePermissionsMixin:
             payload = request.data
             share_content = strtobool(payload.pop("share_content", "false"))
             user = request.user
-            is_owner = user.has_perm("owner_{}".format(content_type), obj=obj)
+            is_owner = user.has_perm("owner_{}".format(content_type.name), obj=obj)
 
             allow_owner = is_owner or user.is_superuser
             check_owner_permission(payload, allow_owner)

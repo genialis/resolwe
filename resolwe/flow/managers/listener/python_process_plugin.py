@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type
 from django.apps import apps
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.contrib.postgres.fields.jsonb import JSONField
-from django.db.models import ForeignKey, ManyToManyField, Model, QuerySet
+from django.contrib.postgres.fields.jsonb import JSONField as JSONFieldb
+from django.db.models import ForeignKey, JSONField, ManyToManyField, Model, QuerySet
 
 from resolwe.flow.executors.socket_utils import Message, Response
 from resolwe.flow.models import Collection, Data, Entity, Process, Storage
@@ -108,6 +108,10 @@ class ExposeObjectPlugin(metaclass=abc.ABCMeta):
         """
         full_permission_name = get_full_perm(permission_name, model)
         object_ = model.objects.filter(pk=model_pk)
+        if not object_:
+            raise RuntimeError(
+                f"Object {model._meta.model_name} with id {model_pk} not found."
+            )
         filtered_object = get_objects_for_user(
             user,
             [full_permission_name],
@@ -487,7 +491,9 @@ class PythonProcess(ListenerPlugin):
             # Compromise: when update is a dict, then only values in dict are
             # updates, else replaced.
             field_meta = model._meta.get_field(field_name)
-            if isinstance(field_meta, JSONField) and isinstance(field_value, dict):
+            if isinstance(field_meta, (JSONField, JSONFieldb)) and isinstance(
+                field_value, dict
+            ):
                 update_fields.append(field_name)
                 current_value = getattr(model_instance, field_name)
                 for key, value in field_value.items():

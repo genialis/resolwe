@@ -4,7 +4,6 @@ import uuid
 from fernet_fields import EncryptedTextField
 
 from django.conf import settings
-from django.contrib.postgres.fields import JSONField
 from django.db import models
 
 
@@ -66,7 +65,7 @@ class Secret(models.Model):
     value = EncryptedTextField()
 
     #: secret metadata (not encrypted)
-    metadata = JSONField(default=dict)
+    metadata = models.JSONField(default=dict)
 
     #: expiry time
     expires = models.DateTimeField(null=True, db_index=True)
