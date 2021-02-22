@@ -499,7 +499,9 @@ class ProcessingManager:
                 ],
             )
             if self.upload_socket.recv(1) == b"0":
-                raise RuntimeError(f"Error sending filenames {processing_filenames}.")
+                raise RuntimeError(
+                    "Error sending filenames: {}.".format(processing_filenames)
+                )
 
         logger.debug("Sending start")
         with (yield from self._send_file_descriptors_lock):
