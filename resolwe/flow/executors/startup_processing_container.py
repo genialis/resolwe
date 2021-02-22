@@ -457,7 +457,7 @@ class ProcessingManager:
             else:
                 logger.debug("No upload needed for log files.")
         except:
-            logger.debug("Error uploading log files")
+            logger.exception("Error uploading log files")
 
     @asyncio.coroutine
     def send_file_descriptors(self, filenames):
