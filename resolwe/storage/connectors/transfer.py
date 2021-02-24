@@ -124,7 +124,7 @@ class Transfer:
 
         futures = paralelize(
             objects=objects_to_transfer,
-            worker=partial(self._transfer_chunk, url),
+            worker=partial(self.transfer_chunk, url),
             max_threads=max_threads,
         )
 
@@ -146,9 +146,13 @@ class Transfer:
 
         return None if objects_stored is objects else objects_stored
 
-    def _transfer_chunk(self, url: Path, objects: Iterable[dict]) -> bool:
+    def transfer_chunk(self, url: Path, objects: Iterable[dict]) -> bool:
         """Transfer a single chunk of objects.
 
+        When objects have properties `from_base_url` and `to_base_url` they
+        override the `url` argument.
+
+        :raises DataTransferError: on failure.
         :returns: True on success.
         """
         to_connector = self.to_connector.duplicate()
@@ -157,7 +161,12 @@ class Transfer:
             # Do not transfer directories.
             if not entry["path"].endswith("/"):
                 if not self.transfer(
-                    url, entry, url, Path(entry["path"]), from_connector, to_connector
+                    entry.get("from_base_url", url),
+                    entry,
+                    entry.get("to_base_url", url),
+                    Path(entry["path"]),
+                    from_connector,
+                    to_connector,
                 ):
                     raise DataTransferError()
         return True
