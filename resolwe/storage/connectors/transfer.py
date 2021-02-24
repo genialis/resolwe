@@ -278,10 +278,15 @@ class Transfer:
                 raise DataTransferError("\n\n".join(messages))
 
         # Check hash of the uploaded object.
-        if from_hash != to_connector.get_hash(to_base_url / to_url, common_hash_type):
+        to_hash = to_connector.get_hash(to_base_url / to_url, common_hash_type)
+        if from_hash != to_hash:
             with suppress(Exception):
                 to_connector.delete(to_base_url, [to_url])
-            raise DataTransferError()
+            raise DataTransferError(
+                f"Hash {common_hash_type} does not match while transfering "
+                f"{from_url} -> {to_base_url/to_url}: using hash type "
+                f"{common_hash_type}: expected {from_hash}, got {to_hash}."
+            )
 
         # Store computed hashes as metadata for later use.
         to_connector.set_hashes(to_base_url / to_url, hashes)
