@@ -10,8 +10,10 @@ import logging
 import os
 import shutil
 import sys
+from collections import defaultdict
 from contextlib import suppress
 from distutils.util import strtobool
+from functools import partial
 from pathlib import Path
 
 import zmq
@@ -19,6 +21,7 @@ import zmq.asyncio
 from executors.connectors import Transfer, connectors
 from executors.connectors.baseconnector import BaseStorageConnector
 from executors.connectors.exceptions import DataTransferError
+from executors.connectors.utils import paralelize
 from executors.socket_utils import BaseCommunicator, BaseProtocol, Message, PeerIdentity
 from executors.zeromq_utils import ZMQCommunicator
 
@@ -65,19 +68,33 @@ async def transfer_inputs(communicator: BaseCommunicator):
     inputs_connector.name = "inputs"
     inputs_connector.config["path"] = INPUTS_VOLUME
 
-    logger.debug(f"Inputs connector: {inputs_connector}")
-
     logger.debug("Transfering missing data.")
     response = await communicator.send_command(
         Message.command("get_inputs_no_shared_storage", "")
     )
+
+    # Group files by connectors. So we can transfer files from single connector
+    # in parallel. We could also transfer files belonging to different
+    # connectors in parallel but this could produce huge number of threads,
+    # since S3 uses multiple threads to transfer single file.
+    objects_to_transfer: dict[str, list[dict[str, str]]] = defaultdict(list)
+    for base_url, (connector_name, files) in response.message_data.items():
+        for file in files:
+            file.update({"from_base_url": base_url, "to_base_url": base_url})
+        objects_to_transfer[connector_name] += files
+
     try:
-        for base_url, (connector_name, files) in response.message_data.items():
+        for connector_name in objects_to_transfer:
             await download_to_location(
-                base_url, files, connectors[connector_name], inputs_connector
+                objects_to_transfer[connector_name],
+                connectors[connector_name],
+                inputs_connector,
             )
-    except Exception as e:
-        error_message = f"Preparing input for url {base_url} from connector {connector_name} failed: {e}."
+    except:
+        error_message = (
+            f"Preparing inputs {objects_to_transfer[connector_name]} from "
+            f"connector {connector_name} failed."
+        )
         await communicator.send_command(
             Message.command("process_log", {"error": error_message})
         )
@@ -86,23 +103,25 @@ async def transfer_inputs(communicator: BaseCommunicator):
 
 
 async def download_to_location(
-    base_url: str,
-    files: dict,
+    files: list[dict[str, str]],
     from_connector: BaseStorageConnector,
     to_connector: BaseStorageConnector,
+    max_threads: int = 5,
 ):
     """Download missing paths.
 
     :raises DataTransferError: on failure.
     """
-    try:
-        logger.debug(f"Transfering: {from_connector} --> {to_connector}.")
-        t = Transfer(from_connector, to_connector)
-        t.transfer_objects(base_url, files)
-    except DataTransferError:
-        logger.exception(
-            "Data transfer error downloading data to base url {}.".format(base_url)
-        )
+    logger.info(f"Transfering data {from_connector} --> {to_connector}.")
+    transfer = Transfer(from_connector, to_connector)
+    # Start futures and evaluate their results. If exception occured it will
+    # be re-raised.
+    for future in paralelize(
+        objects=files,
+        worker=partial(transfer.transfer_chunk, None),
+        max_threads=max_threads,
+    ):
+        future.result()
 
 
 def set_permissions():
@@ -173,7 +192,10 @@ async def main():
     try:
         await protocol.transfer_missing_data()
     except DataTransferError as error:
-        error(f"Data transfer error in init container: {error}", protocol.communicator)
+        error(
+            f"Data transfer error in init container: {str(error)}",
+            protocol.communicator,
+        )
     protocol.stop_communicate()
     with suppress(asyncio.TimeoutError):
         await asyncio.wait_for(communicate_task, timeout=10)
