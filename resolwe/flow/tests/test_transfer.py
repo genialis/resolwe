@@ -365,7 +365,7 @@ class TransfersTest(BasicTestCase):
             "_transfer_data": _transfer_data,
         }
         with patch.multiple(TRANSFER, **patches):
-            with self.assertRaises(RuntimeError) as context_manager:
+            with self.assertRaises(DataTransferError) as context_manager:
                 run_async(transfer.transfer_data(self.communicator_mock))
 
         self.assertEqual(str(context_manager.exception), "Failed to transfer data")

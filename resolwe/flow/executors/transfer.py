@@ -25,10 +25,10 @@ RETRIES = 5
 async def transfer_data(communicator: BaseCommunicator):
     """Transfer missing data.
 
-    :raises RuntimeError: on failure.
+    :raises DataTransferError: on failure.
     """
     if not await _transfer_data(communicator):
-        raise RuntimeError("Failed to transfer data")
+        raise DataTransferError("Failed to transfer data")
 
 
 async def _transfer_data(communicator: BaseCommunicator):

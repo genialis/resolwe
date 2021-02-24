@@ -137,7 +137,7 @@ class InitProtocol(BaseProtocol):
     async def transfer_missing_data(self):
         """Transfer missing data.
 
-        :raises RuntimeError: when data transfer error occurs.
+        :raises DataTransferError: when data transfer error occurs.
         """
         await self.communicator.send_command(Message.command("update_status", "PP"))
         if DATA_ALL_VOLUME_SHARED:
