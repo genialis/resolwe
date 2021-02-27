@@ -2,7 +2,7 @@
 import hashlib
 from io import RawIOBase
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 import crcmod
 
@@ -69,20 +69,22 @@ class StreamHasher:
         "crc32c": lambda: crcmod.predefined.PredefinedCrc("crc32c"),
     }
 
-    def __init__(self, chunk_size=8 * 1024 * 1024):
+    def __init__(self, hashes: Optional[List[str]] = None, chunk_size=8 * 1024 * 1024):
         """Initialize the hasher class using given chunk_size.
+
+        Optionally set the hashes we want to compute by setting the hashes
+        property. The hashes property must include strings from
+        KNOWN_HASH_TYPES list.
 
         Be careful to set the correct chunk_size for AWSS3ETag computation.
         It must be the same as upload chunk size used to upload file to S3.
         """
         self.chunk_size = chunk_size
-        self._init_hashers()
+        self.hashes = hashes or StreamHasher.KNOWN_HASH_TYPES
 
     def _init_hashers(self):
         """Initialize known hashers."""
-        self._hashers = {
-            name: StreamHasher._hashers[name]() for name in StreamHasher._hashers
-        }
+        self._hashers = {name: StreamHasher._hashers[name]() for name in self.hashes}
 
     def compute(self, stream_in: RawIOBase, stream_out: RawIOBase = None):
         """Compute and return the hash for the given stream.

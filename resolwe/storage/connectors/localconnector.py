@@ -87,7 +87,7 @@ class LocalFilesystemConnector(BaseStorageConnector):
     @validate_url
     def get_hashes(self, url, hash_types):
         """Get the hash of the given type for the given object."""
-        hasher = StreamHasher(chunk_size=self.multipart_chunksize)
+        hasher = StreamHasher(chunk_size=self.multipart_chunksize, hashes=hash_types)
         path = self.base_path / url
         if not path.exists():
             return None
@@ -98,7 +98,7 @@ class LocalFilesystemConnector(BaseStorageConnector):
     @validate_url
     def get_hash(self, url, hash_type):
         """Get the hash of the given type for the given object."""
-        hasher = StreamHasher(chunk_size=self.multipart_chunksize)
+        hasher = StreamHasher(chunk_size=self.multipart_chunksize, hashes=[hash_type])
         path = self.base_path / url
         if not path.exists():
             return None
