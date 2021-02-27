@@ -27,7 +27,7 @@ UserClass = get_user_model()
 
 
 class PermissionManager:
-    """Permission manager."""
+    """Permission manager class."""
 
     def __init__(self):
         """Initialization."""
@@ -116,7 +116,7 @@ class ExposeObjectPlugin(metaclass=abc.ABCMeta):
         if not filtered_object:
             if object_:
                 raise RuntimeError(
-                    f"No permissions: {model._meta.model_name} with id {model_pk}."
+                    f"No edit permission for {model._meta.model_name} with id {model_pk}."
                 )
             else:
                 raise RuntimeError(

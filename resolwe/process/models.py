@@ -338,8 +338,14 @@ class Model(metaclass=ModelMetaclass):
         pks = communicator.filter_objects(
             cls._app_name, cls._model_name, filters, ["id"]
         )
-        if len(pks) != 1:
-            raise RuntimeError("Exactly one object should match the given criteria.")
+        if len(pks) > 1:
+            raise RuntimeError(
+                f"Exactly one object should match the given criteria, received {len(pks)}."
+            )
+        elif len(pks) == 0:
+            raise RuntimeError(
+                f"No objects match the given criteria or no permission to read object."
+            )
         return cls(pks[0][0])
 
     @classmethod
@@ -382,6 +388,8 @@ class Model(metaclass=ModelMetaclass):
 
         It is used by the fields (descriptors) to retrieve the data from the
         server. The cache is used if applicable.
+
+        :raises RuntimeError: when no data is received.
         """
         if field.name not in self._cache:
             result = communicator.get_model_fields(
@@ -389,8 +397,16 @@ class Model(metaclass=ModelMetaclass):
             )
             if len(result) > 1:
                 result = [e[field.name] for e in result]
-            else:
+            elif len(result) == 1:
                 result = result[field.name]
+            else:
+                raise RuntimeError(
+                    (
+                        f"No data received for property '{field.name}' of "
+                        f"model {self._model_name} with id {self._pk}. Check "
+                        "property name and permissions."
+                    )
+                )
             self._cache[field.name] = field.clean(result)
         return self._cache[field.name]
 
