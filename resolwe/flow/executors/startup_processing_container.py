@@ -221,9 +221,12 @@ class ProtocolHandler:
             yield from self.manager.upload_log_files()
 
             if KEEP_DATA:
-                yield from self.manager.send_file_descriptors(
-                    [str(file_) for file_ in Path("./").rglob("*") if file_.is_file()]
-                )
+                try:
+                    yield from self.manager.send_file_descriptors(
+                        [str(file) for file in Path("./").rglob("*") if file.is_file()]
+                    )
+                except:
+                    logger.exception("Error sending file descriptors (keep_data).")
 
             response = respond(message, "OK", self.return_code)
             yield from self.communicator.send_data(response)
@@ -468,7 +471,6 @@ class ProcessingManager:
         https://docs.python.org/3/library/socket.html#socket.socket.sendmsg .
 
         :raises RuntimeError: on failure.
-        :returns: the hashes of the files filedescritors describe.
         """
 
         def send_chunk(processing_filenames):
@@ -500,7 +502,8 @@ class ProcessingManager:
             )
             if self.upload_socket.recv(1) == b"0":
                 raise RuntimeError(
-                    "Error sending filenames: {}.".format(processing_filenames)
+                    "Communication container response indicates error sending "
+                    "files {}.".format(processing_filenames)
                 )
 
         logger.debug("Sending start")

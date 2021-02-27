@@ -303,7 +303,14 @@ class Uploader(threading.Thread):
                         future = asyncio.run_coroutine_threadsafe(
                             self.manager.send_referenced_files(to_transfer), self.loop
                         )
-                        if future.result().response_status == ResponseStatus.ERROR:
+                        response = future.result()
+                        # When data object is in state ERROR all responses will
+                        # have error status to indicate processing should
+                        # finish ASAP.
+                        if (
+                            response.response_status == ResponseStatus.ERROR
+                            and response.message_data != "OK"
+                        ):
                             return_value = b"0"
                     client.sendall(return_value)
                 finally:
