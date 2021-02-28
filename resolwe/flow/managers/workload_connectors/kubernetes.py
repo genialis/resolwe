@@ -37,6 +37,8 @@ from .base import BaseConnector
 # processes are stable and do not get killed by OOM signal.
 KUBERNETES_MEMORY_HARD_LIMIT_BUFFER = 2000
 
+# Timeout (in seconds) to wait for response from kubernetes API.
+KUBERNETES_TIMEOUT = 30
 
 logger = logging.getLogger(__name__)
 
@@ -220,7 +222,9 @@ class Connector(BaseConnector):
             # The configmap might have already been created in the meantime.
             with suppress(kubernetes.client.rest.ApiException):
                 core_api.create_namespaced_config_map(
-                    body=configmap_description, namespace=self.kubernetes_namespace
+                    body=configmap_description,
+                    namespace=self.kubernetes_namespace,
+                    _request_timeout=KUBERNETES_TIMEOUT,
                 )
 
         return configmap_name
@@ -744,22 +748,31 @@ class Connector(BaseConnector):
         core_api.create_namespaced_persistent_volume_claim(
             body=self._persistent_ebs_claim(ebs_local_claim_name, ebs_local_claim_size),
             namespace=self.kubernetes_namespace,
+            _request_timeout=KUBERNETES_TIMEOUT,
         )
         core_api.create_namespaced_persistent_volume_claim(
             body=self._persistent_ebs_claim(
-                ebs_input_data_claim_name, ebs_input_data_claim_size
+                ebs_input_data_claim_name,
+                ebs_input_data_claim_size,
             ),
+            _request_timeout=KUBERNETES_TIMEOUT,
             namespace=self.kubernetes_namespace,
         )
 
         core_api.create_namespaced_config_map(
-            body=configmap_description, namespace=self.kubernetes_namespace
+            body=configmap_description,
+            namespace=self.kubernetes_namespace,
+            _request_timeout=KUBERNETES_TIMEOUT,
         )
         core_api.create_namespaced_secret(
-            body=secrets_description, namespace=self.kubernetes_namespace
+            body=secrets_description,
+            namespace=self.kubernetes_namespace,
+            _request_timeout=KUBERNETES_TIMEOUT,
         )
         batch_api.create_namespaced_job(
-            body=job_description, namespace=self.kubernetes_namespace
+            body=job_description,
+            namespace=self.kubernetes_namespace,
+            _request_timeout=KUBERNETES_TIMEOUT,
         )
 
         end_time = time.time()
@@ -820,5 +833,7 @@ class Connector(BaseConnector):
             logger.debug("Kubernetes: removing claim %s.", ebs_claim_name)
             with suppress(kubernetes.client.rest.ApiException):
                 core_api.delete_namespaced_persistent_volume_claim(
-                    name=ebs_claim_name, namespace=self.kubernetes_namespace
+                    name=ebs_claim_name,
+                    namespace=self.kubernetes_namespace,
+                    _request_timeout=KUBERNETES_TIMEOUT,
                 )
