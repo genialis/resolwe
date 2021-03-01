@@ -27,7 +27,7 @@ from django.db.models.functions import Coalesce
 from resolwe.flow.executors import constants
 from resolwe.flow.executors.prepare import BaseFlowExecutorPreparer
 from resolwe.flow.executors.protocol import ExecutorFiles
-from resolwe.flow.models import Data, DataDependency
+from resolwe.flow.models import Data, DataDependency, Process
 from resolwe.utils import BraceMessage as __
 
 from .base import BaseConnector
@@ -649,6 +649,7 @@ class Connector(BaseConnector):
             ),
         )
 
+        job_type = dict(Process.SCHEDULING_CLASS_CHOICES)[data.process.scheduling_class]
         job_description = {
             "apiVersion": "batch/v1",
             "kind": "Job",
@@ -669,6 +670,7 @@ class Connector(BaseConnector):
                             "process": self._sanitize_kubernetes_label(
                                 data.process.slug
                             ),
+                            "job_type": self._sanitize_kubernetes_label(job_type),
                             "image": self._sanitize_kubernetes_label(
                                 processing_container_image
                             ),
