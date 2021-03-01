@@ -671,9 +671,6 @@ class Connector(BaseConnector):
                                 data.process.slug
                             ),
                             "job_type": self._sanitize_kubernetes_label(job_type),
-                            "image": self._sanitize_kubernetes_label(
-                                processing_container_image
-                            ),
                         },
                         "annotations": annotations,
                     },
