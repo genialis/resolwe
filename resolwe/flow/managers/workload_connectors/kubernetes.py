@@ -542,8 +542,7 @@ class Connector(BaseConnector):
             .replace("_", "-")
             .lower()
         )
-        container_name = self._generate_container_name(container_name_prefix, data.id)
-        job_name = f"job-{container_name}"
+        container_name = self._generate_container_name(container_name_prefix, data.pk)
         # Prepare configmap description.
         configmap_name = f"configmap-{container_name}"
         settings_path = self.runtime_dir / location_subpath / "settings"
@@ -653,7 +652,7 @@ class Connector(BaseConnector):
         job_description = {
             "apiVersion": "batch/v1",
             "kind": "Job",
-            "metadata": {"name": job_name},
+            "metadata": {"name": container_name},
             "spec": {
                 # Keep finished pods around for ten seconds. If job is not
                 # deleted its PVC claim persists and it causes PV to stay
@@ -663,7 +662,7 @@ class Connector(BaseConnector):
                 "ttlSecondsAfterFinished": 10,
                 "template": {
                     "metadata": {
-                        "name": job_name,
+                        "name": container_name,
                         "labels": {
                             "app": "resolwe",
                             "data_id": str(data.pk),
