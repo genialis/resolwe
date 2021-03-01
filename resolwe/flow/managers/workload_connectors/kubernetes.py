@@ -497,31 +497,22 @@ class Connector(BaseConnector):
         assert isinstance(inputs_size, int)
         return ceil((inputs_size + safety_buffer) / (2 ** 30)) * (2 ** 30)
 
-    def _sanitize_kubernetes_label(self, label: str) -> str:
+    def _sanitize_kubernetes_label(self, label: str, trim_end: bool = True) -> str:
         """Make sure kubernetes label complies with the rules.
 
         See the URL bellow for details.
 
         https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
         """
-        registry = ""
-        image_name = label
         max_length = 63
-        if "/" in label:
-            possible_registry, possible_image_name = label.split("/", maxsplit=1)
-            if "." in possible_registry or ":" in possible_registry:
-                registry = possible_registry
-                image_name = possible_image_name
-
-        sanitized_image_name = re.sub("[^0-9a-zA-Z._\-]+", "_", image_name).strip("-_.")
-        if len(sanitized_image_name) > max_length:
-            logger.warning(__("Label %s is too long and was truncated.", label))
-            sanitized_image_name = sanitized_image_name[-max_length:].strip("-_.")
-
-        if registry:
-            return f"{registry}/{sanitized_image_name}"
-        else:
-            return sanitized_image_name
+        sanitized_label = re.sub("[^0-9a-zA-Z._\-]+", "_", label).strip("-_.")
+        if len(sanitized_label) > max_length:
+            logger.warning(__("Label '%s' is too long and was truncated.", label))
+            if trim_end:
+                sanitized_label = sanitized_label[-max_length:].strip("-_.")
+            else:
+                sanitized_label = sanitized_label[:max_length].strip("-_.")
+        return sanitized_label
 
     def start(self, data: Data):
         """Start process execution.
