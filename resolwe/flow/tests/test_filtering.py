@@ -905,7 +905,7 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
             [self.data[0]],
         )
         self._check_filter(
-            {"entity__in": "{},{}".format(self.entity1.pk, self.entity2.pk, "999999")},
+            {"entity__in": "{},{}".format(self.entity1.pk, self.entity2.pk)},
             self.data[:2],
         )
         self._check_filter(

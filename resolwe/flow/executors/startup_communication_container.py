@@ -173,7 +173,7 @@ class Uploader(threading.Thread):
     """Upload referenced files to remote location."""
 
     def __init__(self, manager: "Manager", loop: asyncio.AbstractEventLoop):
-        """Initialization."""
+        """Initialize."""
         super().__init__()
         self._terminating = False
         self.to_connector = connectors[UPLOAD_CONNECTOR_NAME].duplicate()
@@ -328,7 +328,7 @@ class ListenerProtocol(BaseProtocol):
     def __init__(
         self, communicator: BaseCommunicator, processing_communicator: BaseCommunicator
     ):
-        """Initialization."""
+        """Initialize."""
         super().__init__(communicator, logger)
         self.processing_communicator = processing_communicator
 
@@ -365,7 +365,7 @@ class ProcessingProtocol(BaseProtocol):
     def __init__(
         self, communicator: BaseCommunicator, listener_communicator: BaseCommunicator
     ):
-        """Initialization."""
+        """Initialize."""
         super().__init__(communicator, logger)
         self.listener_communicator = listener_communicator
 
@@ -424,7 +424,7 @@ class Manager:
     """
 
     def __init__(self):
-        """Initialization."""
+        """Initialize."""
         self.processing_communicator: Optional[BaseCommunicator] = None
         self.listener_communicator: Optional[BaseCommunicator] = None
         self.processing_container_connected = asyncio.Event()

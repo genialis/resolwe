@@ -107,7 +107,7 @@ class JSONDescriptor(MutableMapping[str, Any]):
         read_only=False,
         cache: Optional[Dict[str, Any]] = None,
     ):
-        """Initialization."""
+        """Initialize."""
         self._model = model
         self._model_name = self._model._model_name
         self._app_name = self._model._app_name
@@ -283,7 +283,7 @@ class Model(metaclass=ModelMetaclass):
     _filter_response_fields = []
 
     def __init__(self, pk: int):
-        """Initialization."""
+        """Initialize."""
         self._pk = pk
         self._cache: Dict[str, Any] = {"id": pk}
 
@@ -344,7 +344,7 @@ class Model(metaclass=ModelMetaclass):
             )
         elif len(pks) == 0:
             raise RuntimeError(
-                f"No objects match the given criteria or no permission to read object."
+                "No objects match the given criteria or no permission to read object."
             )
         return cls(pks[0][0])
 

@@ -65,7 +65,7 @@ class ZMQCommunicator(BaseCommunicator):
             Callable[[PeerIdentity, PeerStatus], Coroutine]
         ] = None,
     ):
-        """Initialization."""
+        """Initialize."""
         super().__init__(
             name,
             logger,

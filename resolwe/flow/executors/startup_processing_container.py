@@ -119,7 +119,7 @@ class ProtocolHandler:
 
     def __init__(self, manager):
         # type: (ProcessingManager) -> None
-        """Initialization."""
+        """Initialize."""
         self._script_future = None  # type: Optional[asyncio.Future] # noqa: F821
         self.return_code = 0
         self.manager = manager
@@ -298,7 +298,7 @@ class Communicator:
     """Simple communication class."""
 
     def __init__(self, reader, writer):
-        """Initialization."""
+        """Initialize."""
         self.reader = reader
         self.writer = writer
 
@@ -342,7 +342,7 @@ class ProcessingManager:
     """
 
     def __init__(self, loop):
-        """Initialization."""
+        """Initialize."""
         self.worker_reader = None  # type: Optional[asyncio.StreamReader] # noqa: F821
         self.worker_writer = None  # type: Optional[asyncio.StreamWriter] # noqa: F821
         self.protocol_handler = None  # type: Optional[BaseProtocol] # noqa: F821

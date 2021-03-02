@@ -246,7 +246,7 @@ class Message(Generic[MessageDataType]):
         sequence_number: Optional[int] = None,
         sent_timestamp: Optional[float] = None,
     ):
-        """Initialization.
+        """Initialize.
 
         The sent_timestamp is auto-set on sending message to timestamp.
         """
@@ -415,7 +415,7 @@ class Response(Message[MessageDataType]):
         sequence_number: Optional[int] = None,
         sent_timestamp: Optional[float] = None,
     ):
-        """Initialization."""
+        """Initialize."""
         super().__init__(
             MessageType.RESPONSE,
             type_data,
@@ -454,7 +454,7 @@ class EventWithResponse(asyncio.Event):
     """Event class with response property."""
 
     def __init__(self):
-        """Initialization."""
+        """Initialize."""
         super().__init__()
         self._response: Optional[Any] = None
 
@@ -520,7 +520,7 @@ class BaseCommunicator:
             Callable[[PeerIdentity, PeerStatus], Coroutine]
         ] = None,
     ):
-        """Initialization.
+        """Initialize.
 
         :param name: used in logging to identify the communicator.
         :param logger: logger to use for logging.
@@ -600,7 +600,7 @@ class BaseCommunicator:
         """
         result = None
         try:
-            self.logger.debug(f"Communicator %s waiting for message.", self.name)
+            self.logger.debug("Communicator %s waiting for message.", self.name)
             receive_task = asyncio.ensure_future(self.receive_method(self.reader))
             terminating_task = asyncio.ensure_future(self._terminating.wait())
             done, pending = await asyncio.wait(
@@ -1108,7 +1108,7 @@ class BaseCommunicator:
         This method should only be used when not communicator object is not
         used as a context manager.
         """
-        self.logger.debug(f"Communicator %s stopped listening", self.name)
+        self.logger.debug("Communicator %s stopped listening", self.name)
         self._terminating.set()
 
     async def terminate(self, reason: str):
@@ -1142,7 +1142,7 @@ class SocketCommunicator(BaseCommunicator):
             Callable[[PeerIdentity, PeerStatus], Coroutine]
         ] = None,
     ):
-        """Initialization."""
+        """Initialize."""
         super().__init__(
             name,
             logger,
@@ -1162,7 +1162,7 @@ class BaseProtocol:
         communicator: BaseCommunicator,
         logger: logging.Logger,
     ):
-        """Initialization."""
+        """Initialize."""
         self.communicator = communicator
         self.logger = logger
         self._should_stop = asyncio.Event()

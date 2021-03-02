@@ -16,6 +16,7 @@ from typing import Dict, Iterable, List, Optional, Set, Tuple, Type, Union
 import requests
 
 from .communicator import communicator
+from .descriptor import ProcessDescriptor
 
 DATA_LOCAL_VOLUME = Path(os.environ.get("DATA_LOCAL_VOLUME", "/data_local"))
 DATA_VOLUME = Path(os.environ.get("DATA_VOLUME", "/data"))
@@ -145,7 +146,7 @@ class Field:
     ):
         """Construct a field descriptor."""
         self.name = None
-        self.process: Optional["resolwe.process.descriptor.ProcessDescriptor"] = None
+        self.process: Optional[ProcessDescriptor] = None
         self.label = label
         self.required = required
         self.description = description

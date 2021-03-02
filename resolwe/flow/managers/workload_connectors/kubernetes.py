@@ -46,7 +46,7 @@ class Connector(BaseConnector):
     """Kubernetes-based connector for job execution."""
 
     def __init__(self):
-        """Initialization."""
+        """Initialize."""
         self._initialize_variables()
 
     def _initialize_variables(self):

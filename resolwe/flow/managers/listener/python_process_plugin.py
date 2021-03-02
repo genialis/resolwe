@@ -30,7 +30,7 @@ class PermissionManager:
     """Permission manager class."""
 
     def __init__(self):
-        """Initialization."""
+        """Initialize."""
         self._plugins: Dict[str, "ExposeObjectPlugin"] = dict()
 
     def add_plugin(self, plugin_class: Type["ExposeObjectPlugin"]):

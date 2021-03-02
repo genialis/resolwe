@@ -404,8 +404,8 @@ class FlowExecutor(LocalFlowExecutor):
             "name": f"{self.container_name}-init",
             "detach": True,
             "cpu_quota": 1000000,
-            "mem_limit": f"4000m",
-            "mem_reservation": f"200m",
+            "mem_limit": "4000m",
+            "mem_reservation": "200m",
             "network_mode": network,
             "user": f"{os.getuid()}:{os.getgid()}",
             "environment": environment,
@@ -418,8 +418,8 @@ class FlowExecutor(LocalFlowExecutor):
             "name": f"{self.container_name}-communicator",
             "detach": True,
             "cpu_quota": 100000,  # TODO: how much?
-            "mem_limit": f"4000m",  # TODO: how much?
-            "mem_reservation": f"200m",
+            "mem_limit": "4000m",  # TODO: how much?
+            "mem_reservation": "200m",
             "network_mode": network,
             "cap_drop": ["all"],
             "security_opt": security_options,
@@ -477,8 +477,9 @@ class FlowExecutor(LocalFlowExecutor):
 
         if init_container_status["StatusCode"] != 0:
             logger.error(
-                "Init container exit code was %s instead of 0, aborting.",
+                "Init container returned %s instead of 0: %s.",
                 init_container_status["StatusCode"],
+                init_container.logs(),
             )
             return
 

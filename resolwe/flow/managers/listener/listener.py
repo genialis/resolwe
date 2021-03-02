@@ -448,7 +448,7 @@ class ListenerProtocol(BaseProtocol):
         protocol: str,
         zmq_socket: Optional[zmq.asyncio.Socket] = None,
     ):
-        """Initialization."""
+        """Initialize."""
         if zmq_socket is None:
             zmq_context: zmq.asyncio.Context = zmq.asyncio.Context.instance()
             zmq_socket = zmq_context.socket(zmq.ROUTER)
@@ -737,7 +737,7 @@ class ExecutorListener:
         *args,
         **kwargs,
     ):
-        """Initialization."""
+        """Initialize."""
         # Read socket parameters.
         self._hosts = list(
             kwargs.get(

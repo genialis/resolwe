@@ -55,7 +55,7 @@ class ListenerPlugins:
     """Class for registering listener plugins."""
 
     def __init__(self):
-        """Initialization."""
+        """Initialize."""
         self._plugin_instances: Dict[str, ListenerPlugin] = dict()
         self._command_handlers: Dict[
             str, Callable[[Dict, "Processor"], Awaitable[Dict]]

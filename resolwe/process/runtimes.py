@@ -25,7 +25,7 @@ class RegisteredRuntimes:
     """
 
     def __init__(self):
-        """Initialization."""
+        """Initialize."""
         self._class_module: Dict[str, ModuleType] = dict()
         self._registered_classes: Dict[str, Type[Process]] = dict()
         # A set of dependencies for every registered class.
@@ -91,7 +91,7 @@ class RegisteredRuntimes:
         """Get a set of necessary modules for the given class_name."""
         return self._dependencies[class_name]
 
-    def registered_class(self, class_name: str) -> Optional[Type["PythonProcess"]]:
+    def registered_class(self, class_name: str) -> Optional[Type["Process"]]:
         """Get registered class from name."""
         return self._registered_classes.get(class_name)
 

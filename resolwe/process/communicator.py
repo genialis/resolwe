@@ -11,7 +11,7 @@ class Singleton:
     """Decorator class for singleton."""
 
     def __init__(self, klass: Type):
-        """Initialization."""
+        """Initialize."""
         self.klass = klass
         self.instance = None
 
@@ -31,7 +31,7 @@ class PythonProcessCommunicator:
     ] = None  #  A single instance of this class
 
     def __init__(self, _socket: socket.SocketType):
-        """Initialization."""
+        """Initialize."""
         self._socket = _socket
         self.encoder = None
 
