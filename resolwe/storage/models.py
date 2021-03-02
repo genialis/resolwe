@@ -185,10 +185,11 @@ class LocationsDoneManager(models.Manager):
                     )
                 ),
                 accessed_lately=models.Exists(
-                    StorageLocation.objects.filter(
-                        file_storage=models.OuterRef("id"),
-                        connector_name=connector_name,
-                        last_update__gt=now()  # type: ignore
+                    FileStorage.objects.filter(
+                        pk=models.OuterRef("id"),
+                        storage_locations__connector_name=connector_name,
+                        storage_locations__status=StorageLocation.STATUS_DONE,
+                        storage_locations__last_update__gt=now()  # type: ignore
                         - models.Case(
                             *whens,
                             default=timedelta(days=default_delay),
