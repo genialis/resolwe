@@ -239,6 +239,32 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
         """
         raise NotImplementedError
 
+    def multipart_push(
+        self,
+        upload_id: str,
+        url: PathLike,
+        part_number: int,
+        chunk_size: int,
+        data: bytes,
+        md5: Optional[str] = None,
+    ) -> Dict[str, str]:
+        """Upload single part of multipart upload."""
+        raise NotImplementedError
+
+    def multipart_push_start(self, url: str, size: Optional[int] = None) -> str:
+        """Start a multipart upload."""
+        raise NotImplementedError
+
+    def multipart_push_complete(
+        self, upload_id: str, url: str, completed_chunks: List
+    ) -> str:
+        """Complete the multipart push."""
+        raise NotImplementedError
+
+    def multipart_push_abort(self, upload_id: str, url: str) -> Dict[str, str]:
+        """Abort the multipart push."""
+        raise NotImplementedError
+
     @abc.abstractmethod
     def presigned_url(
         self,

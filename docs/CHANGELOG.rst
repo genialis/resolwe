@@ -6,6 +6,16 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Added
+-----
+- Add multipart upload capability to ``LocalFilesystemConnector`` and
+  ``AwsS3Connector``
+
+
 ===================
 27.1.2 - 2021-03-22
 ===================

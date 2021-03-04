@@ -82,6 +82,48 @@ class AwsS3Connector(BaseStorageConnector):
             ExtraArgs=extra_args,
         )
 
+    def multipart_push_start(self, url, size=None):
+        """Start a multipart upload.
+
+        :returns: the upload id.
+        """
+        url = os.fspath(url)
+        mime_type = mimetypes.guess_type(url)[0]
+        upload_args = {"Bucket": self.bucket_name, "Key": url}
+        if mime_type is not None:
+            upload_args["ContentType"] = mime_type
+        response = self.client.create_multipart_upload(**upload_args)
+        return response["UploadId"]
+
+    def multipart_push(self, upload_id, url, part_number, chunk_size, data, md5=None):
+        """Upload a single part of multipart upload."""
+        result = self.client.upload_part(
+            Body=data,
+            Bucket=self.bucket_name,
+            ContentMD5=md5,
+            Key=os.fspath(url),
+            PartNumber=part_number,
+            UploadId=upload_id,
+        )
+        return {"ETag": result["ETag"], "PartNumber": part_number}
+
+    def multipart_push_complete(self, upload_id, url, completed_chunks):
+        """Complete the multipart push."""
+        return self.client.complete_multipart_upload(
+            Bucket=self.bucket_name,
+            Key=os.fspath(url),
+            UploadId=upload_id,
+            MultipartUpload={"Parts": completed_chunks},
+        )
+
+    def multipart_push_abort(self, upload_id, url):
+        """Abort multiport upload."""
+        return self.cliest.abort_multipart_upload(
+            Bucket=self.bucket_name,
+            Key=os.fspath(url),
+            UploadId=upload_id,
+        )
+
     @validate_urls
     @validate_url
     def delete(self, url, urls):
