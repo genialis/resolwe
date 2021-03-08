@@ -28,11 +28,14 @@ class Manager:
 
     def delete_single_location(self, file_storage: FileStorage, connector_name: str):
         """Delete given storage location."""
-        delete_location = file_storage.storage_location.get(
-            connector_name=connector_name,
-            status=StorageLocation.STATUS_DONE,
-        )
-        logger.debug(__("Deleting {}, location {}.", connector_name, file_storage))
+        delete_location = file_storage.storage_locations.filter(
+            connector_name=connector_name
+        ).first()
+        # Some other storage manager might have already processed this storage
+        # location before we did.
+        if not delete_location:
+            return
+        logger.info(__("Deleting {} ({}).", file_storage, connector_name))
         delete_location.delete()
 
     def process_delete(self):
@@ -46,9 +49,6 @@ class Manager:
                     file_storage = self._lock_file_storage(file_storage.id)
                     if file_storage is None:
                         continue
-                    logger.debug(
-                        "Deleting data from location {}".format(connector_name)
-                    )
                     try:
                         self.delete_single_location(file_storage, connector_name)
                     except Exception:
@@ -58,24 +58,29 @@ class Manager:
 
     def copy_single_location(self, file_storage: FileStorage, connector_name: str):
         """Copy given location to a given connector."""
+
+        logger.info(__("Copying {} to {}.", file_storage, connector_name))
         storage_location = file_storage.default_storage_location
         assert storage_location is not None
-
         from_connector = connectors[storage_location.connector_name]
-        logger.debug(__("Copying to {}, location {}.", connector_name, file_storage))
 
         access_log = None
         try:
-            access_log = AccessLog.objects.create(
-                storage_location=storage_location,
-                reason="Manager data transfer",
-            )
             new_storage_location = StorageLocation.all_objects.get_or_create(
                 file_storage=file_storage,
                 url=storage_location.url,
                 connector_name=connector_name,
-                status=StorageLocation.STATUS_UPLOADING,
+                defaults={"status": StorageLocation.STATUS_UPLOADING},
             )[0]
+            # Some other storage manager might have already processed this storage
+            # location before we did.
+            if new_storage_location.status == StorageLocation.STATUS_DONE:
+                return
+
+            access_log = AccessLog.objects.create(
+                storage_location=storage_location,
+                reason="Manager data transfer",
+            )
             storage_location.transfer_data(new_storage_location)
             new_storage_location.status = StorageLocation.STATUS_DONE
             new_storage_location.save()
@@ -104,13 +109,12 @@ class Manager:
                     file_storage = self._lock_file_storage(file_storage.id)
                     if file_storage is None:
                         continue
-
                     self.copy_single_location(file_storage, connector_name)
 
     def process(self):
         """Process all FileStorage objects."""
         logger.info("Starting storage manager copy run.")
         self.process_copy()
-        logger.info("Finished storage manager delete run.")
+        logger.info("Starting storage manager delete run.")
         self.process_delete()
         logger.info("Storage manager run completed.")
