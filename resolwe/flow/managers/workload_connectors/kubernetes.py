@@ -14,7 +14,6 @@ import shlex
 import time
 from base64 import b64encode
 from contextlib import suppress
-from math import ceil
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -484,6 +483,10 @@ class Connector(BaseConnector):
     def _data_inputs_size(self, data: Data, safety_buffer: int = 2 ** 30) -> int:
         """Get the size of data inputs.
 
+        Also add 10% of the volume size + 2GB as safety buffer. When having a
+        large filesystem with lots of files the filesystem overhead can be
+        significant so a fixed safety buffer alone is not sufficient.
+
         :returns: the size of the input data in bytes.
         """
         inputs_size = (
@@ -495,7 +498,7 @@ class Connector(BaseConnector):
             .get("total_size")
         )
         assert isinstance(inputs_size, int)
-        return ceil((inputs_size + safety_buffer) / (2 ** 30)) * (2 ** 30)
+        return int(1.1 * (inputs_size + safety_buffer))
 
     def _sanitize_kubernetes_label(self, label: str, trim_end: bool = True) -> str:
         """Make sure kubernetes label complies with the rules.
