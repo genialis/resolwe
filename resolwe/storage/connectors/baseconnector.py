@@ -61,6 +61,10 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
         self.config = copy.deepcopy(config)
         self.name = name
         self.supported_hash = []
+        # Does connector preserves data integrity during download.
+        self.get_ensures_data_integrity = False
+        # Does connector preserves data integrity during upload.
+        self.put_ensures_data_integrity = False
 
     @abc.abstractproperty
     def base_path(self) -> PurePath:

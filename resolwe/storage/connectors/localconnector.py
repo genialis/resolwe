@@ -19,6 +19,8 @@ class LocalFilesystemConnector(BaseStorageConnector):
         self.path = config["path"]
         self.supported_hash = ["crc32c", "md5", "awss3etag"]
         self.multipart_chunksize = self.CHUNK_SIZE
+        self.get_ensures_data_integrity = True
+        self.put_ensures_data_integrity = True
 
     @validate_urls
     @validate_url

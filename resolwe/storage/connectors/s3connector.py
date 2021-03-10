@@ -32,6 +32,9 @@ class AwsS3Connector(BaseStorageConnector):
         )
         self.use_threads = True
 
+        # Ensured by TLS protocol used for transport.
+        self.get_ensures_data_integrity = True
+
         self._session = None
         self._client = None
         self._sts = None

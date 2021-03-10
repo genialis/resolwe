@@ -215,6 +215,27 @@ class Transfer:
 
         from_url = Path(from_base_url) / object_["path"]
         hashes = {type_: object_[type_] for type_ in ["md5", "crc32c", "awss3etag"]}
+
+        skip_final_hash_check = (
+            from_connector.get_ensures_data_integrity
+            and to_connector.put_ensures_data_integrity
+        )
+        if skip_final_hash_check:
+            # When final check is skipped make sure that the input connector
+            # hash equals to the hash given by the _object (usually read from
+            # the database).
+            hash_to_check = next(
+                hash for hash in from_connector.supported_hash if hash in hashes.keys()
+            )
+            from_connector_hash = from_connector.get_hash(from_url, hash_to_check)
+            expected_hash = object_[hash_to_check]
+            if expected_hash != from_connector_hash:
+                raise DataTransferError(
+                    f"Connector {from_connector} has {from_connector_hash} stored  "
+                    f"as {from_connector_hash} hash for object "
+                    f"{from_url}, expected {expected_hash}."
+                )
+
         common_hash_type = next(
             e for e in to_connector.supported_hash if e in hashes.keys()
         )
@@ -287,15 +308,16 @@ class Transfer:
                 raise DataTransferError("\n\n".join(messages))
 
         # Check hash of the uploaded object.
-        to_hash = to_connector.get_hash(to_base_url / to_url, common_hash_type)
-        if from_hash != to_hash:
-            with suppress(Exception):
-                to_connector.delete(to_base_url, [to_url])
-            raise DataTransferError(
-                f"Hash {common_hash_type} does not match while transfering "
-                f"{from_url} -> {to_base_url/to_url}: using hash type "
-                f"{common_hash_type}: expected {from_hash}, got {to_hash}."
-            )
+        if not skip_final_hash_check:
+            to_hash = to_connector.get_hash(to_base_url / to_url, common_hash_type)
+            if from_hash != to_hash:
+                with suppress(Exception):
+                    to_connector.delete(to_base_url, [to_url])
+                raise DataTransferError(
+                    f"Hash {common_hash_type} does not match while transfering "
+                    f"{from_url} -> {to_base_url/to_url}: using hash type "
+                    f"{common_hash_type}: expected {from_hash}, got {to_hash}."
+                )
 
         # Store computed hashes as metadata for later use.
         to_connector.set_hashes(to_base_url / to_url, hashes)

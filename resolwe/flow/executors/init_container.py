@@ -13,7 +13,6 @@ import sys
 from collections import defaultdict
 from contextlib import suppress
 from distutils.util import strtobool
-from functools import partial
 from pathlib import Path
 
 import zmq
@@ -118,7 +117,7 @@ async def download_to_location(
     # be re-raised.
     for future in paralelize(
         objects=files,
-        worker=partial(transfer.transfer_chunk, None),
+        worker=lambda objects: transfer.transfer_chunk(None, objects),
         max_threads=max_threads,
     ):
         future.result()
