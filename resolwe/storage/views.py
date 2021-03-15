@@ -1,8 +1,10 @@
 """Storage application views."""
+import json
 import re
 import tempfile
 from datetime import datetime
 from distutils.util import strtobool
+from functools import lru_cache
 from pathlib import Path
 from typing import Dict, List, Tuple, Union
 from urllib.parse import urlencode, urlparse
@@ -18,6 +20,7 @@ from django.utils import timezone
 from django.views import View
 
 from resolwe.flow.models import Data
+from resolwe.flow.models.collection import Collection
 from resolwe.permissions.shortcuts import get_objects_for_user
 from resolwe.storage.connectors.baseconnector import BaseStorageConnector
 from resolwe.storage.models import FileStorage, ReferencedPath
@@ -227,11 +230,27 @@ class UriResolverView(DataBrowseView):
     def get(
         self, request: HttpRequest, *args: Union[str, int], **kwargs: Union[str, int]
     ) -> HttpResponse:
+        """
+        Return empty response.
+
+        GET Method should not be disabled, but since it is implemented in
+        superclass, it is overwritten.
+        """
+        return HttpResponse("")
+
+    def post(
+        self, request: HttpRequest, *args: Union[str, int], **kwargs: Union[str, int]
+    ) -> HttpResponse:
         """Get resolved and signed URLs for a given list of URIs."""
 
-        response_data = {}
+        content = {}
+        try:
+            content = json.loads(request.read())
+        except json.decoder.JSONDecodeError:
+            pass
 
-        for uri in request.GET.getlist("uri", []):
+        response_data = {}
+        for uri in content.get("uris", []):
             match = re.match(r"(\d+)/(.+)", uri)
             if not match:
                 response_data[uri] = ""
@@ -242,3 +261,30 @@ class UriResolverView(DataBrowseView):
             response_data[uri] = self._get_response(datum, relative_path)[0]
 
         return JsonResponse(response_data)
+
+    def _get_datum(self, data_id: int) -> Data:
+        """
+        Get datum with given id and check it's permissions.
+
+        Speedup: Since checking permissions if quite slow, this method
+        can become a real bottleneck if there are > 100 Data object to
+        check. However, if they are from the same collection it is easy
+        to check, just confirm that the user has view permission on
+        collection. That can be checked only once and than cached.
+        """
+
+        @lru_cache
+        def has_view_permission(collection_id: int) -> bool:
+            collection = get_objects_for_user(
+                self.request.user,
+                "view_collection",
+                Collection.objects.filter(pk=collection_id),
+            )
+            return collection.exists()
+
+        datum = Data.objects.get(pk=data_id)
+
+        if datum.collection and has_view_permission(datum.collection.id):
+            return datum
+
+        return super()._get_datum(data_id)
