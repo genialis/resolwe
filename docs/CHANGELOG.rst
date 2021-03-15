@@ -7,6 +7,29 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
 ===================
+27.1.0 - 2021-03-15
+===================
+
+Fixed
+-----
+- Account for file system overhead when processing Data objects with large
+  inputs
+
+Changed
+-------
+- Improve storage manager to only process applicable storage locations instead
+  of iterating through all of them
+- Skip hash computation when connector itself provides data integrity check
+- Remove ``job`` prefix from kubernetes job name
+- Make error messages in Python processes more useful
+
+Added
+-----
+- Add label ``job_type`` to Kubernetes job to separate interactive jobs from
+  batch jobs
+
+
+===================
 27.0.0 - 2021-02-22
 ===================
 
