@@ -86,8 +86,6 @@ class Command(BaseCommand):
             )
         )
 
-        unique_docker_images.add("public.ecr.aws/s4q6j6e8/resolwebio/rnaseq:5.12.0")
-
         # Pull images if requested or just output the list in specified format
         if options["pull"]:
             # Remove set of already pulled images.
