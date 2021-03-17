@@ -6,6 +6,22 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Fixed
+-----
+- Bump version of ``upload-dir`` process to use the default version of
+  processing image instead of the previous one
+
+Changed
+-------
+
+Added
+-----
+
+
 ===================
 27.1.1 - 2021-03-21
 ===================

@@ -8,7 +8,7 @@
   requirements:
     expression-engine: jinja
   data_name: '{{ src.file|default("?") }}'
-  version: 0.1.0
+  version: 0.1.1
   type: data:dir
   category: upload
   persistence: RAW
