@@ -11,14 +11,14 @@ class UploadFile(Process):
     name = "File"
     process_type = "data:file"
     data_name = '{{ src.file|default("?") }}'
-    version = "1.1.1"
+    version = "1.1.2"
     category = "Import"
     description = "Import any other file format such as a pdf."
     requirements = {
         "expression-engine": "jinja",
         "executor": {
             "docker": {
-                "image": "public.ecr.aws/s4q6j6e8/resolwebio/base:ubuntu-20.04",
+                "image": "public.ecr.aws/s4q6j6e8/resolwe/base:ubuntu-20.04-03022021",
             },
         },
         "resources": {

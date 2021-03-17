@@ -17,6 +17,7 @@ Fixed
 
 Changed
 -------
+- Use tagged base image in ``upload-file`` process
 
 Added
 -----
