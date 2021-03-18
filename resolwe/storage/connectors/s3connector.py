@@ -56,7 +56,6 @@ class AwsS3Connector(BaseStorageConnector):
         self.client = self.session.client(
             "s3", config=botocore.client.Config(signature_version="s3v4")
         )
-        self.client = self.session.client("s3")
         self.sts = self.session.client("sts")
 
     def __getattr__(self, name):
