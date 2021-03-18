@@ -478,20 +478,17 @@ class ProcessingManager:
 
             :raises RuntimeError: on failure.
             """
-            logger.debug("Sending file descriptors for files: %s", processing_filenames)
-            filenames_payload = json.dumps(processing_filenames).encode()
-            self.upload_socket.sendall(
-                len(filenames_payload).to_bytes(8, byteorder="big")
-            )
-            logger.debug("Filename payload: %s", filenames_payload)
+            logger.debug("Preparing file descriptors for %s", processing_filenames)
             # File handlers must be created before file descriptors otherwise garbage
             # collector will kick in and close handlers. Handlers will be closed
             # automatically when function completes.
             file_handlers = [open(filename, "rb") for filename in processing_filenames]
             file_descriptors = [file_handler.fileno() for file_handler in file_handlers]
-            logger.debug("Sending file descriptors: %s", file_descriptors)
+            payload = json.dumps(processing_filenames).encode()
+            logger.debug("Sending file descriptors: %s", payload)
+            self.upload_socket.sendall(len(payload).to_bytes(8, byteorder="big"))
             self.upload_socket.sendmsg(
-                [filenames_payload],
+                [payload],
                 [
                     (
                         socket.SOL_SOCKET,
@@ -500,7 +497,10 @@ class ProcessingManager:
                     )
                 ],
             )
-            if self.upload_socket.recv(1) == b"0":
+            logger.debug("File descriptors sent.")
+            response = self.upload_socket.recv(1)
+            logger.debug("Got response: %s", response)
+            if response == b"0":
                 raise RuntimeError(
                     "Communication container response indicates error sending "
                     "files {}.".format(processing_filenames)
