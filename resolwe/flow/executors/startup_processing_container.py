@@ -500,7 +500,7 @@ class ProcessingManager:
             logger.debug("File descriptors sent.")
             response = self.upload_socket.recv(1)
             logger.debug("Got response: %s", response)
-            if response == b"0":
+            if response != b"1":
                 raise RuntimeError(
                     "Communication container response indicates error sending "
                     "files {}.".format(processing_filenames)
