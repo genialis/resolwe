@@ -823,7 +823,7 @@ class Manager:
                 data.worker.save()
             return
         except OSError as err:
-            logger.error(
+            logger.exception(
                 __(
                     "OSError occurred while preparing data {} (will skip): {}",
                     data.id,
