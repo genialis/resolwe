@@ -6,6 +6,16 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Fixed
+-----
+- Fix connection timeout in communication container when sending initial
+  message to the listener
+
+
 ===================
 27.1.0 - 2021-03-15
 ===================

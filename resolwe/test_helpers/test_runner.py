@@ -168,6 +168,7 @@ def _prepare_settings():
 
     zmq_context: zmq.asyncio.Context = zmq.asyncio.Context.instance()
     zmq_socket: zmq.asyncio.Socket = zmq_context.socket(zmq.ROUTER)
+    zmq_socket.setsockopt(zmq.ROUTER_HANDOVER, 1)
 
     host = hosts[0]
     port = zmq_socket.bind_to_random_port(

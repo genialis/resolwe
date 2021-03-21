@@ -1,5 +1,8 @@
 # pylint: disable=missing-docstring
+import asyncio
+import logging
 import os
+import platform
 import subprocess
 import threading
 import unittest
@@ -8,6 +11,8 @@ from pathlib import Path
 from time import sleep
 from unittest import mock
 
+import zmq
+import zmq.asyncio
 from asgiref.sync import async_to_sync
 
 from django.conf import settings
@@ -16,6 +21,8 @@ from django.test import override_settings
 from guardian.shortcuts import assign_perm
 
 from resolwe.flow.executors.prepare import BaseFlowExecutorPreparer
+from resolwe.flow.executors.socket_utils import Message
+from resolwe.flow.executors.zeromq_utils import ZMQCommunicator
 from resolwe.flow.managers import manager
 from resolwe.flow.managers.utils import disable_auto_calls
 from resolwe.flow.models import Data, DataDependency, Process, Worker
@@ -81,6 +88,51 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.assertIn("general", dsc)
         self.assertIn("species", dsc["general"])
         self.assertEqual(dsc["general"]["species"], "Valid")
+
+    def test_router_handover(self):
+        """Test router socket handover.
+
+        When multiple clients with the same identity connect to the socket, the
+        last one must replace the previous one.
+        """
+        listener_settings = getattr(settings, "FLOW_EXECUTOR", {}).get(
+            "LISTENER_CONNECTION", {}
+        )
+        port = listener_settings.get("port", 53893)
+        host = listener_settings.get("hosts", {}).get("docker", "127.0.0.1")
+        if platform.system() == "Darwin":
+            host = "host.docker.internal"
+        protocol = settings.FLOW_EXECUTOR.get("LISTENER_CONNECTION", {}).get(
+            "protocol", "tcp"
+        )
+        logger = logging.getLogger(__name__)
+        logger.handlers = []
+
+        async def send_single_message():
+            """Open connection to listener and send single message."""
+            connection_string = f"{protocol}://{host}:{port}"
+            zmq_context = zmq.asyncio.Context.instance()
+            zmq_socket = zmq_context.socket(zmq.DEALER)
+            zmq_socket.setsockopt(zmq.IDENTITY, b"1")
+            zmq_socket.connect(connection_string)
+            communicator = ZMQCommunicator(
+                zmq_socket, "init_container <-> listener", logger
+            )
+            async with communicator:
+                await asyncio.ensure_future(
+                    communicator.send_command(Message.command("update_status", "PP"))
+                )
+
+        async def send_two_messages():
+            """Send two messages with the same identity.
+
+            When handover is not working the second connection will be rejected
+            and no answer received, triggering timeout and raising exception.
+            """
+            for _ in range(2):
+                await send_single_message()
+
+        return asyncio.new_event_loop().run_until_complete(send_two_messages())
 
     @tag_process("test-annotate-wrong-option")
     def test_annotate_wrong_option(self):

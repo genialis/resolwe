@@ -450,6 +450,7 @@ class ListenerProtocol(BaseProtocol):
         if zmq_socket is None:
             zmq_context: zmq.asyncio.Context = zmq.asyncio.Context.instance()
             zmq_socket = zmq_context.socket(zmq.ROUTER)
+            zmq_socket.setsockopt(zmq.ROUTER_HANDOVER, 1)
             for host in hosts:
                 zmq_socket.bind(f"{protocol}://{host}:{port}")
 
