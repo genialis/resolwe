@@ -6,21 +6,21 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+===================
+27.1.2 - 2021-03-22
+===================
 
 Fixed
 -----
 - Bump version of ``upload-dir`` process to use the default version of
   processing image instead of the previous one
+- Use Signature Version 4 when generating presigned URLs in S3 connector
+- Fix possible socket timeout when uploading files in the processing container
+- Remove static ``rnaseq`` image from list of docker images
 
 Changed
 -------
 - Use tagged base image in ``upload-file`` process
-
-Added
------
 
 
 ===================
