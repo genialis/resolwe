@@ -286,6 +286,15 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
         """
         raise NotImplementedError
 
+    def __eq__(self, other):
+        """Equality check.
+
+        Two connectors are considered equal if they have the same name.
+        """
+        if isinstance(other, BaseStorageConnector):
+            return self.name == other.name
+        return False
+
     @classmethod
     def __init_subclass__(cls, **kwargs):
         """Register class with the registry on initialization."""
