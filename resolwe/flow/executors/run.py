@@ -13,8 +13,10 @@ import logging
 from pathlib import Path
 from typing import Dict, Tuple
 
+
 from .global_settings import LOCATION_SUBPATH, PROCESS, SETTINGS
 from .zeromq_utils import ZMQCommunicator
+
 
 # TODO: update requirements!!!!
 # NOTE: If the imports here are changed, the executors' requirements.txt
@@ -51,22 +53,17 @@ class BaseFlowExecutor:
         )
         self.resources: Dict = process_requirements.get("resources", {})
         self.storage_url = Path(LOCATION_SUBPATH)
-        self.runtime_dir = Path(SETTINGS["FLOW_RUNTIME_VOLUME"]["config"]["path"])
+        self.runtime_dir = Path(SETTINGS["FLOW_VOLUMES"]["runtime"]["config"]["path"])
         self.communicator = communicator
         self.listener_connection = listener_connection
 
-    def _generate_container_name(self, prefix):
-        """Generate unique container name.
-
-        Name of the kubernetes container should contain only lower case
-        alpfanumeric characters and dashes. Underscores are not allowed.
-        """
+    def _generate_container_name(self, prefix: str) -> str:
+        """Generate unique container name."""
         return "{}-{}".format(prefix, self.data_id)
 
     def get_tools_paths(self):
         """Get tools paths."""
-        tools_paths = SETTINGS["FLOW_EXECUTOR_TOOLS_PATHS"]
-        return tools_paths
+        return SETTINGS["FLOW_EXECUTOR_TOOLS_PATHS"]
 
     async def start(self):
         """Start process execution."""
@@ -74,8 +71,4 @@ class BaseFlowExecutor:
     async def run(self):
         """Execute the script and save results."""
         logger.debug("Executor for Data with id %d has started.", self.data_id)
-        try:
-            await self.start()
-        except:
-            logger.exception("Unhandled exception in executor")
-            raise
+        await self.start()

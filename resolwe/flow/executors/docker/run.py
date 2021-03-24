@@ -6,20 +6,24 @@
 """
 # pylint: disable=logging-format-interpolation
 import asyncio
+import copy
 import functools
 import json
 import logging
 import os
 import platform
+import tempfile
 import time
 from contextlib import suppress
 from pathlib import Path
-from typing import Dict, Optional, Tuple, Type, Union
+from typing import Any, Dict, Iterable, Tuple, Type
 
 import docker
 
 from .. import constants
-from ..global_settings import PROCESS_META, SETTINGS, STORAGE_LOCATION
+from ..connectors import connectors
+from ..connectors.baseconnector import BaseStorageConnector
+from ..global_settings import PROCESS_META, SETTINGS, LOCATION_SUBPATH
 from ..local.run import FlowExecutor as LocalFlowExecutor
 from ..protocol import ExecutorFiles
 from .seccomp import SECCOMP_POLICY
@@ -88,228 +92,189 @@ class FlowExecutor(LocalFlowExecutor):
         self.container_name = self._generate_container_name(container_name_prefix)
         self.tools_volumes = []
         self.command = SETTINGS.get("FLOW_DOCKER_COMMAND", "docker")
-        self.runtime_dir = Path(SETTINGS["FLOW_EXECUTOR"].get("RUNTIME_DIR", ""))
 
     # Setup Docker volumes.
     def _new_volume(
-        self,
-        kind: str,
-        base_dir_name: Optional[str],
-        mount_point: Union[str, Path],
-        path: Union[str, Path] = "",
-        read_only: bool = True,
+        self, config: Dict[str, Any], mount_path: Path, read_only: bool = True
     ) -> Tuple[str, Dict[str, str]]:
         """Generate a new volume entry.
 
-        :param kind: Kind of volume, which is used for getting extra options from
-            settings (the ``FLOW_DOCKER_VOLUME_EXTRA_OPTIONS`` setting)
-        :param base_dir_name: Name of base directory setting for volume source path
-        :param volume: Destination volume mount point
-        :param path: Optional additional path atoms appended to source path
-        :param read_only: True to make the volume read-only
+        :param config: must include 'path' and may include 'selinux_label'.
+        :param mount_moint: mount point for the volume.
         """
-        options = set(
-            SETTINGS.get("FLOW_DOCKER_VOLUME_EXTRA_OPTIONS", {})
-            .get(kind, "")
-            .split(",")
-        ).difference(["", "ro", "rw"])
+        options = set()
+        if "selinux_label" in config:
+            options.add(config["selinux_label"])
         options.add("ro" if read_only else "rw")
 
-        base_path = Path(SETTINGS["FLOW_EXECUTOR"].get(base_dir_name, ""))
         return (
-            os.fspath(base_path / path),
-            {
-                "bind": os.fspath(mount_point),
-                "mode": ",".join(options),
-            },
+            os.fspath(config["path"]),
+            {"bind": os.fspath(mount_path), "mode": ",".join(options)},
         )
 
-    def _init_volumes(self) -> Dict:
+    def _get_upload_dir(self) -> str:
+        """Get upload path.
+
+        : returns: the path of the first mountable connector for storage
+            'upload'.
+
+        :raises RuntimeError: if no applicable connector is found.
+        """
+        for connector in connectors.for_storage("upload"):
+            if connector.mountable:
+                return f"/upload_{connector.name}"
+        raise RuntimeError("No mountable upload connector is defined.")
+
+    def _get_mountable_connectors(self) -> Iterable[Tuple[str, BaseStorageConnector]]:
+        """Iterate through all the storages and find mountable connectors.
+
+        :returns: list of tuples (storage_name, connector).
+        """
+        return (
+            (storage_name, connector)
+            for storage_name in SETTINGS["FLOW_STORAGE"]
+            for connector in connectors.for_storage(storage_name)
+            if connector.mountable
+        )
+
+    def _get_volumes(self, subpaths=False) -> Dict[str, Tuple[Dict, Path]]:
+        """Get writeable volumes from settings.
+
+        :attr subpaths: when True the location subpath in added to the volume
+            path.
+
+        :returns: mapping between volume name and tuple (config, mount_point).
+        """
+        results = dict()
+        volume_mountpoint = {
+            "processing": constants.PROCESSING_VOLUME,
+            "input": constants.INPUTS_VOLUME,
+        }
+
+        for volume_name, volume in SETTINGS["FLOW_VOLUMES"].items():
+            if "read_only" not in volume["config"]:
+                assert volume["type"] == "host_path", (
+                    "Only 'host_type' volumes are supported by Docker executor,"
+                    f"requested '{volume['config']['type']}' for {volume_name}."
+                )
+                config = copy.deepcopy(volume["config"])
+                if subpaths:
+                    config["path"] = Path(config["path"]) / LOCATION_SUBPATH
+                results[volume_name] = (config, volume_mountpoint[volume_name])
+
+        assert "processing" in results, "Processing volume must be defined."
+        return results
+
+    def _init_volumes(self, temporary_directory: Path) -> Dict:
         """Prepare volumes for init container."""
-        storage_url = Path(STORAGE_LOCATION["url"])
+        mount_points = [
+            (config, mount_point, False)
+            for config, mount_point in self._get_volumes().values()
+        ]
+        mount_points += [
+            (connector.config, Path("/") / f"{storage_name}_{connector.name}", False)
+            for storage_name, connector in self._get_mountable_connectors()
+        ]
 
-        # Create local data dir.
-        base_path = Path(SETTINGS["FLOW_EXECUTOR"].get("DATA_DIR", ""))
-        local_data = base_path / f"{storage_url}_work"
-        local_data.mkdir(exist_ok=True)
+        secrets_dir = temporary_directory / "secrets"
+        secrets_dir.mkdir(exist_ok=True, mode=0o700)
+        mount_points += [
+            ({"path": secrets_dir}, constants.SECRETS_VOLUME, False),
+        ]
+        return dict([self._new_volume(*mount_point) for mount_point in mount_points])
 
-        return dict(
-            [
-                self._new_volume(
-                    "data_all", "DATA_DIR", constants.DATA_ALL_VOLUME, read_only=False
-                ),
-                self._new_volume(
-                    "secrets",
-                    "RUNTIME_DIR",
-                    constants.SECRETS_VOLUME,
-                    storage_url / ExecutorFiles.SECRETS_DIR,
-                ),
-                self._new_volume(
-                    "settings",
-                    "RUNTIME_DIR",
-                    "/settings",
-                    storage_url / ExecutorFiles.SETTINGS_SUBDIR,
-                ),
-            ]
-        )
-
-    def _communicator_volumes(self) -> Dict:
+    def _communicator_volumes(self, temporary_directory: Path) -> Dict[str, Dict]:
         """Prepare volumes for communicator container."""
-        storage_url = Path(STORAGE_LOCATION["url"])
-        communicator_volumes = [
-            self._new_volume(
-                "data",
-                "DATA_DIR",
-                constants.DATA_VOLUME,
-                storage_url,
-                read_only=False,
-            ),
-            self._new_volume(
-                "data_all", "DATA_DIR", constants.DATA_ALL_VOLUME, read_only=False
-            ),
-            self._new_volume(
-                "secrets",
-                "RUNTIME_DIR",
-                constants.SECRETS_VOLUME,
-                storage_url / ExecutorFiles.SECRETS_DIR,
-            ),
-            self._new_volume(
-                "settings",
-                "RUNTIME_DIR",
-                "/settings",
-                storage_url / ExecutorFiles.SETTINGS_SUBDIR,
-            ),
-            self._new_volume(
-                "sockets",
-                "RUNTIME_DIR",
-                constants.SOCKETS_VOLUME,
-                storage_url / ExecutorFiles.SOCKETS_SUBDIR,
-                read_only=False,
-            ),
+        mount_points = [
+            (connector.config, Path("/") / f"{storage_name}_{connector.name}", False)
+            for storage_name, connector in self._get_mountable_connectors()
         ]
-        return dict(communicator_volumes)
+        socket_directory = temporary_directory / ExecutorFiles.SOCKETS_SUBDIR
+        socket_directory.mkdir(exist_ok=True)
+        mount_points += [
+            ({"path": socket_directory}, constants.SOCKETS_VOLUME, False),
+        ]
+        return dict([self._new_volume(*mount_point) for mount_point in mount_points])
 
-    def _processing_volumes(self) -> Dict:
+    def _processing_volumes(self, temporary_directory: Path) -> Dict:
         """Prepare volumes for processing container."""
-        storage_url = Path(STORAGE_LOCATION["url"])
-
-        # Create local data dir.
-        base_path = Path(SETTINGS["FLOW_EXECUTOR"].get("DATA_DIR", ""))
-        local_data = base_path / f"{storage_url}_work"
-        local_data.mkdir(exist_ok=True)
-
-        processing_volumes = [
-            self._new_volume(
-                "data",
-                "DATA_DIR",
-                constants.DATA_VOLUME,
-                storage_url,
-                read_only=False,
+        # Expose processing and (possibly) input volume RW.
+        mount_points = [
+            (config, mount_point, False)
+            for config, mount_point in self._get_volumes(True).values()
+        ]
+        # Expose mountable connectors ('upload' RW, othern 'RO').
+        mount_points += [
+            (
+                connector.config,
+                Path("/") / f"{storage_name}_{connector.name}",
+                storage_name != "upload",
+            )
+            for storage_name, connector in self._get_mountable_connectors()
+        ]
+        socket_dir = temporary_directory / ExecutorFiles.SOCKETS_SUBDIR
+        socket_dir.mkdir(exist_ok=True)
+        secrets_dir = temporary_directory / "secrets"
+        secrets_dir.mkdir(exist_ok=True, mode=0o700)
+        mount_points += [
+            ({"path": secrets_dir}, constants.SECRETS_VOLUME, False),
+            ({"path": socket_dir}, constants.SOCKETS_VOLUME, False),
+            (
+                {"path": self.runtime_dir / "executors" / ExecutorFiles.SOCKET_UTILS},
+                Path("/socket_utils.py"),
+                False,
             ),
-            self._new_volume(
-                "data_local",
-                "DATA_DIR",
-                constants.DATA_LOCAL_VOLUME,
-                f"{storage_url}_work",
-                read_only=False,
+            (
+                {
+                    "path": self.runtime_dir
+                    / "executors"
+                    / ExecutorFiles.STARTUP_PROCESSING_SCRIPT
+                },
+                Path("/start.py"),
+                False,
             ),
-            self._new_volume("data_all", "DATA_DIR", constants.DATA_ALL_VOLUME),
-            self._new_volume(
-                "upload", "UPLOAD_DIR", constants.UPLOAD_VOLUME, read_only=False
-            ),
-            self._new_volume(
-                "secrets",
-                "RUNTIME_DIR",
-                constants.SECRETS_VOLUME,
-                storage_url / ExecutorFiles.SECRETS_DIR,
-            ),
-            self._new_volume(
-                "sockets",
-                "RUNTIME_DIR",
-                constants.SOCKETS_VOLUME,
-                storage_url / ExecutorFiles.SOCKETS_SUBDIR,
-                read_only=False,
-            ),
-            self._new_volume(
-                "socket_utils",
-                "RUNTIME_DIR",
-                "/socket_utils.py",
-                storage_url / "executors" / ExecutorFiles.SOCKET_UTILS,
-            ),
-            self._new_volume(
-                "socket_utils",
-                "RUNTIME_DIR",
-                "/start.py",
-                storage_url / "executors" / ExecutorFiles.STARTUP_PROCESSING_SCRIPT,
-            ),
-            self._new_volume(
-                "constants",
-                "RUNTIME_DIR",
-                "/constants.py",
-                storage_url / "executors" / ExecutorFiles.CONSTANTS,
+            (
+                {"path": self.runtime_dir / "executors" / ExecutorFiles.CONSTANTS},
+                Path("/constants.py"),
+                True,
             ),
         ]
-
         # Generate dummy passwd and create mappings for it. This is required because some tools
         # inside the container may try to lookup the given UID/GID and will crash if they don't
         # exist. So we create minimal user/group files.
 
-        passwd_path = self.runtime_dir / storage_url / "passwd"
-        group_path = self.runtime_dir / storage_url / "group"
+        passwd_path = temporary_directory / "passwd"
+        group_path = temporary_directory / "group"
 
         with passwd_path.open("wt") as passwd_file:
             passwd_file.write(
                 "root:x:0:0:root:/root:/bin/bash\n"
-                + f"user:x:{os.getuid()}:{os.getgid()}:user:{os.fspath(constants.DATA_LOCAL_VOLUME)}:/bin/bash\n"
+                + f"user:x:{os.getuid()}:{os.getgid()}:user:{os.fspath(constants.PROCESSING_VOLUME)}:/bin/bash\n"
             )
         with group_path.open("wt") as group_file:
             group_file.write("root:x:0:\n" + f"user:x:{os.getgid()}:user\n")
 
-        processing_volumes += [
-            self._new_volume("users", None, "/etc/passwd", passwd_path),
-            self._new_volume("users", None, "/etc/group", group_path),
+        mount_points += [
+            ({"path": passwd_path}, Path("/etc/passwd"), True),
+            ({"path": group_path}, Path("/etc/group"), True),
         ]
 
-        # Create volumes for tools.
-        processing_volumes += [
-            self._new_volume(
-                "tools",
-                None,
-                Path("/usr/local/bin/resolwe") / str(index),
-                Path(tool),
-            )
+        # Create mount points for tools.
+        mount_points += [
+            ({"path": Path(tool)}, Path("/usr/local/bin/resolwe") / str(index), True)
             for index, tool in enumerate(self.get_tools_paths())
         ]
 
-        # Create volumes for runtime (all read-only).
-        processing_volumes += [
-            self._new_volume(
-                "runtime",
-                "RUNTIME_DIR",
-                dst,
-                storage_url / src,
-            )
+        # Create mount_points for runtime (all read-only).
+        mount_points += [
+            ({"path": self.runtime_dir / src}, dst, True)
             for src, dst in SETTINGS.get("RUNTIME_VOLUME_MAPS", {}).items()
         ]
 
-        # Add any extra volumes verbatim.
-        processing_volumes += SETTINGS.get("FLOW_DOCKER_EXTRA_VOLUMES", [])
-        return dict(processing_volumes)
-
-    def _data_dir_clean(self, storage_url: Path) -> bool:
-        """Check if data dir does not contain old log file."""
-        log = Path(SETTINGS["FLOW_EXECUTOR"]["DATA_DIR"]) / storage_url / "stdout.txt"
-        return not log.is_file()
+        return dict([self._new_volume(*mount_point) for mount_point in mount_points])
 
     async def start(self):
         """Start process execution."""
-        # Old log file is present, do not run the process again.
-        storage_url = Path(STORAGE_LOCATION["url"])
-
-        if not self._data_dir_clean(storage_url):
-            logger.error("Stdout or jsonout file already exists, aborting.")
-            return
-
         memory = (
             self.process["resource_limits"]["memory"] + DOCKER_MEMORY_HARD_LIMIT_BUFFER
         )
@@ -353,47 +318,36 @@ class FlowExecutor(LocalFlowExecutor):
                 docker.types.Ulimit(name="cpu", soft=cpu_limit, hard=cpu_limit)
             )
 
-        # Make sure that sockets dir exists.
-        os.makedirs(
-            self.runtime_dir / storage_url / ExecutorFiles.SOCKETS_SUBDIR, exist_ok=True
-        )
-
-        logger.debug("Checking existence of docker image: %s.", processing_image)
-
         environment = {
-            "CONTAINER_TIMEOUT": constants.CONTAINER_TIMEOUT,
-            "SOCKETS_VOLUME": constants.SOCKETS_VOLUME,
-            "COMMUNICATION_PROCESSING_SOCKET": constants.COMMUNICATION_PROCESSING_SOCKET,
-            "SCRIPT_SOCKET": constants.SCRIPT_SOCKET,
-            "UPLOAD_FILE_SOCKET": constants.UPLOAD_FILE_SOCKET,
             "LISTENER_IP": self.listener_connection[0],
             "LISTENER_PORT": self.listener_connection[1],
             "LISTENER_PROTOCOL": self.listener_connection[2],
             "DATA_ID": self.data_id,
-            "LOCATION_SUBPATH": os.fspath(storage_url),
-            "DATA_LOCAL_VOLUME": os.fspath(constants.DATA_LOCAL_VOLUME),
-            "DATA_ALL_VOLUME": os.fspath(constants.DATA_ALL_VOLUME),
-            "DATA_VOLUME": os.fspath(constants.DATA_VOLUME),
-            "UPLOAD_VOLUME": os.fspath(constants.UPLOAD_VOLUME),
-            "SECRETS_DIR": os.fspath(constants.SECRETS_VOLUME),
             "RUNNING_IN_CONTAINER": 1,
             "RUNNING_IN_DOCKER": 1,
+            "GENIALIS_UID": os.getuid(),
+            "GENIALIS_GID": os.getgid(),
             "FLOW_MANAGER_KEEP_DATA": SETTINGS.get("FLOW_MANAGER_KEEP_DATA", False),
-            "DATA_ALL_VOLUME_SHARED": True,
             "DESCRIPTOR_CHUNK_SIZE": 100,
-            # Must init container set permissions.
-            "INIT_SET_PERMISSIONS": False,
-            "UPLOAD_CONNECTOR_NAME": SETTINGS.get("UPLOAD_CONNECTOR_NAME", "local"),
+            "MOUNTED_CONNECTORS": ",".join(
+                connector.name
+                for connector in connectors.values()
+                if connector.mountable
+            ),
         }
+        with suppress(RuntimeError):
+            environment["UPLOAD_DIR"] = self._get_upload_dir()
 
         autoremove = SETTINGS.get("FLOW_DOCKER_AUTOREMOVE", False)
         # Docker on MacOSX usus different settings
         if platform.system() == "Darwin":
             environment["LISTENER_IP"] = "host.docker.internal"
 
+        tmpdir = tempfile.TemporaryDirectory()
+
         init_arguments = {
             "auto_remove": autoremove,
-            "volumes": self._init_volumes(),
+            "volumes": self._init_volumes(Path(tmpdir.name)),
             "command": ["/usr/local/bin/python3", "-m", "executors.init_container"],
             "image": communicator_image,
             "name": f"{self.container_name}-init",
@@ -407,13 +361,13 @@ class FlowExecutor(LocalFlowExecutor):
         }
         communication_arguments = {
             "auto_remove": autoremove,
-            "volumes": self._communicator_volumes(),
+            "volumes": self._communicator_volumes(Path(tmpdir.name)),
             "command": ["/usr/local/bin/python", "/startup.py"],
             "image": communicator_image,
             "name": f"{self.container_name}-communicator",
             "detach": True,
-            "cpu_quota": 100000,  # TODO: how much?
-            "mem_limit": "4000m",  # TODO: how much?
+            "cpu_quota": 100000,
+            "mem_limit": "4000m",
             "mem_reservation": "200m",
             "network_mode": network,
             "cap_drop": ["all"],
@@ -423,11 +377,11 @@ class FlowExecutor(LocalFlowExecutor):
         }
         processing_arguments = {
             "auto_remove": autoremove,
-            "volumes": self._processing_volumes(),
+            "volumes": self._processing_volumes(Path(tmpdir.name)),
             "command": ["python3", "/start.py"],
             "image": processing_image,
             "network_mode": f"container:{self.container_name}-communicator",
-            "working_dir": os.fspath(constants.DATA_LOCAL_VOLUME),
+            "working_dir": os.fspath(constants.PROCESSING_VOLUME),
             "detach": True,
             "cpu_quota": self.process["resource_limits"]["cores"] * (10 ** 6),
             "mem_limit": f"{memory}m",
