@@ -1,8 +1,8 @@
 """Registry class for storage connectors."""
 import logging
-from typing import MutableMapping
+from typing import Dict, Sequence, MutableMapping, Type
 
-from .baseconnector import BaseStorageConnector
+from .baseconnector import DEFAULT_CONNECTOR_PRIORITY, BaseStorageConnector
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +42,31 @@ class StorageConnectors(MutableMapping[str, BaseStorageConnector]):
 
         return settings
 
+    def _recreate_storage_mappings(self):
+        """Recreate mapping between storages and connectors."""
+        try:
+            # Try to import settings from executor.
+            from executors.global_settings import SETTINGS
+
+            storages = SETTINGS.get("FLOW_STORAGE", dict())
+        except ImportError:
+            # Import settings from Django.
+            from resolwe.storage import settings as storage_settings
+
+            storages = storage_settings.FLOW_STORAGE
+
+        self._storage_connectors = dict()
+        for storage_name, storage_settings in storages.items():
+            self._storage_connectors[storage_name] = sorted(
+                (
+                    self[connector_name]
+                    for connector_name in storage_settings["connectors"]
+                ),
+                key=lambda connector: connector.config.get(
+                    "priority", DEFAULT_CONNECTOR_PRIORITY
+                ),
+            )
+
     def add_storage_connector_class(self, connector: BaseStorageConnector):
         """Add storage connector class to the registry."""
 
@@ -75,6 +100,11 @@ class StorageConnectors(MutableMapping[str, BaseStorageConnector]):
                         )
                 instance = klass(connector_settings["config"], connector_name)
                 self[connector_name] = instance
+        self._recreate_storage_mappings()
+
+    def for_storage(self, storage: str) -> Sequence[BaseStorageConnector]:
+        """Get storage connectors for storage ordered by priority."""
+        return self._storage_connectors[storage]
 
     def recreate_connectors(self):
         """Recreate connectors from settings."""

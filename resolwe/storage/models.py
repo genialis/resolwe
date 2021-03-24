@@ -70,6 +70,16 @@ class FileStorage(models.Model):
         q_set_done = q_set_all.filter(status=StorageLocation.STATUS_DONE)
         return q_set_done.first() or q_set_all.first()
 
+    @property
+    def connectors(self) -> Iterable[BaseStorageConnector]:
+        """Get a list of connectors for this location."""
+        return [
+            connectors[connector_name]
+            for connector_name in self.storage_locations.filter(
+                status=StorageLocation.STATUS_DONE
+            ).values_list("connector_name", flat=True)
+        ]
+
     def get_path(self, prefix: str = None, filename: str = None) -> str:
         """Return path of the default storage location."""
         return self.default_storage_location.get_path(prefix, filename)
@@ -188,7 +198,6 @@ class LocationsDoneManager(models.Manager):
                     FileStorage.objects.filter(
                         pk=models.OuterRef("id"),
                         storage_locations__connector_name=connector_name,
-                        storage_locations__status=StorageLocation.STATUS_DONE,
                         storage_locations__last_update__gt=now()  # type: ignore
                         - models.Case(
                             *whens,
