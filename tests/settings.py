@@ -3,9 +3,11 @@ Django settings for running tests for Resolwe package.
 
 """
 import os
+import sys
 from distutils.util import strtobool
+from pathlib import Path
 
-PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
+PROJECT_ROOT = Path(__file__).parent.resolve()
 
 SECRET_KEY = "secret"
 
@@ -89,15 +91,17 @@ REDIS_CONNECTION = {
 }
 
 LISTENER_CONNECTION = {
-    "hosts": {
-        "docker": "172.17.0.1",
-    },
+    # Keys in the hosts dictionary are workload connector names. Currently
+    # supported are 'local', 'kubertenes', 'celery' and 'slurm'.
+    "hosts": {"local": "172.17.0.1"},
     "port": int(os.environ.get("RESOLWE_LISTENER_SERVICE_PORT", 53893)),
     "min_port": 50000,
     "max_port": 60000,
     "protocol": "tcp",
 }
 
+if sys.platform == "darwin":
+    LISTENER_CONNECTION["hosts"]["local"] = "127.0.0.1"
 
 # Used to determine IP for kubernetes executor to connect to.
 KUBERNETES_SETTINGS = {
@@ -124,14 +128,6 @@ CELERY_ACCEPT_CONTENT = [CELERY_TASK_SERIALIZER]
 
 STATIC_URL = "/static/"
 
-FLOW_EXECUTOR = {
-    "NAME": "resolwe.flow.executors.docker",
-    "DATA_DIR": os.path.join(PROJECT_ROOT, ".test_data"),
-    "UPLOAD_DIR": os.path.join(PROJECT_ROOT, ".test_upload"),
-    "RUNTIME_DIR": os.path.join(PROJECT_ROOT, ".test_runtime"),
-    "REDIS_CONNECTION": REDIS_CONNECTION,
-    "LISTENER_CONNECTION": LISTENER_CONNECTION,
-}
 
 # Check if any Manager settings are set via environment variables
 manager_prefix = os.environ.get("RESOLWE_MANAGER_REDIS_PREFIX", "resolwe.flow.manager")
@@ -187,22 +183,80 @@ FLOW_PROCESSES_FINDERS = (
 
 FLOW_PROCESSES_RUNTIMES = ("resolwe.process.runtime.Process",)
 
-FLOW_DOCKER_VOLUME_EXTRA_OPTIONS = {
-    "data": "Z",
-    "data_all": "z",
-    "upload": "z",
-    "secrets": "Z",
-    "users": "Z",
-    "tools": "z",
-    "runtime": "Z",
+FLOW_EXECUTOR = {
+    "NAME": "resolwe.flow.executors.docker",
+    "REDIS_CONNECTION": REDIS_CONNECTION,
+    "LISTENER_CONNECTION": LISTENER_CONNECTION,
+}
+
+
+# Storage connectors configuration.
+STORAGE_CONNECTORS = {
+    "local": {
+        "connector": "resolwe.storage.connectors.localconnector.LocalFilesystemConnector",
+        "config": {
+            "priority": 100,
+            "path": PROJECT_ROOT / ".test_data",
+            "selinux_label": "z",
+        },
+    },
+    "upload": {
+        "connector": "resolwe.storage.connectors.localconnector.LocalFilesystemConnector",
+        "config": {
+            "priority": 100,
+            "path": PROJECT_ROOT / ".test_upload",
+            "selinux_label": "z",
+        },
+    },
+}
+
+FLOW_STORAGE = {
+    "data": {"connectors": ["local"]},
+    "upload": {"connectors": ["upload"]},
+}
+
+
+# This entry must contain the key 'path' inside 'config' dictionary. The value
+# is the path where tools are accesible at the host that is executing the code
+# (main server for kubernetes, worker nodes for celery/slurm ...).
+# Types 'host_path' and 'persistent_volume' are supported.
+FLOW_TOOLS_VOLUME = {
+    "type": "persistent_volume",
+    "config": {
+        "local_path": "/tools_path",
+        "name": "runtime_claim",
+        "subpath": "tools",
+    },
+}
+
+# This entry must contain the key 'path' inside 'config' dictionary. The value
+# is the path where runtime volume is accesible at the host that is executing
+# the code (main server for kubernetes, worker nodes for celery/slurm ...).
+# Types 'host_path' and 'persistent_volume' are supported.
+FLOW_RUNTIME_VOLUME = {
+    "type": "host_path",
+    "config": {
+        "path": PROJECT_ROOT / ".test_runtime",
+    },
+}
+
+
+FLOW_PROCESSING_VOLUME = {
+    "type": "host_path",
+    "config": {
+        "path": PROJECT_ROOT / ".test_processing",
+        "selinux_label": "z",
+        "read_only": False,
+    },
 }
 
 FLOW_DOCKER_AUTOREMOVE = True
-FLOW_DOCKER_EXTRA_VOLUMES = []
-
-
-FLOW_DOCKER_COMMUNICATOR_IMAGE = os.environ.get("RESOLWE_COMMUNICATOR_IMAGE", "public.ecr.aws/s4q6j6e8/resolwe/com:latest")
-FLOW_DOCKER_DEFAULT_PROCESSING_CONTAINER_IMAGE = "public.ecr.aws/s4q6j6e8/resolwe/base:ubuntu-20.04"
+FLOW_DOCKER_COMMUNICATOR_IMAGE = os.environ.get(
+    "RESOLWE_COMMUNICATOR_IMAGE", "public.ecr.aws/s4q6j6e8/resolwe/com:latest"
+)
+FLOW_DOCKER_DEFAULT_PROCESSING_CONTAINER_IMAGE = (
+    "public.ecr.aws/s4q6j6e8/resolwe/base:ubuntu-20.04"
+)
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
