@@ -299,9 +299,9 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
     def __init_subclass__(cls, **kwargs):
         """Register class with the registry on initialization."""
         super().__init_subclass__(**kwargs)
-        from .registry import StorageConnectors  # Circular import
+        from .registry import connectors  # Circular import
 
-        StorageConnectors().add_storage_connector_class(cls)
+        connectors.add_storage_connector_class(cls)
 
     def __str__(self):
         """Get string representation."""

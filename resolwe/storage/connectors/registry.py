@@ -18,16 +18,11 @@ class StorageConnectors(MutableMapping[str, BaseStorageConnector]):
     of it will always return the same instance.
     """
 
-    __instance = None  #  A single instance of this class
-
-    @classmethod
-    def __new__(cls, *args, **kwargs):
-        """Create or return singleton."""
-        if StorageConnectors.__instance is None:
-            StorageConnectors.__instance = super().__new__(cls)
-            StorageConnectors.__instance.__setattr__("_connectors", dict())
-            StorageConnectors.__instance.__setattr__("_connector_classes", dict())
-        return StorageConnectors.__instance
+    def __init__(self):
+        """Initialization."""
+        self._connectors: Dict[str, BaseStorageConnector] = dict()
+        self._connector_classes: Dict[str, Type[BaseStorageConnector]] = dict()
+        self._storage_connectors: Dict[str, Sequence[BaseStorageConnector]] = dict()
 
     def _get_connectors_settings(self) -> dict:
         """Return settings for storage connectors.
