@@ -22,6 +22,11 @@ class LocalFilesystemConnector(BaseStorageConnector):
         self.get_ensures_data_integrity = True
         self.put_ensures_data_integrity = True
 
+    @property
+    def mountable(self):
+        """Can a connector be mounted inside container."""
+        return True
+
     @validate_urls
     @validate_url
     def delete(self, url, urls):

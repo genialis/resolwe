@@ -70,6 +70,11 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
     def base_path(self) -> PurePath:
         """Get a base path for this connector."""
 
+    @property
+    def mountable(self) -> bool:
+        """Get a value indicating if connector's data is on a filesystem."""
+        return False
+
     @abc.abstractmethod
     def get_object_list(self, url: Union[str, PathLike]) -> List[str]:
         """Get a list of objects stored bellow the given URL.
