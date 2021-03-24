@@ -420,6 +420,12 @@ class PythonProcess(ListenerPlugin):
         self._permission_manager = permission_manager
         super().__init__()
 
+    def handle_get_python_program(
+        self, message: Message[Tuple[str, Dict[str, Any]]], manager: "Processor"
+    ) -> Response[str]:
+        """Return the process source code for the given data object."""
+        return message.respond_ok(manager.data.process.run.get("program", ""))
+
     def handle_create_object(
         self, message: Message[Tuple[str, Dict[str, Any]]], manager: "Processor"
     ) -> Response[int]:

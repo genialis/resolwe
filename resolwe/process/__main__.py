@@ -1,13 +1,12 @@
 """Python process runner utility."""
-import argparse
 import inspect
 import logging
 import os
 import sys
-from importlib import import_module
-from pathlib import Path
+import types
 from typing import Dict, Type
 
+from .communicator import communicator
 from .descriptor import ValidationError
 from .models import Data
 from .runtime import Process
@@ -18,26 +17,13 @@ logger = logging.getLogger(__name__)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run a Resolwe Python proces")
-    parser.add_argument("filename", type=str, help="Python process filename to run")
-    args = parser.parse_args()
+    assert communicator is not None
 
     # Get the data object.
     data = Data(DATA_ID)
-
-    # Switch to target directory to import the module.
-    try:
-        # Insert empty string as first path argument due to the issue
-        # https://bugs.python.org/issue33053
-        sys.path.insert(0, "")
-        filename = Path(args.filename).resolve()
-        start_dir = Path.cwd()
-        os.chdir(filename.parent)
-        module = import_module(filename.stem, __package__)
-        os.chdir(start_dir)
-    except (OSError, ImportError):
-        logger.exception("Failed to load Python process from %s.", args.filename)
-        sys.exit(1)
+    module = types.ModuleType("python_program")
+    python_program = communicator.get_python_program()
+    exec(python_program, module.__dict__)
 
     # Mapping between the process slug and the class containing the process
     # definition.
@@ -56,7 +42,7 @@ if __name__ == "__main__":
     try:
         process = processes[data.process.slug]
     except KeyError:
-        print("Found the following processes in module '{}':".format(args.module))
+        print("Found the following processes in module '{}':".format(processes))
         print("")
         for slug, process in processes.items():
             print("  {} ({})".format(slug, getattr(process, "name")))
