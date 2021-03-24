@@ -26,8 +26,8 @@ class BaseExecutionEngine(BaseEngine):
         """
         return []
 
-    def prepare_runtime(self, runtime_dir, data):
-        """Prepare runtime directory.
+    def prepare_volumes(self):
+        """Prepare additional volumes.
 
         This method should return a dictionary of volume maps, where
         keys are files or directories relative the the runtime directory

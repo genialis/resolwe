@@ -70,6 +70,9 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
     def base_path(self) -> PurePath:
         """Get a base path for this connector."""
 
+    def prepare_url(self, url: PathLike):
+        """Prepare all the necessary for a new location."""
+
     @property
     def mountable(self) -> bool:
         """Get a value indicating if connector's data is on a filesystem."""

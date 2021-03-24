@@ -31,11 +31,16 @@ import asyncio
 import logging
 import sys
 import traceback
+import zmq
+import zmq.asyncio
 from contextlib import suppress
 from importlib import import_module
 
-from .global_settings import DATA
+from .connectors import connectors
+from .global_settings import initialize_constants
 from .logger import configure_logging
+from .socket_utils import Message
+from .zeromq_utils import ZMQCommunicator
 
 logger = logging.getLogger(__name__)
 
@@ -49,20 +54,59 @@ def handle_exception(exc_type, exc_value, exc_traceback):
 sys.excepthook = handle_exception
 
 
+async def open_listener_connection(data_id, host, port, protocol) -> ZMQCommunicator:
+    """Connect to the listener service."""
+    zmq_context = zmq.asyncio.Context.instance()
+    zmq_socket = zmq_context.socket(zmq.DEALER)
+    zmq_socket.setsockopt(zmq.IDENTITY, f"e{data_id}".encode())
+    connect_string = f"{protocol}://{host}:{port}"
+    zmq_socket.connect(connect_string)
+    null_logger = logging.getLogger("Docker executor<->Listener")
+    null_logger.propagate = False
+    null_logger.handlers = []
+    return ZMQCommunicator(zmq_socket, "docker logger", null_logger)
+
+
 async def _run_executor():
     """Start the actual execution; instantiate the executor and run."""
     parser = argparse.ArgumentParser(description="Run the specified executor.")
     parser.add_argument(
         "module", help="The module from which to instantiate the concrete executor."
     )
+    parser.add_argument(
+        "data_id",
+        type=int,
+        help="The ID of the data object this executor will process.",
+    )
+    parser.add_argument("host", help="The address of the listener to connect to.")
+    parser.add_argument(
+        "port", type=int, help="The port of the listener to connect to."
+    )
+    parser.add_argument("protocol", help="The protocol of the listener to connect to.")
+
     args = parser.parse_args()
+
+    communicator = await open_listener_connection(
+        args.data_id, args.host, args.port, args.protocol
+    )
+    # Start listening for responses.
+    asyncio.ensure_future(communicator.start_listening())
+    configure_logging(communicator)
+
+    response = await communicator.send_command(
+        Message.command("bootstrap", (args.data_id, "executor"))
+    )
+    initialize_constants(args.data_id, response.message_data)
+    connectors.recreate_connectors()
 
     module_name = "{}.run".format(args.module)
     class_name = "FlowExecutor"
 
     try:
         module = import_module(module_name, __package__)
-        executor = getattr(module, class_name)(DATA["id"])
+        executor = getattr(module, class_name)(
+            args.data_id, communicator, (args.host, args.port, args.protocol)
+        )
         await executor.run()
     except:
         logger.exception("Unhandled exception in executor, aborting.")
@@ -79,7 +123,6 @@ async def _close_tasks(pending_tasks, timeout=5):
 
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
-    configure_logging()
     loop.run_until_complete(_run_executor())
     # TODO: remove asyncio.Task.all_tasks when we stop supporting Python 3.6.
     all_tasks = getattr(asyncio, "all_tasks", None) or asyncio.Task.all_tasks

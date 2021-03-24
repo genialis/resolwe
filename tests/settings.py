@@ -103,13 +103,6 @@ LISTENER_CONNECTION = {
 if sys.platform == "darwin":
     LISTENER_CONNECTION["hosts"]["local"] = "127.0.0.1"
 
-# Used to determine IP for kubernetes executor to connect to.
-KUBERNETES_SETTINGS = {
-    "efs_mount": "/storage/genialis",
-    "efs_claim_name": "efs-claim",
-    "namespace": "default",
-}
-
 ASGI_APPLICATION = "resolwe.flow.routing.channel_routing"
 
 CHANNEL_LAYERS = {
@@ -189,68 +182,7 @@ FLOW_EXECUTOR = {
     "LISTENER_CONNECTION": LISTENER_CONNECTION,
 }
 
-
-# Storage connectors configuration.
-STORAGE_CONNECTORS = {
-    "local": {
-        "connector": "resolwe.storage.connectors.localconnector.LocalFilesystemConnector",
-        "config": {
-            "priority": 100,
-            "path": PROJECT_ROOT / ".test_data",
-            "selinux_label": "z",
-        },
-    },
-    "upload": {
-        "connector": "resolwe.storage.connectors.localconnector.LocalFilesystemConnector",
-        "config": {
-            "priority": 100,
-            "path": PROJECT_ROOT / ".test_upload",
-            "selinux_label": "z",
-        },
-    },
-}
-
-FLOW_STORAGE = {
-    "data": {"connectors": ["local"]},
-    "upload": {"connectors": ["upload"]},
-}
-
-
-# This entry must contain the key 'path' inside 'config' dictionary. The value
-# is the path where tools are accesible at the host that is executing the code
-# (main server for kubernetes, worker nodes for celery/slurm ...).
-# Types 'host_path' and 'persistent_volume' are supported.
-FLOW_TOOLS_VOLUME = {
-    "type": "persistent_volume",
-    "config": {
-        "local_path": "/tools_path",
-        "name": "runtime_claim",
-        "subpath": "tools",
-    },
-}
-
-# This entry must contain the key 'path' inside 'config' dictionary. The value
-# is the path where runtime volume is accesible at the host that is executing
-# the code (main server for kubernetes, worker nodes for celery/slurm ...).
-# Types 'host_path' and 'persistent_volume' are supported.
-FLOW_RUNTIME_VOLUME = {
-    "type": "host_path",
-    "config": {
-        "path": PROJECT_ROOT / ".test_runtime",
-    },
-}
-
-
-FLOW_PROCESSING_VOLUME = {
-    "type": "host_path",
-    "config": {
-        "path": PROJECT_ROOT / ".test_processing",
-        "selinux_label": "z",
-        "read_only": False,
-    },
-}
-
-FLOW_DOCKER_AUTOREMOVE = True
+FLOW_DOCKER_AUTOREMOVE = False
 FLOW_DOCKER_COMMUNICATOR_IMAGE = os.environ.get(
     "RESOLWE_COMMUNICATOR_IMAGE", "public.ecr.aws/s4q6j6e8/resolwe/com:latest"
 )

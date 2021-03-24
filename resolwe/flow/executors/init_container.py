@@ -21,6 +21,7 @@ from executors.connectors import Transfer, connectors
 from executors.connectors.baseconnector import BaseStorageConnector
 from executors.connectors.exceptions import DataTransferError
 from executors.connectors.utils import paralelize
+from executors import global_settings
 from executors.socket_utils import BaseCommunicator, BaseProtocol, Message, PeerIdentity
 from executors.zeromq_utils import ZMQCommunicator
 
@@ -45,6 +46,7 @@ INPUTS_VOLUME = Path(os.environ.get("INPUTS_VOLUME", "/inputs"))
 
 GENIALIS_UID = int(os.environ.get("GENIALIS_UID", 0))
 GENIALIS_GID = int(os.environ.get("GENIALIS_GID", 0))
+MOUNTED_CONNECTORS = os.environ["MOUNTED_CONNECTORS"].split(",")
 
 LOCATION_SUBPATH = Path(os.environ["LOCATION_SUBPATH"])  # No sensible default.
 
@@ -56,6 +58,8 @@ DATA_ALL_VOLUME_SHARED = bool(
 )
 SET_PERMISSIONS = bool(strtobool(os.environ.get("INIT_SET_PERMISSIONS", "False")))
 
+class PreviousDataExistsError(Exception):
+    """Raised if data from previous run exists."""
 
 async def transfer_inputs(communicator: BaseCommunicator):
     """Transfer missing input data.
@@ -123,12 +127,29 @@ async def download_to_location(
         future.result()
 
 
-def set_permissions():
-    """Set permissions."""
-    logger.debug("Setting permissions.")
-    local_directory = DATA_LOCAL_VOLUME / LOCATION_SUBPATH
-    local_directory.mkdir()
-    shutil.chown(local_directory, GENIALIS_UID, GENIALIS_GID)
+def prepare_volumes():
+    """Create necessary folders and set permissions.
+
+    Prepare a folder LOCATION_SUBPATH inside processing volume and set the
+    applicable owner and permissions.
+    """
+    if (
+        constants.PROCESSING_VOLUME / global_settings.LOCATION_SUBPATH / "stdout.txt"
+    ).is_file():
+        raise PreviousDataExistsError(
+            "File 'stdout.txt' exists inside processing directory, aborting processing."
+        )
+
+    for volume in [constants.PROCESSING_VOLUME, constants.INPUTS_VOLUME]:
+        if volume.is_dir():
+            logger.debug("Preparing %s.", volume)
+            directory = volume / global_settings.LOCATION_SUBPATH
+            directory_mode = getattr(global_settings.SETTINGS, "FLOW_EXECUTOR", {}).get(
+                "DATA_DIR_MODE", 0o755
+            )
+            directory.mkdir(mode=directory_mode, exist_ok=True)
+            with suppress(PermissionError):
+                shutil.chown(directory, GENIALIS_UID, GENIALIS_GID)
 
 
 def _get_communicator() -> ZMQCommunicator:
@@ -140,6 +161,13 @@ def _get_communicator() -> ZMQCommunicator:
     logger.debug("Opening connection to %s", connect_string)
     zmq_socket.connect(connect_string)
     return ZMQCommunicator(zmq_socket, "init_container <-> listener", logger)
+
+
+def initialize_secrets(secrets: dict[str, Any]):
+    """Initialize secrets."""
+    for file_name, content in secrets.items():
+        with (constants.SECRETS_VOLUME / file_name).open("wb") as stream:
+            stream.write(content)
 
 
 class InitProtocol(BaseProtocol):
@@ -178,26 +206,74 @@ async def error(error_message: str, communicator: BaseCommunicator):
         await communicator.send_command(Message.command("finish", {}))
 
 
+def modify_connector_settings():
+    """Modify mountpoints and add processing and input connectors.
+
+    The value of the key 'path' in config dictionary points to the path on the
+    worker node. It has to be remaped to a path inside container.
+    Also add processing and input connector settings.
+    """
+    connector_settings = global_settings.SETTINGS["STORAGE_CONNECTORS"]
+    storage_settings = global_settings.SETTINGS["FLOW_STORAGE"]
+    connector_storage = {
+        connector_name: storage_name
+        for storage_name in storage_settings
+        for connector_name in storage_settings[storage_name]["connectors"]
+    }
+
+    # Point connector path to the correct mountpoint.
+    for connector_name in MOUNTED_CONNECTORS:
+        storage_name = connector_storage[connector_name]
+        connector_settings[connector_name]["config"][
+            "path"
+        ] = f"/{storage_name}_{connector_name}"
+
+    connector_settings["_processing"] = {
+        "connector": "executors.connectors.localconnector.LocalFilesystemConnector",
+        "config": {"path": constants.PROCESSING_VOLUME},
+    }
+
+    if constants.INPUTS_VOLUME_NAME in global_settings.SETTINGS:
+        connector_settings["_input"] = {
+            "connector": "executors.connectors.localconnector.LocalFilesystemConnector",
+            "config": {"path": constants.INPUTS_VOLUME},
+        }
+
+
 async def main():
     """Start the main program.
 
     :raises RuntimeError: when runtime error occurs.
     :raises asyncio.exceptions.CancelledError: when task is terminated.
     """
-    if SET_PERMISSIONS:
-        set_permissions()
-    protocol = InitProtocol(_get_communicator(), logger)
+    communicator = _get_communicator()
+    protocol = InitProtocol(communicator, logger)
     communicate_task = asyncio.ensure_future(protocol.communicate())
+
+    # Initialize settings constants by bootstraping.
+    response = await communicator.send_command(
+        Message.command("bootstrap", (DATA_ID, "init"))
+    )
+    global_settings.initialize_constants(DATA_ID, response.message_data)
+    initialize_secrets(response.message_data[ExecutorFiles.SECRETS_DIR])
+    modify_connector_settings()
+    connectors.recreate_connectors()
+
     try:
+        prepare_volumes()
         await protocol.transfer_missing_data()
-    except DataTransferError as error:
-        error(
-            f"Data transfer error in init container: {str(error)}",
-            protocol.communicator,
-        )
-    protocol.stop_communicate()
-    with suppress(asyncio.TimeoutError):
-        await asyncio.wait_for(communicate_task, timeout=10)
+    except PreviousDataExistsError:
+        logger.warning("Processing data exists, aborting processing.")
+        raise
+    except Exception as error:
+        message = f"Unexpected exception in init container: {error}."
+        logger.exception(message)
+        await error(message, protocol.communicator)
+        raise
+    finally:
+        protocol.stop_communicate()
+        with suppress(asyncio.TimeoutError):
+            await asyncio.wait_for(communicate_task, timeout=10)
 
 
 if __name__ == "__main__":
@@ -205,5 +281,4 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except:
-        logger.debug("Exception in init container.")
         sys.exit(1)

@@ -18,6 +18,7 @@ from typing import Any, Optional
 
 import zmq
 import zmq.asyncio
+from executors import constants, global_settings
 from executors.connectors import connectors
 from executors.connectors.baseconnector import BaseStorageConnector
 from executors.connectors.hasher import StreamHasher
@@ -60,6 +61,13 @@ DATA_VOLUME = Path(os.environ.get("DATA_VOLUME", "/data"))
 # How many file descriptors to receive over socket in a single message.
 DESCRIPTOR_CHUNK_SIZE = int(os.environ.get("DESCRIPTOR_CHUNK_SIZE", 100))
 
+MOUNTED_CONNECTORS = os.environ["MOUNTED_CONNECTORS"].split(",")
+
+# Mapping between storage and connectors for this storage.
+# The values are tuples: (default connector, default mounted connector)
+STORAGE_CONNECTOR: dict[
+    str, Tuple[BaseStorageConnector, Optional[BaseStorageConnector]]
+] = {}
 
 logging.basicConfig(
     stream=sys.stdout,
@@ -163,8 +171,8 @@ class FakeConnector(BaseStorageConnector):
         """Get stream for data at the given URL."""
         # Skip 'subpath/' in "subpath/...".
         path = Path(url)
-        if LOCATION_SUBPATH < path:
-            url = path.relative_to(LOCATION_SUBPATH)
+        if global_settings.LOCATION_SUBPATH < path:
+            url = path.relative_to(global_settings.LOCATION_SUBPATH)
         file_stream = self.file_streams[os.fspath(url)]
         return file_stream
 
@@ -546,6 +554,17 @@ class Manager:
                 # Start listening for messages from the communication and the
                 # processing container.
                 listener_task = asyncio.ensure_future(listener.communicate())
+
+                # Initialize settings constants by bootstraping.
+                response = await self.listener_communicator.send_command(
+                    Message.command("bootstrap", (DATA_ID, "communication"))
+                )
+                global_settings.initialize_constants(DATA_ID, response.message_data)
+                modify_connector_settings()
+                # Recreate connectors with received settings.
+                connectors.recreate_connectors()
+                set_default_storage_connectors()
+
                 processing_task = asyncio.ensure_future(processing.communicate())
                 listener_task.add_done_callback(self._communicator_stopped)
                 processing_task.add_done_callback(self._communicator_stopped)
@@ -583,10 +602,8 @@ class Manager:
             logger.debug("Terminating upload thread.")
             upload_thread.terminate()
             upload_thread.join()
-            # Secrets are read-only in kubernetes.
-            if not RUNNING_IN_KUBERNETES:
-                if not KEEP_DATA:
-                    purge_secrets()
+            if not KEEP_DATA:
+                purge_secrets()
 
             # Notify listener that the processing is finished.
             try:
@@ -605,6 +622,44 @@ class Manager:
                     asyncio.gather(listener_task, processing_task), timeout=10
                 )
             return return_code
+
+
+def set_default_storage_connectors():
+    """Set default mounted connector for each known storage."""
+    storages = global_settings.SETTINGS["FLOW_STORAGE"]
+    for storage_name, storage_settings in storages.items():
+        storage_connectors = connectors.for_storage(storage_name)
+        default_connector = storage_connectors[0]
+        default_mounted_connector = None
+        for connector in storage_connectors:
+            if connector.name in MOUNTED_CONNECTORS:
+                default_mounted_connector = connector
+                break
+
+        STORAGE_CONNECTOR[storage_name] = (default_connector, default_mounted_connector)
+
+
+def modify_connector_settings():
+    """Modify mountpoints and add processing and input connectors.
+
+    The path settings on filesystem connectors point to the path on the worker
+    node. They have to be remaped to a path inside container and processing and
+    input connector settings must be added.
+    """
+    connector_settings = global_settings.SETTINGS["STORAGE_CONNECTORS"]
+    storages = global_settings.SETTINGS["FLOW_STORAGE"]
+    connector_storage = {
+        connector_name: storage_name
+        for storage_name, storage_settings in storages.items()
+        for connector_name in storage_settings["connectors"]
+    }
+
+    # Point connector path to the correct mountpoint.
+    for connector_name in MOUNTED_CONNECTORS:
+        storage_name = connector_storage[connector_name]
+        connector_settings[connector_name]["config"]["path"] = Path(
+            f"/{storage_name}_{connector_name}"
+        )
 
 
 def sig_term_handler(manager_task: asyncio.Task):

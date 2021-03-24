@@ -27,6 +27,10 @@ class LocalFilesystemConnector(BaseStorageConnector):
         """Can a connector be mounted inside container."""
         return True
 
+    def prepare_url(self, url, **kwargs):
+        """Prepare all the necessary for a new location."""
+        (self.base_path / url).mkdir(mode=kwargs.get("dir_mode", 0o755), parents=True)
+
     @validate_urls
     @validate_url
     def delete(self, url, urls):

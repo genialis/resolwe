@@ -13,15 +13,18 @@ socket for communication.
 """
 
 import asyncio
+import copy
 import json
 import logging
 import os
 import shlex
 import threading
 import time
+from collections import defaultdict
 from contextlib import suppress
 from importlib import import_module
-from typing import Any, Dict, List, MutableMapping, Optional, Set, Union
+from pathlib import Path
+from typing import Any, Dict, List, MutableMapping, Optional, Set, Tuple, Union
 
 import zmq
 import zmq.asyncio
@@ -29,12 +32,14 @@ from asgiref.sync import async_to_sync
 from channels.db import database_sync_to_async
 
 from django.conf import settings
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
+from django.forms.models import model_to_dict
 from django.utils.timezone import now
 
 from django_priority_batch import PrioritizedBatcher
 
 from resolwe.flow.engine import BaseEngine, InvalidEngineError, load_engines
+from resolwe.flow.executors import constants
 from resolwe.flow.executors.socket_utils import (
     BaseProtocol,
     Message,
@@ -45,10 +50,12 @@ from resolwe.flow.executors.socket_utils import (
 )
 from resolwe.flow.executors.zeromq_utils import ZMQCommunicator
 from resolwe.flow.managers import consumer
-from resolwe.flow.managers.protocol import WorkerProtocol
-from resolwe.flow.models import Data, Storage, Worker
+from resolwe.flow.managers.protocol import ExecutorFiles, WorkerProtocol
+from resolwe.flow.models import Data, Process, Storage, Worker
 from resolwe.flow.utils import iterate_schema
+from resolwe.storage import settings as storage_settings
 from resolwe.storage.models import AccessLog
+from resolwe.test.utils import is_testing
 from resolwe.utils import BraceMessage as __
 
 # Register plugins by importing them.
@@ -492,6 +499,8 @@ class ListenerProtocol(BaseProtocol):
         self._parallel_commands_semaphore: Optional[asyncio.Semaphore] = None
         self._get_program_lock = threading.Lock()
 
+        self._bootstrap_cache: Dict[str, Any] = defaultdict(dict)
+
     def handle_log(
         self, message: Message[Union[str, bytes, bytearray]]
     ) -> Response[str]:
@@ -509,12 +518,160 @@ class ListenerProtocol(BaseProtocol):
         record_dict = json.loads(message.message_data)
         record_dict["args"] = tuple(record_dict["args"])
 
-        executors_dir = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)), "executors"
-        )
-        record_dict["pathname"] = os.path.join(executors_dir, record_dict["pathname"])
+        executors_dir = Path(__file__).parents[1] / "executors"
+        record_dict["pathname"] = os.fspath(executors_dir / record_dict["pathname"])
         logger.handle(logging.makeLogRecord(record_dict))
         return message.respond_ok("OK")
+
+    def _bootstrap_prepare_static_cache(self):
+        """Prepare cache for bootstrap."""
+
+        def marshal_settings() -> dict:
+            """Marshal Django settings into a serializable object.
+
+            :return: The serialized settings.
+            :rtype: dict
+            """
+            result = {}
+            for key in dir(settings):
+                if any(
+                    map(
+                        key.startswith,
+                        [
+                            "FLOW_",
+                            "RESOLWE_",
+                            "CELERY_",
+                            "KUBERNETES_",
+                        ],
+                    )
+                ):
+                    result[key] = getattr(settings, key)
+            result.update(
+                {
+                    "USE_TZ": settings.USE_TZ,
+                    "FLOW_EXECUTOR_TOOLS_PATHS": self._executor_preparer.get_tools_paths(),
+                    "FLOW_STORAGE": storage_settings.FLOW_STORAGE,
+                }
+            )
+            # TODO: this is q&d solution for serializing Path objects.
+            return json.loads(json.dumps(result, default=str))
+
+        # Prepare Django settings.
+        if "settings" not in self._bootstrap_cache:
+            self._bootstrap_cache["settings"] = marshal_settings()
+            connectors_settings = copy.deepcopy(storage_settings.STORAGE_CONNECTORS)
+            for connector_settings in connectors_settings.values():
+                # Fix class name for inclusion in the executor.
+                klass = connector_settings["connector"]
+                klass = "executors." + klass.rsplit(".storage.")[-1]
+                connector_settings["connector"] = klass
+                connector_config = connector_settings["config"]
+                # Prepare credentials for executor.
+                if "credentials" in connector_config:
+                    src_credentials = connector_config["credentials"]
+                    base_credentials_name = os.path.basename(src_credentials)
+
+                    self._bootstrap_cache["connector_secrets"][
+                        base_credentials_name
+                    ] = ""
+                    if os.path.isfile(src_credentials):
+                        with open(src_credentials, "r") as f:
+                            self._bootstrap_cache["connector_secrets"][
+                                base_credentials_name
+                            ] = f.read()
+                    connector_config["credentials"] = os.fspath(
+                        constants.SECRETS_VOLUME / base_credentials_name
+                    )
+            self._bootstrap_cache["settings"][
+                "STORAGE_CONNECTORS"
+            ] = connectors_settings
+            self._bootstrap_cache["settings"][
+                "FLOW_VOLUMES"
+            ] = storage_settings.FLOW_VOLUMES
+
+            # Prepare process meta data.
+            self._bootstrap_cache["process_meta"] = {
+                k: getattr(Process, k)
+                for k in dir(Process)
+                if k.startswith("SCHEDULING_CLASS_")
+                and isinstance(getattr(Process, k), str)
+            }
+
+            self._bootstrap_cache["process"] = dict()
+
+    def bootstrap_prepare_process_cache(self, data: Data):
+        """Prepare cache for process with the given id."""
+        if data.process_id not in self._bootstrap_cache["process"]:
+            self._bootstrap_cache["process"][data.process_id] = model_to_dict(
+                data.process
+            )
+            self._bootstrap_cache["process"][data.process_id][
+                "resource_limits"
+            ] = data.process.get_resource_limits()
+
+    def handle_bootstrap(self, message: Message[Tuple[int, str]]) -> Response[Dict]:
+        """Handle bootstrap request.
+
+        :raises RuntimeError: when settings name is not known.
+        """
+        data_id, settings_name = message.message_data
+        data = Data.objects.get(pk=data_id)
+        if is_testing():
+            self._bootstrap_cache = defaultdict(dict)
+        self._bootstrap_prepare_static_cache()
+        response: Dict[str, Any] = dict()
+        self.bootstrap_prepare_process_cache(data)
+
+        if settings_name == "executor":
+            execution_engine_name = data.process.run.get("language", None)
+            execution_engine = self._get_execution_engine(execution_engine_name)
+            volume_maps = execution_engine.prepare_volumes()
+
+            response[ExecutorFiles.EXECUTOR_SETTINGS] = {
+                "DATA_DIR": data.location.get_path()
+            }
+            response[ExecutorFiles.LOCATION_SUBPATH] = data.location.subpath
+            response[ExecutorFiles.DJANGO_SETTINGS] = self._bootstrap_cache["settings"]
+            response[ExecutorFiles.DJANGO_SETTINGS]["RUNTIME_VOLUME_MAPS"] = volume_maps
+            response[ExecutorFiles.PROCESS_META] = self._bootstrap_cache["process_meta"]
+            response[ExecutorFiles.PROCESS] = self._bootstrap_cache["process"][
+                data.process.id
+            ]
+
+        elif settings_name == "init":
+            response[ExecutorFiles.DJANGO_SETTINGS] = {
+                "STORAGE_CONNECTORS": self._bootstrap_cache["settings"][
+                    "STORAGE_CONNECTORS"
+                ],
+                "FLOW_STORAGE": storage_settings.FLOW_STORAGE,
+            }
+            if hasattr(settings, constants.INPUTS_VOLUME_NAME):
+                response[ExecutorFiles.DJANGO_SETTINGS][
+                    constants.INPUTS_VOLUME_NAME
+                ] = self._bootstrap_cache["settings"][constants.INPUTS_VOLUME_NAME]
+            response[ExecutorFiles.SECRETS_DIR] = self._bootstrap_cache[
+                "connector_secrets"
+            ]
+            try:
+                response[ExecutorFiles.SECRETS_DIR].update(data.resolve_secrets())
+            except PermissionDenied as e:
+                data.process_error.append(str(e))
+                data.save(update_fields=["process_error"])
+                raise
+            response[ExecutorFiles.LOCATION_SUBPATH] = data.location.subpath
+        elif settings_name == "communication":
+            response[ExecutorFiles.DJANGO_SETTINGS] = {
+                "STORAGE_CONNECTORS": self._bootstrap_cache["settings"][
+                    "STORAGE_CONNECTORS"
+                ],
+                "FLOW_STORAGE": storage_settings.FLOW_STORAGE,
+            }
+            response[ExecutorFiles.LOCATION_SUBPATH] = data.location.subpath
+        else:
+            raise RuntimeError(
+                f"Settings {settings_name} sent by peer with id {data_id} unknown."
+            )
+        return message.respond_ok(response)
 
     async def peer_status_changed(
         self, peer_identity: PeerIdentity, status: PeerStatus
@@ -541,13 +698,22 @@ class ListenerProtocol(BaseProtocol):
         self, peer_identity: PeerIdentity, message: Message
     ) -> Response:
         """Handle command received over 0MQ."""
-        # Logging is handled separately. The worker might have non-numeric peer identifier.
-        if message.command_name == "log":
+        # Logging and bootstraping are handled separately.
+        if message.command_name in ["log", "bootstrap"]:
             try:
-                return self.handle_log(message)
-            except:
-                logger.exception("Error in handle_log method.")
-                return message.respond("Error writing logs.", ResponseStatus.ERROR)
+                handler = getattr(self, f"handle_{message.command_name}")
+                return await database_sync_to_async(handler, thread_sensitive=False)(
+                    message
+                )
+            except Exception:
+                logger.exception(
+                    __(
+                        "Error handling command {} for peer {}.",
+                        message.command_name,
+                        peer_identity,
+                    )
+                )
+                return message.respond("Error in handler.", ResponseStatus.ERROR)
 
         if peer_identity not in self.peers:
             try:
@@ -578,6 +744,11 @@ class ListenerProtocol(BaseProtocol):
         self, peer_identity: PeerIdentity, received_message: Message
     ):
         """Process command."""
+        # Executor uses separate identity of the form f"e_{data.id}".
+        response_identity = peer_identity
+        if b"_" in peer_identity:
+            peer_identity = peer_identity.split(b"_")[1]
+
         if self._parallel_commands_semaphore is None:
             self._parallel_commands_semaphore = asyncio.Semaphore(
                 self._max_parallel_commands
@@ -596,7 +767,7 @@ class ListenerProtocol(BaseProtocol):
                 assert received_message.sent_timestamp is not None
                 response_time = time.time() - received_message.sent_timestamp
                 self.logger.debug(__("Response time: {}", response_time))
-                await self.communicator.send_response(response, peer_identity)
+                await self.communicator.send_response(response, response_identity)
 
             except RuntimeError:
                 # When unable to send message just log the error. Peer will be

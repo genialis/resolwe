@@ -360,20 +360,15 @@ class FlowExecutor(LocalFlowExecutor):
 
         logger.debug("Checking existence of docker image: %s.", processing_image)
 
-        listener_settings = SETTINGS.get("FLOW_EXECUTOR", {}).get(
-            "LISTENER_CONNECTION", {}
-        )
         environment = {
             "CONTAINER_TIMEOUT": constants.CONTAINER_TIMEOUT,
             "SOCKETS_VOLUME": constants.SOCKETS_VOLUME,
             "COMMUNICATION_PROCESSING_SOCKET": constants.COMMUNICATION_PROCESSING_SOCKET,
             "SCRIPT_SOCKET": constants.SCRIPT_SOCKET,
             "UPLOAD_FILE_SOCKET": constants.UPLOAD_FILE_SOCKET,
-            "LISTENER_IP": listener_settings.get("hosts", {}).get(
-                "docker", "127.0.0.1"
-            ),
-            "LISTENER_PORT": listener_settings.get("port", 53893),
-            "LISTENER_PROTOCOL": listener_settings.get("protocol", "tcp"),
+            "LISTENER_IP": self.listener_connection[0],
+            "LISTENER_PORT": self.listener_connection[1],
+            "LISTENER_PROTOCOL": self.listener_connection[2],
             "DATA_ID": self.data_id,
             "LOCATION_SUBPATH": os.fspath(storage_url),
             "DATA_LOCAL_VOLUME": os.fspath(constants.DATA_LOCAL_VOLUME),

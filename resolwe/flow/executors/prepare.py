@@ -19,6 +19,8 @@ from django.forms.models import model_to_dict
 from resolwe.flow.managers.protocol import ExecutorFiles
 from resolwe.flow.models import Data
 from resolwe.flow.utils import get_apps_tools
+from resolwe.storage.connectors import connectors
+from resolwe.storage import settings as storage_settings
 from resolwe.test.utils import is_testing
 
 logger = logging.getLogger(__name__)
@@ -48,26 +50,7 @@ class BaseFlowExecutorPreparer:
             processes with special permissions. Keys are filenames, values
             are the raw strings that should be written into those files.
         """
-        data = Data.objects.select_related("process").get(pk=data_id)
-
-        files[ExecutorFiles.DJANGO_SETTINGS].update(
-            {
-                "USE_TZ": settings.USE_TZ,
-                "FLOW_EXECUTOR_TOOLS_PATHS": self.get_tools_paths(),
-            }
-        )
-        files[ExecutorFiles.DATA] = model_to_dict(data)
-        files[ExecutorFiles.STORAGE_LOCATION] = model_to_dict(data.location)
-        files[ExecutorFiles.STORAGE_LOCATION][
-            "url"
-        ] = data.location.default_storage_location.url
-        files[ExecutorFiles.PROCESS] = model_to_dict(data.process)
-        files[ExecutorFiles.PROCESS][
-            "resource_limits"
-        ] = data.process.get_resource_limits()
-
-        # Add secrets if the process has permission to read them.
-        secrets.update(data.resolve_secrets())
+        pass
 
     def get_tools_paths(self):
         """Get tools' paths."""
@@ -75,7 +58,7 @@ class BaseFlowExecutorPreparer:
             return list(get_apps_tools().values())
 
         else:
-            tools_root = settings.FLOW_TOOLS_ROOT
+            tools_root = storage_settings.FLOW_VOLUMES["tools"]["path"]
             subdirs = next(os.walk(tools_root))[1]
 
             return [os.path.join(tools_root, sdir) for sdir in subdirs]

@@ -381,7 +381,6 @@ class ResolweRunner(DiscoverRunner):
         # resolwe.test.testcases.process); the only realistic mechanism
         # is to override later and call some sort of commit method in
         # the manager.
-
         keep_data_override = override_settings(FLOW_MANAGER_KEEP_DATA=self.keep_data)
         keep_data_override.__enter__()
 

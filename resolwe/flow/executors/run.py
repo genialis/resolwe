@@ -10,10 +10,11 @@ Base Class
 """
 # pylint: disable=logging-format-interpolation
 import logging
-import os
-from typing import Dict
+from pathlib import Path
+from typing import Dict, Tuple
 
-from .global_settings import EXECUTOR_SETTINGS, PROCESS, SETTINGS
+from .global_settings import LOCATION_SUBPATH, PROCESS, SETTINGS
+from .zeromq_utils import ZMQCommunicator
 
 # TODO: update requirements!!!!
 # NOTE: If the imports here are changed, the executors' requirements.txt
@@ -27,10 +28,21 @@ class BaseFlowExecutor:
     # Name has to be overriden in inherited classes.
     name = "base"
 
-    def __init__(self, data_id: int, *args, **kwargs):
-        """Initialize attributes."""
-        # This overrides name set in executor!!!
-        # self.name: Optional[str] = None
+    def __init__(
+        self,
+        data_id: int,
+        communicator: ZMQCommunicator,
+        listener_connection: Tuple[str, str, str],
+        *args,
+        **kwargs,
+    ):
+        """Initialize attributes.
+
+        :attr data_id: id of the Data object we are processing.
+        :attr communicator: the communicator object for communication with the listener.
+        :attr listener_connection: tuple (host, port, protocol) determining the address
+            of the listener.
+        """
         self.data_id = data_id
         self.process: Dict = PROCESS
         process_requirements: Dict = self.process.get("requirements", {})
@@ -38,6 +50,10 @@ class BaseFlowExecutor:
             self.name, {}
         )
         self.resources: Dict = process_requirements.get("resources", {})
+        self.storage_url = Path(LOCATION_SUBPATH)
+        self.runtime_dir = Path(SETTINGS["FLOW_RUNTIME_VOLUME"]["config"]["path"])
+        self.communicator = communicator
+        self.listener_connection = listener_connection
 
     def _generate_container_name(self, prefix):
         """Generate unique container name.
@@ -59,7 +75,6 @@ class BaseFlowExecutor:
         """Execute the script and save results."""
         logger.debug("Executor for Data with id %d has started.", self.data_id)
         try:
-            os.chdir(EXECUTOR_SETTINGS["DATA_DIR"])
             await self.start()
         except:
             logger.exception("Unhandled exception in executor")

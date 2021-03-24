@@ -16,7 +16,6 @@ from resolwe.flow.models.utils import referenced_files, validate_data_object
 from resolwe.flow.utils import dict_dot, iterate_fields
 from resolwe.storage.connectors.hasher import StreamHasher
 from resolwe.storage.models import ReferencedPath, StorageLocation
-from resolwe.storage.settings import STORAGE_LOCAL_CONNECTOR
 from resolwe.utils import BraceMessage as __
 
 from .plugin import ListenerPlugin

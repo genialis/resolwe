@@ -10,12 +10,10 @@ import json
 import logging
 import os
 import re
-import shlex
 import time
-from base64 import b64encode
 from contextlib import suppress
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, Iterable, Tuple
 
 import kubernetes
 
@@ -27,6 +25,9 @@ from resolwe.flow.executors import constants
 from resolwe.flow.executors.prepare import BaseFlowExecutorPreparer
 from resolwe.flow.executors.protocol import ExecutorFiles
 from resolwe.flow.models import Data, DataDependency, Process
+from resolwe.storage import settings as storage_settings
+from resolwe.storage.connectors import connectors
+from resolwe.storage.connectors.baseconnector import BaseStorageConnector
 from resolwe.utils import BraceMessage as __
 
 from .base import BaseConnector
@@ -54,55 +55,36 @@ class Connector(BaseConnector):
 
         This has to be done for every run since settings values may be overriden for tests.
         """
-        self.efs_root = getattr(settings, "KUBERNETES_SETTINGS", {}).get(
-            "efs_mount", "/efs"
-        )
-        upload_dir = Path(settings.FLOW_EXECUTOR.get("UPLOAD_DIR", ""))
         self.kubernetes_namespace = getattr(settings, "KUBERNETES_SETTINGS", {}).get(
             "namespace", "default"
         )
-        self.data_dir = Path(settings.FLOW_EXECUTOR.get("DATA_DIR", ""))
-        self.runtime_dir = Path(settings.FLOW_EXECUTOR.get("RUNTIME_DIR", ""))
-        self.efs_upload_dir = upload_dir.relative_to(self.efs_root)
-        self.efs_data_dir = self.data_dir.relative_to(self.efs_root)
-        self.efs_runtime_dir = self.runtime_dir.relative_to(self.efs_root)
-
-    def _dict_from_directory(self, directory: Path) -> Dict[str, str]:
-        """Get dictionary from given directory.
-
-        File names are keys and corresponding file contents are values.
-        """
-        return {
-            entry.name: entry.read_text()
-            for entry in directory.glob("*")
-            if entry.is_file()
-        }
-
-    def _prepare_environment(self, data: Data) -> list:
-        """Prepare environmental variables."""
-        listener_settings = getattr(settings, "FLOW_EXECUTOR", {}).get(
-            "LISTENER_CONNECTION", {}
+        self.runtime_dir = Path(
+            storage_settings.FLOW_VOLUMES["runtime"]["config"]["path"]
         )
+
+    def _get_upload_dir(self) -> str:
+        """Get upload path.
+
+        : returns: the path of the first mountable connector for storage
+            'upload'.
+
+        :raises RuntimeError: if no applicable connector is found.
+        """
+        for connector in connectors.for_storage("upload"):
+            if connector.mountable:
+                return f"/upload_{connector.name}"
+        raise RuntimeError("No mountable upload connector is defined.")
+
+    def _prepare_environment(
+        self, data: Data, listener_connection: Tuple[str, str, str]
+    ) -> list:
+        """Prepare environmental variables."""
+        host, port, protocol = listener_connection
         environment = {
-            "CONTAINER_TIMEOUT": constants.CONTAINER_TIMEOUT,
-            "SOCKETS_VOLUME": os.fspath(constants.SOCKETS_VOLUME),
-            "COMMUNICATION_PROCESSING_SOCKET": constants.COMMUNICATION_PROCESSING_SOCKET,
-            "SCRIPT_SOCKET": constants.SCRIPT_SOCKET,
-            "UPLOAD_FILE_SOCKET": constants.UPLOAD_FILE_SOCKET,
-            "LISTENER_IP": listener_settings.get("hosts", {}).get(
-                "kubernetes", "127.0.0.1"
-            ),
-            "LISTENER_PORT": listener_settings.get("port", 53893),
-            "LISTENER_PROTOCOL": listener_settings.get("protocol", "tcp"),
+            "LISTENER_IP": host,
+            "LISTENER_PORT": port,
+            "LISTENER_PROTOCOL": protocol,
             "DATA_ID": data.id,
-            "LOCATION_SUBPATH": data.location.subpath,
-            "DATA_LOCAL_VOLUME": os.fspath(constants.DATA_LOCAL_VOLUME),
-            "DATA_ALL_VOLUME": os.fspath(constants.DATA_ALL_VOLUME),
-            "DATA_VOLUME": os.fspath(constants.DATA_VOLUME),
-            "UPLOAD_VOLUME": os.fspath(constants.UPLOAD_VOLUME),
-            "INPUTS_VOLUME": os.fspath(constants.INPUTS_VOLUME),
-            "SECRETS_DIR": os.fspath(constants.SECRETS_VOLUME),
-            "TMP_DIR": os.fspath(constants.TMPDIR),
             "FLOW_MANAGER_KEEP_DATA": getattr(
                 settings, "FLOW_MANAGER_KEEP_DATA", False
             ),
@@ -111,13 +93,14 @@ class Connector(BaseConnector):
             "GENIALIS_UID": os.getuid(),
             "GENIALIS_GID": os.getgid(),
             "DESCRIPTOR_CHUNK_SIZE": 100,
-            "UPLOAD_CONNECTOR_NAME": self._get_upload_connector_name(data),
-            # Is the DATA_ALL volume shared between containers. This is needed
-            # in init container to know how to download missing data.
-            "DATA_ALL_VOLUME_SHARED": False,
-            # Must init container set permissions.
-            "INIT_SET_PERMISSIONS": True,
+            "MOUNTED_CONNECTORS": ",".join(
+                connector.name
+                for connector in connectors.values()
+                if connector.mountable
+            ),
         }
+        with suppress(RuntimeError):
+            environment["UPLOAD_DIR"] = self._get_upload_dir()
 
         return [
             {"name": name, "value": str(value)} for name, value in environment.items()
@@ -131,36 +114,9 @@ class Connector(BaseConnector):
         """
         return data.location.default_storage_location.connector_name
 
-    def _prepare_secrets(self, secrets: Dict[str, str]) -> Dict[str, str]:
-        """Base64 encode every value and transform it to string.
-
-        The original dictionary is not modifies.
-        """
-        return {
-            key: b64encode(value.encode()).decode() for key, value in secrets.items()
-        }
-
-    def _generate_secrets(self, name: str, directory: Path) -> Dict[str, Any]:
-        """Prepare secrets from the given directory."""
-        return {
-            "apiVersion": "v1",
-            "kind": "Secret",
-            "metadata": {"name": name},
-            "data": self._prepare_secrets(self._dict_from_directory(directory)),
-        }
-
-    def _get_configmap(self, name: str, directory: Path) -> Dict[str, Any]:
-        """Prepare config map from the given directory."""
-        return {
-            "apiVersion": "v1",
-            "kind": "ConfigMap",
-            "metadata": {"name": name},
-            "data": self._dict_from_directory(directory),
-        }
-
-    def _ebs_claim_name(self, type_: str, data_id: int) -> str:
-        """Get EBS claim name."""
-        return f"pvc-{type_}-{data_id}"
+    def _ebs_claim_name(self, base_name: str, data_id: int) -> str:
+        """Get unique EBS claim name."""
+        return f"{base_name}-{data_id}"
 
     def _get_files_configmap_name(self, location_subpath: Path, core_api: Any):
         """Get or create configmap for files.
@@ -170,26 +126,18 @@ class Connector(BaseConnector):
         returns description for this configmap.
         """
         socket_utils_path: Path = (
-            self.runtime_dir
-            / location_subpath
-            / "executors"
-            / ExecutorFiles.SOCKET_UTILS
+            self.runtime_dir / "executors" / ExecutorFiles.SOCKET_UTILS
         )
         processing_startup_path: Path = (
-            self.runtime_dir
-            / location_subpath
-            / "executors"
-            / ExecutorFiles.STARTUP_PROCESSING_SCRIPT
+            self.runtime_dir / "executors" / ExecutorFiles.STARTUP_PROCESSING_SCRIPT
         )
-        constants_path: Path = (
-            self.runtime_dir / location_subpath / "executors" / ExecutorFiles.CONSTANTS
-        )
+        constants_path: Path = self.runtime_dir / "executors" / ExecutorFiles.CONSTANTS
 
         startup_content = processing_startup_path.read_text()
         socket_utils_content = socket_utils_path.read_text()
         constants_content = constants_path.read_text()
         passwd_content = "root:x:0:0:root:/root:/bin/bash\n"
-        passwd_content += f"user:x:{os.getuid()}:{os.getgid()}:user:{os.fspath(constants.DATA_LOCAL_VOLUME)}:/bin/bash\n"
+        passwd_content += f"user:x:{os.getuid()}:{os.getgid()}:user:{os.fspath(constants.PROCESSING_VOLUME)}:/bin/bash\n"
         group_content = "root:x:0:\n"
         group_content += f"user:x:{os.getgid()}:user\n"
 
@@ -228,118 +176,73 @@ class Connector(BaseConnector):
 
         return configmap_name
 
-    def _volumes(
-        self,
-        secrets_name: str,
-        configmap_name: str,
-        efs_claim_name: str,
-        ebs_local_claim_name: str,
-        ebs_input_data_claim_name: str,
-        location_subpath: Path,
-        core_api: Any,
-    ) -> list:
+    def _get_mountable_connectors(self) -> Iterable[Tuple[str, BaseStorageConnector]]:
+        """Iterate through all the storages and find mountable connectors.
+
+        :returns: list of tuples (storage_name, connector).
+        """
+        return (
+            (storage_name, connector)
+            for storage_name in storage_settings.FLOW_STORAGE
+            for connector in connectors.for_storage(storage_name)
+            if connector.mountable
+        )
+
+    def _volumes(self, location_subpath: Path, core_api: Any) -> list:
         """Prepare all volumes."""
+
+        def volume_from_config(volume):
+            """Get configuration for kubernetes for given volume."""
+            name = volume["config"]["name"]
+            if volume["type"] == "ebs":
+                return {
+                    "name": name,
+                    "persistentVolumeClaim": {"claimName": name},
+                }
+            elif volume["type"] == "host_path":
+                return {
+                    "name": name,
+                    "hostPath": {"path": os.fspath(volume["config"]["path"])},
+                }
+            else:
+                raise RuntimeError(f"Unsupported volume configuration: {volume}.")
+
         files_configmap_name = self._get_files_configmap_name(
             location_subpath, core_api
         )
 
-        return [
-            {
-                "name": "secrets-volume",
-                "secret": {"secretName": secrets_name},
-            },
-            {
-                "name": "settings-volume",
-                "configMap": {"name": configmap_name},
-            },
+        volumes = [
             {
                 "name": "files-volume",
                 "configMap": {"name": files_configmap_name},
             },
-            {
-                "name": "efs-root",
-                "persistentVolumeClaim": {"claimName": efs_claim_name},
-            },
-            {
-                "name": "ebs-root",
-                "persistentVolumeClaim": {"claimName": ebs_local_claim_name},
-            },
-            {
-                "name": "ebs-input-data",
-                "persistentVolumeClaim": {"claimName": ebs_input_data_claim_name},
-            },
             {"name": "sockets-volume", "emptyDir": {}},
+            {"name": "secrets-volume", "emptyDir": {}},
         ]
-
-    def _communicator_mountpoints(self, location_subpath: Path) -> list:
-        """Mountpoints for communicator container."""
-        mount_points = [
-            {
-                "name": "efs-root",
-                "mountPath": os.fspath(constants.DATA_ALL_VOLUME),
-                "subPath": os.fspath(self.efs_data_dir),
-                "readOnly": False,
-            },
-            {
-                "name": "efs-root",
-                "mountPath": os.fspath(constants.DATA_VOLUME),
-                "subPath": os.fspath(self.efs_data_dir / location_subpath),
-                "readOnly": False,
-            },
-            {
-                "name": "settings-volume",
-                "mountPath": os.fspath(constants.SETTINGS_VOLUME),
-                "readOnly": True,
-            },
-            {
-                "name": "secrets-volume",
-                "mountPath": os.fspath(constants.SECRETS_VOLUME),
-                "readOnly": False,
-            },
-            {
-                "name": "files-volume",
-                "mountPath": "/etc/passwd",
-                "subPath": "passwd",
-            },
-            {
-                "name": "files-volume",
-                "mountPath": "/etc/group",
-                "subPath": "group",
-            },
-            {
-                "name": "sockets-volume",
-                "mountPath": os.fspath(constants.SOCKETS_VOLUME),
-            },
+        volumes += [
+            volume_from_config(volume)
+            for volume in storage_settings.FLOW_VOLUMES.values()
         ]
-        return mount_points
+        volumes += [
+            {
+                "name": connector.name,
+                "hostPath": {"path": os.fspath(connector.config["path"])},
+            }
+            for storage_name, connector in self._get_mountable_connectors()
+        ]
+        return volumes
 
     def _init_container_mountpoints(self):
         """Prepare mountpoints for init container.
 
-        It needs local EBS volume to set permissions and settings & secrets to
-        transfer input data.
+        Processing and input volume (if defined) and all mountable connectors
+        are mounted inside container.
         """
-        return [
+        mount_points = [
             {
-                "name": "efs-root",
-                "mountPath": os.fspath(constants.DATA_ALL_VOLUME),
-                "subPath": os.fspath(self.efs_data_dir),
+                "name": storage_settings.FLOW_VOLUMES["processing"]["config"]["name"],
+                "mountPath": os.fspath(constants.PROCESSING_VOLUME),
                 "readOnly": False,
-            },
-            {
-                "name": "ebs-root",
-                "mountPath": os.fspath(constants.DATA_LOCAL_VOLUME),
-                "readOnly": False,
-            },
-            {
-                "name": "ebs-input-data",
-                "mountPath": os.fspath(constants.INPUTS_VOLUME),
-                "readOnly": False,
-            },
-            {
-                "name": "settings-volume",
-                "mountPath": os.fspath(constants.SETTINGS_VOLUME),
-                "readOnly": True,
             },
             {
                 "name": "secrets-volume",
@@ -347,38 +250,86 @@ class Connector(BaseConnector):
                 "readOnly": False,
             },
         ]
+        if "input" in storage_settings.FLOW_VOLUMES:
+            mount_points.append(
+                {
+                    "name": storage_settings.FLOW_VOLUMES["input"]["config"]["name"],
+                    "mountPath": os.fspath(constants.INPUTS_VOLUME),
+                    "readOnly": False,
+                }
+            )
+        mount_points += [
+            {
+                "name": connector.name,
+                "mountPath": f"/{storage_name}_{connector.name}",
+                "readOnly": False,
+            }
+            for storage_name, connector in self._get_mountable_connectors()
+        ]
+        return mount_points
 
-    def _processing_mountpoints(self, location_subpath: Path):
-        """Mountpoints for processing container."""
+    def _communicator_mountpoints(self, location_subpath: Path) -> list:
+        """Mountpoints for communicator container.
+
+        Socket directory and mountable connectors are mounted inside.
+        """
         mount_points = [
             {
-                "name": "ebs-input-data",
-                "mountPath": os.fspath(constants.DATA_ALL_VOLUME),
-                "readOnly": True,
-            },
-            {
-                "name": "efs-root",
-                "mountPath": os.fspath(constants.DATA_VOLUME),
-                "subPath": os.fspath(self.efs_data_dir / location_subpath),
-                "readOnly": False,
-            },
-            {
-                "name": "ebs-root",
-                "mountPath": os.fspath(constants.DATA_LOCAL_VOLUME),
-                "subPath": os.fspath(location_subpath),
-                "readOnly": False,
-            },
-            {
-                "name": "efs-root",
-                "mountPath": os.fspath(constants.UPLOAD_VOLUME),
-                "subPath": os.fspath(self.efs_upload_dir),
+                "name": "sockets-volume",
+                "mountPath": os.fspath(constants.SOCKETS_VOLUME),
                 "readOnly": False,
             },
             {
                 "name": "secrets-volume",
                 "mountPath": os.fspath(constants.SECRETS_VOLUME),
-                "readOnly": True,
+                "readOnly": False,
             },
+        ]
+        mount_points += [
+            {
+                "name": connector.name,
+                "mountPath": f"/{storage_name}_{connector.name}",
+                "readOnly": False,
+            }
+            for storage_name, connector in self._get_mountable_connectors()
+        ]
+        return mount_points
+
+    def _processing_mountpoints(
+        self, location_subpath: Path, execution_engine_name: str
+    ):
+        """Mountpoints for processing container.
+
+        Processing and input volume (if defined) and all mountable connectors
+        are mounted inside container. All except processing volume are mounted
+        read-only.
+        """
+        mount_points = [
+            {
+                "name": storage_settings.FLOW_VOLUMES["processing"]["config"]["name"],
+                "mountPath": os.fspath(constants.PROCESSING_VOLUME),
+                "subPath": os.fspath(location_subpath),
+                "readOnly": False,
+            },
+        ]
+        if "input" in storage_settings.FLOW_VOLUMES:
+            mount_points.append(
+                {
+                    "name": storage_settings.FLOW_VOLUMES["input"]["config"]["name"],
+                    "mountPath": os.fspath(constants.INPUTS_VOLUME),
+                    "readOnly": False,
+                }
+            )
+        mount_points += [
+            {
+                "name": connector.name,
+                "mountPath": f"/{storage_name}_{connector.name}",
+                "readOnly": storage_name != "upload",
+            }
+            for storage_name, connector in self._get_mountable_connectors()
+        ]
+
+        mount_points += [
             {
                 "name": "files-volume",
                 "mountPath": "/etc/passwd",
@@ -408,77 +359,71 @@ class Connector(BaseConnector):
                 "name": "sockets-volume",
                 "mountPath": os.fspath(constants.SOCKETS_VOLUME),
             },
+            {
+                "name": "secrets-volume",
+                "mountPath": os.fspath(constants.SECRETS_VOLUME),
+                "readOnly": True,
+            },
         ]
 
-        # Create volumes for tools. Only consider tools located on efs.
-        preparer = BaseFlowExecutorPreparer()
-        tools_paths = preparer.get_tools_paths()
-        mount_points += [
-            {
-                "name": "efs-root",
-                "mountPath": os.fspath(Path("/usr/local/bin/resolwe") / str(index)),
-                "subPath": os.fspath(Path(tool).relative_to(self.efs_root)),
+        if "tools" in storage_settings.FLOW_VOLUMES:
+            # Create volumes for tools. In kubernetes all tools must be inside
+            # volume of type persistent_volume or host_path.
+            volume = storage_settings.FLOW_VOLUMES["tools"]
+            preparer = BaseFlowExecutorPreparer()
+            tools_paths = preparer.get_tools_paths()
+            base_tools_path = volume["config"]["path"]
+            subpath = volume["config"].get("subpath", "")
+            if subpath:
+                tools_paths = [f"{subpath}/{path}" for path in tools_paths]
+            mount_points += [
+                {
+                    "name": volume["config"]["name"],
+                    "mountPath": os.fspath(Path("/usr/local/bin/resolwe") / str(index)),
+                    "subPath": os.fspath(Path(tool).relative_to(base_tools_path)),
+                }
+                for index, tool in enumerate(tools_paths)
+            ]
+
+        from resolwe.flow.managers import manager
+
+        execution_engine = manager.get_execution_engine(execution_engine_name)
+        runtime_volumes = execution_engine.prepare_volumes()
+        subpath = storage_settings.FLOW_VOLUMES["runtime"]["config"].get("subpath", "")
+        if subpath:
+            runtime_volumes = {
+                f"{subpath}/{src}": dst for src, dst in runtime_volumes.items()
             }
-            for index, tool in enumerate(tools_paths)
-        ]
 
-        # Create volumes for runtime (all read-only).
-        django_settings_path: Path = (
-            self.runtime_dir
-            / location_subpath
-            / ExecutorFiles.SETTINGS_SUBDIR
-            / ExecutorFiles.DJANGO_SETTINGS
-        )
-
-        django_settings = json.loads(django_settings_path.read_text())
         mount_points += [
             {
-                "name": "efs-root",
+                "name": storage_settings.FLOW_VOLUMES["runtime"]["config"]["name"],
                 "mountPath": dst,
-                "subPath": os.fspath(self.efs_runtime_dir / location_subpath / src),
+                "subPath": src,
             }
-            for src, dst in django_settings.get("RUNTIME_VOLUME_MAPS", {}).items()
+            for src, dst in runtime_volumes.items()
         ]
-        # Add any extra volumes verbatim.
-        mount_points += getattr(settings, "FLOW_DOCKER_EXTRA_VOLUMES", [])
-        logger.debug(f"Runtime volume mount points: {mount_points}.")
         return mount_points
 
     def _persistent_ebs_claim(
-        self, persistent_claim_name: str, volume_size_in_bytes: int
+        self, claim_name: str, volume_config: Dict, size: int
     ) -> Dict[str, Any]:
+        # self, persistent_claim_name: str, volume_size_in_bytes: int
         """Prepare claim for EBS Amazon storage."""
         return {
             "apiVersion": "v1",
             "kind": "PersistentVolumeClaim",
-            "metadata": {"name": persistent_claim_name},
+            "metadata": {"name": claim_name},
             "spec": {
                 "accessModes": ["ReadWriteOnce"],
-                "storageClassName": "gp2",
+                "storageClassName": volume_config.get("storageClassName", "gp3"),
                 "resources": {
                     "requests": {
-                        "storage": volume_size_in_bytes,
+                        "storage": size,
                     }
                 },
             },
         }
-
-    def _fix_permissions(self) -> List[str]:
-        """Prepare EBS volume for processing.
-
-        This means creating subdirectories named f"{data_id}" and
-        f"{data_id}/{constants.TMPDIR}" inside DATA_LOCAL_VOLUME and changing
-        its ownership to the user and group running in the processing container
-        (uid and gid arguments).
-        """
-        command = (
-            "sh -c 'mkdir ${DATA_LOCAL_VOLUME}/${LOCATION_SUBPATH};"
-            "mkdir ${DATA_LOCAL_VOLUME}/${LOCATION_SUBPATH}/${TMP_DIR};"
-            f"chown -R {os.getuid()}:{os.getgid()} "
-            + "${DATA_LOCAL_VOLUME}/${LOCATION_SUBPATH}'"
-        )
-        logger.debug(f"Kubernetes fix permissions command: {command}.")
-        return shlex.split(command)
 
     def _data_inputs_size(self, data: Data, safety_buffer: int = 2 ** 30) -> int:
         """Get the size of data inputs.
@@ -508,7 +453,7 @@ class Connector(BaseConnector):
         https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
         """
         max_length = 63
-        sanitized_label = re.sub("[^0-9a-zA-Z._\-]+", "_", label).strip("-_.")
+        sanitized_label = re.sub("[^0-9a-zA-Z\-]+", "-", label).strip("-_.")
         if len(sanitized_label) > max_length:
             logger.warning(__("Label '%s' is too long and was truncated.", label))
             if trim_end:
@@ -517,16 +462,14 @@ class Connector(BaseConnector):
                 sanitized_label = sanitized_label[:max_length].strip("-_.")
         return sanitized_label
 
-    def start(self, data: Data):
+    def start(self, data: Data, listener_connection: Tuple[str, str, str]):
         """Start process execution.
 
         Construct kubernetes job description and pass it to the kubernetes.
         """
-        location_subpath = Path(data.location.subpath)
+        container_environment = self._prepare_environment(data, listener_connection)
 
-        if not self._check_first_run(location_subpath):
-            logger.error("Stdout or jsonout file already exists, aborting.")
-            return
+        location_subpath = Path(data.location.subpath)
 
         # Create kubernetes API every time otherwise it will time out
         # eventually and raise API exception.
@@ -541,19 +484,6 @@ class Connector(BaseConnector):
             .lower()
         )
         container_name = self._generate_container_name(container_name_prefix, data.pk)
-        # Prepare configmap description.
-        configmap_name = f"configmap-{container_name}"
-        settings_path = self.runtime_dir / location_subpath / "settings"
-        configmap_description = self._get_configmap(configmap_name, settings_path)
-
-        # Prepare secrets description.
-        secrets_name = f"secrets-{container_name}"
-        secrets_path = self.runtime_dir / location_subpath / ExecutorFiles.SECRETS_DIR
-        secrets_description = self._generate_secrets(secrets_name, secrets_path)
-
-        efs_claim_name = getattr(settings, "KUBERNETES_SETTINGS", {}).get(
-            "efs_claim_name", "efs-resolwe-root"
-        )
 
         # Set resource limits.
         requests = dict()
@@ -576,19 +506,6 @@ class Connector(BaseConnector):
         limits["memory"] = 1.1 * limits["memory"] + KUBERNETES_MEMORY_HARD_LIMIT_BUFFER
         limits["memory"] *= 2 ** 20  # 2 ** 20 = mebibyte
         requests["memory"] *= 2 ** 20
-
-        ebs_local_claim_name = self._ebs_claim_name("local", data.pk)
-        ebs_local_claim_size = limits.pop("storage", 200) * (
-            2 ** 30
-        )  # Default 200 gibibytes
-
-        ebs_input_data_claim_name = self._ebs_claim_name("inputs", data.pk)
-        ebs_input_data_claim_size = self._data_inputs_size(data)
-
-        # TODO: no ulimits on kubernetes??
-        # See https://github.com/kubernetes/kubernetes/issues/3595
-        # Get limit defaults.
-        # limit_defaults = SETTINGS.get("FLOW_PROCESS_RESOURCE_DEFAULTS", {})
 
         resources = data.process.requirements.get("resources", {})
         network = "bridge"
@@ -650,17 +567,17 @@ class Connector(BaseConnector):
         job_description = {
             "apiVersion": "batch/v1",
             "kind": "Job",
-            "metadata": {"name": container_name},
+            "metadata": {"name": self._sanitize_kubernetes_label(container_name)},
             "spec": {
                 # Keep finished pods around for ten seconds. If job is not
-                # deleted its PVC claim persists and it causes PV to stay
+                # deleted its PVC claim persists and it causes PV to stay0
                 # around.
                 # This can be changed by running a cron job that periodically
                 # checks for PVC that can be deleted.
                 "ttlSecondsAfterFinished": 10,
                 "template": {
                     "metadata": {
-                        "name": container_name,
+                        "name": self._sanitize_kubernetes_label(container_name),
                         "labels": {
                             "app": "resolwe",
                             "data_id": str(data.pk),
@@ -673,18 +590,12 @@ class Connector(BaseConnector):
                     },
                     "spec": {
                         "hostNetwork": use_host_network,
-                        "volumes": self._volumes(
-                            secrets_name,
-                            configmap_name,
-                            efs_claim_name,
-                            ebs_local_claim_name,
-                            ebs_input_data_claim_name,
-                            location_subpath,
-                            core_api,
-                        ),
+                        "volumes": self._volumes(location_subpath, core_api),
                         "initContainers": [
                             {
-                                "name": f"{container_name}-init",
+                                "name": self._sanitize_kubernetes_label(
+                                    f"{container_name}-init"
+                                ),
                                 "image": communicator_image,
                                 "imagePullPolicy": "Always",
                                 "workingDir": "/",
@@ -692,37 +603,37 @@ class Connector(BaseConnector):
                                 "args": ["-m", "executors.init_container"],
                                 "securityContext": {"privileged": True},
                                 "volumeMounts": self._init_container_mountpoints(),
-                                "env": self._prepare_environment(data),
+                                "env": container_environment,
                             },
                         ],
                         "containers": [
                             {
-                                "name": container_name,
+                                "name": self._sanitize_kubernetes_label(container_name),
                                 "image": processing_container_image,
                                 "resources": {"limits": limits, "requests": requests},
-                                # TODO: uncomment after test
                                 "securityContext": security_context,
-                                "env": self._prepare_environment(data),
-                                # TODO: uncomment after trial!
-                                "workingDir": os.fspath(constants.DATA_LOCAL_VOLUME),
+                                "env": container_environment,
+                                "workingDir": os.fspath(constants.PROCESSING_VOLUME),
                                 "imagePullPolicy": "Always",
                                 "command": ["/usr/bin/python3"],
                                 "args": ["/processing.py"],
                                 "volumeMounts": self._processing_mountpoints(
-                                    location_subpath
+                                    location_subpath,
+                                    data.process.run.get("language", None),
                                 ),
                             },
                             {
-                                "name": f"{container_name}-communicator",
+                                "name": self._sanitize_kubernetes_label(
+                                    f"{container_name}-communicator"
+                                ),
                                 "image": communicator_image,
                                 "imagePullPolicy": "Always",
                                 "resources": {
                                     "limits": {"cpu": 1, "memory": "1024M"},
                                     "requests": {"memory": "256M", "cpu": 0.1},
                                 },
-                                # TODO: uncomment after test
                                 "securityContext": security_context,
-                                "env": self._prepare_environment(data),
+                                "env": container_environment,
                                 "command": ["/usr/local/bin/python3"],
                                 "args": ["/startup.py"],
                                 "volumeMounts": self._communicator_mountpoints(
@@ -736,39 +647,42 @@ class Connector(BaseConnector):
                 "backoffLimit": 0,
             },
         }
-
         start_time = time.time()
+        limits.pop("storage", 200)
 
-        core_api.create_namespaced_persistent_volume_claim(
-            body=self._persistent_ebs_claim(ebs_local_claim_name, ebs_local_claim_size),
-            namespace=self.kubernetes_namespace,
-            _request_timeout=KUBERNETES_TIMEOUT,
-        )
-        core_api.create_namespaced_persistent_volume_claim(
-            body=self._persistent_ebs_claim(
-                ebs_input_data_claim_name,
-                ebs_input_data_claim_size,
-            ),
-            _request_timeout=KUBERNETES_TIMEOUT,
-            namespace=self.kubernetes_namespace,
-        )
+        if storage_settings.FLOW_VOLUMES["processing"]["type"] == "ebs":
+            claim_name = self._ebs_claim_name(
+                storage_settings.FLOW_VOLUMES["processing"]["config"]["name"], data.id
+            )
+            claim_size = limits.pop("storage", 200) * (2 ** 30)  # Default 200 gibibytes
+            core_api.create_namespaced_persistent_volume_claim(
+                body=self._persistent_ebs_claim(
+                    claim_name,
+                    claim_size,
+                    storage_settings.FLOW_VOLUMES["processing"]["config"],
+                ),
+                namespace=self.kubernetes_namespace,
+                _request_timeout=KUBERNETES_TIMEOUT,
+            )
+        if hasattr(settings, "FLOW_INPUTS_VOLUME"):
+            if settings.FLOW_INPUTS_VOLUME["type"] == "ebs":
+                claim_size = self._data_inputs_size(data)
+                claim_name = self._ebs_claim_name(
+                    settings.FLOW_INPUTS_VOLUME["config"]["name"], data.id
+                )
+                core_api.create_namespaced_persistent_volume_claim(
+                    body=self._persistent_ebs_claim(
+                        claim_name, claim_size, settings.FLOW_INPUTS_VOLUME["config"]
+                    ),
+                    namespace=self.kubernetes_namespace,
+                    _request_timeout=KUBERNETES_TIMEOUT,
+                )
 
-        core_api.create_namespaced_config_map(
-            body=configmap_description,
-            namespace=self.kubernetes_namespace,
-            _request_timeout=KUBERNETES_TIMEOUT,
-        )
-        core_api.create_namespaced_secret(
-            body=secrets_description,
-            namespace=self.kubernetes_namespace,
-            _request_timeout=KUBERNETES_TIMEOUT,
-        )
         batch_api.create_namespaced_job(
             body=job_description,
             namespace=self.kubernetes_namespace,
             _request_timeout=KUBERNETES_TIMEOUT,
         )
-
         end_time = time.time()
         logger.info(
             "It took {:.2f}s to send config to kubernetes".format(end_time - start_time)
@@ -782,30 +696,15 @@ class Connector(BaseConnector):
         """
         return "{}-{}".format(prefix, data_id)
 
-    def _check_first_run(self, location_subpath: Path) -> bool:
-        """Check that stdout file does not exist.
-
-        :returns: True if files do not already exists, false otherwise.
-        """
-
-        def _create_file(path: Path):
-            """Ensure stdout and jsonout files are not already there."""
-            return os.open(os.fspath(path), os.O_WRONLY | os.O_CREAT | os.O_EXCL)
-
-        with suppress(FileExistsError):
-            os.close(_create_file(self.data_dir / location_subpath / "stdout.txt"))
-            os.close(_create_file(self.data_dir / location_subpath / "jsonout.txt"))
-            return True
-        return False
-
     def submit(self, data: Data, runtime_dir: str, argv: Any):
         """Run process.
 
         For details, see
         :meth:`~resolwe.flow.managers.workload_connectors.base.BaseConnector.submit`.
         """
+        (host, port, protocol) = argv[-1].rsplit(" ", maxsplit=3)[-3:]
         self._initialize_variables()
-        self.start(data)
+        self.start(data, (host, port, protocol))
 
         logger.debug(
             __(
