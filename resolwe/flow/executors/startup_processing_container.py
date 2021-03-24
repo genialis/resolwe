@@ -17,16 +17,15 @@ from contextlib import suppress
 from distutils.util import strtobool
 from pathlib import Path
 
+import constants
+
 # The directory where local processing is done.
-DATA_LOCAL_VOLUME = Path(os.environ.get("DATA_LOCAL_VOLUME", "/data_local"))
-DATA_VOLUME = Path(os.environ.get("DATA_VOLUME", "/data"))
-DATA_ALL_VOLUME = Path(os.environ.get("DATA_VOLUME", "/data_all"))
 TMP_DIR = Path(os.environ.get("TMP_DIR", ".tmp"))
-UPLOAD_VOLUME = Path(os.environ.get("UPLOAD_VOLUME", "/upload"))
+DATA_ID = int(os.getenv("DATA_ID", "-1"))
 
 # Basic constants.
-STDOUT_LOG_PATH = DATA_LOCAL_VOLUME / "stdout.txt"
-JSON_LOG_PATH = DATA_LOCAL_VOLUME / "jsonout.txt"
+STDOUT_LOG_PATH = constants.PROCESSING_VOLUME / "stdout.txt"
+JSON_LOG_PATH = constants.PROCESSING_VOLUME / "jsonout.txt"
 
 # Update log files every 30 seconds.
 UPDATE_LOG_FILES_TIMEOUT = 30
@@ -35,13 +34,11 @@ UPDATE_LOG_FILES_TIMEOUT = 30
 KEEP_DATA = bool(strtobool(os.environ.get("FLOW_MANAGER_KEEP_DATA", "False")))
 
 # Read configuration from environmental variables.
-COMMUNICATION_CONTAINER_TIMEOUT = int(os.environ.get("CONTAINER_TIMEOUT", 600))
-SOCKETS_PATH = Path(os.environ.get("SOCKETS_VOLUME", "/sockets"))
-COMMUNICATION_SOCKET = SOCKETS_PATH / os.environ.get(
-    "COMMUNICATION_PROCESSING_SOCKET", "_socket1.s"
+COMMUNICATION_SOCKET = (
+    constants.SOCKETS_VOLUME / constants.COMMUNICATION_PROCESSING_SOCKET
 )
-SCRIPT_SOCKET = SOCKETS_PATH / os.environ.get("SCRIPT_SOCKET", "_socket2.s")
-UPLOAD_FILE_SOCKET = SOCKETS_PATH / os.getenv("UPLOAD_FILE_SOCKET", "_upload_socket.s")
+SCRIPT_SOCKET = constants.SOCKETS_VOLUME / constants.SCRIPT_SOCKET
+UPLOAD_FILE_SOCKET = constants.SOCKETS_VOLUME / constants.UPLOAD_FILE_SOCKET
 
 # How many file descriptors to sent over socket in a single message.
 DESCRIPTOR_CHUNK_SIZE = int(os.environ.get("DESCRIPTOR_CHUNK_SIZE", 100))
@@ -364,7 +361,7 @@ class ProcessingManager:
 
         :raises: if unable to connect for COMMUNICATOR_WAIT_TIMEOUT seconds.
         """
-        for _ in range(COMMUNICATION_CONTAINER_TIMEOUT):
+        for _ in range(constants.CONTAINER_TIMEOUT):
             try:
                 reader, writer = yield from asyncio.open_unix_connection(path)
                 line = (yield from reader.readline()).decode("utf-8")
@@ -392,7 +389,7 @@ class ProcessingManager:
                 logger.exception(
                     "Could not connect to the communication container for "
                     "%d seconds.",
-                    COMMUNICATION_CONTAINER_TIMEOUT,
+                    constants.CONTAINER_TIMEOUT,
                 )
                 return 1
 
@@ -613,10 +610,10 @@ def start_processing_container(loop):
 if __name__ == "__main__":
     # Change working directory into /data_local and create .tmp directory
     # inside it.
-    tmp_path = DATA_LOCAL_VOLUME / TMP_DIR
+    tmp_path = constants.PROCESSING_VOLUME / TMP_DIR
     if not tmp_path.is_dir():
-        (DATA_LOCAL_VOLUME / TMP_DIR).mkdir()
-    os.chdir(str(DATA_LOCAL_VOLUME))
+        (constants.PROCESSING_VOLUME / TMP_DIR).mkdir()
+    os.chdir(str(constants.PROCESSING_VOLUME))
 
     # Create log files.
     STDOUT_LOG_PATH.touch()

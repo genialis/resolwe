@@ -36,27 +36,18 @@ from executors.transfer import transfer_data
 from executors.zeromq_utils import ZMQCommunicator
 
 # Socket used to connect with the processing container.
-SOCKETS_PATH = Path(os.getenv("SOCKETS_VOLUME", "/sockets"))
-PROCESSING_SOCKET = SOCKETS_PATH / os.getenv(
-    "COMMUNICATION_PROCESSING_SOCKET", "_socket1.s"
-)
-PROCESSING_CONTAINER_TIMEOUT = int(os.getenv("CONTAINER_TIMEOUT", 300))
-
-UPLOAD_FILE_SOCKET = SOCKETS_PATH / os.getenv("UPLOAD_FILE_SOCKET", "_upload_socket.s")
+PROCESSING_SOCKET = constants.SOCKETS_VOLUME / constants.COMMUNICATION_PROCESSING_SOCKET
+UPLOAD_FILE_SOCKET = constants.SOCKETS_VOLUME / constants.UPLOAD_FILE_SOCKET
 
 # Listener IP and port are read from environment.
 LISTENER_IP = os.getenv("LISTENER_IP", "127.0.0.1")
 LISTENER_PORT = os.getenv("LISTENER_PORT", "53893")
 LISTENER_PROTOCOL = os.getenv("LISTENER_PROTOCOL", "tcp")
 DATA_ID = int(os.getenv("DATA_ID", "-1"))
-LOCATION_SUBPATH = Path(os.getenv("LOCATION_SUBPATH"))
 KEEP_DATA = bool(strtobool(os.environ.get("FLOW_MANAGER_KEEP_DATA", "False")))
 RUNNING_IN_KUBERNETES = bool(
     strtobool(os.environ.get("RUNNING_IN_KUBERNETES", "False"))
 )
-UPLOAD_CONNECTOR_NAME = os.getenv("UPLOAD_CONNECTOR_NAME", "local")
-
-DATA_VOLUME = Path(os.environ.get("DATA_VOLUME", "/data"))
 
 # How many file descriptors to receive over socket in a single message.
 DESCRIPTOR_CHUNK_SIZE = int(os.environ.get("DESCRIPTOR_CHUNK_SIZE", 100))
@@ -92,7 +83,7 @@ def purge_secrets():
             shutil.rmtree(path)
 
     try:
-        for root, dirs, files in os.walk(os.environ.get("SECRETS_DIR", "/secrets")):
+        for root, dirs, files in os.walk(constants.SECRETS_VOLUME):
             for f in files:
                 os.chmod(os.path.join(root, f), 0o700)
                 os.unlink(os.path.join(root, f))
@@ -225,11 +216,11 @@ class Uploader(threading.Thread):
         Socket must be constructed here since it is not thread safe.
         """
         server_socket = socket.socket(family=socket.AF_UNIX)
-        server_socket.settimeout(PROCESSING_CONTAINER_TIMEOUT)
+        server_socket.settimeout(constants.CONTAINER_TIMEOUT)
         server_socket.bind(os.fspath(UPLOAD_FILE_SOCKET))
         server_socket.listen()
         self.ready.set()
-        # Wait for the connection up to PROCESSING_CONTAINER_TIMEOUT seconds.
+        # Wait for the connection up to CONTAINER_TIMEOUT seconds.
         # If it fails, the socket will be closed and process terminated if
         # it will try to save some files as outputs.
         try:
@@ -530,7 +521,7 @@ class Manager:
                 logger.debug("Waiting for the processing container to connect")
                 await asyncio.wait_for(
                     self.processing_container_connected.wait(),
-                    PROCESSING_CONTAINER_TIMEOUT,
+                    constants.CONTAINER_TIMEOUT,
                 )
             except asyncio.TimeoutError:
                 message = "Unable to connect to the processing container."

@@ -21,6 +21,7 @@ from executors.connectors import Transfer, connectors
 from executors.connectors.baseconnector import BaseStorageConnector
 from executors.connectors.exceptions import DataTransferError
 from executors.connectors.utils import paralelize
+from executors import constants
 from executors import global_settings
 from executors.socket_utils import BaseCommunicator, BaseProtocol, Message, PeerIdentity
 from executors.zeromq_utils import ZMQCommunicator
@@ -166,7 +167,7 @@ def _get_communicator() -> ZMQCommunicator:
 def initialize_secrets(secrets: dict[str, Any]):
     """Initialize secrets."""
     for file_name, content in secrets.items():
-        with (constants.SECRETS_VOLUME / file_name).open("wb") as stream:
+        with (constants.SECRETS_VOLUME / file_name).open("wt") as stream:
             stream.write(content)
 
 
