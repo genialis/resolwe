@@ -1,6 +1,6 @@
 """Registry class for storage connectors."""
 import logging
-from typing import Dict, Sequence, MutableMapping, Type
+from typing import Dict, MutableMapping, Sequence, Type
 
 from .baseconnector import DEFAULT_CONNECTOR_PRIORITY, BaseStorageConnector
 
@@ -19,7 +19,7 @@ class StorageConnectors(MutableMapping[str, BaseStorageConnector]):
     """
 
     def __init__(self):
-        """Initialization."""
+        """Initialize."""
         self._connectors: Dict[str, BaseStorageConnector] = dict()
         self._connector_classes: Dict[str, Type[BaseStorageConnector]] = dict()
         self._storage_connectors: Dict[str, Sequence[BaseStorageConnector]] = dict()
@@ -38,7 +38,9 @@ class StorageConnectors(MutableMapping[str, BaseStorageConnector]):
             settings = SETTINGS.get(key, {})
         except ImportError:
             # Import settings from Django.
-            from resolwe.storage.settings import STORAGE_CONNECTORS as settings
+            from resolwe.storage.settings import (
+                STORAGE_CONNECTORS as settings,  # type: ignore
+            )
 
         return settings
 
@@ -56,21 +58,21 @@ class StorageConnectors(MutableMapping[str, BaseStorageConnector]):
             storages = storage_settings.FLOW_STORAGE
 
         self._storage_connectors = dict()
-        for storage_name, storage_settings in storages.items():
+        for storage_name, storage_config in storages.items():
             self._storage_connectors[storage_name] = sorted(
                 (
                     self[connector_name]
-                    for connector_name in storage_settings["connectors"]
+                    for connector_name in storage_config["connectors"]
                 ),
                 key=lambda connector: connector.config.get(
                     "priority", DEFAULT_CONNECTOR_PRIORITY
                 ),
             )
 
-    def add_storage_connector_class(self, connector: BaseStorageConnector):
+    def add_storage_connector_class(self, connector: Type[BaseStorageConnector]):
         """Add storage connector class to the registry."""
 
-        def _get_class_name(klass: BaseStorageConnector):
+        def _get_class_name(klass: Type[BaseStorageConnector]):
             return "{}.{}".format(klass.__module__, klass.__name__)
 
         assert issubclass(connector, BaseStorageConnector)
@@ -80,7 +82,7 @@ class StorageConnectors(MutableMapping[str, BaseStorageConnector]):
         self._add_connectors_from_settings(full_class_name, connector)
 
     def _add_connectors_from_settings(
-        self, full_class_name: str, klass: BaseStorageConnector
+        self, full_class_name: str, klass: Type[BaseStorageConnector]
     ):
         """Create instances for the connector of the given type.
 
