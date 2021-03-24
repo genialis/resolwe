@@ -30,6 +30,7 @@ from django.utils.text import slugify
 
 from resolwe.flow.models import Collection, Data, DescriptorSchema, Process, Storage
 from resolwe.flow.utils import dict_dot, iterate_fields, iterate_schema
+from resolwe.storage.connectors import connectors
 from resolwe.test import TransactionTestCase
 
 from ..utils import get_processes_from_tags, has_process_tag
@@ -259,8 +260,14 @@ class ProcessTestCase(TransactionTestCase):
             raise RuntimeError(stderr)
 
         self.collection = self._create_collection()
-        self.upload_dir = settings.FLOW_EXECUTOR["UPLOAD_DIR"]
+        upload_connectors = [
+            connector
+            for connector in connectors.for_storage("upload")
+            if connector.mountable
+        ]
+        assert upload_connectors, "No upload connector defined on filesystem"
 
+        self.upload_dir = upload_connectors[0].path
         self._profiler = TestProfiler(self)
         self._preparation_stage = 0
         self._executed_processes = set()
@@ -279,12 +286,8 @@ class ProcessTestCase(TransactionTestCase):
                 print("KEEPING DATA: {}".format(d.pk))
             elif d.location:
                 data_dir = d.location.get_path()
-                export_dir = os.path.join(
-                    settings.FLOW_EXECUTOR["UPLOAD_DIR"], str(d.pk)
-                )
-                d.delete()
                 shutil.rmtree(data_dir, ignore_errors=True)
-                shutil.rmtree(export_dir, ignore_errors=True)
+                d.delete()
 
         # remove uploaded files
         if not self._keep_data:

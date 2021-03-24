@@ -7,12 +7,16 @@ Resolwe Test Runner
 """
 import asyncio
 import contextlib
-import copy
+import errno
+import inspect
 import logging
 import os
 import re
+import shutil
 import subprocess
 import sys
+from importlib import import_module
+from pathlib import Path
 from unittest.mock import patch
 
 import yaml
@@ -33,7 +37,6 @@ import resolwe.test.testcases.setting_overrides as resolwe_settings
 from resolwe.flow.finders import get_finders
 from resolwe.flow.managers import listener, manager, state
 from resolwe.storage.connectors import connectors
-from resolwe.storage.settings import STORAGE_CONNECTORS, STORAGE_LOCAL_CONNECTOR
 from resolwe.test.utils import generate_process_tag
 
 logger = logging.getLogger(__name__)
@@ -104,8 +107,11 @@ def _sequence_paths(paths):
             try:
                 os.makedirs(path)
                 created.append(path)
-            except OSError:
-                break
+            except OSError as e:
+                # Retry on file exists error.
+                if e.errno == errno.EEXIST:
+                    break
+                raise
 
         if len(created) == len(paths):
             return created
@@ -124,10 +130,19 @@ def _create_test_dirs():
     """Create all the testing directories."""
     if "test_paths" in TESTING_CONTEXT:
         return TESTING_CONTEXT["test_paths"]
-    items = ["DATA_DIR", "UPLOAD_DIR", "RUNTIME_DIR"]
-    paths = _sequence_paths([resolwe_settings.FLOW_EXECUTOR_SETTINGS[i] for i in items])
+    items = [
+        resolwe_settings.STORAGE_CONNECTORS[connector_name]
+        for connector_name in resolwe_settings.STORAGE_CONNECTORS
+        if connectors[connector_name].mountable
+    ]
+    items += [
+        volume
+        for volume in resolwe_settings.FLOW_VOLUMES.values()
+        if "read_only" not in volume["config"]
+    ]
+    paths = _sequence_paths([item["config"]["path"] for item in items])
     for item, path in zip(items, paths):
-        resolwe_settings.FLOW_EXECUTOR_SETTINGS[item] = path
+        item["config"]["path"] = path
     TESTING_CONTEXT["test_paths"] = paths
     return paths
 
@@ -141,6 +156,9 @@ def _prepare_settings():
     :returns: tuple (overrides, port).
     """
     # Override container name prefix setting.
+    mountable_data_connectors = [
+        connector for connector in connectors.for_storage("data") if connector.mountable
+    ]
     resolwe_settings.FLOW_EXECUTOR_SETTINGS[
         "CONTAINER_NAME_PREFIX"
     ] = "{}_{}_{}".format(
@@ -148,7 +166,7 @@ def _prepare_settings():
         # NOTE: This is necessary to avoid container name clashes when tests are run from
         # different Resolwe code bases on the same system (e.g. on a CI server).
         get_random_string(length=6),
-        os.path.basename(resolwe_settings.FLOW_EXECUTOR_SETTINGS["DATA_DIR"]),
+        os.path.basename(mountable_data_connectors[0].path),
     )
 
     hosts = list(
@@ -243,11 +261,11 @@ async def _run_on_infrastructure(meth, *args, **kwargs):
         _create_test_dirs()
         overrides, zmq_socket = _prepare_settings()
         with overrides:
-            storage_config = copy.deepcopy(STORAGE_CONNECTORS)
-            storage_config[STORAGE_LOCAL_CONNECTOR]["config"][
-                "path"
-            ] = settings.FLOW_EXECUTOR["DATA_DIR"]
-            with patch("resolwe.storage.settings.STORAGE_CONNECTORS", storage_config):
+            with patch.multiple(
+                "resolwe.storage.settings",
+                STORAGE_CONNECTORS=resolwe_settings.STORAGE_CONNECTORS,
+                FLOW_VOLUMES=resolwe_settings.FLOW_VOLUMES,
+            ):
                 connectors.recreate_connectors()
                 await database_sync_to_async(_manager_setup)()
                 hosts = settings.FLOW_EXECUTOR["LISTENER_CONNECTION"]["hosts"]
@@ -383,6 +401,43 @@ class ResolweRunner(DiscoverRunner):
         # the manager.
         keep_data_override = override_settings(FLOW_MANAGER_KEEP_DATA=self.keep_data)
         keep_data_override.__enter__()
+
+        # Prepare the runtime environment. It should contain a copy of the
+        # executors runtime and connectors runtime inside it. The runtime
+        # can be read-only and can be prepared only once per the entire test
+        # suite.
+        import resolwe.flow.executors as executor_package
+        import resolwe.storage.connectors as connectors_package
+
+        source_file = inspect.getsourcefile(executor_package)
+        assert (
+            source_file is not None
+        ), "Unable to determine the 'resolwe.flow.executors' source directory."
+        exec_dir = Path(source_file).parent
+        dest_dir = (
+            Path(resolwe_settings.FLOW_VOLUMES["runtime"]["config"]["path"])
+            / "executors"
+        )
+        shutil.rmtree(dest_dir, ignore_errors=True)
+        shutil.copytree(exec_dir, dest_dir)
+
+        source_file = inspect.getsourcefile(connectors_package)
+        assert (
+            source_file is not None
+        ), "Unable to determine the 'resolwe.storage.connectors' source directory."
+        exec_dir = Path(source_file).parent
+        dest_dir = dest_dir / "connectors"
+        shutil.copytree(exec_dir, dest_dir)
+
+        for runtime_class_name in settings.FLOW_PROCESSES_RUNTIMES:
+            module_name, class_name = runtime_class_name.rsplit(".", 1)
+            runtime_module = import_module(module_name)
+            source_file = Path(inspect.getsourcefile(runtime_module))
+            source_dir = source_file.parent
+            dest_dir = Path(resolwe_settings.FLOW_VOLUMES["runtime"]["config"]["path"])
+            dest_dir = dest_dir.joinpath("python_runtime", *module_name.split(".")[:-1])
+            shutil.rmtree(dest_dir, ignore_errors=True)
+            shutil.copytree(source_dir, dest_dir)
 
         if self.parallel > 1:
             return super().run_suite(suite, **kwargs)

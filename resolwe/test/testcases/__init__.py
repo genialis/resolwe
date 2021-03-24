@@ -30,7 +30,8 @@ from django.test import SimpleTestCase as DjangoSimpleTestCase
 from django.test import TestCase as DjangoTestCase
 from django.test import TransactionTestCase as DjangoTransactionTestCase
 
-from .setting_overrides import FLOW_EXECUTOR_SETTINGS
+from resolwe.storage import settings as storage_settings
+from resolwe.storage.connectors import connectors
 
 
 class TestCaseHelpers(DjangoSimpleTestCase):
@@ -43,14 +44,24 @@ class TestCaseHelpers(DjangoSimpleTestCase):
         ContentType.objects.clear_cache()
         super()._pre_setup(*args, **kwargs)
 
+    def _get_testing_directories(self):
+        """Get the testing directories."""
+        dirs = [connector.path for connector in connectors.for_storage("data")]
+        dirs += [connector.path for connector in connectors.for_storage("upload")]
+        dirs += [
+            storage_settings.FLOW_VOLUMES[volume_name]["config"]["path"]
+            for volume_name in ["processing", "input"]
+            if volume_name in storage_settings.FLOW_VOLUMES
+        ]
+        return dirs
+
     def _clean_up(self):
         """Clean up after test."""
         if not self._keep_data:
             # Do delete this here. See comment below near the makedirs
             # in setUp.
-            shutil.rmtree(settings.FLOW_EXECUTOR["DATA_DIR"], ignore_errors=True)
-            shutil.rmtree(settings.FLOW_EXECUTOR["UPLOAD_DIR"], ignore_errors=True)
-            shutil.rmtree(settings.FLOW_EXECUTOR["RUNTIME_DIR"], ignore_errors=True)
+            for directory in self._get_testing_directories():
+                shutil.rmtree(directory, ignore_errors=True)
 
     def setUp(self):
         """Prepare environment for test."""
@@ -67,10 +78,8 @@ class TestCaseHelpers(DjangoSimpleTestCase):
         # deal specifically with the purging functionality and should
         # start in a clean environment, without the sediment
         # (e.g. jsonout.txt, stdout.txt) from previous tests.
-        os.makedirs(FLOW_EXECUTOR_SETTINGS["DATA_DIR"], exist_ok=True)
-        os.makedirs(FLOW_EXECUTOR_SETTINGS["UPLOAD_DIR"], exist_ok=True)
-        os.makedirs(FLOW_EXECUTOR_SETTINGS["RUNTIME_DIR"], exist_ok=True)
-
+        for directory in self._get_testing_directories():
+            os.makedirs(directory, exist_ok=True)
         self._keep_data = settings.FLOW_MANAGER_KEEP_DATA
 
         self.addCleanup(self._clean_up)
