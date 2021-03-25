@@ -14,6 +14,7 @@ from resolwe.flow.managers.protocol import ExecutorProtocol
 from resolwe.flow.models import Data, DataDependency, Process
 from resolwe.flow.models.utils import referenced_files, validate_data_object
 from resolwe.flow.utils import dict_dot, iterate_fields
+from resolwe.storage.connectors import connectors
 from resolwe.storage.connectors.hasher import StreamHasher
 from resolwe.storage.models import ReferencedPath, StorageLocation
 from resolwe.utils import BraceMessage as __
@@ -167,9 +168,20 @@ class BasicCommands(ListenerPlugin):
 
     def handle_missing_data_locations(
         self, message: Message, manager: "Processor"
-    ) -> Response[Union[str, List[Dict[str, Any]]]]:
+    ) -> Response[Union[str, Dict[str, Dict[str, Any]]]]:
         """Handle an incoming request to get missing data locations."""
-        missing_data = []
+        storage_name = "data"
+        filesystem_connector = None
+        filesystem_connectors = [
+            connector
+            for connector in connectors.for_storage(storage_name)
+            if connector.mountable
+        ]
+
+        if filesystem_connectors:
+            filesystem_connector = filesystem_connectors[0]
+
+        missing_data = dict()
         dependencies = (
             Data.objects.filter(
                 children_dependency__child=manager.data,
@@ -182,32 +194,47 @@ class BasicCommands(ListenerPlugin):
 
         for parent in dependencies:
             file_storage = parent.location
-            if not file_storage.has_storage_location(STORAGE_LOCAL_CONNECTOR):
-                from_location = file_storage.default_storage_location
-                if from_location is None:
-                    manager._log_exception(
-                        "No storage location exists (handle_get_missing_data_locations).",
-                        extra={"file_storage_id": file_storage.id},
-                    )
-                    return message.respond_error("No storage location exists")
+            # Is location available on some local connector?
+            if any(
+                file_storage.has_storage_location(filesystem_connector.name)
+                for filesystem_connector in filesystem_connectors
+            ):
+                continue
 
+            from_location = file_storage.default_storage_location
+            if from_location is None:
+                manager._log_exception(
+                    "No storage location exists (handle_get_missing_data_locations).",
+                    extra={"file_storage_id": file_storage.id},
+                )
+                return message.respond_error("No storage location exists")
+
+            # When there exists at least one filesystem connector for the data
+            # storage download inputs to the shared storage.
+            missing_data_item = {
+                "data_id": parent.pk,
+                "from_connector": from_location.connector_name,
+            }
+            if filesystem_connector:
                 to_location = StorageLocation.all_objects.get_or_create(
                     file_storage=file_storage,
                     url=from_location.url,
-                    connector_name=STORAGE_LOCAL_CONNECTOR,
+                    connector_name=filesystem_connector.name,
                 )[0]
-                missing_data.append(
-                    {
-                        "connector_name": from_location.connector_name,
-                        "url": from_location.url,
-                        "data_id": manager.data.id,
-                        "to_storage_location_id": to_location.id,
-                        "from_storage_location_id": from_location.id,
-                    }
+                missing_data_item["from_storage_location_id"] = from_location.id
+                missing_data_item["to_storage_location_id"] = to_location.id
+                missing_data_item["to_connector"] = filesystem_connector.name
+            else:
+                missing_data_item["files"] = list(
+                    ReferencedPath.objects.filter(
+                        storage_locations=from_location
+                    ).values()
                 )
-                # Set last modified time so it does not get deleted.
-                from_location.last_update = now()
-                from_location.save()
+
+            missing_data[from_location.url] = missing_data_item
+            # Set last modified time so it does not get deleted.
+            from_location.last_update = now()
+            from_location.save()
         return message.respond_ok(missing_data)
 
     def handle_referenced_files(

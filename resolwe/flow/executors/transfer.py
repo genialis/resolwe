@@ -3,6 +3,7 @@ import asyncio
 import concurrent
 import logging
 import os
+from typing import List
 
 from .protocol import ExecutorProtocol
 from .socket_utils import BaseCommunicator, Message
@@ -22,36 +23,14 @@ DOWNLOAD_WAITING_TIMEOUT = 60  # in seconds
 RETRIES = 5
 
 
-async def transfer_data(communicator: BaseCommunicator):
-    """Transfer missing data.
-
-    :raises DataTransferError: on failure.
-    """
-    if not await _transfer_data(communicator):
-        raise DataTransferError("Failed to transfer data")
-
-
-async def _transfer_data(communicator: BaseCommunicator):
-    """Fetch missing data.
+async def transfer_data(communicator: BaseCommunicator, data_to_transfer: List):
+    """Fetch missing data to a shared location.
 
     Get a list of missing storage locations from the manager fetch
     data using appropriate storage connectors.
     """
-    response = await communicator.send_command(
-        Message.command(ExecutorProtocol.MISSING_DATA_LOCATIONS, "")
-    )
-
-    data_to_transfer = response.message_data
-    to_connector = connectors["local"]
-    base_path = to_connector.base_path
 
     data_downloading: list = []
-
-    # Notify manager to change status of the data object.
-    if data_to_transfer:
-        await communicator.send_command(
-            Message.command("update_status", "PP")  # TODO: DATA_META before
-        )
     # Start downloading data.
     while data_to_transfer or data_downloading:
         if data_to_transfer:
@@ -84,8 +63,6 @@ async def _transfer_data(communicator: BaseCommunicator):
                         storage_location_id
                     )
                 )
-                dest_dir = os.path.join(base_path, missing_data["url"])
-                os.makedirs(dest_dir, exist_ok=True)
                 # Download data will abort or finish the download
                 if not await download_data(missing_data, communicator):
                     logger.error(
@@ -141,11 +118,13 @@ async def download_data(missing_data: dict, communicator: BaseCommunicator) -> b
     :rtype: bool
     """
     data_id = missing_data["data_id"]
+    to_connector = connectors[missing_data["to_connector"]]
+    dest_dir = os.path.join(to_connector.path, missing_data["url"])
+    os.makedirs(dest_dir, exist_ok=True)
     logger.debug("Starting data transfer for data_id %d", missing_data["data_id"])
     objects = None
     for retry in range(1, RETRIES + 1):
         try:
-            to_connector = connectors["local"]
             from_connector = connectors[missing_data["connector_name"]]
             from_storage_location_id = missing_data["from_storage_location_id"]
             to_storage_location_id = missing_data["to_storage_location_id"]

@@ -62,30 +62,22 @@ SET_PERMISSIONS = bool(strtobool(os.environ.get("INIT_SET_PERMISSIONS", "False")
 class PreviousDataExistsError(Exception):
     """Raised if data from previous run exists."""
 
-async def transfer_inputs(communicator: BaseCommunicator):
+
+async def transfer_inputs(communicator: BaseCommunicator, missing_data: dict):
     """Transfer missing input data.
 
     :raises DataTransferError: on failure.
     """
-    inputs_connector = connectors["local"].duplicate()
-    inputs_connector.path = INPUTS_VOLUME
-    inputs_connector.name = "inputs"
-    inputs_connector.config["path"] = INPUTS_VOLUME
-
-    logger.debug("Transfering missing data.")
-    response = await communicator.send_command(
-        Message.command("get_inputs_no_shared_storage", "")
-    )
-
+    inputs_connector = connectors["_input"]
     # Group files by connectors. So we can transfer files from single connector
     # in parallel. We could also transfer files belonging to different
     # connectors in parallel but this could produce huge number of threads,
     # since S3 uses multiple threads to transfer single file.
     objects_to_transfer: dict[str, list[dict[str, str]]] = defaultdict(list)
-    for base_url, (connector_name, files) in response.message_data.items():
-        for file in files:
+    for base_url, missing_item in missing_data.items():
+        for file in missing_item["files"]:
             file.update({"from_base_url": base_url, "to_base_url": base_url})
-        objects_to_transfer[connector_name] += files
+        objects_to_transfer[missing_item["from_connector"]] += missing_item["files"]
 
     try:
         for connector_name in objects_to_transfer:
@@ -186,11 +178,33 @@ class InitProtocol(BaseProtocol):
 
         :raises DataTransferError: when data transfer error occurs.
         """
-        await self.communicator.send_command(Message.command("update_status", "PP"))
-        if DATA_ALL_VOLUME_SHARED:
-            transfering_coroutine = transfer_data(self.communicator)
+        await self.communicator.update_status("PP")
+        missing_data = (await self.communicator.missing_data_locations("")).message_data
+
+        await self.communicator.init_suspend_heartbeat("")
+
+        to_filesystem = {
+            url: entry for url, entry in missing_data.items() if "to_connector" in entry
+        }
+        to_inputs = {
+            url: entry
+            for url, entry in missing_data.items()
+            if "to_connector" not in entry
+        }
+
+        if to_inputs and "_inputs" not in self.connectors:
+            raise RuntimeError("No inputs volume is defined.")
+        if to_filesystem and to_inputs:
+            raise RuntimeError(
+                "Can only transfer data to input volume or shared storage, not both."
+            )
+
+        if to_inputs:
+            transfering_coroutine = transfer_inputs(self.communicator, to_inputs)
         else:
-            transfering_coroutine = transfer_inputs(self.communicator)
+            transfering_coroutine = transfer_data(
+                self.communicator, to_filesystem.values()
+            )
         await transfering_coroutine
 
 
