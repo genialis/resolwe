@@ -55,8 +55,8 @@ class GetToolsTestCase(TestCase):
         tools_list = base_executor.get_tools_paths()
 
         self.assertEqual(len(tools_list), 2)
-        self.assertIn("/resolwe/test_app2/tools", tools_list)
-        self.assertIn("/custom_tools", tools_list)
+        self.assertIn(Path("/resolwe/test_app2/tools"), tools_list)
+        self.assertIn(Path("/custom_tools"), tools_list)
 
     @mock.patch("resolwe.flow.utils.apps")
     @mock.patch("resolwe.flow.utils.settings")

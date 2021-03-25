@@ -14,7 +14,10 @@ Flow Utilities
 import functools
 import hashlib
 import json
-import os
+from pathlib import Path
+from typing import Dict
+
+from versionfield.version import Version
 
 from django.apps import apps
 from django.conf import settings
@@ -32,7 +35,7 @@ __all__ = (
 )
 
 
-def get_data_checksum(proc_input, proc_slug, proc_version):
+def get_data_checksum(proc_input: Dict, proc_slug: str, proc_version: Version) -> str:
     """Compute checksum of processor inputs, name and version."""
     checksum = hashlib.sha256()
     checksum.update(json.dumps(proc_input, sort_keys=True).encode("utf-8"))
@@ -41,7 +44,7 @@ def get_data_checksum(proc_input, proc_slug, proc_version):
     return checksum.hexdigest()
 
 
-def dict_dot(d, k, val=None, default=None):
+def dict_dot(d: Dict, k, val=None, default=None):
     """Get or set value using a dot-notation key in a multilevel dict."""
     if val is None and k == "":
         return d
@@ -90,17 +93,19 @@ def dict_dot(d, k, val=None, default=None):
         return val
 
 
-def get_apps_tools():
+def get_apps_tools() -> Dict[str, Path]:
     """Get applications' tools and their paths.
 
     Return a dict with application names as keys and paths to tools'
     directories as values. Applications without tools are omitted.
+
+    :raises KeyError: when RESOLWE_CUSTOM_TOOLS_PATHS settings is no a list.
     """
     tools_paths = {}
 
     for app_config in apps.get_app_configs():
-        proc_path = os.path.join(app_config.path, "tools")
-        if os.path.isdir(proc_path):
+        proc_path = Path(app_config.path) / "tools"
+        if proc_path.is_dir():
             tools_paths[app_config.name] = proc_path
 
     custom_tools_paths = getattr(settings, "RESOLWE_CUSTOM_TOOLS_PATHS", [])
@@ -109,6 +114,6 @@ def get_apps_tools():
 
     for seq, custom_path in enumerate(custom_tools_paths):
         custom_key = "_custom_{}".format(seq)
-        tools_paths[custom_key] = custom_path
+        tools_paths[custom_key] = Path(custom_path)
 
     return tools_paths
