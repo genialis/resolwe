@@ -571,6 +571,19 @@ class BaseCommunicator:
         self._watchdog_future: Optional[asyncio.Future] = None
         self._recycle_uuids_future: Optional[asyncio.Future] = None
 
+    def __getattr__(self, name: str):
+        """Call arbitrary 'command' with 'communicator.command(args)' syntax."""
+
+        def call_command(*args):
+            if len(args) == 1:
+                args = args[0]
+            return self.send_command(Message.command(name, args))
+
+        if name.startswith("_"):
+            return None
+        else:
+            return call_command
+
     async def _recycle_received_uuids(self, timeout: int = 600):
         """Recycle the list of received messages uuids.
 
