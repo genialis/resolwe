@@ -63,7 +63,7 @@ else:
 
 
 def respond(message, status, response_data):
-    """Return a response."""
+    """Return a response to the given message."""
     if message["type"] in ["COMMAND", "EQR"]:
         response_type = "RESPONSE"
     else:
@@ -120,25 +120,17 @@ class ProtocolHandler:
                 elif command_name == "terminate":
                     logger.debug("Got terminate command, shutting down.")
                     self._command_counter += 1
-                    log_command = {
-                        "type": "COMMAND",
-                        "type_data": "process_log",
-                        "data": {"info": "Processing was cancelled."},
-                        "uuid": uuid.uuid4().hex,
-                        "sequence_number": self._command_counter,
-                        "timestamp": time.time(),
-                    }
-                    yield from self.communicator.send_data(log_command)
-                    yield from self.communicator.receive_data()
+                    yield from self.terminate_script(
+                        {"info": "Processing was cancelled."}
+                    )
                     response = respond(message, "OK", "")
                     yield from self.communicator.send_data(response)
-                    self.terminate_script()
                     # Wait for script to do the clean-up.
                     yield from self._script_finishing.wait()
                     break
                 else:
-                    logger.error("Command of unknown type: %s.", message)
-                    response = response(message, "ERR", "Unknown command")
+                    logger.error("Unknown command: %s.", command_name)
+                    response = respond(message, "ERR", "Unknown command")
                     yield from self.communicator.send_data(response)
                     break
             elif message["type"] == "RESPONSE":
@@ -150,7 +142,7 @@ class ProtocolHandler:
     @asyncio.coroutine
     def send_command(self, command):
         """Send a command and return a response."""
-        logger.debug("Sending command")
+        logger.debug("Sending command %s.", command)
         with (yield from self._command_lock):
             self._command_counter += 1
             command["uuid"] = uuid.uuid4().hex
@@ -167,6 +159,16 @@ class ProtocolHandler:
                 raise
 
     @asyncio.coroutine
+    def _send_log(self, message):
+        """Send log message."""
+        log_command = {
+            "type": "COMMAND",
+            "type_data": "process_log",
+            "data": message,
+        }
+        yield from self.send_command(log_command)
+
+    @asyncio.coroutine
     def process_script(self, message):
         # type: (dict) -> ()
         """Process the given script."""
@@ -175,40 +177,69 @@ class ProtocolHandler:
         try:
             yield from self._script_future
             self.return_code = self._script_future.result()
-        except asyncio.CancelledError:
-            pass
-
         finally:
             self._script_future = None
-            # Send final version of the log files.
-            logger.debug("Uploading latest log files.")
-            yield from self.manager.upload_log_files()
-
-            if KEEP_DATA:
+            try:
+                logger.debug("Uploading latest log files.")
                 try:
-                    yield from self.manager.send_file_descriptors(
-                        [str(file) for file in Path("./").rglob("*") if file.is_file()]
-                    )
+                    yield from self.manager.upload_log_files()
                 except:
-                    logger.exception("Error sending file descriptors (keep_data).")
+                    yield from self._send_log(
+                        {"error": "Error uploading final log files."}
+                    )
+                    logger.exception("Error uploading final log files.")
+                    if self.return_code == 0:
+                        self.return_code = -1
 
-            response = respond(message, "OK", self.return_code)
-            yield from self.communicator.send_data(response)
-            # Close the cliet socket to notify communicator that processing is
-            # finished.
-            logger.debug("Closing upload socket.")
-            self.manager.upload_socket.close()
-            logger.debug("Upload socket closed.")
+                if KEEP_DATA:
+                    try:
+                        yield from self.manager.send_file_descriptors(
+                            [
+                                str(file)
+                                for file in Path("./").rglob("*")
+                                if file.is_file()
+                            ]
+                        )
+                    except:
+                        logger.exception("Error sending file descriptors (keep_data).")
+                        yield from self._send_log(
+                            {
+                                "error": "Error uploading final file descriptors (keep_data)."
+                            }
+                        )
+                        if self.return_code == 0:
+                            self.return_code = -1
 
-            if self._script_finishing:
-                self._script_finishing.set()
+                response = respond(message, "OK", self.return_code)
+                yield from self.communicator.send_data(response)
 
-    def terminate_script(self):
-        """Terminate the running script."""
-        if self._script_future is not None:
-            logger.debug("Terminating script")
-            self._script_finishing = asyncio.Event()
-            self._script_future.cancel()
+            except:
+                logger.exception(
+                    "Unexpected exception in process_script finally clause."
+                )
+            finally:
+                # Close the cliet socket to notify communicator that processing is
+                # finished.
+                logger.debug("Closing upload socket.")
+                self.manager.upload_socket.close()
+                logger.debug("Upload socket closed.")
+                if self._script_finishing:
+                    logger.debug("Setting script finishing.")
+                    self._script_finishing.set()
+
+    @asyncio.coroutine
+    def terminate_script(self, message=None):
+        """Terminate the running script and optionally send log message."""
+        try:
+            if message is not None:
+                yield from self._send_log(message)
+        except:
+            logger.exception("Error sending terminating message to listener.")
+        finally:
+            if self._script_future is not None:
+                logger.debug("Terminating script")
+                self._script_finishing = asyncio.Event()
+                self._script_future.cancel()
 
     @asyncio.coroutine
     def _execute_script(self, script):
@@ -315,7 +346,7 @@ class ProcessingManager:
         self.upload_socket = None
         self._uploading_log_files_lock = asyncio.Lock(loop=loop)
         self._send_file_descriptors_lock = asyncio.Lock(loop=loop)
-        self.log_files_need_upload = True
+        self.log_files_need_upload = False
         self.loop = loop
 
     @asyncio.coroutine
@@ -386,7 +417,7 @@ class ProcessingManager:
         finally:
             update_logs_future.cancel()
             # Just in case connection was closed before script was finished.
-            self.protocol_handler.terminate_script()
+            yield from self.protocol_handler.terminate_script()
             logger.debug("Stopping processing container.")
             return self.protocol_handler.return_code
 
@@ -551,7 +582,9 @@ class ProcessingManager:
                     # Terminate the script and wait for termination.
                     # Otherwise script may continue to run and produce
                     # hard to debug error messages.
-                    self.protocol_handler.terminate_script()
+                    yield from self.protocol_handler.terminate_script(
+                        {"info": "Response with status 'ERROR' received from listener."}
+                    )
                     if self.protocol_handler._script_finishing is not None:
                         yield from self.protocol_handler._script_finishing.wait()
                         break
@@ -565,17 +598,24 @@ class ProcessingManager:
             logger.exception(
                 "Unknown exception while handling processing script message."
             )
-            self.protocol_handler.terminate_script()
+            yield from self.protocol_handler.terminate_script(
+                {
+                    "error": "Unexpected exception while handling processing script message."
+                }
+            )
             yield from self.protocol_handler._script_finishing.wait()
         finally:
             writer.close()
 
 
+@asyncio.coroutine
 def sig_term_handler(processing_manager):
     # type: (asyncio.Future) -> None
     """Gracefully terminate the running process."""
     logger.debug("SIG_INT received, shutting down.")
-    processing_manager.protocol_handler.terminate_script()
+    yield from processing_manager.protocol_handler.terminate_script(
+        {"error": "SIG_INT received, terminating."}
+    )
 
 
 @asyncio.coroutine
@@ -586,7 +626,8 @@ def start_processing_container(loop):
     manager_future = create_task(processing_manager.run())
 
     asyncio.get_event_loop().add_signal_handler(
-        signal.SIGINT, functools.partial(sig_term_handler, processing_manager)
+        signal.SIGINT,
+        functools.partial(create_task, sig_term_handler(processing_manager)),
     )
 
     # Wait for the manager task to finish.
