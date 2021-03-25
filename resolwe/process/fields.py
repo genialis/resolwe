@@ -18,10 +18,6 @@ import requests
 from .communicator import communicator
 from .descriptor import ProcessDescriptor
 
-DATA_LOCAL_VOLUME = Path(os.environ.get("DATA_LOCAL_VOLUME", "/data_local"))
-DATA_VOLUME = Path(os.environ.get("DATA_VOLUME", "/data"))
-DATA_ALL_VOLUME = Path(os.environ.get("DATA_ALL_VOLUME", "/data_all"))
-
 # Upload files in batches of 1000.
 UPLOAD_FILE_BATCH_SIZE = 1000
 

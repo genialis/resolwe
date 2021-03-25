@@ -18,9 +18,6 @@ from .fields import (
 )
 
 DATA_ID = int(os.getenv("DATA_ID", "-1"))
-DATA_LOCAL_VOLUME = Path(os.environ.get("DATA_LOCAL_VOLUME", "/data_local"))
-DATA_VOLUME = Path(os.environ.get("DATA_VOLUME", "/data"))
-DATA_ALL_VOLUME = Path(os.environ.get("DATA_ALL_VOLUME", "/data_all"))
 
 
 class ModelField(Field):

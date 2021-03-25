@@ -12,17 +12,16 @@ import shutil
 import sys
 from collections import defaultdict
 from contextlib import suppress
-from distutils.util import strtobool
-from pathlib import Path
+from typing import Any
 
 import zmq
 import zmq.asyncio
+from executors import constants, global_settings
 from executors.connectors import Transfer, connectors
 from executors.connectors.baseconnector import BaseStorageConnector
 from executors.connectors.exceptions import DataTransferError
 from executors.connectors.utils import paralelize
-from executors import constants
-from executors import global_settings
+from executors.protocol import ExecutorFiles
 from executors.socket_utils import BaseCommunicator, BaseProtocol, Message, PeerIdentity
 from executors.zeromq_utils import ZMQCommunicator
 
@@ -42,22 +41,14 @@ LISTENER_PROTOCOL = os.getenv("LISTENER_PROTOCOL", "tcp")
 
 DATA_ID = int(os.getenv("DATA_ID", "-1"))
 
-DATA_LOCAL_VOLUME = Path(os.environ.get("DATA_LOCAL_VOLUME", "/data_local"))
-INPUTS_VOLUME = Path(os.environ.get("INPUTS_VOLUME", "/inputs"))
 
 GENIALIS_UID = int(os.environ.get("GENIALIS_UID", 0))
 GENIALIS_GID = int(os.environ.get("GENIALIS_GID", 0))
 MOUNTED_CONNECTORS = os.environ["MOUNTED_CONNECTORS"].split(",")
 
-LOCATION_SUBPATH = Path(os.environ["LOCATION_SUBPATH"])  # No sensible default.
-
 DOWNLOAD_WAITING_TIMEOUT = 60  # in seconds
 RETRIES = 5
 
-DATA_ALL_VOLUME_SHARED = bool(
-    strtobool(os.environ.get("DATA_ALL_VOLUME_SHARED", "False"))
-)
-SET_PERMISSIONS = bool(strtobool(os.environ.get("INIT_SET_PERMISSIONS", "False")))
 
 class PreviousDataExistsError(Exception):
     """Raised if data from previous run exists."""
