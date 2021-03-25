@@ -515,6 +515,19 @@ class ManagerTest(TransactionTestCase):
         rows_locked = Event()
         manager_finished = Event()
 
+        StorageLocation.objects.create(
+            file_storage=self.file_storage1,
+            url="url1",
+            connector_name="local",
+            status=StorageLocation.STATUS_DONE,
+        )
+        StorageLocation.objects.create(
+            file_storage=self.file_storage2,
+            url="url2",
+            connector_name="local",
+            status=StorageLocation.STATUS_DONE,
+        )
+
         def task_a(lock_ids=[]):
             with transaction.atomic():
                 list(FileStorage.objects.select_for_update().filter(id__in=lock_ids))

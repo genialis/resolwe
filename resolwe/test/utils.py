@@ -22,8 +22,8 @@ from django.core.exceptions import ValidationError
 from django.test import override_settings, tag
 
 from resolwe.flow.utils import dict_dot, iterate_fields
+from resolwe.storage.connectors import connectors
 from resolwe.storage.models import FileStorage, StorageLocation
-from resolwe.storage.settings import STORAGE_LOCAL_CONNECTOR
 
 __all__ = (
     "check_installed",
@@ -98,8 +98,14 @@ def create_data_location(subpath=None):
     if subpath is None:
         subpath = file_storage.pk
 
+    data_connector = [
+        connector.name
+        for connector in connectors.for_storage("data")
+        if connector.mountable
+    ][0]
+
     StorageLocation.objects.create(
-        url=subpath, file_storage=file_storage, connector_name=STORAGE_LOCAL_CONNECTOR
+        url=subpath, file_storage=file_storage, connector_name=data_connector
     )
     return file_storage
 

@@ -219,7 +219,7 @@ class ListenerTest(TestCase):
     def test_handle_missing_data_locations_missing_data(self):
         obj = Message.command(ExecutorProtocol.MISSING_DATA_LOCATIONS, "")
         response = self.processor.handle_missing_data_locations(obj, self.manager)
-        self.assertEqual(response, Response(ResponseStatus.OK.value, []))
+        self.assertEqual(response, Response(ResponseStatus.OK.value, {}))
 
     def test_handle_missing_data_locations_missing_storage_location(self):
         obj = Message.command(ExecutorProtocol.MISSING_DATA_LOCATIONS, "")
@@ -247,7 +247,7 @@ class ListenerTest(TestCase):
             url="url",
         )
         response = self.processor.handle_missing_data_locations(obj, self.manager)
-        expected = Response(ResponseStatus.OK.value, [])
+        expected = Response(ResponseStatus.OK.value, {})
         self.assertEqual(response, expected)
         self.assertEqual(StorageLocation.all_objects.count(), 2)
 
@@ -269,14 +269,14 @@ class ListenerTest(TestCase):
         created = StorageLocation.all_objects.last()
         expected = Response(
             ResponseStatus.OK.value,
-            [
-                {
-                    "connector_name": "not_local",
-                    "url": "url",
-                    "data_id": child.id,
-                    "to_storage_location_id": created.id,
+            {
+                "url": {
+                    "data_id": parent.id,
+                    "from_connector": "not_local",
                     "from_storage_location_id": storage_location.id,
+                    "to_storage_location_id": created.id,
+                    "to_connector": "local",
                 }
-            ],
+            },
         )
         self.assertEqual(response, expected)

@@ -108,6 +108,7 @@ class TransfersTest(BasicTestCase):
                 "data_id": "1",
                 "from_storage_location_id": 1,
                 "to_storage_location_id": 2,
+                "to_connector": "local",
             }
         ]
         self.DOWNLOAD_STARTED_LOCK = Message.command(
@@ -132,13 +133,17 @@ class TransfersTest(BasicTestCase):
 
         return super().setUp()
 
-    def _test_workflow(self, send_command, download_command, commands, result):
+    def _test_workflow(
+        self, send_command, download_command, commands, result, missing_data
+    ):
         self.communicator_mock.send_command = send_command
         with patch.multiple(
             TRANSFER,
             **self.get_patches(send_command, download_command),
         ):
-            result = run_async(transfer._transfer_data(self.communicator_mock))
+            result = run_async(
+                transfer.transfer_data(self.communicator_mock, missing_data)
+            )
         self.assertEqual(send_command.call_count, len(commands) - 1)
         expected_args_list = []
         for message, _ in commands[1:]:
@@ -155,29 +160,21 @@ class TransfersTest(BasicTestCase):
         return patches
 
     def test_no_transfer(self):
-        self.MISSING_DATA_RESPONSE = Response(ResponseStatus.OK.value, [])
-        send_command = MagicMock(
-            side_effect=[
-                coroutine(self.MISSING_DATA_RESPONSE),
-                coroutine(self.RESULT_OK),
-            ]
-        )
-        self.communicator_mock.send_command = send_command
-        run_async(transfer._transfer_data(self.communicator_mock))
-        send_command.assert_called_once_with(
-            Message.command("missing_data_locations", "")
-        )
+        self.communicator_mock.send_command = MagicMock()
+        run_async(transfer.transfer_data(self.communicator_mock, []))
+        self.communicator_mock.send_command.assert_not_called()
 
     def test_transfer_download(self):
+        self.missing_data.copy()
         commands = [
             1,
-            (self.MISSING_DATA, self.MISSING_DATA_RESPONSE),
-            (Message.command("update_status", "PP"), self.RESULT_OK),
             (self.DOWNLOAD_STARTED_LOCK, self.DOWNLOAD_STARTED),
         ]
         send_command = MagicMock(side_effect=partial(send, commands))
         download_command = MagicMock(return_value=coroutine(True))
-        result = self._test_workflow(send_command, download_command, commands, True)
+        result = self._test_workflow(
+            send_command, download_command, commands, True, self.missing_data.copy()
+        )
         self.assertTrue(result)
         download_command.assert_called_once_with(
             self.missing_data[0], self.communicator_mock
@@ -186,15 +183,15 @@ class TransfersTest(BasicTestCase):
     def test_transfer_wait_download(self):
         commands = [
             1,
-            (self.MISSING_DATA, self.MISSING_DATA_RESPONSE),
-            (Message.command("update_status", "PP"), self.RESULT_OK),
             (self.DOWNLOAD_STARTED_LOCK, self.DOWNLOAD_IN_PROGRESS),
             (self.DOWNLOAD_STARTED_NO_LOCK, self.DOWNLOAD_STARTED),
             (self.DOWNLOAD_STARTED_LOCK, self.DOWNLOAD_STARTED),
         ]
         download_command = MagicMock(return_value=coroutine(True))
         send_command = MagicMock(side_effect=partial(send, commands))
-        result = self._test_workflow(send_command, download_command, commands, True)
+        result = self._test_workflow(
+            send_command, download_command, commands, True, self.missing_data.copy()
+        )
         self.assertTrue(result)
         download_command.assert_called_once_with(
             self.missing_data[0], self.communicator_mock
@@ -203,8 +200,6 @@ class TransfersTest(BasicTestCase):
     def test_transfer_wait_download_long(self):
         commands = [
             1,
-            (self.MISSING_DATA, self.MISSING_DATA_RESPONSE),
-            (Message.command("update_status", "PP"), self.RESULT_OK),
             (self.DOWNLOAD_STARTED_LOCK, self.DOWNLOAD_IN_PROGRESS),
             (self.DOWNLOAD_STARTED_NO_LOCK, self.DOWNLOAD_STARTED),
             (self.DOWNLOAD_STARTED_LOCK, self.DOWNLOAD_IN_PROGRESS),
@@ -217,7 +212,9 @@ class TransfersTest(BasicTestCase):
         ]
         download_command = MagicMock(return_value=coroutine(True))
         send_command = MagicMock(side_effect=partial(send, commands))
-        result = self._test_workflow(send_command, download_command, commands, True)
+        result = self._test_workflow(
+            send_command, download_command, commands, True, self.missing_data.copy()
+        )
         self.assertTrue(result)
         download_command.assert_called_once_with(
             self.missing_data[0], self.communicator_mock
@@ -226,13 +223,13 @@ class TransfersTest(BasicTestCase):
     def test_transfer_failed(self):
         commands = [
             1,
-            (self.MISSING_DATA, self.MISSING_DATA_RESPONSE),
-            (Message.command("update_status", "PP"), self.RESULT_OK),
             (self.DOWNLOAD_STARTED_LOCK, self.DOWNLOAD_STARTED),
         ]
         download_command = MagicMock(return_value=coroutine(False))
         send_command = MagicMock(side_effect=partial(send, commands))
-        result = self._test_workflow(send_command, download_command, commands, True)
+        result = self._test_workflow(
+            send_command, download_command, commands, True, self.missing_data.copy()
+        )
         self.assertFalse(result)
         download_command.assert_called_once_with(
             self.missing_data[0], self.communicator_mock
@@ -241,27 +238,27 @@ class TransfersTest(BasicTestCase):
     def test_transfer_downloaded(self):
         commands = [
             1,
-            (self.MISSING_DATA, self.MISSING_DATA_RESPONSE),
-            (Message.command("update_status", "PP"), self.RESULT_OK),
             (self.DOWNLOAD_STARTED_LOCK, self.DOWNLOAD_FINISHED),
         ]
         download_command = MagicMock(return_value=coroutine(True))
         send_command = MagicMock(side_effect=partial(send, commands))
-        result = self._test_workflow(send_command, download_command, commands, True)
+        result = self._test_workflow(
+            send_command, download_command, commands, True, self.missing_data.copy()
+        )
         self.assertTrue(result)
         download_command.assert_not_called()
 
     def test_transfer_wait_downloaded(self):
         commands = [
             1,
-            (self.MISSING_DATA, self.MISSING_DATA_RESPONSE),
-            (Message.command("update_status", "PP"), self.RESULT_OK),
             (self.DOWNLOAD_STARTED_LOCK, self.DOWNLOAD_IN_PROGRESS),
             (self.DOWNLOAD_STARTED_NO_LOCK, self.DOWNLOAD_FINISHED),
         ]
         download_command = MagicMock(return_value=coroutine(True))
         send_command = MagicMock(side_effect=partial(send, commands))
-        result = self._test_workflow(send_command, download_command, commands, True)
+        result = self._test_workflow(
+            send_command, download_command, commands, True, self.missing_data.copy()
+        )
         self.assertTrue(result)
         download_command.assert_not_called()
 
@@ -273,6 +270,7 @@ class TransfersTest(BasicTestCase):
                 "data_id": "1",
                 "from_storage_location_id": 1,
                 "to_storage_location_id": 2,
+                "to_connector": "local",
             },
             {
                 "connector_name": "CONNECTOR",
@@ -280,21 +278,19 @@ class TransfersTest(BasicTestCase):
                 "data_id": "1",
                 "from_storage_location_id": 1,
                 "to_storage_location_id": 2,
+                "to_connector": "local",
             },
         ]
-        self.MISSING_DATA_RESPONSE = Response(
-            ResponseStatus.OK.value, self.missing_data.copy()
-        )
         commands = [
             1,
-            (self.MISSING_DATA, self.MISSING_DATA_RESPONSE),
-            (Message.command("update_status", "PP"), self.RESULT_OK),
             (self.DOWNLOAD_STARTED_LOCK, self.DOWNLOAD_STARTED),
             (self.DOWNLOAD_STARTED_LOCK, self.DOWNLOAD_STARTED),
         ]
         download_command = MagicMock(side_effect=lambda a, b: coroutine(True))
         send_command = MagicMock(side_effect=partial(send, commands))
-        result = self._test_workflow(send_command, download_command, commands, True)
+        result = self._test_workflow(
+            send_command, download_command, commands, True, self.missing_data.copy()
+        )
         self.assertTrue(result)
         self.assertEqual(download_command.call_count, 2)
 
@@ -306,6 +302,7 @@ class TransfersTest(BasicTestCase):
                 "data_id": "1",
                 "from_storage_location_id": 1,
                 "to_storage_location_id": 2,
+                "to_connector": "local",
             },
             {
                 "connector_name": "CONNECTOR",
@@ -313,22 +310,20 @@ class TransfersTest(BasicTestCase):
                 "data_id": "1",
                 "from_storage_location_id": 1,
                 "to_storage_location_id": 2,
+                "to_connector": "local",
             },
         ]
-        self.MISSING_DATA_RESPONSE = Response(
-            ResponseStatus.OK.value, self.missing_data.copy()
-        )
         commands = [
             1,
-            (self.MISSING_DATA, self.MISSING_DATA_RESPONSE),
-            (Message.command("update_status", "PP"), self.RESULT_OK),
             (self.DOWNLOAD_STARTED_LOCK, self.DOWNLOAD_IN_PROGRESS),
             (self.DOWNLOAD_STARTED_LOCK, self.DOWNLOAD_STARTED),
             (self.DOWNLOAD_STARTED_NO_LOCK, self.DOWNLOAD_FINISHED),
         ]
         download_command = MagicMock(side_effect=lambda a, b: coroutine(True))
         send_command = MagicMock(side_effect=partial(send, commands))
-        result = self._test_workflow(send_command, download_command, commands, True)
+        result = self._test_workflow(
+            send_command, download_command, commands, True, self.missing_data.copy()
+        )
         self.assertTrue(result)
         download_command.assert_called_once()
 
@@ -338,38 +333,15 @@ class TransfersTest(BasicTestCase):
 
         commands = [
             1,
-            (self.MISSING_DATA, self.MISSING_DATA_RESPONSE),
-            (Message.command("update_status", "PP"), self.RESULT_OK),
             (self.DOWNLOAD_STARTED_LOCK, self.DOWNLOAD_STARTED),
         ]
         download_command = MagicMock(return_value=coroutine(True))
         send_command = MagicMock(side_effect=raise_exception)
         with self.assertRaises(RuntimeError):
-            self._test_workflow(send_command, download_command, commands, True)
+            self._test_workflow(
+                send_command, download_command, commands, True, self.missing_data.copy()
+            )
         download_command.assert_not_called()
-
-    def test_outer_command_success(self):
-        _transfer_data = MagicMock(return_value=coroutine(True))
-        patches = {
-            "_transfer_data": _transfer_data,
-        }
-        with patch.multiple(TRANSFER, **patches):
-            result = run_async(transfer.transfer_data(self.communicator_mock))
-        self.assertIsNone(result)
-        _transfer_data.assert_called_once()
-        self.communicator_mock.assert_not_called()
-
-    def test_outer_command_failure(self):
-        _transfer_data = MagicMock(return_value=coroutine(False))
-        patches = {
-            "_transfer_data": _transfer_data,
-        }
-        with patch.multiple(TRANSFER, **patches):
-            with self.assertRaises(DataTransferError) as context_manager:
-                run_async(transfer.transfer_data(self.communicator_mock))
-
-        self.assertEqual(str(context_manager.exception), "Failed to transfer data")
-        _transfer_data.assert_called_once()
 
 
 @patch.dict(sys.modules, MODULES_PATCH)
@@ -382,6 +354,7 @@ class DownloadDataTest(BasicTestCase):
             "data_id": 1,
             "from_storage_location_id": 1,
             "to_storage_location_id": 2,
+            "to_connector": "local",
         }
         self.COMMAND_DOWNLOAD_FINISHED = Message.command(
             ExecutorProtocol.DOWNLOAD_FINISHED, 2

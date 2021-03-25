@@ -1,12 +1,7 @@
 # pylint: disable=missing-docstring
-import copy
 import os
-from pathlib import Path
 
 from asgiref.sync import async_to_sync
-
-from django.conf import settings
-from django.test import override_settings
 
 from guardian.shortcuts import assign_perm
 
@@ -101,22 +96,6 @@ class TestManager(ProcessTestCase):
             {DataDependency.KIND_SUBPROCESS},
         )
 
-    def test_communicate(self):
-        """Make sure communicate can serialize settings.
-
-        When object of PosixPath is used in settings the call to communicate
-        fails due to object not being JSON serializable by default.
-        """
-        flow_executor = copy.deepcopy(settings.FLOW_EXECUTOR)
-        flow_executor["DATA_DIR"] = Path(flow_executor["DATA_DIR"])
-        with override_settings(FLOW_EXECUTOR=flow_executor):
-            process = Process.objects.filter(slug="test-min").latest()
-            Data.objects.create(
-                name="Test data",
-                contributor=self.contributor,
-                process=process,
-            )
-
     def test_dependencies(self):
         """Test that manager handles dependencies correctly."""
         process_parent = Process.objects.filter(slug="test-dependency-parent").latest()
@@ -179,9 +158,10 @@ class TestManager(ProcessTestCase):
 
         data.refresh_from_db()
 
-        self.assertEqual(len(data.process_info), 2)
+        self.assertEqual(len(data.process_info), 3)
         self.assertEqual(data.process_info[0], "abc")
         self.assertEqual(data.process_info[1][-5:], "xx...")
+        self.assertEqual(data.process_info[2][:8], "Response")
 
         self.assertEqual(len(data.process_warning), 1)
         self.assertEqual(data.process_warning[0][-5:], "yy...")

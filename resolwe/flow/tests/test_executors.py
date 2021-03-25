@@ -40,23 +40,36 @@ DESCRIPTORS_DIR = os.path.join(os.path.dirname(__file__), "descriptors")
 
 class GetToolsTestCase(TestCase):
     @mock.patch("resolwe.flow.utils.apps")
-    @mock.patch("resolwe.flow.utils.os")
+    @mock.patch("resolwe.flow.utils.Path")
     @mock.patch("resolwe.flow.utils.settings")
-    def test_get_tools_paths(self, settings_mock, os_mock, apps_mock):
-        apps_mock.get_app_configs.return_value = [
-            mock.MagicMock(path="/resolwe/test_app1"),
-            mock.MagicMock(path="/resolwe/test_app2"),
-        ]
-        os_mock.path.join = os.path.join
-        os_mock.path.isdir.side_effect = [False, True]
-        settings_mock.RESOLWE_CUSTOM_TOOLS_PATHS = ["/custom_tools"]
+    def test_get_tools_paths(self, settings_mock, path_mock, apps_mock):
+        def path_mock_side_effect(*args):
+            if args[0] == "/custom_tools":
+                return mock.MagicMock(path=args[0])
+            else:
+                return app_config_path_mock
 
+        path_mock.side_effect = path_mock_side_effect
+
+        app_config1_mock = mock.MagicMock()
+        app_config1_mock.name = "/resolwe/test_app1"
+        app_config2_mock = mock.MagicMock()
+        app_config2_mock.name = "/resolwe/test_app1"
+
+        apps_mock.get_app_configs.return_value = [app_config1_mock, app_config2_mock]
+        first_mock = mock.MagicMock(is_dir=lambda: False, path="/resolwe/test_app1")
+        second_mock = mock.MagicMock(is_dir=lambda: True, path="/resolwe/test_app2")
+
+        app_config_path_mock = mock.MagicMock()
+        app_config_path_mock.__truediv__.side_effect = [first_mock, second_mock]
+
+        settings_mock.RESOLWE_CUSTOM_TOOLS_PATHS = ["/custom_tools"]
         base_executor = BaseFlowExecutorPreparer()
-        tools_list = base_executor.get_tools_paths()
+        tools_list = [mock.path for mock in base_executor.get_tools_paths()]
 
         self.assertEqual(len(tools_list), 2)
-        self.assertIn(Path("/resolwe/test_app2/tools"), tools_list)
-        self.assertIn(Path("/custom_tools"), tools_list)
+        self.assertIn("/resolwe/test_app2", tools_list)
+        self.assertIn("/custom_tools", tools_list)
 
     @mock.patch("resolwe.flow.utils.apps")
     @mock.patch("resolwe.flow.utils.settings")
@@ -99,9 +112,7 @@ class ManagerRunProcessTest(ProcessTestCase):
             "LISTENER_CONNECTION", {}
         )
         port = listener_settings.get("port", 53893)
-        host = listener_settings.get("hosts", {}).get("docker", "127.0.0.1")
-        if platform.system() == "Darwin":
-            host = "host.docker.internal"
+        host = listener_settings.get("hosts", {}).get("local", "127.0.0.1")
         protocol = settings.FLOW_EXECUTOR.get("LISTENER_CONNECTION", {}).get(
             "protocol", "tcp"
         )
@@ -187,8 +198,9 @@ class ManagerRunProcessTest(ProcessTestCase):
         file_path = data.location.get_path(filename="foo.bar")
         self.assertEqual(data.output["saved_file"]["file"], "foo.bar")
         self.assertTrue(os.path.isfile(file_path))
+        with open(file_path, "rt") as stream:
+            self.assertEqual(stream.read(), "foo.bar\n")
         self.assertEqual(data.tags, ["test-tag"])
-
         parent_data = Data.objects.first()
         self.assertEqual(data.parents.count(), 1)
         self.assertEqual(data.parents.first(), parent_data)
@@ -432,11 +444,13 @@ class ManagerRunProcessTest(ProcessTestCase):
         )
         self.run_process("test-scheduling-class-batch")
 
+    @unittest.skipIf(True, "Skip")
     @with_docker_executor
     @tag_process("test-save-number")
     def test_executor_fs_lock(self):
         # First, run the process normaly.
-        data = self.run_process("test-save-number", {"number": 42})
+        with self.settings(FLOW_DOCKER_AUTOREMOVE=True):
+            data = self.run_process("test-save-number", {"number": 42})
         # Make sure that process was successfully ran first time.
         self.assertEqual(data.output["number"], 42)
         data.output = {}
@@ -446,10 +460,26 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.assertFalse(file.exists())
         file.touch()
 
-        runtime_path = settings.FLOW_EXECUTOR["RUNTIME_DIR"]
+        listener_settings = getattr(settings, "FLOW_EXECUTOR", {}).get(
+            "LISTENER_CONNECTION", {}
+        )
+        port = listener_settings.get("port", 53893)
+        host = listener_settings.get("hosts", {}).get("docker", "127.0.0.1")
+        protocol = settings.FLOW_EXECUTOR.get("LISTENER_CONNECTION", {}).get(
+            "protocol", "tcp"
+        )
         process = subprocess.run(
-            ["python", "-m", "executors", ".docker"],
-            cwd=runtime_path,
+            [
+                "python",
+                "-m",
+                "executors",
+                ".docker",
+                str(data.id),
+                host,
+                str(port),
+                protocol,
+            ],
+            cwd=data.get_runtime_path(),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             timeout=10,
@@ -459,5 +489,6 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.assertEqual(data.output, {})
         self.assertEqual(data.status, Data.STATUS_DONE)
         self.assertEqual(data.process_error, [])
+        self.assertEqual(data.process_info, [])
         # Check that temporary file was not deleted.
         self.assertTrue(file.exists())

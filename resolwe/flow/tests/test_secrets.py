@@ -45,9 +45,9 @@ class SecretsProcessTest(ProcessTestCase):
             assert_status=Data.STATUS_ERROR,
         )
         self.assertIn(
-            "Permission denied for process: Process 'test-secrets-permission-denied' has secret "
+            "Process 'test-secrets-permission-denied' has secret "
             "inputs, but no permission to see secrets",
-            data.process_error,
+            data.process_error[0],
         )
 
     @with_docker_executor

@@ -23,6 +23,7 @@
     language: bash
     program: |
       touch foo.bar
+      echo "foo.bar" > foo.bar
       re-export foo.bar
       re-run test-save-file '{"input_file": "foo.bar"}'
 
