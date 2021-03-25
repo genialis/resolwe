@@ -1,6 +1,7 @@
 """Command handlers for python processes."""
 import abc
 import logging
+import os
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type
 
 from django.apps import apps
@@ -9,12 +10,15 @@ from django.contrib.auth import get_user_model
 from django.contrib.postgres.fields.jsonb import JSONField as JSONFieldb
 from django.db.models import ForeignKey, JSONField, ManyToManyField, Model, QuerySet
 
+from resolwe.flow.executors import constants
 from resolwe.flow.executors.socket_utils import Message, Response
 from resolwe.flow.models import Collection, Data, Entity, Process, Storage
 from resolwe.flow.models.utils import serialize_collection_relations
 from resolwe.flow.utils import dict_dot
 from resolwe.permissions.shortcuts import get_objects_for_user
 from resolwe.permissions.utils import get_full_perm
+from resolwe.storage.connectors import connectors
+from resolwe.storage.models import FileStorage
 from resolwe.utils import BraceMessage as __
 
 from .plugin import ListenerPlugin
@@ -418,7 +422,23 @@ class PythonProcess(ListenerPlugin):
     def __init__(self):
         """Initialize plugin."""
         self._permission_manager = permission_manager
+        self._hydrate_cache: Dict[int, str] = dict()
         super().__init__()
+
+    def handle_resolve_data_path(
+        self, message: Message[int], manager: "Processor"
+    ) -> Response[str]:
+        """Return the base path that stores given data."""
+        data_pk = message.message_data
+        if data_pk not in self._hydrate_cache:
+            mount_point = os.fspath(constants.INPUTS_VOLUME)
+            data_connectors = FileStorage.objects.get(data__pk=data_pk).connectors
+            for connector in connectors.for_storage("data"):
+                if connector in data_connectors:
+                    mount_point = f"/data_{connector.name}"
+                    break
+            self._hydrate_cache[data_pk] = mount_point
+        return message.respond_ok(self._hydrate_cache[data_pk])
 
     def handle_get_python_program(
         self, message: Message[Tuple[str, Dict[str, Any]]], manager: "Processor"

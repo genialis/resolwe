@@ -13,6 +13,8 @@ import os
 from django.conf import settings
 from django.core.management import call_command
 
+from resolwe.storage.connectors import connectors
+
 from .. import constants
 from ..prepare import BaseFlowExecutorPreparer
 
@@ -32,17 +34,29 @@ class FlowExecutorPreparer(BaseFlowExecutorPreparer):
         :param filename: Filename to resolve
         :return: Resolved filename, which can be used to access the
             given data file in programs executed using this executor
+        :raises RuntimeError: when data path can not be resolved.
         """
-        if data is None:
-            return constants.DATA_ALL_VOLUME
+        storage_name = "data"
+        filesystem_connectors = [
+            connector
+            for connector in connectors.for_storage(storage_name)
+            if connector.mountable
+        ]
+        if not filesystem_connectors:
+            raise RuntimeError("No filesystem connectors for 'data' storage.")
 
-        # Prefix MUST be set because ``get_path`` uses Django's settings,
-        # if prefix is not set, to get path prefix. But the executor
-        # shouldn't use Django's settings directly, so prefix is set
-        # via a constant.
-        return data.location.get_path(
-            prefix=constants.DATA_ALL_VOLUME, filename=filename
-        )
+        base_dir = f"/{storage_name}_{filesystem_connectors[0].name}"
+        if data is None:
+            return base_dir
+
+        data_connectors = data.location.connectors
+        for connector in filesystem_connectors:
+            if connector in data_connectors:
+                return data.location.get_path(
+                    prefix=f"/{storage_name}_{connector.name}", filename=filename
+                )
+
+        return data.location.get_path(prefix=constants.INPUTS_VOLUME, filename=filename)
 
     def resolve_upload_path(self, filename=None):
         """Resolve upload path for use with the executor.
@@ -52,12 +66,21 @@ class FlowExecutorPreparer(BaseFlowExecutorPreparer):
             given uploaded file in programs executed using this
             executor
         """
-        if filename is None:
-            return constants.UPLOAD_VOLUME
+        upload_connectors = [
+            connector
+            for connector in connectors.for_storage("upload")
+            if connector.mountable
+        ]
+        if not upload_connectors:
+            raise RuntimeError("No connectors are configured for 'upload' storage.")
 
-        return constants.UPLOAD_VOLUME / filename
+        upload_connector = upload_connectors[0]
+        if filename is None:
+            return f"/upload_{upload_connector.name}"
+
+        return f"/upload_{upload_connector.name}/{filename}"
 
     def get_environment_variables(self):
         """Return dict of environment variables that will be added to executor."""
 
-        return {"TMPDIR": os.fspath(constants.DATA_LOCAL_VOLUME / constants.TMPDIR)}
+        return {"TMPDIR": os.fspath(constants.PROCESSING_VOLUME / constants.TMPDIR)}

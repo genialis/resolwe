@@ -76,10 +76,12 @@ FIELDS_MAP = {
     "SlugField": StringField,
 }
 
+_hydrate_cache: Dict[int, str] = dict()
+
 
 def hydrate_if_needed(value, model_instance, field_name, field):
     """Hydrate path if needed."""
-    # Only hidrate paths on output of data objects that we are not processing.
+    # Only hidrate paths on outputs of data objects that we are not processing.
     if (
         model_instance._model_name == "Data"
         and model_instance.id != DATA_ID
@@ -87,7 +89,11 @@ def hydrate_if_needed(value, model_instance, field_name, field):
         and field.get_field_type()
         in ("basic:file", "list:basic:file", "basic:dir", "list:basic:dir")
     ):
-        base_path = DATA_ALL_VOLUME / str(model_instance.location_id)
+        if model_instance.id not in _hydrate_cache:
+            _hydrate_cache[model_instance.id] = Path(
+                communicator.resolve_data_path(model_instance.id)
+            )
+        base_path = _hydrate_cache[model_instance.id] / str(model_instance.location_id)
         if field.get_field_type().startswith("basic"):
             value.path = os.fspath(base_path / value.path)
         else:

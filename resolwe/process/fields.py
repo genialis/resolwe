@@ -665,8 +665,12 @@ class FileDescriptor:
             src = file_name
         else:
             # If scr is file it needs to have upload directory prepended.
-            upload_dir = Path(os.environ.get("UPLOAD_DIR", "/upload"))
-            src_path = upload_dir / src
+            if "UPLOAD_DIR" not in os.environ:
+                raise RuntimeError(
+                    "No upload directory on filesystem is defined, "
+                    "can not import file {src} from filesystem."
+                )
+            src_path = Path(os.environ["UPLOAD_DIR"]) / src
             if not src_path.is_file():
                 raise ValueError(f"Source file not found {src}")
             src = os.fspath(src_path)
