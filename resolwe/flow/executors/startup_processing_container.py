@@ -78,39 +78,6 @@ def respond(message, status, response_data):
     return response
 
 
-def _copy_file_or_dir(entries):
-    ## type: (Iterable[Union[str, Path]]) -> None
-    """Copy file and all its references to data_volume.
-
-    The entry is a path relative to the DATA_LOCAL_VOLUME (our working
-    directory). It must be copied to the DATA_VOLUME on the shared
-    filesystem.
-    """
-    for entry in entries:
-        source = Path(entry)
-        destination = DATA_VOLUME / source
-        if not destination.parent.is_dir():
-            destination.parent.mkdir(parents=True)
-
-        if source.is_dir():
-            if not destination.exists():
-                shutil.copytree(str(source), str(destination))
-            else:
-                # If destination directory exists the copytree will fail.
-                # In such case perform a recursive call with entries in
-                # the source directory as arguments.
-                #
-                # TODO: fix when we support Python 3.8 and later. See
-                # dirs_exist_ok argument to copytree method.
-                _copy_file_or_dir(source.glob("*"))
-        elif source.is_file():
-            if not destination.parent.is_dir():
-                destination.parent.mkdir(parents=True)
-            # Use copy2 to preserve file metadata, such as file creation
-            # and modification times.
-            shutil.copy2(str(source), str(destination))
-
-
 class ProtocolHandler:
     """Handles communication with the communication container."""
 
