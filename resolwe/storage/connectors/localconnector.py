@@ -181,6 +181,6 @@ class LocalFilesystemConnector(BaseStorageConnector):
         :returns: URL that can be used to access object or None.
         """
         force_download = "?force_download=1" if force_download else ""
-        public_url = Path(self.config.get("public_url", "/local_data"))
+        public_url = Path(self.config.get("public_url", ""))
         resource_url = public_url / url
         return resource_url.as_posix() + force_download

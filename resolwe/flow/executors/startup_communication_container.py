@@ -14,7 +14,7 @@ import threading
 from contextlib import suppress
 from distutils.util import strtobool
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Tuple
 
 import zmq
 import zmq.asyncio
@@ -175,40 +175,47 @@ class Uploader(threading.Thread):
         """Initialize."""
         super().__init__()
         self._terminating = False
-        self.to_connector = connectors[UPLOAD_CONNECTOR_NAME].duplicate()
         self.manager = manager
         self.loop = loop
         self.ready = threading.Event()
 
-    def receive_file_descriptors(self, sock: socket.SocketType) -> dict[str, Any]:
+    def receive_file_descriptors(
+        self, sock: socket.SocketType
+    ) -> Tuple[str, dict[str, Any], bool]:
         """Receive file descriptors.
 
         See https://docs.python.org/3/library/socket.html#socket.socket.recvmsg .
 
         Protocol:
         1. Size of the filenames array (json) (64bites, #filenames_length).
-        2. Filenames & file descriptors.
-        3. Wait for single byte to confirm.
+        2. Connector name, filenames, presigned flag & file descriptors.
+        3. Send response in the form {"success": bool, "presigned_urls": list}.
         """
         filenames_length = int.from_bytes(sock.recv(8), byteorder="big")
         logger.debug(
             "Received file descriptors message of length: %d.", filenames_length
         )
         if filenames_length == 0:
-            return dict()
+            return ("", dict(), False)
         fds = array.array("i")  # Array of ints
         msg, ancdata, flags, addr = sock.recvmsg(
             filenames_length, socket.CMSG_LEN(DESCRIPTOR_CHUNK_SIZE * fds.itemsize)
         )
         logger.debug("Received file descriptors: %s, %s.", msg, ancdata)
-        filenames = json.loads(msg.decode())
+        storage_name, filenames, need_presigned_urls = json.loads(msg.decode())
         for cmsg_level, cmsg_type, cmsg_data in ancdata:
             if cmsg_level == socket.SOL_SOCKET and cmsg_type == socket.SCM_RIGHTS:
                 # Append data, ignoring any truncated integers at the end.
                 fds.frombytes(
                     cmsg_data[: len(cmsg_data) - (len(cmsg_data) % fds.itemsize)]
                 )
-        return dict(zip(filenames, fds))
+        return (storage_name, dict(zip(filenames, fds)), need_presigned_urls)
+
+    def send_message(self, sock, response):
+        """Send message to the socket."""
+        payload = json.dumps(response).encode()
+        sock.sendall(len(payload).to_bytes(8, byteorder="big"))
+        sock.sendall(payload)
 
     def run(self):
         """Start listening for file descriptors.
@@ -237,7 +244,11 @@ class Uploader(threading.Thread):
         with client:
             while not self._terminating:
                 try:
-                    file_descriptors = self.receive_file_descriptors(client)
+                    (
+                        storage_name,
+                        file_descriptors,
+                        need_presigned_urls,
+                    ) = self.receive_file_descriptors(client)
                     # Stop if the socket has been closed.
                     if not file_descriptors:
                         break
@@ -250,6 +261,7 @@ class Uploader(threading.Thread):
                     )
                     break
                 try:
+                    presigned_urls = []
                     to_transfer = []
                     logger.debug("Got %s", file_descriptors)
                     referenced_files: dict[str, dict[str, str]] = dict()
@@ -259,6 +271,8 @@ class Uploader(threading.Thread):
                         for file_name, file_descriptor in file_descriptors.items()
                     }
 
+                    # Get default connector for the given storage name.
+                    to_connector = STORAGE_CONNECTOR[storage_name][0]  # .duplicate()
                     for file_name in file_descriptors:
                         file_descriptor = file_descriptors[file_name]
                         stream = file_streams[file_name]
@@ -284,34 +298,47 @@ class Uploader(threading.Thread):
                         referenced_files[file_name]["chunk_size"] = chunk_size
                         referenced_files[file_name]["path"] = file_name
                         referenced_files[file_name]["size"] = file_size
+                        if need_presigned_urls:
+                            presigned_urls.append(
+                                to_connector.presigned_url(
+                                    global_settings.LOCATION_SUBPATH / file_name,
+                                    expiration=7 * 24 * 60 * 60,
+                                )
+                            )
                         stream.seek(0)
 
                     to_transfer = list(referenced_files.values())
                     from_connector = FakeConnector(
                         {"path": ""}, "File descriptors connector", file_streams
                     )
-                    transfer = Transfer(from_connector, self.to_connector)
-                    transfer.transfer_objects(LOCATION_SUBPATH, to_transfer)
+                    transfer = Transfer(from_connector, to_connector)
+                    transfer.transfer_objects(
+                        global_settings.LOCATION_SUBPATH, to_transfer
+                    )
                 except:
                     logger.exception("Exception uploading data.")
-                    client.sendall(b"0")
+                    self.send_message(client, {"success": False})
                     break
                 else:
-                    return_value = b"1"
                     if to_transfer:
                         future = asyncio.run_coroutine_threadsafe(
                             self.manager.send_referenced_files(to_transfer), self.loop
                         )
-                        response = future.result()
+                        future_response = future.result()
                         # When data object is in state ERROR all responses will
                         # have error status to indicate processing should
                         # finish ASAP.
                         if (
-                            response.response_status == ResponseStatus.ERROR
-                            and response.message_data != "OK"
+                            future_response.response_status == ResponseStatus.ERROR
+                            and future_response.message_data != "OK"
                         ):
-                            return_value = b"0"
-                    client.sendall(return_value)
+                            response = {"success": False}
+                        else:
+                            response = {
+                                "success": True,
+                                "presigned_urls": presigned_urls,
+                            }
+                    self.send_message(client, response)
                 finally:
                     for stream in file_streams.values():
                         stream.close()
@@ -381,14 +408,14 @@ class ProcessingProtocol(BaseProtocol):
 
         This is needed in case empty dirs are referenced.
         """
+        subpath = global_settings.LOCATION_SUBPATH
         directories = message.message_data
         referenced_dirs = []
         for directory in directories:
-            # Make sure all referenced directories exists if
-            # UPLOAD_CONNECTOR_NAME equals "local".
-            if UPLOAD_CONNECTOR_NAME == "local":
-                destination_dir = DATA_VOLUME / directory
-                destination_dir.mkdir(parents=True, exist_ok=True)
+            if storage_connectors := STORAGE_CONNECTOR.get("data"):
+                if mounted_connector := storage_connectors[1]:
+                    destination_dir = mounted_connector.path / subpath / directory
+                    destination_dir.mkdir(parents=True, exist_ok=True)
             referenced_dirs.append({"path": os.path.join(directory, ""), "size": 0})
 
         return await self.listener_communicator.send_command(
