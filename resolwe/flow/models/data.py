@@ -4,7 +4,6 @@ import enum
 import json
 import logging
 
-from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.indexes import GinIndex
 from django.contrib.postgres.search import SearchVectorField
@@ -553,19 +552,6 @@ class Data(BaseModel):
             inherit_entity=inherit_entity,
             inherit_collection=inherit_collection,
         )[0]
-
-    def get_runtime_path(self, filename=None):
-        """Get the runtime directory of the executor.
-
-        That is the script that created this object. When filename is not
-        None return the path to the filename in the working directory of the
-        executor.
-        """
-        if self.is_duplicate():
-            raise Exception("Copied Data objects have no runtime directory.")
-        return self.location.get_path(
-            prefix=settings.FLOW_EXECUTOR["RUNTIME_DIR"], filename=filename
-        )
 
     def move_to_collection(self, destination_collection):
         """Move data object to collection."""
