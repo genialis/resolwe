@@ -6,19 +6,20 @@ Clean test directory
 
 Command to run on local machine::
 
-    ./manage.py clean_test_dir
+    ./manage.py cleantestdir
 
 """
-import os
 import re
 import shutil
+from itertools import chain
+from pathlib import Path
 
 from django.core.management.base import BaseCommand
 
-from resolwe.flow.managers.protocol import ExecutorFiles
-from resolwe.test.testcases.setting_overrides import FLOW_EXECUTOR_SETTINGS
+from resolwe.storage import settings as storage_settings
+from resolwe.storage.connectors import connectors
 
-TEST_DIR_REGEX = r"^test_\d+$"
+TEST_DIR_REGEX = r"^test_.*_\d+$"
 
 
 class Command(BaseCommand):
@@ -28,24 +29,25 @@ class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
         """Cleanup files created during testing."""
-        for name in ["DATA_DIR", "UPLOAD_DIR", "RUNTIME_DIR"]:
-            directory = os.path.abspath(FLOW_EXECUTOR_SETTINGS[name])
+        directories = [
+            Path(connector.path)
+            for connector in chain(
+                connectors.for_storage("data"), connectors.for_storage("upload")
+            )
+            if connector.mountable
+        ]
+        directories += [
+            Path(volume_config["config"]["path"])
+            for volume_name, volume_config in storage_settings.FLOW_VOLUMES.items()
+            if volume_config["config"].get("read_only", False) == False
+        ]
 
-            for basename in os.listdir(directory):
-
-                fname = os.path.abspath(os.path.join(directory, basename))
-
-                if not os.path.isdir(fname):
+        for directory in directories:
+            directory = directory.resolve()
+            for test_dir in directory.iterdir():
+                if not test_dir.is_dir():
                     continue
-                if not re.match(TEST_DIR_REGEX, basename):
+                if not re.match(TEST_DIR_REGEX, test_dir.name):
                     continue
 
-                def handle_error(func, path, exc_info):
-                    """Handle permission errors while removing secrets directory."""
-                    if isinstance(exc_info[1], PermissionError):
-                        # Verify that such woraround can only be applied to secrets dir.
-                        assert os.path.basename(path) == ExecutorFiles.SECRETS_DIR
-                        os.chmod(path, 0o700)
-                        shutil.rmtree(path)
-
-                shutil.rmtree(fname, onerror=handle_error)
+                shutil.rmtree(test_dir)
