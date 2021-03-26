@@ -370,7 +370,7 @@
       type: basic:string
   run:
     program: |
-      if grep -Fq "docker" /proc/1/cgroup; then
+      if [ "${RUNNING_IN_DOCKER}" == "1" ]; then
         re-save result OK
       else
         re-save result "ERROR: Not running in Docker."
