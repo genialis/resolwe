@@ -23,7 +23,7 @@ import docker
 from .. import constants
 from ..connectors import connectors
 from ..connectors.baseconnector import BaseStorageConnector
-from ..global_settings import PROCESS_META, SETTINGS, LOCATION_SUBPATH
+from ..global_settings import LOCATION_SUBPATH, PROCESS_META, SETTINGS
 from ..local.run import FlowExecutor as LocalFlowExecutor
 from ..protocol import ExecutorFiles
 from .seccomp import SECCOMP_POLICY
@@ -421,20 +421,41 @@ class FlowExecutor(LocalFlowExecutor):
 
         loop = asyncio.get_event_loop()
         start_time = time.time()
-        init_container = client.containers.run(**init_arguments)
+        try:
+            init_container = client.containers.run(**init_arguments)
+        except docker.errors.APIError as error:
+            await self.communicator.finish(
+                {"error": f"Error starting init container: {error}"}
+            )
+            raise
+
         init_container_status = await loop.run_in_executor(None, init_container.wait)
 
-        if init_container_status["StatusCode"] != 0:
-            logger.error(
-                "Init container returned %s instead of 0: %s.",
-                init_container_status["StatusCode"],
-                init_container.logs(),
+        init_rc = init_container_status["StatusCode"]
+        if init_rc != 0:
+            logger.error("Init container returned %s instead of 0.", init_rc)
+            await self.communicator.finish(
+                {"error": f"Init container returned {init_rc} instead of 0."}
             )
             return
 
-        communication_container = client.containers.run(**communication_arguments)
+        try:
+            communication_container = client.containers.run(**communication_arguments)
+        except docker.errors.APIError as error:
+            await self.communicator.finish(
+                {"error": f"Error starting communication container: {error}"}
+            )
+            raise
+        try:
+            processing_container = client.containers.run(**processing_arguments)
+        except docker.errors.APIError as e:
+            await self.communicator.finish(
+                {"error": f"Error starting processing container: {e}"}
+            )
+            with suppress(docker.errors.APIError):
+                communication_container.stop(timeout=1)
+            raise
 
-        processing_container = client.containers.run(**processing_arguments)
         end_time = time.time()
         logger.info(
             "It took {:.2f}s for Docker containers to start".format(

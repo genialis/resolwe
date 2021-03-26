@@ -82,10 +82,7 @@ async def transfer_inputs(communicator: BaseCommunicator, missing_data: dict):
             f"Preparing inputs {objects_to_transfer[connector_name]} from "
             f"connector {connector_name} failed."
         )
-        await communicator.send_command(
-            Message.command("process_log", {"error": error_message})
-        )
-        await communicator.send_command(Message.command("finish", {}))
+        await error(error_message, communicator)
         raise DataTransferError(error_message)
 
 
@@ -205,11 +202,7 @@ async def error(error_message: str, communicator: BaseCommunicator):
     Send the error and terminate the process.
     """
     with suppress(Exception):
-        await communicator.send_command(
-            Message.command("process_log", {"error": error_message})
-        )
-    with suppress(Exception):
-        await communicator.send_command(Message.command("finish", {}))
+        await communicator.process_log({"error": error_message})
 
 
 def modify_connector_settings():
@@ -238,12 +231,10 @@ def modify_connector_settings():
         "connector": "executors.connectors.localconnector.LocalFilesystemConnector",
         "config": {"path": constants.PROCESSING_VOLUME},
     }
-
-    if constants.INPUTS_VOLUME_NAME in global_settings.SETTINGS:
-        connector_settings["_input"] = {
-            "connector": "executors.connectors.localconnector.LocalFilesystemConnector",
-            "config": {"path": constants.INPUTS_VOLUME},
-        }
+    connector_settings["_input"] = {
+        "connector": "executors.connectors.localconnector.LocalFilesystemConnector",
+        "config": {"path": constants.INPUTS_VOLUME},
+    }
 
 
 async def main():
@@ -271,10 +262,10 @@ async def main():
     except PreviousDataExistsError:
         logger.warning("Processing data exists, aborting processing.")
         raise
-    except Exception as error:
-        message = f"Unexpected exception in init container: {error}."
+    except Exception as exception:
+        message = f"Unexpected exception in init container: {exception}."
         logger.exception(message)
-        await error(message, protocol.communicator)
+        await error(message, communicator)
         raise
     finally:
         protocol.stop_communicate()

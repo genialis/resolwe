@@ -31,15 +31,15 @@ import asyncio
 import logging
 import sys
 import traceback
-import zmq
-import zmq.asyncio
 from contextlib import suppress
 from importlib import import_module
+
+import zmq
+import zmq.asyncio
 
 from .connectors import connectors
 from .global_settings import initialize_constants
 from .logger import configure_logging
-from .socket_utils import Message
 from .zeromq_utils import ZMQCommunicator
 
 logger = logging.getLogger(__name__)
@@ -58,13 +58,13 @@ async def open_listener_connection(data_id, host, port, protocol) -> ZMQCommunic
     """Connect to the listener service."""
     zmq_context = zmq.asyncio.Context.instance()
     zmq_socket = zmq_context.socket(zmq.DEALER)
-    zmq_socket.setsockopt(zmq.IDENTITY, f"e{data_id}".encode())
+    zmq_socket.setsockopt(zmq.IDENTITY, f"e_{data_id}".encode())
     connect_string = f"{protocol}://{host}:{port}"
     zmq_socket.connect(connect_string)
     null_logger = logging.getLogger("Docker executor<->Listener")
     null_logger.propagate = False
     null_logger.handlers = []
-    return ZMQCommunicator(zmq_socket, "docker logger", null_logger)
+    return ZMQCommunicator(zmq_socket, "executor<->listener", null_logger)
 
 
 async def _run_executor():
@@ -93,9 +93,7 @@ async def _run_executor():
     asyncio.ensure_future(communicator.start_listening())
     configure_logging(communicator)
 
-    response = await communicator.send_command(
-        Message.command("bootstrap", (args.data_id, "executor"))
-    )
+    response = await communicator.bootstrap((args.data_id, "executor"))
     initialize_constants(args.data_id, response.message_data)
     connectors.recreate_connectors()
 
@@ -109,7 +107,7 @@ async def _run_executor():
         )
         await executor.run()
     except:
-        logger.exception("Unhandled exception in executor, aborting.")
+        logger.exception("Unexpected exception while running executor %s.", module_name)
 
 
 async def _close_tasks(pending_tasks, timeout=5):

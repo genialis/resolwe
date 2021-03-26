@@ -13,10 +13,8 @@ import logging
 from pathlib import Path
 from typing import Dict, Tuple
 
-
 from .global_settings import LOCATION_SUBPATH, PROCESS, SETTINGS
 from .zeromq_utils import ZMQCommunicator
-
 
 # TODO: update requirements!!!!
 # NOTE: If the imports here are changed, the executors' requirements.txt
