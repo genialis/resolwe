@@ -940,8 +940,6 @@ class BaseCommunicator:
                     break
 
                 identity, message = received
-                if identity not in self._known_peers:
-                    self.logger.debug("Adding new peer with identity %s.", identity)
 
                 # Only add to known peers if the identity is an integer.
                 # When executor communicates with listener (sending logs for
@@ -950,7 +948,9 @@ class BaseCommunicator:
                 # to monitor them using watchdog.
                 with suppress(ValueError):
                     int(identity)
-                    self._known_peers[identity] = now()
+                    if identity not in self._known_peers:
+                        self.logger.debug("Adding new peer with identity %s.", identity)
+                        self._known_peers[identity] = now()
 
                 if message.message_type is MessageType.HEARTBEAT:
                     # Send response in the background.
