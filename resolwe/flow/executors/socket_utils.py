@@ -786,41 +786,44 @@ class BaseCommunicator:
         This coroutine never stops and must be cancelled by the parent.
         """
         while True:
-            self.logger.debug(
-                "Heartbeat checking known peers %s.", list(self._known_peers.keys())
-            )
-            # Wait a little longer than heartbeat interval if there is nothing to do.
-            min_sleep_interval = self._heartbeat_interval + 5
-            for identity, last_received in self._known_peers.items():
-                # Count time from last received message or last sent heartbeat.
-                last_event = max(
-                    last_received, self._last_heartbeat.get(identity, last_received)
+            try:
+                self.logger.debug(
+                    "Heartbeat checking known peers %s.", list(self._known_peers.keys())
                 )
-                logger.debug(
-                    "Last seen %s: %d seconds ago",
-                    identity,
-                    now() - last_received,
-                )
-                # Add a little random noise to spread the heartbeats around.
-                sleep_interval = int(
-                    last_event
-                    + self._heartbeat_interval
-                    + random.uniform(0, 5 + 1)
-                    - now()
-                )
-                logger.debug("Heartbeat in: %d seconds.", sleep_interval)
-
-                if sleep_interval <= 0:
-                    asyncio.ensure_future(
-                        self._send_message(Message.heartbeat(), identity=identity)
+                # Wait a little longer than heartbeat interval if there is nothing to do.
+                min_sleep_interval = self._heartbeat_interval + 5
+                for identity, last_received in self._known_peers.items():
+                    # Count time from last received message or last sent heartbeat.
+                    last_event = max(
+                        last_received, self._last_heartbeat.get(identity, last_received)
                     )
-                    self._last_heartbeat[identity] = now()
-                else:
-                    min_sleep_interval = min(min_sleep_interval, sleep_interval)
-            self.logger.debug(
-                "Next heartbeat check: in %d seconds.", min_sleep_interval
-            )
-            await asyncio.sleep(min_sleep_interval)
+                    logger.debug(
+                        "Last seen %s: %d seconds ago",
+                        identity,
+                        now() - last_received,
+                    )
+                    # Add a little random noise to spread the heartbeats around.
+                    sleep_interval = int(
+                        last_event
+                        + self._heartbeat_interval
+                        + random.uniform(0, 5 + 1)
+                        - now()
+                    )
+                    logger.debug("Heartbeat in: %d seconds.", sleep_interval)
+
+                    if sleep_interval <= 0:
+                        asyncio.ensure_future(
+                            self._send_message(Message.heartbeat(), identity=identity)
+                        )
+                        self._last_heartbeat[identity] = now()
+                    else:
+                        min_sleep_interval = min(min_sleep_interval, sleep_interval)
+                self.logger.debug(
+                    "Next heartbeat check: in %d seconds.", min_sleep_interval
+                )
+                await asyncio.sleep(min_sleep_interval)
+            except Exception:
+                self.logger.exception("Unexpected exception while sending heartbeats.")
 
     def suspend_heartbeat(self, peer_identity: PeerIdentity):
         """Temporary suspend heartbeat from the peer.
