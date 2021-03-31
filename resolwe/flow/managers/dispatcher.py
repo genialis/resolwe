@@ -250,7 +250,7 @@ class Manager:
         argv[-1] += " {} {} {}".format(host, port, protocol)
 
         runtime_dir = storage_settings.FLOW_VOLUMES["runtime"]["config"]["path"]
-        return self.connectors[class_name].submit(data, runtime_dir, argv)
+        return self.connectors[class_name].submit(data, os.fspath(runtime_dir), argv)
 
     def _get_data_connector_name(self) -> str:
         """Return storage connector that will be used for new data object.
