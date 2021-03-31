@@ -822,6 +822,8 @@ class BaseCommunicator:
                     "Next heartbeat check: in %d seconds.", min_sleep_interval
                 )
                 await asyncio.sleep(min_sleep_interval)
+            except asyncio.CancelledError:
+                raise
             except Exception:
                 self.logger.exception("Unexpected exception while sending heartbeats.")
 
