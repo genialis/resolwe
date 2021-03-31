@@ -2,13 +2,16 @@
 
 Used to provide s simple default configuration.
 """
+from pathlib import Path
+
 from django.conf import settings
 
+project_root = Path(getattr(settings, "PROJECT_ROOT", "/"))
 local_connector = "local"
-local_dir = settings.PROJECT_ROOT / ".test_data"
+local_dir = project_root / ".test_data"
 
 upload_connector = "upload"
-upload_dir = settings.PROJECT_ROOT / ".test_upload"
+upload_dir = project_root / ".test_upload"
 
 default_storage_connectors = {
     local_connector: {
@@ -45,7 +48,7 @@ FLOW_STORAGE = getattr(settings, "FLOW_STORAGE", default_storages)
 default_runtime_volume = {
     "type": "host_path",
     "config": {
-        "path": settings.PROJECT_ROOT / ".test_runtime",
+        "path": project_root / ".test_runtime",
         "name": "runtime",
         "read_only": True,
     },
@@ -54,7 +57,7 @@ default_runtime_volume = {
 default_processing_volume = {
     "type": "host_path",
     "config": {
-        "path": settings.PROJECT_ROOT / ".test_processing",
+        "path": project_root / ".test_processing",
         "name": "processing",
     },
 }
