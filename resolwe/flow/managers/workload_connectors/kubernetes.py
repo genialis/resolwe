@@ -81,8 +81,8 @@ class Connector(BaseConnector):
         """Prepare environmental variables."""
         host, port, protocol = listener_connection
         environment = {
-            "LISTENER_IP": host,
-            "LISTENER_PORT": port,
+            "LISTENER_SERVICE_HOST": host,
+            "LISTENER_SERVICE_PORT": port,
             "LISTENER_PROTOCOL": protocol,
             "DATA_ID": data.id,
             "FLOW_MANAGER_KEEP_DATA": getattr(

@@ -40,8 +40,8 @@ PROCESSING_SOCKET = constants.SOCKETS_VOLUME / constants.COMMUNICATION_PROCESSIN
 UPLOAD_FILE_SOCKET = constants.SOCKETS_VOLUME / constants.UPLOAD_FILE_SOCKET
 
 # Listener IP and port are read from environment.
-LISTENER_IP = os.getenv("LISTENER_IP", "127.0.0.1")
-LISTENER_PORT = os.getenv("LISTENER_PORT", "53893")
+LISTENER_IP = os.getenv("LISTENER_SERVICE_HOST", "127.0.0.1")
+LISTENER_PORT = os.getenv("LISTENER_SERVICE_PORT", "53893")
 LISTENER_PROTOCOL = os.getenv("LISTENER_PROTOCOL", "tcp")
 DATA_ID = int(os.getenv("DATA_ID", "-1"))
 KEEP_DATA = bool(strtobool(os.environ.get("FLOW_MANAGER_KEEP_DATA", "False")))

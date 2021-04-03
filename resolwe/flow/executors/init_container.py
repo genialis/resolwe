@@ -35,8 +35,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-LISTENER_IP = os.getenv("LISTENER_IP", "127.0.0.1")
-LISTENER_PORT = os.getenv("LISTENER_PORT", "53893")
+LISTENER_IP = os.getenv("LISTENER_SERVICE_HOST", "127.0.0.1")
+LISTENER_PORT = os.getenv("LISTENER_SERVICE_PORT", "53893")
 LISTENER_PROTOCOL = os.getenv("LISTENER_PROTOCOL", "tcp")
 
 DATA_ID = int(os.getenv("DATA_ID", "-1"))

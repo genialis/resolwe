@@ -319,8 +319,8 @@ class FlowExecutor(LocalFlowExecutor):
             )
 
         environment = {
-            "LISTENER_IP": self.listener_connection[0],
-            "LISTENER_PORT": self.listener_connection[1],
+            "LISTENER_SERVICE_HOST": self.listener_connection[0],
+            "LISTENER_SERVICE_PORT": self.listener_connection[1],
             "LISTENER_PROTOCOL": self.listener_connection[2],
             "DATA_ID": self.data_id,
             "RUNNING_IN_CONTAINER": 1,
