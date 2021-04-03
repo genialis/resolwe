@@ -679,11 +679,6 @@ class BaseCommunicator:
         while retries < send_retries:
             try:
                 message.sent_timestamp = now()
-                data_to_send = message.to_dict()
-                self.logger.debug(
-                    "Communicator %s sending data: %s.", self.name, data_to_send
-                )
-
                 return await asyncio.wait_for(
                     self.send_method(self.writer, message.to_dict(), identity),
                     timeout=send_timeout,
@@ -934,9 +929,6 @@ class BaseCommunicator:
         try:
             while True:
                 received = await self._receive_message()
-                self.logger.debug(
-                    f"Communicator {self.name}: received message: {received}"
-                )
 
                 if received is None:
                     self.logger.info(
@@ -1039,7 +1031,6 @@ class BaseCommunicator:
         self, response: Response[MessageDataType], peer_identity: PeerIdentity
     ):
         """Send response."""
-        self.logger.debug("Communicator %s: sending response %s", self.name, response)
         await self._send_message(response, peer_identity)
 
     async def send_command(
