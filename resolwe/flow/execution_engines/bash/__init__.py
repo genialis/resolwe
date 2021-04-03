@@ -59,7 +59,6 @@ class ExecutionEngine(BaseExecutionEngine):
             # Include special 'proc' variable in the context.
             inputs["proc"] = {
                 "data_id": data.id,
-                "data_dir": self.manager.get_executor().resolve_data_path(),
             }
 
             # Include special 'requirements' variable in the context.

@@ -484,8 +484,6 @@ system variables:
 
 * ``proc.data_id``: id of the data object
 
-* ``proc.data_dir``: file system path of the data object's directory
-
 * ``proc.slugs_path``: file system path to Resolwe's slugs
 
 Resolwe also provides some custom built-in filters to access the fields of the
