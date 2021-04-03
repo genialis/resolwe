@@ -127,7 +127,7 @@ def prepare_volumes():
         if volume.is_dir():
             logger.debug("Preparing %s.", volume)
             directory = volume / global_settings.LOCATION_SUBPATH
-            directory_mode = getattr(global_settings.SETTINGS, "FLOW_EXECUTOR", {}).get(
+            directory_mode = global_settings.SETTINGS.get("FLOW_EXECUTOR", {}).get(
                 "DATA_DIR_MODE", 0o755
             )
             directory.mkdir(mode=directory_mode, exist_ok=True)
@@ -182,7 +182,7 @@ class InitProtocol(BaseProtocol):
             if "to_connector" not in entry
         }
 
-        if to_inputs and "_inputs" not in self.connectors:
+        if to_inputs and "_input" not in connectors:
             raise RuntimeError("No inputs volume is defined.")
         if to_filesystem and to_inputs:
             raise RuntimeError(
