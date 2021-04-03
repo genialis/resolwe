@@ -704,8 +704,9 @@ class ProcessTestCase(TransactionTestCase):
         self.assertEqual(
             correct_hash,
             output_hash,
-            msg="File contents hash mismatch: {} != {}".format(
-                correct_hash, output_hash
+            msg=(
+                f"File contents hash mismatch: {correct_hash} != {output_hash}"
+                f" comparing '{output}' with '{correct_path}'."
             )
             + self._debug_info(obj),
         )
