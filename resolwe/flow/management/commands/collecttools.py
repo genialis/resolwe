@@ -8,10 +8,10 @@ Collect Processes' tools
 import os
 import shutil
 
-from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
 from resolwe.flow.utils import get_apps_tools
+from resolwe.storage import settings as storage_settings
 
 
 class Command(BaseCommand):
@@ -25,10 +25,15 @@ class Command(BaseCommand):
         self.interactive = None
         self.clear = None
 
-        if not hasattr(settings, "FLOW_TOOLS_ROOT"):
-            raise CommandError("FLOW_TOOLS_ROOT must be defined in Django settings.")
+        if not "tools" in storage_settings.FLOW_VOLUMES:
+            raise CommandError("Volume 'tools' must be defined in storage settings.")
+        tools_path = storage_settings.FLOW_VOLUMES["tools"]["config"]["path"]
+        if "subpath" in storage_settings.FLOW_VOLUMES["tools"]["config"]:
+            tools_path = os.path.join(
+                tools_path, storage_settings.FLOW_VOLUMES["tools"]["config"]["subpath"]
+            )
 
-        self.destination_path = settings.FLOW_TOOLS_ROOT
+        self.destination_path = tools_path
 
     def add_arguments(self, parser):
         """Command arguments."""
