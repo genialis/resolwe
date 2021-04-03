@@ -63,6 +63,7 @@ class StorageConnectors(MutableMapping[str, BaseStorageConnector]):
                 (
                     self[connector_name]
                     for connector_name in storage_config["connectors"]
+                    if connector_name in self
                 ),
                 key=lambda connector: connector.config.get(
                     "priority", DEFAULT_CONNECTOR_PRIORITY
