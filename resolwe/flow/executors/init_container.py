@@ -44,7 +44,9 @@ DATA_ID = int(os.getenv("DATA_ID", "-1"))
 
 GENIALIS_UID = int(os.environ.get("GENIALIS_UID", 0))
 GENIALIS_GID = int(os.environ.get("GENIALIS_GID", 0))
-MOUNTED_CONNECTORS = os.environ["MOUNTED_CONNECTORS"].split(",")
+MOUNTED_CONNECTORS = [
+    name for name in os.environ["MOUNTED_CONNECTORS"].split(",") if name
+]
 
 DOWNLOAD_WAITING_TIMEOUT = 60  # in seconds
 RETRIES = 5

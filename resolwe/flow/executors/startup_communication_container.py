@@ -52,7 +52,9 @@ RUNNING_IN_KUBERNETES = bool(
 # How many file descriptors to receive over socket in a single message.
 DESCRIPTOR_CHUNK_SIZE = int(os.environ.get("DESCRIPTOR_CHUNK_SIZE", 100))
 
-MOUNTED_CONNECTORS = os.environ["MOUNTED_CONNECTORS"].split(",")
+MOUNTED_CONNECTORS = [
+    name for name in os.environ["MOUNTED_CONNECTORS"].split(",") if name
+]
 
 # Mapping between storage and connectors for this storage.
 # The values are tuples: (default connector, default mounted connector)
