@@ -233,10 +233,11 @@ def modify_connector_settings():
         "connector": "executors.connectors.localconnector.LocalFilesystemConnector",
         "config": {"path": constants.PROCESSING_VOLUME},
     }
-    connector_settings["_input"] = {
-        "connector": "executors.connectors.localconnector.LocalFilesystemConnector",
-        "config": {"path": constants.INPUTS_VOLUME},
-    }
+    if "input" in global_settings.SETTINGS["FLOW_VOLUMES"]:
+        connector_settings["_input"] = {
+            "connector": "executors.connectors.localconnector.LocalFilesystemConnector",
+            "config": {"path": constants.INPUTS_VOLUME},
+        }
 
 
 async def main():

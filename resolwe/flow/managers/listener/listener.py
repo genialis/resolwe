@@ -644,6 +644,7 @@ class ListenerProtocol(BaseProtocol):
                     "STORAGE_CONNECTORS"
                 ],
                 "FLOW_STORAGE": storage_settings.FLOW_STORAGE,
+                "FLOW_VOLUMES": storage_settings.FLOW_VOLUMES,
             }
             if hasattr(settings, constants.INPUTS_VOLUME_NAME):
                 response[ExecutorFiles.DJANGO_SETTINGS][
