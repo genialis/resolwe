@@ -70,7 +70,7 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
     def base_path(self) -> PurePath:
         """Get a base path for this connector."""
 
-    def prepare_url(self, url: PathLike):
+    def prepare_url(self, url: PathLike, **kwargs):
         """Prepare all the necessary for a new location."""
 
     @property
