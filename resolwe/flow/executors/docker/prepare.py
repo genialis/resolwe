@@ -42,12 +42,12 @@ class FlowExecutorPreparer(BaseFlowExecutorPreparer):
             for connector in connectors.for_storage(storage_name)
             if connector.mountable
         ]
-        if not filesystem_connectors:
-            raise RuntimeError("No filesystem connectors for 'data' storage.")
 
-        base_dir = f"/{storage_name}_{filesystem_connectors[0].name}"
         if data is None:
-            return base_dir
+            if not filesystem_connectors:
+                return constants.INPUTS_VOLUME
+            else:
+                return f"/{storage_name}_{filesystem_connectors[0].name}"
 
         data_connectors = data.location.connectors
         for connector in filesystem_connectors:
