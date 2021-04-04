@@ -219,24 +219,28 @@ class Connector(BaseConnector):
             if connector.mountable
         )
 
-    def _volumes(self, location_subpath: Path, core_api: Any) -> list:
+    def _volumes(self, data_id: int, location_subpath: Path, core_api: Any) -> list:
         """Prepare all volumes."""
 
-        def volume_from_config(volume):
+        def volume_from_config(volume_name: str, volume_config: dict):
             """Get configuration for kubernetes for given volume."""
-            name = volume["config"]["name"]
-            if volume["type"] == "ebs":
+            claim_name = volume_config["config"]["name"]
+            if volume_config["type"] == "ebs":
+                claim_name = self._ebs_claim_name(claim_name, data_id)
+            if volume_config["type"] in ["ebs", "persistent_volume"]:
                 return {
-                    "name": name,
-                    "persistentVolumeClaim": {"claimName": name},
+                    "name": volume_name,
+                    "persistentVolumeClaim": {"claimName": claim_name},
                 }
-            elif volume["type"] == "host_path":
+            elif volume_config["type"] == "host_path":
                 return {
-                    "name": name,
-                    "hostPath": {"path": os.fspath(volume["config"]["path"])},
+                    "name": volume_name,
+                    "hostPath": {"path": os.fspath(volume_config["config"]["path"])},
                 }
             else:
-                raise RuntimeError(f"Unsupported volume configuration: {volume}.")
+                raise RuntimeError(
+                    f"Unsupported volume configuration: {volume_config}."
+                )
 
         files_configmap_name = self._get_files_configmap_name(
             location_subpath, core_api
@@ -281,7 +285,7 @@ class Connector(BaseConnector):
         """
         mount_points = [
             {
-                "name": storage_settings.FLOW_VOLUMES["processing"]["config"]["name"],
+                "name": constants.PROCESSING_VOLUME_NAME,
                 "mountPath": os.fspath(constants.PROCESSING_VOLUME),
                 "readOnly": False,
             },
@@ -291,10 +295,10 @@ class Connector(BaseConnector):
                 "readOnly": False,
             },
         ]
-        if "input" in storage_settings.FLOW_VOLUMES:
+        if constants.INPUTS_VOLUME_NAME in storage_settings.FLOW_VOLUMES:
             mount_points.append(
                 {
-                    "name": storage_settings.FLOW_VOLUMES["input"]["config"]["name"],
+                    "name": constants.INPUTS_VOLUME_NAME,
                     "mountPath": os.fspath(constants.INPUTS_VOLUME),
                     "readOnly": False,
                 }
@@ -347,16 +351,16 @@ class Connector(BaseConnector):
         """
         mount_points = [
             {
-                "name": storage_settings.FLOW_VOLUMES["processing"]["config"]["name"],
+                "name": constants.PROCESSING_VOLUME_NAME,
                 "mountPath": os.fspath(constants.PROCESSING_VOLUME),
                 "subPath": os.fspath(location_subpath),
                 "readOnly": False,
             },
         ]
-        if "input" in storage_settings.FLOW_VOLUMES:
+        if constants.INPUTS_VOLUME_NAME in storage_settings.FLOW_VOLUMES:
             mount_points.append(
                 {
-                    "name": storage_settings.FLOW_VOLUMES["input"]["config"]["name"],
+                    "name": constants.INPUTS_VOLUME_NAME,
                     "mountPath": os.fspath(constants.INPUTS_VOLUME),
                     "readOnly": False,
                 }
@@ -426,7 +430,7 @@ class Connector(BaseConnector):
 
         mount_points += [
             {
-                "name": storage_settings.FLOW_VOLUMES["runtime"]["config"]["name"],
+                "name": "runtime",
                 "mountPath": dst,
                 "subPath": src,
             }
@@ -619,7 +623,7 @@ class Connector(BaseConnector):
                     },
                     "spec": {
                         "hostNetwork": use_host_network,
-                        "volumes": self._volumes(location_subpath, core_api),
+                        "volumes": self._volumes(data.id, location_subpath, core_api),
                         "initContainers": [
                             {
                                 "name": self._sanitize_kubernetes_label(
@@ -679,29 +683,35 @@ class Connector(BaseConnector):
         start_time = time.time()
         limits.pop("storage", 200)
 
-        if storage_settings.FLOW_VOLUMES["processing"]["type"] == "ebs":
+        processing_name = constants.PROCESSING_VOLUME_NAME
+        input_name = constants.INPUTS_VOLUME_NAME
+        if storage_settings.FLOW_VOLUMES[processing_name]["type"] == "ebs":
             claim_name = self._ebs_claim_name(
-                storage_settings.FLOW_VOLUMES["processing"]["config"]["name"], data.id
+                storage_settings.FLOW_VOLUMES[processing_name]["config"]["name"],
+                data.id,
             )
             claim_size = limits.pop("storage", 200) * (2 ** 30)  # Default 200 gibibytes
             core_api.create_namespaced_persistent_volume_claim(
                 body=self._persistent_ebs_claim(
                     claim_name,
                     claim_size,
-                    storage_settings.FLOW_VOLUMES["processing"]["config"],
+                    storage_settings.FLOW_VOLUMES[processing_name]["config"],
                 ),
                 namespace=self.kubernetes_namespace,
                 _request_timeout=KUBERNETES_TIMEOUT,
             )
-        if hasattr(settings, "FLOW_INPUTS_VOLUME"):
-            if settings.FLOW_INPUTS_VOLUME["type"] == "ebs":
+        if input_name in storage_settings.FLOW_VOLUMES:
+            if storage_settings.FLOW_VOLUMES[input_name]["type"] == "ebs":
                 claim_size = self._data_inputs_size(data)
                 claim_name = self._ebs_claim_name(
-                    settings.FLOW_INPUTS_VOLUME["config"]["name"], data.id
+                    storage_settings.FLOW_VOLUMES[input_name]["config"]["name"],
+                    data.id,
                 )
                 core_api.create_namespaced_persistent_volume_claim(
                     body=self._persistent_ebs_claim(
-                        claim_name, claim_size, settings.FLOW_INPUTS_VOLUME["config"]
+                        claim_name,
+                        claim_size,
+                        storage_settings.FLOW_VOLUMES[input_name]["config"],
                     ),
                     namespace=self.kubernetes_namespace,
                     _request_timeout=KUBERNETES_TIMEOUT,
@@ -749,7 +759,11 @@ class Connector(BaseConnector):
         kubernetes.config.load_kube_config()
         core_api = kubernetes.client.CoreV1Api()
         claim_names = [
-            self._ebs_claim_name(type_, data_id) for type_ in ["local", "inputs"]
+            self._ebs_claim_name(type_, data_id)
+            for type_ in [
+                constants.PROCESSING_VOLUME_NAME,
+                constants.INPUTS_VOLUME_NAME,
+            ]
         ]
         for ebs_claim_name in claim_names:
             logger.debug("Kubernetes: removing claim %s.", ebs_claim_name)

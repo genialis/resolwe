@@ -28,6 +28,7 @@ from django.utils.timezone import now
 
 from resolwe.flow.engine import InvalidEngineError, load_engines
 from resolwe.flow.execution_engines import ExecutionError
+from resolwe.flow.executors.constants import PROCESSING_VOLUME_NAME
 from resolwe.flow.models import Data, DataDependency, Process, Worker
 from resolwe.flow.models.utils import referenced_files
 from resolwe.storage import settings as storage_settings
@@ -360,7 +361,7 @@ class Manager:
                     worker.save()
 
                 subpath = FileStorage.objects.get(data__id=data_id).subpath
-                volume = storage_settings.FLOW_VOLUMES["processing"]
+                volume = storage_settings.FLOW_VOLUMES[PROCESSING_VOLUME_NAME]
                 if volume["type"] == "host_path":
                     processing_dir = Path(volume["config"]["path"]) / subpath
                     if processing_dir.is_dir():

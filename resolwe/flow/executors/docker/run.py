@@ -147,8 +147,8 @@ class FlowExecutor(LocalFlowExecutor):
         """
         results = dict()
         volume_mountpoint = {
-            "processing": constants.PROCESSING_VOLUME,
-            "input": constants.INPUTS_VOLUME,
+            constants.PROCESSING_VOLUME_NAME: constants.PROCESSING_VOLUME,
+            constants.INPUTS_VOLUME_NAME: constants.INPUTS_VOLUME,
         }
 
         for volume_name, volume in SETTINGS["FLOW_VOLUMES"].items():
@@ -162,7 +162,9 @@ class FlowExecutor(LocalFlowExecutor):
                     config["path"] = Path(config["path"]) / LOCATION_SUBPATH
                 results[volume_name] = (config, volume_mountpoint[volume_name])
 
-        assert "processing" in results, "Processing volume must be defined."
+        assert (
+            constants.PROCESSING_VOLUME_NAME in results
+        ), "Processing volume must be defined."
         return results
 
     def _init_volumes(self, temporary_directory: Path) -> Dict:
