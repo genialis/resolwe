@@ -2,11 +2,12 @@
 from pathlib import Path
 from unittest.mock import patch
 
+from resolwe.flow.executors import constants
 from resolwe.flow.executors.socket_utils import Message, Response, ResponseStatus
 from resolwe.flow.managers.listener.basic_commands_plugin import BasicCommands
 from resolwe.flow.managers.listener.listener import Processor
 from resolwe.flow.managers.protocol import ExecutorProtocol
-from resolwe.flow.models import Data, DataDependency
+from resolwe.flow.models import Data, DataDependency, Worker
 from resolwe.storage.connectors.baseconnector import BaseStorageConnector
 from resolwe.storage.models import FileStorage, ReferencedPath, StorageLocation
 from resolwe.test import TestCase
@@ -280,3 +281,17 @@ class ListenerTest(TestCase):
             },
         )
         self.assertEqual(response, expected)
+
+    def test_handle_resolve_data_path(self):
+        """Test data path resolwing."""
+        data = Data.objects.get(id=1)
+        Worker.objects.get_or_create(data=data, status=Worker.STATUS_PREPARING)
+        message = Message.command("resolve_data_path", data.pk)
+        response = self.manager.process_command(message)
+        assert response.message_data == str(constants.INPUTS_VOLUME)
+        connector_name = "local"
+        self.storage_location = StorageLocation.objects.create(
+            file_storage=self.file_storage, connector_name=connector_name, status="OK"
+        )
+        response = self.manager.process_command(message)
+        self.assertEqual(response.message_data, f"/data_{connector_name}")

@@ -19,6 +19,7 @@ from resolwe.permissions.shortcuts import get_objects_for_user
 from resolwe.permissions.utils import get_full_perm
 from resolwe.storage.connectors import connectors
 from resolwe.storage.models import FileStorage
+from resolwe.test.utils import is_testing
 from resolwe.utils import BraceMessage as __
 
 from .plugin import ListenerPlugin
@@ -430,11 +431,11 @@ class PythonProcess(ListenerPlugin):
     ) -> Response[str]:
         """Return the base path that stores given data."""
         data_pk = message.message_data
-        if data_pk not in self._hydrate_cache:
+        if data_pk not in self._hydrate_cache or is_testing():
             mount_point = os.fspath(constants.INPUTS_VOLUME)
             data_connectors = FileStorage.objects.get(data__pk=data_pk).connectors
             for connector in connectors.for_storage("data"):
-                if connector in data_connectors:
+                if connector in data_connectors and connector.mountable:
                     mount_point = f"/data_{connector.name}"
                     break
             self._hydrate_cache[data_pk] = mount_point
