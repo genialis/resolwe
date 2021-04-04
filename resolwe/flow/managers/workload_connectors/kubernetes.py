@@ -118,6 +118,58 @@ class Connector(BaseConnector):
         """Get unique EBS claim name."""
         return f"{base_name}-{data_id}"
 
+    def _create_configmap_if_needed(self, name: str, content: Dict, core_api: Any):
+        """Create configmap if necessary."""
+        try:
+            core_api.read_namespaced_config_map(
+                name=name, namespace=self.kubernetes_namespace
+            )
+        except kubernetes.client.rest.ApiException:
+            # The configmap is not found, create one.
+            configmap_description = {
+                "apiVersion": "v1",
+                "kind": "ConfigMap",
+                "metadata": {"name": name},
+                "data": content,
+            }
+            # The configmap might have already been created in the meantime.
+            with suppress(kubernetes.client.rest.ApiException):
+                core_api.create_namespaced_config_map(
+                    body=configmap_description,
+                    namespace=self.kubernetes_namespace,
+                    _request_timeout=KUBERNETES_TIMEOUT,
+                )
+
+    def _get_tools_configmaps(self, core_api):
+        """Get and return configmaps for tools."""
+
+        def dict_from_directory(directory: Path) -> Dict[str, str]:
+            """Get dictionary from given directory.
+
+            File names are keys and corresponding file contents are values.
+            """
+            return {
+                entry.name: entry.read_text()
+                for entry in directory.glob("*")
+                if entry.is_file()
+            }
+
+        configmap_names = []
+        preparer = BaseFlowExecutorPreparer()
+        tools_paths = preparer.get_tools_paths()
+        for tool_path in tools_paths:
+            tool_path = Path(tool_path)
+            data = dict_from_directory(tool_path)
+            data_md5 = hashlib.md5(
+                json.dumps(data, sort_keys=True).encode()
+            ).hexdigest()
+            configmap_name = self._sanitize_kubernetes_label(
+                f"tools-{tool_path.name}-{data_md5}"
+            )
+            self._create_configmap_if_needed(configmap_name, data, core_api)
+            configmap_names.append(configmap_name)
+        return configmap_names
+
     def _get_files_configmap_name(self, location_subpath: Path, core_api: Any):
         """Get or create configmap for files.
 
@@ -152,28 +204,7 @@ class Connector(BaseConnector):
         data_md5 = hashlib.md5(json.dumps(data, sort_keys=True).encode()).hexdigest()
         configmap_name = f"configmap-files-{data_md5}"
 
-        logger.debug(f"Files configmap: {configmap_name}")
-
-        try:
-            core_api.read_namespaced_config_map(
-                name=configmap_name, namespace=self.kubernetes_namespace
-            )
-        except kubernetes.client.rest.ApiException:
-            # The configmap is not found, create one.
-            configmap_description = {
-                "apiVersion": "v1",
-                "kind": "ConfigMap",
-                "metadata": {"name": configmap_name},
-                "data": data,
-            }
-            # The configmap might have already been created in the meantime.
-            with suppress(kubernetes.client.rest.ApiException):
-                core_api.create_namespaced_config_map(
-                    body=configmap_description,
-                    namespace=self.kubernetes_namespace,
-                    _request_timeout=KUBERNETES_TIMEOUT,
-                )
-
+        self._create_configmap_if_needed(configmap_name, data, core_api)
         return configmap_name
 
     def _get_mountable_connectors(self) -> Iterable[Tuple[str, BaseStorageConnector]]:
@@ -219,9 +250,19 @@ class Connector(BaseConnector):
             {"name": "sockets-volume", "emptyDir": {}},
             {"name": "secrets-volume", "emptyDir": {}},
         ]
+        tools_configmaps = self._get_tools_configmaps(core_api)
+        for index, configmap_name in enumerate(tools_configmaps):
+            volumes.append(
+                {
+                    "name": f"tools-{index}",
+                    "configMap": {"name": configmap_name, "defaultMode": 0o755},
+                }
+            )
+
         volumes += [
-            volume_from_config(volume)
-            for volume in storage_settings.FLOW_VOLUMES.values()
+            volume_from_config(volume_name, volume_config)
+            for volume_name, volume_config in storage_settings.FLOW_VOLUMES.items()
+            if volume_config["config"]["name"] != "tools"
         ]
         volumes += [
             {
@@ -365,25 +406,13 @@ class Connector(BaseConnector):
                 "readOnly": True,
             },
         ]
-
-        if "tools" in storage_settings.FLOW_VOLUMES:
-            # Create volumes for tools. In kubernetes all tools must be inside
-            # volume of type persistent_volume or host_path.
-            volume = storage_settings.FLOW_VOLUMES["tools"]
-            preparer = BaseFlowExecutorPreparer()
-            tools_paths = preparer.get_tools_paths()
-            base_tools_path = volume["config"]["path"]
-            subpath = volume["config"].get("subpath", "")
-            if subpath:
-                tools_paths = [f"{subpath}/{path}" for path in tools_paths]
-            mount_points += [
+        for tool_index in range(len(BaseFlowExecutorPreparer().get_tools_paths())):
+            mount_points.append(
                 {
-                    "name": volume["config"]["name"],
-                    "mountPath": os.fspath(Path("/usr/local/bin/resolwe") / str(index)),
-                    "subPath": os.fspath(Path(tool).relative_to(base_tools_path)),
+                    "name": f"tools-{tool_index}",
+                    "mountPath": f"/usr/local/bin/resolwe/{tool_index}",
                 }
-                for index, tool in enumerate(tools_paths)
-            ]
+            )
 
         from resolwe.flow.managers import manager
 
