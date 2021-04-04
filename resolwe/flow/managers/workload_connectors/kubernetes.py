@@ -439,7 +439,7 @@ class Connector(BaseConnector):
         return mount_points
 
     def _persistent_ebs_claim(
-        self, claim_name: str, volume_config: Dict, size: int
+        self, claim_name: str, size: int, volume_config: Dict
     ) -> Dict[str, Any]:
         # self, persistent_claim_name: str, volume_size_in_bytes: int
         """Prepare claim for EBS Amazon storage."""
