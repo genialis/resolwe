@@ -507,6 +507,23 @@ class ChangeEntityName(Process):
         entity.name = inputs.entity_name
 
 
+class ChangeEntityDescriptor(Process):
+    slug = "change-entity-descriptor"
+    name = "Change entity descriptor"
+    data_name = "{{ data_input | name | default('?') }}"
+    version = "1.0.0"
+    process_type = "data:name"
+    requirements = {"expression-engine": "jinja"}
+
+    class Input:
+        entity_id = IntegerField(label="Entity id")
+        description = StringField(label="New description")
+
+    def run(self, inputs, outputs):
+        entity = Entity.get(pk=inputs.entity_id)
+        entity.descriptor = {"Description": inputs.description}
+
+
 class TestStorage(Process):
     slug = "storage-objects-test"
     name = "Test working with storage objects"

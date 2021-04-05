@@ -303,6 +303,7 @@ class ExposeEntity(ExposeObjectPlugin):
             "description",
             "tags",
             "name",
+            "descriptor",
         }
         not_allowed_keys = set(model_data.keys()) - allowed_fields
         if not_allowed_keys:

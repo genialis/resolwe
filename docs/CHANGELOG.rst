@@ -31,6 +31,7 @@ Fixed
 Changed
 -------
 - Use tagged base image in ``upload-file`` process
+- Allow to change Entity descriptor in Python process.
 
 
 ===================
