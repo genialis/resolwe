@@ -125,7 +125,7 @@ async def download_data(missing_data: dict, communicator: BaseCommunicator) -> b
     objects = None
     for retry in range(1, RETRIES + 1):
         try:
-            from_connector = connectors[missing_data["connector_name"]]
+            from_connector = connectors[missing_data["from_connector"]]
             from_storage_location_id = missing_data["from_storage_location_id"]
             to_storage_location_id = missing_data["to_storage_location_id"]
             logger.debug(
