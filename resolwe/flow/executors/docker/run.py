@@ -193,8 +193,11 @@ class FlowExecutor(LocalFlowExecutor):
         ]
         socket_directory = temporary_directory / ExecutorFiles.SOCKETS_SUBDIR
         socket_directory.mkdir(exist_ok=True)
+        secrets_dir = temporary_directory / "secrets"
+        secrets_dir.mkdir(exist_ok=True, mode=0o700)
         mount_points += [
             ({"path": socket_directory}, constants.SOCKETS_VOLUME, False),
+            ({"path": secrets_dir}, constants.SECRETS_VOLUME, False),
         ]
         return dict([self._new_volume(*mount_point) for mount_point in mount_points])
 
