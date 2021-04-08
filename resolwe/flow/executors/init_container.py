@@ -174,7 +174,9 @@ class InitProtocol(BaseProtocol):
         await self.communicator.init_suspend_heartbeat("")
 
         to_filesystem = {
-            url: entry for url, entry in missing_data.items() if "to_connector" in entry
+            url: entry | {"url": url}
+            for url, entry in missing_data.items()
+            if "to_connector" in entry
         }
         to_inputs = {
             url: entry
@@ -193,7 +195,7 @@ class InitProtocol(BaseProtocol):
             transfering_coroutine = transfer_inputs(self.communicator, to_inputs)
         else:
             transfering_coroutine = transfer_data(
-                self.communicator, to_filesystem.values()
+                self.communicator, list(to_filesystem.values())
             )
         await transfering_coroutine
 

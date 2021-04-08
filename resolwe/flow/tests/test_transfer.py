@@ -349,7 +349,7 @@ class DownloadDataTest(BasicTestCase):
     def setUp(self):
         self.communicator_mock = MagicMock()
         self.missing_data = {
-            "connector_name": "S3",
+            "from_connector": "S3",
             "url": "transfer_url",
             "data_id": 1,
             "from_storage_location_id": 1,

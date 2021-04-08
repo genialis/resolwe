@@ -169,6 +169,8 @@ async def download_data(missing_data: dict, communicator: BaseCommunicator) -> b
             )
     # None od the retries has been successfull, abort the download.
     await communicator.send_command(
-        Message.command(ExecutorProtocol.DOWNLOAD_ABORTED, to_storage_location_id)
+        Message.command(
+            ExecutorProtocol.DOWNLOAD_ABORTED, missing_data["to_storage_location_id"]
+        )
     )
     return False
