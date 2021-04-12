@@ -556,11 +556,11 @@ class BaseCommunicator:
         self._uuids_received_old: Set[str] = set()
         # When no message has been exchanged with the peer for
         # _heartbeat_interval seconds the heartbeat message is sent.
-        self._heartbeat_interval = 60
+        self._heartbeat_interval = 120
 
         # After that many unanswered heartbeats the peer is removed from the
         # _known_peers list and heartbeats are no longer sent to it.
-        self._max_heartbeats_skipped = 2
+        self._max_heartbeats_skipped = 5
         # Mapping from peer identity to the timestamp of the last message
         # received by the peer.
         self._known_peers: Dict[PeerIdentity, float] = dict()
@@ -762,7 +762,7 @@ class BaseCommunicator:
                 self.logger.exception("Exception in peer_status_changed.")
 
     async def _get_peer_message_status(
-        self, message_uuid: str, identity: bytes = b""
+        self, message_uuid: str, identity: bytes = b"", response_timeout: int = 300
     ) -> str:
         """Enquire peer for the message status.
 
@@ -771,7 +771,7 @@ class BaseCommunicator:
         result = await self.send_command(
             Message(MessageType.ENQUIRE, "", message_uuid),
             peer_identity=identity,
-            response_timeout=60,
+            response_timeout=response_timeout,
         )
         return result.message_data
 
@@ -1037,8 +1037,8 @@ class BaseCommunicator:
         self,
         command: Message[MessageDataType],
         peer_identity: PeerIdentity = b"",
-        response_timeout: Optional[int] = 180,
-        enquire_timeout: int = 300,
+        response_timeout: Optional[int] = 600,
+        enquire_timeout: int = 1200,
     ) -> Response:
         """Send command and return the response.
 
