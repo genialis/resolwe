@@ -273,7 +273,7 @@ class UriResolverView(DataBrowseView):
         collection. That can be checked only once and than cached.
         """
 
-        @lru_cache
+        @lru_cache(maxsize=1)
         def has_view_permission(collection_id: int) -> bool:
             collection = get_objects_for_user(
                 self.request.user,
