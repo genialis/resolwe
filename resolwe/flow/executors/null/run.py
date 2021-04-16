@@ -19,6 +19,6 @@ class FlowExecutor(BaseFlowExecutor):
 
     name = "null"
 
-    async def run(self, data_id, script, log_file, json_file):
+    async def run(self):
         """Do nothing :)."""
         pass
