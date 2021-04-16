@@ -25,6 +25,7 @@ from resolwe.flow.executors.zeromq_utils import ZMQCommunicator
 from resolwe.flow.managers import manager
 from resolwe.flow.managers.utils import disable_auto_calls
 from resolwe.flow.models import Data, DataDependency, Process, Worker
+from resolwe.storage import settings as storage_settings
 from resolwe.test import (
     ProcessTestCase,
     TestCase,
@@ -440,12 +441,12 @@ class ManagerRunProcessTest(ProcessTestCase):
         )
         self.run_process("test-scheduling-class-batch")
 
-    @unittest.skipIf(True, "Skip")
     @with_docker_executor
     @tag_process("test-save-number")
     def test_executor_fs_lock(self):
-        # First, run the process normaly.
-        with self.settings(FLOW_DOCKER_AUTOREMOVE=True):
+        # First, run the process normaly. Do not autoremove container to check
+        # if name clash with init contaner is avoided.
+        with self.settings(FLOW_DOCKER_AUTOREMOVE=False):
             data = self.run_process("test-save-number", {"number": 42})
         # Make sure that process was successfully ran first time.
         self.assertEqual(data.output["number"], 42)
@@ -460,7 +461,8 @@ class ManagerRunProcessTest(ProcessTestCase):
             "LISTENER_CONNECTION", {}
         )
         port = listener_settings.get("port", 53893)
-        host = listener_settings.get("hosts", {}).get("docker", "127.0.0.1")
+        hosts = listener_settings.get("hosts", {"local": "127.0.0.1"})
+        host = hosts.get("local", next(iter(hosts.values())))
         protocol = settings.FLOW_EXECUTOR.get("LISTENER_CONNECTION", {}).get(
             "protocol", "tcp"
         )
@@ -475,10 +477,10 @@ class ManagerRunProcessTest(ProcessTestCase):
                 str(port),
                 protocol,
             ],
-            cwd=data.get_runtime_path(),
+            cwd=storage_settings.FLOW_VOLUMES["runtime"]["config"]["path"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            timeout=10,
+            timeout=30,
         )
         self.assertEqual(process.returncode, 0)
         data.refresh_from_db()

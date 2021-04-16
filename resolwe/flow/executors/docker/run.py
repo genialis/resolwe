@@ -12,6 +12,8 @@ import json
 import logging
 import os
 import platform
+import random
+import string
 import tempfile
 import time
 from contextlib import suppress
@@ -35,6 +37,11 @@ DOCKER_MEMORY_SWAP_RATIO = 2
 DOCKER_MEMORY_SWAPPINESS = 1
 
 logger = logging.getLogger(__name__)
+
+
+def _random_string(size: int = 5, chars=string.ascii_lowercase + string.digits):
+    """Generate and return random string."""
+    return "".join(random.choice(chars) for x in range(size))
 
 
 def retry(
@@ -350,12 +357,20 @@ class FlowExecutor(LocalFlowExecutor):
 
         tmpdir = tempfile.TemporaryDirectory()
 
+        # Add random string between container name and init. Since check for
+        # existing stdout file has been moved inside init container we should
+        # use different containers name in case one init contaner is still
+        # running when another one is fired (or when containers are not purged
+        # automatically): otherwise executor will fail to start the init
+        # container due to name clash.
+        init_container_name = f"{self.container_name}-{_random_string()}-init"
+
         init_arguments = {
             "auto_remove": autoremove,
             "volumes": self._init_volumes(Path(tmpdir.name)),
             "command": ["/usr/local/bin/python3", "-m", "executors.init_container"],
             "image": communicator_image,
-            "name": f"{self.container_name}-init",
+            "name": init_container_name,
             "detach": True,
             "cpu_quota": 1000000,
             "mem_limit": "4000m",
@@ -436,12 +451,18 @@ class FlowExecutor(LocalFlowExecutor):
 
         init_container_status = await loop.run_in_executor(None, init_container.wait)
 
+        # Return code is as follows:
+        # - 0: no error occured, continue processing.
+        # - 1: error running init container, abort processing and log error.
+        # - 2: data exists in the processing volume, abort processing.
         init_rc = init_container_status["StatusCode"]
         if init_rc != 0:
             logger.error("Init container returned %s instead of 0.", init_rc)
-            await self.communicator.finish(
-                {"error": f"Init container returned {init_rc} instead of 0."}
-            )
+            # Do not set error on data objects where previous data exists.
+            if init_rc == 1:
+                await self.communicator.finish(
+                    {"error": f"Init container returned {init_rc} instead of 0."}
+                )
             return
 
         try:

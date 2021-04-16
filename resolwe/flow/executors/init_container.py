@@ -110,19 +110,37 @@ async def download_to_location(
         future.result()
 
 
+def check_for_previous_data():
+    """Check if previous data exists.
+
+    This method must check processing volume and all mounted shared volumes
+    for stdout file.
+
+    :raises PreviousDataExistsError: when data from previous run exists.
+    """
+    paths_to_check = [
+        constants.PROCESSING_VOLUME / global_settings.LOCATION_SUBPATH / "stdout.txt"
+    ]
+    data_storage = global_settings.SETTINGS["FLOW_STORAGE"]["data"]
+    for connector_name in data_storage["connectors"]:
+        connector = connectors[connector_name]
+        if connector.mountable:
+            paths_to_check.append(
+                connector.path / global_settings.LOCATION_SUBPATH / "stdout.txt"
+            )
+    if any(path.is_file() for path in paths_to_check):
+        raise PreviousDataExistsError(
+            "File 'stdout.txt' exists from previous run, aborting processing."
+        )
+
+
 def prepare_volumes():
     """Create necessary folders and set permissions.
 
     Prepare a folder LOCATION_SUBPATH inside processing volume and set the
     applicable owner and permissions.
     """
-    if (
-        constants.PROCESSING_VOLUME / global_settings.LOCATION_SUBPATH / "stdout.txt"
-    ).is_file():
-        raise PreviousDataExistsError(
-            "File 'stdout.txt' exists inside processing directory, aborting processing."
-        )
-
+    check_for_previous_data()
     for volume in [constants.PROCESSING_VOLUME, constants.INPUTS_VOLUME]:
         if volume.is_dir():
             logger.debug("Preparing %s.", volume)
@@ -265,7 +283,7 @@ async def main():
         prepare_volumes()
         await protocol.transfer_missing_data()
     except PreviousDataExistsError:
-        logger.warning("Processing data exists, aborting processing.")
+        logger.warning("Previous run data exists, aborting processing.")
         raise
     except Exception as exception:
         message = f"Unexpected exception in init container: {exception}."
@@ -282,5 +300,7 @@ if __name__ == "__main__":
     logger.debug("Starting the main program.")
     try:
         asyncio.run(main())
+    except PreviousDataExistsError:
+        sys.exit(2)
     except:
         sys.exit(1)
