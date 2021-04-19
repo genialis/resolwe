@@ -6,14 +6,30 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+===================
+28.0.0 - 2021-04-19
+===================
+
+Changed
+-------
+- **BACKWARD INCOMPATIBLE:** Require ``Django 3.1.x``
+- **BACKWARD INCOMPATIBLE:** Require ``Django Channels`` version 3.0.x
+- **BACKWARD INCOMPATIBLE:** Require ``asgiref`` version 3.3.x
+- **BACKWARD INCOMPATIBLE:** Require ``jsonschema`` version 3.2.x
+- **BACKWARD INCOMPATIBLE:** Require ``Sphinx`` version 3.5.x
+- **BACKWARD INCOMPATIBLE:** Require ``django-guardian`` version 2.3.x
+- Refresh versions of the other dependencies
+- Replace ``django-versionfield2`` with ``django-versionfield``
+- Overhaul of the storage configuration
+- Remove per-process runtime directory
+- Increase socket timeouts in the processing and the communication container
 
 Added
 -----
 - Add multipart upload capability to ``LocalFilesystemConnector`` and
   ``AwsS3Connector``
+- Support uploading files to ``LocalFilesystemConnector`` or ``AwsS3Connector``
+- Add support for ``Python 3.9``
 
 
 ===================
