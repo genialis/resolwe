@@ -351,9 +351,9 @@ class FlowExecutor(LocalFlowExecutor):
             environment["UPLOAD_DIR"] = self._get_upload_dir()
 
         autoremove = SETTINGS.get("FLOW_DOCKER_AUTOREMOVE", False)
-        # Docker on MacOSX usus different settings
+        # Docker on MacOSX uses different settings
         if platform.system() == "Darwin":
-            environment["LISTENER_IP"] = "host.docker.internal"
+            environment["LISTENER_SERVICE_HOST"] = "host.docker.internal"
 
         tmpdir = tempfile.TemporaryDirectory()
 
