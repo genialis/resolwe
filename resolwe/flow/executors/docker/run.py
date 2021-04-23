@@ -11,7 +11,6 @@ import functools
 import json
 import logging
 import os
-import platform
 import random
 import string
 import tempfile
@@ -351,11 +350,6 @@ class FlowExecutor(LocalFlowExecutor):
             environment["UPLOAD_DIR"] = self._get_upload_dir()
 
         autoremove = SETTINGS.get("FLOW_DOCKER_AUTOREMOVE", False)
-        # Docker on MacOSX usus different settings
-        if platform.system() == "Darwin":
-            environment["LISTENER_IP"] = "host.docker.internal"
-
-        tmpdir = tempfile.TemporaryDirectory()
 
         # Add random string between container name and init. Since check for
         # existing stdout file has been moved inside init container we should

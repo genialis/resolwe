@@ -10,6 +10,7 @@ Base Class
 """
 # pylint: disable=logging-format-interpolation
 import logging
+import sys
 from pathlib import Path
 from typing import Dict, Tuple
 
@@ -53,7 +54,9 @@ class BaseFlowExecutor:
         self.storage_url = Path(LOCATION_SUBPATH)
         self.runtime_dir = Path(SETTINGS["FLOW_VOLUMES"]["runtime"]["config"]["path"])
         self.communicator = communicator
-        self.listener_connection = listener_connection
+        self.listener_connection = list(listener_connection)
+        if not sys.platform.startswith("linux"):
+            self.listener_connection[0] = "host.docker.internal"
 
     def _generate_container_name(self, prefix: str) -> str:
         """Generate unique container name."""
