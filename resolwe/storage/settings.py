@@ -6,6 +6,8 @@ from pathlib import Path
 
 from django.conf import settings
 
+from resolwe.flow.executors import constants
+
 project_root = Path(getattr(settings, "PROJECT_ROOT", "/"))
 local_connector = "local"
 local_dir = project_root / ".test_data"
@@ -49,7 +51,7 @@ default_runtime_volume = {
     "type": "host_path",
     "config": {
         "path": project_root / ".test_runtime",
-        "name": "runtime",
+        "name": constants.RUNTIME_VOLUME_NAME,
         "read_only": True,
     },
 }
@@ -58,13 +60,25 @@ default_processing_volume = {
     "type": "host_path",
     "config": {
         "path": project_root / ".test_processing",
-        "name": "processing",
+        "name": constants.PROCESSING_VOLUME_NAME,
     },
 }
 
+default_secrets_volume = {
+    "type": "temporary_directory",
+    "config": {"name": constants.SECRETS_VOLUME_NAME, "selinux_label": "z"},
+}
+
+default_sockets_volume = {
+    "type": "temporary_directory",
+    "config": {"name": constants.SOCKETS_VOLUME_NAME, "selinux_label": "z"},
+}
+
 default_volumes = {
-    "processing": default_processing_volume,
-    "runtime": default_runtime_volume,
+    constants.RUNTIME_VOLUME_NAME: default_runtime_volume,
+    constants.PROCESSING_VOLUME_NAME: default_processing_volume,
+    constants.SECRETS_VOLUME_NAME: default_secrets_volume,
+    constants.SOCKETS_VOLUME_NAME: default_sockets_volume,
 }
 
 FLOW_VOLUMES = getattr(settings, "FLOW_VOLUMES", default_volumes)

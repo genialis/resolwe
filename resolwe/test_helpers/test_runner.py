@@ -139,6 +139,7 @@ def _create_test_dirs():
         volume
         for volume in resolwe_settings.FLOW_VOLUMES.values()
         if "read_only" not in volume["config"]
+        and volume["type"] != "temporary_directory"
     ]
     paths = _sequence_paths([item["config"]["path"] for item in items])
     for item, path in zip(items, paths):

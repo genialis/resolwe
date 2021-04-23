@@ -98,6 +98,7 @@ class FlowExecutor(LocalFlowExecutor):
         self.container_name = self._generate_container_name(container_name_prefix)
         self.tools_volumes = []
         self.command = SETTINGS.get("FLOW_DOCKER_COMMAND", "docker")
+        self.tmpdir = tempfile.TemporaryDirectory()
 
     # Setup Docker volumes.
     def _new_volume(
@@ -155,25 +156,37 @@ class FlowExecutor(LocalFlowExecutor):
         volume_mountpoint = {
             constants.PROCESSING_VOLUME_NAME: constants.PROCESSING_VOLUME,
             constants.INPUTS_VOLUME_NAME: constants.INPUTS_VOLUME,
+            constants.SECRETS_VOLUME_NAME: constants.SECRETS_VOLUME,
+            constants.SOCKETS_VOLUME_NAME: constants.SOCKETS_VOLUME,
         }
 
         for volume_name, volume in SETTINGS["FLOW_VOLUMES"].items():
             if "read_only" not in volume["config"]:
-                assert volume["type"] == "host_path", (
-                    "Only 'host_type' volumes are supported by Docker executor,"
-                    f"requested '{volume['config']['type']}' for {volume_name}."
-                )
-                config = copy.deepcopy(volume["config"])
-                if subpaths:
-                    config["path"] = Path(config["path"]) / LOCATION_SUBPATH
-                results[volume_name] = (config, volume_mountpoint[volume_name])
+                if volume["type"] == "host_path":
+                    config = copy.deepcopy(volume["config"])
+                    if subpaths:
+                        config["path"] = Path(config["path"]) / LOCATION_SUBPATH
+                    results[volume_name] = (config, volume_mountpoint[volume_name])
+                elif volume["type"] == "temporary_directory":
+                    config = copy.deepcopy(volume["config"])
+                    volume_path = Path(self.tmpdir.name) / volume_name
+                    mode = config.get("mode", 0o700)
+                    volume_path.mkdir(exist_ok=True, mode=mode)
+                    config["path"] = volume_path
+                    results[volume_name] = (config, volume_mountpoint[volume_name])
+                else:
+                    raise RuntimeError(
+                        "Only 'host_type' and 'temporary_directory' volumes are "
+                        " supported by Docker executor,"
+                        f"requested '{volume['config']['type']}' for {volume_name}."
+                    )
 
         assert (
             constants.PROCESSING_VOLUME_NAME in results
         ), "Processing volume must be defined."
         return results
 
-    def _init_volumes(self, temporary_directory: Path) -> Dict:
+    def _init_volumes(self) -> Dict:
         """Prepare volumes for init container."""
         mount_points = [
             (config, mount_point, False)
@@ -183,31 +196,22 @@ class FlowExecutor(LocalFlowExecutor):
             (connector.config, Path("/") / f"{storage_name}_{connector.name}", False)
             for storage_name, connector in self._get_mountable_connectors()
         ]
-
-        secrets_dir = temporary_directory / "secrets"
-        secrets_dir.mkdir(exist_ok=True, mode=0o700)
-        mount_points += [
-            ({"path": secrets_dir}, constants.SECRETS_VOLUME, False),
-        ]
         return dict([self._new_volume(*mount_point) for mount_point in mount_points])
 
-    def _communicator_volumes(self, temporary_directory: Path) -> Dict[str, Dict]:
+    def _communicator_volumes(self) -> Dict[str, Dict]:
         """Prepare volumes for communicator container."""
         mount_points = [
             (connector.config, Path("/") / f"{storage_name}_{connector.name}", False)
             for storage_name, connector in self._get_mountable_connectors()
         ]
-        socket_directory = temporary_directory / ExecutorFiles.SOCKETS_SUBDIR
-        socket_directory.mkdir(exist_ok=True)
-        secrets_dir = temporary_directory / "secrets"
-        secrets_dir.mkdir(exist_ok=True, mode=0o700)
+        volumes = self._get_volumes()
         mount_points += [
-            ({"path": socket_directory}, constants.SOCKETS_VOLUME, False),
-            ({"path": secrets_dir}, constants.SECRETS_VOLUME, False),
+            (*volumes[constants.SECRETS_VOLUME_NAME], False),
+            (*volumes[constants.SOCKETS_VOLUME_NAME], False),
         ]
         return dict([self._new_volume(*mount_point) for mount_point in mount_points])
 
-    def _processing_volumes(self, temporary_directory: Path) -> Dict:
+    def _processing_volumes(self) -> Dict:
         """Prepare volumes for processing container."""
         # Expose processing and (possibly) input volume RW.
         mount_points = [
@@ -223,13 +227,8 @@ class FlowExecutor(LocalFlowExecutor):
             )
             for storage_name, connector in self._get_mountable_connectors()
         ]
-        socket_dir = temporary_directory / ExecutorFiles.SOCKETS_SUBDIR
-        socket_dir.mkdir(exist_ok=True)
-        secrets_dir = temporary_directory / "secrets"
-        secrets_dir.mkdir(exist_ok=True, mode=0o700)
+
         mount_points += [
-            ({"path": secrets_dir}, constants.SECRETS_VOLUME, False),
-            ({"path": socket_dir}, constants.SOCKETS_VOLUME, False),
             (
                 {"path": self.runtime_dir / "executors" / ExecutorFiles.SOCKET_UTILS},
                 Path("/socket_utils.py"),
@@ -254,6 +253,7 @@ class FlowExecutor(LocalFlowExecutor):
         # inside the container may try to lookup the given UID/GID and will crash if they don't
         # exist. So we create minimal user/group files.
 
+        temporary_directory = Path(self.tmpdir.name)
         passwd_path = temporary_directory / "passwd"
         group_path = temporary_directory / "group"
 
@@ -361,7 +361,7 @@ class FlowExecutor(LocalFlowExecutor):
 
         init_arguments = {
             "auto_remove": autoremove,
-            "volumes": self._init_volumes(Path(tmpdir.name)),
+            "volumes": self._init_volumes(),
             "command": ["/usr/local/bin/python3", "-m", "executors.init_container"],
             "image": communicator_image,
             "name": init_container_name,
@@ -375,7 +375,7 @@ class FlowExecutor(LocalFlowExecutor):
         }
         communication_arguments = {
             "auto_remove": autoremove,
-            "volumes": self._communicator_volumes(Path(tmpdir.name)),
+            "volumes": self._communicator_volumes(),
             "command": ["/usr/local/bin/python", "/startup.py"],
             "image": communicator_image,
             "name": f"{self.container_name}-communicator",
@@ -391,7 +391,7 @@ class FlowExecutor(LocalFlowExecutor):
         }
         processing_arguments = {
             "auto_remove": autoremove,
-            "volumes": self._processing_volumes(Path(tmpdir.name)),
+            "volumes": self._processing_volumes(),
             "command": ["python3", "/start.py"],
             "image": processing_image,
             "network_mode": f"container:{self.container_name}-communicator",

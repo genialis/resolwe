@@ -237,6 +237,8 @@ class Connector(BaseConnector):
                     "name": volume_name,
                     "hostPath": {"path": os.fspath(volume_config["config"]["path"])},
                 }
+            elif volume_config["type"] == "temporary_directory":
+                return {"name": volume_name, "emptyDir": {}}
             else:
                 raise RuntimeError(
                     f"Unsupported volume configuration: {volume_config}."
@@ -250,9 +252,7 @@ class Connector(BaseConnector):
             {
                 "name": "files-volume",
                 "configMap": {"name": files_configmap_name},
-            },
-            {"name": "sockets-volume", "emptyDir": {}},
-            {"name": "secrets-volume", "emptyDir": {}},
+            }
         ]
         tools_configmaps = self._get_tools_configmaps(core_api)
         for index, configmap_name in enumerate(tools_configmaps):
@@ -290,7 +290,7 @@ class Connector(BaseConnector):
                 "readOnly": False,
             },
             {
-                "name": "secrets-volume",
+                "name": constants.SECRETS_VOLUME_NAME,
                 "mountPath": os.fspath(constants.SECRETS_VOLUME),
                 "readOnly": False,
             },
@@ -320,12 +320,12 @@ class Connector(BaseConnector):
         """
         mount_points = [
             {
-                "name": "sockets-volume",
+                "name": constants.SOCKETS_VOLUME_NAME,
                 "mountPath": os.fspath(constants.SOCKETS_VOLUME),
                 "readOnly": False,
             },
             {
-                "name": "secrets-volume",
+                "name": constants.SECRETS_VOLUME_NAME,
                 "mountPath": os.fspath(constants.SECRETS_VOLUME),
                 "readOnly": False,
             },
@@ -401,11 +401,11 @@ class Connector(BaseConnector):
                 "subPath": "constants",
             },
             {
-                "name": "sockets-volume",
+                "name": constants.SOCKETS_VOLUME_NAME,
                 "mountPath": os.fspath(constants.SOCKETS_VOLUME),
             },
             {
-                "name": "secrets-volume",
+                "name": constants.SECRETS_VOLUME_NAME,
                 "mountPath": os.fspath(constants.SECRETS_VOLUME),
                 "readOnly": True,
             },
