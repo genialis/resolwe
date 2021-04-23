@@ -61,6 +61,9 @@ class Connector(BaseConnector):
                 script.write("#SBATCH --cpus-per-task={}\n".format(limits["cores"]))
                 if partition:
                     script.write("#SBATCH --partition={}\n".format(partition))
+                    script.write(
+                        "#SBATCH --output slurm-data-{}-job-%j.out\n".format(data.pk)
+                    )
 
                 # Render the argument vector into a command line.
                 line = " ".join(map(shlex.quote, argv))
