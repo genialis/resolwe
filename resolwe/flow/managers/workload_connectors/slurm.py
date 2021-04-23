@@ -49,7 +49,7 @@ class Connector(BaseConnector):
 
         try:
             # Make sure the resulting file is executable on creation.
-            script_path = os.path.join(runtime_dir, "slurm.sh")
+            script_path = os.path.join(runtime_dir, "slurm-{}.sh".format(data.pk))
             file_descriptor = os.open(script_path, os.O_WRONLY | os.O_CREAT, mode=0o555)
             with os.fdopen(file_descriptor, "wt") as script:
                 script.write("#!/bin/bash\n")
@@ -62,7 +62,9 @@ class Connector(BaseConnector):
                 if partition:
                     script.write("#SBATCH --partition={}\n".format(partition))
                     script.write(
-                        "#SBATCH --output slurm-data-{}-job-%j.out\n".format(data.pk)
+                        "#SBATCH --output slurm-url-{}-job-%j.out\n".format(
+                            data.location.subpath
+                        )
                     )
 
                 # Render the argument vector into a command line.
