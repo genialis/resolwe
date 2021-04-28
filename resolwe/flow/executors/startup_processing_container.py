@@ -252,7 +252,7 @@ class ProtocolHandler:
         logger.debug("Executing script: %s.", script)
         bash_command = "/bin/bash --login" + os.linesep
 
-        # The following comment commands blact to not reformat the code
+        # The following comment commands black to not reformat the code
         # block. It must not have trailing comma due compatibility with
         # Python 3.4.
 
@@ -565,7 +565,7 @@ class ProcessingManager:
                     # This can block, run in a thread maybe?
                     logger.debug("Names: %s", filenames)
                     yield from self.send_file_descriptors(filenames)
-                    logger.debug("Print descriptors sent.")
+                    logger.debug("File descriptors sent.")
                     response = respond(message, "OK", "")
                 elif command == "run":
                     message["data"] = {
