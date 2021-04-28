@@ -3,6 +3,7 @@ import asyncio
 import logging
 import os
 import subprocess
+import sys
 import threading
 import unittest
 from contextlib import suppress
@@ -21,6 +22,7 @@ from guardian.shortcuts import assign_perm
 
 from resolwe.flow.executors.prepare import BaseFlowExecutorPreparer
 from resolwe.flow.executors.socket_utils import Message
+from resolwe.flow.executors.startup_processing_container import ProcessingManager
 from resolwe.flow.executors.zeromq_utils import ZMQCommunicator
 from resolwe.flow.managers import manager
 from resolwe.flow.managers.utils import disable_auto_calls
@@ -490,3 +492,306 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.assertEqual(data.process_info, [])
         # Check that temporary file was not deleted.
         self.assertTrue(file.exists())
+
+    @mock.patch(
+        "resolwe.flow.executors.startup_processing_container.asyncio.open_unix_connection"
+    )
+    @mock.patch(
+        "resolwe.flow.executors.startup_processing_container.constants.CONTAINER_TIMEOUT",
+        2,
+    )
+    def test_processing_communication_connection_ok(self, open_mock):
+        """Test connection under normal conditions."""
+
+        async def main_test():
+            """Main test coroutine."""
+            current_loop = asyncio.get_event_loop()
+            manager = ProcessingManager(current_loop)
+            await manager._wait_for_communication_container(None)
+
+        async def readline():
+            """Return PING."""
+            return b"PING"
+
+        async def reader_writer():
+            """Return reader-writer tuple mock."""
+            return (mock.Mock(readline=readline), None)
+
+        reader_mock = mock.MagicMock()
+        reader_mock.readline = readline
+        if sys.version_info >= (3, 8):
+            open_mock.return_value = (mock.Mock(readline=readline), None)
+        else:
+            open_mock.return_value = reader_writer()
+        loop = asyncio.new_event_loop()
+        loop.run_until_complete(main_test())
+
+    @mock.patch(
+        "resolwe.flow.executors.startup_processing_container.asyncio.open_unix_connection"
+    )
+    @mock.patch(
+        "resolwe.flow.executors.startup_processing_container.constants.CONTAINER_TIMEOUT",
+        2,
+    )
+    def test_processing_communication_connection_ok_script(self, open_mock):
+        """Test connection if first attempt fails."""
+
+        async def main_test():
+            """Main test coroutine."""
+            current_loop = asyncio.get_event_loop()
+            manager = ProcessingManager(current_loop)
+            await manager._wait_for_communication_container(None)
+
+        async def readline_ok():
+            """Return PING."""
+            return b"PING"
+
+        async def readline_error():
+            """Return ERROR."""
+            return b"ERROR"
+
+        async def reader_writer(coroutine):
+            """Return reader-writer tuple mock."""
+            return (mock.Mock(readline=coroutine), None)
+
+        reader_mock = mock.MagicMock()
+        reader_mock.readline.side_effect = [readline_error(), readline_ok()]
+        if sys.version_info >= (3, 8):
+            open_mock.return_value = (reader_mock, None)
+        else:
+            open_mock.side_effect = [
+                reader_writer(readline_error),
+                reader_writer(readline_ok),
+            ]
+        loop = asyncio.new_event_loop()
+        loop.run_until_complete(main_test())
+
+    @mock.patch(
+        "resolwe.flow.executors.startup_processing_container.asyncio.open_unix_connection"
+    )
+    @mock.patch(
+        "resolwe.flow.executors.startup_processing_container.constants.CONTAINER_TIMEOUT",
+        2,
+    )
+    def test_processing_communication_connection_fail(self, open_mock):
+        """Test function behaviour when connection fails."""
+
+        async def main_test():
+            """Main test coroutine."""
+            current_loop = asyncio.get_event_loop()
+            manager = ProcessingManager(current_loop)
+            await manager._wait_for_communication_container(None)
+
+        async def readline_error():
+            """Return ERROR."""
+            return b"ERROR"
+
+        async def reader_writer():
+            """Return reader-writer tuple mock."""
+            return (mock.Mock(readline=readline_error), None)
+
+        reader_mock = mock.MagicMock()
+        reader_mock.readline.side_effect = [readline_error(), readline_error()]
+        if sys.version_info >= (3, 8):
+            open_mock.return_value = (reader_mock, None)
+        else:
+            open_mock.side_effect = [reader_writer(), reader_writer()]
+        loop = asyncio.new_event_loop()
+        with self.assertRaisesRegex(RuntimeError, "Communication .* unreacheable"):
+            loop.run_until_complete(main_test())
+
+    @mock.patch(
+        "resolwe.flow.executors.startup_processing_container.asyncio.open_unix_connection"
+    )
+    @mock.patch(
+        "resolwe.flow.executors.startup_processing_container.constants.CONTAINER_TIMEOUT",
+        2,
+    )
+    def test_processing_communication_connection_fail_script(self, open_mock):
+        """Test script behaviour if connection fails."""
+
+        async def main_test():
+            """Main test coroutine."""
+            protocol_mock = mock.Mock(terminate_script=terminate_script)
+            current_loop = asyncio.get_event_loop()
+            manager = ProcessingManager(current_loop)
+            manager.protocol_handler = protocol_mock
+            await manager.run()
+
+        async def terminate_script():
+            """Terminate script mock."""
+
+        async def readline_error():
+            """Return ERROR."""
+            return b"ERROR"
+
+        async def reader_writer():
+            """Return reader-writer tuple mock."""
+            return (mock.Mock(readline=readline_error), None)
+
+        reader_mock = mock.MagicMock()
+        reader_mock.readline.side_effect = [readline_error(), readline_error()]
+        if sys.version_info >= (3, 8):
+            open_mock.return_value = (reader_mock, None)
+        else:
+            open_mock.side_effect = [reader_writer(), reader_writer()]
+        loop = asyncio.new_event_loop()
+        with self.assertRaisesRegex(RuntimeError, "Communication .* unreacheable"):
+            loop.run_until_complete(main_test())
+
+    @mock.patch(
+        "resolwe.flow.executors.startup_processing_container.asyncio.open_unix_connection"
+    )
+    @mock.patch("resolwe.flow.executors.startup_processing_container.socket")
+    @mock.patch(
+        "resolwe.flow.executors.startup_processing_container.constants.CONTAINER_TIMEOUT",
+        2,
+    )
+    def test_processing_upload_fail(self, socket_mock, open_mock):
+        """Test startup script if opening upload socket fails."""
+
+        async def main_test():
+            """Main test coroutine."""
+            current_loop = asyncio.get_event_loop()
+            manager = ProcessingManager(current_loop)
+            await manager.run()
+
+        async def readline():
+            """Return PING."""
+            return b"PING"
+
+        async def reader_writer():
+            """Return reader-writer tuple mock."""
+            return (mock.Mock(readline=readline), None)
+
+        socket_mock.socket.return_value.connect.side_effect = RuntimeError
+        if sys.version_info >= (3, 8):
+            open_mock.return_value = (mock.Mock(readline=readline), None)
+        else:
+            open_mock.return_value = reader_writer()
+        loop = asyncio.new_event_loop()
+        with self.assertRaises(RuntimeError):
+            loop.run_until_complete(main_test())
+
+    @mock.patch(
+        "resolwe.flow.executors.startup_processing_container.asyncio.open_unix_connection"
+    )
+    @mock.patch("resolwe.flow.executors.startup_processing_container.socket")
+    @mock.patch(
+        "resolwe.flow.executors.startup_processing_container.asyncio.start_unix_server"
+    )
+    @mock.patch(
+        "resolwe.flow.executors.startup_processing_container.constants.CONTAINER_TIMEOUT",
+        2,
+    )
+    def test_processing_script_connection_fail(
+        self, server_mock, socket_mock, open_mock
+    ):
+        """Test startup script if opening processing script socket fails."""
+
+        async def main_test():
+            """Main test coroutine."""
+            current_loop = asyncio.get_event_loop()
+            manager = ProcessingManager(current_loop)
+            await manager.run()
+
+        async def readline():
+            """Return PING."""
+            return b"PING"
+
+        async def reader_writer():
+            """Return reader-writer tuple mock."""
+            return (mock.Mock(readline=readline), None)
+
+        socket_mock.socket.return_value.connect.side_effect = None
+        if sys.version_info >= (3, 8):
+            open_mock.return_value = (mock.Mock(readline=readline), None)
+        else:
+            open_mock.return_value = reader_writer()
+        loop = asyncio.new_event_loop()
+        server_mock.side_effect = ValueError("test")
+        with self.assertRaisesRegex(ValueError, "test"):
+            loop.run_until_complete(main_test())
+
+    @mock.patch(
+        "resolwe.flow.executors.startup_processing_container.asyncio.open_unix_connection"
+    )
+    @mock.patch("resolwe.flow.executors.startup_processing_container.socket")
+    @mock.patch("resolwe.flow.executors.startup_processing_container.create_task")
+    @mock.patch(
+        "resolwe.flow.executors.startup_processing_container.asyncio.start_unix_server"
+    )
+    @mock.patch(
+        "resolwe.flow.executors.startup_processing_container.constants.CONTAINER_TIMEOUT",
+        2,
+    )
+    def test_processing_create_task_called(
+        self, server_mock, create_mock, socket_mock, open_mock
+    ):
+        """Test that upload timer task is created."""
+
+        async def main_test():
+            """Main test coroutine."""
+            current_loop = asyncio.get_event_loop()
+            manager = ProcessingManager(current_loop)
+            await manager.run()
+
+        async def readline():
+            """Return PING."""
+            return b"PING"
+
+        async def reader_writer():
+            """Return reader-writer tuple mock."""
+            return (mock.Mock(readline=readline), None)
+
+        socket_mock.socket.return_value.connect.side_effect = None
+        if sys.version_info >= (3, 8):
+            open_mock.return_value = (mock.Mock(readline=readline), None)
+        else:
+            open_mock.return_value = reader_writer()
+        loop = asyncio.new_event_loop()
+        create_mock.side_effect = ValueError("test")
+        with self.assertRaisesRegex(ValueError, "test"):
+            loop.run_until_complete(main_test())
+
+    @mock.patch(
+        "resolwe.flow.executors.startup_processing_container.asyncio.open_unix_connection"
+    )
+    @mock.patch("resolwe.flow.executors.startup_processing_container.socket")
+    @mock.patch("resolwe.flow.executors.startup_processing_container.create_task")
+    @mock.patch("resolwe.flow.executors.startup_processing_container.ProtocolHandler")
+    @mock.patch(
+        "resolwe.flow.executors.startup_processing_container.asyncio.start_unix_server"
+    )
+    @mock.patch(
+        "resolwe.flow.executors.startup_processing_container.constants.CONTAINER_TIMEOUT",
+        2,
+    )
+    def test_processing_communicate(
+        self, server_mock, protocol_mock, create_mock, socket_mock, open_mock
+    ):
+        """Test that communicate is called."""
+
+        async def main_test():
+            """Main test coroutine."""
+            current_loop = asyncio.get_event_loop()
+            manager = ProcessingManager(current_loop)
+            await manager.run()
+
+        async def readline():
+            """Return PING."""
+            return b"PING"
+
+        async def reader_writer():
+            """Return reader-writer tuple mock."""
+            return (mock.Mock(readline=readline), None)
+
+        socket_mock.socket.return_value.connect.side_effect = None
+        if sys.version_info >= (3, 8):
+            open_mock.return_value = (mock.Mock(readline=readline), None)
+        else:
+            open_mock.return_value = reader_writer()
+        protocol_mock.return_value.communicate.side_effect = ValueError("test")
+        loop = asyncio.new_event_loop()
+        with self.assertRaisesRegex(ValueError, "test"):
+            loop.run_until_complete(main_test())

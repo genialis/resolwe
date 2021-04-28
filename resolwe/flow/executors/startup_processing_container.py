@@ -17,7 +17,10 @@ from contextlib import suppress
 from distutils.util import strtobool
 from pathlib import Path
 
-import constants
+try:
+    import constants
+except ImportError:
+    from resolwe.flow.executors import constants
 
 # The directory where local processing is done.
 TMP_DIR = Path(os.environ.get("TMP_DIR", ".tmp"))
@@ -369,7 +372,7 @@ class ProcessingManager:
             try:
                 reader, writer = yield from asyncio.open_unix_connection(path)
                 line = (yield from reader.readline()).decode("utf-8")
-                assert line.strip() == "PING"
+                assert line.strip() == "PING", f"Expected 'PING', got '{line}'."
                 return Communicator(reader, writer)
             except:
                 # Raise RuntimeError on final retry.
