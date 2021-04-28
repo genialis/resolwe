@@ -62,11 +62,26 @@ STORAGE_CONNECTOR: dict[
     str, Tuple[BaseStorageConnector, Optional[BaseStorageConnector]]
 ] = {}
 
+# Configure container logger. All logs are output to stdout for further
+# processing.
+# The log level defaults to debug except for boto and google loggers, which
+# is set to warning due to them being extremely verbose in the debug mode.
+LOG_LEVEL = int(os.getenv("LOG_LEVEL", logging.DEBUG))
+BOTO_LOG_LEVEL = int(os.getenv("BOTO_LOG_LEVEL", logging.WARNING))
+GOOGLE_LOG_LEVEL = int(os.getenv("GOOGLE_LOG_LEVEL", logging.WARNING))
+
 logging.basicConfig(
     stream=sys.stdout,
-    level=logging.DEBUG,
+    level=LOG_LEVEL,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
+
+for boto_logger_name in ["botocore", "boto3", "s3transfer", "urllib3"]:
+    logging.getLogger(boto_logger_name).setLevel(BOTO_LOG_LEVEL)
+
+for google_logger in ["google"]:
+    logging.getLogger(google_logger).setLevel(GOOGLE_LOG_LEVEL)
+
 logger = logging.getLogger(__name__)
 
 logger.info("Starting communication container for data with id %d.", DATA_ID)

@@ -6,6 +6,18 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Changed
+-------
+- Make logger level inside init and communication containers configurable via
+  environmental variable
+- Change default logger level inside init and communication containers for
+  AWS S3 and Google Cloud Storage components to WARNING
+
+
 ===================
 28.0.0 - 2021-04-19
 ===================

@@ -51,6 +51,27 @@ MOUNTED_CONNECTORS = [
 DOWNLOAD_WAITING_TIMEOUT = 60  # in seconds
 RETRIES = 5
 
+# Configure container logger. All logs are output to stdout for further
+# processing.
+# The log level defaults to debug except for boto and google loggers, which
+# is set to warning due to them being extremely verbose in the debug mode.
+
+LOG_LEVEL = int(os.getenv("LOG_LEVEL", logging.DEBUG))
+BOTO_LOG_LEVEL = int(os.getenv("BOTO_LOG_LEVEL", logging.WARNING))
+GOOGLE_LOG_LEVEL = int(os.getenv("GOOGLE_LOG_LEVEL", logging.WARNING))
+
+logging.basicConfig(
+    stream=sys.stdout,
+    level=LOG_LEVEL,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+
+for boto_logger in ["botocore", "boto3", "s3transfer", "urllib3"]:
+    logging.getLogger(boto_logger).setLevel(BOTO_LOG_LEVEL)
+
+for google_logger in ["google"]:
+    logging.getLogger(google_logger).setLevel(GOOGLE_LOG_LEVEL)
+
 
 class PreviousDataExistsError(Exception):
     """Raised if data from previous run exists."""
