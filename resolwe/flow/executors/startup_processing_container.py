@@ -397,7 +397,6 @@ class ProcessingManager:
             self.upload_socket = socket.socket(family=socket.AF_UNIX)
             logger.debug("Connecting upload socket to: %s.", UPLOAD_FILE_SOCKET)
             self.upload_socket.connect(str(UPLOAD_FILE_SOCKET))
-            logger.debug("Upload socket connected %s.", UPLOAD_FILE_SOCKET)
 
             # Accept network connections from the processing script.
             yield from asyncio.start_unix_server(
