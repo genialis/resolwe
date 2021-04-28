@@ -362,20 +362,23 @@ class ProcessingManager:
         Assumption is that the communication container is accepting connections
         and will send a single b"PING\n" when connected.
 
-        :raises: if unable to connect for COMMUNICATOR_WAIT_TIMEOUT seconds.
+        :raises RuntimeError: if unable to connect to the communication
+            container for COMMUNICATOR_WAIT_TIMEOUT seconds.
         """
-        for _ in range(constants.CONTAINER_TIMEOUT):
+        for retry in range(constants.CONTAINER_TIMEOUT):
             try:
                 reader, writer = yield from asyncio.open_unix_connection(path)
                 line = (yield from reader.readline()).decode("utf-8")
                 assert line.strip() == "PING"
                 return Communicator(reader, writer)
             except:
+                # Raise RuntimeError on final retry.
+                if retry + 1 == constants.CONTAINER_TIMEOUT:
+                    raise RuntimeError("Communication container is unreacheable.")
                 with suppress(Exception):
                     writer.close()
                     yield from writer.wait_closed()
                 time.sleep(1)
-        raise RuntimeError("Communication container is unreacheable.")
 
     @asyncio.coroutine
     def run(self):
