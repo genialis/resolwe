@@ -383,21 +383,16 @@ class ProcessingManager:
     @asyncio.coroutine
     def run(self):
         # type: () -> int
-        """Start the main method."""
+        """Start the main method.
+
+        :raises RuntimeError: in case of failure.
+        """
         try:
             logger.debug("Connecting to the communication container.")
-            try:
-                self.communicator = yield from self._wait_for_communication_container(
-                    str(COMMUNICATION_SOCKET)
-                )
-                logger.info("Connected to the communication container.")
-            except:
-                logger.exception(
-                    "Could not connect to the communication container for "
-                    "%d seconds.",
-                    constants.CONTAINER_TIMEOUT,
-                )
-                return 1
+            self.communicator = yield from self._wait_for_communication_container(
+                str(COMMUNICATION_SOCKET)
+            )
+            logger.info("Connected to the communication container.")
 
             self.protocol_handler = ProtocolHandler(self)
 
@@ -418,15 +413,11 @@ class ProcessingManager:
             # Await messages from the communication controler. The command
             # stops when socket is closed or communication is stopped.
             yield from self.protocol_handler.communicate()
-
-        except:
-            logger.exception("Exception while running startup script.")
         finally:
-            update_logs_future.cancel()
             # Just in case connection was closed before script was finished.
             yield from self.protocol_handler.terminate_script()
             logger.debug("Stopping processing container.")
-            return self.protocol_handler.return_code
+        return self.protocol_handler.return_code
 
     @asyncio.coroutine
     def _handle_export_files(self, file_names):
