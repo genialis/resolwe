@@ -180,6 +180,10 @@ class ProtocolHandler:
         finally:
             self._script_future = None
             try:
+                # Cancel sending logs on timer.
+                logger.debug("Stopping upload log future.")
+                self.manager.update_logs_future.cancel()
+                yield from self.manager.update_logs_future
                 logger.debug("Uploading latest log files.")
                 try:
                     yield from self.manager.upload_log_files()
@@ -344,6 +348,7 @@ class ProcessingManager:
         self.worker_connected = asyncio.Event()
         self.exported_files_mapper = dict()  # type: Dict[str, str] # noqa: F821
         self.upload_socket = None
+        self.update_logs_future = None
         self._uploading_log_files_lock = asyncio.Lock(loop=loop)
         self._send_file_descriptors_lock = asyncio.Lock(loop=loop)
         self.log_files_need_upload = False
@@ -405,7 +410,7 @@ class ProcessingManager:
             )
 
             # Update log files.
-            update_logs_future = create_task(self.update_log_files_timer())
+            self.update_logs_future = create_task(self.update_log_files_timer())
 
             # Await messages from the communication controler. The command
             # stops when socket is closed or communication is stopped.
@@ -440,13 +445,17 @@ class ProcessingManager:
         """Update log files every UPDATE_LOG_FILES_TIMEOUT secods."""
         while True:
             try:
+                logger.debug("Uploading log files on timer.")
                 yield from self.upload_log_files()
+                yield from asyncio.sleep(UPDATE_LOG_FILES_TIMEOUT)
+            except asyncio.CancelledError:
+                logger.info("Update log_files_timer canceled.")
+                break
             except:
                 logger.exception("Error uploading log files.")
                 yield from self.protocol_handler.terminate_script(
                     {"error": "Error uploading log files."}
                 )
-            yield from asyncio.sleep(UPDATE_LOG_FILES_TIMEOUT)
 
     @asyncio.coroutine
     def upload_log_files(self):
@@ -459,10 +468,12 @@ class ProcessingManager:
                 log_file.relative_to(constants.PROCESSING_VOLUME)
                 for log_file in [STDOUT_LOG_PATH, JSON_LOG_PATH]
             ]
-            logger.debug("Timer uploading log files %s.", log_paths)
+            logger.debug("Uploading log files %s.", log_paths)
             with (yield from self._uploading_log_files_lock):
                 yield from self.send_file_descriptors(log_paths)
             self.log_files_need_upload = False
+        else:
+            logger.debug("Log files have not changed.")
 
     @asyncio.coroutine
     def send_file_descriptors(

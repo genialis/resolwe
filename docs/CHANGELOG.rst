@@ -17,6 +17,12 @@ Changed
 - Change default logger level inside init and communication containers for
   AWS S3 and Google Cloud Storage components to WARNING
 
+Fixed
+-----
+- Stop timer that uploads log files in the processing container immediatelly
+  after the processing is finished to avoid timing issues that could cause the
+  data object to be marked as failed
+
 
 ===================
 28.0.0 - 2021-04-19
