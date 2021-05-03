@@ -270,8 +270,11 @@ class Transfer:
                 if future.exception() is not None:
                     executor.shutdown(wait=False)
 
+            # The constant 1 is added to the object size to make sure the
+            # buffer_size is at least 1. Otherwise uploading files of size 0
+            # will cause a deadlock.
             data_stream = CircularBuffer(
-                buffer_size=min(200 * 1024 * 1024, object_["size"])
+                buffer_size=min(200 * 1024 * 1024, object_["size"] + 1)
             )
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 download_task = executor.submit(

@@ -16,6 +16,7 @@ Fixed
   healthy node as failed
 - Fix possible data loss caused by parallel command processing when uploading
   log files interfered with processing command from a script
+- Fix deadlock when uploading empty files
 
 
 ===================
