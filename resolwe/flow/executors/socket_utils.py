@@ -807,6 +807,7 @@ class BaseCommunicator:
                     logger.debug("Heartbeat in: %d seconds.", sleep_interval)
 
                     if sleep_interval <= 0:
+                        logger.debug("Sending heartbeat to peer '%s'.", identity)
                         asyncio.ensure_future(
                             self._send_message(Message.heartbeat(), identity=identity)
                         )
@@ -827,6 +828,7 @@ class BaseCommunicator:
 
         The heartbeats are resumed on the first message received from the peer.
         """
+        logger.debug("Suspended heartbeat for peer '%s'.", peer_identity)
         self._last_heartbeat.pop(peer_identity, None)
         self._known_peers.pop(peer_identity, None)
 
@@ -951,6 +953,7 @@ class BaseCommunicator:
 
                 if message.message_type is MessageType.HEARTBEAT:
                     # Send response in the background.
+                    logger.debug("Responding to heartbeat from peer '%s'.", identity)
                     asyncio.ensure_future(
                         self._send_message(
                             message.respond_heartbeat(), identity=identity
@@ -958,6 +961,7 @@ class BaseCommunicator:
                     )
 
                 elif message.message_type is MessageType.HEARTBEAT_RESPONSE:
+                    logger.debug("Got heartbeat response from peer '%s'.", identity)
                     if identity in self._last_heartbeat:
                         del self._last_heartbeat[identity]
                     else:
@@ -986,7 +990,11 @@ class BaseCommunicator:
                             if identity in self._last_heartbeat:
                                 del self._last_heartbeat[identity]
                         self._command_queue.append((identity, message))
-                        self.logger.debug("New message has arrived")
+                        self.logger.debug(
+                            "Received command '%s' from peer '%s'.",
+                            message.command_name,
+                            identity,
+                        )
                         self.logger.debug(
                             f"Number of messages in queue: {len(self._command_queue)}"
                         )
