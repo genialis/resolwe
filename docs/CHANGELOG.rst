@@ -14,6 +14,8 @@ Fixed
 -----
 - Log peer activity on every received message to avoid declaring otherwise
   healthy node as failed
+- Fix possible data loss caused by parallel command processing when uploading
+  log files interfered with processing command from a script
 
 
 ===================

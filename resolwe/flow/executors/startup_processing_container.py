@@ -556,34 +556,52 @@ class ProcessingManager:
 
             message = yield from communicator.receive_data()
             while message:
+                # Lock uploading log files for the duration of the processing
+                # of the received command.
+                # Doing so we avoid issues with processing container issuing
+                # two commands at (almost) the same time. Since listener can
+                # process received commands in parallel and each of them is
+                # executed inside transaction the final state of the data
+                # object depends on the exact timing of these transactions.
+                # One possible outcome is that the transaction that updates
+                # log files is executed while transaction that updates outputs
+                # is in progress and finishes last, effectively canceling the
+                # first transaction leading to a data loss.
+
                 with (yield from self._uploading_log_files_lock):
                     with JSON_LOG_PATH.open("at") as json_file:
                         json_file.write(json.dumps(message) + os.linesep)
                         self.log_files_need_upload = True
-                logger.debug("Processing script sent message: %s.", message)
-                command = message["type_data"]
-                if command == "export_files":
-                    yield from self._handle_export_files(message["data"])
-                    response = respond(message, "OK", "")
-                elif command == "upload_files":
-                    # Connect to the upload socket.
-                    filenames = message["data"]
-                    logger.debug("Sending filedescriptors.")
-                    # This can block, run in a thread maybe?
-                    logger.debug("Names: %s", filenames)
-                    yield from self.send_file_descriptors(filenames)
-                    logger.debug("File descriptors sent.")
-                    response = respond(message, "OK", "")
-                elif command == "run":
-                    message["data"] = {
-                        "data": message["data"],
-                        "export_files_mapper": self.exported_files_mapper,
-                    }
-                    response = yield from self.protocol_handler.send_command(message)
-                else:
-                    response = yield from self.protocol_handler.send_command(message)
+                    logger.debug("Processing script sent message: %s.", message)
+                    command = message["type_data"]
+                    if command == "export_files":
+                        yield from self._handle_export_files(message["data"])
+                        response = respond(message, "OK", "")
+                    elif command == "upload_files":
+                        # Connect to the upload socket.
+                        filenames = message["data"]
+                        logger.debug("Sending filedescriptors.")
+                        # This can block, run in a thread maybe?
+                        logger.debug("Names: %s", filenames)
+                        yield from self.send_file_descriptors(filenames)
+                        logger.debug("File descriptors sent.")
+                        response = respond(message, "OK", "")
+                    elif command == "run":
+                        message["data"] = {
+                            "data": message["data"],
+                            "export_files_mapper": self.exported_files_mapper,
+                        }
+                        response = yield from self.protocol_handler.send_command(
+                            message
+                        )
+                    else:
+                        response = yield from self.protocol_handler.send_command(
+                            message
+                        )
 
-                # Terminate the script on ERROR response.
+                # Terminate the script on ERROR response. This has to be
+                # outside the lock block above since it sends latest log files
+                # to the listener.
                 if response["type_data"] == "ERR":
                     logger.debug("Response with error status received, terminating")
                     # Terminate the script and wait for termination.
