@@ -6,6 +6,16 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Fixed
+-----
+- Log peer activity on every received message to avoid declaring otherwise
+  healthy node as failed
+
+
 ===================
 28.0.1 - 2021-04-28
 ===================

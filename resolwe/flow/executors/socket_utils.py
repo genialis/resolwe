@@ -949,7 +949,7 @@ class BaseCommunicator:
                     int(identity)
                     if identity not in self._known_peers:
                         self.logger.debug("Adding new peer with identity %s.", identity)
-                        self._known_peers[identity] = now()
+                    self._known_peers[identity] = now()
 
                 if message.message_type is MessageType.HEARTBEAT:
                     # Send response in the background.
