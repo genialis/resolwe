@@ -6,6 +6,15 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Changed
+-------
+- Make ``gp2`` default EBS storage class
+
+
 ===================
 28.0.2 - 2021-05-03
 ===================

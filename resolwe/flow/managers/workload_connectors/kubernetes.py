@@ -449,7 +449,7 @@ class Connector(BaseConnector):
             "metadata": {"name": claim_name},
             "spec": {
                 "accessModes": ["ReadWriteOnce"],
-                "storageClassName": volume_config.get("storageClassName", "gp3"),
+                "storageClassName": volume_config.get("storageClassName", "gp2"),
                 "resources": {
                     "requests": {
                         "storage": size,
