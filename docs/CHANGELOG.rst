@@ -6,6 +6,15 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Fixed
+-----
+- Do not raise exception when terminating ``runlistener`` management command
+
+ 
 ===================
 28.0.3 - 2021-05-04
 ===================

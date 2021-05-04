@@ -47,7 +47,7 @@ class Command(BaseCommand):
             loop.add_signal_handler(SIGINT, lambda: asyncio.ensure_future(_killer()))
             loop.add_signal_handler(SIGTERM, lambda: asyncio.ensure_future(_killer()))
             async with listener:
-                await listener.run()
+                await listener.should_stop.wait()
 
         loop = asyncio.new_event_loop()
         loop.run_until_complete(_runner())
