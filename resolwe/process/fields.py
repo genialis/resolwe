@@ -374,7 +374,7 @@ class UrlField(Field):
                 raise ValidationError("field's url element must be a string")
 
             return value
-        elif not isinstance(value, None):
+        elif value is not None:
             raise ValidationError("field must be a string or a dict")
 
     def get_field_type(self):
@@ -746,7 +746,7 @@ class FileField(Field):
                 refs=refs,
                 file_field=self,
             )
-        elif not isinstance(value, None):
+        elif value is not None:
             raise ValidationError("field must be a FileDescriptor, string or a dict")
 
     def to_output(self, value):
@@ -832,7 +832,7 @@ class DirField(Field):
                 raise ValidationError("field's refs element must be a list of strings")
 
             return DirDescriptor(path, size=size, total_size=total_size, refs=refs)
-        elif not isinstance(value, None):
+        elif value is not None:
             raise ValidationError("field must be a DirDescriptor, string or a dict")
 
     def to_output(self, value):
