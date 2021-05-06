@@ -15,6 +15,11 @@ Fixed
 - Do not raise exception when terminating ``runlistener`` management command
 
  
+Changed
+-------
+- Make S3 connectors use system credentials when they are not explicitely
+  given in settings
+
 ===================
 28.0.3 - 2021-05-04
 ===================

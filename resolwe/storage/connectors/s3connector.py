@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class AwsS3Connector(BaseStorageConnector):
     """Amazon S3 storage connector."""
 
-    REQUIRED_SETTINGS = ["bucket", "credentials"]
+    REQUIRED_SETTINGS = ["bucket"]
 
     def __init__(self, config: dict, name: str):
         """Connector initialization."""
@@ -42,15 +42,18 @@ class AwsS3Connector(BaseStorageConnector):
 
     def _initialize(self):
         """Initializaton."""
-        credentials = self.config["credentials"]
-        with open(credentials) as f:
-            settings = json.load(f)
-        self.session = boto3.Session(
-            aws_access_key_id=settings["AccessKeyId"],
-            aws_secret_access_key=settings["SecretAccessKey"],
-            aws_session_token=settings.get("SessionToken"),
-            region_name=self.config.get("region_name"),
-        )
+        session_kwargs = {"region_name": self.config.get("region_name")}
+        # Credentials may be given explicitely in config. When they are not
+        # the system credentials are used instead.
+        if "credentials" in self.config:
+            with open(self.config["credentials"]) as f:
+                settings = json.load(f)
+                session_kwargs["aws_access_key_id"] = settings["AccessKeyId"]
+                session_kwargs["aws_secret_access_key"] = settings["SecretAccessKey"]
+                session_kwargs["aws_session_token"] = settings["SessionToken"]
+
+        self.session = boto3.Session(**session_kwargs)
+
         self.awss3 = self.session.resource("s3")
 
         self.client = self.session.client(
