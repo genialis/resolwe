@@ -34,6 +34,10 @@ class AwsS3Connector(BaseStorageConnector):
 
         # Ensured by TLS protocol used for transport.
         self.get_ensures_data_integrity = True
+        # Boto library computes MD5 checksums for every chunk of data it
+        # transmits to the bucket and compares it to the actual md5 of the
+        # data received by the server.
+        self.put_ensures_data_integrity = True
 
         self._session = None
         self._client = None
