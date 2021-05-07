@@ -221,7 +221,7 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
         """Get True if connector can open object as stream."""
         return False
 
-    def open_stream(self, url: Union[str, PathLike], mode: str) -> Optional[BinaryIO]:
+    def open_stream(self, url: Union[str, PathLike], mode: str) -> BinaryIO:
         """Get stream for data at the given URL.
 
         :param url: URL of the object.
@@ -229,8 +229,9 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
         :param mode: mode in which the stream is opened. See
             https://docs.python.org/3/library/functions.html#open .
 
-        :returns: binary stream if data exists None otherwise. User is
-            responsible for closing stream after use.
+        :raises Exception: when stream could not be opened.
+
+        :returns: binary stream if data exists.
         """
         raise NotImplementedError
 

@@ -5,7 +5,7 @@ from contextlib import suppress
 from functools import partial
 from pathlib import Path
 from time import sleep
-from typing import TYPE_CHECKING, Iterable, List, Optional, Union
+from typing import TYPE_CHECKING, Iterable, List, Union
 
 import wrapt
 from requests.exceptions import ConnectionError as RequestsConnectionError
@@ -61,9 +61,7 @@ class Transfer:
         self.from_connector = from_connector
         self.to_connector = to_connector
 
-    def pre_processing(
-        self, url: Union[str, Path], objects: Optional[List[dict]] = None
-    ):
+    def pre_processing(self, url: Union[str, Path], objects: List[dict]):
         """Notify connectors that transfer is about to start.
 
         The connector is allowed to change names of the objects that are to be
@@ -79,9 +77,7 @@ class Transfer:
         self.to_connector.before_push(objects_to_transfer, url)
         return objects_to_transfer
 
-    def post_processing(
-        self, url: Union[str, Path], objects: Optional[List[dict]] = None
-    ):
+    def post_processing(self, url: Union[str, Path], objects: List[dict]):
         """Notify connectors that transfer is complete.
 
         :param url: base url for file transfer.
@@ -244,7 +240,6 @@ class Transfer:
         # Check if file with the correct hash already exist in to_connector.
         to_hash = to_connector.get_hash(to_base_url / to_url, common_hash_type)
         if from_hash == to_hash:
-            # Object exists and has the right hash.
             logger.debug(
                 "From: {}:{}".format(from_connector.name, from_url)
                 + " to: {}:{}".format(to_connector.name, to_base_url / to_url)
