@@ -23,6 +23,7 @@ class AwsS3Connector(BaseStorageConnector):
         super().__init__(config, name)
         self.bucket_name = config["bucket"]
         self.supported_hash = ["awss3etag"]
+        self.refresh_hash_after_transfer = ["awss3etag"]
         self.hash_propery = {"awss3etag": "e_tag"}
         self.multipart_threshold = self.config.get(
             "multipart_threshold", self.CHUNK_SIZE

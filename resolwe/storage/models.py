@@ -441,12 +441,9 @@ class StorageLocation(models.Model):
         """Transfer data to another storage location."""
         t = Transfer(self.connector, destination.connector)
         transfered_files = t.transfer_objects(self.url, list(self.files.values()))
-        if transfered_files is None:
-            destination.files.add(*self.files.all())
-        else:
-            referenced_paths = [ReferencedPath(**e) for e in transfered_files]
-            ReferencedPath.objects.bulk_create(referenced_paths)
-            destination.files.add(*referenced_paths)
+        referenced_paths = [ReferencedPath(**e) for e in transfered_files]
+        ReferencedPath.objects.bulk_create(referenced_paths)
+        destination.files.add(*referenced_paths)
 
     def verify_data(self) -> bool:
         """Verify data stored in this location.

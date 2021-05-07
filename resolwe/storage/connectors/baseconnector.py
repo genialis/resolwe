@@ -61,6 +61,10 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
         self.config = copy.deepcopy(config)
         self.name = name
         self.supported_hash = []
+        # Some hashes may change after data is transfered, for instance
+        # awss3etag will change when SSE-KMS encryption is set on the bucket.
+        # These hashes must be refreshed after the transfer is complete.
+        self.refresh_hash_after_transfer = []
         # Does connector preserves data integrity during download.
         self.get_ensures_data_integrity = False
         # Does connector preserves data integrity during upload.

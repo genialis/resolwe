@@ -95,7 +95,7 @@ class Transfer:
 
     def transfer_objects(
         self, url: Union[str, Path], objects: List[dict], max_threads: int = 10
-    ) -> Optional[List[dict]]:
+    ) -> List[dict]:
         """Transfer objects under the given URL.
 
         Objects are read from from_connector and copied to to_connector.
@@ -144,7 +144,7 @@ class Transfer:
             )
             raise DataTransferError()
 
-        return None if objects_stored is objects else objects_stored
+        return objects_stored
 
     def transfer_chunk(self, url: Path, objects: Iterable[dict]) -> bool:
         """Transfer a single chunk of objects.
@@ -223,7 +223,7 @@ class Transfer:
         if skip_final_hash_check:
             # When final check is skipped make sure that the input connector
             # hash equals to the hash given by the _object (usually read from
-            # the database).
+            # the database). This ensures that the data was not modified.
             hash_to_check = next(
                 hash for hash in from_connector.supported_hash if hash in hashes.keys()
             )
@@ -241,7 +241,7 @@ class Transfer:
         )
         from_hash = hashes[common_hash_type]
 
-        # Check if file already exist and has the right hash.
+        # Check if file with the correct hash already exist in to_connector.
         to_hash = to_connector.get_hash(to_base_url / to_url, common_hash_type)
         if from_hash == to_hash:
             # Object exists and has the right hash.
@@ -252,7 +252,13 @@ class Transfer:
             )
             return True
 
-        # When object can be open directly as stream do it.
+        # We have three posible ways of transfering the data:
+        # - if from_connector supports streams then we open the stream and
+        #   transfer the data.
+        # - if to_connector supporst streams then we transfer the data from
+        #   from_connector directly to the opened stream.
+        # - if neither support streams then we use buffer to transfer the data
+        #   from from_connector to to_connector.
         if from_connector.can_open_stream:
             stream = from_connector.open_stream(from_url, "rb")
             to_connector.push(stream, to_base_url / to_url, chunk_size=chunk_size)
@@ -292,7 +298,14 @@ class Transfer:
                 download_task.add_done_callback(partial(future_done, data_stream))
                 futures = (download_task, upload_task)
 
-            # Re-raise possible exception as DataTransferError.
+            # If any of the transfer futures has raised an exception the
+            # upload must be aborted and DataTransferError raised.
+            #
+            # When transfer was a success we have to store the server-side
+            # computed hashes to the hashes given on object. They may differ
+            # from computed ones since server-side encryption can be used
+            # which changes hashes (at least this happens with awss3etag when
+            # SSE-KMS encryption is used on S3 bucket).
             if any(f.exception() is not None for f in futures):
                 # Log exceptions in threads to preserve original stack trace.
                 for f in futures:
@@ -309,6 +322,10 @@ class Transfer:
                 ex = [f.exception() for f in futures if f.exception() is not None]
                 messages = [str(e) for e in ex]
                 raise DataTransferError("\n\n".join(messages))
+            else:
+                for hash_type in to_connector.refresh_hash_after_transfer:
+                    hash = to_connector.get_hash(to_base_url / to_url, hash_type)
+                    object_[hash_type] = hash
 
         # Check hash of the uploaded object.
         if not skip_final_hash_check:

@@ -612,7 +612,7 @@ class ManagerTest(TransactionTestCase):
             path="testme.txt",
         )
         path.storage_locations.add(location_local)
-        transfer_objects = MagicMock(return_value=None)
+        transfer_objects = MagicMock(return_value=[])
         transfer_instance = MagicMock(transfer_objects=transfer_objects)
         transfer_module = MagicMock(return_value=transfer_instance)
         with patch("resolwe.storage.models.Transfer", transfer_module):
