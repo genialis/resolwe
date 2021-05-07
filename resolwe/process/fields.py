@@ -664,7 +664,7 @@ class FileDescriptor:
             if "UPLOAD_DIR" not in os.environ:
                 raise RuntimeError(
                     "No upload directory on filesystem is defined, "
-                    "can not import file {src} from filesystem."
+                    f"can not import file {src} from filesystem."
                 )
             src_path = Path(os.environ["UPLOAD_DIR"]) / src
             if not src_path.is_file():
