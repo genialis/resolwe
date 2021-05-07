@@ -372,7 +372,7 @@ class ProcessingManager:
             try:
                 reader, writer = yield from asyncio.open_unix_connection(path)
                 line = (yield from reader.readline()).decode("utf-8")
-                assert line.strip() == "PING", f"Expected 'PING', got '{line}'."
+                assert line.strip() == "PING", "Expected 'PING', got '{}'.".format(line)
                 return Communicator(reader, writer)
             except:
                 # Raise RuntimeError on final retry.

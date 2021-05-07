@@ -91,6 +91,18 @@ class ManagerRunProcessTest(ProcessTestCase):
             processes_paths=[PROCESSES_DIR], descriptors_paths=[DESCRIPTORS_DIR]
         )
 
+    @with_docker_executor
+    @tag_process("test-min-python34")
+    def test_python_34(self):
+        """Test that processing container starts on Python 3.4.
+
+        This test can be removed when we stop using
+        broadinstitute/genomes-in-the-cloud:2.3.1-1504795437 docker image in
+        the GATK3 pipeline.
+        """
+        data = self.run_process("test-min-python34")
+        self.assertEqual(data.output["out"], "OK")
+
     @tag_process("test-min")
     def test_minimal_process(self):
         self.run_process("test-min")
