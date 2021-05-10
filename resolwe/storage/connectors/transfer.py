@@ -317,10 +317,6 @@ class Transfer:
                 ex = [f.exception() for f in futures if f.exception() is not None]
                 messages = [str(e) for e in ex]
                 raise DataTransferError("\n\n".join(messages))
-            else:
-                for hash_type in to_connector.refresh_hash_after_transfer:
-                    hash = to_connector.get_hash(to_base_url / to_url, hash_type)
-                    object_[hash_type] = hash
 
         # Check hash of the uploaded object.
         if not skip_final_hash_check:
@@ -336,5 +332,9 @@ class Transfer:
 
         # Store computed hashes as metadata for later use.
         to_connector.set_hashes(to_base_url / to_url, hashes)
+
+        for hash_type in to_connector.refresh_hash_after_transfer:
+            hash = to_connector.get_hash(to_base_url / to_url, hash_type)
+            object_[hash_type] = hash
 
         return True
