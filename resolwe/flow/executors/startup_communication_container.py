@@ -117,13 +117,20 @@ class FakeConnector(BaseStorageConnector):
     Used to send it to the Transfer class.
     """
 
-    def __init__(self, config: dict, name: str, file_streams: dict[str, Any]):
+    def __init__(
+        self,
+        config: dict,
+        name: str,
+        file_streams: dict[str, Any],
+        hashes: dict[str, str],
+    ):
         """Connector initialization."""
         super().__init__(config, name)
         self.path = Path()
         self.supported_hash = ["crc32c", "md5", "awss3etag"]
         self.multipart_chunksize = self.CHUNK_SIZE
         self.file_streams = file_streams
+        self.hashes = hashes
         self.get_ensures_data_integrity = True
 
     def duplicate(self):
@@ -148,7 +155,7 @@ class FakeConnector(BaseStorageConnector):
 
     def get_hash(self, url, hash_type):
         """Get the hash of the given type for the given object."""
-        raise NotImplementedError
+        return self.hashes[os.fspath(url)][hash_type]
 
     def get_hashes(self, url, hash_types):
         """Get the hashes of the given types for the given object."""
@@ -282,6 +289,7 @@ class Uploader(threading.Thread):
                     presigned_urls = []
                     to_transfer = []
                     logger.debug("Got %s", file_descriptors)
+                    hashes: dict[str, str] = dict()
                     referenced_files: dict[str, dict[str, str]] = dict()
 
                     file_streams = {
@@ -290,7 +298,7 @@ class Uploader(threading.Thread):
                     }
 
                     # Get default connector for the given storage name.
-                    to_connector = STORAGE_CONNECTOR[storage_name][0]  # .duplicate()
+                    to_connector = STORAGE_CONNECTOR[storage_name][0]
                     for file_name in file_descriptors:
                         file_descriptor = file_descriptors[file_name]
                         stream = file_streams[file_name]
@@ -313,6 +321,10 @@ class Uploader(threading.Thread):
                             hash_type: hasher.hexdigest(hash_type)
                             for hash_type in StreamHasher.KNOWN_HASH_TYPES
                         }
+                        hashes[
+                            os.fspath(global_settings.LOCATION_SUBPATH / file_name)
+                        ] = referenced_files[file_name].copy()
+
                         referenced_files[file_name]["chunk_size"] = chunk_size
                         referenced_files[file_name]["path"] = file_name
                         referenced_files[file_name]["size"] = file_size
@@ -327,7 +339,10 @@ class Uploader(threading.Thread):
 
                     to_transfer = list(referenced_files.values())
                     from_connector = FakeConnector(
-                        {"path": ""}, "File descriptors connector", file_streams
+                        {"path": ""},
+                        "File descriptors connector",
+                        file_streams,
+                        hashes,
                     )
                     transfer = Transfer(from_connector, to_connector)
                     transfer.transfer_objects(
