@@ -124,6 +124,7 @@ class FakeConnector(BaseStorageConnector):
         self.supported_hash = ["crc32c", "md5", "awss3etag"]
         self.multipart_chunksize = self.CHUNK_SIZE
         self.file_streams = file_streams
+        self.get_ensures_data_integrity = True
 
     def duplicate(self):
         """Return self."""
