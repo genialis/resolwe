@@ -55,7 +55,6 @@ class AwsS3Connector(BaseStorageConnector):
                 settings = json.load(f)
                 session_kwargs["aws_access_key_id"] = settings["AccessKeyId"]
                 session_kwargs["aws_secret_access_key"] = settings["SecretAccessKey"]
-                session_kwargs["aws_session_token"] = settings["SessionToken"]
 
         self.session = boto3.Session(**session_kwargs)
 
