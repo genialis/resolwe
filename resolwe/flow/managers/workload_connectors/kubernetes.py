@@ -681,7 +681,6 @@ class Connector(BaseConnector):
             },
         }
         start_time = time.time()
-        limits.pop("storage", 200)
 
         processing_name = constants.PROCESSING_VOLUME_NAME
         input_name = constants.INPUTS_VOLUME_NAME
