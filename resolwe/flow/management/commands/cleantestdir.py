@@ -39,7 +39,8 @@ class Command(BaseCommand):
         directories += [
             Path(volume_config["config"]["path"])
             for volume_name, volume_config in storage_settings.FLOW_VOLUMES.items()
-            if volume_config["config"].get("read_only", False) == False
+            if not volume_config["config"].get("read_only", False)
+            and volume_config["type"] == "host_path"
         ]
 
         for directory in directories:
