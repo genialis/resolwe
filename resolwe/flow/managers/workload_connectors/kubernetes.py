@@ -495,6 +495,17 @@ class Connector(BaseConnector):
                 sanitized_label = sanitized_label[:max_length].strip("-_.")
         return sanitized_label
 
+    def _image_mapper(self, image_name: str, mapper: Dict[str, str]) -> str:
+        """Transform the image name if necessary.
+
+        When image_name starts with one of the keys defined in the mapper the
+        matching part is replaced with the corresponding value.
+        """
+        for key in mapper:
+            if image_name.startswith(key):
+                return f"{mapper[key]}{image_name[len(key):]}"
+        return image_name
+
     def start(self, data: Data, listener_connection: Tuple[str, str, str]):
         """Start process execution.
 
@@ -578,11 +589,13 @@ class Connector(BaseConnector):
             # mount my /tmp directory to the /seccomp directory in minikube.
             annotations["seccomp.security.alpha.kubernetes.io/pod"] = "runtime/default"
 
+        mapper = getattr(settings, "FLOW_CONTAINER_IMAGE_MAP", {})
         communicator_image = getattr(
             settings,
             "FLOW_DOCKER_COMMUNICATOR_IMAGE",
             "public.ecr.aws/s4q6j6e8/resolwe/com:latest",
         )
+        communicator_image = self._image_mapper(communicator_image, mapper)
 
         requirements = data.process.requirements.get("executor", {}).get("docker", {})
         processing_container_image = str(
@@ -594,6 +607,9 @@ class Connector(BaseConnector):
                     "public.ecr.aws/s4q6j6e8/resolwe/base:ubuntu-20.04",
                 ),
             ),
+        )
+        processing_container_image = self._image_mapper(
+            processing_container_image, mapper
         )
 
         job_type = dict(Process.SCHEDULING_CLASS_CHOICES)[data.process.scheduling_class]

@@ -19,6 +19,11 @@ Changed
 - Make S3 connectors use system credentials when they are not explicitely
   given in settings
 
+Added
+-----
+- Make it possible to rewrite container image names in kubernetes workload
+  connector
+
 
 ===================
 28.0.4 - 2021-05-04
