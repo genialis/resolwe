@@ -631,7 +631,9 @@ class ListenerProtocol(BaseProtocol):
                 "DATA_DIR": data.location.get_path()
             }
             response[ExecutorFiles.LOCATION_SUBPATH] = data.location.subpath
-            response[ExecutorFiles.DJANGO_SETTINGS] = self._bootstrap_cache["settings"]
+            response[ExecutorFiles.DJANGO_SETTINGS] = self._bootstrap_cache[
+                "settings"
+            ].copy()
             response[ExecutorFiles.DJANGO_SETTINGS]["RUNTIME_VOLUME_MAPS"] = volume_maps
             response[ExecutorFiles.PROCESS_META] = self._bootstrap_cache["process_meta"]
             response[ExecutorFiles.PROCESS] = self._bootstrap_cache["process"][

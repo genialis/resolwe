@@ -13,6 +13,8 @@ Unreleased
 Fixed
 -----
 - Do not raise exception when terminating ``runlistener`` management command
+- Change concurrency issue in the listener causing processes to sometitimes
+  get incorrect value for ``RUNTIME_VOLUME_MAPS`` settings
 
 Changed
 -------
