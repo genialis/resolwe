@@ -27,12 +27,22 @@ try:
 except ModuleNotFoundError:
     gcs_exceptions = []
 
+try:
+    from botocore.exceptions import ClientError
+
+    boto_exceptions = [ClientError]
+except ModuleNotFoundError:
+    boto_exceptions = []
+
 
 logger = logging.getLogger(__name__)
 ERROR_MAX_RETRIES = 3
 ERROR_TIMEOUT = 5  # In seconds.
 transfer_exceptions = tuple(
-    gcs_exceptions + [DataTransferError] + [RequestsConnectionError, ReadTimeout]
+    boto_exceptions
+    + gcs_exceptions
+    + [DataTransferError]
+    + [RequestsConnectionError, ReadTimeout]
 )
 
 
