@@ -136,6 +136,7 @@ class Field:
         default=None,
         choices=None,
         allow_custom_choice=None,
+        disabled=False,
         hidden=False,
         *args,
         **kwargs,
@@ -150,6 +151,7 @@ class Field:
         self.choices = choices
         self.allow_custom_choice = allow_custom_choice
         self.hidden = hidden
+        self.disabled = disabled
 
     @property
     def _descriptor_field_name(self):
@@ -204,6 +206,8 @@ class Field:
             schema["default"] = self.default
         if self.hidden is not None:
             schema["hidden"] = self.hidden
+        if self.disabled is not None:
+            schema["disabled"] = self.disabled
         if self.allow_custom_choice is not None:
             schema["allow_custom_choice"] = self.allow_custom_choice
         if self.choices is not None:

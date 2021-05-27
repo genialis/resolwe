@@ -10,6 +10,10 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Added
+-----
+- Support disabled fields in Python processes
+
 Changed
 -------
 - Retry data transfer if ``botocore.exceptions.ClientError`` is raised during
@@ -45,7 +49,7 @@ Added
 ===================
 28.0.4 - 2021-05-04
 ===================
-  
+
 Fixed
 -----
 - Use per process storage overrides
