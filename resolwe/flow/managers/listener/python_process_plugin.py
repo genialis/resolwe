@@ -5,7 +5,6 @@ import os
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type
 
 from django.apps import apps
-from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.postgres.fields.jsonb import JSONField as JSONFieldb
 from django.db.models import ForeignKey, JSONField, ManyToManyField, Model, QuerySet

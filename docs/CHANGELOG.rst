@@ -15,6 +15,11 @@ Changed
 - Retry data transfer if ``botocore.exceptions.ClientError`` is raised during
   transfer
 
+Added
+-----
+- Add ``FLOW_PROCESS_MAX_MEM`` Django setting to limit the ammount of memory
+  used by a process
+
 
 ===================
 28.1.0 - 2021-05-17

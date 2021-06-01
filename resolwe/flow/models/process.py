@@ -228,6 +228,10 @@ class Process(BaseModel):
                     limit_defaults.get("memory", 4096),
                 )
             )
+            max_memory = getattr(settings, "FLOW_PROCESS_MAX_MEM", None)
+            if max_memory is not None:
+                memory = min(memory, max_memory)
+
         limits["memory"] = memory
 
         limits["storage"] = limit_overrides.get("storage", {}).get(
