@@ -629,31 +629,8 @@ class PythonProcess(ListenerPlugin):
             manager.contributor,
             get_full_perm("view", Process),
             Process.objects.filter(pk=process_id),
-        )
-        process_requirements, process_slug = filtered_process.values_list(
-            "requirements", "slug"
-        ).get()
-        resources = process_requirements.get("resources", {})
-
-        # Get limit defaults and overrides.
-        limit_defaults = getattr(settings, "FLOW_PROCESS_RESOURCE_DEFAULTS", {})
-        limit_overrides = getattr(settings, "FLOW_PROCESS_RESOURCE_OVERRIDES", {})
-
-        limits = {}
-        limits["cores"] = int(resources.get("cores", 1))
-        max_cores = getattr(settings, "FLOW_PROCESS_MAX_CORES", None)
-        if max_cores:
-            limits["cores"] = min(limits["cores"], max_cores)
-
-        memory = limit_overrides.get("memory", {}).get(process_slug, None)
-        if memory is None:
-            memory = int(
-                resources.get(
-                    "memory",
-                    # If no memory resource is configured, check settings.
-                    limit_defaults.get("memory", 4096),
-                )
-            )
-        limits["memory"] = memory
-        process_requirements["resources"] = limits
+        )[0]
+        process_limits = filtered_process.get_resource_limits()
+        process_requirements = filtered_process.requirements
+        process_requirements["resources"] = process_limits
         return message.respond_ok(process_requirements)
