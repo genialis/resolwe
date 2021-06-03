@@ -63,7 +63,6 @@ setuptools.setup(
         "psycopg2-binary~=2.8.6",
         "PyYAML~=5.4.1",
         "redis~=3.5.3",
-        "resolwe-runtime-utils~=3.0.0",
         "shellescape~=3.8.1",
         "beautifulsoup4~=4.9.3",
         "Sphinx~=3.5.3",
