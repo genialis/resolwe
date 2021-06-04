@@ -212,6 +212,42 @@ class StorageLocationTest(TransactionTestCase):
                 file_storage=self.file_storage, url="url", connector_name="S3"
             )
 
+    def test_transfer_data(self):
+        file = ReferencedPath.objects.create(path="existing.path")
+        source = StorageLocation.objects.create(
+            file_storage=self.file_storage, url="url", connector_name="local"
+        )
+        source.files.add(file)
+
+        destination = StorageLocation.objects.create(
+            file_storage=self.file_storage, url="url", connector_name="S3"
+        )
+        transfer_objects_mock = MagicMock(
+            side_effect=lambda url, files: files
+            + [
+                {
+                    "path": "new.path",
+                    "size": 12,
+                    "md5": "1",
+                    "crc32c": "2",
+                    "awss3etag": "3",
+                }
+            ]
+        )
+        transfer_mock = MagicMock(
+            return_value=MagicMock(transfer_objects=transfer_objects_mock)
+        )
+        with patch("resolwe.storage.models.Transfer", transfer_mock):
+            source.transfer_data(destination)
+
+        self.assertCountEqual(source.files.all(), [file])
+        new_file = destination.files.get(path="new.path")
+        self.assertEqual(new_file.size, 12)
+        self.assertEqual(new_file.md5, "1")
+        self.assertEqual(new_file.crc32c, "2")
+        self.assertEqual(new_file.awss3etag, "3")
+        self.assertCountEqual(destination.files.all(), [file, new_file])
+
     def test_delete_data(self):
         path1 = ReferencedPath.objects.create(path="remove_me.txt")
         path2 = ReferencedPath.objects.create(path="dir/remove_me.txt")

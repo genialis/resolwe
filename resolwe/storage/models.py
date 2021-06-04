@@ -441,9 +441,20 @@ class StorageLocation(models.Model):
         """Transfer data to another storage location."""
         t = Transfer(self.connector, destination.connector)
         transfered_files = t.transfer_objects(self.url, list(self.files.values()))
-        referenced_paths = [ReferencedPath(**e) for e in transfered_files]
-        ReferencedPath.objects.bulk_create(referenced_paths)
-        destination.files.add(*referenced_paths)
+
+        # When a dictionary in transfered_files list contains the key 'id' it
+        # is based on already existing path. In such case we do not have to
+        # create a new ReferencedPath object but only add it to the relation.
+        new_paths = []
+        existing_paths = []
+        for file in transfered_files:
+            if "id" in file:
+                existing_paths.append(file["id"])
+            else:
+                new_paths.append(ReferencedPath(**file))
+        if new_paths:
+            ReferencedPath.objects.bulk_create(new_paths)
+        destination.files.add(*existing_paths, *new_paths)
 
     def verify_data(self) -> bool:
         """Verify data stored in this location.
