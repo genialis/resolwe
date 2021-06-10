@@ -6,7 +6,7 @@ import os
 from base64 import b64encode
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
 from zipfile import ZIP_STORED, ZipFile
 
 from django.apps import apps
@@ -471,13 +471,34 @@ class PythonProcess(ListenerPlugin):
         return message.respond_ok(model.objects.create(**model_data).id)
 
     def handle_filter_objects(
-        self, message: Message[Tuple[str, Dict[str, Any]]], manager: "Processor"
+        self,
+        message: Message[
+            Union[
+                Tuple[str, str, Dict[str, Any], List[str], List[str]],
+                Tuple[str, str, Dict[str, Any], List[str]],
+            ],
+        ],
+        manager: "Processor",
     ) -> Response[List[int]]:
         """Get a list of objects based on criteria.
 
-        List is further filtered based on user permissions.
+        List is further filtered based on user permissions and sorted according
+        to the list of strings the user provides.
         """
-        app_name, model_name, filters, attributes = message.message_data
+        # Sorting was added later. For compatibility reasons handle both
+        # message types, remove the one without sorting ASAP.
+        sorting: List[str] = []
+        if len(message.message_data) == 4:
+            app_name, model_name, filters, attributes = message.message_data
+        elif len(message.message_data) == 5:
+            app_name, model_name, filters, sorting, attributes = message.message_data
+        else:
+            raise RuntimeError(
+                "Message in handle_filter_objects for the object "
+                f"{manager.data.pk} not in the correct format. Got tuple of"
+                f"length {len(message.message_data)}, expected length 4 or 5."
+            )
+
         full_model_name = f"{app_name}.{model_name}"
         model = apps.get_model(app_name, model_name)
         filtered_objects = self._permission_manager.filter_objects(
@@ -486,7 +507,9 @@ class PythonProcess(ListenerPlugin):
             model.objects.filter(**filters),
             manager.data,
         )
-        return message.respond_ok(list(filtered_objects.values_list(*attributes)))
+        return message.respond_ok(
+            list(filtered_objects.order_by(*sorting).values_list(*attributes))
+        )
 
     def handle_update_model_fields(
         self, message: Message[Tuple[str, int, Dict[str, Any]]], manager: "Processor"
