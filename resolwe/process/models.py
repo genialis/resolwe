@@ -457,6 +457,22 @@ class Process(Model):
     _app_name = "flow"
     _model_name = "Process"
 
+    @classmethod
+    def get_latest(cls, slug: str) -> "Model":
+        """Get a latest version of the Process with the given slug.
+
+        :raises RuntimeError: when no object can be retrieved.
+        """
+        pks = communicator.filter_objects(
+            cls._app_name, cls._model_name, {"slug": slug}, ["-version"], ["id"]
+        )
+        if len(pks) == 0:
+            raise RuntimeError(
+                "No objects match the given criteria or no permission to read object."
+            )
+        else:
+            return cls(pks[0][0])
+
 
 class Entity(Model):
     """Entity model."""

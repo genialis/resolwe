@@ -378,6 +378,37 @@ class PythonProcessTest(ProcessTestCase):
         self.assertEqual(data.output["collection_slug"], collection.slug)
 
     @with_docker_executor
+    @tag_process("get-latest-process")
+    def test_get_process(self):
+        """Test process that gets process by slug.
+
+        The catch here is that multiple objects are returned, as there can be
+        multiple processes with the same slug but different versions. In such
+        case the object with the process with the latest version must be
+        returned.
+        """
+        process_slug = "multiple-versions"
+        self.assertFalse(Process.objects.filter(slug=process_slug).exists())
+
+        process1 = Process.objects.create(
+            persistence=Process.PERSISTENCE_TEMP,
+            version="1.0.0",
+            slug=process_slug,
+            contributor=self.admin,
+        )
+        data = self.run_process("get-latest-process", {"process_slug": process_slug})
+        self.assertEqual(data.output["process_pk"], process1.pk)
+
+        process2 = Process.objects.create(
+            contributor=self.admin,
+            persistence=Process.PERSISTENCE_TEMP,
+            version="1.0.1",
+            slug=process_slug,
+        )
+        data = self.run_process("get-latest-process", {"process_slug": process_slug})
+        self.assertEqual(data.output["process_pk"], process2.pk)
+
+    @with_docker_executor
     @tag_process("create-data")
     def test_create_data(self):
         """Test process that creates data object."""

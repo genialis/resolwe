@@ -411,6 +411,25 @@ class CreateCollection(Process):
         Collection.create(name=inputs.collection_name)
 
 
+class GetLatestProcess(Process):
+    slug = "get-latest-process"
+    name = "Get process by slug"
+    data_name = "{{ data_input | name | default('?') }}"
+    version = "1.0.0"
+    process_type = "data:name"
+    requirements = {"expression-engine": "jinja"}
+
+    class Input:
+        process_slug = StringField(label="Process slug")
+
+    class Output:
+        process_pk = IntegerField(label="Process primary key")
+
+    def run(self, inputs, outputs):
+        process = ProcessM.get_latest(inputs.process_slug)
+        outputs.process_pk = process.id
+
+
 class GetCollection(Process):
     slug = "get-collection"
     name = "Get collection"

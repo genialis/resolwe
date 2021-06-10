@@ -69,6 +69,8 @@ Added
 - Add ``FLOW_PROCESS_MAX_MEM`` Django setting to limit the ammount of memory
   used by a process
 - Support disabled fields in Python processes
+- Add method ``get_latest`` to the ``Process`` class in ``Python`` processes
+  which retrieves latest version of the process with the given ``slug``
 
 
 ===================
