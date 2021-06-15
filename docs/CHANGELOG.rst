@@ -6,13 +6,13 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+===================
+28.2.0 - 2021-06-15
+===================
 
-Added
+Fixed
 -----
-- Support disabled fields in Python processes
+- Create ``ReferencedPath`` objects during transfer only when needed
 
 Changed
 -------
@@ -23,6 +23,7 @@ Added
 -----
 - Add ``FLOW_PROCESS_MAX_MEM`` Django setting to limit the ammount of memory
   used by a process
+- Support disabled fields in Python processes
 
 
 ===================
