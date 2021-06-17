@@ -429,13 +429,16 @@ class StorageLocation(models.Model):
 
         Set status to DELETING, remove data and finally location object.
         """
+        # Store a queryset contaning ReferencedPath objects associated with
+        # this location. These paths are candidates for deleting.
+        referenced_paths = self.files.all()
         self.status = StorageLocation.STATUS_DELETING
         self.save()
         self.delete_data()
         super().delete(*args, **kwargs)
-        # Remove referenced paths if they are not connected to another storage
-        # location.
-        ReferencedPath.objects.filter(storage_locations__isnull=True).delete()
+        # Remove ReferencedPath in the stored QuerySet only if they are not
+        # referenced by anoter StorageLocation.
+        referenced_paths.filter(storage_locations__isnull=True).delete()
 
     def transfer_data(self, destination: "StorageLocation"):
         """Transfer data to another storage location."""
