@@ -40,7 +40,9 @@ setuptools.setup(
         # XXX: Temporarily pin asgiref to 3.2.x since testing framework freezes
         # with version 3.3.x
         "asgiref~=3.3.1",
-        "asteval~=0.9.23",
+        # Temporarily pin asteval, version >= 0.9.24 is no longer compatible with
+        # Python 3.6.
+        "asteval==0.9.23",
         "async-timeout~=3.0.0",
         "channels~=3.0.3",
         "channels_redis~=3.2.0",
