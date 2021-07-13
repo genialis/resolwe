@@ -7,6 +7,22 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
 ===================
+28.2.1 - 2021-07-13
+===================
+
+Fixed
+-----
+- Speed up deleting storage locations by considering only referenced paths
+  belonging to the given storage location
+- Temporary pin ``asteval`` to version ``0.9.23`` due to compatibility issues
+  with Python 3.6 
+
+Changed
+-------
+- Improve logging in cleanup manager
+
+
+===================
 28.2.0 - 2021-06-15
 ===================
 
