@@ -156,13 +156,18 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def push(
-        self, stream: BinaryIO, url: Union[str, PathLike], chunk_size: int = CHUNK_SIZE
+        self,
+        stream: BinaryIO,
+        url: Union[str, PathLike],
+        chunk_size: int = CHUNK_SIZE,
+        hashes: Dict[str, str] = {},
     ):
         """Push data from the stream to the given URL.
 
         :param stream: given stream.
         :param url: where the data in the stream will be stored.
         :param chunk_size: the chunk_size to use.
+        :param hashes: the hashes to set (as metadata) on the uploaded object.
         """
         raise NotImplementedError
 

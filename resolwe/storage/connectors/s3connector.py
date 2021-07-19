@@ -75,12 +75,13 @@ class AwsS3Connector(BaseStorageConnector):
         return getattr(self, name)
 
     @validate_url
-    def push(self, stream, url, chunk_size=BaseStorageConnector.CHUNK_SIZE):
+    def push(self, stream, url, chunk_size=BaseStorageConnector.CHUNK_SIZE, hashes={}):
         """Push data from the stream to the given URL."""
         url = os.fspath(url)
         mime_type = mimetypes.guess_type(url)[0]
         extra_args = {} if mime_type is None else {"ContentType": mime_type}
         extra_args["Metadata"] = {"_upload_chunk_size": str(chunk_size)}
+        extra_args["Metadata"].update(hashes)
         self.client.upload_fileobj(
             stream,
             self.bucket_name,

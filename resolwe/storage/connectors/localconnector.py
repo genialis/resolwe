@@ -48,8 +48,11 @@ class LocalFilesystemConnector(BaseStorageConnector):
                 shutil.rmtree(os.fspath(self.base_path / url))
 
     @validate_url
-    def push(self, stream, url, chunk_size=BaseStorageConnector.CHUNK_SIZE):
-        """Push data from the stream to the given URL."""
+    def push(self, stream, url, chunk_size=BaseStorageConnector.CHUNK_SIZE, hashes={}):
+        """Push data from the stream to the given URL.
+
+        The chunk_size and hashes arguments are ignored.
+        """
         data_remaining = True
         path = self.base_path / url
         path.parent.mkdir(parents=True, exist_ok=True)

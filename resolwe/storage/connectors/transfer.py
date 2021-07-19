@@ -267,7 +267,9 @@ class Transfer:
         #   from from_connector to to_connector.
         if from_connector.can_open_stream:
             stream = from_connector.open_stream(from_url, "rb")
-            to_connector.push(stream, to_base_url / to_url, chunk_size=chunk_size)
+            to_connector.push(
+                stream, to_base_url / to_url, chunk_size=chunk_size, hashes=hashes
+            )
             stream.close()
 
         elif to_connector.can_open_stream:
@@ -300,6 +302,7 @@ class Transfer:
                     data_stream,
                     to_base_url / to_url,
                     chunk_size=chunk_size,
+                    hashes=hashes,
                 )
                 download_task.add_done_callback(partial(future_done, data_stream))
                 futures = (download_task, upload_task)
