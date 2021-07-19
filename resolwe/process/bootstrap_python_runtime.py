@@ -3,13 +3,12 @@ import inspect
 import logging
 import os
 import sys
+import tempfile
 import types
+from base64 import b64decode
 from typing import Dict, Type
 
-from .communicator import communicator
-from .descriptor import ValidationError
-from .models import Data
-from .runtime import Process
+from communicator import communicator
 
 # Id of the Data object we are processing.
 DATA_ID = int(os.getenv("DATA_ID", "-1"))
@@ -19,10 +18,25 @@ logger = logging.getLogger(__name__)
 if __name__ == "__main__":
     assert communicator is not None
 
+    # Get the python runtime.
+    python_runtime = communicator.get_python_runtime()
+    tmpdir = tempfile.TemporaryDirectory()
+    python_runtime_filename = os.path.join(tmpdir.name, "python_runtime.zip")
+    with open(python_runtime_filename, "wb") as python_runtime_handle:
+        python_runtime_handle.write(b64decode(python_runtime))
+
+    sys.path.insert(0, python_runtime_filename)
+    # From this line on the Python process runtime is available.
+
+    from resolwe.process.descriptor import ValidationError
+    from resolwe.process.models import Data
+    from resolwe.process.runtime import Process
+
+    python_program = communicator.get_python_program()
     # Get the data object.
     data = Data(DATA_ID)
+
     module = types.ModuleType("python_program")
-    python_program = communicator.get_python_program()
     exec(python_program, module.__dict__)
 
     # Mapping between the process slug and the class containing the process

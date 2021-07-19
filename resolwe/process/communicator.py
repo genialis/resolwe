@@ -4,7 +4,13 @@ import socket
 from pathlib import Path
 from typing import Any, Optional, Type
 
-from .socket_utils import Message, Response, receive_data, send_data
+# This file can be imported by the Resolwe platform or while bootstraping
+# Python process runtime in the container. We have to cover both posibilities
+# while importing socket_utils module.
+try:
+    from .socket_utils import Message, Response, receive_data, send_data
+except (ModuleNotFoundError, ImportError):
+    from socket_utils import Message, Response, receive_data, send_data
 
 
 class Singleton:

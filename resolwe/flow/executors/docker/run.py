@@ -237,6 +237,28 @@ class FlowExecutor(LocalFlowExecutor):
             (
                 {
                     "path": self.runtime_dir
+                    / "python_runtime"
+                    / "resolwe"
+                    / "process"
+                    / constants.BOOSTRAP_PYTHON_RUNTIME
+                },
+                Path("/") / constants.BOOSTRAP_PYTHON_RUNTIME,
+                False,
+            ),
+            (
+                {
+                    "path": self.runtime_dir
+                    / "python_runtime"
+                    / "resolwe"
+                    / "process"
+                    / "communicator.py"
+                },
+                Path("/communicator.py"),
+                False,
+            ),
+            (
+                {
+                    "path": self.runtime_dir
                     / "executors"
                     / ExecutorFiles.STARTUP_PROCESSING_SCRIPT
                 },

@@ -12,6 +12,7 @@ import os
 import re
 import time
 from contextlib import suppress
+from importlib.util import find_spec
 from pathlib import Path
 from typing import Any, Dict, Iterable, Tuple
 
@@ -23,7 +24,6 @@ from django.db.models.functions import Coalesce
 
 from resolwe.flow.executors import constants
 from resolwe.flow.executors.prepare import BaseFlowExecutorPreparer
-from resolwe.flow.executors.protocol import ExecutorFiles
 from resolwe.flow.models import Data, DataDependency, Process
 from resolwe.storage import settings as storage_settings
 from resolwe.storage.connectors import connectors
@@ -57,9 +57,6 @@ class Connector(BaseConnector):
         """
         self.kubernetes_namespace = getattr(settings, "KUBERNETES_SETTINGS", {}).get(
             "namespace", "default"
-        )
-        self.runtime_dir = Path(
-            storage_settings.FLOW_VOLUMES["runtime"]["config"]["path"]
         )
 
     def _get_upload_dir(self) -> str:
@@ -177,29 +174,32 @@ class Connector(BaseConnector):
         This is done using configmap which is mostly static. This command
         returns description for this configmap.
         """
-        socket_utils_path: Path = (
-            self.runtime_dir / "executors" / ExecutorFiles.SOCKET_UTILS
-        )
-        processing_startup_path: Path = (
-            self.runtime_dir / "executors" / ExecutorFiles.STARTUP_PROCESSING_SCRIPT
-        )
-        constants_path: Path = self.runtime_dir / "executors" / ExecutorFiles.CONSTANTS
-
-        startup_content = processing_startup_path.read_text()
-        socket_utils_content = socket_utils_path.read_text()
-        constants_content = constants_path.read_text()
         passwd_content = "root:x:0:0:root:/root:/bin/bash\n"
         passwd_content += f"user:x:{os.getuid()}:{os.getgid()}:user:{os.fspath(constants.PROCESSING_VOLUME)}:/bin/bash\n"
         group_content = "root:x:0:\n"
         group_content += f"user:x:{os.getgid()}:user\n"
 
-        data = {
-            "passwd": passwd_content,
-            "group": group_content,
-            "startup-script": startup_content,
-            "socket-utils": socket_utils_content,
-            "constants": constants_content,
+        data = dict()
+        modules = {
+            "communicator": "resolwe.process.communicator",
+            "bootstrap-python-runtime": "resolwe.process.bootstrap_python_runtime",
+            "socket-utils": "resolwe.flow.executors.socket_utils",
+            "constants": "resolwe.flow.executors.constants",
+            "startup-script": "resolwe.flow.executors.startup_processing_container",
         }
+        for module, full_module_name in modules.items():
+            spec = find_spec(full_module_name)
+            assert (
+                spec is not None and spec.origin is not None
+            ), f"Unable to determine module {full_module_name} source code."
+            data[module] = Path(spec.origin).read_text()
+
+        data.update(
+            {
+                "passwd": passwd_content,
+                "group": group_content,
+            }
+        )
 
         data_md5 = hashlib.md5(json.dumps(data, sort_keys=True).encode()).hexdigest()
         configmap_name = f"configmap-files-{data_md5}"
@@ -399,6 +399,16 @@ class Connector(BaseConnector):
                 "name": "files-volume",
                 "mountPath": "/constants.py",
                 "subPath": "constants",
+            },
+            {
+                "name": "files-volume",
+                "mountPath": f"/{constants.BOOSTRAP_PYTHON_RUNTIME}",
+                "subPath": "bootstrap-python-runtime",
+            },
+            {
+                "name": "files-volume",
+                "mountPath": "/communicator.py",
+                "subPath": "communicator",
             },
             {
                 "name": constants.SOCKETS_VOLUME_NAME,

@@ -1,12 +1,9 @@
 """An execution engine for Python processes."""
-import os
+from pathlib import Path
 
 from resolwe.flow.execution_engines.base import BaseExecutionEngine
+from resolwe.flow.executors.constants import BOOSTRAP_PYTHON_RUNTIME
 from resolwe.process.parser import SafeParser
-
-PYTHON_RUNTIME_DIRNAME = "python_runtime"
-PYTHON_RUNTIME_ROOT = "/"
-PYTHON_RUNTIME_VOLUME = os.path.join(PYTHON_RUNTIME_ROOT, PYTHON_RUNTIME_DIRNAME)
 
 
 class ExecutionEngine(BaseExecutionEngine):
@@ -29,10 +26,5 @@ class ExecutionEngine(BaseExecutionEngine):
 
     def evaluate(self, data):
         """Evaluate the code needed to compute a given Data object."""
-        return 'PYTHONPATH="{runtime}" python3 -u -m resolwe.process'.format(
-            runtime=PYTHON_RUNTIME_VOLUME
-        )
-
-    def prepare_volumes(self):
-        """Mount additional volumes."""
-        return {PYTHON_RUNTIME_DIRNAME: PYTHON_RUNTIME_VOLUME}
+        bootstrap_filename = Path("/") / BOOSTRAP_PYTHON_RUNTIME
+        return f"python3 {bootstrap_filename}"

@@ -1,10 +1,16 @@
 """Command handlers for python processes."""
 import abc
+import importlib
 import logging
 import os
+from base64 import b64encode
+from io import BytesIO
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type
+from zipfile import ZIP_STORED, ZipFile
 
 from django.apps import apps
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.postgres.fields.jsonb import JSONField as JSONFieldb
 from django.db.models import ForeignKey, JSONField, ManyToManyField, Model, QuerySet
@@ -633,3 +639,35 @@ class PythonProcess(ListenerPlugin):
         process_requirements = filtered_process.requirements
         process_requirements["resources"] = process_limits
         return message.respond_ok(process_requirements)
+
+    def handle_get_python_runtime(
+        self, message: Message[str], manager: "Processor"
+    ) -> Response[str]:
+        """Return the Python Process runtime.
+
+        It is gzipped and returned as b64encoded string.
+        """
+
+        zipped = BytesIO()
+        with ZipFile(file=zipped, mode="w", compression=ZIP_STORED) as zip_handle:
+            for runtime_class_name in settings.FLOW_PROCESSES_RUNTIMES:
+                module_name, class_name = runtime_class_name.rsplit(".", 1)
+                source_path = importlib.util.find_spec(module_name).origin
+                assert (
+                    source_path is not None
+                ), f"Unable to determine the source path of the module {module_name}."
+                source_dir = Path(source_path).parent
+
+                base_destination = Path(*module_name.split(".")[:-1])
+                for source_entry in source_dir.rglob("*.py"):
+                    relative_path = source_entry.relative_to(source_dir)
+                    destination = base_destination / relative_path
+                    zip_handle.write(source_entry, destination)
+
+                # Create missing __init__.py files with empty content.
+                for path in list(Path(*module_name.split(".")).parents)[1:-1]:
+                    zip_destination = path / "__init__.py"
+                    zip_handle.writestr(os.fspath(zip_destination), "")
+
+        zipped.seek(0)
+        return message.respond_ok(b64encode(zipped.read()).decode())

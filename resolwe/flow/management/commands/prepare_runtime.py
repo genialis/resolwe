@@ -7,13 +7,31 @@ Prepare runtime directory
 """
 import inspect
 import shutil
-from importlib import import_module
 from pathlib import Path
 
-from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
 from resolwe.storage import settings as storage_settings
+
+
+def copy_dir(source: Path, destination: Path):
+    """Copy dir from source to destination.
+
+    The shutil copytree method could be used but it will not overwrite
+    directories (option added in Python 3.8, while we support Python 3.6).
+
+    This method iterates through all entries in source directory and copies
+    them over to the destination directory (overwriting them if they
+    already exist).
+    """
+    for source_entry in source.rglob("*"):
+        relative_source_path = source_entry.relative_to(source)
+        destination_entry = destination / relative_source_path
+        if source_entry.is_dir():
+            destination_entry.mkdir(exist_ok=True, parents=True)
+        elif source_entry.is_file() or source_entry.is_symlink():
+            destination_entry.parent.mkdir(exist_ok=True, parents=True)
+            shutil.copy(source_entry, destination_entry)
 
 
 class Command(BaseCommand):
@@ -85,25 +103,6 @@ class Command(BaseCommand):
             elif entry.is_dir():
                 shutil.rmtree(entry)
 
-    def copy_dir(self, source: Path, destination: Path):
-        """Copy dir from source to destination.
-
-        The shutil copytree method could be used but it will not overwrite
-        directories (option added in Python 3.8, while we support Python 3.6).
-
-        This method iterates through all entries in source directory and copies
-        them over to the destination directory (overwriting them if they
-        already exist).
-        """
-        for source_entry in source.rglob("*"):
-            relative_source_path = source_entry.relative_to(source)
-            destination_entry = destination / relative_source_path
-            if source_entry.is_dir():
-                destination_entry.mkdir(exist_ok=True, parents=True)
-            elif source_entry.is_file() or source_entry.is_symlink():
-                destination_entry.parent.mkdir(exist_ok=True, parents=True)
-                shutil.copy(source_entry, destination_entry)
-
     def prepare_runtime(self):
         """Prepare runtime directory."""
         import resolwe.flow.executors as executor_package
@@ -115,7 +114,7 @@ class Command(BaseCommand):
         ), "Unable to determine the 'resolwe.flow.executors' source directory."
         exec_dir = Path(source_file).parent
         dest_dir = self.runtime_dir / "executors"
-        self.copy_dir(exec_dir, dest_dir)
+        copy_dir(exec_dir, dest_dir)
 
         source_file = inspect.getsourcefile(connectors_package)
         assert (
@@ -123,17 +122,7 @@ class Command(BaseCommand):
         ), "Unable to determine the 'resolwe.storage.connectors' source directory."
         exec_dir = Path(source_file).parent
         dest_dir = dest_dir / "connectors"
-        self.copy_dir(exec_dir, dest_dir)
-
-        for runtime_class_name in settings.FLOW_PROCESSES_RUNTIMES:
-            module_name, class_name = runtime_class_name.rsplit(".", 1)
-            runtime_module = import_module(module_name)
-            source_file = Path(inspect.getsourcefile(runtime_module))
-            source_dir = source_file.parent
-
-            dest_dir = Path(storage_settings.FLOW_VOLUMES["runtime"]["config"]["path"])
-            dest_dir = dest_dir.joinpath("python_runtime", *module_name.split(".")[:-1])
-            self.copy_dir(source_dir, dest_dir)
+        copy_dir(exec_dir, dest_dir)
 
     def set_options(self, **options):
         """Set instance variables based on an options dict."""
