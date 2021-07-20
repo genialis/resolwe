@@ -6,6 +6,15 @@ on:
       - master
     tags:
       - "[0-9]+.[0-9]+.[0-9]+*"
+  workflow_dispatch:
+    inputs:
+      simulate:
+        description: 'Simulate (no push)'
+        required: true
+        default: true
+      tag:
+        description: 'Version tag'
+        required: false
 
 env:
   AWS_REGISTRY: public.ecr.aws/genialis
@@ -13,6 +22,8 @@ env:
 
 jobs:
   build:
+    env:
+      VERSION:
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
@@ -49,6 +60,7 @@ jobs:
         uses: docker/setup-buildx-action@v1
 
       - name: Login to Public ECR
+        if: ${{ always() && github.events.inputs.simulate == 'false' || github.event_name == 'push' }}
         uses: docker/login-action@v1
         with:
           registry: public.ecr.aws
@@ -60,6 +72,10 @@ jobs:
         id: get_tag
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
 
+      - name: Get fake image tag
+        if: ${{ always() && github.events.inputs.tag != '' }}
+        run: echo "VERSION=github.events.inputs.tag" >> $GITHUB_ENV
+
       - name: Build and push untagged image ${{ matrix.image }}
         if: ${{ always() && env.VERSION == '' && github.ref == 'refs/heads/master' }}
         uses: docker/build-push-action@v2
@@ -67,7 +83,7 @@ jobs:
           context: ${{ matrix.context }}
           file: ${{ matrix.file }}
           tags: ${{ env.AWS_REGISTRY }}/${{ matrix.repository }}:${{ matrix.devel-tag }}
-          push: true
+          push: ${{ github.events.inputs.simulate == 'false' || github.event_name == 'push' }}
 
       - name: Build and push tagged image ${{ matrix.image }} for pre-release
         if: ${{ always() && env.VERSION == '' }}
@@ -76,7 +92,7 @@ jobs:
           context: ${{ matrix.context }}
           file: ${{ matrix.file }}
           tags: ${{ env.AWS_REGISTRY }}/${{ matrix.repository }}:${{ env.VERSION }}${{ matrix.stable-suffix }}
-          push: true
+          push: ${{ github.events.inputs.simulate == 'false' || github.event_name == 'push' }}
 
       - name: Build and push tagged image ${{ matrix.image }} for release
         if: ${{ always() && env.VERSION == '' && !contains(env.VERSION, 'a') }} # is tagged, but not with an alpha version
@@ -85,4 +101,4 @@ jobs:
           context: ${{ matrix.context }}
           file: ${{ matrix.file }}
           tags: ${{ env.AWS_REGISTRY }}/${{ matrix.repository }}:${{ matrix.stable-tag }}
-          push: true
+          push: ${{ github.events.inputs.simulate == 'false' || github.event_name == 'push' }}
