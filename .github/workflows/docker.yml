@@ -30,7 +30,7 @@ jobs:
             context: resolwe/toolkit/docker_images/base/
             file: resolwe/toolkit/docker_images/base/Dockerfile.ubuntu-20.04
             repository: resolwe/base
-            devel-tag: ubuntu-20.04dev
+            devel-tag: latest
             stable-tag: ubuntu-20.04
             stable-suffix: ""
           - image: communication
@@ -61,10 +61,8 @@ jobs:
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.file }}
-          tags: |
-            ${{ env.AWS_REGISTRY }}/${{ matrix.repository }}:${{ matrix.devel-tag }}
-            ${{ env.AWS_REGISTRY }}/${{ matrix.repository }}:latest
           push: true
+          tags: ${{ env.AWS_REGISTRY }}/${{ matrix.repository }}:${{ matrix.devel-tag }}
 
       - name: Get the docker image tag
         if: "startsWith(github.ref, 'refs/tags')"
