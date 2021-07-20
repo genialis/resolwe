@@ -7,6 +7,15 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
 ===================
+28.3.0 - 2021-07-20
+===================
+
+Fixed
+-----
+- Prepare release 28.3.0 due to preexisting 28.3.0a1 pre-release
+
+
+===================
 28.2.1 - 2021-07-13
 ===================
 
