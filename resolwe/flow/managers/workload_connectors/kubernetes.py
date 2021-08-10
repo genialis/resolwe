@@ -760,7 +760,7 @@ class Connector(BaseConnector):
         """
         return "{}-{}".format(prefix, data_id)
 
-    def submit(self, data: Data, runtime_dir: str, argv: Any):
+    def submit(self, data: Data, argv):
         """Run process.
 
         For details, see

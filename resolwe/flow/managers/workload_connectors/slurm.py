@@ -12,6 +12,8 @@ import subprocess
 
 from django.conf import settings
 
+from resolwe.flow.models import Data
+from resolwe.storage import settings as storage_settings
 from resolwe.utils import BraceMessage as __
 
 from .base import BaseConnector
@@ -26,7 +28,7 @@ EXECUTOR_MEMORY_OVERHEAD = 200
 class Connector(BaseConnector):
     """Slurm-based connector for job execution."""
 
-    def submit(self, data, runtime_dir, argv):
+    def submit(self, data: Data, argv):
         """Run process with SLURM.
 
         For details, see
@@ -49,6 +51,7 @@ class Connector(BaseConnector):
 
         try:
             # Make sure the resulting file is executable on creation.
+            runtime_dir = storage_settings.FLOW_VOLUMES["runtime"]["config"]["path"]
             script_path = os.path.join(runtime_dir, "slurm-{}.sh".format(data.pk))
             file_descriptor = os.open(script_path, os.O_WRONLY | os.O_CREAT, mode=0o555)
             with os.fdopen(file_descriptor, "wt") as script:

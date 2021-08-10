@@ -10,8 +10,9 @@ import sys
 
 from django.conf import settings
 
-from resolwe.flow.models import Process
+from resolwe.flow.models import Data, Process
 from resolwe.flow.tasks import celery_run
+from resolwe.storage import settings as storage_settings
 from resolwe.utils import BraceMessage as __
 
 from .base import BaseConnector
@@ -34,7 +35,7 @@ if "sphinx" not in sys.modules:
 class Connector(BaseConnector):
     """Celery-based connector for job execution."""
 
-    def submit(self, data, runtime_dir, argv):
+    def submit(self, data: Data, argv):
         """Run process.
 
         For details, see
@@ -54,6 +55,7 @@ class Connector(BaseConnector):
                 getattr(settings, "CELERY_ALWAYS_EAGER", None),
             )
         )
+        runtime_dir = storage_settings.FLOW_VOLUMES["runtime"]["config"]["path"]
         celery_run.apply_async((data.id, runtime_dir, argv), queue=queue)
 
     def cleanup(self, data_id: int):

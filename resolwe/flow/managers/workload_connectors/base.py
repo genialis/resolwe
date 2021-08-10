@@ -7,6 +7,9 @@ Base Class
 """
 
 
+from resolwe.flow.models import Data
+
+
 class BaseConnector:
     """The abstract base class for workload manager connectors.
 
@@ -18,19 +21,18 @@ class BaseConnector:
     all done by the manager.
     """
 
-    def submit(self, data, runtime_dir, argv):
+    def submit(self, data: Data, argv):
         """Submit the job to the workload management system.
 
         :param data: The :class:`~resolwe.flow.models.Data` object that
             is to be run.
-        :param runtime_dir: The directory the executor is run from.
         :param argv: The argument vector used to spawn the executor.
         """
         raise NotImplementedError(
             "Subclasses of BaseConnector must implement a submit() method."
         )
 
-    def cleanup(self, data_id):
+    def cleanup(self, data_id: int):
         """Perform final cleanup after data object is finished processing."""
         raise NotImplementedError(
             "Subclasses of BaseConnector must implement a cleanup() method."
