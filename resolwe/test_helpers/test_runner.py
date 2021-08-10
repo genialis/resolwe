@@ -8,14 +8,12 @@ Resolwe Test Runner
 import asyncio
 import contextlib
 import errno
-import inspect
 import logging
 import os
 import re
 import shutil
 import subprocess
 import sys
-from importlib import import_module
 from pathlib import Path
 from unittest.mock import patch
 
@@ -35,6 +33,7 @@ from django.utils.crypto import get_random_string
 # negating anything we do here with Django's override_settings.
 import resolwe.test.testcases.setting_overrides as resolwe_settings
 from resolwe.flow.finders import get_finders
+from resolwe.flow.management.commands.prepare_runtime import Command as PrepareRuntime
 from resolwe.flow.managers import listener, manager, state
 from resolwe.storage.connectors import connectors
 from resolwe.test.utils import generate_process_tag
@@ -403,42 +402,17 @@ class ResolweRunner(DiscoverRunner):
         keep_data_override = override_settings(FLOW_MANAGER_KEEP_DATA=self.keep_data)
         keep_data_override.__enter__()
 
-        # Prepare the runtime environment. It should contain a copy of the
-        # executors runtime and connectors runtime inside it. The runtime
-        # can be read-only and can be prepared only once per the entire test
-        # suite.
-        import resolwe.flow.executors as executor_package
-        import resolwe.storage.connectors as connectors_package
-
-        source_file = inspect.getsourcefile(executor_package)
-        assert (
-            source_file is not None
-        ), "Unable to determine the 'resolwe.flow.executors' source directory."
-        exec_dir = Path(source_file).parent
-        dest_dir = (
-            Path(resolwe_settings.FLOW_VOLUMES["runtime"]["config"]["path"])
-            / "executors"
-        )
-        shutil.rmtree(dest_dir, ignore_errors=True)
-        shutil.copytree(exec_dir, dest_dir)
-
-        source_file = inspect.getsourcefile(connectors_package)
-        assert (
-            source_file is not None
-        ), "Unable to determine the 'resolwe.storage.connectors' source directory."
-        exec_dir = Path(source_file).parent
-        dest_dir = dest_dir / "connectors"
-        shutil.copytree(exec_dir, dest_dir)
-
-        for runtime_class_name in settings.FLOW_PROCESSES_RUNTIMES:
-            module_name, class_name = runtime_class_name.rsplit(".", 1)
-            runtime_module = import_module(module_name)
-            source_file = Path(inspect.getsourcefile(runtime_module))
-            source_dir = source_file.parent
-            dest_dir = Path(resolwe_settings.FLOW_VOLUMES["runtime"]["config"]["path"])
-            dest_dir = dest_dir.joinpath("python_runtime", *module_name.split(".")[:-1])
-            shutil.rmtree(dest_dir, ignore_errors=True)
-            shutil.copytree(source_dir, dest_dir)
+        # Remove old and prepare new runtime environment.
+        # Remove everything except possibly README.rst file in the runtime directory.
+        runtime_dir = Path(resolwe_settings.FLOW_VOLUMES["runtime"]["config"]["path"])
+        for entry in runtime_dir.glob("*"):
+            if entry.name != "README.rst":
+                if entry.is_dir():
+                    shutil.rmtree(entry, ignore_errors=True)
+                else:
+                    entry.unlink()
+        # Recreate runtime environment.
+        PrepareRuntime().prepare_runtime()
 
         if self.parallel > 1:
             return super().run_suite(suite, **kwargs)

@@ -5,8 +5,8 @@ Prepare runtime directory
 =========================
 
 """
-import inspect
 import shutil
+from importlib.util import find_spec
 from pathlib import Path
 
 from django.core.management.base import BaseCommand, CommandError
@@ -32,6 +32,17 @@ def copy_dir(source: Path, destination: Path):
         elif source_entry.is_file() or source_entry.is_symlink():
             destination_entry.parent.mkdir(exist_ok=True, parents=True)
             shutil.copy(source_entry, destination_entry)
+
+
+def get_source_path(module_name: str) -> Path:
+    """Get the source code for the given module.
+
+    :raises RuntimeError: when no source code can be found.
+    """
+    spec = find_spec(module_name)
+    if spec is None or spec.origin is None:
+        raise RuntimeError(f"Source code for module {module_name} could not be found.")
+    return Path(spec.origin)
 
 
 class Command(BaseCommand):
@@ -105,24 +116,25 @@ class Command(BaseCommand):
 
     def prepare_runtime(self):
         """Prepare runtime directory."""
-        import resolwe.flow.executors as executor_package
-        import resolwe.storage.connectors as connectors_package
+        modules_destination = {
+            "resolwe.flow.executors": Path("executors"),
+            "resolwe.storage.connectors": Path("executors/connectors"),
+        }
 
-        source_file = inspect.getsourcefile(executor_package)
-        assert (
-            source_file is not None
-        ), "Unable to determine the 'resolwe.flow.executors' source directory."
-        exec_dir = Path(source_file).parent
-        dest_dir = self.runtime_dir / "executors"
-        copy_dir(exec_dir, dest_dir)
+        for module_name, relative_destination in modules_destination.items():
+            copy_dir(
+                get_source_path(module_name).parent,
+                self.runtime_dir / relative_destination,
+            )
 
-        source_file = inspect.getsourcefile(connectors_package)
-        assert (
-            source_file is not None
-        ), "Unable to determine the 'resolwe.storage.connectors' source directory."
-        exec_dir = Path(source_file).parent
-        dest_dir = dest_dir / "connectors"
-        copy_dir(exec_dir, dest_dir)
+        # Copy files necessary to bootstrap python process to the executor.
+        # These files must be mounted inside container, the rest of the runtime
+        # is transfered over the protocol.
+        for file in [
+            "resolwe.process.communicator",
+            "resolwe.process.bootstrap_python_runtime",
+        ]:
+            shutil.copy(get_source_path(file), self.runtime_dir)
 
     def set_options(self, **options):
         """Set instance variables based on an options dict."""
