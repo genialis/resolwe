@@ -21,4 +21,4 @@ RUNTIME_VOLUME_NAME = "runtime"
 SECRETS_VOLUME_NAME = "secrets"
 SOCKETS_VOLUME_NAME = "sockets"
 
-BOOSTRAP_PYTHON_RUNTIME = "bootstrap_python_runtime.py"
+BOOTSTRAP_PYTHON_RUNTIME = "bootstrap_python_runtime.py"

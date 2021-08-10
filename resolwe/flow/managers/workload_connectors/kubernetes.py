@@ -402,7 +402,7 @@ class Connector(BaseConnector):
             },
             {
                 "name": "files-volume",
-                "mountPath": f"/{constants.BOOSTRAP_PYTHON_RUNTIME}",
+                "mountPath": f"/{constants.BOOTSTRAP_PYTHON_RUNTIME}",
                 "subPath": "bootstrap-python-runtime",
             },
             {

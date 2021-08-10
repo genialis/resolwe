@@ -2,7 +2,7 @@
 from pathlib import Path
 
 from resolwe.flow.execution_engines.base import BaseExecutionEngine
-from resolwe.flow.executors.constants import BOOSTRAP_PYTHON_RUNTIME
+from resolwe.flow.executors.constants import BOOTSTRAP_PYTHON_RUNTIME
 from resolwe.process.parser import SafeParser
 
 
@@ -26,5 +26,5 @@ class ExecutionEngine(BaseExecutionEngine):
 
     def evaluate(self, data):
         """Evaluate the code needed to compute a given Data object."""
-        bootstrap_filename = Path("/") / BOOSTRAP_PYTHON_RUNTIME
+        bootstrap_filename = Path("/") / BOOTSTRAP_PYTHON_RUNTIME
         return f"python3 {bootstrap_filename}"
