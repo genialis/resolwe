@@ -17,5 +17,7 @@ submission, they can be simple and nearly contextless.
     :members:
 .. automodule:: resolwe.flow.managers.workload_connectors.slurm
     :members:
+.. automodule:: resolwe.flow.managers.workload_connectors.kubernetes
+    :members:
 
 """
