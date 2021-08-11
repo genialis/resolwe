@@ -9,13 +9,13 @@ on:
 
 env:
   AWS_REGISTRY: public.ecr.aws/b7b0c6g2 # TODO: change this back
-  AWS_REGION: us-east-1 #
+  AWS_REGION: us-east-1
 
 jobs:
   build:
     env:
       VERSION:
-      IS_STABLE:
+      IS_STABLE: false
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
