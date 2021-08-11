@@ -6,24 +6,16 @@ on:
       - master
     tags:
       - "[0-9]+.[0-9]+.[0-9]+*"
-  workflow_dispatch:
-    inputs:
-      simulate:
-        description: 'Simulate (no push)'
-        required: true
-        default: true
-      tag:
-        description: 'Version tag'
-        required: false
 
 env:
-  AWS_REGISTRY: public.ecr.aws/genialis
+  AWS_REGISTRY: public.ecr.aws/b7b0c6g2 #TODO: change this back later
   AWS_REGION: us-east-1
 
 jobs:
   build:
     env:
       VERSION:
+      IS_STABLE: false
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
@@ -36,21 +28,21 @@ jobs:
             repository: resolwe/base
             devel-tag: fedora-33dev
             stable-tag: fedora-33
-            stable-suffix: "f"
+            staging-suffix: "f"
           - image: ubuntu-20.04
             context: resolwe/toolkit/docker_images/base/
             file: resolwe/toolkit/docker_images/base/Dockerfile.ubuntu-20.04
             repository: resolwe/base
             devel-tag: latest
-            stable-tag: ubuntu-20.04
-            stable-suffix: ""
+            stable-tag: latest
+            staging-suffix: ""
           - image: communication
             context: resolwe/
             file: resolwe/flow/docker_images/Dockerfile.communication
             repository: resolwe/com
             devel-tag: latest
             stable-tag: stable
-            stable-suffix: ""
+            staging-suffix: ""
 
     steps:
       - uses: actions/checkout@v2
@@ -60,7 +52,6 @@ jobs:
         uses: docker/setup-buildx-action@v1
 
       - name: Login to Public ECR
-        if: ${{ always() && github.events.inputs.simulate == 'false' || github.event_name == 'push' }}
         uses: docker/login-action@v1
         with:
           registry: public.ecr.aws
@@ -68,37 +59,41 @@ jobs:
           password: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
       - name: Get the docker image tag
-        if: ${{ always() && startsWith(github.ref, 'refs/tags') }}
+        if: ${{ startsWith(github.ref, 'refs/tags') }}
         id: get_tag
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+        run: |
+          echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+          if [[ ${{ github.event.ref }} =~ ^refs/tags/[0-9]+\.[0-9]+\.[0-9]+$ ]];
+          then
+            echo "IS_STABLE=true" >> $GITHUB_ENV
+          fi
 
-      - name: Get fake image tag
-        if: ${{ always() && github.events.inputs.tag != '' }}
-        run: echo "VERSION=github.events.inputs.tag" >> $GITHUB_ENV
-
+        # Devel (all master commits)
       - name: Build and push untagged image ${{ matrix.image }}
-        if: ${{ always() && env.VERSION == '' && github.ref == 'refs/heads/master' }}
+        if: ${{ env.VERSION == '' && github.ref == 'refs/heads/master' }}
         uses: docker/build-push-action@v2
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.file }}
           tags: ${{ env.AWS_REGISTRY }}/${{ matrix.repository }}:${{ matrix.devel-tag }}
-          push: ${{ github.events.inputs.simulate == 'false' || github.event_name == 'push' }}
+          push: true
 
+        # Staging (all tagged commits)
       - name: Build and push tagged image ${{ matrix.image }} for pre-release
-        if: ${{ always() && env.VERSION == '' }}
+        if: ${{ env.VERSION != '' }}
         uses: docker/build-push-action@v2
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.file }}
-          tags: ${{ env.AWS_REGISTRY }}/${{ matrix.repository }}:${{ env.VERSION }}${{ matrix.stable-suffix }}
-          push: ${{ github.events.inputs.simulate == 'false' || github.event_name == 'push' }}
+          tags: ${{ env.AWS_REGISTRY }}/${{ matrix.repository }}:${{ env.VERSION }}${{ matrix.staging-suffix }}
+          push: true
 
+        # Stable (all commits tagged with a stable version tag)
       - name: Build and push tagged image ${{ matrix.image }} for release
-        if: ${{ always() && env.VERSION == '' && !contains(env.VERSION, 'a') }} # is tagged, but not with an alpha version
+        if: ${{ env.IS_STABLE == true }}
         uses: docker/build-push-action@v2
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.file }}
           tags: ${{ env.AWS_REGISTRY }}/${{ matrix.repository }}:${{ matrix.stable-tag }}
-          push: ${{ github.events.inputs.simulate == 'false' || github.event_name == 'push' }}
+          push: true
