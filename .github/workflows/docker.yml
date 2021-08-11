@@ -8,7 +8,7 @@ on:
       - "[0-9]+.[0-9]+.[0-9]+*"
 
 env:
-  AWS_REGISTRY: public.ecr.aws/b7b0c6g2
+  AWS_REGISTRY: public.ecr.aws/b7b0c6g2 # TODO: change this back
   AWS_REGION: us-east-1
 
 jobs:
@@ -70,7 +70,7 @@ jobs:
 
         # Devel (all master commits)
       - name: Build and push untagged image ${{ matrix.image }}
-        if: ${{ env.VERSION == '' && github.ref == 'refs/heads/master' }}
+        if: ${{ github.ref == 'refs/heads/workflow-update-local' }} # TODO: change this back
         uses: docker/build-push-action@v2
         with:
           context: ${{ matrix.context }}
