@@ -6,6 +6,7 @@ Celery Connector
 
 """
 import logging
+import os
 import sys
 
 from django.conf import settings
@@ -56,7 +57,7 @@ class Connector(BaseConnector):
             )
         )
         runtime_dir = storage_settings.FLOW_VOLUMES["runtime"]["config"]["path"]
-        celery_run.apply_async((data.id, runtime_dir, argv), queue=queue)
+        celery_run.apply_async((data.id, os.fspath(runtime_dir), argv), queue=queue)
 
     def cleanup(self, data_id: int):
         """Cleanup."""
