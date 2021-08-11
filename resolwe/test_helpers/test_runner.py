@@ -412,7 +412,7 @@ class ResolweRunner(DiscoverRunner):
                 else:
                     entry.unlink()
         # Recreate runtime environment.
-        PrepareRuntime().prepare_runtime()
+        PrepareRuntime().prepare_runtime(runtime_dir)
 
         if self.parallel > 1:
             return super().run_suite(suite, **kwargs)

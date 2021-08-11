@@ -114,7 +114,7 @@ class Command(BaseCommand):
             elif entry.is_dir():
                 shutil.rmtree(entry)
 
-    def prepare_runtime(self):
+    def prepare_runtime(self, runtime_dir):
         """Prepare runtime directory."""
         modules_destination = {
             "resolwe.flow.executors": Path("executors"),
@@ -124,7 +124,7 @@ class Command(BaseCommand):
         for module_name, relative_destination in modules_destination.items():
             copy_dir(
                 get_source_path(module_name).parent,
-                self.runtime_dir / relative_destination,
+                runtime_dir / relative_destination,
             )
 
         # Copy files necessary to bootstrap python process to the executor.
@@ -134,7 +134,7 @@ class Command(BaseCommand):
             "resolwe.process.communicator",
             "resolwe.process.bootstrap_python_runtime",
         ]:
-            shutil.copy(get_source_path(file), self.runtime_dir)
+            shutil.copy(get_source_path(file), runtime_dir)
 
     def set_options(self, **options):
         """Set instance variables based on an options dict."""
@@ -152,4 +152,4 @@ class Command(BaseCommand):
         if self.clear and previous_data:
             self.clear_runtime()
 
-        self.prepare_runtime()
+        self.prepare_runtime(self.runtime_dir)
