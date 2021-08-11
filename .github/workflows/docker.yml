@@ -9,7 +9,7 @@ on:
 
 env:
   AWS_REGISTRY: public.ecr.aws/b7b0c6g2 # TODO: change this back
-  AWS_REGION: us-east-1
+  AWS_REGION: us-east-1 #
 
 jobs:
   build:
