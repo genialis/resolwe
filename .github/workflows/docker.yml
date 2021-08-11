@@ -90,7 +90,7 @@ jobs:
 
         # Stable (all commits tagged with a stable version tag)
       - name: Build and push tagged image ${{ matrix.image }} for release
-        if: ${{ env.IS_STABLE == true }}
+        if: ${{ env.IS_STABLE == 'true' }}
         uses: docker/build-push-action@v2
         with:
           context: ${{ matrix.context }}
