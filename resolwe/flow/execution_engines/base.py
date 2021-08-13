@@ -25,13 +25,3 @@ class BaseExecutionEngine(BaseEngine):
         schemas.
         """
         return []
-
-    def prepare_volumes(self):
-        """Prepare additional volumes.
-
-        This method should return a dictionary of volume maps, where
-        keys are files or directories relative the the runtime directory
-        and values are paths under which these should be made available
-        to the executing program. All volumes will be read-only.
-        """
-        return {}

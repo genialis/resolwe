@@ -285,13 +285,6 @@ class FlowExecutor(LocalFlowExecutor):
             ({"path": Path(tool)}, Path("/usr/local/bin/resolwe") / str(index), True)
             for index, tool in enumerate(self.get_tools_paths())
         ]
-
-        # Create mount_points for runtime (all read-only).
-        mount_points += [
-            ({"path": self.runtime_dir / src}, dst, True)
-            for src, dst in SETTINGS.get("RUNTIME_VOLUME_MAPS", {}).items()
-        ]
-
         return dict([self._new_volume(*mount_point) for mount_point in mount_points])
 
     async def start(self):

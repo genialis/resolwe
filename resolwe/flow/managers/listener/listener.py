@@ -623,10 +623,6 @@ class ListenerProtocol(BaseProtocol):
         self.bootstrap_prepare_process_cache(data)
 
         if settings_name == "executor":
-            execution_engine_name = data.process.run.get("language", None)
-            execution_engine = self._get_execution_engine(execution_engine_name)
-            volume_maps = execution_engine.prepare_volumes()
-
             response[ExecutorFiles.EXECUTOR_SETTINGS] = {
                 "DATA_DIR": data.location.get_path()
             }
@@ -634,7 +630,6 @@ class ListenerProtocol(BaseProtocol):
             response[ExecutorFiles.DJANGO_SETTINGS] = self._bootstrap_cache[
                 "settings"
             ].copy()
-            response[ExecutorFiles.DJANGO_SETTINGS]["RUNTIME_VOLUME_MAPS"] = volume_maps
             response[ExecutorFiles.PROCESS_META] = self._bootstrap_cache["process_meta"]
             response[ExecutorFiles.PROCESS] = self._bootstrap_cache["process"][
                 data.process.id

@@ -427,25 +427,6 @@ class Connector(BaseConnector):
                     "mountPath": f"/usr/local/bin/resolwe/{tool_index}",
                 }
             )
-
-        from resolwe.flow.managers import manager
-
-        execution_engine = manager.get_execution_engine(execution_engine_name)
-        runtime_volumes = execution_engine.prepare_volumes()
-        subpath = storage_settings.FLOW_VOLUMES["runtime"]["config"].get("subpath", "")
-        if subpath:
-            runtime_volumes = {
-                f"{subpath}/{src}": dst for src, dst in runtime_volumes.items()
-            }
-
-        mount_points += [
-            {
-                "name": "runtime",
-                "mountPath": dst,
-                "subPath": src,
-            }
-            for src, dst in runtime_volumes.items()
-        ]
         return mount_points
 
     def _persistent_ebs_claim(
