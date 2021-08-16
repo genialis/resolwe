@@ -7,6 +7,16 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
 ===================
+28.4.0 - 2021-08-16
+===================
+
+Changed
+-------
+- Remove dependency on EFS/NFS when running on Kubernetes
+- When running on Kubernetes the runtime volume configuration can be omitted
+
+
+===================
 28.3.0 - 2021-07-20
 ===================
 
