@@ -14,8 +14,7 @@ env:
 jobs:
   build:
     env:
-      VERSION:
-      IS_STABLE: false
+      TAGS:
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
@@ -61,45 +60,40 @@ jobs:
           username: ${{ secrets.AWS_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
-      - name: Get the docker image tag
-        if: ${{ startsWith(github.ref, 'refs/tags') }}
-        id: get_tag
+      - name: Generate tags
         run: |
-          echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-          if [[ ${{ github.event.ref }} =~ ^refs/tags/[0-9]+\.[0-9]+\.[0-9]+$ ]];
+          tags=""
+
+          # Devel (all commits to master)
+          if [[ ${{ github.ref == 'refs/heads/master' }} ]];
           then
-            echo "IS_STABLE=true" >> $GITHUB_ENV
+            tags += ${{ env.AWS_REGISTRY }}/${{ matrix.repository }}:${{ matrix.devel-tag }}
+            tags += "\n"
           fi
 
-        # Devel (all master commits)
-      - name: Build and push untagged image ${{ matrix.image }}
-        if: ${{ github.ref == 'refs/heads/master' }}
-        uses: docker/build-push-action@v2
-        with:
-          context: ${{ matrix.context }}
-          file: ${{ matrix.file }}
-          tags: ${{ env.AWS_REGISTRY }}/${{ matrix.repository }}:${{ matrix.devel-tag }}
-          push: true
+          # Staging (all tagged commits)
+          if [[ ${{ startsWith(github.ref, 'refs/tags') }} ]];
+          then
+            version = ${GITHUB_REF#refs/tags/}
+            tags += ${{ env.AWS_REGISTRY }}/${{ matrix.repository }}:$version${{ matrix.version-suffix }}
+            tags += "\n"
+            tags += ${{ env.AWS_REGISTRY }}/${{ matrix.repository }}:${{ matrix.staging-tag }}
+            tags += "\n"
+          fi
 
-        # Staging (all tagged commits)
-      - name: Build and push tagged image ${{ matrix.image }} for pre-release
-        if: ${{ env.VERSION != '' }}
-        uses: docker/build-push-action@v2
-        with:
-          context: ${{ matrix.context }}
-          file: ${{ matrix.file }}
-          tags: |
-            ${{ env.AWS_REGISTRY }}/${{ matrix.repository }}:${{ env.VERSION }}${{ matrix.version-suffix }}
-            ${{ env.AWS_REGISTRY }}/${{ matrix.repository }}:${{ matrix.staging-tag }}
-          push: true
+          # Stable (all commits tagged with a stable version tag)
+          if [[ ${{ github.event.ref }} =~ ^refs/tags/[0-9]+\.[0-9]+\.[0-9]+$ ]];
+          then
+            tags += ${{ env.AWS_REGISTRY }}/${{ matrix.repository }}:${{ matrix.stable-tag }}
+            tags += "\n"
+          fi
 
-        # Stable (all commits tagged with a stable version tag)
-      - name: Build and push tagged image ${{ matrix.image }} for release
-        if: ${{ env.IS_STABLE == 'true' }}
+          echo "TAGS=$tags" >> $GITHUB_ENV
+
+      - name: Build and push tagged image ${{ matrix.image }}
         uses: docker/build-push-action@v2
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.file }}
-          # the version tag and staging tag will also be appended, because they were set in the previous step
-          tags: ${{ env.AWS_REGISTRY }}/${{ matrix.repository }}:${{ matrix.stable-tag }}
+          tags: ${{ env.TAGS }}
           push: true
