@@ -62,7 +62,7 @@ jobs:
 
       - name: Generate tags
         run: |
-          tags=""
+          export tags=""
 
           # Devel (all commits to master)
           if [[ ${{ github.ref == 'refs/heads/master' }} ]];
