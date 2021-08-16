@@ -27,22 +27,25 @@ jobs:
             file: resolwe/toolkit/docker_images/base/Dockerfile.fedora-33
             repository: resolwe/base
             devel-tag: fedora-33dev
+            staging-tag: fedora-33staging
             stable-tag: fedora-33
-            staging-suffix: "f"
+            version-suffix: "f"
           - image: ubuntu-20.04
             context: resolwe/toolkit/docker_images/base/
             file: resolwe/toolkit/docker_images/base/Dockerfile.ubuntu-20.04
             repository: resolwe/base
             devel-tag: latest
-            stable-tag: latest
-            staging-suffix: ""
+            staging-tag: staging
+            stable-tag: stable
+            version-suffix: ""
           - image: communication
             context: resolwe/
             file: resolwe/flow/docker_images/Dockerfile.communication
             repository: resolwe/com
             devel-tag: latest
+            staging-tag: staging
             stable-tag: stable
-            staging-suffix: ""
+            version-suffix: ""
 
     steps:
       - uses: actions/checkout@v2
@@ -85,7 +88,9 @@ jobs:
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.file }}
-          tags: ${{ env.AWS_REGISTRY }}/${{ matrix.repository }}:${{ env.VERSION }}${{ matrix.staging-suffix }}
+          tags: |
+            ${{ env.AWS_REGISTRY }}/${{ matrix.repository }}:${{ env.VERSION }}${{ matrix.version-suffix }}
+            ${{ env.AWS_REGISTRY }}/${{ matrix.repository }}:${{ matrix.staging-tag }}
           push: true
 
         # Stable (all commits tagged with a stable version tag)
@@ -95,5 +100,6 @@ jobs:
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.file }}
+          # the version tag and staging tag will also be appended, because they were set in the previous step
           tags: ${{ env.AWS_REGISTRY }}/${{ matrix.repository }}:${{ matrix.stable-tag }}
           push: true
