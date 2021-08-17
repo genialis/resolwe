@@ -1,0 +1,47 @@
+# Data with id 1 stored for entire January 2020 at cost with id 1.
+- model: billing.storagetypehistory
+  pk: 1
+  fields:
+    data_history: 1
+    storage_type: "s3_standard"
+    interval: '{"bounds": "[)", "lower": "2020-01-01T00:00:00+00:00", "upper": "2020-02-01T00:00:00+00:00"}'
+
+# Data with id 1 stored for half February 2020 at cost with id 2.
+- model: billing.storagetypehistory
+  pk: 2
+  fields:
+    data_history: 2
+    storage_type: "s3_standard"
+    interval: '{"bounds": "[)", "lower": "2020-02-01T00:00:00+00:00", "upper": "2020-02-15T00:00:00+00:00"}'
+
+# Data with id 1 stored for first half of March 2020 at cost with id 3.
+- model: billing.storagetypehistory
+  pk: 3
+  fields:
+    data_history: 2
+    storage_type: "s3_standard"
+    interval: '{"bounds": "[)", "lower": "2020-03-01T00:00:00+00:00", "upper": "2020-03-16T00:00:00+00:00"}'
+
+# Data with id 1 stored for second half of March 2020 at cost with id 4.
+- model: billing.storagetypehistory
+  pk: 4
+  fields:
+    data_history: 2
+    storage_type: "s3_standard"
+    interval: '{"bounds": "[)", "lower": "2020-03-16T00:00:00+00:00", "upper": "2020-04-01T00:00:00+00:00"}'
+
+# Data with id 1, April.
+- model: billing.storagetypehistory
+  pk: 5
+  fields:
+    data_history: 2
+    storage_type: "s3_standard"
+    interval: '{"bounds": "[)", "lower": "2020-04-16T00:00:00+00:00", "upper": "2020-04-25T00:00:00+00:00"}'
+
+# Data with id 1, April.
+- model: billing.storagetypehistory
+  pk: 6
+  fields:
+    data_history: 1
+    storage_type: "s3_higher"
+    interval: '{"bounds": "[)", "lower": "2020-04-20T00:00:00+00:00", "upper": "2020-04-23T00:00:00+00:00"}'

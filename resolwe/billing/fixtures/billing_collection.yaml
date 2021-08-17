@@ -1,0 +1,27 @@
+- model: flow.collection
+  pk: 1
+  fields:
+    contributor: 1
+    created: 2015-01-01T09:00:00.000+0000
+    description: ''
+    modified: 2015-01-01T09:00:00.000+0000
+    name: Collection 1
+    slug: collection1
+    version: 0.0.0
+
+- model: flow.collection
+  pk: 2
+  fields:
+    contributor: 1
+    created: 2015-01-01T09:00:00.000+0000
+    description: ''
+    modified: 2015-01-01T09:00:00.000+0000
+    name: Collection 2
+    slug: collection2
+    version: 0.0.0
+
+- model: billing.billingcollection
+  pk: 1
+  fields:
+    collection: 1
+    billing_account: 1

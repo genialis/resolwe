@@ -1,0 +1,49 @@
+- model: flow.data
+  pk: 1
+  fields:
+    name: data1
+    slug: data1
+    version: 0.0.0
+    created: "2020-01-01 00:00:00.000000+00:00"
+    modified: "2020-01-01 00:00:00.000000+00:00"
+    collection: 1
+    contributor: 1
+    started: "2020-01-01 00:00:00.000000+00:00"
+    finished: "2020-01-01 10:00:00.000000+00:00"
+    checksum: 05bc76611c382a88817389019679f35cdb32ac65fe6662210805b588c30f71e6
+    size: 44
+    status: OK
+    process: 1
+
+- model: flow.data
+  pk: 2
+  fields:
+    name: data2
+    slug: data2
+    version: 0.0.0
+    created: "2020-01-01 00:00:00.000000+00:00"
+    modified: "2020-01-01 00:00:00.000000+00:00"
+    collection: 2
+    contributor: 1
+    started: "2020-01-01 00:00:00.000000+00:00"
+    finished: "2020-01-01 10:00:00.000000+00:00"
+    checksum: 05bc76611c382a88817389019679f35cdb32ac65fe6662210805b588c30f71e6
+    size: 100
+    status: OK
+    process: 1
+
+- model: flow.data
+  pk: 3
+  fields:
+    name: data3
+    slug: data3
+    version: 0.0.0
+    created: "2020-01-01 00:00:00.000000+00:00"
+    modified: "2020-01-01 00:00:00.000000+00:00"
+    contributor: 2
+    started: "2020-01-01 00:00:00.000000+00:00"
+    finished: "2020-01-01 10:00:00.000000+00:00"
+    checksum: 05bc76611c382a88817389019679f35cdb32ac65fe6662210805b588c30f71e6
+    size: 10
+    status: OK
+    process: 1

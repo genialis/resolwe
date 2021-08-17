@@ -1,0 +1,23 @@
+- model: billing.computecost
+  pk: 1
+  fields:
+    cpu: 8
+    memory: 32
+    valid: '{"bounds": "[)", "lower": "2020-01-01T00:00:00+00:00", "upper": "2021-01-01T00:00:00+00:00"}'
+    cost: 0.3328
+
+- model: billing.computecost
+  pk: 2
+  fields:
+    cpu: 8
+    memory: 32
+    valid: '{"bounds": "[)", "lower": "2021-01-01T00:00:00+00:00"}'
+    cost: 0.4
+
+- model: billing.computecost
+  pk: 3
+  fields:
+    cpu: 4
+    memory: 16
+    valid: '{"bounds": "[)", "lower": "2020-01-20T00:00:00+00:00"}'
+    cost: 0.2

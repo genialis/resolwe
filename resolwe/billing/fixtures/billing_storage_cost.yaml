@@ -1,0 +1,47 @@
+# Storage cost for January 2020.
+- model: billing.storagecost
+  pk: 1
+  fields:
+    cost: 0.021
+    storage_type: "s3_standard"
+    valid: '{"bounds": "[)", "lower": "2020-01-01T00:00:00+00:00", "upper": "2020-02-01T00:00:00+00:00"}'
+
+# Storage cost for February 2020.
+- model: billing.storagecost
+  pk: 2
+  fields:
+    cost: 0.01
+    storage_type: "s3_standard"
+    valid: '{"bounds": "[)", "lower": "2020-02-01T00:00:00+00:00", "upper": "2020-03-01T00:00:00+00:00"}'
+
+# Storage cost for first half or March 2020.
+- model: billing.storagecost
+  pk: 3
+  fields:
+    cost: 0.01
+    storage_type: "s3_standard"
+    valid: '{"bounds": "[)", "lower": "2020-03-01T00:00:00+00:00", "upper": "2020-03-16T00:00:00+00:00"}'
+
+  # Storage cost for second half or March 2020.
+- model: billing.storagecost
+  pk: 4
+  fields:
+    cost: 0.02
+    storage_type: "s3_standard"
+    valid: '{"bounds": "[)", "lower": "2020-03-16T00:00:00+00:00", "upper": "2020-04-01T00:00:00+00:00"}'
+
+  # Storage cost for april or March 2020.
+- model: billing.storagecost
+  pk: 5
+  fields:
+    cost: 0.02
+    storage_type: "s3_higher"
+    valid: '{"bounds": "[)", "lower": "2020-04-01T00:00:00+00:00", "upper": "2020-05-01T00:00:00+00:00"}'
+
+  # Storage cost for april or March 2020.
+- model: billing.storagecost
+  pk: 6
+  fields:
+    cost: 0.01
+    storage_type: "s3_standard"
+    valid: '{"bounds": "[)", "lower": "2020-04-01T00:00:00+00:00", "upper": "2020-05-01T00:00:00+00:00"}'

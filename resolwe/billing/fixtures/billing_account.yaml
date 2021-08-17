@@ -1,0 +1,32 @@
+- model: billing.billingaccount
+  pk: 1
+  fields:
+    user: 1
+    active: True
+    customer_name: "Billing account 1"
+
+- model: billing.billingaccount
+  pk: 2
+  fields:
+    user: 2
+    active: True
+    customer_name: "Billing account 2"
+
+- model: billing.billingaccount
+  pk: 3
+  fields:
+    user: 1
+    active: False
+    customer_name: "Billing account 3"
+
+- model: billing.defaultuserbillingaccount
+  pk: 1
+  fields:
+    user: 1
+    billing_account: 1
+
+- model: billing.defaultuserbillingaccount
+  pk: 2
+  fields:
+    user: 2
+    billing_account: 2

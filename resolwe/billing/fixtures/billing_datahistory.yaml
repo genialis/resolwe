@@ -1,0 +1,39 @@
+# Processing for five hours, data1.
+- model: billing.datahistory
+  pk: 1
+  fields:
+    data: 1
+    alive: '{"bounds": "[)", "lower": "2020-01-01T00:00:00+00:00", "upper": "2020-02-01T00:00:00+00:00"}'
+    processing: '{"bounds": "[)", "lower": "2020-01-01T00:00:00+00:00", "upper": "2020-01-01T05:00:00+00:00"}'
+    deleted: null
+    collection: 1
+    referenced_collection_id: 1
+    referenced_collection_name: Collection 1
+    referenced_collection_slug: collection1
+    cpu: 3
+    memory: 16
+    node_cpu: 8
+    node_memory: 32
+    referenced_data_id: 1
+    billing_account: 1
+    size: 44
+
+# Processing for five hours, data1.
+- model: billing.datahistory
+  pk: 2
+  fields:
+    data: 1
+    alive: '{"bounds": "[)", "lower": "2020-01-01T00:00:00+00:00", "upper": "2020-02-01T00:00:00+00:00"}'
+    processing: '{"bounds": "[)", "lower": "2020-01-01T00:00:00+00:00", "upper": "2020-01-01T05:00:00+00:00"}'
+    deleted: null
+    collection: 2
+    referenced_collection_id: 2
+    referenced_collection_name: Collection 2
+    referenced_collection_slug: collection2
+    cpu: 2
+    memory: 8
+    node_cpu: 8
+    node_memory: 32
+    referenced_data_id: 1
+    billing_account: 1
+    size: 44

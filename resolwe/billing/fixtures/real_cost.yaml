@@ -1,0 +1,13 @@
+- model: billing.actualcost
+  pk: 1
+  fields:
+    interval: '{"bounds": "[)", "lower": "2020-01-01T00:00:00+00:00", "upper": "2020-02-01T00:00:00+00:00"}'
+    cost: '5.00'
+    cost_type: storage
+
+- model: billing.actualcost
+  pk: 2
+  fields:
+    interval: '{"bounds": "[)", "lower": "2020-01-01T00:00:00+00:00", "upper": "2020-02-01T00:00:00+00:00"}'
+    cost: '2'
+    cost_type: compute

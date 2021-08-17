@@ -1,0 +1,11 @@
+- model: billing.billingcollection
+  pk: 1
+  fields:
+    collection: 1
+    billing_account: 1
+
+- model: billing.billingcollection
+  pk: 2
+  fields:
+    collection: 2
+    billing_account: 1
