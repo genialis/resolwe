@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Iterable, List, Union
 import wrapt
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from requests.exceptions import ReadTimeout
+from urllib3.exceptions import ProtocolError
 
 from .baseconnector import BaseStorageConnector
 from .circular_buffer import CircularBuffer
@@ -41,8 +42,8 @@ ERROR_TIMEOUT = 5  # In seconds.
 transfer_exceptions = tuple(
     boto_exceptions
     + gcs_exceptions
+    + [RequestsConnectionError, ReadTimeout, ConnectionResetError, ProtocolError]
     + [DataTransferError]
-    + [RequestsConnectionError, ReadTimeout]
 )
 
 
