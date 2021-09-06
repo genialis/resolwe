@@ -1,15 +1,16 @@
 #
 # Development configuration of dependent services for Docker Compose.
 #
-postgresql:
+services:
+  postgresql:
     image: postgres:10
     environment:
-        POSTGRES_USER: resolwe
-        POSTGRES_DB: resolwe
-        POSTGRES_PASSWORD: resolwe
+      POSTGRES_USER: resolwe
+      POSTGRES_DB: resolwe
+      POSTGRES_PASSWORD: resolwe
     ports:
-        - "55432:5432"
-redis:
+      - "55432:5432"
+  redis:
     image: redis:5
     ports:
-        - "56379:6379"
+      - "56379:6379"
