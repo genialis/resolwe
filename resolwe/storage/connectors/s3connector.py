@@ -44,6 +44,7 @@ class AwsS3Connector(BaseStorageConnector):
         self._client = None
         self._sts = None
         self._awss3 = None
+        self._role_arn = None
 
     def _initialize(self):
         """Initializaton."""
@@ -57,13 +58,49 @@ class AwsS3Connector(BaseStorageConnector):
                 session_kwargs["aws_secret_access_key"] = settings["SecretAccessKey"]
 
         self.session = boto3.Session(**session_kwargs)
+        self.sts = self.session.client("sts")
+
+        # Assume role if needed.
+        if "role_arn" in self.config:
+            self._role_arn = self.config["role_arn"]
+            # This has to be unique identifier and can be seen in logs.
+            self._session_name = "s3connector"
+            session_credentials = (
+                botocore.credentials.RefreshableCredentials.create_from_metadata(
+                    metadata=self._refresh_credentials_metadata(),
+                    refresh_using=self._refresh_credentials_metadata,
+                    method="sts-assume-role",
+                )
+            )
+            botocore_session = botocore.session.get_session()
+            botocore_session._credentials = session_credentials
+            if "region_name" in self.config:
+                botocore_session.set_config_variable(
+                    "region", self.config["aws_region"]
+                )
+                # Replace the session with the new one.
+                self.session = boto3.Session(botocore_session=botocore_session)
 
         self.awss3 = self.session.resource("s3")
 
         self.client = self.session.client(
             "s3", config=botocore.client.Config(signature_version="s3v4")
         )
-        self.sts = self.session.client("sts")
+
+    def _refresh_credentials_metadata(self):
+        """Prepare metadata for refreshing credentials when assuming role."""
+        params = {
+            "RoleArn": self._role_arn,
+            "RoleSessionName": self._session_name,
+            "DurationSeconds": 3600,
+        }
+        response = self.sts.assume_role(**params).get("Credentials")
+        return {
+            "access_key": response.get("AccessKeyId"),
+            "secret_key": response.get("SecretAccessKey"),
+            "token": response.get("SessionToken"),
+            "expiry_time": response.get("Expiration").isoformat(),
+        }
 
     def __getattr__(self, name):
         """Lazy initialize some attributes."""
