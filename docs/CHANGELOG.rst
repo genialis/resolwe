@@ -6,14 +6,21 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+===================
+28.5.0 - 2021-09-13
+===================
 
 Added
 -----
 - Add ``compare_models_and_csv`` management script to check if all
   ``ReferencedPath``s point to a valid file in the aws database
+- Add method ``get_latest`` to ``Process`` class in Python Processes returning
+  the latest version of the process with the given slug
+
+Changed
+-------
+- Set hashes during upload to avoid creating multiple versions of the object
+  in S3 bucket with enabled versioning
 
 
 ===================
