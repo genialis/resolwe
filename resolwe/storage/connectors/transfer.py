@@ -276,6 +276,8 @@ class Transfer:
             stream = to_connector.open_stream(to_base_url / to_url, "wb")
             from_connector.get(from_url, stream, chunk_size=chunk_size)
             stream.close()
+            to_connector.set_hashes(to_base_url / to_url, hashes)
+
         # Otherwise create out own stream and use threads to transfer data.
         else:
 
@@ -343,9 +345,6 @@ class Transfer:
                     f"{from_url} -> {to_base_url/to_url}: using hash type "
                     f"{common_hash_type}: expected {from_hash}, got {to_hash}."
                 )
-
-        # Store computed hashes as metadata for later use.
-        to_connector.set_hashes(to_base_url / to_url, hashes)
 
         for hash_type in to_connector.refresh_hash_after_transfer:
             hash = to_connector.get_hash(to_base_url / to_url, hash_type)
