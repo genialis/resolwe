@@ -95,10 +95,18 @@ async def transfer_inputs(communicator: BaseCommunicator, missing_data: dict):
 
     try:
         for connector_name in objects_to_transfer:
+            min_threads = 5
+            max_threads = 20
+            # Use from min_threads to max_threads threads. Assume each thread
+            # can handle at least 100 files in reasonable time.
+            files_count = len(objects_to_transfer[connector_name])
+            threads = max(min_threads, min(files_count // 100, max_threads))
+
             await download_to_location(
                 objects_to_transfer[connector_name],
                 connectors[connector_name],
                 inputs_connector,
+                threads,
             )
     except:
         error_message = (
@@ -119,7 +127,13 @@ async def download_to_location(
 
     :raises DataTransferError: on failure.
     """
-    logger.info(f"Transfering data {from_connector} --> {to_connector}.")
+    logger.info(
+        "Transfering %d files from '%s' to '%s' using %d threads.",
+        len(files),
+        from_connector,
+        to_connector,
+        max_threads,
+    )
     transfer = Transfer(from_connector, to_connector)
     # Start futures and evaluate their results. If exception occured it will
     # be re-raised.
