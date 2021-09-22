@@ -13,11 +13,11 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
       matrix:
         tox-env: [py36, py37, py38, py39, linters, packaging, migrations]
+        platform: [ubuntu-20.04, macos-latest]
         include:
           - tox-env: py36
             python-version: 3.6
@@ -34,6 +34,7 @@ jobs:
           - tox-env: migrations
             python-version: 3.8
 
+    runs-on: ${{ matrix.platform }}
     services:
       postgres: 
         image: postgres:alpine
