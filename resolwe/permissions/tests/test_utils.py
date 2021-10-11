@@ -1,14 +1,7 @@
 # pylint: disable=missing-docstring
-from guardian.models import GroupObjectPermission, UserObjectPermission
-from guardian.shortcuts import assign_perm
 
 from resolwe.flow.models import Collection, DescriptorSchema, Process
-from resolwe.permissions.utils import (
-    change_perm_ctype,
-    copy_permissions,
-    get_full_perm,
-    get_perm_action,
-)
+from resolwe.permissions.utils import copy_permissions, get_perms, set_permission
 from resolwe.test import TestCase
 
 
@@ -31,41 +24,20 @@ class UtilsTestCase(TestCase):
             contributor=self.contributor
         )
 
-    def test_get_perm_action(self):
-        self.assertEqual(get_perm_action("view_data"), "view")
-        self.assertEqual(get_perm_action("view"), "view")
-
-    def test_get_full_perm(self):
-        self.assertEqual(get_full_perm("view", self.collection), "view_collection")
-        self.assertEqual(
-            get_full_perm("view", self.descriptor_schema), "view_descriptorschema"
-        )
-
-    def test_change_perm_ctype(self):
-        self.assertEqual(
-            change_perm_ctype("view_data", self.collection), "view_collection"
-        )
-
     def test_copy_permissions(self):
-        assign_perm("view_process", self.contributor, self.src_process)
-        assign_perm("view_process", self.group, self.src_process)
+        self.src_process.set_permission("view", self.contributor)
+        self.src_process.set_permission("view", self.group)
 
         copy_permissions(self.src_process, self.dst_process)
-
-        self.assertEqual(GroupObjectPermission.objects.count(), 2)
-        self.assertEqual(UserObjectPermission.objects.count(), 2)
-
-        self.assertTrue(
-            self.contributor.has_perm("flow.view_process", self.dst_process)
-        )
+        self.assertTrue(self.contributor.has_perm("flow.view", self.dst_process))
         # User inherites permission from group
-        self.assertTrue(self.user.has_perm("flow.view_process", self.dst_process))
+        self.assertTrue(self.user.has_perm("flow.view", self.dst_process))
 
     def test_copy_different_ctype(self):
-        assign_perm("view_collection", self.contributor, self.collection)
-        assign_perm("edit_collection", self.contributor, self.collection)
+        # TODO: this could be annoying. Even assigning 'edit' to process might work.
+
+        set_permission("edit", self.contributor, self.collection)
 
         copy_permissions(self.collection, self.dst_process)
 
-        # Only 'view' is copied as process has no 'add' permission.
-        self.assertEqual(UserObjectPermission.objects.count(), 3)
+        self.assertEqual(get_perms(self.contributor, self.dst_process), ["view"])

@@ -3,10 +3,7 @@ import os
 import sys
 import unittest
 
-from django.contrib.auth.models import AnonymousUser
 from django.test import LiveServerTestCase, override_settings
-
-from guardian.shortcuts import assign_perm
 
 from resolwe.flow.models import (
     Collection,
@@ -273,21 +270,30 @@ class PythonProcessTest(ProcessTestCase):
 
         Make two Data (with corresponding entities) in series relation.
         """
+        collection = Collection.objects.create(
+            name="collection", contributor=self.contributor
+        )
+
         with self.preparation_stage():
             # From collection 1
             start = self.run_process("entity-process")
             end = self.run_process("entity-process")
 
+            start.collection = collection
+            end.collection = collection
+            start.save()
+            end.save()
+
             # Set relation between the start and end object's entities.
             rel_type_series = RelationType.objects.create(name="series", ordered=True)
             relation = Relation.objects.create(
                 contributor=self.contributor,
-                collection=self.collection,
+                collection=collection,
                 type=rel_type_series,
                 category="time-series",
                 unit=Relation.UNIT_HOUR,
             )
-            assign_perm("view_relation", self.contributor, relation)
+
             RelationPartition.objects.create(
                 relation=relation,
                 entity=start.entity,
@@ -444,7 +450,7 @@ class PythonProcessTest(ProcessTestCase):
 
         entity = Entity.objects.create(name="Entity", contributor=self.user)
         process = Process.objects.get(slug="change-entity-name")
-        assign_perm("view_process", self.user, process)
+        process.set_permission("view", self.user)
 
         data = self.run_process(
             "change-entity-name",
@@ -459,7 +465,7 @@ class PythonProcessTest(ProcessTestCase):
         entity.refresh_from_db()
         self.assertEqual(entity.name, "Entity")
 
-        assign_perm("view_entity", self.user, entity)
+        entity.set_permission("view", self.user)
         data = self.run_process(
             "change-entity-name",
             {"entity_id": entity.pk, "entity_name": "New entity name"},
@@ -475,7 +481,7 @@ class PythonProcessTest(ProcessTestCase):
         entity.refresh_from_db()
         self.assertEqual(entity.name, "Entity")
 
-        assign_perm("edit_entity", self.user, entity)
+        entity.set_permission("edit", self.user)
         data = self.run_process(
             "change-entity-name",
             {"entity_id": entity.pk, "entity_name": "New entity name"},
@@ -577,7 +583,6 @@ class PythonProcessDataBySlugTest(ProcessTestCase, LiveServerTestCase):
             input_data = self.run_process("test-python-process-2")
 
         input_data = Data.objects.get(id=input_data.id)
-        assign_perm("view_data", AnonymousUser(), input_data)
 
         data = self.run_process(
             "test-python-process-data-id-by-slug",

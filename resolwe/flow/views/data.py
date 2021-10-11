@@ -97,7 +97,7 @@ class DataViewSet(
         inherit_collection = request.data.get("inherit_collection", False)
         ids = self.get_ids(request.data)
         queryset = get_objects_for_user(
-            request.user, "view_data", Data.objects.filter(id__in=ids)
+            request.user, "view", Data.objects.filter(id__in=ids)
         )
         actual_ids = queryset.values_list("id", flat=True)
         missing_ids = list(set(ids) - set(actual_ids))
@@ -143,7 +143,7 @@ class DataViewSet(
                 Process.PERSISTENCE_TEMP,
             ],
         )
-        data_qs = get_objects_for_user(request.user, "view_data", data_qs)
+        data_qs = get_objects_for_user(request.user, "view", data_qs)
         if data_qs.exists():
             data = data_qs.order_by("created").last()
             serializer = self.get_serializer(data)
@@ -151,8 +151,7 @@ class DataViewSet(
 
     def _parents_children(self, request, queryset):
         """Process given queryset and return serialized objects."""
-        queryset = get_objects_for_user(request.user, "view_data", queryset)
-
+        queryset = get_objects_for_user(request.user, "view", queryset)
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
@@ -169,7 +168,7 @@ class DataViewSet(
     @action(detail=True)
     def children(self, request, pk=None):
         """Return children of the current data object."""
-        return self._parents_children(request, self.get_object().children)
+        return self._parents_children(request, self.get_object().children.all())
 
     @action(detail=False, methods=["post"])
     def move_to_collection(self, request, *args, **kwargs):
@@ -186,9 +185,7 @@ class DataViewSet(
 
     def _get_data(self, user, ids):
         """Return data objects queryset based on provided ids."""
-        queryset = get_objects_for_user(
-            user, "view_data", Data.objects.filter(id__in=ids)
-        )
+        queryset = get_objects_for_user(user, "view", Data.objects.filter(id__in=ids))
         actual_ids = queryset.values_list("id", flat=True)
         missing_ids = list(set(ids) - set(actual_ids))
         if missing_ids:
@@ -200,7 +197,7 @@ class DataViewSet(
 
         for data in queryset:
             collection = data.collection
-            if collection and not user.has_perm("edit_collection", obj=collection):
+            if collection and not user.has_perm("edit", obj=collection):
                 if user.is_authenticated:
                     raise exceptions.PermissionDenied()
                 else:

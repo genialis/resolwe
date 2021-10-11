@@ -4,7 +4,6 @@ import datetime
 from django.contrib.auth import get_user_model
 from django.utils.timezone import get_current_timezone
 
-from guardian.shortcuts import assign_perm
 from rest_framework import status
 from rest_framework.test import APIRequestFactory, force_authenticate
 
@@ -141,13 +140,11 @@ class CollectionViewSetFiltersTest(BaseViewSetFiltersTest):
         cls.collections[2].created = datetime.datetime(2016, 7, 30, 2, 59, tzinfo=tzone)
         cls.collections[2].save()
 
-        assign_perm("owner_collection", cls.admin, cls.collections[0])
-        assign_perm("view_collection", cls.user, cls.collections[0])
-        assign_perm("owner_collection", cls.admin, cls.collections[1])
-        assign_perm("view_collection", cls.user, cls.collections[1])
-        assign_perm("view_collection", cls.user, cls.collections[2])
-        assign_perm("edit_collection", cls.user, cls.collections[2])
-        assign_perm("owner_collection", cls.user, cls.collections[2])
+        cls.collections[0].set_permission("owner", cls.admin)
+        cls.collections[0].set_permission("view", cls.user)
+        cls.collections[1].set_permission("owner", cls.admin)
+        cls.collections[1].set_permission("view", cls.user)
+        cls.collections[2].set_permission("owner", cls.user)
 
         cls.viewset_class = CollectionViewSet
 
@@ -417,13 +414,11 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
         cls.entities[2].created = datetime.datetime(2016, 7, 30, 2, 59, tzinfo=tzone)
         cls.entities[2].save()
 
-        assign_perm("owner_entity", cls.admin, cls.entities[0])
-        assign_perm("view_entity", cls.user, cls.entities[0])
-        assign_perm("owner_entity", cls.admin, cls.entities[1])
-        assign_perm("view_entity", cls.user, cls.entities[1])
-        assign_perm("owner_entity", cls.user, cls.entities[2])
-        assign_perm("view_entity", cls.user, cls.entities[2])
-        assign_perm("edit_entity", cls.user, cls.entities[2])
+        cls.collection1.set_permission("owner", cls.admin)
+        cls.collection1.set_permission("view", cls.user)
+        cls.collection2.set_permission("owner", cls.admin)
+        cls.collection2.set_permission("view", cls.user)
+        cls.entities[2].set_permission("owner", cls.user)
 
         cls.viewset_class = EntityViewSet
 
@@ -751,13 +746,11 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
         cls.data[2].created = datetime.datetime(2016, 7, 30, 2, 59, tzinfo=tzone)
         cls.data[2].save()
 
-        assign_perm("owner_data", cls.admin, cls.data[0])
-        assign_perm("view_data", cls.user, cls.data[0])
-        assign_perm("owner_data", cls.admin, cls.data[1])
-        assign_perm("view_data", cls.user, cls.data[1])
-        assign_perm("owner_data", cls.user, cls.data[2])
-        assign_perm("view_data", cls.user, cls.data[2])
-        assign_perm("edit_data", cls.user, cls.data[2])
+        cls.collection1.set_permission("owner", cls.admin)
+        cls.collection1.set_permission("view", cls.user)
+        cls.collection2.set_permission("owner", cls.admin)
+        cls.collection2.set_permission("view", cls.user)
+        cls.data[2].set_permission("owner", cls.user)
 
         cls.viewset_class = DataViewSet
 

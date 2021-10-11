@@ -7,7 +7,7 @@ import django.db.models.deletion
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("flow", "0045_unreferenced_storages"),
+        ("flow", "0043_full_text_search"),
         ("storage", "0007_remove_referencedpath_file_storage"),
     ]
 

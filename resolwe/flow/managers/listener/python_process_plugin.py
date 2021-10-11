@@ -21,7 +21,6 @@ from resolwe.flow.models import Collection, Data, Entity, Process, Storage
 from resolwe.flow.models.utils import serialize_collection_relations
 from resolwe.flow.utils import dict_dot
 from resolwe.permissions.shortcuts import get_objects_for_user
-from resolwe.permissions.utils import get_full_perm
 from resolwe.storage.connectors import connectors
 from resolwe.storage.models import FileStorage
 from resolwe.test.utils import is_testing
@@ -116,7 +115,6 @@ class ExposeObjectPlugin(metaclass=abc.ABCMeta):
 
         :raises RuntimeError: with detailed explanation when check fails.
         """
-        full_permission_name = get_full_perm(permission_name, model)
         object_ = model.objects.filter(pk=model_pk)
         if not object_:
             raise RuntimeError(
@@ -124,7 +122,7 @@ class ExposeObjectPlugin(metaclass=abc.ABCMeta):
             )
         filtered_object = get_objects_for_user(
             user,
-            [full_permission_name],
+            [permission_name],
             object_,
         )
         if not filtered_object:
@@ -169,8 +167,7 @@ class ExposeObjectPlugin(metaclass=abc.ABCMeta):
         self, user: UserClass, queryset: QuerySet, data: Data
     ) -> QuerySet:
         """Filter the objects for the given user."""
-        permission_name = get_full_perm("view", queryset.model)
-        return get_objects_for_user(user, permission_name, queryset)
+        return get_objects_for_user(user, ["view"], queryset)
 
     def can_read(self, user: UserClass, data: Data):
         """Can read model structural info.
@@ -261,12 +258,7 @@ class ExposeData(ExposeObjectPlugin):
     ) -> QuerySet:
         """Filter the objects for the given user."""
         inputs = queryset.filter(id__in=data.parents.all())
-        permission_name = get_full_perm("view", queryset.model)
-        return (
-            get_objects_for_user(user, permission_name, queryset)
-            .distinct()
-            .union(inputs)
-        )
+        return get_objects_for_user(user, "view", queryset).distinct().union(inputs)
 
 
 class ExposeUser(ExposeObjectPlugin):
@@ -341,9 +333,8 @@ class ExposeProcess(ExposeObjectPlugin):
     ) -> QuerySet:
         """Filter the objects for the given user."""
         processes_of_inputs = queryset.filter(data__in=data.parents.all())
-        permission_name = get_full_perm("view", queryset.model)
         return (
-            get_objects_for_user(user, permission_name, queryset)
+            get_objects_for_user(user, "view", queryset)
             .distinct()
             .union(processes_of_inputs)
         )
@@ -406,12 +397,8 @@ class ExposeStorage(ExposeObjectPlugin):
         'app_label.permission_name' otherwise wrong content type is infered
         it the get_objects_for_user method.
         """
-        permission_name = "flow." + get_full_perm("view", Data)
-        perms_filter = "data__pk__in"
         return (
-            get_objects_for_user(
-                user, permission_name, queryset, perms_filter=perms_filter
-            )
+            get_objects_for_user(user, "view", queryset)
             .distinct()
             .union(queryset.filter(contributor=user))
         )
@@ -643,7 +630,7 @@ class PythonProcess(ListenerPlugin):
         """Get relations for the given collection object."""
         collection = get_objects_for_user(
             manager.contributor,
-            get_full_perm("view", Collection),
+            "view",
             Collection.objects.filter(id=message.message_data),
         ).get()
         return message.respond_ok(serialize_collection_relations(collection))
@@ -654,9 +641,7 @@ class PythonProcess(ListenerPlugin):
         """Return the requirements for the process with the given id."""
         process_id = message.message_data
         filtered_process = get_objects_for_user(
-            manager.contributor,
-            get_full_perm("view", Process),
-            Process.objects.filter(pk=process_id),
+            manager.contributor, "view", Process.objects.filter(pk=process_id)
         )[0]
         process_limits = filtered_process.get_resource_limits()
         process_requirements = filtered_process.requirements

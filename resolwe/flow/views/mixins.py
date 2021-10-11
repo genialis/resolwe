@@ -1,14 +1,13 @@
 """Mixins used in Resolwe Viewsets."""
 from django.db import IntegrityError, transaction
 
-from guardian.utils import get_anonymous_user
 from rest_framework import mixins, status
 from rest_framework.decorators import action
 from rest_framework.exceptions import ParseError
 from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
 
-from resolwe.permissions.utils import assign_contributor_permissions
+from resolwe.permissions.utils import assign_contributor_permissions, get_anonymous_user
 
 
 class ResolweCreateModelMixin(mixins.CreateModelMixin):
@@ -47,7 +46,8 @@ class ResolweCreateModelMixin(mixins.CreateModelMixin):
             instance = serializer.save()
 
             # Assign all permissions to the object contributor.
-            assign_contributor_permissions(instance)
+            if hasattr(instance, "permission_group") and not instance.in_container():
+                assign_contributor_permissions(instance)
 
 
 class ResolweUpdateModelMixin(mixins.UpdateModelMixin):

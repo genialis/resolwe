@@ -10,6 +10,7 @@
     name: Test collection 1
     slug: test_collection1
     version: 0.0.0
+    permission_group: 1
 
 - model: flow.collection
   pk: 2
@@ -21,6 +22,7 @@
     name: Test collection 2
     slug: test_collection2
     version: 0.0.0
+    permission_group: 2
 
 - model: flow.collection
   pk: 3
@@ -32,3 +34,4 @@
     name: Test collection 3
     slug: test_collection3
     version: 0.0.0
+    permission_group: 3

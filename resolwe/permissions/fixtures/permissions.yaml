@@ -1,4 +1,5 @@
 ---
+# TODO: rewrite this into permission groups
 
 ##########
 # PUBLIC #
@@ -6,41 +7,99 @@
 
 # COLLECTION 1
 
-- model: guardian.userobjectpermission
+- model: permissions.permissiongroup
+  pk: 1
+  fields: {}
+
+- model: permissions.permissionmodel
+  pk: 1
   fields:
-    content_type: [flow, collection]
-    object_pk: 1
-    permission: [view_collection, flow, collection]
-    user: [public]
+    permission: 1   # View permission
+    permission_group: 1
+    users:
+    - - public
+    groups: []
+
+#- model: guardian.userobjectpermission
+#  fields:
+#    content_type: [flow, collection]
+#    object_pk: 1
+#    permission: [view, flow, collection]
+#    user: [public]
 
 # COLLECTION 2
 
+- model: permissions.permissiongroup
+  pk: 2
+  fields: {}
+
+
 # COLLECTION 3
 
-- model: guardian.userobjectpermission
-  fields:
-    content_type: [flow, collection]
-    object_pk: 3
-    permission: [view_collection, flow, collection]
-    user: [public]
+- model: permissions.permissiongroup
+  pk: 3
+  fields: {}
 
-# DATA 1
-
-- model: guardian.userobjectpermission
+- model: permissions.permissionmodel
+  pk: 3
   fields:
-    content_type: [flow, data]
-    object_pk: 1
-    permission: [view_data, flow, data]
-    user: [public]
+    permission: 1   # View permission
+    permission_group: 3
+    users:
+    - - public
+    groups: []
+
+
+# - model: guardian.userobjectpermission
+#   fields:
+#     content_type: [flow, collection]
+#     object_pk: 3
+#     permission: [view, flow, collection]
+#     user: [public]
+
+# DATA 1 (not in container)
+
+- model: permissions.permissiongroup
+  pk: 4
+  fields: {}
+
+- model: permissions.permissionmodel
+  pk: 4
+  fields:
+    permission: 1   # View permission
+    permission_group: 4
+    users:
+    - - public  # Public user - could this be nicer and not by id?
+    groups: []
+
+# - model: guardian.userobjectpermission
+#   fields:
+#     content_type: [flow, data]
+#     object_pk: 1
+#     permission: [view, flow, data]
+#     user: [public]
 
 # PROCESS 1
 
-- model: guardian.userobjectpermission
+- model: permissions.permissiongroup
+  pk: 5
+  fields: {}
+
+- model: permissions.permissionmodel
+  pk: 5
   fields:
-    content_type: [flow, process]
-    object_pk: 1
-    permission: [view_process, flow, process]
-    user: [public]
+    permission: 1   # View permission
+    permission_group: 5
+    users:
+    - - public  # Public user - could this be nicer and not by id?
+    groups: []
+
+# - model: guardian.userobjectpermission
+#   fields:
+#     content_type: [flow, process]
+#     object_pk: 1
+#     permission: [view, flow, process]
+#     user: [public]
 
 #########
 # USER1 #
@@ -48,115 +107,207 @@
 
 # COLLECTION 1
 
-- model: guardian.userobjectpermission
-  fields:
-    content_type: [flow, collection]
-    object_pk: 1
-    permission: [view_collection, flow, collection]
-    user: [user1]
+# Share permission
 
-- model: guardian.userobjectpermission
+- model: permissions.permissionmodel
+  pk: 6
   fields:
-    content_type: [flow, collection]
-    object_pk: 1
-    permission: [edit_collection, flow, collection]
-    user: [user1]
+    permission: 4   # Share permission
+    permission_group: 1
+    users:
+    - - user1
+    groups: []
 
-- model: guardian.userobjectpermission
-  fields:
-    content_type: [flow, collection]
-    object_pk: 1
-    permission: [share_collection, flow, collection]
-    user: [user1]
+
+# - model: guardian.userobjectpermission
+#   fields:
+#     content_type: [flow, collection]
+#     object_pk: 1
+#     permission: [view, flow, collection]
+#     user: [user1]
+
+# - model: guardian.userobjectpermission
+#   fields:
+#     content_type: [flow, collection]
+#     object_pk: 1
+#     permission: [edit, flow, collection]
+#     user: [user1]
+
+# - model: guardian.userobjectpermission
+#   fields:
+#     content_type: [flow, collection]
+#     object_pk: 1
+#     permission: [share, flow, collection]
+#     user: [user1]
 
 # COLLECTION 2
 
-- model: guardian.userobjectpermission
-  fields:
-    content_type: [flow, collection]
-    object_pk: 2
-    permission: [view_collection, flow, collection]
-    user: [user1]
+# Edit permission
 
-- model: guardian.userobjectpermission
+- model: permissions.permissionmodel
+  pk: 7
   fields:
-    content_type: [flow, collection]
-    object_pk: 2
-    permission: [edit_collection, flow, collection]
-    user: [user1]
+    permission: 2   # Edit permission
+    permission_group: 2
+    users:
+    - - user1
+    groups:
+    - - Group1
+
+
+# - model: guardian.userobjectpermission
+#   fields:
+#     content_type: [flow, collection]
+#     object_pk: 2
+#     permission: [view, flow, collection]
+#     user: [user1]
+
+# - model: guardian.userobjectpermission
+#   fields:
+#     content_type: [flow, collection]
+#     object_pk: 2
+#     permission: [edit, flow, collection]
+#     user: [user1]
 
 # COLLECTION 3
 
-- model: guardian.userobjectpermission
+# Only edit, no view... NO GO!
+
+- model: permissions.permissionmodel
+  pk: 8
   fields:
-    content_type: [flow, collection]
-    object_pk: 3
-    permission: [edit_collection, flow, collection]
-    user: [user1]
+    permission: 2   # Edit permission
+    permission_group: 3
+    users:
+    - - user1
+    groups: []
+
+
+# - model: guardian.userobjectpermission
+#   fields:
+#     content_type: [flow, collection]
+#     object_pk: 3
+#     permission: [edit, flow, collection]
+#     user: [user1]
 
 # DATA 1
 
-- model: guardian.userobjectpermission
-  fields:
-    content_type: [flow, data]
-    object_pk: 1
-    permission: [view_data, flow, data]
-    user: [user1]
+# Share permission
 
-- model: guardian.userobjectpermission
+- model: permissions.permissionmodel
+  pk: 9
   fields:
-    content_type: [flow, data]
-    object_pk: 1
-    permission: [edit_data, flow, data]
-    user: [user1]
+    permission: 4   # Share permission
+    permission_group: 4
+    users:
+    - - user1
+    groups: []
 
-- model: guardian.userobjectpermission
-  fields:
-    content_type: [flow, data]
-    object_pk: 1
-    permission: [share_data, flow, data]
-    user: [user1]
+
+# - model: guardian.userobjectpermission
+#   fields:
+#     content_type: [flow, data]
+#     object_pk: 1
+#     permission: [view, flow, data]
+#     user: [user1]
+
+# - model: guardian.userobjectpermission
+#   fields:
+#     content_type: [flow, data]
+#     object_pk: 1
+#     permission: [edit, flow, data]
+#     user: [user1]
+
+# - model: guardian.userobjectpermission
+#   fields:
+#     content_type: [flow, data]
+#     object_pk: 1
+#     permission: [share, flow, data]
+#     user: [user1]
 
 # DATA 2
 
-- model: guardian.userobjectpermission
-  fields:
-    content_type: [flow, data]
-    object_pk: 2
-    permission: [view_data, flow, data]
-    user: [user1]
 
-- model: guardian.userobjectpermission
+
+# Edit permission
+
+- model: permissions.permissiongroup
+  pk: 6
+  fields: {}
+
+- model: permissions.permissionmodel
+  pk: 10
   fields:
-    content_type: [flow, data]
-    object_pk: 2
-    permission: [edit_data, flow, data]
-    user: [user1]
+    permission: 2   # Edit permission
+    permission_group: 6
+    users:
+    - - user1
+    groups: []
+
+# - model: guardian.userobjectpermission
+#   fields:
+#     content_type: [flow, data]
+#     object_pk: 2
+#     permission: [view, flow, data]
+#     user: [user1]
+
+# - model: guardian.userobjectpermission
+#   fields:
+#     content_type: [flow, data]
+#     object_pk: 2
+#     permission: [edit, flow, data]
+#     user: [user1]
 
 # PROCESS 1
 
-- model: guardian.userobjectpermission
-  fields:
-    content_type: [flow, process]
-    object_pk: 1
-    permission: [view_process, flow, process]
-    user: [user1]
+# Share permission
 
-- model: guardian.userobjectpermission
+- model: permissions.permissionmodel
+  pk: 11
   fields:
-    content_type: [flow, process]
-    object_pk: 1
-    permission: [share_process, flow, process]
-    user: [user1]
+    permission: 4   # Share permission
+    permission_group: 5
+    users:
+    - - user1
+    groups: []
 
-# PROCESS 2
 
-- model: guardian.userobjectpermission
+# - model: guardian.userobjectpermission
+#   fields:
+#     content_type: [flow, process]
+#     object_pk: 1
+#     permission: [view, flow, process]
+#     user: [user1]
+
+# - model: guardian.userobjectpermission
+#   fields:
+#     content_type: [flow, process]
+#     object_pk: 1
+#     permission: [share, flow, process]
+#     user: [user1]
+
+# # PROCESS 2
+
+- model: permissions.permissiongroup
+  pk: 7
+  fields: {}
+
+- model: permissions.permissionmodel
+  pk: 12
   fields:
-    content_type: [flow, process]
-    object_pk: 2
-    permission: [view_process, flow, process]
-    user: [user1]
+    permission: 1   # View permission
+    permission_group: 7
+    users:
+    - - user1
+    groups: []
+
+
+# - model: guardian.userobjectpermission
+#   fields:
+#     content_type: [flow, process]
+#     object_pk: 2
+#     permission: [view, flow, process]
+#     user: [user1]
 
 #########
 # USER2 #
@@ -164,19 +315,32 @@
 
 # COLLECTION 1
 
-- model: guardian.userobjectpermission
-  fields:
-    content_type: [flow, collection]
-    object_pk: 1
-    permission: [view_collection, flow, collection]
-    user: [user2]
+# Edit permission
 
-- model: guardian.userobjectpermission
+- model: permissions.permissionmodel
+  pk: 13
   fields:
-    content_type: [flow, collection]
-    object_pk: 1
-    permission: [edit_collection, flow, collection]
-    user: [user2]
+    permission: 2   # Edit permission
+    permission_group: 1
+    users:
+    - - user2
+    groups:
+    - - Group1
+
+
+# - model: guardian.userobjectpermission
+#   fields:
+#     content_type: [flow, collection]
+#     object_pk: 1
+#     permission: [view, flow, collection]
+#     user: [user2]
+
+# - model: guardian.userobjectpermission
+#   fields:
+#     content_type: [flow, collection]
+#     object_pk: 1
+#     permission: [edit, flow, collection]
+#     user: [user2]
 
 # COLLECTION 2
 
@@ -188,28 +352,45 @@
 
 # COLLECTION 1
 
-- model: guardian.groupobjectpermission
-  fields:
-    content_type: [flow, collection]
-    object_pk: 1
-    permission: [share_collection, flow, collection]
-    group: [Group1]
+# Only share? No go...
+
+# Se above.
+
+# - model: guardian.groupobjectpermission
+#   fields:
+#     content_type: [flow, collection]
+#     object_pk: 1
+#     permission: [share, flow, collection]
+#     group: [Group1]
 
 # COLLECTION 2
 
-- model: guardian.groupobjectpermission
-  fields:
-    content_type: [flow, collection]
-    object_pk: 2
-    permission: [view_collection, flow, collection]
-    group: [Group1]
+# Edit collection, see user 2
 
-- model: guardian.groupobjectpermission
-  fields:
-    content_type: [flow, collection]
-    object_pk: 2
-    permission: [edit_collection, flow, collection]
-    group: [Group1]
+# - model: permissions.permissionmodel
+#   pk: 13
+#   fields:
+#     permission: 2   # Edit permission
+#     permission_group: 2
+#     users: []
+#     groups: 
+#     - - Group1
+
+
+
+# - model: guardian.groupobjectpermission
+#   fields:
+#     content_type: [flow, collection]
+#     object_pk: 2
+#     permission: [view, flow, collection]
+#     group: [Group1]
+
+# - model: guardian.groupobjectpermission
+#   fields:
+#     content_type: [flow, collection]
+#     object_pk: 2
+#     permission: [edit, flow, collection]
+#     group: [Group1]
 
 # COLLECTION 3
 

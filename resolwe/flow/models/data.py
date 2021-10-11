@@ -14,6 +14,7 @@ from django.db import models, transaction
 from resolwe.flow.expression_engines.exceptions import EvaluationError
 from resolwe.flow.models.utils import DirtyError, fill_with_defaults, validate_schema
 from resolwe.flow.utils import dict_dot, get_data_checksum, iterate_fields
+from resolwe.permissions.models import PermissionObject
 from resolwe.permissions.utils import assign_contributor_permissions, copy_permissions
 
 from .base import BaseModel, BaseQuerySet
@@ -184,15 +185,16 @@ class DataQuerySet(BaseQuerySet):
                 kind=DataDependency.KIND_SUBPROCESS,
             )
             # Data was from a workflow / spawned process
-            copy_permissions(subprocess_parent, obj)
+            if not obj.in_container():
+                copy_permissions(subprocess_parent, obj)
 
         # Entity, Collection assignment
         entity_operation = self._handle_entity(obj)
         self._handle_collection(obj, entity_operation=entity_operation)
 
-        # Permissions:
-        assign_contributor_permissions(obj)
-        copy_permissions(obj.collection, obj)
+        # Assign contributor permission only if Data is not in the container.
+        if not obj.in_container():
+            assign_contributor_permissions(obj)
 
         return obj
 
@@ -221,17 +223,17 @@ class DataQuerySet(BaseQuerySet):
             data.move_to_collection(destination_collection)
 
 
-class Data(BaseModel):
+class Data(BaseModel, PermissionObject):
     """Postgres model for storing data."""
 
     class Meta(BaseModel.Meta):
         """Data Meta options."""
 
         permissions = (
-            ("view_data", "Can view data"),
-            ("edit_data", "Can edit data"),
-            ("share_data", "Can share data"),
-            ("owner_data", "Is owner of the data"),
+            ("view", "Can view data"),
+            ("edit", "Can edit data"),
+            ("share", "Can share data"),
+            ("owner", "Is owner of the data"),
         )
 
         indexes = [
@@ -559,7 +561,6 @@ class Data(BaseModel):
         self.collection = destination_collection
         if destination_collection:
             self.tags = destination_collection.tags
-            copy_permissions(destination_collection, self)
         self.save()
 
     def validate_change_collection(self, destination_collection):

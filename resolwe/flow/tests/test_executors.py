@@ -18,8 +18,6 @@ from asgiref.sync import async_to_sync
 from django.conf import settings
 from django.test import override_settings
 
-from guardian.shortcuts import assign_perm
-
 from resolwe.flow.executors.prepare import BaseFlowExecutorPreparer
 from resolwe.flow.executors.socket_utils import Message
 from resolwe.flow.executors.startup_processing_container import ProcessingManager
@@ -276,13 +274,9 @@ class ManagerRunProcessTest(ProcessTestCase):
 
     @tag_process("test-workflow-1")
     def test_workflow(self):
-        assign_perm("view_collection", self.contributor, self.collection)
-        assign_perm("view_collection", self.group, self.collection)
-
         workflow_data = self.run_process(
             "test-workflow-1", {"param1": "world"}, tags=["test-tag"]
         )
-
         workflow_data.refresh_from_db()
         step1_data = Data.objects.get(process__slug="test-example-1")
         step2_data = Data.objects.get(process__slug="test-example-2")
@@ -317,10 +311,6 @@ class ManagerRunProcessTest(ProcessTestCase):
             {DataDependency.KIND_SUBPROCESS, DataDependency.KIND_IO},
         )
 
-        self.assertTrue(self.contributor.has_perm("flow.view_data", step1_data))
-        # User inherites permission from group
-        self.assertTrue(self.user.has_perm("flow.view_data", step1_data))
-
     @tag_process("test-workflow-2")
     def test_workflow_entity(self):
         with self.preparation_stage():
@@ -329,12 +319,12 @@ class ManagerRunProcessTest(ProcessTestCase):
 
         workflow = self.run_process("test-workflow-2", {"data1": input_data.pk})
 
-        # Check that workflow results are added to the collection.
+        # Check that workflow results are created.
         self.assertEqual(
-            self.collection.data.filter(pk__in=workflow.output["steps"]).count(), 1
+            Data.objects.filter(pk__in=workflow.output["steps"]).count(), 1
         )
-        # self.collection now contains workflow and two "normal" data objects
-        self.assertEqual(self.collection.data.all().count(), 3)
+        # There is a workflow and two "normal" data objects
+        self.assertEqual(Data.objects.all().count(), 3)
 
     @with_docker_executor
     @tag_process("test-docker")

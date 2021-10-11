@@ -1,15 +1,16 @@
 """Permissions functions used in Resolwe Viewsets."""
-from distutils.util import strtobool
+from collections import defaultdict
+from typing import Optional
 
-from django.contrib.contenttypes.models import ContentType
-from django.db import transaction
+from django.conf import settings
+from django.db import models, transaction
 
-from guardian.models import UserObjectPermission
 from rest_framework import exceptions, serializers, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from resolwe.permissions.shortcuts import get_object_perms
+from resolwe.permissions.models import Permission
+from resolwe.permissions.shortcuts import get_object_perms, get_user_group_perms_qset
 
 from .utils import (
     check_owner_permission,
@@ -42,6 +43,33 @@ class ResolwePermissionsMixin:
         class SerializerWithPermissions(base_class):
             """Augment serializer class."""
 
+            def __init__(
+                serializer_self,
+                instance: Optional[models.QuerySet] = None,
+                *args,
+                **kwargs,
+            ):
+                """Override init."""
+                # print("Instance")
+                # print(instance, type(instance), instance.all())
+                if isinstance(instance, models.Model):
+                    query_set = instance._meta.model.objects.filter(pk=instance.pk)
+                # elif isinstance(
+                #     instance, (models.QuerySet, models.query.EmptyQuerySet)
+                # ):
+                else:
+                    query_set = instance
+                # elif instance is not None:
+                #     raise RuntimeError(
+                #         f"Instance {instance} must be a QuerySet or Model."
+                #     )
+                if instance is not None:
+                    serializer_self._permissions_qset = get_user_group_perms_qset(
+                        self.request.user, query_set
+                    )
+                serializer_self._permission_map = None
+                super().__init__(instance, *args, **kwargs)
+
             def get_fields(serializer_self):
                 """Return serializer's fields."""
                 fields = super().get_fields()
@@ -50,30 +78,63 @@ class ResolwePermissionsMixin:
                 )
                 return fields
 
-            def to_representation(serializer_self, instance):
+            def _set_permission_map(serializer_self):
+                """Set the permission_map property."""
+                if serializer_self._permission_map is None:
+                    serializer_self._permission_map = defaultdict(list)
+                    for value in serializer_self._permissions_qset:
+                        entity_type = "user" if value["is_user"] else "group"
+                        if (
+                            entity_type == "user"
+                            and value["entityname"] == settings.ANONYMOUS_USER_NAME
+                        ):
+                            entity_type = "public"
+                        serializer_self._permission_map[value["pk"]].append(
+                            {
+                                "type": entity_type,
+                                "id": value["entityid"],
+                                "name": value["entityname"],
+                                "permissions": Permission(
+                                    value["permission"]
+                                ).all_permissions(),
+                            }
+                        )
+
+            def create(serializer_self, validated_data):
+                """Override create.
+
+                After instance is created from validated data construct
+                permissions queryset and store it.
+                """
+                instance = super().create(validated_data)
+                if isinstance(instance, models.Model):
+                    query_set = instance._meta.model.objects.filter(pk=instance.pk)
+                elif isinstance(instance, models.QuerySet):
+                    query_set = instance
+                if instance is not None:
+                    serializer_self._permissions_qset = get_user_group_perms_qset(
+                        self.request.user, query_set
+                    )
+                return instance
+
+            def to_representation(serializer_self, instance: models.Model):
                 """Object serializer."""
                 data = super().to_representation(instance)
-
                 if (
                     "fields" not in self.request.query_params
                     or "current_user_permissions" in self.request.query_params["fields"]
                 ):
-                    data["current_user_permissions"] = get_object_perms(
-                        instance, self.request.user
-                    )
+                    serializer_self._set_permission_map()
+                    # data["current_user_permissions"] = get_object_perms(
+                    #    instance, self.request.user
+                    # )
+                    data["current_user_permissions"] = serializer_self._permission_map[
+                        instance.pk
+                    ]
 
                 return data
 
         return SerializerWithPermissions
-
-    def set_content_permissions(self, user, obj, payload):
-        """Overwritte this function in sub-classes if needed.
-
-        It will be called if ``share_content`` query parameter will be
-        passed with the request. So it should take care of sharing
-        content of current object, i.e. data objects and samples
-        attached to a collection.
-        """
 
     @action(
         detail=True,
@@ -83,15 +144,13 @@ class ResolwePermissionsMixin:
     )
     def detail_permissions(self, request, pk=None):
         """Get or set permissions API endpoint."""
+        # print("Detail permission"*1000)
         obj = self.get_object()
 
         if request.method == "POST":
-            content_type = ContentType.objects.get_for_model(obj)
             payload = request.data
-            share_content = strtobool(payload.pop("share_content", "false"))
             user = request.user
-            is_owner = user.has_perm("owner_{}".format(content_type.name), obj=obj)
-
+            is_owner = user.has_perm("owner", obj=obj)
             allow_owner = is_owner or user.is_superuser
             check_owner_permission(payload, allow_owner)
             check_public_permissions(payload)
@@ -99,18 +158,15 @@ class ResolwePermissionsMixin:
 
             with transaction.atomic():
                 update_permission(obj, payload)
-
-                owner_count = UserObjectPermission.objects.filter(
-                    object_pk=obj.id,
-                    content_type=content_type,
-                    permission__codename__startswith="owner_",
-                ).count()
+                owner_permission = obj.permission_group.permissions.filter(
+                    permission=Permission.from_name("owner").value
+                ).first()
+                owner_count = 0
+                if owner_permission is not None:
+                    owner_count = owner_permission.users.count()
 
                 if not owner_count:
                     raise exceptions.ParseError("Object must have at least one owner.")
-
-            if share_content:
-                self.set_content_permissions(user, obj, payload)
 
         return Response(get_object_perms(obj))
 

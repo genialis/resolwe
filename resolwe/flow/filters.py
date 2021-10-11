@@ -10,15 +10,14 @@ from django_filters.filterset import FilterSetMetaclass
 from versionfield import VersionField
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import AnonymousUser
 from django.contrib.postgres.search import SearchQuery, SearchRank
 from django.db.models import F, ForeignKey, Subquery
 
-from guardian.shortcuts import get_objects_for_user
 from rest_framework.filters import OrderingFilter as DrfOrderingFilter
 
 from resolwe.composer import composer
-from resolwe.permissions.utils import get_full_perm
+from resolwe.permissions.shortcuts import get_objects_for_user
+from resolwe.permissions.utils import get_anonymous_user
 
 from .models import Collection, Data, DescriptorSchema, Entity, Process, Relation
 
@@ -162,10 +161,8 @@ class UserFilterMixin:
 
     def filter_permission(self, queryset, name, value):
         """Filter queryset by permissions."""
-        user = self.request.user or AnonymousUser()
-        perm = get_full_perm(value, queryset.model)
-
-        return get_objects_for_user(user, perm, queryset)
+        user = self.request.user or get_anonymous_user()
+        return get_objects_for_user(user, value, queryset)
 
 
 class TagsFilter(filters.BaseCSVFilter, filters.CharFilter):
@@ -217,6 +214,8 @@ class BaseResolweFilter(
     CheckQueryParamsMixin, filters.FilterSet, metaclass=ResolweFilterMetaclass
 ):
     """Base filter for Resolwe's endpoints."""
+
+    owner_permission = "owner"
 
     class Meta:
         """Filter configuration."""
@@ -271,8 +270,6 @@ class BaseCollectionFilter(TextFilterMixin, UserFilterMixin, BaseResolweFilter):
 class CollectionFilter(BaseCollectionFilter):
     """Filter the Collection endpoint."""
 
-    owner_permission = "owner_collection"
-
     class Meta(BaseCollectionFilter.Meta):
         """Filter configuration."""
 
@@ -281,8 +278,6 @@ class CollectionFilter(BaseCollectionFilter):
 
 class EntityFilter(BaseCollectionFilter):
     """Filter the Entity endpoint."""
-
-    owner_permission = "owner_entity"
 
     class Meta(BaseCollectionFilter.Meta):
         """Filter configuration."""
@@ -324,8 +319,6 @@ class CharInFilter(filters.BaseInFilter, filters.CharFilter):
 
 class DataFilter(TextFilterMixin, UserFilterMixin, BaseResolweFilter):
     """Filter the Data endpoint."""
-
-    owner_permission = "owner_data"
 
     contributor_name = filters.CharFilter(method="filter_contributor_name")
     owners = filters.CharFilter(method="filter_owners")

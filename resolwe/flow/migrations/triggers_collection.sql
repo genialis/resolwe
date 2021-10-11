@@ -15,12 +15,18 @@ CREATE OR REPLACE FUNCTION generate_resolwe_collection_search(collection flow_co
             array_to_string(array_remove(array_agg(last_name), ''), ' ') AS last_names
         INTO owners
         FROM auth_user
-        JOIN guardian_userobjectpermission ON auth_user.id=guardian_userobjectpermission.user_id
+        JOIN permissions_permissionmodel_users ON auth_user.id=permissions_permissionmodel_users.user_id
+        JOIN permissions_permissionmodel ON permissions_permissionmodel_users.permissionmodel_id=permissions_permissionmodel.id
         WHERE
-            content_type_id=(SELECT id FROM django_content_type WHERE app_label='flow' and model='collection')
-            AND permission_id=(SELECT id FROM auth_permission WHERE codename='owner_collection')
-            AND object_pk::int=collection.id
-        GROUP BY object_pk;
+            permissions_permissionmodel.permission=8
+            AND permissions_permissionmodel.permission_group_id::int=collection.permission_group_id;
+
+        --JOIN guardian_userobjectpermission ON auth_user.id=guardian_userobjectpermission.user_id
+        --WHERE
+        --    content_type_id=(SELECT id FROM django_content_type WHERE app_label='flow' and model='collection')
+        --    AND permission_id=(SELECT id FROM auth_permission WHERE codename='owner_collection')
+        --    AND object_pk::int=collection.id
+        --GROUP BY object_pk;
 
         SELECT
             username usernames, first_name first_names, last_name last_names
@@ -88,20 +94,28 @@ CREATE TRIGGER collection_biut
 
 
 -- Trigger after update/insert/delete user permission object.
-CREATE OR REPLACE FUNCTION handle_userpermission_collection(perm guardian_userobjectpermission)
+CREATE OR REPLACE FUNCTION handle_userpermission_collection(perm_users permissions_permissionmodel_users)
     RETURNS void
     LANGUAGE plpgsql
     AS $$
     DECLARE
-        collection_content_type_id int;
-        owner_collection_permission_id int;
+        permission_group int;
+        permission int;
+        collection_id int;
     BEGIN
-        SELECT id FROM django_content_type WHERE app_label='flow' and model='collection' INTO collection_content_type_id;
-        SELECT id FROM auth_permission WHERE codename='owner_collection' INTO owner_collection_permission_id;
+        SELECT 
+            permissions_permissionmodel.permission, permissions_permissionmodel.permission_group_id
+            FROM permissions_permissionmodel
+            WHERE id = perm_users.permissionmodel_id
+            INTO permission, permission_group;
 
-        IF perm.content_type_id=collection_content_type_id AND perm.permission_id=owner_collection_permission_id THEN
-            -- Set the search field to NULL to trigger collection_biut.
-            UPDATE flow_collection SET search=NULL WHERE id=perm.object_pk::int;
+        IF permission = 8 THEN
+            -- Set the search field to NULL to trigger data_biut.
+            FOR collection_id in 
+                SELECT id FROM flow_collection WHERE flow_collection.permission_group_id = permission_group
+            LOOP
+                UPDATE flow_collection SET search=NULL WHERE id=collection_id;
+            END LOOP;
         END IF;
     END;
     $$;
@@ -118,7 +132,8 @@ CREATE OR REPLACE FUNCTION userpermission_collection_aiut()
 
 CREATE TRIGGER userpermission_collection_aiut
     AFTER INSERT OR UPDATE
-    ON guardian_userobjectpermission
+    -- ON guardian_userobjectpermission
+    ON permissions_permissionmodel_users
     FOR EACH ROW EXECUTE PROCEDURE userpermission_collection_aiut();
 
 CREATE OR REPLACE FUNCTION userpermission_collection_adt()
@@ -133,7 +148,8 @@ CREATE OR REPLACE FUNCTION userpermission_collection_adt()
 
 CREATE TRIGGER userpermission_collection_adt
     AFTER DELETE
-    ON guardian_userobjectpermission
+    -- ON guardian_userobjectpermission
+    ON permissions_permissionmodel_users
     FOR EACH ROW EXECUTE PROCEDURE userpermission_collection_adt();
 
 
@@ -157,30 +173,31 @@ CREATE TRIGGER collection_contributor_aut
 
 
 -- Trigger after update owner.
-CREATE OR REPLACE FUNCTION collection_owner_aut()
-    RETURNS TRIGGER
-    LANGUAGE plpgsql
-    AS $$
-    BEGIN
-        WITH owner_permission AS (
-            SELECT object_pk::int collection_id
-            FROM guardian_userobjectpermission
-            WHERE
-                user_id=NEW.id
-                AND content_type_id=(SELECT id FROM django_content_type WHERE app_label='flow' and model='collection')
-                AND permission_id=(SELECT id FROM auth_permission WHERE codename='owner_collection')
-        )
-        -- Set the search field to NULL to trigger collection_biut.
-        UPDATE flow_collection collection
-        SET search=NULL
-        FROM owner_permission perm
-        WHERE collection.id=perm.collection_id;
+-- TODO!
+-- CREATE OR REPLACE FUNCTION collection_owner_aut()
+--     RETURNS TRIGGER
+--     LANGUAGE plpgsql
+--     AS $$
+--     BEGIN
+--         WITH owner_permission AS (
+--             SELECT object_pk::int collection_id
+--             FROM guardian_userobjectpermission
+--             WHERE
+--                 user_id=NEW.id
+--                 AND content_type_id=(SELECT id FROM django_content_type WHERE app_label='flow' and model='collection')
+--                 AND permission_id=(SELECT id FROM auth_permission WHERE codename='owner_collection')
+--         )
+--         -- Set the search field to NULL to trigger collection_biut.
+--         UPDATE flow_collection collection
+--         SET search=NULL
+--         FROM owner_permission perm
+--         WHERE collection.id=perm.collection_id;
 
-        RETURN NEW;
-    END;
-    $$;
+--         RETURN NEW;
+--     END;
+--     $$;
 
-CREATE TRIGGER collection_owner_aut
-    AFTER UPDATE
-    ON auth_user
-    FOR EACH ROW EXECUTE PROCEDURE collection_owner_aut();
+-- CREATE TRIGGER collection_owner_aut
+--     AFTER UPDATE
+--     ON auth_user
+--     FOR EACH ROW EXECUTE PROCEDURE collection_owner_aut();

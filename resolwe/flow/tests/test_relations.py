@@ -7,7 +7,6 @@ from django.core.management import call_command
 from django.db import DEFAULT_DB_ALIAS, connections
 from django.test.utils import CaptureQueriesContext
 
-from guardian.shortcuts import assign_perm
 from rest_framework import status
 
 from resolwe.flow.models import Collection, DescriptorSchema, Entity, Relation
@@ -95,13 +94,7 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
         self.series_partiton_4 = RelationPartition.objects.create(
             relation=self.relation_series, entity=self.entity_4, label="end", position=1
         )
-
-        assign_perm("view_relation", self.contributor, self.relation_group)
-        assign_perm("view_relation", self.contributor, self.relation_series)
-
-        # Public user can view self.relation_group but not
-        # self.relation_partition
-        assign_perm("view_collection", AnonymousUser(), self.collection)
+        self.collection.set_permission("view", AnonymousUser())
 
     def test_prefetch(self):
         self.relation_group.delete()
@@ -122,28 +115,26 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
         self.collection_2.save()
 
         for i in range(5):
-            relation = Relation.objects.create(
+            Relation.objects.create(
                 contributor=self.contributor,
                 type=self.rel_type_group,
                 category="replicates-{}".format(i),
                 collection=self.collection,
             )
-            assign_perm("view_relation", self.contributor, relation)
 
         for i in range(5):
-            relation = Relation.objects.create(
+            Relation.objects.create(
                 contributor=self.user,
                 type=self.rel_type_group,
                 category="replicates-{}".format(i),
                 collection=self.collection_2,
             )
-            assign_perm("view_relation", self.contributor, relation)
 
         conn = connections[DEFAULT_DB_ALIAS]
         with CaptureQueriesContext(conn) as captured_queries:
             response = self._get_list(self.contributor)
             self.assertEqual(len(response.data), 10)
-            self.assertEqual(len(captured_queries), 12)
+            self.assertEqual(len(captured_queries), 8)
 
     def test_get(self):
         resp = self._get_detail(self.relation_group.pk, user=self.contributor)
@@ -505,7 +496,7 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
         self.assertEqual(self.relation_group.collection, self.collection)
 
         # No edit permission.
-        assign_perm("view_collection", self.user, self.collection)
+        self.collection.set_permission("view", self.user)
         resp = self._patch(self.relation_group.pk, data, user=self.user)
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
         self.relation_group.refresh_from_db()
@@ -548,7 +539,7 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
         self.assertTrue(Relation.objects.filter(pk=self.relation_group.pk).exists())
 
         # No edit permissions, authenticated.
-        assign_perm("view_collection", self.user, self.collection)
+        self.collection.set_permission("view", self.user)
         resp = self._delete(self.relation_group.pk, user=self.user)
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
         self.assertTrue(Relation.objects.filter(pk=self.relation_group.pk).exists())

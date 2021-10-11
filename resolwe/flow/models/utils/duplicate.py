@@ -1,95 +1,15 @@
 """Resolwe models duplicate utils."""
 from copy import deepcopy
 
-from django.contrib.auth.models import Permission
-from django.contrib.contenttypes.models import ContentType
+# from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, models, transaction
 from django.utils import timezone
 
-from guardian.models import GroupObjectPermission, UserObjectPermission
-
+# from resolwe.flow.models.base import PermissionObject
 from resolwe.flow.utils import iterate_fields
-
-
-def _check_permissions(objects, permission, user):
-    """Check that user has permission on all given objects.
-
-    :param objects: A list of objects to be checked.
-    :type objects: list of `~django.db.models.Model`
-
-    :param str permission: Codename of the required permission.
-
-    :param contributor: A Django user that should have the permission.
-    :type contributor: `~django.contrib.auth.models.User`
-
-    :raises: ValidationError when user does not have all the required
-        permissions.
-    """
-    for obj in objects:
-        if not user.has_perm(permission, obj):
-            raise ValidationError(
-                "User doesn't have '{}' permission on {}.".format(permission, obj)
-            )
-
-
-def _bulk_copy_permissions(content_type, pk_mapping):
-    """Copy permissions from old objects to the new ones.
-
-    Given primary key mapping is a mapping between old object ids, from which
-    permissions are copied, and new object ids, to which permissions are
-    copied.
-
-    :param content_type: Content type of objects to process.
-    :type content_type: `~django.contrib.auth.models.ContentType`
-
-    :param dict pk_mapping: Dictionary with old primary keys as keys and new
-        primary keys as values.
-
-    """
-    for permission_cls in [GroupObjectPermission, UserObjectPermission]:
-
-        permissions_qs = permission_cls.objects.filter(
-            content_type=content_type, object_pk__in=pk_mapping.keys()
-        )
-        new_permissions = []
-
-        for permission in permissions_qs:
-            permission.pk = None
-            permission.object_pk = str(pk_mapping[int(permission.object_pk)])
-            new_permissions.append(permission)
-        permission_cls.objects.bulk_create(new_permissions)
-
-
-def _bulk_assign_contributor_permission(content_type, pks, user):
-    """Assign all available permissions on given objects to given user.
-
-    Objects are determined by the combination of the content type and a
-    list of primary keys.
-
-    :param content_type: Content type of objects to process.
-    :type content_type: `~django.contrib.auth.models.ContentType`
-
-    :param list pks: List of primary keys of objects to process.
-
-    :param user: A Django user to which permissions should be assigned.
-    :type contributor: `~django.contrib.auth.models.User`
-
-    """
-    permissions = Permission.objects.filter(content_type=content_type)
-
-    new_permissions = []
-    for permission in permissions:
-        for pk in pks:
-            new_permissions.append(
-                UserObjectPermission(
-                    content_type=content_type,
-                    object_pk=pk,
-                    permission=permission,
-                    user=user,
-                )
-            )
-    UserObjectPermission.objects.bulk_create(new_permissions, ignore_conflicts=True)
+from resolwe.permissions.models import PermissionGroup
+from resolwe.permissions.utils import assign_contributor_permissions, copy_permissions
 
 
 def _rewire_foreign_key(objects, target, pk_mapping):
@@ -169,6 +89,24 @@ def _rewire_inputs(data, pk_mapping):
                 fields[name] = [
                     pk_mapping[pk] if pk in pk_mapping else pk for pk in value
                 ]
+
+
+def _check_permissions(objects, permission, user):
+    """Check that user has permission on all given objects.
+
+    :param objects: A list of objects to be checked.
+    :type objects: list of `~django.db.models.Model`
+    :param str permission: Codename of the required permission.
+    :param contributor: A Django user that should have the permission.
+    :type contributor: `~django.contrib.auth.models.User`
+    :raises: ValidationError when user does not have all the required
+        permissions.
+    """
+    for obj in objects:
+        if not user.has_perm(permission, obj):
+            raise ValidationError(
+                "User doesn't have '{}' permission on {}.".format(permission, obj)
+            )
 
 
 def process_entity(inherit_collection, collection_mapping):
@@ -283,7 +221,6 @@ def copy_objects(objects, contributor, name_prefix, obj_processor=None):
         return objects
 
     name_max_length = first._meta.get_field("name").max_length
-    content_type = ContentType.objects.get_for_model(first)
     model = first._meta.model
 
     new_objects = []
@@ -293,6 +230,7 @@ def copy_objects(objects, contributor, name_prefix, obj_processor=None):
         new_obj.slug = None
         new_obj.contributor = contributor
         new_obj.name = "{} {}".format(name_prefix, obj.name)
+        new_obj._container_attributes = dict()
 
         if len(new_obj.name) > name_max_length:
             new_obj.name = "{}...".format(new_obj.name[: name_max_length - 3])
@@ -313,16 +251,32 @@ def copy_objects(objects, contributor, name_prefix, obj_processor=None):
             # Call the parent method to skip pre-processing and validation.
             models.Model.save(obj)
 
+    object_permission_group = dict()
+    not_in_container = list()
     for old, new in zip(objects, new_objects):
         new.created = old.created
         new.duplicated = timezone.now()
 
-    model.objects.bulk_update(new_objects, ["created", "duplicated"])
+        # Deal with permissions. When object is in container fix the pointer
+        # to permission_group object.
+        # When object is not in container new PermissionGroup proxy object must
+        # be created, assigned to new object and permissions copied from old
+        # object to new one.
+        if getattr(new, "collection_id", None) or getattr(new, "entity_id", None):
+            new.permission_group = new.topmost_container.permission_group
+        else:
+            not_in_container.append((new, old))
+            object_permission_group[new] = PermissionGroup()
 
-    pk_mapping = {old.pk: new.pk for old, new in zip(objects, new_objects)}
-    _bulk_copy_permissions(content_type, pk_mapping)
-    _bulk_assign_contributor_permission(content_type, pk_mapping.values(), contributor)
+    PermissionGroup.objects.bulk_create(object_permission_group.values())
+    for new, old in not_in_container:
+        new.permission_group = object_permission_group[new]
+        copy_permissions(old, new)
+        assign_contributor_permissions(new, contributor)
 
+    model.objects.bulk_update(
+        new_objects, ["created", "duplicated", "permission_group"]
+    )
     return new_objects
 
 
@@ -405,7 +359,7 @@ def bulk_duplicate(
             "Exactly one of 'collections', 'entites', and 'data' attributes must be given."
         )
     if not isinstance(specified[0], models.QuerySet):
-        raise ValueError("Function only supports duplcating querysets.")
+        raise ValueError("Function only supports duplicating querysets.")
 
     collection_mapping, entity_mapping = {}, {}
 
@@ -483,17 +437,20 @@ def bulk_duplicate(
 
     if inherit_collection:
         data_collections = Collection.objects.filter(data__in=new_data)
-        _check_permissions(data_collections, "edit_collection", contributor)
+        _check_permissions(data_collections, "edit", contributor)
+
         if entities is not None:
             entity_collections = Collection.objects.filter(entity__in=new_entities)
-            _check_permissions(entity_collections, "edit_collection", contributor)
+            _check_permissions(entity_collections, "edit", contributor)
 
     if inherit_entity:
         data_entities = Entity.objects.filter(data__in=new_data)
-        _check_permissions(data_entities, "edit_entity", contributor)
+        _check_permissions(data_entities, "edit", contributor)
 
     if collections is not None:
-        return new_collections
+        return Collection.objects.filter(
+            id__in=[collection.id for collection in new_collections]
+        )
     elif entities is not None:
-        return new_entities
-    return new_data
+        return Entity.objects.filter(id__in=[entity.id for entity in new_entities])
+    return Data.objects.filter(id__in=[data.id for data in new_data])

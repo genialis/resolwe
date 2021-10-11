@@ -4,6 +4,8 @@ from django.contrib.postgres.indexes import GinIndex
 from django.contrib.postgres.search import SearchVectorField
 from django.db import models, transaction
 
+from resolwe.permissions.models import PermissionObject
+
 from .base import BaseModel, BaseQuerySet
 from .utils import DirtyError, bulk_duplicate, validate_schema
 
@@ -50,7 +52,6 @@ class BaseCollection(BaseModel):
             raise ValueError(
                 "`descriptor_schema` must be defined if `descriptor` is given"
             )
-
         super().save()
 
 
@@ -63,17 +64,17 @@ class CollectionQuerySet(BaseQuerySet):
         return bulk_duplicate(collections=self, contributor=contributor)
 
 
-class Collection(BaseCollection):
+class Collection(BaseCollection, PermissionObject):
     """Postgres model for storing a collection."""
 
     class Meta(BaseCollection.Meta):
         """Collection Meta options."""
 
         permissions = (
-            ("view_collection", "Can view collection"),
-            ("edit_collection", "Can edit collection"),
-            ("share_collection", "Can share collection"),
-            ("owner_collection", "Is owner of the collection"),
+            ("view", "Can view collection"),
+            ("edit", "Can edit collection"),
+            ("share", "Can share collection"),
+            ("owner", "Is owner of the collection"),
         )
 
         indexes = [
