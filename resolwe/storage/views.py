@@ -64,7 +64,7 @@ class DataBrowseView(View):
         """Get datum with given id and check it's permissions."""
         # Check permissions and load requested data object.
         data = get_objects_for_user(
-            self.request.user, "view_data", Data.objects.filter(pk=data_id)
+            self.request.user, "view", Data.objects.filter(pk=data_id)
         )
         # Send response with status 403 when requested data object does not exists.
         if not data.exists():
@@ -277,7 +277,7 @@ class UriResolverView(DataBrowseView):
         def has_view_permission(collection_id: int) -> bool:
             collection = get_objects_for_user(
                 self.request.user,
-                "view_collection",
+                "view",
                 Collection.objects.filter(pk=collection_id),
             )
             return collection.exists()

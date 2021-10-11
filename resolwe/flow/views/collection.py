@@ -11,7 +11,6 @@ from resolwe.flow.serializers import CollectionSerializer
 from resolwe.permissions.loader import get_permissions_class
 from resolwe.permissions.mixins import ResolwePermissionsMixin
 from resolwe.permissions.shortcuts import get_objects_for_user
-from resolwe.permissions.utils import update_permission
 
 from .mixins import (
     ParametersMixin,
@@ -55,16 +54,6 @@ class BaseCollectionViewSet(
     )
     ordering = "id"
 
-    def set_content_permissions(self, user, obj, payload):
-        """Apply permissions to data objects and entities in ``Collection``."""
-        for entity in obj.entity_set.all():
-            if user.has_perm("share_entity", entity):
-                update_permission(entity, payload)
-
-        for data in obj.data.all():
-            if user.has_perm("share_data", data):
-                update_permission(data, payload)
-
     def create(self, request, *args, **kwargs):
         """Only authenticated users can create new collections."""
         if not request.user.is_authenticated:
@@ -80,7 +69,7 @@ class BaseCollectionViewSet(
 
         ids = self.get_ids(request.data)
         queryset = get_objects_for_user(
-            request.user, "view_collection", Collection.objects.filter(id__in=ids)
+            request.user, "view", Collection.objects.filter(id__in=ids)
         )
         actual_ids = queryset.values_list("id", flat=True)
         missing_ids = list(set(ids) - set(actual_ids))

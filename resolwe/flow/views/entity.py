@@ -9,7 +9,6 @@ from resolwe.flow.filters import EntityFilter
 from resolwe.flow.models import Collection, DescriptorSchema, Entity
 from resolwe.flow.serializers import EntitySerializer
 from resolwe.permissions.shortcuts import get_objects_for_user
-from resolwe.permissions.utils import update_permission
 
 from .collection import BaseCollectionViewSet
 from .utils import get_collection_for_user
@@ -38,9 +37,7 @@ class EntityViewSet(BaseCollectionViewSet):
 
     def _get_entities(self, user, ids):
         """Return entities queryset based on provided entity ids."""
-        queryset = get_objects_for_user(
-            user, "view_entity", Entity.objects.filter(id__in=ids)
-        )
+        queryset = get_objects_for_user(user, "view", Entity.objects.filter(id__in=ids))
         actual_ids = queryset.values_list("id", flat=True)
         missing_ids = list(set(ids) - set(actual_ids))
         if missing_ids:
@@ -52,24 +49,15 @@ class EntityViewSet(BaseCollectionViewSet):
 
         return queryset
 
-    def set_content_permissions(self, user, obj, payload):
-        """Apply permissions to data objects in ``Entity``."""
-        for data in obj.data.all():
-            if user.has_perm("share_data", data):
-                update_permission(data, payload)
-
     @action(detail=False, methods=["post"])
     def move_to_collection(self, request, *args, **kwargs):
         """Move samples from source to destination collection."""
         ids = self.get_ids(request.data)
-        src_collection_id = self.get_id(request.data, "source_collection")
         dst_collection_id = self.get_id(request.data, "destination_collection")
-
-        src_collection = get_collection_for_user(src_collection_id, request.user)
         dst_collection = get_collection_for_user(dst_collection_id, request.user)
 
         entity_qs = self._get_entities(request.user, ids)
-        entity_qs.move_to_collection(src_collection, dst_collection)
+        entity_qs.move_to_collection(dst_collection)
 
         return Response()
 
@@ -105,7 +93,7 @@ class EntityViewSet(BaseCollectionViewSet):
         inherit_collection = request.data.get("inherit_collection", False)
         ids = self.get_ids(request.data)
         queryset = get_objects_for_user(
-            request.user, "view_entity", Entity.objects.filter(id__in=ids)
+            request.user, "view", Entity.objects.filter(id__in=ids)
         )
         actual_ids = queryset.values_list("id", flat=True)
         missing_ids = list(set(ids) - set(actual_ids))

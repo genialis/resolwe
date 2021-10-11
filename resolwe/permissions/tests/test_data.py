@@ -5,7 +5,6 @@ from datetime import timedelta
 
 from django.utils.timezone import now
 
-from guardian.shortcuts import remove_perm
 from rest_framework import exceptions, status
 
 from resolwe.flow.models import Collection, Data
@@ -113,7 +112,7 @@ class DataTestCase(ResolweAPITestCase):
 
     def test_post_no_perms(self):
         collection = Collection.objects.get(pk=1)
-        remove_perm("edit_collection", self.user2, collection)
+        collection.set_permission("view", self.user2)
 
         data_count = Data.objects.count()
         resp = self._post(self.data, self.user2)

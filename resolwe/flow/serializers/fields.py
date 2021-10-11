@@ -7,7 +7,6 @@ from django.utils.encoding import smart_text
 from rest_framework import exceptions, relations
 
 from resolwe.permissions.shortcuts import get_objects_for_user
-from resolwe.permissions.utils import get_full_perm
 
 
 class DictRelatedField(relations.RelatedField):
@@ -63,14 +62,14 @@ class DictRelatedField(relations.RelatedField):
 
         user = getattr(self.context.get("request"), "user")
         queryset = self.get_queryset()
-        permission = get_full_perm(self.write_permission, queryset.model)
+        permission = self.write_permission
         try:
             return get_objects_for_user(
                 user, permission, queryset.filter(**kwargs)
             ).latest("version")
         except ObjectDoesNotExist:
             # Differentiate between "user has no permission" and "object does not exist"
-            view_permission = get_full_perm("view", queryset.model)
+            view_permission = "view"
             if permission != view_permission:
                 try:
                     get_objects_for_user(

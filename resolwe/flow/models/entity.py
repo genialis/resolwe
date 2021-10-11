@@ -1,9 +1,10 @@
 """Resolwe entity model."""
 from django.contrib.postgres.fields import CICharField
 from django.contrib.postgres.indexes import GinIndex
+from django.core.exceptions import ValidationError
 from django.db import models, transaction
 
-from resolwe.permissions.utils import copy_permissions
+from resolwe.permissions.models import PermissionObject
 
 from .base import BaseModel, BaseQuerySet
 from .collection import BaseCollection
@@ -32,23 +33,23 @@ class EntityQuerySet(BaseQuerySet):
         )
 
     @transaction.atomic
-    def move_to_collection(self, source_collection, destination_collection):
-        """Move entities from source to destination collection."""
+    def move_to_collection(self, destination_collection):
+        """Move entities to destination collection."""
         for entity in self:
-            entity.move_to_collection(source_collection, destination_collection)
+            entity.move_to_collection(destination_collection)
 
 
-class Entity(BaseCollection):
+class Entity(BaseCollection, PermissionObject):
     """Postgres model for storing entities."""
 
     class Meta(BaseCollection.Meta):
         """Entity Meta options."""
 
         permissions = (
-            ("view_entity", "Can view entity"),
-            ("edit_entity", "Can edit entity"),
-            ("share_entity", "Can share entity"),
-            ("owner_entity", "Is owner of the entity"),
+            ("view", "Can view entity"),
+            ("edit", "Can edit entity"),
+            ("share", "Can share entity"),
+            ("owner", "Is owner of the entity"),
         )
 
         indexes = [
@@ -88,23 +89,24 @@ class Entity(BaseCollection):
         )[0]
 
     @transaction.atomic
-    def move_to_collection(self, source_collection, destination_collection):
-        """Move entity to destination collection."""
-        if source_collection == destination_collection:
+    def move_to_collection(self, destination_collection):
+        """Move entity from the source to the destination collection.
+
+        The source collection is necessary as it may not be the same as the
+        currently assigned collection. For instance when updating entity using
+        API the entity is first updated (including collection) and then the ...
+
+
+        """
+        if self.collection == destination_collection:
             return
 
+        if destination_collection is None:
+            raise ValidationError(
+                f"Entity {self}({self.pk}) can only be moved to another container."
+            )
         self.collection = destination_collection
-        if destination_collection:
-            self.tags = destination_collection.tags
-            copy_permissions(destination_collection, self)
         self.save()
-
-        for datum in self.data.all():
-            datum.collection = destination_collection
-            if destination_collection:
-                datum.tags = destination_collection.tags
-                copy_permissions(destination_collection, datum)
-            datum.save()
 
 
 class RelationType(models.Model):
@@ -121,7 +123,7 @@ class RelationType(models.Model):
         return self.name
 
 
-class Relation(BaseModel):
+class Relation(BaseModel, PermissionObject):
     """Relations between entities.
 
     The Relation model defines the associations and dependencies between
@@ -197,10 +199,10 @@ class Relation(BaseModel):
         unique_together = ("collection", "category")
 
         permissions = (
-            ("view_relation", "Can view relation"),
-            ("edit_relation", "Can edit relation"),
-            ("share_relation", "Can share relation"),
-            ("owner_relation", "Is owner of the relation"),
+            ("view", "Can view relation"),
+            ("edit", "Can edit relation"),
+            ("share", "Can share relation"),
+            ("owner", "Is owner of the relation"),
         )
 
 

@@ -78,10 +78,10 @@ class RelationViewSet(ResolweCreateModelMixin, viewsets.ModelViewSet):
         If user has no view permission it returns the HTTP status code that
         shoud be sent back to the user.
         """
-        if not user.has_perm("view_collection", collection):
+        if not user.has_perm("view", collection):
             return status.HTTP_404_NOT_FOUND
 
-        elif not user.has_perm("edit_collection", collection):
+        elif not user.has_perm("edit", collection):
             return (
                 status.HTTP_403_FORBIDDEN
                 if user.is_authenticated

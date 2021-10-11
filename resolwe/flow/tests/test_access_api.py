@@ -5,8 +5,6 @@ import unittest
 from django.contrib.auth.models import AnonymousUser
 from django.test import LiveServerTestCase
 
-from guardian.shortcuts import assign_perm
-
 from resolwe.flow.models import Collection, Process, Storage
 from resolwe.test import (
     ProcessTestCase,
@@ -18,23 +16,6 @@ from resolwe.test import (
 
 
 class AccessAPIFromExecutorProcessTestCase(ProcessTestCase, LiveServerTestCase):
-    def _create_collection(self):
-        """Create a test collection that will be accessed via a test process.
-
-        Assign :class:`~django.contrib.auth.models.AnonymousUser`
-        ``view_collection`` permission to the created collection.
-
-        :return: created test collection
-        :rtype: Collection
-
-        """
-        collection = Collection.objects.create(
-            name="collection-foo",
-            contributor=self.contributor,
-        )
-        assign_perm("view_collection", AnonymousUser(), collection)
-        return collection
-
     def create_process(self):
         """Create a test process that will query the API for collections.
 
@@ -75,7 +56,10 @@ re-save collection-list "$(curl --silent --show-error $RESOLWE_HOST_URL/api/coll
     def setUp(self):
         """Custom initilization of :class:`~ProcessTestCase`."""
         super().setUp()
-
+        self.collection = Collection.objects.create(
+            name="Collection", contributor=self.admin
+        )
+        self.collection.set_permission("view", AnonymousUser())
         self.process = self.create_process()
 
     def check_results(self, data):

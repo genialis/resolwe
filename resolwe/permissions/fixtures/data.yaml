@@ -30,6 +30,7 @@
     version: 0.0.0
     size: 42
     location: 1
+    permission_group: 4
 
 - model: storage.FileStorage
   fields:
@@ -62,3 +63,4 @@
     version: 0.0.0
     size: 42
     location: 2
+    permission_group: 6

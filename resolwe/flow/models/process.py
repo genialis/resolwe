@@ -4,19 +4,21 @@ from django.contrib.postgres.indexes import GinIndex
 from django.core.validators import RegexValidator
 from django.db import models
 
+from resolwe.permissions.models import PermissionObject
+
 from .base import BaseModel
 
 
-class Process(BaseModel):
+class Process(BaseModel, PermissionObject):
     """Postgres model for storing processes."""
 
     class Meta(BaseModel.Meta):
         """Process Meta options."""
 
         permissions = (
-            ("view_process", "Can view process"),
-            ("share_process", "Can share process"),
-            ("owner_process", "Is owner of the process"),
+            ("view", "Can view process"),
+            ("share", "Can share process"),
+            ("owner", "Is owner of the process"),
         )
 
         indexes = [
