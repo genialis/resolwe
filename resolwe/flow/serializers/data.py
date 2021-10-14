@@ -19,6 +19,7 @@ class DataSerializer(ResolweBaseSerializer):
     input = ProjectableJSONField(required=False)
     output = ProjectableJSONField(required=False)
     descriptor = ProjectableJSONField(required=False)
+    process_resources = ProjectableJSONField(required=False)
     process = DictRelatedField(
         queryset=Process.objects.all(), serializer=ProcessSerializer
     )
@@ -84,6 +85,7 @@ class DataSerializer(ResolweBaseSerializer):
                 "name",
                 "slug",
                 "tags",
+                "process_resources",
             )
         )
 
