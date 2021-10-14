@@ -434,6 +434,21 @@ class ProcessingManager:
         """Update log files every UPDATE_LOG_FILES_TIMEOUT secods."""
         while True:
             try:
+                logger.debug("Checking disk usage")
+                disk_inputs_usage = shutil.disk_usage("/inputs").used
+                logger.info(
+                    "METRIC disk_usage %s %s /inputs -" % (disk_inputs_usage, DATA_ID)
+                )
+                disk_processing_usage = shutil.disk_usage("/processing").used
+                logger.info(
+                    "METRIC disk_usage %s %s /processing -"
+                    % (disk_processing_usage, DATA_ID)
+                )
+                logger.debug("Checking memory usage")
+                node_memory_usage = int(os.popen("free -tm").readlines()[-1].split()[2])
+                logger.info(
+                    "METRIC node_memory_usage %s %s -" % (node_memory_usage, DATA_ID)
+                )
                 logger.debug("Uploading log files on timer.")
                 yield from self.upload_log_files()
                 yield from asyncio.sleep(UPDATE_LOG_FILES_TIMEOUT)
