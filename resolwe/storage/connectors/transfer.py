@@ -50,14 +50,23 @@ transfer_exceptions = tuple(
 @wrapt.decorator
 def retry_on_transfer_error(wrapped, instance, args, kwargs):
     """Retry on tranfser error."""
-    for _ in range(ERROR_MAX_RETRIES):
+    for retry in range(1, ERROR_MAX_RETRIES + 1):
         try:
             return wrapped(*args, **kwargs)
-        except transfer_exceptions as err:
-            connection_err = err
-            sleep(ERROR_TIMEOUT)
-
-    raise connection_err
+        except transfer_exceptions:
+            # Log the exception on retry for inspection.
+            if retry != ERROR_MAX_RETRIES:
+                logger.exception(
+                    "Retry %d/%d got exception, will retry in %d seconds.",
+                    retry,
+                    ERROR_MAX_RETRIES,
+                    ERROR_TIMEOUT,
+                )
+                sleep(ERROR_TIMEOUT)
+            # Raise exception when max retries are exceeded.
+            else:
+                logger.exception("Final retry got exception, re-raising it.")
+                raise
 
 
 class Transfer:
