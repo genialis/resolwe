@@ -3,15 +3,14 @@ import json
 import logging
 import mimetypes
 import os
-import uuid
 import threading
+import uuid
 from pathlib import Path
 
 import boto3
 import botocore
 
 from .baseconnector import BaseStorageConnector, validate_url, validate_urls
-
 
 logger = logging.getLogger(__name__)
 
@@ -183,7 +182,7 @@ class AwsS3Connector(BaseStorageConnector):
 
     def multipart_push_abort(self, upload_id, url):
         """Abort multiport upload."""
-        return self.cliest.abort_multipart_upload(
+        return self.client.abort_multipart_upload(
             Bucket=self.bucket_name,
             Key=os.fspath(url),
             UploadId=upload_id,
@@ -311,7 +310,7 @@ class AwsS3Connector(BaseStorageConnector):
         content_type = head["ResponseMetadata"]["HTTPHeaders"]["content-type"]
         meta = head["Metadata"]
         chunk_size = int(meta["_upload_chunk_size"])
-        hashes = {k: v for (k, v) in hashes.items() if k not in self.hash_propery}
+        hashes = {k: v for (k, v) in hashes.items() if k not in self.hash_property}
         meta.update(hashes)
         copy_source = {
             "Bucket": self.bucket_name,
