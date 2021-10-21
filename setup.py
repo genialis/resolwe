@@ -71,12 +71,12 @@ setuptools.setup(
     ],
     extras_require={
         "storage_s3": [
-            "boto3~=1.17.29",
+            "boto3~=1.18.40",
             "crcmod",
         ],
         "storage_gcs": [
             "crcmod",
-            "google-cloud-storage~=1.35.0",
+            "google-cloud-storage~=1.42.1",
         ],
         "docs": [
             "sphinx_rtd_theme",
