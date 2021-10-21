@@ -3,12 +3,15 @@ import json
 import logging
 import mimetypes
 import os
+import uuid
+import threading
 from pathlib import Path
 
 import boto3
 import botocore
 
 from .baseconnector import BaseStorageConnector, validate_url, validate_urls
+
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +27,7 @@ class AwsS3Connector(BaseStorageConnector):
         self.bucket_name = config["bucket"]
         self.supported_hash = ["awss3etag"]
         self.refresh_hash_after_transfer = ["awss3etag"]
-        self.hash_propery = {"awss3etag": "e_tag"}
+        self.hash_property = {"awss3etag": "ETag"}
         self.multipart_threshold = self.config.get(
             "multipart_threshold", self.CHUNK_SIZE
         )
@@ -39,39 +42,93 @@ class AwsS3Connector(BaseStorageConnector):
         # transmits to the bucket and compares it to the actual md5 of the
         # data received by the server.
         self.put_ensures_data_integrity = True
+        self._init_lock = threading.Lock()
+        self._initialized = False
 
-        self._session = None
-        self._client = None
-        self._sts = None
-        self._awss3 = None
+    def duplicate(self):
+        """Duplicate existing connector.
+
+        The low-level rountines of boto3 are thread safe. As long as we do not
+        use session and resources in threads we should be safe, so no clonning
+        is necessary.
+        """
+        return self
 
     def _initialize(self):
         """Initializaton."""
+        logger.debug("Initializing S3 connector")
         session_kwargs = {"region_name": self.config.get("region_name")}
         # Credentials may be given explicitely in config. When they are not
         # the system credentials are used instead.
         if "credentials" in self.config:
+            logger.debug("Reading credentials from %s.", self.config["credentials"])
             with open(self.config["credentials"]) as f:
                 settings = json.load(f)
                 session_kwargs["aws_access_key_id"] = settings["AccessKeyId"]
                 session_kwargs["aws_secret_access_key"] = settings["SecretAccessKey"]
 
         self.session = boto3.Session(**session_kwargs)
+        self.original_session = self.session
 
-        self.awss3 = self.session.resource("s3")
+        # Assume role if needed.
+        if "role_arn" in self.config:
+            logger.debug("Assuming role %s.", self.config["role_arn"])
+            # This has to be unique identifier and can be seen in logs.
+            self._session_name = "s3connector"
+            session_credentials = (
+                botocore.credentials.RefreshableCredentials.create_from_metadata(
+                    metadata=self._refresh_credentials_metadata(),
+                    refresh_using=self._refresh_credentials_metadata,
+                    method="sts-assume-role",
+                )
+            )
+            botocore_session = botocore.session.get_session()
+            botocore_session._credentials = session_credentials
+            if "region_name" in self.config:
+                botocore_session.set_config_variable(
+                    "region", self.config["region_name"]
+                )
+            # Replace the session with the new one.
+            self.session = boto3.Session(botocore_session=botocore_session)
 
         self.client = self.session.client(
-            "s3", config=botocore.client.Config(signature_version="s3v4")
+            "s3",
+            config=botocore.client.Config(
+                signature_version="s3v4", max_pool_connections=50
+            ),
         )
-        self.sts = self.session.client("sts")
+
+    def _refresh_credentials_metadata(self, duration: int = 3600):
+        """Prepare metadata for refreshing credentials when assuming role."""
+        logger.debug(
+            "Creating metadata for refreshable credentials for role '%s', duration %d.",
+            self.config["role_arn"],
+            duration,
+        )
+        params = {
+            "RoleArn": self.config["role_arn"],
+            "RoleSessionName": str(uuid.uuid4()),
+            "DurationSeconds": duration,
+        }
+        response = (
+            self.original_session.client("sts").assume_role(**params).get("Credentials")
+        )
+        return {
+            "access_key": response.get("AccessKeyId"),
+            "secret_key": response.get("SecretAccessKey"),
+            "token": response.get("SessionToken"),
+            "expiry_time": response.get("Expiration").isoformat(),
+        }
 
     def __getattr__(self, name):
         """Lazy initialize some attributes."""
         requires_initialization = ["client", "awss3", "sts", "session"]
         if name not in requires_initialization:
             raise AttributeError()
-
-        self._initialize()
+        with self._init_lock:
+            if not self._initialized:
+                self._initialize()
+                self._initialized = True
         return getattr(self, name)
 
     @validate_url
@@ -138,14 +195,15 @@ class AwsS3Connector(BaseStorageConnector):
         """Remove objects."""
         # At most 1000 objects can be deleted at the same time.
         max_chunk = 1000
-        bucket = self.awss3.Bucket(self.bucket_name)
         for i in range(0, len(urls), max_chunk):
             next_chunk = urls[i : i + max_chunk]
             objects = [
                 {"Key": os.fspath(self.base_path / url / delete_url)}
                 for delete_url in next_chunk
             ]
-            bucket.delete_objects(Delete={"Objects": objects, "Quiet": True})
+            self.client.delete_objects(
+                Bucket=self.bucket_name, Delete={"Objects": objects, "Quiet": True}
+            )
 
     @validate_url
     def get(self, url, stream, chunk_size=BaseStorageConnector.CHUNK_SIZE):
@@ -186,13 +244,14 @@ class AwsS3Connector(BaseStorageConnector):
     @validate_url
     def get_hash(self, url, hash_type):
         """Get the hash of the given type for the given object."""
-        resource = self.awss3.Object(self.bucket_name, os.fspath(url))
         try:
-            if hash_type in self.hash_propery:
-                prop = self.hash_propery[hash_type]
-                return getattr(resource, prop).strip('"')
+            response = self.client.head_object(
+                Bucket=self.bucket_name, Key=os.fspath(url)
+            )
+            if hash_type in self.hash_property:
+                return response[self.hash_property[hash_type]].strip('"')
             else:
-                return resource.metadata.get(hash_type)
+                return response["Metadata"].get(hash_type)
         except botocore.exceptions.ClientError as error:
             if error.response["Error"]["Code"] == "404":
                 return None
@@ -203,15 +262,18 @@ class AwsS3Connector(BaseStorageConnector):
     @validate_url
     def get_hashes(self, url, hash_types):
         """Get the hash of the given type for the given object."""
-        resource = self.awss3.Object(self.bucket_name, os.fspath(url))
         hashes = dict()
         try:
+            response = self.client.head_object(
+                Bucket=self.bucket_name, Key=os.fspath(url)
+            )
             for hash_type in hash_types:
-                if hash_type in self.hash_propery:
-                    prop = self.hash_propery[hash_type]
-                    hashes[hash_type] = getattr(resource, prop).strip('"')
+                if hash_type in self.hash_property:
+                    hashes[hash_type] = response[self.hash_property[hash_type]].strip(
+                        '"'
+                    )
                 else:
-                    hashes[hash_type] = resource.metadata.get(hash_type)
+                    hashes[hash_type] = response["Metadata"].get(hash_type)
         except botocore.exceptions.ClientError as error:
             if error.response["Error"]["Code"] == "404":
                 return None
@@ -224,7 +286,7 @@ class AwsS3Connector(BaseStorageConnector):
     def exists(self, url):
         """Get if the object at the given URL exist."""
         try:
-            self.awss3.Object(self.bucket_name, os.fspath(url)).load()
+            self.client.head_object(Bucket=self.bucket_name, Key=os.fspath(url))
         except botocore.exceptions.ClientError as error:
             if error.response["Error"]["Code"] == "404":
                 return False

@@ -16,6 +16,7 @@ Added
   ``ReferencedPath``s point to a valid file in the aws database
 - Add method ``get_latest`` to ``Process`` class in Python Processes returning
   the latest version of the process with the given slug
+- Support assuming role in S3 connector
 
 Changed
 -------
