@@ -1,13 +1,10 @@
 # pylint: disable=missing-docstring
-from django.contrib.auth.models import AnonymousUser
-from django.contrib.contenttypes.models import ContentType
+from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import DEFAULT_DB_ALIAS, connections
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
-from guardian.conf.settings import ANONYMOUS_USER_NAME
-from guardian.models import UserObjectPermission
-from guardian.shortcuts import assign_perm, remove_perm
 from rest_framework import status
 from rest_framework.test import APIRequestFactory, force_authenticate
 
@@ -25,6 +22,8 @@ from resolwe.flow.views import (
     EntityViewSet,
     ProcessViewSet,
 )
+from resolwe.permissions.models import Permission, get_anonymous_user
+from resolwe.permissions.utils import set_permission
 from resolwe.test import ResolweAPITestCase, TestCase
 from resolwe.test.utils import create_data_location
 
@@ -40,7 +39,6 @@ MESSAGES = {
 class TestDataViewSetCase(TestCase):
     def setUp(self):
         super().setUp()
-
         self.data_viewset = DataViewSet.as_view(
             actions={
                 "get": "list",
@@ -102,13 +100,12 @@ class TestDataViewSetCase(TestCase):
             contributor=self.contributor,
             descriptor_schema=self.descriptor_schema,
         )
-
-        assign_perm("view_collection", self.contributor, self.collection)
-        assign_perm("edit_collection", self.contributor, self.collection)
-        assign_perm("view_process", self.contributor, self.proc)
-        assign_perm("view_descriptorschema", self.contributor, self.descriptor_schema)
+        self.collection.set_permission(Permission.EDIT, self.contributor)
+        self.proc.set_permission(Permission.VIEW, self.contributor)
+        self.descriptor_schema.set_permission(Permission.VIEW, self.contributor)
 
     def test_prefetch(self):
+
         process_2 = Process.objects.create(contributor=self.user)
         descriptor_schema_2 = DescriptorSchema.objects.create(
             contributor=self.user,
@@ -145,7 +142,11 @@ class TestDataViewSetCase(TestCase):
             if i < 3:
                 create_kwargs["entity"] = entity_2
             data = Data.objects.create(**create_kwargs)
-            assign_perm("view_data", self.contributor, data)
+            set_permission(
+                Permission.VIEW,
+                self.contributor,
+                data.collection or data.entity or data,
+            )
 
         request = factory.get("/", "", format="json")
         force_authenticate(request, self.contributor)
@@ -154,7 +155,7 @@ class TestDataViewSetCase(TestCase):
         with CaptureQueriesContext(conn) as captured_queries:
             response = self.data_viewset(request)
             self.assertEqual(len(response.data), 10)
-            self.assertEqual(len(captured_queries), 70)
+            self.assertEqual(len(captured_queries), 21)
 
     def test_descriptor_schema(self):
         # Descriptor schema can be assigned by slug.
@@ -210,7 +211,7 @@ class TestDataViewSetCase(TestCase):
         self.assertEqual(data.descriptor_schema, self.descriptor_schema)
 
     def test_public_create(self):
-        assign_perm("view_process", AnonymousUser(), self.proc)
+        self.proc.set_permission(Permission.VIEW, get_anonymous_user())
 
         data = {"process": {"slug": "test-process"}}
         request = factory.post("/", data, format="json")
@@ -219,15 +220,11 @@ class TestDataViewSetCase(TestCase):
         self.assertEqual(Data.objects.count(), 1)
 
         data = Data.objects.latest()
-        self.assertEqual(data.contributor.username, ANONYMOUS_USER_NAME)
+        self.assertEqual(data.contributor.username, settings.ANONYMOUS_USER_NAME)
         self.assertEqual(data.process.slug, "test-process")
 
     def test_inherit_permissions(self):
-        data_ctype = ContentType.objects.get_for_model(Data)
-        entity_ctype = ContentType.objects.get_for_model(Entity)
-
-        assign_perm("view_collection", self.user, self.collection)
-        assign_perm("edit_collection", self.user, self.collection)
+        self.collection.set_permission(Permission.EDIT, self.user)
 
         post_data = {
             "process": {"slug": "test-process"},
@@ -241,24 +238,11 @@ class TestDataViewSetCase(TestCase):
         data = Data.objects.last()
         entity = Entity.objects.last()
 
-        self.assertTrue(self.user.has_perm("view_data", data))
-        self.assertTrue(self.user.has_perm("view_entity", entity))
-        self.assertEqual(
-            UserObjectPermission.objects.filter(
-                content_type=data_ctype, user=self.user
-            ).count(),
-            2,
-        )
-        self.assertEqual(
-            UserObjectPermission.objects.filter(
-                content_type=entity_ctype, user=self.user
-            ).count(),
-            2,
-        )
+        self.assertTrue(self.user.has_perm(Permission.VIEW, data))
+        self.assertTrue(self.user.has_perm(Permission.VIEW, entity))
 
         # Add some permissions and run another process in same entity.
-        assign_perm("edit_collection", self.user, self.collection)
-        assign_perm("share_entity", self.user, entity)
+        self.collection.set_permission(Permission.SHARE, self.user)
 
         post_data = {
             "process": {"slug": "test-process"},
@@ -271,21 +255,9 @@ class TestDataViewSetCase(TestCase):
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
 
         data_2 = Data.objects.last()
-        self.assertTrue(self.user.has_perm("view_data", data_2))
-        self.assertTrue(self.user.has_perm("edit_data", data_2))
-        self.assertTrue(self.user.has_perm("share_data", data_2))
-        self.assertEqual(
-            UserObjectPermission.objects.filter(
-                content_type=data_ctype, user=self.user
-            ).count(),
-            5,
-        )
-        self.assertEqual(
-            UserObjectPermission.objects.filter(
-                content_type=entity_ctype, user=self.user
-            ).count(),
-            3,
-        )
+        self.assertTrue(self.user.has_perm(Permission.VIEW, data_2))
+        self.assertTrue(self.user.has_perm(Permission.EDIT, data_2))
+        self.assertTrue(self.user.has_perm(Permission.SHARE, data_2))
 
     def test_handle_entity(self):
         self.entity.delete()
@@ -354,16 +326,18 @@ class TestDataViewSetCase(TestCase):
         self.assertEqual(data.entity.id, entity.id)
         self.assertEqual(entity.collection.id, self.collection.id)
 
-        # Assign collection to None
+        # Assign entity to None
         data.entity = None
         data.save()
         request = factory.patch("/", {"collection": {"id": None}}, format="json")
         force_authenticate(request, self.contributor)
         response = self.data_detail_viewset(request, pk=data.pk)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        data = Data.objects.last()
-        self.assertEqual(data.collection, None)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["collection"][0],
+            "Data object can not be removed from the container.",
+        )
 
     def test_change_collection(self):
         # Create data object. Note that an entity is created as well.
@@ -385,9 +359,15 @@ class TestDataViewSetCase(TestCase):
             "If Data is in entity, you can only move it to another collection by moving entire entity.",
         )
 
-        # But moving the data when it is not in entity is OK.
-        data.entity = None
-        data.save()
+        entity = data.entity
+
+        # Data can not be moved from collection.
+        with self.assertRaises(ValidationError):
+            data.move_to_entity(None)
+
+        entity.move_to_collection(self.collection)
+        data.move_to_entity(entity)
+
         request = factory.patch(
             "/", {"collection": {"id": self.collection.pk}}, format="json"
         )
@@ -401,9 +381,19 @@ class TestDataViewSetCase(TestCase):
         collection = Collection.objects.create(
             contributor=self.contributor, tags=["test:tag"]
         )
-        assign_perm("view_collection", self.contributor, collection)
-        assign_perm("edit_collection", self.contributor, collection)
+        set_permission(Permission.EDIT, self.contributor, collection)
 
+        self.proc.entity_type = None
+        self.proc.save()
+
+        # Create data outside container and move it to the collection.
+        data = Data.objects.create(
+            name="Test data",
+            contributor=self.contributor,
+            process=self.proc,
+            collection=None,
+            entity=None,
+        )
         request = factory.patch(
             "/", {"collection": {"id": collection.pk}}, format="json"
         )
@@ -425,12 +415,10 @@ class TestDataViewSetCase(TestCase):
 
         collection_1 = Collection.objects.create(contributor=self.contributor)
         collection_1.data.add(data_orphan)
-        assign_perm("view_collection", self.contributor, collection_1)
-        assign_perm("edit_collection", self.contributor, collection_1)
+        collection_1.set_permission(Permission.EDIT, self.contributor)
 
         collection_2 = Collection.objects.create(contributor=self.contributor)
-        assign_perm("view_collection", self.contributor, collection_2)
-        assign_perm("edit_collection", self.contributor, collection_2)
+        collection_2.set_permission(Permission.EDIT, self.contributor)
 
         # Assert preventing moving data in entity.
         request = factory.post(
@@ -470,7 +458,7 @@ class TestDataViewSetCase(TestCase):
 
         # Assert preventing moving data if destination collection
         # lacks permissions.
-        remove_perm("edit_collection", self.contributor, collection_1)
+        collection_1.set_permission(Permission.VIEW, self.contributor)
         request = factory.post(
             reverse("resolwe-api:data-move-to-collection"),
             {
@@ -489,8 +477,8 @@ class TestDataViewSetCase(TestCase):
 
         # It shouldn't be possible to move the data if you don't
         # have edit permission on both collections.
-        assign_perm("edit_collection", self.contributor, collection_1)
-        remove_perm("edit_collection", self.contributor, collection_2)
+        collection_1.set_permission(Permission.EDIT, self.contributor)
+        collection_2.set_permission(Permission.VIEW, self.contributor)
         request = factory.post(
             reverse("resolwe-api:data-move-to-collection"),
             {
@@ -521,7 +509,11 @@ class TestDataViewSetCase(TestCase):
     def test_duplicate(self):
         def create_data():
             data = Data.objects.create(contributor=self.contributor, process=self.proc)
-            assign_perm("view_data", self.contributor, data)
+            set_permission(
+                Permission.VIEW,
+                self.contributor,
+                data.collection or data.entity or data,
+            )
 
             data_location = create_data_location()
             data_location.data.add(data)
@@ -543,7 +535,7 @@ class TestDataViewSetCase(TestCase):
 
         # Inherit collection
         data = create_data()
-        assign_perm("edit_collection", self.contributor, self.collection)
+        self.collection.set_permission(Permission.EDIT, self.contributor)
         self.collection.data.add(data)
         request = factory.post(
             reverse("resolwe-api:data-duplicate"),
@@ -614,8 +606,12 @@ class TestDataViewSetCase(TestCase):
             parent=parent, child=child_2, kind=DataDependency.KIND_IO
         )
 
-        assign_perm("view_data", self.user, parent)
-        assign_perm("view_data", self.user, child_1)
+        set_permission(
+            Permission.VIEW, self.user, parent.collection or parent.entity or parent
+        )
+        set_permission(
+            Permission.VIEW, self.user, child_1.collection or child_1.entity or child_1
+        )
 
         request = factory.get("/", format="json")
         force_authenticate(request, self.user)
@@ -712,13 +708,13 @@ class TestCollectionViewSetCase(TestCase):
             collection = Collection.objects.create(
                 contributor=self.contributor, descriptor_schema=descriptor_schema_1
             )
-            assign_perm("view_collection", self.contributor, collection)
+            collection.set_permission(Permission.VIEW, self.contributor)
 
         for _ in range(5):
             collection = Collection.objects.create(
                 contributor=self.user, descriptor_schema=descriptor_schema_2
             )
-            assign_perm("view_collection", self.contributor, collection)
+            collection.set_permission(Permission.VIEW, self.contributor)
 
         request = factory.get("/", "", format="json")
         force_authenticate(request, self.contributor)
@@ -727,7 +723,7 @@ class TestCollectionViewSetCase(TestCase):
         with CaptureQueriesContext(conn) as captured_queries:
             response = self.collection_list_viewset(request)
             self.assertEqual(len(response.data), 10)
-            self.assertEqual(len(captured_queries), 60)
+            self.assertEqual(len(captured_queries), 10)
 
     def test_set_descriptor_schema(self):
         d_schema = DescriptorSchema.objects.create(
@@ -838,21 +834,14 @@ class TestCollectionViewSetCase(TestCase):
             name="Test collection",
             contributor=self.contributor,
         )
-
         data_1, data_2 = self._create_data(), self._create_data()
         entity_1, entity_2 = self._create_entity(), self._create_entity()
+        data_1.move_to_collection(collection)
+        data_2.move_to_collection(collection)
+        entity_1.move_to_collection(collection)
+        entity_2.move_to_collection(collection)
 
-        collection.data.add(data_1, data_2)
-        collection.entity_set.add(entity_1, entity_2)
-
-        assign_perm("view_collection", self.user, collection)
-        assign_perm("edit_collection", self.user, collection)
-        assign_perm("view_data", self.user, data_1)
-        assign_perm("view_data", self.user, data_2)
-        assign_perm("edit_data", self.user, data_1)
-        assign_perm("view_entity", self.user, entity_1)
-        assign_perm("view_entity", self.user, entity_2)
-        assign_perm("edit_entity", self.user, entity_1)
+        collection.set_permission(Permission.EDIT, self.user)
 
         request = factory.delete(self.detail_url(collection.pk))
         force_authenticate(request, self.user)
@@ -897,10 +886,10 @@ class TestCollectionViewSetCase(TestCase):
         entity = self._create_entity([data1, data2])
 
         collection1 = Collection.objects.create(contributor=self.contributor)
-        assign_perm("view_collection", AnonymousUser(), collection1)
+        collection1.set_permission(Permission.VIEW, get_anonymous_user())
 
         collection2 = Collection.objects.create(contributor=self.contributor)
-        assign_perm("view_collection", AnonymousUser(), collection2)
+        collection2.set_permission(Permission.VIEW, get_anonymous_user())
         collection2.entity_set.add(entity)
         collection2.data.add(data1, data2)
 
@@ -913,12 +902,12 @@ class TestCollectionViewSetCase(TestCase):
     def test_collection_entity_count(self):
         # Collection 1
         collection1 = Collection.objects.create(contributor=self.contributor)
-        assign_perm("view_collection", AnonymousUser(), collection1)
+        collection1.set_permission(Permission.VIEW, get_anonymous_user())
         collection1.data.add(self._create_data(), self._create_data())
 
         # Collection 2
         collection2 = Collection.objects.create(contributor=self.contributor)
-        assign_perm("view_collection", AnonymousUser(), collection2)
+        collection2.set_permission(Permission.VIEW, get_anonymous_user())
 
         col2_data1 = self._create_data()
         col2_data2 = self._create_data()
@@ -947,7 +936,7 @@ class TestCollectionViewSetCase(TestCase):
         collection = Collection.objects.create(
             contributor=self.contributor, name="error"
         )
-        assign_perm("view_collection", AnonymousUser(), collection)
+        collection.set_permission(Permission.VIEW, get_anonymous_user())
         collection.data.add(
             data_error,
             data_uploading,
@@ -961,7 +950,7 @@ class TestCollectionViewSetCase(TestCase):
         collection = Collection.objects.create(
             contributor=self.contributor, name="uploading"
         )
-        assign_perm("view_collection", AnonymousUser(), collection)
+        collection.set_permission(Permission.VIEW, get_anonymous_user())
         collection.data.add(
             data_uploading,
             data_processing,
@@ -974,7 +963,7 @@ class TestCollectionViewSetCase(TestCase):
         collection = Collection.objects.create(
             contributor=self.contributor, name="processing"
         )
-        assign_perm("view_collection", AnonymousUser(), collection)
+        collection.set_permission(Permission.VIEW, get_anonymous_user())
         collection.data.add(
             data_processing, data_preparing, data_waiting, data_resolving, data_done
         )
@@ -982,31 +971,31 @@ class TestCollectionViewSetCase(TestCase):
         collection = Collection.objects.create(
             contributor=self.contributor, name="preparing"
         )
-        assign_perm("view_collection", AnonymousUser(), collection)
+        collection.set_permission(Permission.VIEW, get_anonymous_user())
         collection.data.add(data_preparing, data_waiting, data_resolving, data_done)
 
         collection = Collection.objects.create(
             contributor=self.contributor, name="waiting"
         )
-        assign_perm("view_collection", AnonymousUser(), collection)
+        collection.set_permission(Permission.VIEW, get_anonymous_user())
         collection.data.add(data_waiting, data_resolving, data_done)
 
         collection = Collection.objects.create(
             contributor=self.contributor, name="resolving"
         )
-        assign_perm("view_collection", AnonymousUser(), collection)
+        collection.set_permission(Permission.VIEW, get_anonymous_user())
         collection.data.add(data_resolving, data_done)
 
         collection = Collection.objects.create(
             contributor=self.contributor, name="done"
         )
-        assign_perm("view_collection", AnonymousUser(), collection)
+        collection.set_permission(Permission.VIEW, get_anonymous_user())
         collection.data.add(data_done)
 
         collection = Collection.objects.create(
             contributor=self.contributor, name="empty"
         )
-        assign_perm("view_collection", AnonymousUser(), collection)
+        collection.set_permission(Permission.VIEW, get_anonymous_user())
         collection.data.add()
 
         collections = self.client.get(self.list_url).data
@@ -1094,7 +1083,9 @@ class EntityViewSetTest(TestCase):
             name="Test Collection 2", contributor=self.contributor
         )
         self.entity = Entity.objects.create(
-            name="Test entity", contributor=self.contributor
+            name="Test entity",
+            contributor=self.contributor,
+            collection=self.collection2,
         )
         process = Process.objects.create(
             name="Test process", contributor=self.contributor
@@ -1104,6 +1095,8 @@ class EntityViewSetTest(TestCase):
             contributor=self.contributor,
             process=process,
             status=Data.STATUS_DONE,
+            entity=self.entity,
+            collection=self.collection2,
         )
 
         data_location = create_data_location()
@@ -1124,15 +1117,8 @@ class EntityViewSetTest(TestCase):
         data_location = create_data_location()
         data_location.data.add(data)
 
-        self.entity.data.add(self.data)
-        self.entity.collection = self.collection2
-        self.entity.save()
-
-        assign_perm("edit_collection", self.contributor, self.collection)
-        assign_perm("edit_entity", self.contributor, self.entity)
-        assign_perm("view_collection", self.contributor, self.collection)
-        assign_perm("view_collection", self.contributor, self.collection2)
-        assign_perm("view_entity", self.contributor, self.entity)
+        self.collection.set_permission(Permission.EDIT, self.contributor)
+        self.collection2.set_permission(Permission.VIEW, self.contributor)
 
         self.entityviewset = EntityViewSet()
 
@@ -1193,7 +1179,9 @@ class EntityViewSetTest(TestCase):
             if i < 4:
                 create_kwargs["collection"] = self.collection
             entity = Entity.objects.create(**create_kwargs)
-            assign_perm("view_entity", self.contributor, entity)
+            set_permission(
+                Permission.VIEW, self.contributor, entity.collection or entity
+            )
 
         for i in range(5):
             create_kwargs = {
@@ -1203,7 +1191,11 @@ class EntityViewSetTest(TestCase):
             if i < 4:
                 create_kwargs["collection"] = collection_2
             entity = Entity.objects.create(**create_kwargs)
-            assign_perm("view_entity", self.contributor, entity)
+            set_permission(
+                Permission.VIEW, self.contributor, entity.collection or entity
+            )
+
+        set_permission(Permission.EDIT, self.contributor, entity.collection or entity)
 
         request = factory.get("/", "", format="json")
         force_authenticate(request, self.contributor)
@@ -1212,7 +1204,7 @@ class EntityViewSetTest(TestCase):
         with CaptureQueriesContext(conn) as captured_queries:
             response = self.entity_list_viewset(request)
             self.assertEqual(len(response.data), 10)
-            self.assertEqual(len(captured_queries), 63)
+            self.assertEqual(len(captured_queries), 14)
 
     def test_list_filter_collection(self):
         request = factory.get("/", {}, format="json")
@@ -1233,10 +1225,8 @@ class EntityViewSetTest(TestCase):
     def test_change_collection(self):
         self.collection.tags = ["test:tag"]
         self.collection.save()
-        self.data.collection = self.collection2
-        self.data.save()
-        assign_perm("edit_entity", self.contributor, self.entity)
-
+        self.data.entity.move_to_collection(self.collection2)
+        self.collection2.set_permission(Permission.EDIT, self.contributor)
         request_data = {"collection": {"id": self.collection.pk}}
         request = factory.patch("/", request_data, format="json")
         force_authenticate(request, self.contributor)
@@ -1245,14 +1235,14 @@ class EntityViewSetTest(TestCase):
 
         self.entity.refresh_from_db()
         self.data.refresh_from_db()
+        self.assertEqual(self.entity.collection.id, self.collection.id)
         self.assertEqual(self.data.entity.id, self.entity.id)
         self.assertEqual(self.data.collection.id, self.collection.id)
-        self.assertEqual(self.entity.collection.id, self.collection.id)
         self.assertEqual(self.entity.tags, self.collection.tags)
         self.assertEqual(self.data.tags, self.collection.tags)
 
     def test_change_collection_to_none(self):
-        assign_perm("edit_entity", self.contributor, self.entity)
+        self.entity.collection.set_permission(Permission.EDIT, self.contributor)
         self.data.collection = self.collection2
         self.data.save()
 
@@ -1260,32 +1250,23 @@ class EntityViewSetTest(TestCase):
         request = factory.patch("/", request_data, format="json")
         force_authenticate(request, self.contributor)
         resp = self.entity_detail_viewset(request, pk=self.entity.pk)
-        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
 
-        self.entity.refresh_from_db()
-        self.data.refresh_from_db()
-        self.assertEqual(self.data.entity.id, self.entity.id)
-        self.assertEqual(self.data.collection, None)
-        self.assertEqual(self.entity.collection, None)
+        self.assertIn("can only be moved to another container.", resp.data["error"])
 
     def test_move_to_collection(self):
-        entity = Entity.objects.create(contributor=self.contributor)
-        assign_perm("view_entity", self.contributor, entity)
-        data = self._create_data()
-        assign_perm("view_data", self.contributor, data)
-        entity.data.add(data)
-
         source_collection = Collection.objects.create(contributor=self.contributor)
-        assign_perm("view_collection", self.contributor, source_collection)
-        assign_perm("edit_collection", self.contributor, source_collection)
-        entity.collection = source_collection
-        entity.save()
+        source_collection.set_permission(Permission.EDIT, self.contributor)
+        entity = Entity.objects.create(
+            contributor=self.contributor, collection=source_collection
+        )
+        data = self._create_data()
+        data.entity = entity
         data.collection = source_collection
         data.save()
 
         destination_collection = Collection.objects.create(contributor=self.contributor)
-        assign_perm("view_collection", self.contributor, destination_collection)
-        assign_perm("edit_collection", self.contributor, destination_collection)
+        destination_collection.set_permission(Permission.EDIT, self.contributor)
 
         request = factory.post(
             reverse("resolwe-api:entity-move-to-collection"),
@@ -1318,14 +1299,9 @@ class EntityViewSetTest(TestCase):
         )
 
         data_1, data_2 = self._create_data(), self._create_data()
-
-        entity.data.add(data_1, data_2)
-
-        assign_perm("view_entity", self.user, entity)
-        assign_perm("edit_entity", self.user, entity)
-        assign_perm("view_data", self.user, data_1)
-        assign_perm("view_data", self.user, data_2)
-        assign_perm("edit_data", self.user, data_1)
+        data_1.move_to_entity(entity)
+        data_2.move_to_entity(entity)
+        entity.set_permission(Permission.EDIT, self.user)
 
         request = factory.delete(self.detail_url(entity.pk))
         force_authenticate(request, self.user)
@@ -1337,14 +1313,10 @@ class EntityViewSetTest(TestCase):
         self.assertFalse(Data.objects.filter(pk=data_2.pk).exists())
 
     def test_duplicate(self):
-        entity = Entity.objects.first()
         collection = Collection.objects.create(contributor=self.contributor)
-        assign_perm("edit_collection", self.contributor, collection)
-        collection.entity_set.add(entity)
-        data = entity.data.all()
-        for datum in data:
-            assign_perm("view_data", self.contributor, datum)
-        collection.data.add(*data)
+        collection.set_permission(Permission.EDIT, self.contributor)
+        entity = Entity.objects.first()
+        entity.move_to_collection(collection)
 
         request = factory.post(
             reverse("resolwe-api:entity-duplicate"), {"ids": [entity.id]}, format="json"
@@ -1372,8 +1344,7 @@ class EntityViewSetTest(TestCase):
         collection_without_perm = Collection.objects.create(
             contributor=self.contributor
         )
-        collection_without_perm.entity_set.add(entity)
-        collection_without_perm.data.add(*entity.data.all())
+        entity.move_to_collection(collection_without_perm)
 
         request = factory.post(
             reverse("resolwe-api:entity-duplicate"),

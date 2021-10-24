@@ -6,6 +6,18 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Added
+-----
+- **BACKWARD INCOMPATIBLE:** New permission architecture: it is not based on
+  Guardian anymore. The main benefits of new architecture are speed gains in
+  common operations, such as setting a permission and retrieving objects with
+  the given permission.
+
+
 ===================
 28.5.0 - 2021-09-13
 ===================

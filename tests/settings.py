@@ -56,7 +56,7 @@ TEMPLATES = [
 
 AUTHENTICATION_BACKENDS = (
     "django.contrib.auth.backends.ModelBackend",
-    "guardian.backends.ObjectPermissionBackend",
+    "resolwe.permissions.permissions.ResolwePermissionBackend",
 )
 
 ANONYMOUS_USER_NAME = "public"

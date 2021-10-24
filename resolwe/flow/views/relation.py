@@ -1,7 +1,7 @@
 """Relation viewset."""
 from itertools import zip_longest
 
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Q
 
 from rest_framework import exceptions, permissions, status, viewsets
 from rest_framework.response import Response
@@ -9,6 +9,8 @@ from rest_framework.response import Response
 from resolwe.flow.filters import RelationFilter
 from resolwe.flow.models import Collection, DescriptorSchema, Relation
 from resolwe.flow.serializers import RelationSerializer
+from resolwe.permissions.models import Permission, PermissionModel
+from resolwe.permissions.utils import get_anonymous_user, get_user
 
 from .mixins import ResolweCreateModelMixin
 
@@ -16,7 +18,9 @@ from .mixins import ResolweCreateModelMixin
 class RelationViewSet(ResolweCreateModelMixin, viewsets.ModelViewSet):
     """API view for :class:`Relation` objects."""
 
+    qs_permission_model = PermissionModel.objects.select_related("user", "group")
     qs_collection_ds = DescriptorSchema.objects.select_related("contributor")
+
     qs_collection = Collection.objects.select_related("contributor")
     qs_collection = qs_collection.prefetch_related(
         "data",
@@ -24,18 +28,35 @@ class RelationViewSet(ResolweCreateModelMixin, viewsets.ModelViewSet):
         Prefetch("descriptor_schema", queryset=qs_collection_ds),
     )
 
-    queryset = (
-        Relation.objects.all()
-        .select_related("contributor", "type")
-        .prefetch_related(
-            Prefetch("collection", queryset=qs_collection), "relationpartition_set"
-        )
-    )
+    queryset = Relation.objects.all().select_related("contributor", "type")
+
     serializer_class = RelationSerializer
     permission_classes = (permissions.AllowAny,)
     filterset_class = RelationFilter
     ordering_fields = ("id", "created", "modified")
     ordering = ("id",)
+
+    def get_queryset(self):
+        """Get the queryset for the given request.
+
+        Prefetch only permissions for the given user, not all of them. This is
+        only possible with the request in the context.
+        """
+        user = get_user(self.request.user)
+        filters = Q(user=user) | Q(group__in=user.groups.all())
+        anonymous_user = get_anonymous_user()
+        if user != anonymous_user:
+            filters |= Q(user=anonymous_user)
+
+        qs_permission_model = self.qs_permission_model.filter(filters)
+
+        return self._filter_queryset(
+            self.queryset.prefetch_related(
+                Prefetch("collection", queryset=self.qs_collection),
+                "relationpartition_set",
+                Prefetch("permission_group__permissions", queryset=qs_permission_model),
+            )
+        )
 
     def _filter_queryset(self, queryset):
         """Filter queryset by entity, label and position.
@@ -78,10 +99,10 @@ class RelationViewSet(ResolweCreateModelMixin, viewsets.ModelViewSet):
         If user has no view permission it returns the HTTP status code that
         shoud be sent back to the user.
         """
-        if not user.has_perm("view_collection", collection):
+        if not user.has_perm(Permission.VIEW, collection):
             return status.HTTP_404_NOT_FOUND
 
-        elif not user.has_perm("edit_collection", collection):
+        elif not user.has_perm(Permission.EDIT, collection):
             return (
                 status.HTTP_403_FORBIDDEN
                 if user.is_authenticated
@@ -89,10 +110,6 @@ class RelationViewSet(ResolweCreateModelMixin, viewsets.ModelViewSet):
             )
         else:
             return True
-
-    def get_queryset(self):
-        """Get queryset and perform custom filtering."""
-        return self._filter_queryset(self.queryset)
 
     def create(self, request, *args, **kwargs):
         """Create a resource."""

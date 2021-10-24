@@ -28,8 +28,9 @@ from django.db import transaction
 from django.utils.crypto import get_random_string
 from django.utils.text import slugify
 
-from resolwe.flow.models import Collection, Data, DescriptorSchema, Process, Storage
+from resolwe.flow.models import Data, DescriptorSchema, Process, Storage
 from resolwe.flow.utils import dict_dot, iterate_fields, iterate_schema
+from resolwe.permissions.models import PermissionGroup
 from resolwe.storage.connectors import connectors
 from resolwe.test import TransactionTestCase
 
@@ -138,6 +139,11 @@ class ProcessTestCase(TransactionTestCase):
         for schema in schemas:
             schema.contributor = self.admin
 
+    def _create_permission_groups(self, schemas):
+        """Create permission groups."""
+        for schema in schemas:
+            schema.permission_group = PermissionGroup.objects.create()
+
     def _register_schemas(
         self, path=None, processes_paths=None, descriptors_paths=None
     ):
@@ -208,6 +214,7 @@ class ProcessTestCase(TransactionTestCase):
                     SCHEMAS_FIXTURE_CACHE[cache_key][schemas["name"]]
                 )
                 self._update_schema_relations(schemas_cache)
+                self._create_permission_groups(schemas_cache)
                 schemas["model"].objects.bulk_create(schemas_cache)
         else:
             if processes_paths is None and descriptors_paths is None:

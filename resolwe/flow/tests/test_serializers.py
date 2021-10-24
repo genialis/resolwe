@@ -1,11 +1,11 @@
 # pylint: disable=missing-docstring
 from collections import OrderedDict
 
-from guardian.shortcuts import assign_perm
 from rest_framework.test import APIRequestFactory
 
 from resolwe.flow.models import Data, DescriptorSchema, Process
 from resolwe.flow.serializers import DataSerializer
+from resolwe.permissions.models import Permission
 from resolwe.test import TestCase
 
 
@@ -17,21 +17,21 @@ class ResolweDictRelatedFieldTest(TestCase):
             slug="test-process",
             contributor=self.contributor,
         )
-        assign_perm("view_process", self.user, self.process)
+        self.process.set_permission(Permission.VIEW, self.user)
 
         self.descriptor_schema1 = DescriptorSchema.objects.create(
             slug="test-schema",
             contributor=self.contributor,
             version="1.0.0",
         )
-        assign_perm("view_descriptorschema", self.user, self.descriptor_schema1)
+        self.descriptor_schema1.set_permission(Permission.VIEW, self.user)
 
         self.descriptor_schema2 = DescriptorSchema.objects.create(
             slug="test-schema",
             contributor=self.contributor,
             version="2.0.0",
         )
-        assign_perm("view_descriptorschema", self.user, self.descriptor_schema2)
+        self.descriptor_schema2.set_permission(Permission.VIEW, self.user)
 
         self.descriptor_schema3 = DescriptorSchema.objects.create(
             slug="test-schema",

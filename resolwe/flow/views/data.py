@@ -1,5 +1,5 @@
 """Data viewset."""
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Q
 
 from rest_framework import exceptions, mixins, viewsets
 from rest_framework.decorators import action
@@ -12,7 +12,8 @@ from resolwe.flow.serializers import DataSerializer
 from resolwe.flow.utils import get_data_checksum
 from resolwe.permissions.loader import get_permissions_class
 from resolwe.permissions.mixins import ResolwePermissionsMixin
-from resolwe.permissions.shortcuts import get_objects_for_user
+from resolwe.permissions.models import Permission, PermissionModel
+from resolwe.permissions.utils import get_anonymous_user, get_user
 
 from .mixins import (
     ParametersMixin,
@@ -36,6 +37,7 @@ class DataViewSet(
 ):
     """API view for :class:`Data` objects."""
 
+    qs_permission_model = PermissionModel.objects.select_related("user", "group")
     qs_collection_ds = DescriptorSchema.objects.select_related("contributor")
     qs_collection = Collection.objects.select_related("contributor")
     qs_collection = qs_collection.prefetch_related(
@@ -60,15 +62,9 @@ class DataViewSet(
         Prefetch("collection", queryset=qs_entity_col),
         Prefetch("descriptor_schema", queryset=qs_entity_ds),
     )
-
     qs_process = Process.objects.select_related("contributor")
+    queryset = Data.objects.select_related("contributor")
 
-    queryset = Data.objects.select_related("contributor").prefetch_related(
-        Prefetch("collection", queryset=qs_collection),
-        Prefetch("descriptor_schema", queryset=qs_descriptor_schema),
-        Prefetch("entity", queryset=qs_entity),
-        Prefetch("process", queryset=qs_process),
-    )
     serializer_class = DataSerializer
     filter_class = DataFilter
     permission_classes = (get_permissions_class(),)
@@ -88,6 +84,28 @@ class DataViewSet(
     )
     ordering = "-created"
 
+    def get_queryset(self):
+        """Get the queryset for the given request.
+
+        Prefetch only permissions for the given user, not all of them. This is
+        only possible with the request in the context.
+        """
+        user = get_user(self.request.user)
+        filters = Q(user=user) | Q(group__in=user.groups.all())
+        anonymous_user = get_anonymous_user()
+        if user != anonymous_user:
+            filters |= Q(user=anonymous_user)
+
+        qs_permission_model = self.qs_permission_model.filter(filters)
+
+        return self.queryset.prefetch_related(
+            Prefetch("collection", queryset=self.qs_collection),
+            Prefetch("descriptor_schema", queryset=self.qs_descriptor_schema),
+            Prefetch("entity", queryset=self.qs_entity),
+            Prefetch("process", queryset=self.qs_process),
+            Prefetch("permission_group__permissions", queryset=qs_permission_model),
+        )
+
     @action(detail=False, methods=["post"])
     def duplicate(self, request, *args, **kwargs):
         """Duplicate (make copy of) ``Data`` objects."""
@@ -96,8 +114,8 @@ class DataViewSet(
 
         inherit_collection = request.data.get("inherit_collection", False)
         ids = self.get_ids(request.data)
-        queryset = get_objects_for_user(
-            request.user, "view_data", Data.objects.filter(id__in=ids)
+        queryset = Data.objects.filter(id__in=ids).filter_for_user(
+            request.user, Permission.VIEW
         )
         actual_ids = queryset.values_list("id", flat=True)
         missing_ids = list(set(ids) - set(actual_ids))
@@ -143,7 +161,7 @@ class DataViewSet(
                 Process.PERSISTENCE_TEMP,
             ],
         )
-        data_qs = get_objects_for_user(request.user, "view_data", data_qs)
+        data_qs = data_qs.filter_for_user(request.user)
         if data_qs.exists():
             data = data_qs.order_by("created").last()
             serializer = self.get_serializer(data)
@@ -151,8 +169,7 @@ class DataViewSet(
 
     def _parents_children(self, request, queryset):
         """Process given queryset and return serialized objects."""
-        queryset = get_objects_for_user(request.user, "view_data", queryset)
-
+        queryset = queryset.filter_for_user(request.user)
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
@@ -169,7 +186,7 @@ class DataViewSet(
     @action(detail=True)
     def children(self, request, pk=None):
         """Return children of the current data object."""
-        return self._parents_children(request, self.get_object().children)
+        return self._parents_children(request, self.get_object().children.all())
 
     @action(detail=False, methods=["post"])
     def move_to_collection(self, request, *args, **kwargs):
@@ -186,9 +203,7 @@ class DataViewSet(
 
     def _get_data(self, user, ids):
         """Return data objects queryset based on provided ids."""
-        queryset = get_objects_for_user(
-            user, "view_data", Data.objects.filter(id__in=ids)
-        )
+        queryset = Data.objects.filter(id__in=ids).filter_for_user(user)
         actual_ids = queryset.values_list("id", flat=True)
         missing_ids = list(set(ids) - set(actual_ids))
         if missing_ids:
@@ -200,7 +215,7 @@ class DataViewSet(
 
         for data in queryset:
             collection = data.collection
-            if collection and not user.has_perm("edit_collection", obj=collection):
+            if collection and not user.has_perm(Permission.EDIT, obj=collection):
                 if user.is_authenticated:
                     raise exceptions.PermissionDenied()
                 else:

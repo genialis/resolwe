@@ -3,10 +3,10 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
 from django.urls import reverse
 
-from guardian.shortcuts import assign_perm
 from rest_framework.test import APITestCase
 
 from resolwe.flow.models import Collection, Data, Entity, Process
+from resolwe.permissions.models import Permission
 
 
 class ProcessOrderingTest(APITestCase):
@@ -23,8 +23,8 @@ class ProcessOrderingTest(APITestCase):
             name="My process", contributor=user, version=2
         )
 
-        assign_perm("view_process", AnonymousUser(), self.proc_1)
-        assign_perm("view_process", AnonymousUser(), self.proc_2)
+        self.proc_1.set_permission(Permission.VIEW, AnonymousUser())
+        self.proc_2.set_permission(Permission.VIEW, AnonymousUser())
 
         self.url = reverse("resolwe-api:process-list")
 
@@ -63,9 +63,9 @@ class CollectionOrderingTest(APITestCase):
             name="Collection 3", contributor=self.user_3
         )
 
-        assign_perm("view_collection", AnonymousUser(), self.collection_1)
-        assign_perm("view_collection", AnonymousUser(), self.collection_2)
-        assign_perm("view_collection", AnonymousUser(), self.collection_3)
+        self.collection_1.set_permission(Permission.VIEW, AnonymousUser())
+        self.collection_2.set_permission(Permission.VIEW, AnonymousUser())
+        self.collection_3.set_permission(Permission.VIEW, AnonymousUser())
 
         self.url = reverse("resolwe-api:collection-list")
 
@@ -116,9 +116,9 @@ class EntityOrderingTest(APITestCase):
         self.entity_2 = Entity.objects.create(name="Entity 2", contributor=self.user_2)
         self.entity_3 = Entity.objects.create(name="Entity 3", contributor=self.user_3)
 
-        assign_perm("view_entity", AnonymousUser(), self.entity_1)
-        assign_perm("view_entity", AnonymousUser(), self.entity_2)
-        assign_perm("view_entity", AnonymousUser(), self.entity_3)
+        self.entity_1.set_permission(Permission.VIEW, AnonymousUser())
+        self.entity_2.set_permission(Permission.VIEW, AnonymousUser())
+        self.entity_3.set_permission(Permission.VIEW, AnonymousUser())
 
         self.url = reverse("resolwe-api:entity-list")
 
@@ -176,9 +176,9 @@ class DataOrderingTest(APITestCase):
             name="Data 3", contributor=self.user_3, process=process
         )
 
-        assign_perm("view_data", AnonymousUser(), self.data_1)
-        assign_perm("view_data", AnonymousUser(), self.data_2)
-        assign_perm("view_data", AnonymousUser(), self.data_3)
+        self.data_1.set_permission(Permission.VIEW, AnonymousUser())
+        self.data_2.set_permission(Permission.VIEW, AnonymousUser())
+        self.data_3.set_permission(Permission.VIEW, AnonymousUser())
 
         self.url = reverse("resolwe-api:data-list")
 

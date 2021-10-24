@@ -7,6 +7,7 @@ from resolwe.flow.models.collection import Collection
 from resolwe.flow.models.entity import Relation, RelationPartition, RelationType
 from resolwe.flow.serializers import CollectionSerializer
 from resolwe.flow.serializers.fields import DictRelatedField
+from resolwe.permissions.models import Permission
 from resolwe.rest.serializers import SelectiveFieldMixin
 
 from .base import ResolweBaseSerializer
@@ -29,7 +30,7 @@ class RelationSerializer(ResolweBaseSerializer):
     collection = DictRelatedField(
         queryset=Collection.objects.all(),
         serializer=CollectionSerializer,
-        write_permission="edit",
+        write_permission=Permission.EDIT,
     )
     type = serializers.SlugRelatedField(
         queryset=RelationType.objects.all(), slug_field="name"

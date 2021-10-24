@@ -21,12 +21,10 @@ CREATE OR REPLACE FUNCTION generate_resolwe_data_search(data flow_data)
             array_to_string(array_remove(array_agg(last_name), ''), ' ') AS last_names
         INTO owners
         FROM auth_user
-        JOIN guardian_userobjectpermission ON auth_user.id=guardian_userobjectpermission.user_id
+        JOIN permissions_permissionmodel ON auth_user.id=permissions_permissionmodel.user_id
         WHERE
-            content_type_id=(SELECT id FROM django_content_type WHERE app_label='flow' and model='data')
-            AND permission_id=(SELECT id FROM auth_permission WHERE codename='owner_data')
-            AND object_pk::int=data.id
-        GROUP BY object_pk;
+            permissions_permissionmodel.value=8
+            AND permissions_permissionmodel.permission_group_id::int=data.permission_group_id;
 
         SELECT
             username usernames, first_name first_names, last_name last_names
@@ -99,20 +97,20 @@ CREATE TRIGGER data_biut
 
 
 -- Trigger after update/insert/delete user permission object.
-CREATE OR REPLACE FUNCTION handle_userpermission_data(perm guardian_userobjectpermission)
+CREATE OR REPLACE FUNCTION handle_userpermission_data(user_permission permissions_permissionmodel)
     RETURNS void
     LANGUAGE plpgsql
     AS $$
     DECLARE
-        data_content_type_id int;
-        owner_data_permission_id int;
+        data_id int;
     BEGIN
-        SELECT id FROM django_content_type WHERE app_label='flow' and model='data' INTO data_content_type_id;
-        SELECT id FROM auth_permission WHERE codename='owner_data' INTO owner_data_permission_id;
-
-        IF perm.content_type_id=data_content_type_id AND perm.permission_id=owner_data_permission_id THEN
+        IF user_permission.value=8 THEN
             -- Set the search field to NULL to trigger data_biut.
-            UPDATE flow_data SET search=NULL WHERE id=perm.object_pk::int;
+            FOR data_id in 
+                SELECT id FROM flow_data WHERE flow_data.permission_group_id = user_permission.permission_group_id
+            LOOP
+                UPDATE flow_data SET search=NULL WHERE id=data_id;
+            END LOOP;
         END IF;
     END;
     $$;
@@ -129,7 +127,7 @@ CREATE OR REPLACE FUNCTION userpermission_data_aiut()
 
 CREATE TRIGGER userpermission_data_aiut
     AFTER INSERT OR UPDATE
-    ON guardian_userobjectpermission
+    ON permissions_permissionmodel
     FOR EACH ROW EXECUTE PROCEDURE userpermission_data_aiut();
 
 CREATE OR REPLACE FUNCTION userpermission_data_adt()
@@ -144,7 +142,7 @@ CREATE OR REPLACE FUNCTION userpermission_data_adt()
 
 CREATE TRIGGER userpermission_data_adt
     AFTER DELETE
-    ON guardian_userobjectpermission
+    ON permissions_permissionmodel
     FOR EACH ROW EXECUTE PROCEDURE userpermission_data_adt();
 
 
@@ -174,18 +172,17 @@ CREATE OR REPLACE FUNCTION data_owner_aut()
     AS $$
     BEGIN
         WITH owner_permission AS (
-            SELECT object_pk::int data_id
-            FROM guardian_userobjectpermission
+            SELECT permission_group_id::int
+            FROM permissions_permissionmodel
             WHERE
-                user_id=NEW.id
-                AND content_type_id=(SELECT id FROM django_content_type WHERE app_label='flow' and model='data')
-                AND permission_id=(SELECT id FROM auth_permission WHERE codename='owner_data')
+                permissions_permissionmodel.user_id=NEW.id AND
+                permissions_permissionmodel.value=8
         )
         -- Set the search field to NULL to trigger data_biut.
         UPDATE flow_data data
         SET search=NULL
         FROM owner_permission perm
-        WHERE data.id=perm.data_id;
+        WHERE data.permission_group_id=perm.permission_group_id;
 
         RETURN NEW;
     END;

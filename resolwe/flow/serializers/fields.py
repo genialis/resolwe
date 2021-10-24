@@ -6,8 +6,7 @@ from django.utils.encoding import smart_text
 
 from rest_framework import exceptions, relations
 
-from resolwe.permissions.shortcuts import get_objects_for_user
-from resolwe.permissions.utils import get_full_perm
+from resolwe.permissions.models import Permission
 
 
 class DictRelatedField(relations.RelatedField):
@@ -34,7 +33,7 @@ class DictRelatedField(relations.RelatedField):
         ),
     }
 
-    def __init__(self, serializer, write_permission="view", **kwargs):
+    def __init__(self, serializer, write_permission=Permission.VIEW, **kwargs):
         """Initialize attributes."""
         self.serializer = serializer
         self.write_permission = write_permission
@@ -63,18 +62,20 @@ class DictRelatedField(relations.RelatedField):
 
         user = getattr(self.context.get("request"), "user")
         queryset = self.get_queryset()
-        permission = get_full_perm(self.write_permission, queryset.model)
+        permission = self.write_permission
         try:
-            return get_objects_for_user(
-                user, permission, queryset.filter(**kwargs)
-            ).latest("version")
+            return (
+                queryset.filter(**kwargs)
+                .filter_for_user(user, permission)
+                .latest("version")
+            )
         except ObjectDoesNotExist:
             # Differentiate between "user has no permission" and "object does not exist"
-            view_permission = get_full_perm("view", queryset.model)
+            view_permission = Permission.VIEW
             if permission != view_permission:
                 try:
-                    get_objects_for_user(
-                        user, view_permission, queryset.filter(**kwargs)
+                    queryset.filter(**kwargs).filter_for_user(
+                        user, view_permission
                     ).latest("version")
                     raise exceptions.PermissionDenied(
                         "You do not have {} permission for {}: {}.".format(

@@ -1,7 +1,9 @@
 """Resolwe storage model."""
 from django.db import models
 
-from .base import BaseModel, BaseQuerySet
+from resolwe.permissions.models import PermissionQuerySet
+
+from .base import BaseModel
 from .functions import JsonGetPath
 from .utils import json_path_components
 
@@ -45,7 +47,7 @@ class Storage(BaseModel):
     json = models.JSONField()
 
     #: storage manager
-    objects = StorageManager.from_queryset(BaseQuerySet)()
+    objects = StorageManager.from_queryset(PermissionQuerySet)()
 
 
 class LazyStorageJSON:

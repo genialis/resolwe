@@ -10,8 +10,7 @@ from resolwe.flow.models import Collection, DescriptorSchema
 from resolwe.flow.serializers import CollectionSerializer
 from resolwe.permissions.loader import get_permissions_class
 from resolwe.permissions.mixins import ResolwePermissionsMixin
-from resolwe.permissions.shortcuts import get_objects_for_user
-from resolwe.permissions.utils import update_permission
+from resolwe.permissions.models import Permission, PermissionModel
 
 from .mixins import (
     ParametersMixin,
@@ -35,10 +34,12 @@ class BaseCollectionViewSet(
     """Base API view for :class:`Collection` objects."""
 
     qs_descriptor_schema = DescriptorSchema.objects.select_related("contributor")
+    qs_permission_model = PermissionModel.objects.select_related("user", "group")
 
     queryset = Collection.objects.select_related("contributor").prefetch_related(
         "data",
         Prefetch("descriptor_schema", queryset=qs_descriptor_schema),
+        Prefetch("permission_group__permissions", queryset=qs_permission_model),
     )
 
     filter_class = CollectionFilter
@@ -55,16 +56,6 @@ class BaseCollectionViewSet(
     )
     ordering = "id"
 
-    def set_content_permissions(self, user, obj, payload):
-        """Apply permissions to data objects and entities in ``Collection``."""
-        for entity in obj.entity_set.all():
-            if user.has_perm("share_entity", entity):
-                update_permission(entity, payload)
-
-        for data in obj.data.all():
-            if user.has_perm("share_data", data):
-                update_permission(data, payload)
-
     def create(self, request, *args, **kwargs):
         """Only authenticated users can create new collections."""
         if not request.user.is_authenticated:
@@ -79,8 +70,8 @@ class BaseCollectionViewSet(
             raise exceptions.NotFound
 
         ids = self.get_ids(request.data)
-        queryset = get_objects_for_user(
-            request.user, "view_collection", Collection.objects.filter(id__in=ids)
+        queryset = Collection.objects.filter(id__in=ids).filter_for_user(
+            request.user, Permission.VIEW
         )
         actual_ids = queryset.values_list("id", flat=True)
         missing_ids = list(set(ids) - set(actual_ids))

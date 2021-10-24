@@ -9,7 +9,6 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils.timezone import now
 
-from guardian.shortcuts import assign_perm, get_perms, remove_perm
 from rest_framework.test import APIRequestFactory, APITestCase, force_authenticate
 
 from resolwe.flow.expression_engines import EvaluationError
@@ -24,6 +23,7 @@ from resolwe.flow.models import (
 from resolwe.flow.models.data import Data, DataDependency, hydrate_size, render_template
 from resolwe.flow.models.utils import hydrate_input_references, referenced_files
 from resolwe.flow.views import DataViewSet
+from resolwe.permissions.models import Permission
 from resolwe.test import TestCase, TransactionTestCase
 from resolwe.test.utils import create_data_location, save_storage
 
@@ -458,7 +458,7 @@ class GetOrCreateTestCase(APITestCase):
                 {"name": "some_value", "type": "basic:integer:", "default": 42}
             ],
         )
-        assign_perm("view_process", self.user, self.process)
+        self.process.set_permission(Permission.VIEW, self.user)
 
         process_2 = Process.objects.create(
             name="Another process",
@@ -467,7 +467,7 @@ class GetOrCreateTestCase(APITestCase):
             persistence=Process.PERSISTENCE_TEMP,
             input_schema=[{"name": "some_value", "type": "basic:integer:"}],
         )
-        assign_perm("view_process", self.user, process_2)
+        process_2.set_permission(Permission.VIEW, self.user)
 
         self.data = Data.objects.create(
             name="Temporary data",
@@ -475,7 +475,7 @@ class GetOrCreateTestCase(APITestCase):
             process=self.process,
             input={"some_value": 42},
         )
-        assign_perm("view_data", self.user, self.data)
+        self.data.set_permission(Permission.VIEW, self.user)
 
         self.get_or_create_view = DataViewSet.as_view({"post": "get_or_create"})
         self.factory = APIRequestFactory()
@@ -517,7 +517,7 @@ class GetOrCreateTestCase(APITestCase):
         self.assertEqual(response.data["id"], self.data.pk)
 
     def test_missing_permission(self):
-        remove_perm("view_data", self.user, self.data)
+        self.data.set_permission(Permission.NONE, self.user)
 
         request = self.factory.post(
             "",
@@ -665,6 +665,7 @@ class DuplicateTestCase(TestCase):
             "duplicated",
             "modified",
             "search",
+            "permission_group_id",
         )
         for model_dict in (data2_dict, duplicate_dict):
             for field in fields_to_differ:
@@ -730,7 +731,7 @@ class DuplicateTestCase(TestCase):
         )
 
         # Assert permissions.
-        self.assertEqual(len(get_perms(self.contributor, duplicate)), 4)
+        self.assertEqual(len(duplicate.get_permissions(self.contributor)), 4)
 
     def test_data_duplicate_duplicate(self):
         process1 = Process.objects.create(
@@ -802,7 +803,9 @@ class DuplicateTestCase(TestCase):
         )
 
         # Assert permissions.
-        self.assertEqual(len(get_perms(self.contributor, duplicate_of_duplicate)), 4)
+        self.assertEqual(
+            len(duplicate_of_duplicate.get_permissions(self.contributor)), 4
+        )
 
     def test_input_rewiring(self):
         process1 = Process.objects.create(
@@ -839,12 +842,11 @@ class DuplicateTestCase(TestCase):
         )
 
         # Duplicate.
-        duplicates = (
+        duplicate1, duplicate2 = (
             Data.objects.filter(id__in=[data1.id, data2.id])
             .order_by("id")
             .duplicate(self.contributor)
-        )
-        duplicate1, duplicate2 = duplicates
+        ).order_by("id")
 
         self.assertEqual(duplicate2.input["data_field1"], duplicate1.id)
         self.assertEqual(duplicate2.input["data_field2"], should_not_be_rewritten.id)
@@ -887,30 +889,26 @@ class DuplicateTestCase(TestCase):
 
     def test_entity_duplicate(self):
         process = Process.objects.create(contributor=self.user)
+        collection = Collection.objects.create(contributor=self.user)
+        entity = Entity.objects.create(
+            name="Entity", contributor=self.user, collection=collection
+        )
         data = Data.objects.create(
             name="Data 1",
             contributor=self.user,
             process=process,
             status=Data.STATUS_DONE,
+            entity=entity,
+            collection=collection,
         )
-        assign_perm("view_data", self.contributor, data)
         data2 = Data.objects.create(
             name="Data 2",
             contributor=self.user,
             process=process,
             status=Data.STATUS_DONE,
+            entity=entity,
+            collection=collection,
         )
-        assign_perm("view_data", self.contributor, data2)
-        entity = Entity.objects.create(name="Entity", contributor=self.user)
-        entity.data.add(data, data2)
-
-        # Add to collection.
-        collection = Collection.objects.create(contributor=self.user)
-        collection.entity_set.add(entity)
-        data.collection = collection
-        data.save()
-        data2.collection = collection
-        data2.save()
 
         # Duplicate.
         entities = Entity.objects.filter(id=entity.id).duplicate(self.contributor)
@@ -942,6 +940,7 @@ class DuplicateTestCase(TestCase):
             "collection_id",
             "entity_id",
             "search",
+            "permission_group_id",
         )
         for model_dict in (
             entity_dict,
@@ -976,24 +975,22 @@ class DuplicateTestCase(TestCase):
         self.assertEqual(collection_data[1].name, "Data 2")
 
         # Assert permissions.
-        self.assertEqual(len(get_perms(self.contributor, duplicate)), 4)
+        self.assertEqual(len(duplicate.get_permissions(self.contributor)), 4)
 
     def test_entity_duplicate_inherit(self):
         process = Process.objects.create(contributor=self.user)
-        data = Data.objects.create(
-            contributor=self.user, process=process, status=Data.STATUS_DONE
-        )
-        assign_perm("view_data", self.user, data)
-        entity = Entity.objects.create(contributor=self.user)
-        entity.data.add(data)
 
         # Add to collection.
         collection = Collection.objects.create(contributor=self.user)
-        assign_perm("view_collection", self.user, collection)
-        assign_perm("edit_collection", self.user, collection)
-        assign_perm("view_collection", self.contributor, collection)
-        collection.entity_set.add(entity)
-        collection.data.add(data)
+        entity = Entity.objects.create(contributor=self.user, collection=collection)
+        data = Data.objects.create(
+            contributor=self.user,
+            process=process,
+            status=Data.STATUS_DONE,
+            entity=entity,
+        )
+        collection.set_permission(Permission.EDIT, self.user)
+        collection.set_permission(Permission.VIEW, self.contributor)
 
         # Duplicate.
         duplicated_entity1 = Entity.objects.filter(id=entity.id).duplicate(
@@ -1008,16 +1005,21 @@ class DuplicateTestCase(TestCase):
         # Assert permissions.
         self.assertEqual(duplicated_entity1.data.count(), 1)
         self.assertCountEqual(
-            get_perms(self.user, collection), ["view_collection", "edit_collection"]
+            collection.get_permissions(self.user), [Permission.VIEW, Permission.EDIT]
         )
-        self.assertEqual(len(get_perms(self.user, duplicated_entity1)), 4)
-        self.assertEqual(len(get_perms(self.user, duplicated_entity1.data.first())), 4)
-        self.assertListEqual(
-            get_perms(self.contributor, collection), ["view_collection"]
+        self.assertEqual(len(duplicated_entity1.get_permissions(self.user)), 4)
+        self.assertEqual(
+            len(duplicated_entity1.data.first().get_permissions(self.user)), 4
         )
-        self.assertListEqual(get_perms(self.contributor, duplicated_entity1), [])
         self.assertListEqual(
-            get_perms(self.contributor, duplicated_entity1.data.first()), []
+            collection.get_permissions(self.contributor), [Permission.VIEW]
+        )
+        self.assertListEqual(
+            duplicated_entity1.get_permissions(self.contributor), [Permission.VIEW]
+        )
+        self.assertListEqual(
+            duplicated_entity1.data.first().get_permissions(self.contributor),
+            [Permission.VIEW],
         )
 
         with self.assertRaises(ValidationError):
@@ -1039,21 +1041,27 @@ class DuplicateTestCase(TestCase):
         # Assert permissions.
         self.assertEqual(duplicated_entity2.data.count(), 1)
         self.assertCountEqual(
-            get_perms(self.user, collection), ["view_collection", "edit_collection"]
+            collection.get_permissions(self.user), [Permission.VIEW, Permission.EDIT]
         )
-        self.assertEqual(len(get_perms(self.user, duplicated_entity2)), 4)
-        self.assertEqual(len(get_perms(self.user, duplicated_entity2.data.first())), 4)
+        self.assertEqual(
+            duplicated_entity2.get_permissions(self.user),
+            [Permission.VIEW, Permission.EDIT],
+        )
+        self.assertEqual(
+            duplicated_entity2.data.first().get_permissions(self.user),
+            [Permission.VIEW, Permission.EDIT],
+        )
         self.assertListEqual(
-            get_perms(self.contributor, collection), ["view_collection"]
+            collection.get_permissions(self.contributor), [Permission.VIEW]
         )
 
     def test_collection_duplicate(self):
-        entity = Entity.objects.create(name="Entity", contributor=self.user)
-        assign_perm("view_entity", self.contributor, entity)
-
-        # Add to collection.
         collection = Collection.objects.create(name="Collection", contributor=self.user)
-        collection.entity_set.add(entity)
+        entity = Entity.objects.create(
+            name="Entity", contributor=self.user, collection=collection
+        )
+
+        collection.set_permission(Permission.OWNER, self.contributor)
 
         # Duplicate.
         collections = Collection.objects.filter(id=collection.id).duplicate(
@@ -1084,6 +1092,7 @@ class DuplicateTestCase(TestCase):
             "modified",
             "collection_id",
             "search",
+            "permission_group_id",
         )
         for model_dict in (
             collection_dict,
@@ -1119,7 +1128,7 @@ class DuplicateTestCase(TestCase):
         self.assertEqual(duplicate.entity_set.first().name, "Copy of Entity")
 
         # Assert permissions.
-        self.assertEqual(len(get_perms(self.contributor, duplicate)), 4)
+        self.assertEqual(len(duplicate.get_permissions(self.contributor)), 4)
 
 
 class ProcessModelTest(TestCase):
