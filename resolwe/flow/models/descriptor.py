@@ -1,20 +1,22 @@
 """Resolwe descriptor schema model."""
 from django.db import models
 
+from resolwe.permissions.models import PermissionObject
+
 from .base import BaseModel
 
 
-class DescriptorSchema(BaseModel):
+class DescriptorSchema(BaseModel, PermissionObject):
     """Postgres model for storing descriptors."""
 
     class Meta(BaseModel.Meta):
         """DescriptorSchema Meta options."""
 
         permissions = (
-            ("view_descriptorschema", "Can view descriptor schema"),
-            ("edit_descriptorschema", "Can edit descriptor schema"),
-            ("share_descriptorschema", "Can share descriptor schema"),
-            ("owner_descriptorschema", "Is owner of the description schema"),
+            ("view", "Can view descriptor schema"),
+            ("edit", "Can edit descriptor schema"),
+            ("share", "Can share descriptor schema"),
+            ("owner", "Is owner of the description schema"),
         )
 
     #: detailed description

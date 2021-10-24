@@ -9,10 +9,8 @@ from django.core.management.base import CommandError
 from django.test import TestCase as DjangoTestCase
 from django.test import override_settings
 
-from guardian.models import UserObjectPermission
-from guardian.shortcuts import assign_perm, get_perms
-
 from resolwe.flow.models import Data, Process
+from resolwe.permissions.models import Permission
 from resolwe.test import ProcessTestCase, TestCase
 
 PROCESSES_DIR = os.path.join(os.path.dirname(__file__), "processes")
@@ -34,7 +32,8 @@ class ProcessRegisterTest(TestCase):
 
         # Check that contributor gets all permissions.
         process = Process.objects.first()
-        self.assertEqual(len(get_perms(self.admin, process)), 3)
+        # TODO: this now returns EDIT which makes no sense but does not hurt either?
+        self.assertEqual(len(process.get_permissions(self.admin)), 4)
 
         out, err = StringIO(), StringIO()
         call_command("register", stdout=out, stderr=err)
@@ -76,7 +75,7 @@ class ProcessRegisterTest(TestCase):
             call_command("register", stdout=out, stderr=err)
 
         process = Process.objects.latest()
-        assign_perm("view_process", self.user, process)
+        process.set_permission(Permission.VIEW, self.user)
 
         out, err = StringIO(), StringIO()
 
@@ -86,9 +85,7 @@ class ProcessRegisterTest(TestCase):
             call_command("register", stdout=out, stderr=err)
 
         process = Process.objects.latest()
-
-        self.assertEqual(UserObjectPermission.objects.filter(user=self.user).count(), 2)
-        self.assertTrue(self.user.has_perm("flow.view_process", process))
+        self.assertTrue(self.user.has_perm(Permission.VIEW, process))
 
     def test_retire(self):
         # No process should be in data base initially

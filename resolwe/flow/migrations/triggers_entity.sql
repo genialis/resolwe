@@ -15,12 +15,10 @@ CREATE OR REPLACE FUNCTION generate_resolwe_entity_search(entity flow_entity)
             array_to_string(array_remove(array_agg(last_name), ''), ' ') AS last_names
         INTO owners
         FROM auth_user
-        JOIN guardian_userobjectpermission ON auth_user.id=guardian_userobjectpermission.user_id
+        JOIN permissions_permissionmodel ON auth_user.id=permissions_permissionmodel.user_id
         WHERE
-            content_type_id=(SELECT id FROM django_content_type WHERE app_label='flow' and model='entity')
-            AND permission_id=(SELECT id FROM auth_permission WHERE codename='owner_entity')
-            AND object_pk::int=entity.id
-        GROUP BY object_pk;
+            permissions_permissionmodel.value=8
+            AND permissions_permissionmodel.permission_group_id::int=entity.permission_group_id;
 
         SELECT
             username usernames, first_name first_names, last_name last_names
@@ -88,20 +86,20 @@ CREATE TRIGGER entity_biut
 
 
 -- Trigger after update/insert/delete user permission object.
-CREATE OR REPLACE FUNCTION handle_userpermission_entity(perm guardian_userobjectpermission)
+CREATE OR REPLACE FUNCTION handle_userpermission_entity(user_permission permissions_permissionmodel)
     RETURNS void
     LANGUAGE plpgsql
     AS $$
     DECLARE
-        entity_content_type_id int;
-        owner_entity_permission_id int;
+        entity_id int;
     BEGIN
-        SELECT id FROM django_content_type WHERE app_label='flow' and model='entity' INTO entity_content_type_id;
-        SELECT id FROM auth_permission WHERE codename='owner_entity' INTO owner_entity_permission_id;
-
-        IF perm.content_type_id=entity_content_type_id AND perm.permission_id=owner_entity_permission_id THEN
-            -- Set the search field to NULL to trigger entity_biut.
-            UPDATE flow_entity SET search=NULL WHERE id=perm.object_pk::int;
+        IF user_permission.value=8 THEN
+            -- Set the search field to NULL to trigger data_biut.
+            FOR entity_id in 
+                SELECT id FROM flow_entity WHERE flow_entity.permission_group_id = user_permission.permission_group_id
+            LOOP
+                UPDATE flow_entity SET search=NULL WHERE id=entity_id;
+            END LOOP;
         END IF;
     END;
     $$;
@@ -118,7 +116,7 @@ CREATE OR REPLACE FUNCTION userpermission_entity_aiut()
 
 CREATE TRIGGER userpermission_entity_aiut
     AFTER INSERT OR UPDATE
-    ON guardian_userobjectpermission
+    ON permissions_permissionmodel
     FOR EACH ROW EXECUTE PROCEDURE userpermission_entity_aiut();
 
 CREATE OR REPLACE FUNCTION userpermission_entity_adt()
@@ -133,7 +131,7 @@ CREATE OR REPLACE FUNCTION userpermission_entity_adt()
 
 CREATE TRIGGER userpermission_entity_adt
     AFTER DELETE
-    ON guardian_userobjectpermission
+    ON permissions_permissionmodel
     FOR EACH ROW EXECUTE PROCEDURE userpermission_entity_adt();
 
 
@@ -162,19 +160,19 @@ CREATE OR REPLACE FUNCTION entity_owner_aut()
     LANGUAGE plpgsql
     AS $$
     BEGIN
-        WITH owner_permission AS (
-            SELECT object_pk::int entity_id
-            FROM guardian_userobjectpermission
+        WITH permission_group AS (
+            SELECT permission_group_id::int
+            FROM permissions_permissionmodel
             WHERE
-                user_id=NEW.id
-                AND content_type_id=(SELECT id FROM django_content_type WHERE app_label='flow' and model='entity')
-                AND permission_id=(SELECT id FROM auth_permission WHERE codename='owner_entity')
+                permissions_permissionmodel.user_id=NEW.id AND
+                permissions_permissionmodel.value=8
         )
+
         -- Set the search field to NULL to trigger entity_biut.
         UPDATE flow_entity entity
         SET search=NULL
-        FROM owner_permission perm
-        WHERE entity.id=perm.entity_id;
+        FROM permission_group perm_group
+        WHERE entity.permission_group_id=perm_group.permission_group_id;
 
         RETURN NEW;
     END;

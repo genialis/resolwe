@@ -7,102 +7,138 @@ Permissions utils
 .. autofunction:: copy_permissions
 
 """
-from django.contrib.auth import get_user_model
-from django.contrib.auth.models import AnonymousUser, Group
-from django.contrib.contenttypes.models import ContentType
-from django.db import transaction
-from django.db.models import Q
+from typing import Optional, Tuple, Union
 
-from guardian.models import GroupObjectPermission, UserObjectPermission
-from guardian.shortcuts import assign_perm, remove_perm
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import AnonymousUser, Group, User
+from django.db import models, transaction
+
 from rest_framework import exceptions
 
+from resolwe.permissions.models import (
+    Permission,
+    PermissionModel,
+    UserOrGroup,
+    get_anonymous_user,
+)
 
-def get_perm_action(perm):
-    """Split action from permission of format.
 
-    Input permission can be in the form of '<action>_<object_type>'
-    or '<action>'.
+def set_permission(
+    permission: Optional[Permission],
+    user_or_group: UserOrGroup,
+    obj: models.Model,
+):
+    """Set permission on the given object.
+
+    It performs additional check to determine if permissions can be set on the
+    given object using duck-typing.
+
+    :raises AssertionError: when no user or group is given.
+
+    :raises RuntimeError: when given object has no permission_group or is
+        contained in a container.
+
+    :raises ValueError: when the given permission can not be found.
     """
-    return perm.split("_", 1)[0]
+    # First perform basic checks on the object itself.
+    if not model_has_permissions(obj):
+        raise RuntimeError(
+            f"There is no support for permissions on object of type {obj._meta.label}."
+        )
+    obj.set_permission(permission, user_or_group)
 
 
-def get_full_perm(perm, obj):
-    """Join action with the content type of ``obj``.
+def get_user(user: User) -> User:
+    """Get the same user or anonymous one when user is not authenticated.
 
-    Permission is returned in the format of ``<action>_<object_type>``.
+    :raises django.core.exceptions.ObjectDoesNotExist: when user is not
+        authenticated and anonymous user could not be found.
     """
-    ctype = ContentType.objects.get_for_model(obj).name
-    # Camel case class names are converted into a space-separated
-    # content types, so spaces have to be removed.
-    ctype = str(ctype).replace(" ", "")
-
-    return "{}_{}".format(perm.lower(), ctype)
+    if user.is_authenticated:
+        return user
+    else:
+        return get_anonymous_user()
 
 
-def get_all_perms(obj):
-    """Return a list of all permissions on ``obj``."""
-    return list(zip(*obj._meta.permissions))[0]
+def model_has_permissions(obj: models.Model) -> bool:
+    """Check whether model has object level permissions."""
+    additional_labels = ["flow.Storage"]
+    return hasattr(obj, "permission_group") or obj._meta.label in additional_labels
 
 
-def change_perm_ctype(perm, dest_obj):
-    """Keep permission action and change content type to ``dest_obj``."""
-    action = get_perm_action(perm)
-    return get_full_perm(action, dest_obj)
+def get_identity(user_group: Union[Group, User]) -> Tuple[UserOrGroup, str]:
+    """Return the tuple (user_or_group, name).
+
+    The user_or_group is user or group and name is either 'user' or 'group'.
+
+    :raises RuntimeError: when parameter is neither user nor group instance.
+    """
+    if isinstance(user_group, AnonymousUser):
+        return get_anonymous_user(), "user"
+
+    UserModel = get_user_model()
+    if isinstance(user_group, UserModel):
+        return user_group, "user"
+
+    if isinstance(user_group, Group):
+        return user_group, "group"
+
+    raise RuntimeError("Parameter is not user or group instance.")
 
 
-def copy_permissions(src_obj, dest_obj):
-    """Copy permissions form ``src_obj`` to ``dest_obj``."""
+@transaction.atomic
+def copy_permissions(src_obj: models.Model, dest_obj: models.Model):
+    """Copy permissions form ``src_obj`` to ``dest_obj``.
 
-    def _process_permission(codename, user_or_group, dest_obj, relabel):
-        """Process single permission."""
-        if relabel:
-            codename = change_perm_ctype(codename, dest_obj)
-            if codename not in dest_all_perms:
-                return  # dest object doesn't have matching permission
+    .. warning::
+        Existing permissions in dest_obj will we deleted.
+    """
 
-        assign_perm(codename, user_or_group, dest_obj)
-
-    if src_obj is None:
+    # TODO: why is this here? Can this condition ever be fullfilled?
+    if src_obj is None or dest_obj is None:
         return
 
-    src_obj_ctype = ContentType.objects.get_for_model(src_obj)
-    dest_obj_ctype = ContentType.objects.get_for_model(dest_obj)
-    dest_all_perms = get_all_perms(dest_obj)
+    if not model_has_permissions(src_obj) or not model_has_permissions(dest_obj):
+        return
 
-    relabel = src_obj_ctype != dest_obj_ctype
+    # When permission groups are the same there is nothing to do.
+    if src_obj.permission_group == dest_obj.permission_group:
+        return
 
-    for perm in UserObjectPermission.objects.filter(
-        object_pk=src_obj.pk, content_type=src_obj_ctype
-    ):
-        _process_permission(perm.permission.codename, perm.user, dest_obj, relabel)
+    # Delete existing permissions on dest_obj.
+    PermissionModel.objects.filter(permission_group=dest_obj.permission_group).delete()
 
-    for perm in GroupObjectPermission.objects.filter(
-        object_pk=src_obj.pk, content_type=src_obj_ctype
-    ):
-        _process_permission(perm.permission.codename, perm.group, dest_obj, relabel)
+    new_permissions = [
+        PermissionModel(
+            value=permission_model.value,
+            permission_group=dest_obj.permission_group,
+            user=permission_model.user,
+            group=permission_model.group,
+        )
+        for permission_model in src_obj.permission_group.permissions.all()
+    ]
+    PermissionModel.objects.bulk_create(new_permissions)
 
 
-def fetch_user(query):
+def fetch_user(query: str) -> User:
     """Get user by ``pk``, ``username`` or ``email``.
 
-    Raise error if user can not be determined.
+    :raises ParseError: if user can not be determined.
     """
-    lookup = Q(username=query) | Q(email=query)
+    user_filter = models.Q(username=query) | models.Q(email=query)
     if query.isdigit():
-        lookup = lookup | Q(pk=query)
+        user_filter |= models.Q(pk=query)
 
     user_model = get_user_model()
-    users = user_model.objects.filter(lookup)
-
-    if not users:
+    try:
+        return user_model.objects.get(user_filter)
+    except user_model.DoesNotExist:
         raise exceptions.ParseError("Unknown user: {}".format(query))
-    elif len(users) >= 2:
+    except user_model.MultipleObjectsReturned:
         raise exceptions.ParseError("Cannot uniquely determine user: {}".format(query))
-    return users[0]
 
 
-def fetch_group(query):
+def fetch_group(query: str) -> Group:
     """Get group by ``pk`` or ``name``. Raise error if it doesn't exist."""
     group_filter = {"pk": query} if query.isdigit() else {"name": query}
 
@@ -112,105 +148,82 @@ def fetch_group(query):
         raise exceptions.ParseError("Unknown group: {}".format(query))
 
 
-def check_owner_permission(payload, allow_user_owner):
+def check_owner_permission(payload: dict, allow_user_owner: bool):
     """Raise ``PermissionDenied``if ``owner`` found in ``data``."""
     for entity_type in ["users", "groups"]:
-        for perm_type in ["add", "remove"]:
-            for perms in payload.get(entity_type, {}).get(perm_type, {}).values():
-                if "owner" in perms:
-                    if entity_type == "users" and allow_user_owner:
-                        continue
+        for permission in payload.get(entity_type, {}).values():
+            if permission == "owner":
+                if entity_type == "users" and allow_user_owner:
+                    continue
 
-                    if entity_type == "groups":
-                        raise exceptions.ParseError(
-                            "Owner permission cannot be assigned to a group"
-                        )
-
-                    raise exceptions.PermissionDenied(
-                        "Only owners can grant/revoke owner permission"
+                if entity_type == "groups":
+                    raise exceptions.ParseError(
+                        "Owner permission cannot be assigned to a group"
                     )
 
-
-def check_public_permissions(payload):
-    """Raise ``PermissionDenied`` if public permissions are too open."""
-    allowed_public_permissions = ["view", "add", "download"]
-    for perm_type in ["add", "remove"]:
-        for perm in payload.get("public", {}).get(perm_type, []):
-            if perm not in allowed_public_permissions:
                 raise exceptions.PermissionDenied(
-                    "Permissions for public users are too open"
+                    "Only owners can grant/revoke owner permission"
                 )
 
 
-def check_user_permissions(payload, user_pk):
+def check_public_permissions(payload: dict):
+    """Raise ``PermissionDenied`` if public permissions are too open."""
+    allowed_public_permissions = ["view"]
+    if "public" in payload:
+        if payload["public"] not in allowed_public_permissions:
+            raise exceptions.PermissionDenied(
+                "Permissions for public users are too open"
+            )
+
+
+def check_user_permissions(payload: dict, user_pk: int):
     """Raise ``PermissionDenied`` if ``payload`` includes ``user_pk``."""
-    for perm_type in ["add", "remove"]:
-        user_pks = payload.get("users", {}).get(perm_type, {}).keys()
-        if user_pk in user_pks:
-            raise exceptions.PermissionDenied("You cannot change your own permissions")
+    user_pks = payload.get("users", {}).keys()
+    if user_pk in user_pks:
+        raise exceptions.PermissionDenied("You cannot change your own permissions")
 
 
-def update_permission(obj, data):
+def update_permission(obj: models.Model, data):
     """Update object permissions."""
-    full_permissions = get_all_perms(obj)
 
-    def apply_perm(perm_func, perms, entity):
-        """Apply permissions using given ``perm_func``.
-
-        ``perm_func`` is intended to be ``assign_perms`` or
-        ``remove_perms`` shortcut function from ``django-guardian``, but
-        can be any function that accepts permission codename,
-        user/group and object parameters (in this order).
+    def apply_perm(permission_name: Optional[str], entity: UserOrGroup):
+        """Set permission on the object obj to the given entity.
 
         If given permission does not exist, ``exceptions.ParseError`` is
         raised.
 
-        "ALL" passed as ``perms`` parameter, will call ``perm_function``
-        with ``full_permissions`` list.
+        If special keyword "ALL" passed as ``permission`` top-level permission
+        is set on the given object for the given entity.
 
-        :param func perm_func: Permissions function to be applied
-        :param list params: list of params to be allpied
-        :param entity: user or group to be passed to ``perm_func``
-        :type entity: `~django.contrib.auth.models.User` or
-            `~django.contrib.auth.models.Group`
+        If permission is None all permissions are revoked.
 
+        :param entity: user or group to set permissions to.
         """
-        if perms == "ALL":
-            perms = full_permissions
-        for perm in perms:
-            perm_codename = get_full_perm(perm, obj)
-            if perm_codename not in full_permissions:
-                raise exceptions.ParseError("Unknown permission: {}".format(perm))
-            perm_func(perm_codename, entity, obj)
+        try:
+            permission = Permission.from_name(permission_name)
+        except KeyError:
+            raise exceptions.ParseError(f"Unknown permission: {permission_name}")
 
-    def set_permissions(entity_type, perm_type):
+        obj.set_permission(permission, entity)
+
+    def set_permissions(entity_type):
         """Set object permissions."""
-        perm_func = assign_perm if perm_type == "add" else remove_perm
-        fetch_fn = fetch_user if entity_type == "users" else fetch_group
+        fetch_entity = fetch_user if entity_type == "users" else fetch_group
 
-        for entity_id in data.get(entity_type, {}).get(perm_type, []):
-            entity = fetch_fn(entity_id)
-            if entity:
-                perms = data[entity_type][perm_type][entity_id]
-                apply_perm(perm_func, perms, entity)
+        for entity_id in data.get(entity_type, {}):
+            apply_perm(data[entity_type][entity_id], fetch_entity(entity_id))
 
-    def set_public_permissions(perm_type):
+    def set_public_permissions():
         """Set public permissions."""
-        perm_func = assign_perm if perm_type == "add" else remove_perm
-        user = AnonymousUser()
-        perms = data.get("public", {}).get(perm_type, [])
-        apply_perm(perm_func, perms, user)
+        if "public" in data:
+            apply_perm(data["public"], get_anonymous_user())
 
     with transaction.atomic():
-        set_permissions("users", "add")
-        set_permissions("users", "remove")
-        set_permissions("groups", "add")
-        set_permissions("groups", "remove")
-        set_public_permissions("add")
-        set_public_permissions("remove")
+        set_permissions("users")
+        set_permissions("groups")
+        set_public_permissions()
 
 
 def assign_contributor_permissions(obj, contributor=None):
     """Assign all permissions to object's contributor."""
-    for permission in get_all_perms(obj):
-        assign_perm(permission, contributor if contributor else obj.contributor, obj)
+    obj.set_permission(Permission.highest(), contributor or obj.contributor)

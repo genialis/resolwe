@@ -21,7 +21,6 @@ from django.views import View
 
 from resolwe.flow.models import Data
 from resolwe.flow.models.collection import Collection
-from resolwe.permissions.shortcuts import get_objects_for_user
 from resolwe.storage.connectors.baseconnector import BaseStorageConnector
 from resolwe.storage.models import FileStorage, ReferencedPath
 
@@ -63,9 +62,7 @@ class DataBrowseView(View):
     def _get_datum(self, data_id: int) -> Data:
         """Get datum with given id and check it's permissions."""
         # Check permissions and load requested data object.
-        data = get_objects_for_user(
-            self.request.user, "view_data", Data.objects.filter(pk=data_id)
-        )
+        data = Data.objects.filter(pk=data_id).filter_for_user(self.request.user)
         # Send response with status 403 when requested data object does not exists.
         if not data.exists():
             raise PermissionDenied()
@@ -275,10 +272,8 @@ class UriResolverView(DataBrowseView):
 
         @lru_cache(maxsize=1)
         def has_view_permission(collection_id: int) -> bool:
-            collection = get_objects_for_user(
-                self.request.user,
-                "view_collection",
-                Collection.objects.filter(pk=collection_id),
+            collection = Collection.objects.filter(pk=collection_id).filter_for_user(
+                self.request.user
             )
             return collection.exists()
 

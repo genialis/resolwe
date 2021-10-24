@@ -1,45 +1,64 @@
 ---
-
 ##########
 # PUBLIC #
 ##########
 
 # COLLECTION 1
 
-- model: guardian.userobjectpermission
+- model: permissions.permissiongroup
+  pk: 1
+  fields: {}
+
+- model: permissions.permissionmodel
+  pk: 1
   fields:
-    content_type: [flow, collection]
-    object_pk: 1
-    permission: [view_collection, flow, collection]
+    value: 1 # View permission
+    permission_group: 1
     user: [public]
 
 # COLLECTION 2
 
+- model: permissions.permissiongroup
+  pk: 2
+  fields: {}
+
 # COLLECTION 3
 
-- model: guardian.userobjectpermission
+- model: permissions.permissiongroup
+  pk: 3
+  fields: {}
+
+- model: permissions.permissionmodel
+  pk: 3
   fields:
-    content_type: [flow, collection]
-    object_pk: 3
-    permission: [view_collection, flow, collection]
+    value: 1 # View permission
+    permission_group: 3
     user: [public]
 
-# DATA 1
+# DATA 1 (not in container)
 
-- model: guardian.userobjectpermission
+- model: permissions.permissiongroup
+  pk: 4
+  fields: {}
+
+- model: permissions.permissionmodel
+  pk: 4
   fields:
-    content_type: [flow, data]
-    object_pk: 1
-    permission: [view_data, flow, data]
+    value: 1 # View permission
+    permission_group: 4
     user: [public]
 
 # PROCESS 1
 
-- model: guardian.userobjectpermission
+- model: permissions.permissiongroup
+  pk: 5
+  fields: {}
+
+- model: permissions.permissionmodel
+  pk: 5
   fields:
-    content_type: [flow, process]
-    object_pk: 1
-    permission: [view_process, flow, process]
+    value: 1 # View permission
+    permission_group: 5
     user: [public]
 
 #########
@@ -48,114 +67,90 @@
 
 # COLLECTION 1
 
-- model: guardian.userobjectpermission
-  fields:
-    content_type: [flow, collection]
-    object_pk: 1
-    permission: [view_collection, flow, collection]
-    user: [user1]
+# Share permission
 
-- model: guardian.userobjectpermission
+- model: permissions.permissionmodel
+  pk: 6
   fields:
-    content_type: [flow, collection]
-    object_pk: 1
-    permission: [edit_collection, flow, collection]
-    user: [user1]
-
-- model: guardian.userobjectpermission
-  fields:
-    content_type: [flow, collection]
-    object_pk: 1
-    permission: [share_collection, flow, collection]
+    value: 4 # Share permission
+    permission_group: 1
     user: [user1]
 
 # COLLECTION 2
 
-- model: guardian.userobjectpermission
+# Edit permission
+
+- model: permissions.permissionmodel
+  pk: 7
   fields:
-    content_type: [flow, collection]
-    object_pk: 2
-    permission: [view_collection, flow, collection]
+    value: 2 # Edit permission
+    permission_group: 2
     user: [user1]
 
-- model: guardian.userobjectpermission
+- model: permissions.permissionmodel
+  pk: 8
   fields:
-    content_type: [flow, collection]
-    object_pk: 2
-    permission: [edit_collection, flow, collection]
-    user: [user1]
+    value: 2 # Edit permission
+    permission_group: 2
+    group: [Group1]
 
 # COLLECTION 3
 
-- model: guardian.userobjectpermission
+- model: permissions.permissionmodel
+  pk: 9
   fields:
-    content_type: [flow, collection]
-    object_pk: 3
-    permission: [edit_collection, flow, collection]
+    value: 2 # Edit permission
+    permission_group: 3
     user: [user1]
 
 # DATA 1
 
-- model: guardian.userobjectpermission
-  fields:
-    content_type: [flow, data]
-    object_pk: 1
-    permission: [view_data, flow, data]
-    user: [user1]
+# Share permission
 
-- model: guardian.userobjectpermission
+- model: permissions.permissionmodel
+  pk: 10
   fields:
-    content_type: [flow, data]
-    object_pk: 1
-    permission: [edit_data, flow, data]
-    user: [user1]
-
-- model: guardian.userobjectpermission
-  fields:
-    content_type: [flow, data]
-    object_pk: 1
-    permission: [share_data, flow, data]
+    value: 4 # Share permission
+    permission_group: 4
     user: [user1]
 
 # DATA 2
 
-- model: guardian.userobjectpermission
-  fields:
-    content_type: [flow, data]
-    object_pk: 2
-    permission: [view_data, flow, data]
-    user: [user1]
+# Edit permission
 
-- model: guardian.userobjectpermission
+- model: permissions.permissiongroup
+  pk: 6
+  fields: {}
+
+- model: permissions.permissionmodel
+  pk: 11
   fields:
-    content_type: [flow, data]
-    object_pk: 2
-    permission: [edit_data, flow, data]
+    value: 2 # Edit permission
+    permission_group: 6
     user: [user1]
 
 # PROCESS 1
 
-- model: guardian.userobjectpermission
+# Share permission
+
+- model: permissions.permissionmodel
+  pk: 12
   fields:
-    content_type: [flow, process]
-    object_pk: 1
-    permission: [view_process, flow, process]
+    value: 4 # Share permission
+    permission_group: 5
     user: [user1]
 
-- model: guardian.userobjectpermission
-  fields:
-    content_type: [flow, process]
-    object_pk: 1
-    permission: [share_process, flow, process]
-    user: [user1]
+# # PROCESS 2
 
-# PROCESS 2
+- model: permissions.permissiongroup
+  pk: 7
+  fields: {}
 
-- model: guardian.userobjectpermission
+- model: permissions.permissionmodel
+  pk: 13
   fields:
-    content_type: [flow, process]
-    object_pk: 2
-    permission: [view_process, flow, process]
+    value: 1 # View permission
+    permission_group: 7
     user: [user1]
 
 #########
@@ -164,20 +159,21 @@
 
 # COLLECTION 1
 
-- model: guardian.userobjectpermission
+# Edit permission
+
+- model: permissions.permissionmodel
+  pk: 14
   fields:
-    content_type: [flow, collection]
-    object_pk: 1
-    permission: [view_collection, flow, collection]
+    value: 2 # Edit permission
+    permission_group: 1
     user: [user2]
 
-- model: guardian.userobjectpermission
+- model: permissions.permissionmodel
+  pk: 15
   fields:
-    content_type: [flow, collection]
-    object_pk: 1
-    permission: [edit_collection, flow, collection]
-    user: [user2]
-
+    value: 2 # Edit permission
+    permission_group: 1
+    group: [Group1]
 # COLLECTION 2
 
 # COLLECTION 3
@@ -188,28 +184,7 @@
 
 # COLLECTION 1
 
-- model: guardian.groupobjectpermission
-  fields:
-    content_type: [flow, collection]
-    object_pk: 1
-    permission: [share_collection, flow, collection]
-    group: [Group1]
-
 # COLLECTION 2
-
-- model: guardian.groupobjectpermission
-  fields:
-    content_type: [flow, collection]
-    object_pk: 2
-    permission: [view_collection, flow, collection]
-    group: [Group1]
-
-- model: guardian.groupobjectpermission
-  fields:
-    content_type: [flow, collection]
-    object_pk: 2
-    permission: [edit_collection, flow, collection]
-    group: [Group1]
 
 # COLLECTION 3
 

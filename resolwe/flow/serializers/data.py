@@ -2,6 +2,7 @@
 from rest_framework import serializers
 
 from resolwe.flow.models import Collection, Data, DescriptorSchema, Entity, Process
+from resolwe.permissions.models import Permission
 from resolwe.rest.fields import ProjectableJSONField
 
 from .base import ResolweBaseSerializer
@@ -32,14 +33,14 @@ class DataSerializer(ResolweBaseSerializer):
         serializer=CollectionSerializer,
         allow_null=True,
         required=False,
-        write_permission="edit",
+        write_permission=Permission.EDIT,
     )
     entity = DictRelatedField(
         queryset=Entity.objects.all(),
         serializer=EntitySerializer,
         allow_null=True,
         required=False,
-        write_permission="edit",
+        write_permission=Permission.EDIT,
     )
 
     class Meta:

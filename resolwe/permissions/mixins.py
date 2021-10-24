@@ -1,14 +1,13 @@
 """Permissions functions used in Resolwe Viewsets."""
-from distutils.util import strtobool
+from collections import defaultdict
 
-from django.contrib.contenttypes.models import ContentType
-from django.db import transaction
+from django.db import models, transaction
 
-from guardian.models import UserObjectPermission
 from rest_framework import exceptions, serializers, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from resolwe.permissions.models import Permission, get_anonymous_user
 from resolwe.permissions.shortcuts import get_object_perms
 
 from .utils import (
@@ -50,30 +49,74 @@ class ResolwePermissionsMixin:
                 )
                 return fields
 
+            def _permission_mapping(serializer_self):
+                """Return mapping between the permission group and permissions.
+
+                We must not filter the queryset as permission data has already
+                been prefetched.
+                """
+                if not hasattr(self, "permission_map"):
+                    self.anonymous_user = get_anonymous_user()
+                    self.permission_map = defaultdict(list)
+
+                    if isinstance(serializer_self.instance, models.Model):
+                        instances = [serializer_self.instance]
+                    else:
+                        instances = serializer_self.instance
+
+                    for instance in instances:
+                        for permission in instance.permission_group.permissions.all():
+                            self.permission_map[permission.permission_group_id].append(
+                                (
+                                    permission.user or permission.group,
+                                    permission.permission,
+                                    "user" if permission.user else "group",
+                                )
+                            )
+                return self.permission_map
+
             def to_representation(serializer_self, instance):
                 """Object serializer."""
+
+                def user_data(user, permission):
+                    if user == self.anonymous_user:
+                        return {
+                            "type": "public",
+                            "permissions": [str(perm) for perm in list(permission)],
+                        }
+                    return {
+                        "type": "user",
+                        "id": user.pk,
+                        "name": user.get_full_name() or user.username,
+                        "username": user.username,
+                        "permissions": [str(perm) for perm in list(permission)],
+                    }
+
+                def group_data(group, permission):
+                    return {
+                        "type": "group",
+                        "id": group.pk,
+                        "name": group.name,
+                        "permissions": [str(perm) for perm in list(permission)],
+                    }
+
+                get_perm_data = {"user": user_data, "group": group_data}
+                permission_map = serializer_self._permission_mapping()
                 data = super().to_representation(instance)
 
                 if (
                     "fields" not in self.request.query_params
                     or "current_user_permissions" in self.request.query_params["fields"]
                 ):
-                    data["current_user_permissions"] = get_object_perms(
-                        instance, self.request.user
-                    )
-
+                    data["current_user_permissions"] = [
+                        get_perm_data[entity_type](entity, permission)
+                        for entity, permission, entity_type in permission_map[
+                            instance.permission_group_id
+                        ]
+                    ]
                 return data
 
         return SerializerWithPermissions
-
-    def set_content_permissions(self, user, obj, payload):
-        """Overwritte this function in sub-classes if needed.
-
-        It will be called if ``share_content`` query parameter will be
-        passed with the request. So it should take care of sharing
-        content of current object, i.e. data objects and samples
-        attached to a collection.
-        """
 
     @action(
         detail=True,
@@ -83,15 +126,19 @@ class ResolwePermissionsMixin:
     )
     def detail_permissions(self, request, pk=None):
         """Get or set permissions API endpoint."""
+        # This object comes frot the queryset which permissions are prefetched
+        # for current user only. This implies that
+        # obj.permission_group.permissions returns only permissions fot the
+        # current user. We have to perform the refresh for permissions to work
+        # correctly. If not it is impossible to remove the permission for
+        # non-logged in users as they are not seen.
         obj = self.get_object()
+        obj.refresh_from_db(fields=["permission_group"])
 
         if request.method == "POST":
-            content_type = ContentType.objects.get_for_model(obj)
             payload = request.data
-            share_content = strtobool(payload.pop("share_content", "false"))
             user = request.user
-            is_owner = user.has_perm("owner_{}".format(content_type.name), obj=obj)
-
+            is_owner = user.has_perm(Permission.OWNER, obj=obj)
             allow_owner = is_owner or user.is_superuser
             check_owner_permission(payload, allow_owner)
             check_public_permissions(payload)
@@ -99,18 +146,12 @@ class ResolwePermissionsMixin:
 
             with transaction.atomic():
                 update_permission(obj, payload)
-
-                owner_count = UserObjectPermission.objects.filter(
-                    object_pk=obj.id,
-                    content_type=content_type,
-                    permission__codename__startswith="owner_",
+                owner_count = obj.permission_group.permissions.filter(
+                    value=Permission.OWNER.value, user__isnull=False
                 ).count()
 
                 if not owner_count:
                     raise exceptions.ParseError("Object must have at least one owner.")
-
-            if share_content:
-                self.set_content_permissions(user, obj, payload)
 
         return Response(get_object_perms(obj))
 

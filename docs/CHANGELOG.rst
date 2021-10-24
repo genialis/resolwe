@@ -17,6 +17,9 @@ Added
 - Add method ``get_latest`` to ``Process`` class in Python Processes returning
   the latest version of the process with the given slug
 - Support assuming role in S3 connector
+- New permission architecture: it is not based on Guardian anymore. The main
+  benefits of new architecture are speed gains in common operations, such as
+  setting a permission and retrieving objects with the given permission.
 
 Changed
 -------

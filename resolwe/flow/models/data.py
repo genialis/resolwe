@@ -14,6 +14,7 @@ from django.db import models, transaction
 from resolwe.flow.expression_engines.exceptions import EvaluationError
 from resolwe.flow.models.utils import DirtyError, fill_with_defaults, validate_schema
 from resolwe.flow.utils import dict_dot, get_data_checksum, iterate_fields
+from resolwe.permissions.models import PermissionObject, PermissionQuerySet
 from resolwe.permissions.utils import assign_contributor_permissions, copy_permissions
 
 from .base import BaseModel, BaseQuerySet
@@ -46,7 +47,7 @@ class HandleEntityOperation(enum.Enum):
     PASS = "PASS"
 
 
-class DataQuerySet(BaseQuerySet):
+class DataQuerySet(BaseQuerySet, PermissionQuerySet):
     """Query set for Data objects."""
 
     @staticmethod
@@ -184,15 +185,16 @@ class DataQuerySet(BaseQuerySet):
                 kind=DataDependency.KIND_SUBPROCESS,
             )
             # Data was from a workflow / spawned process
-            copy_permissions(subprocess_parent, obj)
+            if not obj.in_container():
+                copy_permissions(subprocess_parent, obj)
 
         # Entity, Collection assignment
         entity_operation = self._handle_entity(obj)
         self._handle_collection(obj, entity_operation=entity_operation)
 
-        # Permissions:
-        assign_contributor_permissions(obj)
-        copy_permissions(obj.collection, obj)
+        # Assign contributor permission only if Data is not in the container.
+        if not obj.in_container():
+            assign_contributor_permissions(obj)
 
         return obj
 
@@ -221,17 +223,17 @@ class DataQuerySet(BaseQuerySet):
             data.move_to_collection(destination_collection)
 
 
-class Data(BaseModel):
+class Data(BaseModel, PermissionObject):
     """Postgres model for storing data."""
 
     class Meta(BaseModel.Meta):
         """Data Meta options."""
 
         permissions = (
-            ("view_data", "Can view data"),
-            ("edit_data", "Can edit data"),
-            ("share_data", "Can share data"),
-            ("owner_data", "Is owner of the data"),
+            ("view", "Can view data"),
+            ("edit", "Can edit data"),
+            ("share", "Can share data"),
+            ("owner", "Is owner of the data"),
         )
 
         indexes = [
@@ -553,22 +555,34 @@ class Data(BaseModel):
             inherit_collection=inherit_collection,
         )[0]
 
-    def move_to_collection(self, destination_collection):
+    def move_to_collection(self, collection):
         """Move data object to collection."""
-        self.validate_change_collection(destination_collection)
-        self.collection = destination_collection
-        if destination_collection:
-            self.tags = destination_collection.tags
-            copy_permissions(destination_collection, self)
-        self.save()
+        self.validate_change_collection(collection)
+        self.collection = collection
+        self.permission_group = collection.permission_group
+        if collection:
+            self.tags = collection.tags
+        self.save(update_fields=["tags", "permission_group", "collection"])
 
-    def validate_change_collection(self, destination_collection):
+    def move_to_entity(self, entity):
+        """Move data object to entity."""
+        if entity is None and self.in_container():
+            raise ValidationError("Data object must not be removed from container.")
+        self.entity = entity
+        if entity:
+            self.permission_group = entity.permission_group
+        self.tags = entity.tags
+        self.save(update_fields=["permission_group", "entity", "tags"])
+
+    def validate_change_collection(self, collection):
         """Raise validation error if data object cannot change collection."""
         if self.entity:
             raise ValidationError(
                 "If Data is in entity, you can only move it to another collection "
                 "by moving entire entity."
             )
+        if collection is None:
+            raise ValidationError("Data object can not be removed from the container.")
 
     def _render_name(self):
         """Render data name.

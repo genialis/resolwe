@@ -2,6 +2,7 @@
 from rest_framework import exceptions
 
 from resolwe.flow.models import Collection
+from resolwe.permissions.models import Permission
 
 
 def get_collection_for_user(collection_id, user):
@@ -11,7 +12,7 @@ def get_collection_for_user(collection_id, user):
         raise exceptions.ValidationError("Collection id does not exist")
 
     collection = collection_query.first()
-    if not user.has_perm("edit_collection", obj=collection):
+    if not user.has_perm(Permission.EDIT, obj=collection):
         if user.is_authenticated:
             raise exceptions.PermissionDenied()
         else:

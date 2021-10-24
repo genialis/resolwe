@@ -1,5 +1,5 @@
 """Entity viewset."""
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Q
 
 from rest_framework import exceptions
 from rest_framework.decorators import action
@@ -8,8 +8,8 @@ from rest_framework.response import Response
 from resolwe.flow.filters import EntityFilter
 from resolwe.flow.models import Collection, DescriptorSchema, Entity
 from resolwe.flow.serializers import EntitySerializer
-from resolwe.permissions.shortcuts import get_objects_for_user
-from resolwe.permissions.utils import update_permission
+from resolwe.permissions.models import PermissionModel, get_anonymous_user
+from resolwe.permissions.utils import get_user
 
 from .collection import BaseCollectionViewSet
 from .utils import get_collection_for_user
@@ -18,6 +18,9 @@ from .utils import get_collection_for_user
 class EntityViewSet(BaseCollectionViewSet):
     """API view for entities."""
 
+    serializer_class = EntitySerializer
+    filter_class = EntityFilter
+    qs_permission_model = PermissionModel.objects.select_related("user", "group")
     qs_collection_ds = DescriptorSchema.objects.select_related("contributor")
     qs_collection = Collection.objects.select_related("contributor")
     qs_collection = qs_collection.prefetch_related(
@@ -25,22 +28,33 @@ class EntityViewSet(BaseCollectionViewSet):
         "entity_set",
         Prefetch("descriptor_schema", queryset=qs_collection_ds),
     )
-
     qs_descriptor_schema = DescriptorSchema.objects.select_related("contributor")
+    queryset = Entity.objects.select_related("contributor")
 
-    queryset = Entity.objects.select_related("contributor").prefetch_related(
-        "data",
-        Prefetch("collection", queryset=qs_collection),
-        Prefetch("descriptor_schema", queryset=qs_descriptor_schema),
-    )
-    serializer_class = EntitySerializer
-    filter_class = EntityFilter
+    def get_queryset(self):
+        """Get the queryset for the given request.
+
+        Prefetch only permissions for the given user, not all of them. This is
+        only possible with the request in the context.
+        """
+        user = get_user(self.request.user)
+        filters = Q(user=user) | Q(group__in=user.groups.all())
+        anonymous_user = get_anonymous_user()
+        if user != anonymous_user:
+            filters |= Q(user=anonymous_user)
+
+        qs_permission_model = self.qs_permission_model.filter(filters)
+
+        return self.queryset.prefetch_related(
+            "data",
+            Prefetch("permission_group__permissions", queryset=qs_permission_model),
+            Prefetch("collection", queryset=self.qs_collection),
+            Prefetch("descriptor_schema", queryset=self.qs_descriptor_schema),
+        )
 
     def _get_entities(self, user, ids):
         """Return entities queryset based on provided entity ids."""
-        queryset = get_objects_for_user(
-            user, "view_entity", Entity.objects.filter(id__in=ids)
-        )
+        queryset = Entity.objects.filter(id__in=ids).filter_for_user(user)
         actual_ids = queryset.values_list("id", flat=True)
         missing_ids = list(set(ids) - set(actual_ids))
         if missing_ids:
@@ -52,24 +66,15 @@ class EntityViewSet(BaseCollectionViewSet):
 
         return queryset
 
-    def set_content_permissions(self, user, obj, payload):
-        """Apply permissions to data objects in ``Entity``."""
-        for data in obj.data.all():
-            if user.has_perm("share_data", data):
-                update_permission(data, payload)
-
     @action(detail=False, methods=["post"])
     def move_to_collection(self, request, *args, **kwargs):
         """Move samples from source to destination collection."""
         ids = self.get_ids(request.data)
-        src_collection_id = self.get_id(request.data, "source_collection")
         dst_collection_id = self.get_id(request.data, "destination_collection")
-
-        src_collection = get_collection_for_user(src_collection_id, request.user)
         dst_collection = get_collection_for_user(dst_collection_id, request.user)
 
         entity_qs = self._get_entities(request.user, ids)
-        entity_qs.move_to_collection(src_collection, dst_collection)
+        entity_qs.move_to_collection(dst_collection)
 
         return Response()
 
@@ -92,7 +97,9 @@ class EntityViewSet(BaseCollectionViewSet):
             return Entity.objects.filter(id__in=entity_ids)
 
         self.get_queryset = patched_get_queryset
+
         resp = super().update(request, *args, **kwargs)
+
         self.get_queryset = orig_get_queryset
         return resp
 
@@ -104,9 +111,7 @@ class EntityViewSet(BaseCollectionViewSet):
 
         inherit_collection = request.data.get("inherit_collection", False)
         ids = self.get_ids(request.data)
-        queryset = get_objects_for_user(
-            request.user, "view_entity", Entity.objects.filter(id__in=ids)
-        )
+        queryset = Entity.objects.filter(id__in=ids).filter_for_user(request.user)
         actual_ids = queryset.values_list("id", flat=True)
         missing_ids = list(set(ids) - set(actual_ids))
         if missing_ids:

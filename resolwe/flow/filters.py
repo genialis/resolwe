@@ -10,15 +10,13 @@ from django_filters.filterset import FilterSetMetaclass
 from versionfield import VersionField
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import AnonymousUser
 from django.contrib.postgres.search import SearchQuery, SearchRank
 from django.db.models import F, ForeignKey, Subquery
 
-from guardian.shortcuts import get_objects_for_user
 from rest_framework.filters import OrderingFilter as DrfOrderingFilter
 
 from resolwe.composer import composer
-from resolwe.permissions.utils import get_full_perm
+from resolwe.permissions.models import Permission
 
 from .models import Collection, Data, DescriptorSchema, Entity, Process, Relation
 
@@ -137,8 +135,8 @@ class UserFilterMixin:
         except user_model.DoesNotExist:
             return queryset.none()
 
-        return get_objects_for_user(
-            user, self.owner_permission, queryset, with_superuser=False
+        return queryset.filter_for_user(
+            user, self.owner_permission, with_superuser=False
         )
 
     def filter_owners_name(self, queryset, name, value):
@@ -147,8 +145,8 @@ class UserFilterMixin:
         user_subquery = self._get_user_subquery(value)
         for user in user_subquery:
             result = result.union(
-                get_objects_for_user(
-                    user, self.owner_permission, queryset, with_superuser=False
+                queryset.filter_for_user(
+                    user, self.owner_permission, with_superuser=False
                 )
             )
 
@@ -160,12 +158,10 @@ class UserFilterMixin:
         """Filter queryset by owner's name."""
         return queryset.filter(contributor__in=self._get_user_subquery(value))
 
-    def filter_permission(self, queryset, name, value):
+    def filter_for_user(self, queryset, name, value):
         """Filter queryset by permissions."""
-        user = self.request.user or AnonymousUser()
-        perm = get_full_perm(value, queryset.model)
-
-        return get_objects_for_user(user, perm, queryset)
+        user = self.request.user
+        return queryset.filter_for_user(user, Permission.from_name(value))
 
 
 class TagsFilter(filters.BaseCSVFilter, filters.CharFilter):
@@ -218,6 +214,8 @@ class BaseResolweFilter(
 ):
     """Base filter for Resolwe's endpoints."""
 
+    owner_permission = Permission.OWNER
+
     class Meta:
         """Filter configuration."""
 
@@ -252,7 +250,7 @@ class BaseCollectionFilter(TextFilterMixin, UserFilterMixin, BaseResolweFilter):
     contributor_name = filters.CharFilter(method="filter_contributor_name")
     owners = filters.CharFilter(method="filter_owners")
     owners_name = filters.CharFilter(method="filter_owners_name")
-    permission = filters.CharFilter(method="filter_permission")
+    permission = filters.CharFilter(method="filter_for_user")
     tags = TagsFilter()
     text = filters.CharFilter(field_name="search", method="filter_text")
 
@@ -271,8 +269,6 @@ class BaseCollectionFilter(TextFilterMixin, UserFilterMixin, BaseResolweFilter):
 class CollectionFilter(BaseCollectionFilter):
     """Filter the Collection endpoint."""
 
-    owner_permission = "owner_collection"
-
     class Meta(BaseCollectionFilter.Meta):
         """Filter configuration."""
 
@@ -281,8 +277,6 @@ class CollectionFilter(BaseCollectionFilter):
 
 class EntityFilter(BaseCollectionFilter):
     """Filter the Entity endpoint."""
-
-    owner_permission = "owner_entity"
 
     class Meta(BaseCollectionFilter.Meta):
         """Filter configuration."""
@@ -325,12 +319,10 @@ class CharInFilter(filters.BaseInFilter, filters.CharFilter):
 class DataFilter(TextFilterMixin, UserFilterMixin, BaseResolweFilter):
     """Filter the Data endpoint."""
 
-    owner_permission = "owner_data"
-
     contributor_name = filters.CharFilter(method="filter_contributor_name")
     owners = filters.CharFilter(method="filter_owners")
     owners_name = filters.CharFilter(method="filter_owners_name")
-    permission = filters.CharFilter(method="filter_permission")
+    permission = filters.CharFilter(method="filter_for_user")
     tags = TagsFilter()
     text = filters.CharFilter(field_name="search", method="filter_text")
     type = filters.CharFilter(field_name="process__type", lookup_expr="startswith")

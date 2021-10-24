@@ -3,8 +3,6 @@ import os
 
 from asgiref.sync import async_to_sync
 
-from guardian.shortcuts import assign_perm
-
 from resolwe.flow.managers import manager
 from resolwe.flow.managers.utils import disable_auto_calls
 from resolwe.flow.models import (
@@ -14,6 +12,7 @@ from resolwe.flow.models import (
     DescriptorSchema,
     Process,
 )
+from resolwe.permissions.models import Permission
 from resolwe.test import ProcessTestCase, TransactionTestCase
 
 PROCESSES_DIR = os.path.join(os.path.dirname(__file__), "processes")
@@ -50,7 +49,7 @@ class TestManager(ProcessTestCase):
         spawned_process.entity_descriptor_schema = "test-schema"
         spawned_process.save()
 
-        assign_perm("view_collection", self.user, self.collection)
+        self.collection.set_permission(Permission.VIEW, self.user)
         Data.objects.create(
             name="Test data",
             contributor=self.contributor,
@@ -63,7 +62,7 @@ class TestManager(ProcessTestCase):
 
         # Check that permissions are inherited.
         child = Data.objects.last()
-        self.assertTrue(self.user.has_perm("view_data", child))
+        self.assertTrue(self.user.has_perm(Permission.VIEW, child))
         self.assertEqual(child.collection.pk, self.collection.pk)
         self.assertEqual(child.entity.collection.pk, self.collection.pk)
 
