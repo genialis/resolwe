@@ -248,15 +248,6 @@ class ProcessTestCase(TransactionTestCase):
 
         return stdout, stderr
 
-    def _create_collection(self):
-        """Create a test collection for admin user.
-
-        :return: created test collection
-        :rtype: Collection
-
-        """
-        return Collection.objects.create(name="Test collection", contributor=self.admin)
-
     def setUp(self):
         """Initialize test data."""
         super().setUp()
@@ -266,7 +257,6 @@ class ProcessTestCase(TransactionTestCase):
         if stderr:
             raise RuntimeError(stderr)
 
-        self.collection = self._create_collection()
         upload_connectors = [
             connector
             for connector in connectors.for_storage("upload")
@@ -512,7 +502,6 @@ class ProcessTestCase(TransactionTestCase):
             tags=tags or [],
             descriptor_schema=descriptor_schema,
             descriptor=descriptor or {},
-            collection=self.collection,
         )
 
         # Fetch latest Data object from database
