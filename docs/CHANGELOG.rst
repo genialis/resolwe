@@ -23,6 +23,11 @@ Changed
 - Allow mounting connectors into pods as persistent volume claim instead of
   volume of type ``hostPath``
 
+Fixed
+-----
+- use the same connector inside pod to handle files and directories
+
+
 ===================
 28.5.0 - 2021-09-13
 ===================

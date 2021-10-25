@@ -681,12 +681,8 @@ def set_default_storage_connectors():
     for storage_name, storage_settings in storages.items():
         storage_connectors = connectors.for_storage(storage_name)
         default_connector = storage_connectors[0]
-        default_mounted_connector = None
-        for connector in storage_connectors:
-            if connector.name in MOUNTED_CONNECTORS:
-                default_mounted_connector = connector
-                break
-
+        is_mountable = default_connector.name in MOUNTED_CONNECTORS
+        default_mounted_connector = default_connector if is_mountable else None
         STORAGE_CONNECTOR[storage_name] = (default_connector, default_mounted_connector)
 
 
