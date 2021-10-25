@@ -111,8 +111,8 @@ class Connector(BaseConnector):
         """
         return data.location.default_storage_location.connector_name
 
-    def _ebs_claim_name(self, base_name: str, data_id: int) -> str:
-        """Get unique EBS claim name."""
+    def _pvc_claim_name(self, base_name: str, data_id: int) -> str:
+        """Get unique persistent volume claim name."""
         return f"{base_name}-{data_id}"
 
     def _create_configmap_if_needed(self, name: str, content: Dict, core_api: Any):
@@ -225,9 +225,9 @@ class Connector(BaseConnector):
         def volume_from_config(volume_name: str, volume_config: dict):
             """Get configuration for kubernetes for given volume."""
             claim_name = volume_config["config"]["name"]
-            if volume_config["type"] == "ebs":
-                claim_name = self._ebs_claim_name(claim_name, data_id)
-            if volume_config["type"] in ["ebs", "persistent_volume"]:
+            if self._should_create_pvc(volume_config):
+                claim_name = self._pvc_claim_name(claim_name, data_id)
+            if volume_config["type"] == "persistent_volume":
                 return {
                     "name": volume_name,
                     "persistentVolumeClaim": {"claimName": claim_name},
@@ -268,13 +268,20 @@ class Connector(BaseConnector):
             for volume_name, volume_config in storage_settings.FLOW_VOLUMES.items()
             if volume_config["config"]["name"] != "tools"
         ]
-        volumes += [
-            {
+
+        for storage_name, connector in self._get_mountable_connectors():
+            claim_name = connector.config.get("persistent_volume_claim", None)
+            volume_data = {
                 "name": connector.name,
-                "hostPath": {"path": os.fspath(connector.config["path"])},
             }
-            for storage_name, connector in self._get_mountable_connectors()
-        ]
+            if claim_name:
+                volume_data["persistentVolumeClaim"] = {"claimName": claim_name}
+            else:
+                volume_data["hostPath"] = (
+                    {"path": os.fspath(connector.config["path"])},
+                )
+            volumes.append(volume_data)
+
         return volumes
 
     def _init_container_mountpoints(self):
@@ -429,11 +436,10 @@ class Connector(BaseConnector):
             )
         return mount_points
 
-    def _persistent_ebs_claim(
+    def _persistent_volume_claim(
         self, claim_name: str, size: int, volume_config: Dict
     ) -> Dict[str, Any]:
-        # self, persistent_claim_name: str, volume_size_in_bytes: int
-        """Prepare claim for EBS Amazon storage."""
+        """Prepare claim for persistent volume."""
         return {
             "apiVersion": "v1",
             "kind": "PersistentVolumeClaim",
@@ -468,6 +474,13 @@ class Connector(BaseConnector):
         )
         assert isinstance(inputs_size, int)
         return int(1.1 * (inputs_size + safety_buffer))
+
+    def _should_create_pvc(self, volume_config: dict) -> bool:
+        """Return True if pvc for the given volume should be created."""
+        if volume_config["type"] != "persistent_volume":
+            return False
+
+        return volume_config["config"].get("create_pvc", False)
 
     def _sanitize_kubernetes_label(self, label: str, trim_end: bool = True) -> str:
         """Make sure kubernetes label complies with the rules.
@@ -691,14 +704,14 @@ class Connector(BaseConnector):
 
         processing_name = constants.PROCESSING_VOLUME_NAME
         input_name = constants.INPUTS_VOLUME_NAME
-        if storage_settings.FLOW_VOLUMES[processing_name]["type"] == "ebs":
-            claim_name = self._ebs_claim_name(
+        if self._should_create_pvc(storage_settings.FLOW_VOLUMES[processing_name]):
+            claim_name = self._pvc_claim_name(
                 storage_settings.FLOW_VOLUMES[processing_name]["config"]["name"],
                 data.id,
             )
             claim_size = limits.pop("storage", 200) * (2 ** 30)  # Default 200 gibibytes
             core_api.create_namespaced_persistent_volume_claim(
-                body=self._persistent_ebs_claim(
+                body=self._persistent_volume_claim(
                     claim_name,
                     claim_size,
                     storage_settings.FLOW_VOLUMES[processing_name]["config"],
@@ -707,14 +720,14 @@ class Connector(BaseConnector):
                 _request_timeout=KUBERNETES_TIMEOUT,
             )
         if input_name in storage_settings.FLOW_VOLUMES:
-            if storage_settings.FLOW_VOLUMES[input_name]["type"] == "ebs":
+            if self._should_create_pvc(storage_settings.FLOW_VOLUMES[input_name]):
                 claim_size = self._data_inputs_size(data)
-                claim_name = self._ebs_claim_name(
+                claim_name = self._pvc_claim_name(
                     storage_settings.FLOW_VOLUMES[input_name]["config"]["name"],
                     data.id,
                 )
                 core_api.create_namespaced_persistent_volume_claim(
-                    body=self._persistent_ebs_claim(
+                    body=self._persistent_volume_claim(
                         claim_name,
                         claim_size,
                         storage_settings.FLOW_VOLUMES[input_name]["config"],
@@ -723,6 +736,7 @@ class Connector(BaseConnector):
                     _request_timeout=KUBERNETES_TIMEOUT,
                 )
 
+        logger.debug(f"Creating namespaced job: {job_description}")
         batch_api.create_namespaced_job(
             body=job_description,
             namespace=self.kubernetes_namespace,
@@ -761,21 +775,23 @@ class Connector(BaseConnector):
         )
 
     def cleanup(self, data_id: int):
-        """Remove the EBS storage used by the executor."""
+        """Remove the persistent volume claims created by the executor."""
         kubernetes.config.load_kube_config()
         core_api = kubernetes.client.CoreV1Api()
         claim_names = [
-            self._ebs_claim_name(type_, data_id)
+            self._pvc_claim_name(type_, data_id)
             for type_ in [
                 constants.PROCESSING_VOLUME_NAME,
                 constants.INPUTS_VOLUME_NAME,
             ]
+            if type_ in storage_settings.FLOW_VOLUMES
+            and self._should_create_pvc(storage_settings.FLOW_VOLUMES[type_])
         ]
-        for ebs_claim_name in claim_names:
-            logger.debug("Kubernetes: removing claim %s.", ebs_claim_name)
+        for persistent_claim_name in claim_names:
+            logger.debug("Kubernetes: removing claim %s.", persistent_claim_name)
             with suppress(kubernetes.client.rest.ApiException):
                 core_api.delete_namespaced_persistent_volume_claim(
-                    name=ebs_claim_name,
+                    name=persistent_claim_name,
                     namespace=self.kubernetes_namespace,
                     _request_timeout=KUBERNETES_TIMEOUT,
                 )

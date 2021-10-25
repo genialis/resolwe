@@ -17,6 +17,10 @@ Added
   common operations, such as setting a permission and retrieving objects with
   the given permission.
 
+Changed
+-------
+- Allow mounting connectors into pods as persistent volume claim instead of
+  volume of type ``hostPath``
 
 ===================
 28.5.0 - 2021-09-13
