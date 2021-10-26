@@ -175,14 +175,14 @@ class ObjectPermsTestCase(TestCase):
 
         expected_perms = [
             {
-                "permissions": map(str, [Permission.EDIT, Permission.VIEW]),
+                "permissions": ["edit", "view"],
                 "type": "user",
                 "id": self.user1.pk,
                 "name": "test_user1",
                 "username": "test_user1",
             },
             {
-                "permissions": map(str, [Permission.EDIT, Permission.VIEW]),
+                "permissions": ["edit", "view"],
                 "type": "group",
                 "id": self.group1.pk,
                 "name": "Test group 1",
@@ -195,7 +195,7 @@ class ObjectPermsTestCase(TestCase):
         self.group2.user_set.add(self.user1)
         expected_perms.append(
             {
-                "permissions": [str(Permission.VIEW)],
+                "permissions": ["view"],
                 "type": "group",
                 "id": self.group2.pk,
                 "name": "Test group 2",

@@ -14,6 +14,7 @@ from .utils import (
     check_owner_permission,
     check_public_permissions,
     check_user_permissions,
+    translate_from_old_syntax,
     update_permission,
 )
 
@@ -133,14 +134,13 @@ class ResolwePermissionsMixin:
         # correctly. If not it is impossible to remove the permission for
         # non-logged in users as they are not seen.
         obj = self.get_object()
-        obj.refresh_from_db(fields=["permission_group"])
+        obj.refresh_from_db()
 
         if request.method == "POST":
-            payload = request.data
+            payload = translate_from_old_syntax(request.data, obj)
             user = request.user
-            is_owner = user.has_perm(Permission.OWNER, obj=obj)
-            allow_owner = is_owner or user.is_superuser
-            check_owner_permission(payload, allow_owner)
+            allow_owner = obj.is_owner(user) or user.is_superuser
+            check_owner_permission(payload, allow_owner, obj)
             check_public_permissions(payload)
             check_user_permissions(payload, request.user.pk)
 
