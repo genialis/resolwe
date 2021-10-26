@@ -116,29 +116,29 @@ def get_object_perms(obj: models.Model, user: Optional[User] = None) -> Dict:
 
     if user is not None:
         if user.is_authenticated:
-            user_perms, groups_perms = get_user_group_perms(user, obj)
+            user_permissions, groups_permissions = get_user_group_perms(user, obj)
         else:
-            user_perms, groups_perms = [], []
+            user_permissions, groups_permissions = [], []
 
-        if user_perms:
+        if user_permissions:
             perms_list.append(
                 {
                     "type": "user",
                     "id": user.pk,
                     "name": user.get_full_name() or user.username,
                     "username": user.username,
-                    "permissions": user_perms,
+                    "permissions": [str(permission) for permission in user_permissions],
                 }
             )
 
-        if groups_perms:
-            for group_id, group_name, permissions in groups_perms:
+        if groups_permissions:
+            for group_id, group_name, permissions in groups_permissions:
                 perms_list.append(
                     {
                         "type": "group",
                         "id": group_id,
                         "name": group_name,
-                        "permissions": permissions,
+                        "permissions": [str(permission) for permission in permissions],
                     }
                 )
     else:
