@@ -380,6 +380,10 @@ class PermissionObject(models.Model):
         self._container_properties = ("collection", "entity")
         super().__init__(*args, **kwargs)
 
+    def is_owner(self, user: User) -> bool:
+        """Return if user is the owner of this instance."""
+        return self.has_permission(Permission.OWNER, user)
+
     def has_permission(self, permission: Permission, user: User):
         """Check if user has the given permission on the current object."""
         return (
