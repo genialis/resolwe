@@ -16,6 +16,7 @@ Added
   Guardian anymore. The main benefits of new architecture are speed gains in
   common operations, such as setting a permission and retrieving objects with
   the given permission.
+- Allow overriding process resources in data object
 
 Changed
 -------

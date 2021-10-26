@@ -365,6 +365,7 @@ class ProcessTestCase(TransactionTestCase):
         tags=None,
         contributor=None,
         collection=None,
+        process_resources=None,
     ):
         """Run the specified process with the given inputs.
 
@@ -504,6 +505,7 @@ class ProcessTestCase(TransactionTestCase):
             descriptor_schema=descriptor_schema,
             descriptor=descriptor or {},
             collection=collection,
+            process_resources=process_resources or {},
         )
 
         # Fetch latest Data object from database

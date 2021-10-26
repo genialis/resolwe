@@ -1,4 +1,7 @@
 """Reslowe process model."""
+from collections import ChainMap
+from typing import Optional
+
 from django.conf import settings
 from django.contrib.postgres.indexes import GinIndex
 from django.core.validators import RegexValidator
@@ -7,6 +10,7 @@ from django.db import models
 from resolwe.permissions.models import PermissionObject
 
 from .base import BaseModel
+from .data import Data
 
 
 class Process(BaseModel, PermissionObject):
@@ -193,7 +197,7 @@ class Process(BaseModel, PermissionObject):
     process scheduling class
     """
 
-    def get_resource_limits(self):
+    def get_resource_limits(self, data: Optional[Data] = None):
         """Get the core count and memory usage limits for this process.
 
         :return: A dictionary with the resource limits, containing the
@@ -207,37 +211,35 @@ class Process(BaseModel, PermissionObject):
 
         :rtype: dict
         """
-        # Get limit defaults and overrides.
-        limit_defaults = getattr(settings, "FLOW_PROCESS_RESOURCE_DEFAULTS", {})
-        limit_overrides = getattr(settings, "FLOW_PROCESS_RESOURCE_OVERRIDES", {})
+        # Known resources.
+        resources = ["cores", "memory", "storage"]
+        # When no resources are defined, use fallback.
+        fallback = {"cores": 1, "memory": 4096, "storage": 200}
 
-        limits = {}
+        # Prepare requirements from environment.
+        environment_settings = getattr(settings, "FLOW_PROCESS_RESOURCE_OVERRIDES", {})
+        environment_resources = {
+            resource: environment_settings.get(resource, {}).get(self.slug)
+            for resource in resources
+            if environment_settings.get(resource, {}).get(self.slug)
+        }
 
-        resources = self.requirements.get("resources", {})
-
-        limits["cores"] = int(resources.get("cores", 1))
-
-        max_cores = getattr(settings, "FLOW_PROCESS_MAX_CORES", None)
-        if max_cores:
-            limits["cores"] = min(limits["cores"], max_cores)
-
-        memory = limit_overrides.get("memory", {}).get(self.slug, None)
-        if memory is None:
-            memory = int(
-                resources.get(
-                    "memory",
-                    # If no memory resource is configured, check settings.
-                    limit_defaults.get("memory", 4096),
-                )
-            )
-            max_memory = getattr(settings, "FLOW_PROCESS_MAX_MEM", None)
-            if max_memory is not None:
-                memory = min(memory, max_memory)
-
-        limits["memory"] = memory
-
-        limits["storage"] = limit_overrides.get("storage", {}).get(
-            self.slug, int(resources.get("storage", limit_defaults.get("storage", 200)))
+        # Gather requirements for all resources from all sources.
+        # The order of requirements determines their priority.
+        resources_map = ChainMap(
+            data.process_resources if data is not None else {},
+            environment_resources,
+            self.requirements.get("resources", {}),
+            getattr(settings, "FLOW_PROCESS_RESOURCE_DEFAULTS", {}),
+            fallback,
         )
+
+        # Prepare the limits and cap them.
+        limits = dict()
+        for resource in resources:
+            limits[resource] = resources_map[resource]
+            cap = getattr(settings, f"FLOW_PROCESS_MAX_{resource.upper()}", None)
+            if cap is not None:
+                limits[resource] = min(limits[resource], cap)
 
         return limits

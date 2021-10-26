@@ -223,6 +223,38 @@ class TestDataViewSetCase(TestCase):
         self.assertEqual(data.contributor.username, settings.ANONYMOUS_USER_NAME)
         self.assertEqual(data.process.slug, "test-process")
 
+    def test_resources(self):
+        process_resources = {"cores": 4, "storage": 500}
+        data = {
+            "process": {"slug": "test-process"},
+            "process_resources": process_resources,
+        }
+        request = factory.post("/", data, format="json")
+        force_authenticate(request, self.contributor)
+        resp = self.data_viewset(request)
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Data.objects.count(), 1)
+
+        data = Data.objects.latest()
+        self.assertEqual(data.process_resources, process_resources)
+
+    def test_resources_invalid_schema(self):
+        process_resources = {"cpu": 4, "storage": 500}
+        data = {
+            "process": {"slug": "test-process"},
+            "process_resources": process_resources,
+        }
+        request = factory.post("/", data, format="json")
+        force_authenticate(request, self.contributor)
+        resp = self.data_viewset(request)
+
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            resp.data["error"],
+            "Additional properties are not allowed ('cpu' was unexpected)",
+        )
+        self.assertEqual(Data.objects.count(), 0)
+
     def test_inherit_permissions(self):
         self.collection.set_permission(Permission.EDIT, self.user)
 

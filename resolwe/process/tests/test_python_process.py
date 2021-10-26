@@ -541,6 +541,7 @@ class PythonProcessRequirementsTest(ProcessTestCase):
         data = self.run_process("test-python-process-requirements")
         self.assertEqual(data.output["cores"], 2)
         self.assertEqual(data.output["memory"], 4096)
+        self.assertEqual(data.output["storage"], 200)
 
     @with_docker_executor
     @override_settings(FLOW_PROCESS_MAX_CORES=1)
@@ -549,18 +550,38 @@ class PythonProcessRequirementsTest(ProcessTestCase):
         data = self.run_process("test-python-process-requirements")
         self.assertEqual(data.output["cores"], 1)
         self.assertEqual(data.output["memory"], 4096)
+        self.assertEqual(data.output["storage"], 200)
 
     @with_docker_executor
     @override_settings(
         FLOW_PROCESS_RESOURCE_OVERRIDES={
-            "memory": {"test-python-process-requirements": 2048}
+            "memory": {"test-python-process-requirements": 2048},
+            "storage": {"test-python-process-requirements": 300},
         }
     )
     @tag_process("test-python-process-requirements")
-    def test_resource_override(self):
+    def test_resource_environment_override(self):
         data = self.run_process("test-python-process-requirements")
         self.assertEqual(data.output["cores"], 2)
         self.assertEqual(data.output["memory"], 2048)
+        self.assertEqual(data.output["storage"], 300)
+
+    @with_docker_executor
+    @override_settings(
+        FLOW_PROCESS_RESOURCE_OVERRIDES={
+            "memory": {"test-python-process-requirements": 2048},
+            "storage": {"test-python-process-requirements": 300},
+        }
+    )
+    @tag_process("test-python-process-requirements")
+    def test_resource_data_override(self):
+        data = self.run_process(
+            "test-python-process-requirements",
+            process_resources={"cores": 3, "storage": 500, "memory": 50000},
+        )
+        self.assertEqual(data.output["cores"], 3)
+        self.assertEqual(data.output["memory"], 50000)
+        self.assertEqual(data.output["storage"], 500)
 
 
 class PythonProcessDataBySlugTest(ProcessTestCase, LiveServerTestCase):

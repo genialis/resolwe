@@ -264,6 +264,7 @@ class DataTestCase(ResolweAPITestCase):
                 "collection",
                 "entity",
                 "duplicated",
+                "process_resources",
             ],
         )
 
@@ -303,6 +304,7 @@ class DataTestCase(ResolweAPITestCase):
                 "collection",
                 "entity",
                 "duplicated",
+                "process_resources",
             ],
         )
 

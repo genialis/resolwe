@@ -1,0 +1,21 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "title": "Process requirements schema",
+    "description": "Schema used for process resources validation in the database.",
+    "type": "object",
+    "properties": {
+        "cores": {
+            "description": "Number of CPU cores",
+            "type": "integer"
+        },
+        "memory": {
+            "description": "Amount of memory in mebibytes",
+            "type": "integer"
+        },
+        "storage": {
+            "description": "Storage requirement (in gibibytes)",
+            "type": "integer"
+        }
+    },
+    "additionalProperties": false
+}

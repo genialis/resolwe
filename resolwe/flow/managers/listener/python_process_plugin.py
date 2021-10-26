@@ -636,6 +636,15 @@ class PythonProcess(ListenerPlugin):
         process_requirements["resources"] = process_limits
         return message.respond_ok(process_requirements)
 
+    def handle_get_self_requirements(
+        self, message: Message[int], manager: "Processor"
+    ) -> Response[dict]:
+        """Return the requirements for the process being executed."""
+        limits = manager.data.get_resource_limits()
+        process_requirements = manager.data.process.requirements
+        process_requirements["resources"] = limits
+        return message.respond_ok(process_requirements)
+
     def handle_get_python_runtime(
         self, message: Message[str], manager: "Processor"
     ) -> Response[str]:

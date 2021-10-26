@@ -277,6 +277,7 @@ class RequirementsProcess(Process):
         "resources": {
             "cores": 2,
             "memory": 4096,
+            "storage": 200,
         },
     }
 
@@ -285,14 +286,17 @@ class RequirementsProcess(Process):
 
         cores = IntegerField(label="Cores")
         memory = IntegerField(label="Memory")
+        storage = IntegerField(label="Storage")
 
     def run(self, inputs, outputs):
         outputs.cores = self.requirements["resources"]["cores"]
         outputs.memory = self.requirements["resources"]["memory"]
         outputs.cores = self.requirements["resources"]["cores"]
+        outputs.storage = self.requirements["resources"]["storage"]
 
         print("Cores:", outputs.cores)
         print("Memory:", outputs.memory)
+        print("Storage:", outputs.storage)
 
 
 class ProcessWithWorkflowInput(Process):

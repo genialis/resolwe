@@ -535,7 +535,7 @@ class Connector(BaseConnector):
 
         # Set resource limits.
         requests = dict()
-        limits = data.process.get_resource_limits()
+        limits = data.get_resource_limits()
 
         requests["cpu"] = limits.pop("cores")
         limits["cpu"] = requests["cpu"] + 1

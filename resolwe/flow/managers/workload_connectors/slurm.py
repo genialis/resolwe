@@ -34,7 +34,7 @@ class Connector(BaseConnector):
         For details, see
         :meth:`~resolwe.flow.managers.workload_connectors.base.BaseConnector.submit`.
         """
-        limits = data.process.get_resource_limits()
+        limits = data.get_resource_limits()
         logger.debug(
             __(
                 "Connector '{}' running for Data with id {} ({}).",

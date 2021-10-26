@@ -162,7 +162,7 @@ class Process(metaclass=ProcessMeta):
                 value = self.get(attr)
                 return dotdict(value) if isinstance(value, dict) else value
 
-        return dotdict(communicator.get_process_requirements(self.data.process.id))
+        return dotdict(communicator.get_self_requirements(self.data.process.id))
 
     @property
     def name(self):

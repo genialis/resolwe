@@ -22,6 +22,7 @@ def validation_schema(name):
         "descriptor": "descriptorSchema.json",
         "field": "fieldSchema.json",
         "type": "typeSchema.json",
+        "process_resources": "resourcesSchema.json",
     }
 
     if name not in schemas:

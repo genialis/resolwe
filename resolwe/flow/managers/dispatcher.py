@@ -653,7 +653,7 @@ class Manager:
                         execution_engine.evaluate(data)
                     else:
                         # Set allocated resources
-                        resource_limits = data.process.get_resource_limits()
+                        resource_limits = data.get_resource_limits()
                         data.process_memory = resource_limits["memory"]
                         data.process_cores = resource_limits["cores"]
 

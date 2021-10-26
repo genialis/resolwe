@@ -4,6 +4,8 @@ import enum
 import json
 import logging
 
+import jsonschema
+
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.indexes import GinIndex
 from django.contrib.postgres.search import SearchVectorField
@@ -12,7 +14,12 @@ from django.core.validators import RegexValidator
 from django.db import models, transaction
 
 from resolwe.flow.expression_engines.exceptions import EvaluationError
-from resolwe.flow.models.utils import DirtyError, fill_with_defaults, validate_schema
+from resolwe.flow.models.utils import (
+    DirtyError,
+    fill_with_defaults,
+    validate_schema,
+    validation_schema,
+)
 from resolwe.flow.utils import dict_dot, get_data_checksum, iterate_fields
 from resolwe.permissions.models import PermissionObject, PermissionQuerySet
 from resolwe.permissions.utils import assign_contributor_permissions, copy_permissions
@@ -406,6 +413,9 @@ class Data(BaseModel, PermissionObject):
     #: field used for full-text search
     search = SearchVectorField(null=True)
 
+    #: process requirements overrides
+    process_resources = models.JSONField(default=dict)
+
     def __init__(self, *args, **kwargs):
         """Initialize attributes."""
         super().__init__(*args, **kwargs)
@@ -485,6 +495,14 @@ class Data(BaseModel, PermissionObject):
         """Save the data model."""
         if self.name != self._original_name:
             self.named_by_user = True
+
+        try:
+            jsonschema.validate(
+                self.process_resources, validation_schema("process_resources")
+            )
+        except jsonschema.exceptions.ValidationError as exception:
+            # Re-raise as Django ValidationError
+            raise ValidationError(exception.message)
 
         create = self.pk is None
         if create:
@@ -608,6 +626,10 @@ class Data(BaseModel, PermissionObject):
             name = "?"
 
         self.name = name
+
+    def get_resource_limits(self):
+        """Return the resource limits for this data."""
+        return self.process.get_resource_limits(self)
 
 
 class DataDependency(models.Model):

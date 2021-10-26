@@ -607,7 +607,7 @@ class ListenerProtocol(BaseProtocol):
             )
             self._bootstrap_cache["process"][data.process_id][
                 "resource_limits"
-            ] = data.process.get_resource_limits()
+            ] = data.get_resource_limits()
 
     def handle_bootstrap(self, message: Message[Tuple[int, str]]) -> Response[Dict]:
         """Handle bootstrap request.
