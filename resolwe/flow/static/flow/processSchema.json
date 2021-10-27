@@ -147,6 +147,10 @@
                             "description": "Amount of memory in megabytes",
                             "type": "integer"
                         },
+                        "storage": {
+                            "description": "Storage requirement (in gibibytes)",
+                            "type": "integer"
+                        },                
                         "temporary_storage": {
                             "description": "Amount of temporary filesystem storage in megabytes",
                             "type": "integer"
@@ -163,7 +167,8 @@
                             "description": "Access to secret store",
                             "type": "boolean"
                         }
-                    }
+                    },
+                    "additionalProperties": false
                 },
                 "relations": {
                     "description": "List of relations used by the process",
