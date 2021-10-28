@@ -1,10 +1,12 @@
 """Permissions functions used in Resolwe Viewsets."""
 from collections import defaultdict
 
+from django.contrib.auth.models import Group, User
 from django.db import models, transaction
 
 from rest_framework import exceptions, serializers, status
 from rest_framework.decorators import action
+from rest_framework.request import Request
 from rest_framework.response import Response
 
 from resolwe.permissions.models import Permission, get_anonymous_user
@@ -76,10 +78,10 @@ class ResolwePermissionsMixin:
                             )
                 return self.permission_map
 
-            def to_representation(serializer_self, instance):
+            def to_representation(serializer_self, instance: models.Model):
                 """Object serializer."""
 
-                def user_data(user, permission):
+                def user_data(user: User, permission: Permission):
                     if user == self.anonymous_user:
                         return {
                             "type": "public",
@@ -93,7 +95,7 @@ class ResolwePermissionsMixin:
                         "permissions": [str(perm) for perm in list(permission)],
                     }
 
-                def group_data(group, permission):
+                def group_data(group: Group, permission: Permission):
                     return {
                         "type": "group",
                         "id": group.pk,
@@ -129,7 +131,7 @@ class ResolwePermissionsMixin:
         url_path="permissions",
         url_name="permissions",
     )
-    def detail_permissions(self, request, pk=None):
+    def detail_permissions(self, request: Request, pk=None) -> Response:
         """Get or set permissions API endpoint."""
         # This object comes frot the queryset which permissions are prefetched
         # for current user only. This implies that
@@ -165,7 +167,7 @@ class ResolwePermissionsMixin:
         url_path="permissions",
         url_name="permissions",
     )
-    def list_permissions(self, request):
+    def list_permissions(self, request: Request) -> Response:
         """Batch get or set permissions API endpoint."""
         # TODO: Implement batch get/set permissions
         return Response(status=status.HTTP_501_NOT_IMPLEMENTED)

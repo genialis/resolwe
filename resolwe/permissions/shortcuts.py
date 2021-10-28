@@ -84,7 +84,7 @@ def get_groups_with_perms(obj: models.Model) -> Dict[Group, PermissionList]:
     } or {}
 
 
-def get_object_perms(obj: models.Model, user: Optional[User] = None) -> Dict:
+def get_object_perms(obj: models.Model, user: Optional[User] = None) -> List[Dict]:
     """Return permissions for given object in Resolwe specific format.
 
     Function returns permissions for given object ``obj`` in following
