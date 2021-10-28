@@ -121,14 +121,14 @@ class ObjectPermsTestCase(TestCase):
         self.collection.set_permission(Permission.VIEW, self.user2)
         expected_perms = [
             {
-                "permissions": [Permission.EDIT, Permission.VIEW],
+                "permissions": ["edit", "view"],
                 "type": "user",
                 "id": self.user1.pk,
                 "name": "test_user1",
                 "username": "test_user1",
             },
             {
-                "permissions": [Permission.VIEW],
+                "permissions": ["view"],
                 "type": "user",
                 "id": self.user2.pk,
                 "name": "test_user2",
@@ -143,13 +143,13 @@ class ObjectPermsTestCase(TestCase):
         expected_perms.extend(
             [
                 {
-                    "permissions": [Permission.EDIT, Permission.VIEW],
+                    "permissions": ["edit", "view"],
                     "type": "group",
                     "id": self.group1.pk,
                     "name": "Test group 1",
                 },
                 {
-                    "permissions": [Permission.VIEW],
+                    "permissions": ["view"],
                     "type": "group",
                     "id": self.group2.pk,
                     "name": "Test group 2",
@@ -161,7 +161,7 @@ class ObjectPermsTestCase(TestCase):
 
         self.collection.set_permission(Permission.VIEW, self.anonymous)
         expected_perms.append(
-            {"permissions": [Permission.VIEW], "type": "public"},
+            {"permissions": ["view"], "type": "public"},
         )
         perms = get_object_perms(self.collection)
         self.assertCountEqual(self._sort_perms(expected_perms), self._sort_perms(perms))
@@ -206,7 +206,7 @@ class ObjectPermsTestCase(TestCase):
 
         self.collection.set_permission(Permission.VIEW, self.anonymous)
         expected_perms.append(
-            {"permissions": [Permission.VIEW], "type": "public"},
+            {"permissions": ["view"], "type": "public"},
         )
         perms = get_object_perms(self.collection, self.user1)
         self.assertCountEqual(self._sort_perms(expected_perms), self._sort_perms(perms))

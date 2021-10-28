@@ -153,7 +153,7 @@ def get_object_perms(obj: models.Model, user: Optional[User] = None) -> Dict:
                     "id": user.pk,
                     "name": user.get_full_name() or user.username,
                     "username": user.username,
-                    "permissions": permissions,
+                    "permissions": [str(permission) for permission in permissions],
                 }
             )
 
@@ -163,7 +163,7 @@ def get_object_perms(obj: models.Model, user: Optional[User] = None) -> Dict:
                     "type": "group",
                     "id": group.pk,
                     "name": group.name,
-                    "permissions": permissions,
+                    "permissions": [str(permission) for permission in permissions],
                 }
             )
     # Retrieve public permissions only if they are not set.
@@ -171,6 +171,11 @@ def get_object_perms(obj: models.Model, user: Optional[User] = None) -> Dict:
         public_permissions = get_user_group_perms(anonymous_user, obj)[0]
 
     if public_permissions:
-        perms_list.append({"type": "public", "permissions": public_permissions})
+        perms_list.append(
+            {
+                "type": "public",
+                "permissions": [str(permission) for permission in public_permissions],
+            }
+        )
 
     return perms_list
