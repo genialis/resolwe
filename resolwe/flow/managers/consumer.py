@@ -9,6 +9,7 @@ Manager Channels consumer.
 """
 import asyncio
 import logging
+from contextlib import suppress
 
 from channels.consumer import AsyncConsumer
 from channels.layers import get_channel_layer
@@ -43,13 +44,6 @@ async def run_consumer(timeout=None):
         "channel": manager_channel,
     }
     manager_app = ApplicationCommunicator(ManagerConsumer(), manager_scope)
-
-    listener_channel = state.LISTENER_CONTROL_CHANNEL
-    listener_scope = {
-        "channel": listener_channel,
-    }
-    listener_app = ApplicationCommunicator(ListenerConsumer(), listener_scope)
-
     channel_layer = get_channel_layer()
 
     async def _consume_loop(channel, scope, app):
@@ -60,21 +54,14 @@ async def run_consumer(timeout=None):
             await app.send_input(message)
             message = await channel_layer.receive(channel)
 
-    awaitables = [
-        asyncio.ensure_future(
-            _consume_loop(manager_channel, manager_scope, manager_app)
-        ),
-        asyncio.ensure_future(
-            _consume_loop(listener_channel, listener_scope, listener_app)
-        ),
-    ]
+    consume_future = asyncio.ensure_future(
+        _consume_loop(manager_channel, manager_scope, manager_app)
+    )
 
-    await asyncio.wait(awaitables, timeout=timeout)
-    for awaitable in awaitables:
-        awaitable.cancel()
+    with suppress(asyncio.TimeoutError):
+        await asyncio.wait_for(consume_future, timeout=timeout)
 
     await manager_app.wait()
-    await listener_app.wait()
 
 
 async def exit_consumer():
@@ -103,18 +90,3 @@ class ManagerConsumer(AsyncConsumer):
             await self.manager.handle_control_event(message["content"])
         except:
             logger.exception("control_event exception.")
-
-
-class ListenerConsumer(AsyncConsumer):
-    """Channels consumer for handling manager events."""
-
-    def __init__(self, *args, **kwargs):
-        """Initialize a consumer instance with the given manager."""
-        # This import is local in order to avoid startup import loops.
-        from . import listener
-
-        self.listener = listener
-
-    async def terminate_worker_event(self, message):
-        """Forward control events to the manager dispatcher."""
-        await self.listener.terminate_worker(message["identity"])

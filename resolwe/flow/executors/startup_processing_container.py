@@ -121,15 +121,7 @@ class ProtocolHandler:
                     else:
                         create_task(self.process_script(message))
                 elif command_name == "terminate":
-                    logger.debug("Got terminate command, shutting down.")
-                    self._command_counter += 1
-                    yield from self.terminate_script(
-                        {"info": "Processing was cancelled."}
-                    )
-                    response = respond(message, "OK", "")
-                    yield from self.communicator.send_data(response)
-                    # Wait for script to do the clean-up.
-                    yield from self._script_finishing.wait()
+                    logger.info("Got terminate command, shutting down ASAP.")
                     break
                 else:
                     logger.error("Unknown command: %s.", command_name)

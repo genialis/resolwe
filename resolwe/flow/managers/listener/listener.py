@@ -30,6 +30,7 @@ import zmq
 import zmq.asyncio
 from asgiref.sync import async_to_sync
 from channels.db import database_sync_to_async
+from channels.layers import get_channel_layer
 
 from django.conf import settings
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -51,6 +52,7 @@ from resolwe.flow.executors.socket_utils import (
 from resolwe.flow.executors.zeromq_utils import ZMQCommunicator
 from resolwe.flow.managers import consumer
 from resolwe.flow.managers.protocol import ExecutorFiles, WorkerProtocol
+from resolwe.flow.managers.state import LISTENER_CONTROL_CHANNEL  # noqa: F401
 from resolwe.flow.models import Data, Process, Storage, Worker
 from resolwe.flow.utils import iterate_schema
 from resolwe.storage import settings as storage_settings
@@ -607,7 +609,7 @@ class ListenerProtocol(BaseProtocol):
             )
             self._bootstrap_cache["process"][data.process_id][
                 "resource_limits"
-            ] = data.get_resource_limits()
+            ] = data.process.get_resource_limits()
 
     def handle_bootstrap(self, message: Message[Tuple[int, str]]) -> Response[Dict]:
         """Handle bootstrap request.
@@ -761,6 +763,9 @@ class ListenerProtocol(BaseProtocol):
                 __("Processing {} commands", self._parallel_commands_counter)
             )
             response = await self._get_response(peer_identity, received_message)
+            self.logger.debug(
+                __("Processing {} commands", self._parallel_commands_counter)
+            )
             try:
                 assert received_message.sent_timestamp is not None
                 response_time = time.time() - received_message.sent_timestamp
@@ -934,6 +939,7 @@ class ExecutorListener:
         # Running coordination.
         self._should_stop: Optional[asyncio.Event] = None
         self._runner_future: Optional[asyncio.Future] = None
+        self._channels_listener: Optional[asyncio.Future] = None
         self._communicating_future: Optional[asyncio.Future] = None
 
     @property
@@ -968,11 +974,24 @@ class ExecutorListener:
             )
         return self._listener_protocol
 
-    async def terminate_worker(self, identity: PeerIdentity):
-        """Terminate the worker."""
-        peer = self.listener_protocol.peers.get(identity)
-        if peer is not None:
-            await peer.terminate()
+    async def channels_listener(self):
+        """Listen for terminate command and forward it to worker."""
+        # Refresh channel name when testing.
+        if is_testing:
+            redis_prefix = getattr(settings, "FLOW_MANAGER", {}).get("REDIS_PREFIX", "")
+            LISTENER_CONTROL_CHANNEL = "{}.listener".format(redis_prefix)  # noqa: F811
+
+        channel_layer = get_channel_layer()
+        while True:
+            message = await channel_layer.receive(LISTENER_CONTROL_CHANNEL)
+            logger.debug("Got channels message %s", message)
+            message_type, peer_identity = message.get("type"), message.get("identity")
+            if message_type == "terminate" and peer_identity is not None:
+                peer = self.listener_protocol.peers.get(peer_identity)
+                if peer is not None:
+                    await peer.terminate()
+            else:
+                logger.error(__("Received unknown channels message '{}'.", message))
 
     async def __aenter__(self):
         """On entering a context, start the listener thread."""
@@ -980,6 +999,7 @@ class ExecutorListener:
         loop.set_exception_handler(handle_exceptions)
         self._should_stop = None
         self._runner_future = asyncio.ensure_future(self.run())
+        self._channels_listener = asyncio.ensure_future(self.channels_listener())
         return self
 
     async def __aexit__(self, typ, value, trace):
@@ -990,6 +1010,8 @@ class ExecutorListener:
             Exceptions are all propagated.
         """
         assert self._runner_future is not None
+        assert self._channels_listener is not None
+        self._channels_listener.cancel()
         self.terminate()
         await asyncio.gather(self._runner_future)
         self._listener_protocol = None

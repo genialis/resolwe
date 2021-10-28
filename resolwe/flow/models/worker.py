@@ -41,10 +41,7 @@ class Worker(models.Model):
         if self.status != self.STATUS_PROCESSING:
             return
 
-        packet = {
-            "type": "terminate_worker_event",  # This is used as the method name in the consumer.
-            "identity": str(self.data.id).encode(),
-        }
+        packet = {"type": "terminate", "identity": str(self.data.id).encode()}
         from resolwe.flow.managers.state import LISTENER_CONTROL_CHANNEL
 
         async_to_sync(get_channel_layer().send)(LISTENER_CONTROL_CHANNEL, packet)

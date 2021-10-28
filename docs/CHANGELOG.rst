@@ -26,6 +26,8 @@ Changed
 Fixed
 -----
 - use the same connector inside pod to handle files and directories
+- When data object was deleted listener did not receive the terminate message
+  and pod did not terminate immediatelly
 
 
 ===================
