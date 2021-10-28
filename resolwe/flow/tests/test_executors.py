@@ -348,8 +348,8 @@ class ManagerRunProcessTest(ProcessTestCase):
         processing_thread = threading.Thread(target=start_processing, args=(data,))
         processing_thread.start()
 
-        # Wait for up to 5s for process to start.
-        for _ in range(50):
+        # Wait up to 20s for process to start.
+        for _ in range(200):
             sleep(0.1)
             data.refresh_from_db()
             with suppress(Data.worker.RelatedObjectDoesNotExist):
@@ -359,8 +359,8 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.assertEqual(data.worker.status, Worker.STATUS_PROCESSING)
         data.worker.terminate()
 
-        # Give it max 10 seconds to terminate.
-        for _ in range(100):
+        # Wait up to 20 seconds for process to terminate.
+        for _ in range(200):
             sleep(0.1)
             data.refresh_from_db()
             if data.worker.status == Worker.STATUS_COMPLETED:
