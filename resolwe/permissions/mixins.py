@@ -109,12 +109,16 @@ class ResolwePermissionsMixin:
                     "fields" not in self.request.query_params
                     or "current_user_permissions" in self.request.query_params["fields"]
                 ):
-                    data["current_user_permissions"] = [
-                        get_perm_data[entity_type](entity, permission)
-                        for entity, permission, entity_type in permission_map[
-                            instance.permission_group_id
-                        ]
-                    ]
+                    data["current_user_permissions"] = []
+                    for entity, permission, entity_type in permission_map[
+                        instance.permission_group_id
+                    ]:
+                        # Superuser has all permissions.
+                        if entity_type == "user" and entity.is_superuser:
+                            permission = Permission.highest()
+                        data["current_user_permissions"].append(
+                            get_perm_data[entity_type](entity, permission)
+                        )
                 return data
 
         return SerializerWithPermissions

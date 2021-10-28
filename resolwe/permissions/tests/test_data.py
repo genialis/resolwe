@@ -3,6 +3,7 @@ import shutil
 import unittest
 from datetime import timedelta
 
+from django.contrib.auth.models import AnonymousUser
 from django.utils.timezone import now
 
 from rest_framework import exceptions, status
@@ -221,6 +222,75 @@ class DataTestCase(ResolweAPITestCase):
                     "invalid-dictionary": True,
                 }
             )
+
+    def test_current_user_permissions(self):
+        # Remove all permissions.
+        self.data1.permission_group.permissions.all().delete()
+
+        # Set permissions.
+        self.data1.set_permission(Permission.VIEW, AnonymousUser())
+        self.data1.set_permission(Permission.EDIT, self.user1)
+        self.data1.set_permission(Permission.SHARE, self.user2)
+        self.data1.set_permission(Permission.EDIT, self.admin)
+
+        # Anonymous request, public view.
+        expected_permissions = [{"type": "public", "permissions": ["view"]}]
+        resp = self._get_detail(self.data1.pk)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertCountEqual(
+            resp.data["current_user_permissions"], expected_permissions
+        )
+
+        # User1 request.
+        expected_permissions = [
+            {"type": "public", "permissions": ["view"]},
+            {
+                "type": "user",
+                "id": self.user1.pk,
+                "name": self.user1.get_full_name() or self.user1.username,
+                "username": self.user1.username,
+                "permissions": ["view", "edit"],
+            },
+        ]
+        resp = self._get_detail(self.data1.pk, self.user1)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertCountEqual(
+            resp.data["current_user_permissions"], expected_permissions
+        )
+
+        # User2 request.
+        expected_permissions = [
+            {"type": "public", "permissions": ["view"]},
+            {
+                "type": "user",
+                "id": self.user2.pk,
+                "name": self.user2.get_full_name() or self.user2.username,
+                "username": self.user2.username,
+                "permissions": ["view", "edit", "share"],
+            },
+        ]
+        resp = self._get_detail(self.data1.pk, self.user2)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertCountEqual(
+            resp.data["current_user_permissions"], expected_permissions
+        )
+
+        # Admin request: since admin is superuser all permissions are returned.
+        expected_permissions = [
+            {"type": "public", "permissions": ["view"]},
+            {
+                "type": "user",
+                "id": self.admin.pk,
+                "name": self.admin.get_full_name() or self.admin.username,
+                "username": self.admin.username,
+                "permissions": ["view", "edit", "share", "owner"],
+            },
+        ]
+        resp = self._get_detail(self.data1.pk, self.admin)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertCountEqual(
+            resp.data["current_user_permissions"], expected_permissions
+        )
 
     def test_get_detail(self):
         # public user w/ perms
