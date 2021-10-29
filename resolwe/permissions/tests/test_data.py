@@ -292,6 +292,24 @@ class DataTestCase(ResolweAPITestCase):
             resp.data["current_user_permissions"], expected_permissions
         )
 
+        # Admin request: since admin is superuser all permissions are returned
+        # even if there are no permissions in the database.
+        self.data1.permission_group.permissions.all().delete()
+        expected_permissions = [
+            {
+                "type": "user",
+                "id": self.admin.pk,
+                "name": self.admin.get_full_name() or self.admin.username,
+                "username": self.admin.username,
+                "permissions": ["view", "edit", "share", "owner"],
+            },
+        ]
+        resp = self._get_detail(self.data1.pk, self.admin)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertCountEqual(
+            resp.data["current_user_permissions"], expected_permissions
+        )
+
         # Check listing.
         self.data1.permission_group.permissions.all().delete()
         self.data1.set_permission(Permission.VIEW, self.user1)

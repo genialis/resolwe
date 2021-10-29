@@ -96,6 +96,7 @@ class ResolwePermissionsMixin:
                         if instance.permission_group.id in self.permission_map:
                             continue
 
+                        insert_superuser = self.request.user.is_superuser
                         for perm_model in instance.permission_group.permissions.all():
                             is_user = perm_model.user is not None
                             serializer = user_data if is_user else group_data
@@ -104,8 +105,16 @@ class ResolwePermissionsMixin:
                             # Superusers have all permissions.
                             if is_user and perm_model.user.is_superuser:
                                 permission = Permission.highest()
+                                if perm_model.user == self.request.user:
+                                    insert_superuser = False
                             self.permission_map[instance.permission_group.id].append(
                                 serializer(usergroup, permission)
+                            )
+                        # Even when there are no permission and requesting user
+                        # is superuser he has all permissions.
+                        if insert_superuser:
+                            self.permission_map[instance.permission_group.id].append(
+                                user_data(self.request.user, Permission.highest())
                             )
                 return self.permission_map
 
