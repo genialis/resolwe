@@ -191,7 +191,7 @@ def check_owner_permission(payload: dict, allow_user_owner: bool, obj: models.Mo
 
 def check_public_permissions(payload: dict):
     """Raise ``PermissionDenied`` if public permissions are too open."""
-    allowed_public_permissions = ["view"]
+    allowed_public_permissions = ["none", "view"]
     if "public" in payload:
         if payload["public"] not in allowed_public_permissions:
             raise exceptions.PermissionDenied(

@@ -53,6 +53,10 @@ class CollectionPermissionsTest(ResolweAPITestCase):
         resp = self._detail_permissions(self.collection.pk, data, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
 
+        data = {"public": "none"}
+        resp = self._detail_permissions(self.collection.pk, data, self.user1)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+
         data = {"public": "edit"}
         resp = self._detail_permissions(self.collection.pk, data, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
@@ -374,7 +378,11 @@ class CollectionPermissionsTestOldSyntax(ResolweAPITestCase):
         """Public user cannot create/edit anything"""
         self.collection.set_permission(Permission.SHARE, self.user1)
 
-        data = {"public": "view"}
+        data = {"public": {"add": ["view"]}}
+        resp = self._detail_permissions(self.collection.pk, data, self.user1)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+
+        data = {"public": {"remove": ["view"]}}
         resp = self._detail_permissions(self.collection.pk, data, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
 
