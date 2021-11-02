@@ -219,11 +219,14 @@ def set_permission_compatible(
 
     :raises RuntimeError: when operation is not 'add' or 'remove'.
 
-    :raises exception.ParserError: when permission name is not known.
+    :raises exception.ParseError: when permission name is not known.
     """
 
     def to_permissions(permission_names: List[str]) -> PermissionList:
-        """Aggregate a list of permission names to a single permission."""
+        """Return permission objects from permission names.
+
+        :raises ParseError: when permission name is not known.
+        """
         permissions = []
         for permission_name in permission_names:
             try:
