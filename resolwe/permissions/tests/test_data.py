@@ -241,6 +241,13 @@ class DataTestCase(ResolweAPITestCase):
             resp.data["current_user_permissions"], expected_permissions
         )
 
+        # Anonymous request, no permissions.
+        self.data1.set_permission(Permission.NONE, AnonymousUser())
+        expected_permissions = [{}]
+        resp = self._get_detail(self.data1.pk)
+        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+        self.data1.set_permission(Permission.VIEW, AnonymousUser())
+
         # User1 request.
         expected_permissions = [
             {"type": "public", "permissions": ["view"]},
@@ -252,6 +259,15 @@ class DataTestCase(ResolweAPITestCase):
                 "permissions": ["view", "edit"],
             },
         ]
+        resp = self._get_detail(self.data1.pk, self.user1)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertCountEqual(
+            resp.data["current_user_permissions"], expected_permissions
+        )
+
+        # User1 request, no permissions.
+        self.data1.set_permission(Permission.NONE, self.user1)
+        expected_permissions = [{"type": "public", "permissions": ["view"]}]
         resp = self._get_detail(self.data1.pk, self.user1)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertCountEqual(

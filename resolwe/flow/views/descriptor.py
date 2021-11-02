@@ -1,6 +1,4 @@
 """Descriptor schema viewset."""
-from django.db.models import Prefetch, Q
-
 from rest_framework import mixins, viewsets
 
 from resolwe.flow.filters import DescriptorSchemaFilter
@@ -9,10 +7,12 @@ from resolwe.flow.serializers import DescriptorSchemaSerializer
 from resolwe.permissions.loader import get_permissions_class
 from resolwe.permissions.mixins import ResolwePermissionsMixin
 from resolwe.permissions.models import PermissionModel
-from resolwe.permissions.utils import get_anonymous_user, get_user
+
+from .permissions import FilterPermissionsForUser
 
 
 class DescriptorSchemaViewSet(
+    FilterPermissionsForUser,
     mixins.RetrieveModelMixin,
     mixins.ListModelMixin,
     ResolwePermissionsMixin,
@@ -29,19 +29,5 @@ class DescriptorSchemaViewSet(
     ordering = ("id",)
 
     def get_queryset(self):
-        """Get the queryset for the given request.
-
-        Prefetch only permissions for the given user, not all of them. This is
-        only possible with the request in the context.
-        """
-        user = get_user(self.request.user)
-        filters = Q(user=user) | Q(group__in=user.groups.all())
-        anonymous_user = get_anonymous_user()
-        if user != anonymous_user:
-            filters |= Q(user=anonymous_user)
-
-        qs_permission_model = self.qs_permission_model.filter(filters)
-
-        return self.queryset.prefetch_related(
-            Prefetch("permission_group__permissions", queryset=qs_permission_model)
-        )
+        """Prefetch permissions for current user."""
+        return self.prefetch_current_user_permissions(self.queryset)

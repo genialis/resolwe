@@ -1,5 +1,5 @@
 """Entity viewset."""
-from django.db.models import Prefetch, Q
+from django.db.models import Prefetch
 
 from rest_framework import exceptions
 from rest_framework.decorators import action
@@ -8,8 +8,6 @@ from rest_framework.response import Response
 from resolwe.flow.filters import EntityFilter
 from resolwe.flow.models import Collection, DescriptorSchema, Entity
 from resolwe.flow.serializers import EntitySerializer
-from resolwe.permissions.models import PermissionModel, get_anonymous_user
-from resolwe.permissions.utils import get_user
 
 from .collection import BaseCollectionViewSet
 from .utils import get_collection_for_user
@@ -20,7 +18,6 @@ class EntityViewSet(BaseCollectionViewSet):
 
     serializer_class = EntitySerializer
     filter_class = EntityFilter
-    qs_permission_model = PermissionModel.objects.select_related("user", "group")
     qs_collection_ds = DescriptorSchema.objects.select_related("contributor")
     qs_collection = Collection.objects.select_related("contributor")
     qs_collection = qs_collection.prefetch_related(
@@ -29,28 +26,11 @@ class EntityViewSet(BaseCollectionViewSet):
         Prefetch("descriptor_schema", queryset=qs_collection_ds),
     )
     qs_descriptor_schema = DescriptorSchema.objects.select_related("contributor")
-    queryset = Entity.objects.select_related("contributor")
-
-    def get_queryset(self):
-        """Get the queryset for the given request.
-
-        Prefetch only permissions for the given user, not all of them. This is
-        only possible with the request in the context.
-        """
-        user = get_user(self.request.user)
-        filters = Q(user=user) | Q(group__in=user.groups.all())
-        anonymous_user = get_anonymous_user()
-        if user != anonymous_user:
-            filters |= Q(user=anonymous_user)
-
-        qs_permission_model = self.qs_permission_model.filter(filters)
-
-        return self.queryset.prefetch_related(
-            "data",
-            Prefetch("permission_group__permissions", queryset=qs_permission_model),
-            Prefetch("collection", queryset=self.qs_collection),
-            Prefetch("descriptor_schema", queryset=self.qs_descriptor_schema),
-        )
+    queryset = Entity.objects.select_related("contributor").prefetch_related(
+        "data",
+        Prefetch("collection", queryset=qs_collection),
+        Prefetch("descriptor_schema", queryset=qs_descriptor_schema),
+    )
 
     def _get_entities(self, user, ids):
         """Return entities queryset based on provided entity ids."""

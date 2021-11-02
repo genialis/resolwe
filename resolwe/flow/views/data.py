@@ -1,5 +1,5 @@
 """Data viewset."""
-from django.db.models import Prefetch, Q
+from django.db.models import Prefetch
 
 from rest_framework import exceptions, mixins, viewsets
 from rest_framework.decorators import action
@@ -13,7 +13,6 @@ from resolwe.flow.utils import get_data_checksum
 from resolwe.permissions.loader import get_permissions_class
 from resolwe.permissions.mixins import ResolwePermissionsMixin
 from resolwe.permissions.models import Permission, PermissionModel
-from resolwe.permissions.utils import get_anonymous_user, get_user
 
 from .mixins import (
     ParametersMixin,
@@ -21,10 +20,12 @@ from .mixins import (
     ResolweCreateModelMixin,
     ResolweUpdateModelMixin,
 )
+from .permissions import FilterPermissionsForUser
 from .utils import get_collection_for_user
 
 
 class DataViewSet(
+    FilterPermissionsForUser,
     ResolweCreateModelMixin,
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
@@ -63,7 +64,12 @@ class DataViewSet(
         Prefetch("descriptor_schema", queryset=qs_entity_ds),
     )
     qs_process = Process.objects.select_related("contributor")
-    queryset = Data.objects.select_related("contributor")
+    queryset = Data.objects.select_related("contributor").prefetch_related(
+        Prefetch("collection", queryset=qs_collection),
+        Prefetch("descriptor_schema", queryset=qs_descriptor_schema),
+        Prefetch("entity", queryset=qs_entity),
+        Prefetch("process", queryset=qs_process),
+    )
 
     serializer_class = DataSerializer
     filter_class = DataFilter
@@ -85,26 +91,8 @@ class DataViewSet(
     ordering = "-created"
 
     def get_queryset(self):
-        """Get the queryset for the given request.
-
-        Prefetch only permissions for the given user, not all of them. This is
-        only possible with the request in the context.
-        """
-        user = get_user(self.request.user)
-        filters = Q(user=user) | Q(group__in=user.groups.all())
-        anonymous_user = get_anonymous_user()
-        if user != anonymous_user:
-            filters |= Q(user=anonymous_user)
-
-        qs_permission_model = self.qs_permission_model.filter(filters)
-
-        return self.queryset.prefetch_related(
-            Prefetch("collection", queryset=self.qs_collection),
-            Prefetch("descriptor_schema", queryset=self.qs_descriptor_schema),
-            Prefetch("entity", queryset=self.qs_entity),
-            Prefetch("process", queryset=self.qs_process),
-            Prefetch("permission_group__permissions", queryset=qs_permission_model),
-        )
+        """Prefetch permissions for current user."""
+        return self.prefetch_current_user_permissions(self.queryset)
 
     @action(detail=False, methods=["post"])
     def duplicate(self, request, *args, **kwargs):

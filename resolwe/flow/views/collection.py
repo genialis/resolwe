@@ -18,9 +18,11 @@ from .mixins import (
     ResolweCreateModelMixin,
     ResolweUpdateModelMixin,
 )
+from .permissions import FilterPermissionsForUser
 
 
 class BaseCollectionViewSet(
+    FilterPermissionsForUser,
     ResolweCreateModelMixin,
     mixins.RetrieveModelMixin,
     ResolweUpdateModelMixin,
@@ -37,9 +39,7 @@ class BaseCollectionViewSet(
     qs_permission_model = PermissionModel.objects.select_related("user", "group")
 
     queryset = Collection.objects.select_related("contributor").prefetch_related(
-        "data",
-        Prefetch("descriptor_schema", queryset=qs_descriptor_schema),
-        Prefetch("permission_group__permissions", queryset=qs_permission_model),
+        "data", Prefetch("descriptor_schema", queryset=qs_descriptor_schema)
     )
 
     filter_class = CollectionFilter
@@ -55,6 +55,10 @@ class BaseCollectionViewSet(
         "name",
     )
     ordering = "id"
+
+    def get_queryset(self):
+        """Prefetch permissions for current user."""
+        return self.prefetch_current_user_permissions(self.queryset)
 
     def create(self, request, *args, **kwargs):
         """Only authenticated users can create new collections."""

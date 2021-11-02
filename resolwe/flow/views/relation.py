@@ -1,7 +1,7 @@
 """Relation viewset."""
 from itertools import zip_longest
 
-from django.db.models import Prefetch, Q
+from django.db.models import Prefetch
 
 from rest_framework import exceptions, permissions, status, viewsets
 from rest_framework.response import Response
@@ -10,12 +10,14 @@ from resolwe.flow.filters import RelationFilter
 from resolwe.flow.models import Collection, DescriptorSchema, Relation
 from resolwe.flow.serializers import RelationSerializer
 from resolwe.permissions.models import Permission, PermissionModel
-from resolwe.permissions.utils import get_anonymous_user, get_user
 
 from .mixins import ResolweCreateModelMixin
+from .permissions import FilterPermissionsForUser
 
 
-class RelationViewSet(ResolweCreateModelMixin, viewsets.ModelViewSet):
+class RelationViewSet(
+    FilterPermissionsForUser, ResolweCreateModelMixin, viewsets.ModelViewSet
+):
     """API view for :class:`Relation` objects."""
 
     qs_permission_model = PermissionModel.objects.select_related("user", "group")
@@ -28,7 +30,13 @@ class RelationViewSet(ResolweCreateModelMixin, viewsets.ModelViewSet):
         Prefetch("descriptor_schema", queryset=qs_collection_ds),
     )
 
-    queryset = Relation.objects.all().select_related("contributor", "type")
+    queryset = (
+        Relation.objects.all()
+        .select_related("contributor", "type")
+        .prefetch_related(
+            Prefetch("collection", queryset=qs_collection), "relationpartition_set"
+        )
+    )
 
     serializer_class = RelationSerializer
     permission_classes = (permissions.AllowAny,)
@@ -37,25 +45,9 @@ class RelationViewSet(ResolweCreateModelMixin, viewsets.ModelViewSet):
     ordering = ("id",)
 
     def get_queryset(self):
-        """Get the queryset for the given request.
-
-        Prefetch only permissions for the given user, not all of them. This is
-        only possible with the request in the context.
-        """
-        user = get_user(self.request.user)
-        filters = Q(user=user) | Q(group__in=user.groups.all())
-        anonymous_user = get_anonymous_user()
-        if user != anonymous_user:
-            filters |= Q(user=anonymous_user)
-
-        qs_permission_model = self.qs_permission_model.filter(filters)
-
+        """Prefetch permissions for current user."""
         return self._filter_queryset(
-            self.queryset.prefetch_related(
-                Prefetch("collection", queryset=self.qs_collection),
-                "relationpartition_set",
-                Prefetch("permission_group__permissions", queryset=qs_permission_model),
-            )
+            self.prefetch_current_user_permissions(self.queryset)
         )
 
     def _filter_queryset(self, queryset):
