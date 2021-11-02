@@ -292,6 +292,73 @@ class DataTestCase(ResolweAPITestCase):
             resp.data["current_user_permissions"], expected_permissions
         )
 
+        # Check listing.
+        self.data1.permission_group.permissions.all().delete()
+        self.data1.set_permission(Permission.VIEW, self.user1)
+        data2 = Data.objects.get(pk=2)
+        data2.permission_group.permissions.all().delete()
+        data2.set_permission(Permission.EDIT, self.user1)
+        data2.set_permission(Permission.VIEW, AnonymousUser())
+        expected_permissions = {
+            self.data1.pk: [
+                {
+                    "type": "user",
+                    "id": self.user1.pk,
+                    "name": self.user1.get_full_name() or self.user1.username,
+                    "username": self.user1.username,
+                    "permissions": ["view"],
+                }
+            ],
+            data2.pk: [
+                {
+                    "type": "user",
+                    "id": self.user1.pk,
+                    "name": self.user1.get_full_name() or self.user1.username,
+                    "username": self.user1.username,
+                    "permissions": ["view", "edit"],
+                },
+                {"type": "public", "permissions": ["view"]},
+            ],
+        }
+
+        resp = self._get_list(self.user1)
+        self.assertEqual(len(resp.data), 2)
+        for i in range(2):
+            self.assertCountEqual(
+                resp.data[i]["current_user_permissions"],
+                expected_permissions[resp.data[i]["id"]],
+            )
+
+        # Admin should have all permissions.
+        resp = self._get_list(self.admin)
+        expected_permissions = {
+            self.data1.pk: [
+                {
+                    "type": "user",
+                    "id": self.admin.pk,
+                    "name": self.admin.get_full_name() or self.admin.username,
+                    "username": self.admin.username,
+                    "permissions": ["view", "edit", "share", "owner"],
+                }
+            ],
+            data2.pk: [
+                {
+                    "type": "user",
+                    "id": self.admin.pk,
+                    "name": self.admin.get_full_name() or self.admin.username,
+                    "username": self.admin.username,
+                    "permissions": ["view", "edit", "share", "owner"],
+                },
+                {"type": "public", "permissions": ["view"]},
+            ],
+        }
+        self.assertEqual(len(resp.data), 2)
+        for i in range(2):
+            self.assertCountEqual(
+                resp.data[i]["current_user_permissions"],
+                expected_permissions[resp.data[i]["id"]],
+            )
+
     def test_get_detail(self):
         # public user w/ perms
         resp = self._get_detail(1)
