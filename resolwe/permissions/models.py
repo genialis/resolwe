@@ -273,7 +273,7 @@ class PermissionQuerySet(models.QuerySet):
     def _filter_by_permission(
         self,
         user: Optional[User],
-        groups: Optional[List[Group]],
+        groups: models.QuerySet,
         permission: Permission,
         public: bool = True,
         with_superuser: bool = True,
@@ -364,7 +364,7 @@ class PermissionQuerySet(models.QuerySet):
         from resolwe.permissions.utils import get_user  # Circular import
 
         user = get_user(user)
-        groups = user.groups.all() if use_groups else []
+        groups = user.groups.all() if use_groups else user.groups.none()
 
         return self._filter_by_permission(
             user, groups, permission, public, with_superuser
