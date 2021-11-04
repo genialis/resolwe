@@ -18,7 +18,7 @@ class FilterPermissionsForUser:
         if user != anonymous_user:
             filters |= Q(user=anonymous_user)
 
-        qs_permission_model = self.qs_permission_model.filter(filters, value__gt=0)
+        qs_permission_model = self.qs_permission_model.filter(filters)
         return queryset.prefetch_related(
             Prefetch("permission_group__permissions", queryset=qs_permission_model)
         )

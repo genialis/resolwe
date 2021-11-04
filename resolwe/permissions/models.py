@@ -142,11 +142,24 @@ class Permission(IntEnum):
         return self.name.lower()
 
 
+class PositivePermissionsManager(models.Manager):
+    """Return only PermissionModels with values greater than 0."""
+
+    def get_queryset(self) -> models.QuerySet:
+        """Override default queryset."""
+        return super().get_queryset().filter(value__gt=0)
+
+
 class PermissionModel(models.Model):
     """Store a permission for a singe user/group on permission group.
 
     Exactly one of fields user/group must be non-null.
     """
+
+    # Access all permissions, including the ones with 0 permission.
+    all_objects = models.Manager()
+    # By default return only positive permissions.
+    objects = PositivePermissionsManager()
 
     #: permission value
     value = models.PositiveSmallIntegerField()
