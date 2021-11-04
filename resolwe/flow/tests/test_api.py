@@ -155,7 +155,7 @@ class TestDataViewSetCase(TestCase):
         with CaptureQueriesContext(conn) as captured_queries:
             response = self.data_viewset(request)
             self.assertEqual(len(response.data), 10)
-            self.assertEqual(len(captured_queries), 21)
+            self.assertEqual(len(captured_queries), 18)
 
     def test_descriptor_schema(self):
         # Descriptor schema can be assigned by slug.
@@ -755,7 +755,7 @@ class TestCollectionViewSetCase(TestCase):
         with CaptureQueriesContext(conn) as captured_queries:
             response = self.collection_list_viewset(request)
             self.assertEqual(len(response.data), 10)
-            self.assertEqual(len(captured_queries), 11)
+            self.assertEqual(len(captured_queries), 8)
 
     def test_set_descriptor_schema(self):
         d_schema = DescriptorSchema.objects.create(
@@ -1232,11 +1232,16 @@ class EntityViewSetTest(TestCase):
         request = factory.get("/", "", format="json")
         force_authenticate(request, self.contributor)
 
+        import logging
+
+        l = logging.getLogger("django.db.backends")
+        l.setLevel(logging.DEBUG)
+        l.addHandler(logging.StreamHandler())
         conn = connections[DEFAULT_DB_ALIAS]
         with CaptureQueriesContext(conn) as captured_queries:
             response = self.entity_list_viewset(request)
             self.assertEqual(len(response.data), 10)
-            self.assertEqual(len(captured_queries), 14)
+            self.assertEqual(len(captured_queries), 11)
 
     def test_list_filter_collection(self):
         request = factory.get("/", {}, format="json")

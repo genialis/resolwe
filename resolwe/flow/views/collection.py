@@ -18,11 +18,9 @@ from .mixins import (
     ResolweCreateModelMixin,
     ResolweUpdateModelMixin,
 )
-from .permissions import FilterPermissionsForUser
 
 
 class BaseCollectionViewSet(
-    FilterPermissionsForUser,
     ResolweCreateModelMixin,
     mixins.RetrieveModelMixin,
     ResolweUpdateModelMixin,

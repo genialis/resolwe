@@ -9,18 +9,14 @@ from rest_framework.response import Response
 from resolwe.flow.filters import RelationFilter
 from resolwe.flow.models import Collection, DescriptorSchema, Relation
 from resolwe.flow.serializers import RelationSerializer
-from resolwe.permissions.models import Permission, PermissionModel
+from resolwe.permissions.models import Permission
 
 from .mixins import ResolweCreateModelMixin
-from .permissions import FilterPermissionsForUser
 
 
-class RelationViewSet(
-    FilterPermissionsForUser, ResolweCreateModelMixin, viewsets.ModelViewSet
-):
+class RelationViewSet(ResolweCreateModelMixin, viewsets.ModelViewSet):
     """API view for :class:`Relation` objects."""
 
-    qs_permission_model = PermissionModel.objects.select_related("user", "group")
     qs_collection_ds = DescriptorSchema.objects.select_related("contributor")
 
     qs_collection = Collection.objects.select_related("contributor")
@@ -45,18 +41,13 @@ class RelationViewSet(
     ordering = ("id",)
 
     def get_queryset(self):
-        """Prefetch permissions for current user."""
-        return self._filter_queryset(
-            self.prefetch_current_user_permissions(self.queryset)
-        )
-
-    def _filter_queryset(self, queryset):
         """Filter queryset by entity, label and position.
 
         Due to a bug in django-filter these filters have to be applied
         manually:
         https://github.com/carltongibson/django-filter/issues/883
         """
+        queryset = self.queryset
         entities = self.request.query_params.getlist("entity")
         labels = self.request.query_params.getlist("label")
         positions = self.request.query_params.getlist("position")

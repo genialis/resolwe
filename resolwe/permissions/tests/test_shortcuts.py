@@ -1,14 +1,15 @@
 # pylint: disable=missing-docstring,invalid-name
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
+from django.urls import reverse
 
 from rest_framework import status
 from rest_framework.test import APIRequestFactory, force_authenticate
 
 from resolwe.flow.models import Collection, Data, Process
-from resolwe.flow.views import StorageViewSet
+from resolwe.flow.views import CollectionViewSet, StorageViewSet
 from resolwe.permissions.models import Permission, get_anonymous_user
-from resolwe.permissions.shortcuts import get_object_perms, get_user_group_perms
+from resolwe.permissions.shortcuts import get_user_group_perms
 from resolwe.test import TestCase
 
 factory = APIRequestFactory()
@@ -112,13 +113,26 @@ class ObjectPermsTestCase(TestCase):
         return perms
 
     def test_all_permissions(self):
+        """Test all user permissions.
+
+        Method get_object_perms should only be tested through view, as it
+        expects pre-fetched permissions for the given user.
+
+        The request to get all users permissions must be made by the user with
+        permission level SHARE or higher, otherwise only permissions for the
+        current user will be returned.
+        """
         self.group1.user_set.add(self.user1)
-
-        perms = get_object_perms(self.collection)
-        self.assertEqual(len(perms), 0)
-
         self.collection.set_permission(Permission.EDIT, self.user1)
-        self.collection.set_permission(Permission.VIEW, self.user2)
+        self.collection.set_permission(Permission.SHARE, self.user2)
+
+        url = reverse(
+            "resolwe-api:collection-permissions", kwargs={"pk": self.collection.pk}
+        )
+        request = factory.get(url, data={}, format="json")
+        force_authenticate(request, self.user2)
+        detail_view = CollectionViewSet.as_view({"get": "detail_permissions"})
+
         expected_perms = [
             {
                 "permissions": ["edit", "view"],
@@ -128,14 +142,17 @@ class ObjectPermsTestCase(TestCase):
                 "username": "test_user1",
             },
             {
-                "permissions": ["view"],
+                "permissions": ["edit", "share", "view"],
                 "type": "user",
                 "id": self.user2.pk,
                 "name": "test_user2",
                 "username": "test_user2",
             },
         ]
-        perms = get_object_perms(self.collection)
+
+        response = detail_view(request, pk=self.collection.pk)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        perms = response.data
         self.assertCountEqual(self._sort_perms(expected_perms), self._sort_perms(perms))
 
         self.collection.set_permission(Permission.EDIT, self.group1)
@@ -156,17 +173,27 @@ class ObjectPermsTestCase(TestCase):
                 },
             ]
         )
-        perms = get_object_perms(self.collection)
+        response = detail_view(request, pk=self.collection.pk)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        perms = response.data
         self.assertCountEqual(self._sort_perms(expected_perms), self._sort_perms(perms))
 
         self.collection.set_permission(Permission.VIEW, self.anonymous)
         expected_perms.append(
             {"permissions": ["view"], "type": "public"},
         )
-        perms = get_object_perms(self.collection)
+        response = detail_view(request, pk=self.collection.pk)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        perms = response.data
         self.assertCountEqual(self._sort_perms(expected_perms), self._sort_perms(perms))
 
     def test_user_permissions(self):
+        """Test user permissions.
+
+        Method get_object_perms should only be tested through view, as it
+        expects pre-fetched permissions for the given user.
+        """
+
         self.group1.user_set.add(self.user1)
         self.collection.set_permission(Permission.EDIT, self.user1)
         self.collection.set_permission(Permission.VIEW, self.user2)
@@ -188,8 +215,16 @@ class ObjectPermsTestCase(TestCase):
                 "name": "Test group 1",
             },
         ]
-        perms = get_object_perms(self.collection, self.user1)
 
+        url = reverse(
+            "resolwe-api:collection-permissions", kwargs={"pk": self.collection.pk}
+        )
+        request = factory.get(url, data={}, format="json")
+        force_authenticate(request, self.user1)
+        detail_view = CollectionViewSet.as_view({"get": "detail_permissions"})
+        response = detail_view(request, pk=self.collection.pk)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        perms = response.data
         self.assertCountEqual(self._sort_perms(expected_perms), self._sort_perms(perms))
 
         self.group2.user_set.add(self.user1)
@@ -201,14 +236,20 @@ class ObjectPermsTestCase(TestCase):
                 "name": "Test group 2",
             },
         )
-        perms = get_object_perms(self.collection, self.user1)
+
+        response = detail_view(request, pk=self.collection.pk)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        perms = response.data
         self.assertCountEqual(self._sort_perms(expected_perms), self._sort_perms(perms))
 
         self.collection.set_permission(Permission.VIEW, self.anonymous)
         expected_perms.append(
             {"permissions": ["view"], "type": "public"},
         )
-        perms = get_object_perms(self.collection, self.user1)
+
+        response = detail_view(request, pk=self.collection.pk)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        perms = response.data
         self.assertCountEqual(self._sort_perms(expected_perms), self._sort_perms(perms))
 
 

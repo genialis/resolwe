@@ -20,12 +20,10 @@ from .mixins import (
     ResolweCreateModelMixin,
     ResolweUpdateModelMixin,
 )
-from .permissions import FilterPermissionsForUser
 from .utils import get_collection_for_user
 
 
 class DataViewSet(
-    FilterPermissionsForUser,
     ResolweCreateModelMixin,
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,

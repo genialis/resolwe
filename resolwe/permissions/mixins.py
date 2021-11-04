@@ -1,8 +1,4 @@
 """Permissions functions used in Resolwe Viewsets."""
-from collections import defaultdict
-from typing import Dict, List
-
-from django.contrib.auth.models import Group, User
 from django.db import models, transaction
 
 from rest_framework import exceptions, serializers, status
@@ -10,8 +6,9 @@ from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
 
-from resolwe.permissions.models import Permission, get_anonymous_user
+from resolwe.permissions.models import Permission
 from resolwe.permissions.shortcuts import get_object_perms
+from resolwe.permissions.utils import get_anonymous_user, get_user
 
 from .utils import (
     check_owner_permission,
@@ -34,6 +31,21 @@ class CurrentUserPermissionsSerializer(serializers.Serializer):
 class ResolwePermissionsMixin:
     """Mixin to support managing `Resolwe` objects' permissions."""
 
+    def prefetch_current_user_permissions(self, queryset: models.QuerySet):
+        """Prefetch permissions for the current user."""
+        user = get_user(self.request.user)
+        anonymous_user = get_anonymous_user()
+        filters = models.Q(user=user) | models.Q(group__in=user.groups.all())
+        if user != anonymous_user:
+            filters |= models.Q(user=anonymous_user)
+
+        qs_permission_model = self.qs_permission_model.filter(filters)
+        return queryset.prefetch_related(
+            models.Prefetch(
+                "permission_group__permissions", queryset=qs_permission_model
+            )
+        )
+
     def get_serializer_class(self):
         """Augment base serializer class.
 
@@ -53,71 +65,6 @@ class ResolwePermissionsMixin:
                 )
                 return fields
 
-            def _permission_mapping(serializer_self) -> List[Dict]:
-                """Return mapping between the permission group and permissions.
-
-                We must not filter the queryset as permission data has already
-                been prefetched.
-                """
-
-                def user_data(user: User, permission: Permission) -> Dict:
-                    if user == self.anonymous_user:
-                        return {
-                            "type": "public",
-                            "permissions": [str(perm) for perm in list(permission)],
-                        }
-                    return {
-                        "type": "user",
-                        "id": user.pk,
-                        "name": user.get_full_name() or user.username,
-                        "username": user.username,
-                        "permissions": [str(perm) for perm in list(permission)],
-                    }
-
-                def group_data(group: Group, permission: Permission) -> Dict:
-                    return {
-                        "type": "group",
-                        "id": group.pk,
-                        "name": group.name,
-                        "permissions": [str(perm) for perm in list(permission)],
-                    }
-
-                if not hasattr(self, "permission_map"):
-                    self.anonymous_user = get_anonymous_user()
-                    self.permission_map = defaultdict(list)
-
-                    if isinstance(serializer_self.instance, models.Model):
-                        instances = [serializer_self.instance]
-                    else:
-                        instances = serializer_self.instance
-
-                    for instance in instances:
-                        # Process every permission group only once.
-                        if instance.permission_group.id in self.permission_map:
-                            continue
-
-                        insert_superuser = self.request.user.is_superuser
-                        for perm_model in instance.permission_group.permissions.all():
-                            is_user = perm_model.user is not None
-                            serializer = user_data if is_user else group_data
-                            usergroup = perm_model.user or perm_model.group
-                            permission = perm_model.permission
-                            # Superusers have all permissions.
-                            if is_user and perm_model.user.is_superuser:
-                                permission = Permission.highest()
-                                if perm_model.user == self.request.user:
-                                    insert_superuser = False
-                            self.permission_map[instance.permission_group.id].append(
-                                serializer(usergroup, permission)
-                            )
-                        # Even when there are no permission and requesting user
-                        # is superuser he has all permissions.
-                        if insert_superuser:
-                            self.permission_map[instance.permission_group.id].append(
-                                user_data(self.request.user, Permission.highest())
-                            )
-                return self.permission_map
-
             def to_representation(serializer_self, instance: models.Model):
                 """Object serializer."""
                 data = super().to_representation(instance)
@@ -125,10 +72,9 @@ class ResolwePermissionsMixin:
                     "fields" not in self.request.query_params
                     or "current_user_permissions" in self.request.query_params["fields"]
                 ):
-                    permission_map = serializer_self._permission_mapping()
-                    data["current_user_permissions"] = permission_map[
-                        instance.permission_group_id
-                    ]
+                    data["current_user_permissions"] = get_object_perms(
+                        instance, self.request.user, True
+                    )
                 return data
 
         return SerializerWithPermissions
@@ -141,14 +87,17 @@ class ResolwePermissionsMixin:
     )
     def detail_permissions(self, request: Request, pk=None) -> Response:
         """Get or set permissions API endpoint."""
-        # This object comes frot the queryset which permissions are prefetched
-        # for current user only. This implies that
-        # obj.permission_group.permissions returns only permissions fot the
-        # current user. We have to perform the refresh for permissions to work
-        # correctly. If not it is impossible to remove the permission for
-        # non-logged in users as they are not seen.
+        # The object is taken from the queryset on the view for which
+        # permissions are prefetched for the current user only.
+        # This implies that obj.permission_group.permissions returns
+        # permissions for the current user.
+        # To get all the permissions we have to perform a refresh from the
+        # database. This must only be done if user has share permission on the
+        # given object otherwise only his permissions must be returned.
         obj = self.get_object()
-        obj.refresh_from_db()
+
+        if obj.has_permission(Permission.SHARE, request.user):
+            obj.refresh_from_db()
 
         if request.method == "POST":
             payload = translate_from_old_syntax(request.data, obj)

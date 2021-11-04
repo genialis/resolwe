@@ -9,11 +9,9 @@ from resolwe.permissions.mixins import ResolwePermissionsMixin
 from resolwe.permissions.models import PermissionModel
 
 from .mixins import ResolweCheckSlugMixin, ResolweCreateModelMixin
-from .permissions import FilterPermissionsForUser
 
 
 class ProcessViewSet(
-    FilterPermissionsForUser,
     ResolweCreateModelMixin,
     mixins.RetrieveModelMixin,
     mixins.ListModelMixin,

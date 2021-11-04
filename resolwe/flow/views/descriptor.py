@@ -8,11 +8,8 @@ from resolwe.permissions.loader import get_permissions_class
 from resolwe.permissions.mixins import ResolwePermissionsMixin
 from resolwe.permissions.models import PermissionModel
 
-from .permissions import FilterPermissionsForUser
-
 
 class DescriptorSchemaViewSet(
-    FilterPermissionsForUser,
     mixins.RetrieveModelMixin,
     mixins.ListModelMixin,
     ResolwePermissionsMixin,
