@@ -9,6 +9,7 @@ from django.test.utils import CaptureQueriesContext
 
 from rest_framework import status
 
+import resolwe.permissions.models
 from resolwe.flow.models import Collection, DescriptorSchema, Entity, Relation
 from resolwe.flow.models.entity import RelationPartition, RelationType
 from resolwe.flow.views import RelationViewSet
@@ -19,6 +20,8 @@ from resolwe.test import TransactionResolweAPITestCase
 
 class TestRelationsAPI(TransactionResolweAPITestCase):
     def setUp(self):
+        # Force reading anonymous user from the database for every test.
+        resolwe.permissions.models.ANONYMOUS_USER = None
         self.viewset = RelationViewSet
         self.resource_name = "relation"
 

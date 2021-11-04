@@ -4,6 +4,7 @@ import unittest
 
 from django.test import LiveServerTestCase
 
+import resolwe.permissions.models
 from resolwe.flow.models import Collection, Process, Storage
 from resolwe.permissions.models import Permission, get_anonymous_user
 from resolwe.test import (
@@ -56,6 +57,10 @@ re-save collection-list "$(curl --silent --show-error $RESOLWE_HOST_URL/api/coll
     def setUp(self):
         """Custom initilization of :class:`~ProcessTestCase`."""
         super().setUp()
+
+        # Force reading anonymous user from the database for every test.
+        resolwe.permissions.models.ANONYMOUS_USER = None
+
         self.collection = Collection.objects.create(
             name="Collection", contributor=self.admin
         )

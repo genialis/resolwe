@@ -28,42 +28,15 @@ def get_anonymous_user() -> User:
     Store the computed value into global variable get_anonymous_user() to avoid
     querying the database every time.
 
-    :raises django.core.exceptions.ObjectDoesNotExist: when anonymous
-        user could not be found.
-    :raises RuntimeError: when setting ANONYMOUS_USER_NAME could not be found.
+    :raises RuntimeError: when ANONYMOUS_USER_NAME and ANONYMOUS_USER_ID are
+        not set.
     """
-    # Return the cached value in production. During testing the anonymous user
-    # will be recreated several times with different id.
-    from resolwe.test.utils import is_testing
-
     global ANONYMOUS_USER
-    if ANONYMOUS_USER is not None and not is_testing:
-        return ANONYMOUS_USER
-
-    anonymous_user_id = getattr(settings, "ANONYMOUS_USER_ID", None)
-    anonymous_username = getattr(settings, "ANONYMOUS_USER_NAME", None)
-    create_arguments = {"is_active": True, "email": "", "username": "public"}
-    filters = None
-
-    if anonymous_user_id is not None:
-        filters = {"id": anonymous_user_id}
-        create_arguments["id"] = anonymous_user_id
-    elif anonymous_username is not None:
-        filters = {User.USERNAME_FIELD: anonymous_username}
-        create_arguments["username"] = anonymous_username
-
-    if filters:
-        try:
-            return get_user_model().objects.get(**filters)
-        except User.DoesNotExist:
-
-            # Resolve circular import.
-            if is_testing():
-                return get_user_model().objects.create(**create_arguments)
-            else:
-                raise
-
-    raise RuntimeError("No ANONYMOUS_USER_ID/ANONYMOUS_USER_NAME setting found.")
+    if ANONYMOUS_USER is None:
+        ANONYMOUS_USER = get_user_model().objects.get(
+            username=settings.ANONYMOUS_USER_NAME
+        )
+    return ANONYMOUS_USER
 
 
 class Permission(IntEnum):
