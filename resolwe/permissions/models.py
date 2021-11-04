@@ -260,8 +260,11 @@ class PermissionGroup(models.Model):
         if entity_name == "user" and entity.is_superuser:
             return Permission.highest()
 
-        permission_models = self.permissions.filter(**{entity_name: entity})
-        return permission_models[0].permission if permission_models else Permission.NONE
+        permission_model = self.permissions.filter(**{entity_name: entity}).first()
+        if permission_model is not None:
+            return permission_model.permission
+        else:
+            return Permission.NONE
 
 
 class PermissionQuerySet(models.QuerySet):
