@@ -1,4 +1,5 @@
 """Permissions functions used in Resolwe Viewsets."""
+from django.conf import settings
 from django.db import models, transaction
 
 from rest_framework import exceptions, serializers, status
@@ -8,7 +9,6 @@ from rest_framework.response import Response
 
 from resolwe.permissions.models import Permission
 from resolwe.permissions.shortcuts import get_object_perms
-from resolwe.permissions.utils import get_anonymous_user, get_user
 
 from .utils import (
     check_owner_permission,
@@ -33,11 +33,10 @@ class ResolwePermissionsMixin:
 
     def prefetch_current_user_permissions(self, queryset: models.QuerySet):
         """Prefetch permissions for the current user."""
-        user = get_user(self.request.user)
-        anonymous_user = get_anonymous_user()
-        filters = models.Q(user=user) | models.Q(group__in=user.groups.all())
-        if user != anonymous_user:
-            filters |= models.Q(user=anonymous_user)
+        user = self.request.user
+        filters = models.Q(user__username=settings.ANONYMOUS_USER_NAME)
+        if not user.is_anonymous:
+            filters |= models.Q(user=user) | models.Q(group__in=user.groups.all())
 
         qs_permission_model = self.qs_permission_model.filter(filters)
         return queryset.prefetch_related(
