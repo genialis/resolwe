@@ -353,24 +353,28 @@ class Uploader(threading.Thread):
                     self.send_message(client, {"success": False})
                     break
                 else:
+                    response = {
+                        "success": True,
+                        "presigned_urls": presigned_urls,
+                    }
                     if to_transfer:
-                        future = asyncio.run_coroutine_threadsafe(
-                            self.manager.send_referenced_files(to_transfer), self.loop
-                        )
-                        future_response = future.result()
-                        # When data object is in state ERROR all responses will
-                        # have error status to indicate processing should
-                        # finish ASAP.
-                        if (
-                            future_response.response_status == ResponseStatus.ERROR
-                            and future_response.message_data != "OK"
-                        ):
-                            response = {"success": False}
-                        else:
-                            response = {
-                                "success": True,
-                                "presigned_urls": presigned_urls,
-                            }
+                        # Only send referenced files in the 'data' storage.
+                        # References to files in other storage (for instance
+                        # upload) are not stored in the database.
+                        if storage_name == "data":
+                            future = asyncio.run_coroutine_threadsafe(
+                                self.manager.send_referenced_files(to_transfer),
+                                self.loop,
+                            )
+                            future_response = future.result()
+                            # When data object is in state ERROR all responses will
+                            # have error status to indicate processing should
+                            # finish ASAP.
+                            if (
+                                future_response.response_status == ResponseStatus.ERROR
+                                and future_response.message_data != "OK"
+                            ):
+                                response = {"success": False}
                     self.send_message(client, response)
                 finally:
                     for stream in file_streams.values():
