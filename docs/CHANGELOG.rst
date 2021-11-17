@@ -6,6 +6,15 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Changed
+-------
+- Do not fail in case of missing files in ``UriResolverView``
+
+
 ===================
 29.0.0 - 2021-11-11
 ===================
@@ -76,7 +85,7 @@ Fixed
 - Speed up deleting storage locations by considering only referenced paths
   belonging to the given storage location
 - Temporary pin ``asteval`` to version ``0.9.23`` due to compatibility issues
-  with Python 3.6 
+  with Python 3.6
 
 Changed
 -------

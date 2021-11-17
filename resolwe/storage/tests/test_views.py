@@ -2,6 +2,7 @@
 import json
 from unittest.mock import MagicMock, patch
 
+from django.core.exceptions import PermissionDenied
 from django.test import RequestFactory, TestCase
 
 from rest_framework import status
@@ -24,12 +25,15 @@ class UriResolverViewTest(TestCase):
             ("signed_url1", True),
             ("dir_structure", False),
             ("signed_url2", True),
+            PermissionDenied(),
         ]
 
         uris = [
+            "foo",
             "123/file1.txt",
             "456/dir",
             "789/dir/file2.txt",
+            "999/foo.txt",
         ]
         request = self.factory.post("", {"uris": uris}, content_type="application/json")
 
@@ -39,9 +43,11 @@ class UriResolverViewTest(TestCase):
         self.assertEqual(
             json.loads(response.content.decode("utf-8")),
             {
+                "foo": "",
                 "123/file1.txt": "signed_url1",
                 "456/dir": "dir_structure",
                 "789/dir/file2.txt": "signed_url2",
+                "999/foo.txt": "",
             },
         )
 

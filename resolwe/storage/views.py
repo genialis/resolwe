@@ -255,7 +255,10 @@ class UriResolverView(DataBrowseView):
             data_id = int(match.group(1))
             relative_path = Path(match.group(2))
             datum = self._get_datum(data_id)
-            response_data[uri] = self._get_response(datum, relative_path)[0]
+            try:
+                response_data[uri] = self._get_response(datum, relative_path)[0]
+            except PermissionDenied:
+                response_data[uri] = ""
 
         return JsonResponse(response_data)
 
