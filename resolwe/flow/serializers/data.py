@@ -1,4 +1,6 @@
 """Resolwe data serializer."""
+from django.db import transaction
+
 from rest_framework import serializers
 
 from resolwe.flow.models import Collection, Data, DescriptorSchema, Entity, Process
@@ -103,11 +105,12 @@ class DataSerializer(ResolweBaseSerializer):
             self.instance.validate_change_collection(collection)
         return collection
 
+    @transaction.atomic
     def update(self, instance, validated_data):
         """Update."""
-        pre_update_collection = instance.collection
+        update_collection = "collection" in validated_data
+        new_collection = validated_data.pop("collection", None)
         instance = super().update(instance, validated_data)
-        if pre_update_collection != instance.collection:
-            instance.move_to_collection(instance.collection)
-
+        if update_collection and new_collection != instance.collection:
+            instance.move_to_collection(new_collection)
         return instance
