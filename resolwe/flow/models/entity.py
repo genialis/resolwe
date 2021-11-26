@@ -89,15 +89,12 @@ class Entity(BaseCollection, PermissionObject):
         )[0]
 
     @transaction.atomic
-    def move_to_collection(self, collection, force=False):
+    def move_to_collection(self, collection):
         """Move entity from the source to the destination collection.
 
         :args collection: the collection to move entity into.
-        :args force: perform update even if collection is the same as current.
-            This comes handy when updating data objecs after collection
-            property has already been set.
         """
-        if not force and self.collection == collection:
+        if self.collection == collection:
             return
 
         if collection is None:
