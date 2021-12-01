@@ -1,5 +1,7 @@
 from django.db import migrations
 
+from resolwe.storage.connectors import connectors
+
 
 def delete_nonexisting_paths(apps, schema_editor):
     """Remove referenced paths that point to exported files.
@@ -20,7 +22,7 @@ def delete_nonexisting_paths(apps, schema_editor):
     # Remove non-existing exported files paths from storage locations.
     for path in ReferencedPath.objects.filter(path__regex="export_[0-9a-f]{32}$"):
         for storage_location in path.storage_locations.all():
-            connector = storage_location.connector
+            connector = connectors[storage_location.connector_name]
             url = f"{storage_location.file_storage_id}/{path.path}"
             if not connector.exists(url):
                 storage_location.files.remove(path)
@@ -32,7 +34,7 @@ def delete_nonexisting_paths(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("storage", "0008_accesslog_cause"),
+        ("storage", "0001_squashed_0009_referencedpath_chunk_size"),
     ]
 
     operations = [

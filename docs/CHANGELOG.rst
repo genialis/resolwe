@@ -14,6 +14,10 @@ Changed
 -------
 - Do not fail in case of missing files in ``UriResolverView``
 
+Fixed
+-----
+- Remove references to temporary export files from the database and make sure
+  they are not created anymore
 
 ===================
 29.0.0 - 2021-11-11
