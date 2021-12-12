@@ -6,9 +6,9 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+===================
+29.1.0 - 2021-12-12
+===================
 
 Changed
 -------
@@ -18,6 +18,8 @@ Fixed
 -----
 - Remove references to temporary export files from the database and make sure
   they are not created anymore
+- Wrap ``move_to_collection`` in transaction and only call method if collection
+  has changed
 
 ===================
 29.0.0 - 2021-11-11
