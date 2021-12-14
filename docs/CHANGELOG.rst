@@ -14,6 +14,9 @@ Added
 -----
 - Support ``range`` parameter in fields of Python proces
 
+Changed
+-------
+- Change to unbuffered stdout/stderr
 
 ===================
 29.1.0 - 2021-12-12
