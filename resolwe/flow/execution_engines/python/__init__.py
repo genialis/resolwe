@@ -27,4 +27,4 @@ class ExecutionEngine(BaseExecutionEngine):
     def evaluate(self, data):
         """Evaluate the code needed to compute a given Data object."""
         bootstrap_filename = Path("/") / BOOTSTRAP_PYTHON_RUNTIME
-        return f"python3 {bootstrap_filename}"
+        return f"python3 -u {bootstrap_filename}"
