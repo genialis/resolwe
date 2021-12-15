@@ -88,8 +88,8 @@ class PythonProcess(Process):
             relation_npartitions=1,
         )
         url = UrlField(UrlField.DOWNLOAD, label="My URL")
-        integer = IntegerField(label="My integer")
-        my_float = FloatField(label="My float")
+        integer = IntegerField(label="My integer", range=[0, 100])
+        my_float = FloatField(label="My float", range=[0.0, 1.0])
         my_json = JsonField(label="Blah blah")
         my_optional = StringField(
             label="Optional", required=False, default="default value"

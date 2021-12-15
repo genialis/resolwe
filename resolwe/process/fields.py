@@ -305,6 +305,18 @@ class IntegerField(Field):
 
     field_type = "basic:integer"
 
+    def __init__(self, range=None, *args, **kwargs):
+        """Construct an Integer field descriptor."""
+        self.range = range
+        super().__init__(*args, **kwargs)
+
+    def to_schema(self):
+        """Return Integer field schema."""
+        schema = super().to_schema()
+        if self.range is not None:
+            schema["range"] = self.range
+        return schema
+
     def to_python(self, value):
         """Convert value if needed."""
         if value is not None:
@@ -319,6 +331,18 @@ class FloatField(Field):
 
     # TODO: Fix the underlying field into basic:float once that is renamed.
     field_type = "basic:decimal"
+
+    def __init__(self, range=None, *args, **kwargs):
+        """Construct a Float field descriptor."""
+        self.range = range
+        super().__init__(*args, **kwargs)
+
+    def to_schema(self):
+        """Return Float field schema."""
+        schema = super().to_schema()
+        if self.range is not None:
+            schema["range"] = self.range
+        return schema
 
     def to_python(self, value):
         """Convert value if needed."""

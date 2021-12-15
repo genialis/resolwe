@@ -99,6 +99,19 @@ class PythonProcessTest(ProcessTestCase):
         else:
             self.fail("Field baz_list not found in test-python-process")
 
+        for field in process.input_schema:
+            if field["name"] == "my_float":
+                self.assertEqual(field["range"], [0.0, 1.0])
+                break
+        else:
+            self.fail("Field my_float not found in test-python-process")
+        for field in process.input_schema:
+            if field["name"] == "integer":
+                self.assertEqual(field["range"], [0, 100])
+                break
+        else:
+            self.fail("Field integer not found in test-python-process")
+
         # Make sure that process with inheritance from `module.Class` is also registered.
         process = Process.objects.get(slug="test-python-process-2")
 

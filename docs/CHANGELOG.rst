@@ -6,6 +6,15 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Added
+-----
+- Support ``range`` parameter in fields of Python proces
+
+
 ===================
 29.1.0 - 2021-12-12
 ===================
