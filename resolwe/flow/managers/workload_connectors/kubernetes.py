@@ -502,7 +502,11 @@ class Connector(BaseConnector):
 
         # Create kubernetes API every time otherwise it will time out
         # eventually and raise API exception.
-        kubernetes.config.load_kube_config()
+        try:
+            kubernetes.config.load_incluster_config()
+        except kubernetes.config.config_exception.ConfigException:
+            kubernetes.config.load_kube_config()
+
         batch_api = kubernetes.client.BatchV1Api()
         core_api = kubernetes.client.CoreV1Api()
 
@@ -755,7 +759,11 @@ class Connector(BaseConnector):
 
     def cleanup(self, data_id: int):
         """Remove the persistent volume claims created by the executor."""
-        kubernetes.config.load_kube_config()
+        try:
+            kubernetes.config.load_incluster_config()
+        except kubernetes.config.config_exception.ConfigException:
+            kubernetes.config.load_kube_config()
+
         core_api = kubernetes.client.CoreV1Api()
         claim_names = [
             self._pvc_claim_name(type_, data_id)
