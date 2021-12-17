@@ -100,8 +100,14 @@ LISTENER_CONNECTION = {
     "protocol": "tcp",
 }
 
+# The IP address where listener is available from the communication container.
+# The setting is a dictionary where key is the name of the workload connector.
+COMMUNICATION_CONTAINER_LISTENER_CONNECTION = {"local": "172.17.0.1"}
+
+# Settings in OSX/Windows are different since Docker runs in a virtual machine.
 if sys.platform == "darwin":
     LISTENER_CONNECTION["hosts"]["local"] = "127.0.0.1"
+    COMMUNICATION_CONTAINER_LISTENER_CONNECTION = {"local": "127.0.0.1"}
 
 ASGI_APPLICATION = "resolwe.flow.routing.channel_routing"
 
