@@ -9,15 +9,23 @@ Manager Channels consumer.
 """
 import asyncio
 import logging
+import os
 from contextlib import suppress
+from pathlib import Path
 
 from channels.consumer import AsyncConsumer
+from channels.db import database_sync_to_async
 from channels.layers import get_channel_layer
 from channels.testing import ApplicationCommunicator
+
+from django.db import connection
+
+from resolwe.utils import BraceMessage as __
 
 from . import state
 
 logger = logging.getLogger(__name__)
+CHANNEL_HEALTH_CHECK = os.environ.get("HOSTNAME")
 
 
 async def send_event(message):
@@ -90,3 +98,32 @@ class ManagerConsumer(AsyncConsumer):
             await self.manager.handle_control_event(message["content"])
         except:
             logger.exception("control_event exception.")
+
+
+class HealtCheckConsumer(AsyncConsumer):
+    """Channels consumer for handling health-check events."""
+
+    async def health_check(self, message: dict):
+        """Perform health check.
+
+        We are testing the channels layer and database layer. The channels
+        layer is already functioning if this method is called so we have to
+        perform database check.
+
+        If the check is successfull touch the file specified in the channels
+        message.
+        """
+        logger.debug(__("Performing health check with message {}.", message))
+        path = Path(message["file"])
+
+        if await self.check_database():
+            logger.debug("Health check passed.")
+            path.touch(exist_ok=True)
+
+    @database_sync_to_async
+    def check_database(self) -> bool:
+        """Perform a simple database check."""
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1;")
+            result = cursor.fetchone()[0]
+            return result == 1
