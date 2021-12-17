@@ -49,9 +49,9 @@ class BaseFlowExecutorPreparer:
         """
         pass
 
-    def get_tools_paths(self):
+    def get_tools_paths(self, kubernetes=False):
         """Get tools' paths."""
-        if settings.DEBUG or is_testing():
+        if settings.DEBUG or is_testing() or kubernetes:
             return list(get_apps_tools().values())
 
         else:
