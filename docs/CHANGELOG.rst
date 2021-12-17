@@ -24,6 +24,12 @@ Changed
 Added
 -----
 - Add health checks support for deploy in Kubernetes
+- Add ``collecttools_kubernetes`` management command
+
+Changed
+-------
+- Do not prepare tools configmaps in Kubernetes workload connector
+
 
 ===================
 29.3.0 - 2021-02-15

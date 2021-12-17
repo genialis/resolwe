@@ -43,6 +43,24 @@ KUBERNETES_TIMEOUT = 30
 logger = logging.getLogger(__name__)
 
 
+def sanitize_kubernetes_label(label: str, trim_end: bool = True) -> str:
+    """Make sure kubernetes label complies with the rules.
+
+    See the URL bellow for details.
+
+    https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+    """
+    max_length = 63
+    sanitized_label = re.sub("[^0-9a-zA-Z\-]+", "-", label).strip("-_.")
+    if len(sanitized_label) > max_length:
+        logger.warning(__("Label '%s' is too long and was truncated.", label))
+        if trim_end:
+            sanitized_label = sanitized_label[-max_length:].strip("-_.")
+        else:
+            sanitized_label = sanitized_label[:max_length].strip("-_.")
+    return sanitized_label
+
+
 class Connector(BaseConnector):
     """Kubernetes-based connector for job execution."""
 
@@ -139,33 +157,13 @@ class Connector(BaseConnector):
 
     def _get_tools_configmaps(self, core_api):
         """Get and return configmaps for tools."""
-
-        def dict_from_directory(directory: Path) -> Dict[str, str]:
-            """Get dictionary from given directory.
-
-            File names are keys and corresponding file contents are values.
-            """
-            return {
-                entry.name: entry.read_text()
-                for entry in directory.glob("*")
-                if entry.is_file()
-            }
-
-        configmap_names = []
-        preparer = BaseFlowExecutorPreparer()
-        tools_paths = preparer.get_tools_paths()
-        for tool_path in tools_paths:
-            tool_path = Path(tool_path)
-            data = dict_from_directory(tool_path)
-            data_md5 = hashlib.md5(
-                json.dumps(data, sort_keys=True).encode()
-            ).hexdigest()
-            configmap_name = self._sanitize_kubernetes_label(
-                f"tools-{tool_path.name}-{data_md5}"
-            )
-            self._create_configmap_if_needed(configmap_name, data, core_api)
-            configmap_names.append(configmap_name)
-        return configmap_names
+        description_configmap_name = getattr(
+            settings, "KUBERNETES_TOOLS_CONFIGMAPS", None
+        ) or "tools-configmaps"
+        configmap = core_api.read_namespaced_config_map(
+            name=description_configmap_name, namespace=self.kubernetes_namespace
+        )
+        return configmap.data.values()
 
     def _get_files_configmap_name(self, location_subpath: Path, core_api: Any):
         """Get or create configmap for files.
@@ -482,23 +480,6 @@ class Connector(BaseConnector):
 
         return volume_config["config"].get("create_pvc", False)
 
-    def _sanitize_kubernetes_label(self, label: str, trim_end: bool = True) -> str:
-        """Make sure kubernetes label complies with the rules.
-
-        See the URL bellow for details.
-
-        https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
-        """
-        max_length = 63
-        sanitized_label = re.sub("[^0-9a-zA-Z\-]+", "-", label).strip("-_.")
-        if len(sanitized_label) > max_length:
-            logger.warning(__("Label '%s' is too long and was truncated.", label))
-            if trim_end:
-                sanitized_label = sanitized_label[-max_length:].strip("-_.")
-            else:
-                sanitized_label = sanitized_label[:max_length].strip("-_.")
-        return sanitized_label
-
     def _image_mapper(self, image_name: str, mapper: Dict[str, str]) -> str:
         """Transform the image name if necessary.
 
@@ -620,7 +601,7 @@ class Connector(BaseConnector):
         job_description = {
             "apiVersion": "batch/v1",
             "kind": "Job",
-            "metadata": {"name": self._sanitize_kubernetes_label(container_name)},
+            "metadata": {"name": sanitize_kubernetes_label(container_name)},
             "spec": {
                 # Keep finished pods around for ten seconds. If job is not
                 # deleted its PVC claim persists and it causes PV to stay0
@@ -630,14 +611,12 @@ class Connector(BaseConnector):
                 "ttlSecondsAfterFinished": 10,
                 "template": {
                     "metadata": {
-                        "name": self._sanitize_kubernetes_label(container_name),
+                        "name": sanitize_kubernetes_label(container_name),
                         "labels": {
                             "app": "resolwe",
                             "data_id": str(data.pk),
-                            "process": self._sanitize_kubernetes_label(
-                                data.process.slug
-                            ),
-                            "job_type": self._sanitize_kubernetes_label(job_type),
+                            "process": sanitize_kubernetes_label(data.process.slug),
+                            "job_type": sanitize_kubernetes_label(job_type),
                         },
                         "annotations": annotations,
                     },
@@ -646,7 +625,7 @@ class Connector(BaseConnector):
                         "volumes": self._volumes(data.id, location_subpath, core_api),
                         "initContainers": [
                             {
-                                "name": self._sanitize_kubernetes_label(
+                                "name": sanitize_kubernetes_label(
                                     f"{container_name}-init"
                                 ),
                                 "image": communicator_image,
@@ -661,7 +640,7 @@ class Connector(BaseConnector):
                         ],
                         "containers": [
                             {
-                                "name": self._sanitize_kubernetes_label(container_name),
+                                "name": sanitize_kubernetes_label(container_name),
                                 "image": processing_container_image,
                                 "resources": {"limits": limits, "requests": requests},
                                 "securityContext": security_context,
@@ -676,7 +655,7 @@ class Connector(BaseConnector):
                                 ),
                             },
                             {
-                                "name": self._sanitize_kubernetes_label(
+                                "name": sanitize_kubernetes_label(
                                     f"{container_name}-communicator"
                                 ),
                                 "image": communicator_image,
