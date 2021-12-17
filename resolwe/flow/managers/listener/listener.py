@@ -611,6 +611,15 @@ class ListenerProtocol(BaseProtocol):
                 "resource_limits"
             ] = data.process.get_resource_limits()
 
+    def handle_liveness_probe(
+        self, message: Message[Tuple[int, str]]
+    ) -> Response[bool]:
+        """Respond to liveness probe ping.
+        
+        Used in Kubernetes to check if the listener is responding.
+        """
+        return message.respond_ok(True)
+
     def handle_bootstrap(self, message: Message[Tuple[int, str]]) -> Response[Dict]:
         """Handle bootstrap request.
 
@@ -699,7 +708,7 @@ class ListenerProtocol(BaseProtocol):
     ) -> Response:
         """Handle command received over 0MQ."""
         # Logging and bootstraping are handled separately.
-        if message.command_name in ["log", "bootstrap"]:
+        if message.command_name in ["log", "bootstrap", "liveness_probe"]:
             try:
                 handler = getattr(self, f"handle_{message.command_name}")
                 return await database_sync_to_async(handler, thread_sensitive=False)(
