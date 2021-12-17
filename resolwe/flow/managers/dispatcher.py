@@ -303,14 +303,18 @@ class Manager:
         listener_settings = getattr(settings, "FLOW_EXECUTOR", {}).get(
             "LISTENER_CONNECTION", {}
         )
+        container_listener_connection = getattr(
+            settings,
+            "COMMUNICATION_CONTAINER_LISTENER_CONNECTION",
+            {"local": "127.0.0.1"},
+        )
 
         # Return address associated with the key workload_class_name or first
         # one if the key is not present.
-        hosts_settings = listener_settings.get("hosts", {"local": "127.0.0.1"})
-        if workload_class_name in hosts_settings:
-            host = hosts_settings[workload_class_name]
+        if workload_class_name in container_listener_connection:
+            host = container_listener_connection[workload_class_name]
         else:
-            host = next(iter(hosts_settings.values()))
+            host = next(iter(container_listener_connection.values()))
         return (
             host,
             listener_settings.get("port", 53893),
