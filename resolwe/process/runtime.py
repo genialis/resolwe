@@ -1,5 +1,6 @@
 """Process runtime."""
 import logging
+import sys
 from pathlib import Path
 from typing import Dict, List, Union
 
@@ -13,6 +14,38 @@ PROCESS_INPUTS_NAME = "Input"
 # Outputs class name.
 PROCESS_OUTPUTS_NAME = "Output"
 logger = logging.getLogger(__name__)
+
+
+class FlushOnWrite:
+    """Flush stream after every write.
+
+    This is a middle ground between buffered stdout/stderr Python uses when it
+    is connected to a pipe and unbuffered stdout/stderrr. The first one couses
+    that stdout in not updated in real time (and lost on crashes) and the
+    second solution causes stdout update for every character.
+    """
+
+    def __init__(self, stream):
+        """Store the stream for later use."""
+        self.stream = stream
+
+    def write(self, data):
+        """Write data to the stream and flush it."""
+        self.stream.write(data)
+        self.stream.flush()
+
+    def writelines(self, datas):
+        """Write lines to the stream and flush it."""
+        self.stream.writelines(datas)
+        self.stream.flush()
+
+    def __getattr__(self, attr):
+        """Redirect other attribute lookups to the underlying stream."""
+        return getattr(self.stream, attr)
+
+
+sys.stdout = FlushOnWrite(sys.stdout)  # type: ignore
+sys.stderr = FlushOnWrite(sys.stderr)  # type: ignore
 
 
 class ProcessMeta(type):

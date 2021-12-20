@@ -14,6 +14,10 @@ Added
 -----
 - Support ``range`` parameter in fields of Python proces
 
+Changed
+-------
+- Flust stdout/stderr on Python processes on every write
+
 
 ===================
 29.1.0 - 2021-12-12
