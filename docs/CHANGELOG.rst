@@ -16,7 +16,12 @@ Added
 
 Changed
 -------
-- Flust stdout/stderr on Python processes on every write
+- Flush stdout/stderr on Python processes on every write
+
+Fixed
+-----
+- Add attribute as a field to a ``resolwe.process.fields.GroupField`` in Python
+  process only if it is an instance of ``resolwe.process.fields.Field``.
 
 
 ===================
@@ -33,6 +38,7 @@ Fixed
   they are not created anymore
 - Wrap ``move_to_collection`` in transaction and only call method if collection
   has changed
+
 
 ===================
 29.0.0 - 2021-11-11

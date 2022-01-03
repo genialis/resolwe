@@ -197,17 +197,20 @@ class PythonProcessTest(ProcessTestCase):
                 "my_group2": {
                     "foo": 124,
                 },
+                "my_subgroup": {"subgroup": {"foo": 3}},
             },
         )
         self.assertFields(data, "out_foo", 123)
         self.assertFields(data, "out_bar", "foobar")
         self.assertFields(data, "out_foo2", 124)
+        self.assertFields(data, "out_subgroup", 3)
 
         # Run with no inputs - check that default values are used.
         data = self.run_process("test-python-process-group-field")
         self.assertFields(data, "out_foo", 42)
         self.assertFalse(hasattr(data.output, "out_bar"))
         self.assertFalse(hasattr(data.output, "out_bar2"))
+        self.assertFields(data, "out_subgroup", 2)
 
     @with_docker_executor
     @tag_process("test-python-process-json")

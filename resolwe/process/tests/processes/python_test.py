@@ -105,6 +105,11 @@ class PythonProcess(Process):
                 label="Group optional no default", required=False
             )
 
+            class SubGroup:
+                foo = IntegerField(label="Foo", default=2)
+
+            subgroup = GroupField(SubGroup, label="Subgroup")
+
         my_group = GroupField(MyGroup, label="My group")
 
     class Output:
@@ -126,6 +131,7 @@ class PythonProcess(Process):
         print("Input data descriptor:", inputs.input_data.descriptor)
         print("Group bar:", inputs.my_group.bar)
         print("Group foo:", inputs.my_group.foo)
+        print("Group subgroup foo: ", inputs.my_group.subgroup.foo)
         print("Entity name of the input:", inputs.input_entity_data.entity.name)
         print("Docker image:", self.requirements.executor.docker.image)
 
@@ -190,10 +196,17 @@ class PythonProcessGroup(Process):
         class MyGroup2:
             foo = IntegerField(label="Foo", required=False)
 
+        class MySubGroup:
+            class SubGroup:
+                foo = IntegerField(label="Foo", default=2)
+
+            subgroup = GroupField(SubGroup, label="Subgroup foo")
+
         my_group = GroupField(MyGroup, label="My group")
         my_group2 = GroupField(
             MyGroup2, label="My group2 that has all elements without defaults."
         )
+        my_subgroup = GroupField(MySubGroup, label="My subgroup")
 
     class Output:
         """Output fields."""
@@ -201,6 +214,7 @@ class PythonProcessGroup(Process):
         out_foo = IntegerField(label="Foo.", required=False)
         out_bar = StringField(label="Bar.", required=False)
         out_foo2 = IntegerField(label="Foo2.", required=False)
+        out_subgroup = IntegerField(label="SubGroupFoo", required=True)
 
     def run(self, inputs, outputs):
         if inputs.my_group.foo:
@@ -209,6 +223,7 @@ class PythonProcessGroup(Process):
             outputs.out_bar = inputs.my_group.bar
         if inputs.my_group2.foo:
             outputs.out_foo2 = inputs.my_group2.foo
+        outputs.out_subgroup = inputs.my_subgroup.subgroup.foo
 
 
 class PythonProcess2(process.Process):

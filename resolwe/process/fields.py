@@ -1224,11 +1224,15 @@ class GroupField(Field):
         """
         # Use order-preserving definition namespace (__dict__) to respect the
         # order of GroupField's fields definition.
+        # Skip private members and attributes that are not subclasses of the
+        # Field class.
         for field_name in self.field_group.__dict__:
             if field_name.startswith("_"):
                 continue
 
             field = getattr(self.field_group, field_name)
+            if not isinstance(field, Field):
+                continue
             field.contribute_to_class(process, self.fields, field_name)
 
         super().contribute_to_class(process, fields, name)
