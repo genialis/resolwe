@@ -137,16 +137,18 @@ class FlowExecutor(LocalFlowExecutor):
     ) -> Tuple[str, Dict[str, str]]:
         """Generate a new volume entry.
 
-        :param config: must include 'path' and may include 'selinux_label'.
+        :param config: must include 'path' and may include 'selinux_label' and
+            'docker_volume'.
         :param mount_moint: mount point for the volume.
         """
         options = set()
         if "selinux_label" in config:
             options.add(config["selinux_label"])
         options.add("ro" if read_only else "rw")
-
+        # First try to mount is as volume, if fails try the path.
+        volume_path = config.get("docker_volume", config["path"])
         return (
-            os.fspath(config["path"]),
+            os.fspath(volume_path),
             {"bind": os.fspath(mount_path), "mode": ",".join(options)},
         )
 

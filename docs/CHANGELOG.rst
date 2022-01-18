@@ -27,6 +27,7 @@ Added
 - Add ``collecttools_kubernetes`` management command
 - Add ``COMMUNICATION_CONTAINER_LISTENER_CONNECTION`` to separate settings for
   listener (where to bind to) and containers (where to connect to)
+- Support ``docker_volume`` setting in connector config
 
 Changed
 -------
