@@ -615,7 +615,7 @@ class ListenerProtocol(BaseProtocol):
         self, message: Message[Tuple[int, str]]
     ) -> Response[bool]:
         """Respond to liveness probe ping.
-        
+
         Used in Kubernetes to check if the listener is responding.
         """
         return message.respond_ok(True)
