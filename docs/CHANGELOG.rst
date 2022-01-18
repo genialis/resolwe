@@ -17,6 +17,7 @@ Added
 - Add ``COMMUNICATION_CONTAINER_LISTENER_CONNECTION`` to separate settings for
   listener (where to bind to) and containers (where to connect to)
 - Support ``docker_volume`` setting in connector config
+- Support use of named volumes as processing or input volume in Docker executor
 
 Changed
 -------
