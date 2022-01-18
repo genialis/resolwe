@@ -186,6 +186,7 @@ FLOW_EXECUTOR = {
     "NAME": "resolwe.flow.executors.docker",
     "REDIS_CONNECTION": REDIS_CONNECTION,
     "LISTENER_CONNECTION": LISTENER_CONNECTION,
+    "NETWORK": "bridge",
 }
 
 FLOW_DOCKER_AUTOREMOVE = False

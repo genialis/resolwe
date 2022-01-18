@@ -309,12 +309,9 @@ class FlowExecutor(LocalFlowExecutor):
             self.process["resource_limits"]["memory"] + DOCKER_MEMORY_HARD_LIMIT_BUFFER
         )
         memory_swap = int(memory * DOCKER_MEMORY_SWAP_RATIO)
-        network = "bridge"
-        if "network" in self.resources:
-            # Configure Docker network mode for the container (if specified).
-            # By default, current Docker versions use the 'bridge' mode which
-            # creates a network stack on the default Docker bridge.
-            network = SETTINGS.get("FLOW_EXECUTOR", {}).get("NETWORK", "")
+
+        # By default the container is connected to the bridge network.
+        network = SETTINGS.get("FLOW_EXECUTOR", {}).get("NETWORK", "bridge")
 
         security_options = []
         if not SETTINGS.get("FLOW_DOCKER_DISABLE_SECCOMP", False):
@@ -389,7 +386,7 @@ class FlowExecutor(LocalFlowExecutor):
             "cpu_quota": 1000000,
             "mem_limit": "4000m",
             "mem_reservation": "200m",
-            "network_mode": network,
+            "network": network,
             "user": "0:0",
             "environment": environment,
         }
@@ -403,7 +400,7 @@ class FlowExecutor(LocalFlowExecutor):
             "cpu_quota": 100000,
             "mem_limit": "4000m",
             "mem_reservation": "200m",
-            "network_mode": network,
+            "network": network,
             "cap_drop": ["all"],
             "security_opt": security_options,
             "user": f"{os.getuid()}:{os.getgid()}",
