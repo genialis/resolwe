@@ -175,6 +175,13 @@ class FlowExecutor(LocalFlowExecutor):
                     if subpaths:
                         config["path"] = Path(config["path"]) / LOCATION_SUBPATH
                     results[volume_name] = (config, volume_mountpoint[volume_name])
+                # The persistent volume in Docker is actually named volume.
+                elif volume["type"] == "persistent_volume":
+                    config = copy.deepcopy(volume["config"])
+                    config["path"] = unique_volume_name(config["path"], self.data_id)
+                    results[volume_name] = (config, volume_mountpoint[volume_name])
+                    if subpaths:
+                        self.processing_working_dir /= LOCATION_SUBPATH
                 elif volume["type"] == "temporary_directory":
                     config = copy.deepcopy(volume["config"])
                     volume_path = Path(self.tmpdir.name) / volume_name
@@ -184,7 +191,7 @@ class FlowExecutor(LocalFlowExecutor):
                     results[volume_name] = (config, volume_mountpoint[volume_name])
                 else:
                     raise RuntimeError(
-                        "Only 'host_type' and 'temporary_directory' volumes are "
+                        "Only 'host_type', 'temporary_directory' and 'persistent_volume' volumes are "
                         " supported by Docker executor,"
                         f"requested '{volume['config']['type']}' for {volume_name}."
                     )
@@ -370,6 +377,7 @@ class FlowExecutor(LocalFlowExecutor):
         # container due to name clash.
         init_container_name = f"{self.container_name}-{_random_string()}-init"
 
+        # Init container must run as root to use named volumes.
         init_arguments = {
             "auto_remove": autoremove,
             "volumes": self._init_volumes(),
@@ -381,7 +389,7 @@ class FlowExecutor(LocalFlowExecutor):
             "mem_limit": "4000m",
             "mem_reservation": "200m",
             "network_mode": network,
-            "user": f"{os.getuid()}:{os.getgid()}",
+            "user": "0:0",
             "environment": environment,
         }
         communication_arguments = {
