@@ -603,7 +603,7 @@ class Connector(BaseConnector):
             "metadata": {"name": sanitize_kubernetes_label(container_name)},
             "spec": {
                 # Keep finished pods around for ten seconds. If job is not
-                # deleted its PVC claim persists and it causes PV to stay0
+                # deleted its PVC claim persists and it causes PV to stay
                 # around.
                 # This can be changed by running a cron job that periodically
                 # checks for PVC that can be deleted.

@@ -132,7 +132,6 @@ class FlowExecutor(LocalFlowExecutor):
         self.command = SETTINGS.get("FLOW_DOCKER_COMMAND", "docker")
         self.tmpdir = tempfile.TemporaryDirectory()
 
-    # Setup Docker volumes.
     def _new_volume(
         self, config: Dict[str, Any], mount_path: Path, read_only: bool = True
     ) -> Tuple[str, Dict[str, str]]:
@@ -225,7 +224,7 @@ class FlowExecutor(LocalFlowExecutor):
             (config, mount_point, False)
             for config, mount_point in self._get_volumes(True).values()
         ]
-        # Expose mountable connectors ('upload' RW, othern 'RO').
+        # Expose mountable connectors ('upload' RW, others 'RO').
         mount_points += [
             (
                 connector.config,
