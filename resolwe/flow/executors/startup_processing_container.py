@@ -27,8 +27,9 @@ TMP_DIR = Path(os.environ.get("TMP_DIR", ".tmp"))
 DATA_ID = int(os.getenv("DATA_ID", "-1"))
 
 # Basic constants.
-STDOUT_LOG_PATH = constants.PROCESSING_VOLUME / "stdout.txt"
-JSON_LOG_PATH = constants.PROCESSING_VOLUME / "jsonout.txt"
+WORKING_DIRECTORY = Path.cwd().resolve()
+STDOUT_LOG_PATH = WORKING_DIRECTORY / "stdout.txt"
+JSON_LOG_PATH = WORKING_DIRECTORY / "jsonout.txt"
 
 # Update log files every 30 seconds.
 UPDATE_LOG_FILES_TIMEOUT = 30
@@ -454,7 +455,7 @@ class ProcessingManager:
         """
         if self.log_files_need_upload:
             log_paths = [
-                log_file.relative_to(constants.PROCESSING_VOLUME)
+                log_file.relative_to(WORKING_DIRECTORY)
                 for log_file in [STDOUT_LOG_PATH, JSON_LOG_PATH]
             ]
             logger.debug("Uploading log files %s.", log_paths)
@@ -652,12 +653,11 @@ def start_processing_container(loop):
 
 
 if __name__ == "__main__":
-    # Change working directory into /data_local and create .tmp directory
-    # inside it.
-    tmp_path = constants.PROCESSING_VOLUME / TMP_DIR
-    if not tmp_path.is_dir():
-        (constants.PROCESSING_VOLUME / TMP_DIR).mkdir()
-    os.chdir(str(constants.PROCESSING_VOLUME))
+    temporary_directory = WORKING_DIRECTORY / TMP_DIR
+    # TODO: after we stop supporting Python3.4 add parameter exist_ok to mkdir
+    # and remove the if statement.
+    if not temporary_directory.is_dir():
+        temporary_directory.mkdir()
 
     # Create log files.
     STDOUT_LOG_PATH.touch()
