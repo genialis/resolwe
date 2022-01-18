@@ -109,6 +109,7 @@ async def transfer_inputs(communicator: BaseCommunicator, missing_data: dict):
                 threads,
             )
     except:
+        logger.exception("Exception preparing inputs")
         error_message = (
             f"Preparing inputs {objects_to_transfer[connector_name]} from "
             f"connector {connector_name} failed."
