@@ -33,6 +33,7 @@ Added
 Changed
 -------
 - Do not prepare tools configmaps in Kubernetes workload connector
+- Enable Docker containers to connect to the custom network
 
 
 ===================
