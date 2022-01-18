@@ -696,7 +696,7 @@ class FileDescriptor:
                 )
             src_path = Path(os.environ["UPLOAD_DIR"]) / src
             if not src_path.is_file():
-                raise ValueError(f"Source file not found {src}")
+                raise ValueError(f"Source file not found {src_path}")
             src = os.fspath(src_path)
 
         # Decide which import should be used.
