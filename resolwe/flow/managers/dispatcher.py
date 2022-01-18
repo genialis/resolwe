@@ -572,7 +572,7 @@ class Manager:
             self._lock_inputs_local_storage_locations(data)
 
             argv = [
-                "/bin/bash",
+                "/bin/sh",
                 "-c",
                 getattr(settings, "FLOW_EXECUTOR", {}).get(
                     "PYTHON", "/usr/bin/env python"

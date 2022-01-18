@@ -27,7 +27,7 @@ class FlowExecutor(BaseFlowExecutor):
         self.kill_delay = 5
         self.proc = None
         self.stdout = None
-        self.command = "/bin/bash"
+        self.command = "/bin/sh"
 
     async def start(self):
         """Start process execution."""
