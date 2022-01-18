@@ -84,6 +84,38 @@ def retry(
     return decorator_retry
 
 
+def get_mountable_connectors() -> Iterable[Tuple[str, BaseStorageConnector]]:
+    """Iterate through all the storages and find mountable connectors.
+
+    :returns: list of tuples (storage_name, connector).
+    """
+    return [
+        (storage_name, connector)
+        for storage_name in SETTINGS["FLOW_STORAGE"]
+        for connector in connectors.for_storage(storage_name)
+        if connector.mountable
+    ]
+
+
+def get_upload_dir() -> str:
+    """Get the upload path.
+
+    : returns: the path of the first mountable connector for storage
+        'upload'.
+
+    :raises RuntimeError: if no applicable connector is found.
+    """
+    for connector in connectors.for_storage("upload"):
+        if connector.mountable:
+            return f"/upload_{connector.name}"
+    raise RuntimeError("No mountable upload connector is defined.")
+
+
+def unique_volume_name(base_name: str, data_id: int) -> str:
+    """Get unique persistent volume claim name."""
+    return f"{base_name}-{data_id}"
+
+
 class FlowExecutor(LocalFlowExecutor):
     """Docker executor."""
 
@@ -117,31 +149,6 @@ class FlowExecutor(LocalFlowExecutor):
         return (
             os.fspath(config["path"]),
             {"bind": os.fspath(mount_path), "mode": ",".join(options)},
-        )
-
-    def _get_upload_dir(self) -> str:
-        """Get upload path.
-
-        : returns: the path of the first mountable connector for storage
-            'upload'.
-
-        :raises RuntimeError: if no applicable connector is found.
-        """
-        for connector in connectors.for_storage("upload"):
-            if connector.mountable:
-                return f"/upload_{connector.name}"
-        raise RuntimeError("No mountable upload connector is defined.")
-
-    def _get_mountable_connectors(self) -> Iterable[Tuple[str, BaseStorageConnector]]:
-        """Iterate through all the storages and find mountable connectors.
-
-        :returns: list of tuples (storage_name, connector).
-        """
-        return (
-            (storage_name, connector)
-            for storage_name in SETTINGS["FLOW_STORAGE"]
-            for connector in connectors.for_storage(storage_name)
-            if connector.mountable
         )
 
     def _get_volumes(self, subpaths=False) -> Dict[str, Tuple[Dict, Path]]:
@@ -194,7 +201,7 @@ class FlowExecutor(LocalFlowExecutor):
         ]
         mount_points += [
             (connector.config, Path("/") / f"{storage_name}_{connector.name}", False)
-            for storage_name, connector in self._get_mountable_connectors()
+            for storage_name, connector in get_mountable_connectors()
         ]
         return dict([self._new_volume(*mount_point) for mount_point in mount_points])
 
@@ -202,7 +209,7 @@ class FlowExecutor(LocalFlowExecutor):
         """Prepare volumes for communicator container."""
         mount_points = [
             (connector.config, Path("/") / f"{storage_name}_{connector.name}", False)
-            for storage_name, connector in self._get_mountable_connectors()
+            for storage_name, connector in get_mountable_connectors()
         ]
         volumes = self._get_volumes()
         mount_points += [
@@ -225,7 +232,7 @@ class FlowExecutor(LocalFlowExecutor):
                 Path("/") / f"{storage_name}_{connector.name}",
                 storage_name != "upload",
             )
-            for storage_name, connector in self._get_mountable_connectors()
+            for storage_name, connector in get_mountable_connectors()
         ]
 
         mount_points += [
@@ -350,7 +357,7 @@ class FlowExecutor(LocalFlowExecutor):
             ),
         }
         with suppress(RuntimeError):
-            environment["UPLOAD_DIR"] = self._get_upload_dir()
+            environment["UPLOAD_DIR"] = get_upload_dir()
 
         autoremove = SETTINGS.get("FLOW_DOCKER_AUTOREMOVE", False)
 

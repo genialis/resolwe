@@ -1,12 +1,13 @@
 # pylint: disable=missing-docstring
-from functools import partial
 from unittest.mock import patch
 
 from django.core.exceptions import ValidationError
 
 from rest_framework.response import Response
 
-from resolwe.flow.managers.workload_connectors.kubernetes import Connector
+from resolwe.flow.managers.workload_connectors.kubernetes import (
+    sanitize_kubernetes_label,
+)
 from resolwe.flow.models import Data, Process
 from resolwe.flow.utils import get_data_checksum
 from resolwe.flow.utils.exceptions import resolwe_exception_handler
@@ -51,22 +52,25 @@ class ExceptionsTestCase(TestCase):
 
 class KubernetesTestCase(TestCase):
     def test_kubernetes_label_sanitizer(self):
-        sanitizer = partial(getattr(Connector, "_sanitize_kubernetes_label"), None)
 
         label = "this-is-a-valid-label"
-        self.assertEqual(label, sanitizer(label))
+        self.assertEqual(label, sanitize_kubernetes_label(label))
 
         too_long_label = "this-is-a-valid-label" * 10
-        self.assertEqual(too_long_label[-63:], sanitizer(too_long_label))
+        self.assertEqual(
+            too_long_label[-63:], sanitize_kubernetes_label(too_long_label)
+        )
         weird_label = "invalid/label with .some*weird'characters"
         self.assertEqual(
-            "invalid-label-with-some-weird-characters", sanitizer(weird_label)
+            "invalid-label-with-some-weird-characters",
+            sanitize_kubernetes_label(weird_label),
         )
 
         label = "*/.2must start and end with alphanumeric character_"
         self.assertEqual(
-            "2must-start-and-end-with-alphanumeric-character", sanitizer(label)
+            "2must-start-and-end-with-alphanumeric-character",
+            sanitize_kubernetes_label(label),
         )
 
         label = "_" * 100 + "I am too long"
-        self.assertEqual("I-am-too-long", sanitizer(label))
+        self.assertEqual("I-am-too-long", sanitize_kubernetes_label(label))
