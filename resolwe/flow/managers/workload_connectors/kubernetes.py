@@ -43,6 +43,38 @@ KUBERNETES_TIMEOUT = 30
 logger = logging.getLogger(__name__)
 
 
+def get_mountable_connectors() -> Iterable[Tuple[str, BaseStorageConnector]]:
+    """Iterate through all the storages and find mountable connectors.
+
+    :returns: list of tuples (storage_name, connector).
+    """
+    return [
+        (storage_name, connector)
+        for storage_name in storage_settings.FLOW_STORAGE
+        for connector in connectors.for_storage(storage_name)
+        if connector.mountable
+    ]
+
+
+def get_upload_dir() -> str:
+    """Get the upload path.
+
+    : returns: the path of the first mountable connector for storage
+        'upload'.
+
+    :raises RuntimeError: if no applicable connector is found.
+    """
+    for connector in connectors.for_storage("upload"):
+        if connector.mountable:
+            return f"/upload_{connector.name}"
+    raise RuntimeError("No mountable upload connector is defined.")
+
+
+def unique_volume_name(base_name: str, data_id: int) -> str:
+    """Get unique persistent volume claim name."""
+    return f"{base_name}-{data_id}"
+
+
 def sanitize_kubernetes_label(label: str, trim_end: bool = True) -> str:
     """Make sure kubernetes label complies with the rules.
 
@@ -77,19 +109,6 @@ class Connector(BaseConnector):
             "namespace", "default"
         )
 
-    def _get_upload_dir(self) -> str:
-        """Get upload path.
-
-        : returns: the path of the first mountable connector for storage
-            'upload'.
-
-        :raises RuntimeError: if no applicable connector is found.
-        """
-        for connector in connectors.for_storage("upload"):
-            if connector.mountable:
-                return f"/upload_{connector.name}"
-        raise RuntimeError("No mountable upload connector is defined.")
-
     def _prepare_environment(
         self, data: Data, listener_connection: Tuple[str, str, str]
     ) -> list:
@@ -115,23 +134,11 @@ class Connector(BaseConnector):
             ),
         }
         with suppress(RuntimeError):
-            environment["UPLOAD_DIR"] = self._get_upload_dir()
+            environment["UPLOAD_DIR"] = get_upload_dir()
 
         return [
             {"name": name, "value": str(value)} for name, value in environment.items()
         ]
-
-    def _get_upload_connector_name(self, data: Data) -> str:
-        """Get the connector for data upload.
-
-        Read the connector name from the StorageLocation class created by the
-        dispatcher.
-        """
-        return data.location.default_storage_location.connector_name
-
-    def _pvc_claim_name(self, base_name: str, data_id: int) -> str:
-        """Get unique persistent volume claim name."""
-        return f"{base_name}-{data_id}"
 
     def _create_configmap_if_needed(self, name: str, content: Dict, core_api: Any):
         """Create configmap if necessary."""
@@ -157,9 +164,9 @@ class Connector(BaseConnector):
 
     def _get_tools_configmaps(self, core_api):
         """Get and return configmaps for tools."""
-        description_configmap_name = getattr(
-            settings, "KUBERNETES_TOOLS_CONFIGMAPS", None
-        ) or "tools-configmaps"
+        description_configmap_name = (
+            getattr(settings, "KUBERNETES_TOOLS_CONFIGMAPS", None) or "tools-configmaps"
+        )
         configmap = core_api.read_namespaced_config_map(
             name=description_configmap_name, namespace=self.kubernetes_namespace
         )
@@ -205,18 +212,6 @@ class Connector(BaseConnector):
         self._create_configmap_if_needed(configmap_name, data, core_api)
         return configmap_name
 
-    def _get_mountable_connectors(self) -> Iterable[Tuple[str, BaseStorageConnector]]:
-        """Iterate through all the storages and find mountable connectors.
-
-        :returns: list of tuples (storage_name, connector).
-        """
-        return (
-            (storage_name, connector)
-            for storage_name in storage_settings.FLOW_STORAGE
-            for connector in connectors.for_storage(storage_name)
-            if connector.mountable
-        )
-
     def _volumes(self, data_id: int, location_subpath: Path, core_api: Any) -> list:
         """Prepare all volumes."""
 
@@ -224,7 +219,7 @@ class Connector(BaseConnector):
             """Get configuration for kubernetes for given volume."""
             claim_name = volume_config["config"]["name"]
             if self._should_create_pvc(volume_config):
-                claim_name = self._pvc_claim_name(claim_name, data_id)
+                claim_name = unique_volume_name(claim_name, data_id)
             if volume_config["type"] == "persistent_volume":
                 return {
                     "name": volume_name,
@@ -267,7 +262,7 @@ class Connector(BaseConnector):
             if volume_config["config"]["name"] != "tools"
         ]
 
-        for storage_name, connector in self._get_mountable_connectors():
+        for storage_name, connector in get_mountable_connectors():
             claim_name = connector.config.get("persistent_volume_claim", None)
             volume_data = {
                 "name": connector.name,
@@ -314,7 +309,7 @@ class Connector(BaseConnector):
                 "mountPath": f"/{storage_name}_{connector.name}",
                 "readOnly": False,
             }
-            for storage_name, connector in self._get_mountable_connectors()
+            for storage_name, connector in get_mountable_connectors()
         ]
         return mount_points
 
@@ -341,7 +336,7 @@ class Connector(BaseConnector):
                 "mountPath": f"/{storage_name}_{connector.name}",
                 "readOnly": False,
             }
-            for storage_name, connector in self._get_mountable_connectors()
+            for storage_name, connector in get_mountable_connectors()
         ]
         return mount_points
 
@@ -376,7 +371,7 @@ class Connector(BaseConnector):
                 "mountPath": f"/{storage_name}_{connector.name}",
                 "readOnly": storage_name != "upload",
             }
-            for storage_name, connector in self._get_mountable_connectors()
+            for storage_name, connector in get_mountable_connectors()
         ]
 
         mount_points += [
@@ -688,7 +683,7 @@ class Connector(BaseConnector):
         processing_name = constants.PROCESSING_VOLUME_NAME
         input_name = constants.INPUTS_VOLUME_NAME
         if self._should_create_pvc(storage_settings.FLOW_VOLUMES[processing_name]):
-            claim_name = self._pvc_claim_name(
+            claim_name = unique_volume_name(
                 storage_settings.FLOW_VOLUMES[processing_name]["config"]["name"],
                 data.id,
             )
@@ -705,7 +700,7 @@ class Connector(BaseConnector):
         if input_name in storage_settings.FLOW_VOLUMES:
             if self._should_create_pvc(storage_settings.FLOW_VOLUMES[input_name]):
                 claim_size = self._data_inputs_size(data)
-                claim_name = self._pvc_claim_name(
+                claim_name = unique_volume_name(
                     storage_settings.FLOW_VOLUMES[input_name]["config"]["name"],
                     data.id,
                 )
@@ -766,7 +761,7 @@ class Connector(BaseConnector):
 
         core_api = kubernetes.client.CoreV1Api()
         claim_names = [
-            self._pvc_claim_name(type_, data_id)
+            unique_volume_name(type_, data_id)
             for type_ in [
                 constants.PROCESSING_VOLUME_NAME,
                 constants.INPUTS_VOLUME_NAME,
