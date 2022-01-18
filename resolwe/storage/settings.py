@@ -22,6 +22,7 @@ default_storage_connectors = {
             "priority": 100,
             "path": local_dir,
             "selinux_label": "z",
+            "public_url": "local_data",
         },
     },
     upload_connector: {
