@@ -234,7 +234,7 @@ class FlowExecutor(LocalFlowExecutor):
             (config, mount_point, False)
             for config, mount_point in self._get_volumes(True).values()
         ]
-        # Expose mountable connectors ('upload' RW, othern 'RO').
+        # Expose mountable connectors ('upload' RW, others 'RO').
         mount_points += [
             (
                 connector.config,
