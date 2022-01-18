@@ -131,6 +131,7 @@ class FlowExecutor(LocalFlowExecutor):
         self.tools_volumes = []
         self.command = SETTINGS.get("FLOW_DOCKER_COMMAND", "docker")
         self.tmpdir = tempfile.TemporaryDirectory()
+        self.processing_working_dir = constants.PROCESSING_VOLUME
 
     def _new_volume(
         self, config: Dict[str, Any], mount_path: Path, read_only: bool = True
@@ -414,7 +415,7 @@ class FlowExecutor(LocalFlowExecutor):
             "command": ["python3", "/start.py"],
             "image": processing_image,
             "network_mode": f"container:{self.container_name}-communicator",
-            "working_dir": os.fspath(constants.PROCESSING_VOLUME),
+            "working_dir": os.fspath(self.processing_working_dir),
             "detach": True,
             "cpu_quota": self.process["resource_limits"]["cores"] * (10 ** 6),
             "mem_limit": f"{memory}m",
