@@ -132,7 +132,6 @@ class FlowExecutor(LocalFlowExecutor):
         self.command = SETTINGS.get("FLOW_DOCKER_COMMAND", "docker")
         self.tmpdir = tempfile.TemporaryDirectory()
 
-    # Setup Docker volumes.
     def _new_volume(
         self, config: Dict[str, Any], mount_path: Path, read_only: bool = True
     ) -> Tuple[str, Dict[str, str]]:
