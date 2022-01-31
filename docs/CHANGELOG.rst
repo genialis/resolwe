@@ -16,7 +16,9 @@ Added
   object is ready for processing
 - Support setting ``descriptor`` and ``DescriptorSchema`` on Data during
   process runtime
-
+- Support filtering Data, Entity and Collections based on permissions (view,
+  edit, owner, group, shared_with_me)
+- Support filtering Data and Entity objects by relation id
 
 ===================
 30.0.0 - 2022-03-14

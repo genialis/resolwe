@@ -2,12 +2,21 @@
 import datetime
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.utils.timezone import get_current_timezone
 
 from rest_framework import status
 from rest_framework.test import APIRequestFactory, force_authenticate
 
-from resolwe.flow.models import Collection, Data, DescriptorSchema, Entity, Process
+from resolwe.flow.models import (
+    Collection,
+    Data,
+    DescriptorSchema,
+    Entity,
+    Process,
+    Relation,
+    RelationType,
+)
 from resolwe.flow.views import (
     CollectionViewSet,
     DataViewSet,
@@ -15,7 +24,7 @@ from resolwe.flow.views import (
     EntityViewSet,
     ProcessViewSet,
 )
-from resolwe.permissions.models import Permission
+from resolwe.permissions.models import Permission, get_anonymous_user
 from resolwe.test import TestCase
 
 factory = APIRequestFactory()
@@ -44,6 +53,7 @@ class BaseViewSetFiltersTest(TestCase):
             first_name="John",
             last_name="Williams",
         )
+        cls.group = Group.objects.create(name="Test group")
 
     def setUp(self):
         self.viewset = self.viewset_class.as_view(
@@ -131,7 +141,25 @@ class CollectionViewSetFiltersTest(BaseViewSetFiltersTest):
                 description="User's description",
                 tags=["second-tag"],
             ),
+            Collection.objects.create(
+                name="Public test collection",
+                slug="public-collection",
+                contributor=cls.admin,
+            ),
         ]
+
+        cls.entity1 = Entity.objects.create(
+            contributor=cls.contributor, collection=cls.collections[1]
+        )
+        cls.entity2 = Entity.objects.create(
+            contributor=cls.contributor, collection=cls.collections[2]
+        )
+        cls.entity3 = Entity.objects.create(
+            contributor=cls.contributor, collection=cls.collections[2]
+        )
+        cls.entity1.save()
+        cls.entity2.save()
+        cls.entity3.save()
 
         tzone = get_current_timezone()
         cls.collections[0].created = datetime.datetime(2016, 7, 30, 0, 59, tzinfo=tzone)
@@ -146,6 +174,8 @@ class CollectionViewSetFiltersTest(BaseViewSetFiltersTest):
         cls.collections[1].set_permission(Permission.OWNER, cls.admin)
         cls.collections[1].set_permission(Permission.VIEW, cls.user)
         cls.collections[2].set_permission(Permission.OWNER, cls.user)
+        cls.collections[2].set_permission(Permission.OWNER, cls.group)
+        cls.collections[3].set_permission(Permission.VIEW, get_anonymous_user())
 
         cls.viewset_class = CollectionViewSet
 
@@ -161,7 +191,7 @@ class CollectionViewSetFiltersTest(BaseViewSetFiltersTest):
     def test_filter_slug(self):
         self._check_filter({"slug": "test-collection-0"}, [self.collections[0]])
         self._check_filter(
-            {"slug__in": "test-collection-1,user-collection"}, self.collections[1:]
+            {"slug__in": "test-collection-1,user-collection"}, self.collections[1:3]
         )
 
     def test_filter_name(self):
@@ -177,7 +207,7 @@ class CollectionViewSetFiltersTest(BaseViewSetFiltersTest):
             {"name__istartswith": "test collection"}, self.collections[:2]
         )
 
-        self._check_filter({"name__contains": "test"}, [self.collections[2]])
+        self._check_filter({"name__contains": "test"}, self.collections[2:])
         self._check_filter({"name__icontains": "test"}, self.collections)
 
     def test_filter_description(self):
@@ -203,7 +233,7 @@ class CollectionViewSetFiltersTest(BaseViewSetFiltersTest):
         )
         self._check_filter(
             {"contributor__in": "{},{}".format(self.contributor.pk, self.user.pk)},
-            self.collections,
+            self.collections[:3],
         )
 
     def test_filter_owners(self):
@@ -234,6 +264,14 @@ class CollectionViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter(
             {"permission": "edit"}, [self.collections[2]], user=self.user
         )
+        self._check_filter(
+            {"permission": "view"},
+            self.collections,
+            user=self.user,
+        )
+        self._check_filter(
+            {"permission": "owner"}, [self.collections[2]], user=self.user
+        )
 
     def test_filter_created(self):
         self._check_filter({"created": "2016-07-30T00:59:00"}, self.collections[:1])
@@ -252,19 +290,19 @@ class CollectionViewSetFiltersTest(BaseViewSetFiltersTest):
         )
         self._check_filter(
             {"modified__gt": self.collections[1].modified.isoformat()},
-            self.collections[2:],
+            self.collections[2:3],
         )
         self._check_filter(
             {"modified__gte": self.collections[1].modified.isoformat()},
-            self.collections[1:],
+            self.collections[1:3],
         )
         self._check_filter(
             {"modified__lt": self.collections[1].modified.isoformat()},
-            self.collections[:1],
+            self.collections[:1] + [self.collections[3]],
         )
         self._check_filter(
             {"modified__lte": self.collections[1].modified.isoformat()},
-            self.collections[:2],
+            self.collections[:2] + [self.collections[3]],
         )
 
     def test_filter_text(self):
@@ -279,8 +317,12 @@ class CollectionViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter({"text": "Miller"}, self.collections[:2])
 
         # By owner.
-        self._check_filter({"text": "james"}, self.collections[:2])
-        self._check_filter({"text": "Smith"}, self.collections[:2])
+        self._check_filter(
+            {"text": "james"}, self.collections[:2] + [self.collections[3]]
+        )
+        self._check_filter(
+            {"text": "Smith"}, self.collections[:2] + [self.collections[3]]
+        )
 
         # By description.
         self._check_filter(
@@ -331,6 +373,34 @@ class CollectionViewSetFiltersTest(BaseViewSetFiltersTest):
             {"text": "test collection", "ordering": "id"}, self.collections
         )
         self.assertEqual(result.data[0]["id"], self.collections[0].pk)
+
+    def test_filter_entity_count(self):
+        self._check_filter(
+            {"entity_count": 0}, [self.collections[0], self.collections[3]]
+        )
+        self._check_filter({"entity_count": 2}, [self.collections[2]])
+        self._check_filter({"entity_count__gt": 1}, [self.collections[2]])
+        self._check_filter(
+            {"entity_count__lt": 1}, [self.collections[0], self.collections[3]]
+        )
+        self._check_filter(
+            {"entity_count__gte": 1}, [self.collections[1], self.collections[2]]
+        )
+        self._check_filter(
+            {"entity_count__lte": 1},
+            [self.collections[0], self.collections[1], self.collections[3]],
+        )
+
+    def test_filter_group(self):
+        self._check_filter({"group": self.group.pk}, [self.collections[2]])
+
+    def test_filter_shared_with_me(self):
+        self._check_filter(
+            {"shared_with_me": True}, self.collections[:3], user=self.user
+        )
+        self._check_filter(
+            {"shared_with_me": False}, [self.collections[3]], user=self.user
+        )
 
 
 class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
@@ -405,7 +475,24 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
                 description="User's description",
                 tags=["second-tag"],
             ),
+            Entity.objects.create(
+                name="Public test entity",
+                slug="public-entity",
+                contributor=cls.user,
+            ),
         ]
+
+        cls.rel_type = RelationType.objects.create(name="series", ordered=True)
+        cls.relation1 = Relation.objects.create(
+            type=cls.rel_type, collection=cls.collection1, contributor=cls.contributor
+        )
+        cls.relation1.entities.set(cls.entities[:1])
+        cls.relation1.save()
+        cls.relation2 = Relation.objects.create(
+            type=cls.rel_type, collection=cls.collection2, contributor=cls.contributor
+        )
+        cls.relation2.entities.set(cls.entities[1:])
+        cls.relation2.save()
 
         tzone = get_current_timezone()
         cls.entities[0].created = datetime.datetime(2016, 7, 30, 0, 59, tzinfo=tzone)
@@ -420,6 +507,8 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
         cls.collection2.set_permission(Permission.OWNER, cls.admin)
         cls.collection2.set_permission(Permission.VIEW, cls.user)
         cls.entities[2].set_permission(Permission.OWNER, cls.user)
+        cls.entities[2].set_permission(Permission.VIEW, cls.group)
+        cls.entities[3].set_permission(Permission.VIEW, get_anonymous_user())
 
         cls.viewset_class = EntityViewSet
 
@@ -434,7 +523,9 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
 
     def test_filter_slug(self):
         self._check_filter({"slug": "test-entity-0"}, [self.entities[0]])
-        self._check_filter({"slug__in": "test-entity-1,user-entity"}, self.entities[1:])
+        self._check_filter(
+            {"slug__in": "test-entity-1,user-entity"}, self.entities[1:3]
+        )
 
     def test_filter_name(self):
         self._check_filter({"name": "Test entity 1"}, [self.entities[1]])
@@ -445,7 +536,7 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter({"name__startswith": "Test entity"}, self.entities[:2])
         self._check_filter({"name__istartswith": "test entity"}, self.entities[:2])
 
-        self._check_filter({"name__contains": "test"}, [self.entities[2]])
+        self._check_filter({"name__contains": "test"}, self.entities[2:])
         self._check_filter({"name__icontains": "test"}, self.entities)
 
     def test_filter_description(self):
@@ -482,7 +573,7 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
         # Filter by username.
         self._check_filter({"contributor_name": "contributor"}, self.entities[:2])
         # Filter by combination of first and last name.
-        self._check_filter({"contributor_name": "John Williams"}, [self.entities[2]])
+        self._check_filter({"contributor_name": "John Williams"}, self.entities[2:])
 
     def test_filter_owners_name(self):
         # Filter by first name.
@@ -496,6 +587,12 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
 
     def test_filter_permission(self):
         self._check_filter({"permission": "edit"}, [self.entities[2]], user=self.user)
+        self._check_filter(
+            {"permission": "view"},
+            self.entities,
+            user=self.user,
+        )
+        self._check_filter({"permission": "owner"}, [self.entities[2]], user=self.user)
 
     def test_filter_created(self):
         self._check_filter({"created": "2016-07-30T00:59:00"}, self.entities[:1])
@@ -509,16 +606,18 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
             {"modified": self.entities[0].modified.isoformat()}, self.entities[:1]
         )
         self._check_filter(
-            {"modified__gt": self.entities[1].modified.isoformat()}, self.entities[2:]
+            {"modified__gt": self.entities[1].modified.isoformat()}, [self.entities[2]]
         )
         self._check_filter(
-            {"modified__gte": self.entities[1].modified.isoformat()}, self.entities[1:]
+            {"modified__gte": self.entities[1].modified.isoformat()}, self.entities[1:3]
         )
         self._check_filter(
-            {"modified__lt": self.entities[1].modified.isoformat()}, self.entities[:1]
+            {"modified__lt": self.entities[1].modified.isoformat()},
+            self.entities[:1] + [self.entities[3]],
         )
         self._check_filter(
-            {"modified__lte": self.entities[1].modified.isoformat()}, self.entities[:2]
+            {"modified__lte": self.entities[1].modified.isoformat()},
+            self.entities[:2] + [self.entities[3]],
         )
 
     def test_filter_collection(self):
@@ -559,7 +658,7 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter({"text": "Test entity 1"}, [self.entities[1]])
         self._check_filter({"text": "Test"}, self.entities)
         self._check_filter({"text": "test"}, self.entities)
-        self._check_filter({"text": "user"}, [self.entities[2]])
+        self._check_filter({"text": "user"}, self.entities[2:])
 
         # By contributor.
         self._check_filter({"text": "joe"}, self.entities[:2])
@@ -575,7 +674,7 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
         )
         self._check_filter({"text": "my"}, self.entities[:2])
         self._check_filter({"text": "my description"}, [self.entities[0]])
-        self._check_filter({"text": "user"}, [self.entities[2]])
+        self._check_filter({"text": "user"}, self.entities[2:])
 
         # By descriptor.
         self._check_filter({"text": "genialis"}, [self.entities[0]])
@@ -617,12 +716,25 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
         )
         self.assertEqual(result.data[0]["id"], self.entities[0].pk)
 
+    def test_filter_by_relation(self):
+        self._check_filter({"relation_id": self.relation1.id}, self.entities[:1])
+        self._check_filter({"relation_id": self.relation2.id}, self.entities[1:])
+        self._check_filter({"relation_id": 42}, [])
+
+    def test_filter_group(self):
+        self._check_filter({"group": self.group.pk}, [self.entities[2]])
+
+    def test_filter_shared_with_me(self):
+        self._check_filter({"shared_with_me": True}, self.entities[:3], user=self.user)
+        self._check_filter(
+            {"shared_with_me": False}, [self.entities[3]], user=self.user
+        )
+
 
 class DataViewSetFiltersTest(BaseViewSetFiltersTest):
     @classmethod
     def setUpTestData(cls):
         super().setUpTestData()
-
         tzone = get_current_timezone()
 
         descriptor_schema = DescriptorSchema.objects.create(
@@ -738,7 +850,28 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
                 finished=datetime.datetime(2016, 7, 31, 2, 30, tzinfo=tzone),
                 tags=["second-tag"],
             ),
+            Data.objects.create(
+                name="Public data",
+                slug="public-data",
+                contributor=cls.user,
+                process=cls.proc2,
+                status=Data.STATUS_DONE,
+                started=datetime.datetime(2016, 7, 31, 2, 0, tzinfo=tzone),
+                finished=datetime.datetime(2016, 7, 31, 2, 30, tzinfo=tzone),
+            ),
         ]
+
+        cls.rel_type = RelationType.objects.create(name="series", ordered=True)
+        cls.relation1 = Relation.objects.create(
+            type=cls.rel_type, collection=cls.collection1, contributor=cls.contributor
+        )
+        cls.relation1.entities.set([cls.entity1, cls.entity2])
+        cls.relation1.save()
+        cls.relation2 = Relation.objects.create(
+            type=cls.rel_type, collection=cls.collection2, contributor=cls.contributor
+        )
+        cls.relation2.entities.set([cls.entity2])
+        cls.relation2.save()
 
         cls.data[0].created = datetime.datetime(2016, 7, 30, 0, 59, tzinfo=tzone)
         cls.data[0].save()
@@ -752,6 +885,8 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
         cls.collection2.set_permission(Permission.OWNER, cls.admin)
         cls.collection2.set_permission(Permission.VIEW, cls.user)
         cls.data[2].set_permission(Permission.OWNER, cls.user)
+        cls.data[2].set_permission(Permission.VIEW, cls.group)
+        cls.data[3].set_permission(Permission.VIEW, get_anonymous_user())
 
         cls.viewset_class = DataViewSet
 
@@ -804,7 +939,7 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
         # Filter by username.
         self._check_filter({"contributor_name": "contributor"}, self.data[:2])
         # Filter by combination of first and last name.
-        self._check_filter({"contributor_name": "John Williams"}, [self.data[2]])
+        self._check_filter({"contributor_name": "John Williams"}, self.data[2:])
 
     def test_filter_owners_name(self):
         # Filter by first name.
@@ -814,10 +949,16 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
         # Filter by username.
         self._check_filter({"owners_name": "admin"}, self.data[:2])
         # Filter by combination of first and last name.
-        self._check_filter({"owners_name": "John Williams"}, [self.data[2]])
+        self._check_filter({"owners_name": "John Williams"}, self.data[2:])
 
     def test_filter_permission(self):
-        self._check_filter({"permission": "edit"}, [self.data[2]], user=self.user)
+        self._check_filter({"permission": "edit"}, self.data[2:], user=self.user)
+        self._check_filter(
+            {"permission": "view"},
+            self.data,
+            user=self.user,
+        )
+        self._check_filter({"permission": "owner"}, self.data[2:], user=self.user)
 
     def test_filter_created(self):
         self._check_filter({"created": "2016-07-30T00:59:00"}, [self.data[0]])
@@ -831,16 +972,18 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
             {"modified": self.data[0].modified.isoformat()}, [self.data[0]]
         )
         self._check_filter(
-            {"modified__gt": self.data[1].modified.isoformat()}, self.data[2:]
+            {"modified__gt": self.data[1].modified.isoformat()}, [self.data[2]]
         )
         self._check_filter(
-            {"modified__gte": self.data[1].modified.isoformat()}, self.data[1:]
+            {"modified__gte": self.data[1].modified.isoformat()}, self.data[1:3]
         )
         self._check_filter(
-            {"modified__lt": self.data[1].modified.isoformat()}, self.data[:1]
+            {"modified__lt": self.data[1].modified.isoformat()},
+            self.data[:1] + [self.data[3]],
         )
         self._check_filter(
-            {"modified__lte": self.data[1].modified.isoformat()}, self.data[:2]
+            {"modified__lte": self.data[1].modified.isoformat()},
+            self.data[:2] + [self.data[3]],
         )
 
     def test_filter_started(self):
@@ -1009,6 +1152,20 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
             str(response.data["__all__"]),
             r"Unsupported parameter\(s\): foo. Please use a combination of: .*",
         )
+
+    def test_filter_by_relation(self):
+        self._check_filter(
+            {"relation_id": self.relation1.id}, [self.data[0], self.data[1]]
+        )
+        self._check_filter({"relation_id": self.relation2.id}, [self.data[1]])
+        self._check_filter({"relation_id": 42}, [])
+
+    def test_filter_group(self):
+        self._check_filter({"group": self.group.pk}, [self.data[2]])
+
+    def test_filter_shared_with_me(self):
+        self._check_filter({"shared_with_me": True}, self.data[:3], user=self.user)
+        self._check_filter({"shared_with_me": False}, [self.data[3]], user=self.user)
 
 
 class DescriptorSchemaViewSetFiltersTest(BaseViewSetFiltersTest):

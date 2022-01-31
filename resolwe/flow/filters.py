@@ -10,13 +10,14 @@ from django_filters.filterset import FilterSetMetaclass
 from versionfield import VersionField
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.contrib.postgres.search import SearchQuery, SearchRank
-from django.db.models import F, ForeignKey, Subquery
+from django.db.models import Count, F, ForeignKey, Q, Subquery
 
 from rest_framework.filters import OrderingFilter as DrfOrderingFilter
 
 from resolwe.composer import composer
-from resolwe.permissions.models import Permission
+from resolwe.permissions.models import Permission, get_anonymous_user
 
 from .models import Collection, Data, DescriptorSchema, Entity, Process, Relation
 
@@ -163,6 +164,21 @@ class UserFilterMixin:
         user = self.request.user
         return queryset.filter_for_user(user, Permission.from_name(value))
 
+    def filter_for_group(self, queryset, name, value):
+        """Filter queryset by group."""
+        return queryset.filter(permission_group__permissions__group=value)
+
+    def filter_private(self, queryset, name, value):
+        """Return only elements that are not public (explicitly shared with me)."""
+
+        public_filter = Q(permission_group__permissions__user=get_anonymous_user())
+
+        # Exclude public elements if filter value is True
+        if value:
+            return queryset.exclude(public_filter)
+        else:
+            return queryset.filter(public_filter)
+
 
 class TagsFilter(filters.BaseCSVFilter, filters.CharFilter):
     """Filter for tags."""
@@ -250,6 +266,10 @@ class BaseCollectionFilter(TextFilterMixin, UserFilterMixin, BaseResolweFilter):
     contributor_name = filters.CharFilter(method="filter_contributor_name")
     owners = filters.CharFilter(method="filter_owners")
     owners_name = filters.CharFilter(method="filter_owners_name")
+    shared_with_me = filters.BooleanFilter(method="filter_private")
+    group = filters.ModelChoiceFilter(
+        method="filter_for_group", queryset=Group.objects.all()
+    )
     permission = filters.CharFilter(method="filter_for_user")
     tags = TagsFilter()
     text = filters.CharFilter(field_name="search", method="filter_text")
@@ -269,14 +289,37 @@ class BaseCollectionFilter(TextFilterMixin, UserFilterMixin, BaseResolweFilter):
 class CollectionFilter(BaseCollectionFilter):
     """Filter the Collection endpoint."""
 
+    entity_count = filters.NumberFilter(
+        method="count_entities", field_name="entity__count"
+    )
+    entity_count__gt = filters.NumberFilter(
+        method="count_entities", field_name="entity__count__gt"
+    )
+    entity_count__lt = filters.NumberFilter(
+        method="count_entities", field_name="entity__count__lt"
+    )
+    entity_count__gte = filters.NumberFilter(
+        method="count_entities", field_name="entity__count__gte"
+    )
+    entity_count__lte = filters.NumberFilter(
+        method="count_entities", field_name="entity__count__lte"
+    )
+
     class Meta(BaseCollectionFilter.Meta):
         """Filter configuration."""
 
         model = Collection
 
+    def count_entities(self, queryset, name, value):
+        """Filter by the number of associated entities."""
+
+        return queryset.annotate(Count("entity")).filter(**{name: value})
+
 
 class EntityFilter(BaseCollectionFilter):
     """Filter the Entity endpoint."""
+
+    relation_id = filters.NumberFilter(field_name="relation__id")
 
     class Meta(BaseCollectionFilter.Meta):
         """Filter configuration."""
@@ -322,11 +365,18 @@ class DataFilter(TextFilterMixin, UserFilterMixin, BaseResolweFilter):
     contributor_name = filters.CharFilter(method="filter_contributor_name")
     owners = filters.CharFilter(method="filter_owners")
     owners_name = filters.CharFilter(method="filter_owners_name")
-    permission = filters.CharFilter(method="filter_for_user")
     tags = TagsFilter()
     text = filters.CharFilter(field_name="search", method="filter_text")
     type = filters.CharFilter(field_name="process__type", lookup_expr="startswith")
     type__exact = filters.CharFilter(field_name="process__type", lookup_expr="exact")
+    relation_id = filters.NumberFilter(
+        field_name="entity__relationpartition__relation_id"
+    )
+    shared_with_me = filters.BooleanFilter(method="filter_private")
+    group = filters.ModelChoiceFilter(
+        method="filter_for_group", queryset=Group.objects.all()
+    )
+    permission = filters.CharFilter(method="filter_for_user")
 
     class Meta(BaseResolweFilter.Meta):
         """Filter configuration."""
