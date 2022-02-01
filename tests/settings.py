@@ -85,11 +85,14 @@ DATABASES = {
     }
 }
 
+# The Redis database used by Django Channels.
 REDIS_CONNECTION = {
     "host": "localhost",
     "port": int(os.environ.get("RESOLWE_REDIS_PORT", 56379)),
     "db": int(os.environ.get("RESOLWE_REDIS_DATABASE", 1)),
+    "protocol": (os.environ.get("RESOLWE_REDIS_PROTOCOL", "redis")),
 }
+redis_connection_string = "{protocol}://{host}:{port}/{db}".format(**REDIS_CONNECTION)
 
 LISTENER_CONNECTION = {
     # Keys in the hosts dictionary are workload connector names. Currently
@@ -115,10 +118,7 @@ ASGI_APPLICATION = "resolwe.flow.routing.channel_routing"
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [(REDIS_CONNECTION["host"], REDIS_CONNECTION["port"])],
-            "expiry": 3600,
-        },
+        "CONFIG": {"hosts": [redis_connection_string], "expiry": 3600},
     },
 }
 

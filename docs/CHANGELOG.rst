@@ -29,6 +29,7 @@ Added
   listener (where to bind to) and containers (where to connect to)
 - Support ``docker_volume`` setting in connector config
 - Support use of named volumes as processing or input volume in Docker executor
+- Support SSL connection to Redis
 
 Changed
 -------
