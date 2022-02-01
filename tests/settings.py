@@ -133,7 +133,6 @@ STATIC_URL = "/static/"
 manager_prefix = os.environ.get("RESOLWE_MANAGER_REDIS_PREFIX", "resolwe.flow.manager")
 FLOW_MANAGER = {
     "REDIS_PREFIX": manager_prefix,
-    "REDIS_CONNECTION": REDIS_CONNECTION,
     "TEST": {
         "REDIS_PREFIX": manager_prefix + "-test",
     },
@@ -185,7 +184,6 @@ FLOW_PROCESSES_RUNTIMES = ("resolwe.process.runtime.Process",)
 
 FLOW_EXECUTOR = {
     "NAME": "resolwe.flow.executors.docker",
-    "REDIS_CONNECTION": REDIS_CONNECTION,
     "LISTENER_CONNECTION": LISTENER_CONNECTION,
     "NETWORK": "bridge",
 }
