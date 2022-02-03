@@ -607,7 +607,7 @@ class Connector(BaseConnector):
                 # around.
                 # This can be changed by running a cron job that periodically
                 # checks for PVC that can be deleted.
-                "ttlSecondsAfterFinished": 10,
+                "ttlSecondsAfterFinished": 300,
                 "template": {
                     "metadata": {
                         "name": sanitize_kubernetes_label(container_name),
