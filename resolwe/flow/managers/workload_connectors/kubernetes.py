@@ -448,7 +448,7 @@ class Connector(BaseConnector):
             },
         }
 
-    def _data_inputs_size(self, data: Data, safety_buffer: int = 2 ** 30) -> int:
+    def _data_inputs_size(self, data: Data, safety_buffer: int = 2**30) -> int:
         """Get the size of data inputs.
 
         Also add 10% of the volume size + 2GB as safety buffer. When having a
@@ -532,8 +532,8 @@ class Connector(BaseConnector):
 
         requests["memory"] = 0.9 * limits["memory"]
         limits["memory"] = 1.1 * limits["memory"] + KUBERNETES_MEMORY_HARD_LIMIT_BUFFER
-        limits["memory"] *= 2 ** 20  # 2 ** 20 = mebibyte
-        requests["memory"] *= 2 ** 20
+        limits["memory"] *= 2**20  # 2 ** 20 = mebibyte
+        requests["memory"] *= 2**20
 
         resources = data.process.requirements.get("resources", {})
         network = "bridge"
@@ -596,6 +596,27 @@ class Connector(BaseConnector):
             processing_container_image, mapper
         )
 
+        affinity = {}
+        kubernetes_affinity = getattr(settings, "FLOW_KUBERNETES_AFFINITY", None)
+        if kubernetes_affinity:
+            affinity = {
+                "nodeAffinity": {
+                    "requiredDuringSchedulingIgnoredDuringExecution": {
+                        "nodeSelectorTerms": [
+                            {
+                                "matchExpressions": [
+                                    {
+                                        "key": "nodegroup",
+                                        "operator": "In",
+                                        "values": [kubernetes_affinity],
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }
+            }
+
         job_type = dict(Process.SCHEDULING_CLASS_CHOICES)[data.process.scheduling_class]
         job_description = {
             "apiVersion": "batch/v1",
@@ -620,6 +641,7 @@ class Connector(BaseConnector):
                         "annotations": annotations,
                     },
                     "spec": {
+                        "affinity": affinity,
                         "hostNetwork": use_host_network,
                         "volumes": self._volumes(data.id, location_subpath, core_api),
                         "initContainers": [
@@ -687,7 +709,7 @@ class Connector(BaseConnector):
                 storage_settings.FLOW_VOLUMES[processing_name]["config"]["name"],
                 data.id,
             )
-            claim_size = limits.pop("storage", 200) * (2 ** 30)  # Default 200 gibibytes
+            claim_size = limits.pop("storage", 200) * (2**30)  # Default 200 gibibytes
             core_api.create_namespaced_persistent_volume_claim(
                 body=self._persistent_volume_claim(
                     claim_name,

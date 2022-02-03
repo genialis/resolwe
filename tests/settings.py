@@ -107,6 +107,10 @@ LISTENER_CONNECTION = {
 # The setting is a dictionary where key is the name of the workload connector.
 COMMUNICATION_CONTAINER_LISTENER_CONNECTION = {"local": "172.17.0.1"}
 
+# Add affinity to Kubernetes jobs with key 'nodegroup' with the bellow value.
+FLOW_KUBERNETES_AFFINITY = os.environ.get("RESOLWE_KUBERNETES_AFFINITY", None)
+
+
 # Settings in OSX/Windows are different since Docker runs in a virtual machine.
 if sys.platform == "darwin":
     LISTENER_CONNECTION["hosts"]["local"] = "127.0.0.1"

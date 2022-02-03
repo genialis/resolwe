@@ -89,7 +89,7 @@ def retry(
                     time.sleep(sleep)
                     return func(*args, **kwargs)
                 except retry_exceptions as err:
-                    sleep = min(max_sleep, min_sleep * (2 ** retry))
+                    sleep = min(max_sleep, min_sleep * (2**retry))
                     last_error = err
             raise last_error
 
@@ -127,7 +127,7 @@ def async_retry(
                     await asyncio.sleep(sleep)
                     return await func(*args, **kwargs)
                 except retry_exceptions as err:
-                    sleep = min(max_sleep, min_sleep * (2 ** retry))
+                    sleep = min(max_sleep, min_sleep * (2**retry))
                     last_error = err
             raise last_error
 

@@ -75,7 +75,7 @@ def retry(
                     time.sleep(sleep)
                     return func(*args, **kwargs)
                 except retry_exceptions as err:
-                    sleep = min(max_sleep, min_sleep * (2 ** retry))
+                    sleep = min(max_sleep, min_sleep * (2**retry))
                     last_error = err
             raise last_error
 
@@ -414,7 +414,7 @@ class FlowExecutor(LocalFlowExecutor):
             "network_mode": f"container:{self.container_name}-communicator",
             "working_dir": os.fspath(self.processing_working_dir),
             "detach": True,
-            "cpu_quota": self.process["resource_limits"]["cores"] * (10 ** 6),
+            "cpu_quota": self.process["resource_limits"]["cores"] * (10**6),
             "mem_limit": f"{memory}m",
             "mem_reservation": f"{self.process['resource_limits']['memory']}m",
             "mem_swappiness": DOCKER_MEMORY_SWAPPINESS,
