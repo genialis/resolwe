@@ -36,6 +36,7 @@ Changed
 - Do not prepare tools configmaps in Kubernetes workload connector
 - Enable Docker containers to connect to the custom network
 - Auto-delete completed jobs in Kubernetes after 5 minutes
+- Optionally add affinity to the Kubernetes job
 
 
 ===================

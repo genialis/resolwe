@@ -596,6 +596,27 @@ class Connector(BaseConnector):
             processing_container_image, mapper
         )
 
+        affinity = {}
+        kubernetes_affinity = getattr(settings, "FLOW_KUBERNETES_AFFINITY", None)
+        if kubernetes_affinity:
+            affinity = {
+                "nodeAffinity": {
+                    "requiredDuringSchedulingIgnoredDuringExecution": {
+                        "nodeSelectorTerms": [
+                            {
+                                "matchExpressions": [
+                                    {
+                                        "key": "nodegroup",
+                                        "operator": "In",
+                                        "values": [kubernetes_affinity],
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }
+            }
+
         job_type = dict(Process.SCHEDULING_CLASS_CHOICES)[data.process.scheduling_class]
         job_description = {
             "apiVersion": "batch/v1",
@@ -620,6 +641,7 @@ class Connector(BaseConnector):
                         "annotations": annotations,
                     },
                     "spec": {
+                        "affinity": affinity,
                         "hostNetwork": use_host_network,
                         "volumes": self._volumes(data.id, location_subpath, core_api),
                         "initContainers": [
