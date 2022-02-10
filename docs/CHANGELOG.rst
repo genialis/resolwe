@@ -27,6 +27,11 @@ Changed
 - Auto-delete completed jobs in Kubernetes after 5 minutes
 - Optionally add affinity to the Kubernetes job
 
+==========
+
+Changed
+-------
+- **BACKWARD INCOMPATIBLE:** Bump Django requirement to version 3.2
 
 ===================
 29.2.0 - 2021-01-17
