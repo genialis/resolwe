@@ -53,6 +53,7 @@ class DataBrowseView(View):
             "type": "file",
             "mtime": self._get_mtime(referenced_path.file_storage.created),
             "size": referenced_path.size,
+            "md5": referenced_path.md5,
         }
         if referenced_path.path.endswith("/"):
             data.pop("size")
