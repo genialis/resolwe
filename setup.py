@@ -50,7 +50,6 @@ setuptools.setup(
         "Django~=3.2.12",
         "djangorestframework~=3.13.1",
         "django-filter~=21.1",
-        "django-guardian~=2.3.0",
         "django-versionfield~=1.0.2",
         "django-fernet-fields~=0.6",
         "django-priority-batch >=4.0a1, ==4.*",
