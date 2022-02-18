@@ -17,6 +17,7 @@ Added
 Changed
 -------
 - **BACKWARD INCOMPATIBLE:** Require ``Django`` 3.2
+- **BACKWARD INCOMPATIBLE:** Require ``Django Priority Batch`` version 4
 
 
 ===================
