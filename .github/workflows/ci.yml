@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        tox-env: [py36, py37, py38, py39, linters, packaging, migrations]
+        tox-env: [py36, py37, py38, py39, py310, linters, packaging, migrations]
         include:
           - tox-env: py36
             python-version: 3.6
@@ -27,12 +27,14 @@ jobs:
             python-version: 3.8
           - tox-env: py39
             python-version: 3.9
+          - tox-env: py310
+            python-version: "3.10"
           - tox-env: linters
-            python-version: 3.8
+            python-version: "3.10"
           - tox-env: packaging
-            python-version: 3.8
+            python-version: "3.10"
           - tox-env: migrations
-            python-version: 3.8
+            python-version: "3.10"
 
     services:
       postgres: 
@@ -76,7 +78,7 @@ jobs:
           RESOLWE_POSTGRESQL_PASS: resolwe
           RESOLWE_POSTGRESQL_PORT: ${{ job.services.postgres.ports[5432] }}
       - name: Upload coverage to Codecov
-        if: matrix.tox-env == 'py36' || matrix.tox-env == 'py37' || matrix.tox-env == 'py38' || matrix.tox-env == 'py39'
+        if: matrix.tox-env == 'py36' || matrix.tox-env == 'py37' || matrix.tox-env == 'py38' || matrix.tox-env == 'py39' || matrix.tox-env == 'py310'
         uses: codecov/codecov-action@v1
         with:
           file: .coverage

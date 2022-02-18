@@ -344,8 +344,13 @@ class ProcessingManager:
         self.exported_files_mapper = dict()  # type: Dict[str, str] # noqa: F821
         self.upload_socket = None
         self.update_logs_future = None
-        self._uploading_log_files_lock = asyncio.Lock(loop=loop)
-        self._send_file_descriptors_lock = asyncio.Lock(loop=loop)
+        # TODO: drop this when we stop supporting Python 3.6.
+        # This class has been implicitly getting the current running loop since 3.7.
+        lock_arguments = {}
+        if sys.version_info < (3, 7):
+            lock_arguments = {"loop": loop}
+        self._uploading_log_files_lock = asyncio.Lock(**lock_arguments)
+        self._send_file_descriptors_lock = asyncio.Lock(**lock_arguments)
         self.log_files_need_upload = False
         self.loop = loop
 

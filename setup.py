@@ -1,4 +1,5 @@
 import os.path
+
 import setuptools
 
 # Get the long description from README.
@@ -35,7 +36,7 @@ setuptools.setup(
             "toolkit/tools/**.py",
         ]
     },
-    python_requires=">=3.6, <3.10",
+    python_requires=">=3.6, <3.11",
     install_requires=[
         # XXX: Temporarily pin asgiref to 3.2.x since testing framework freezes
         # with version 3.3.x
@@ -117,6 +118,7 @@ setuptools.setup(
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
     ],
     keywords="resolwe dataflow django",
 )

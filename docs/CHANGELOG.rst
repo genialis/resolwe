@@ -6,6 +6,15 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Added
+-----
+- Add support for ``Python`` 3.10
+
+
 ===================
 29.3.0 - 2021-02-15
 ===================

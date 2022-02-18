@@ -119,10 +119,21 @@ async def _close_tasks(pending_tasks, timeout=5):
             await asyncio.gather(*pending_tasks)
 
 
+async def start():
+    """Start and stop all the services."""
+    try:
+        await _run_executor()
+    finally:
+        # TODO: remove asyncio.Task.all_tasks when we stop supporting Python 3.6.
+        all_tasks = getattr(asyncio, "all_tasks", None) or asyncio.Task.all_tasks
+        await _close_tasks(all_tasks())
+
+
 if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(_run_executor())
-    # TODO: remove asyncio.Task.all_tasks when we stop supporting Python 3.6.
-    all_tasks = getattr(asyncio, "all_tasks", None) or asyncio.Task.all_tasks
-    loop.run_until_complete(_close_tasks(all_tasks(loop=loop)))
-    loop.close()
+    # TODO: remove this condition when we stop supporting Python 3.6.
+    if sys.version_info < (3, 7):
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(start())
+        loop.close()
+    else:
+        asyncio.run(start())

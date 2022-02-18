@@ -1,5 +1,5 @@
 """Implementation of field projection."""
-from collections import Mapping, Sequence
+from collections.abc import Mapping, Sequence
 
 FIELD_SEPARATOR = ","
 FIELD_DEREFERENCE = "__"
