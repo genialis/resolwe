@@ -637,6 +637,11 @@ class BaseCommunicator:
                     "Communicator %s _receive_message: terminating flag is set, returning None",
                     self.name,
                 )
+        # Do not log cancelled errors.
+        except asyncio.exceptions.CancelledError:
+            self.logger.debug(
+                "Communicator %s: CancelledError in _receive_message.", self.name
+            )
         except:
             self.logger.exception(
                 "Communicator %s: exception in _receive_message.", self.name
