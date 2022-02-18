@@ -4,7 +4,7 @@ from importlib import import_module
 
 import jinja2
 from jinja2 import compiler
-from jinja2.utils import soft_unicode
+from markupsafe import soft_str
 
 from django.core.exceptions import ImproperlyConfigured
 
@@ -56,7 +56,7 @@ class Environment(jinja2.Environment):
     code_generator_class = SafeCodeGenerator
 
     # We usually don't output HTML so we ignore the markup class.
-    markup_class = soft_unicode
+    markup_class = soft_str
 
     def __init__(self, engine):
         """Construct custom environment."""
@@ -69,7 +69,7 @@ class Environment(jinja2.Environment):
 
     def escape(self, value):
         """Escape given value."""
-        value = soft_unicode(value)
+        value = soft_str(value)
 
         if self._engine._escape is None:
             return value
@@ -122,9 +122,9 @@ class ExpressionEngine(BaseExpressionEngine):
             except Exception:
                 return NestedUndefined()
 
-        # Copy over Jinja filter decoration attributes.
+        # Copy over Jinja filter decoration attributes and context.
         for attribute in dir(function):
-            if attribute.endswith("filter"):
+            if attribute.endswith("filter") or attribute == "jinja_pass_arg":
                 setattr(wrapper, attribute, getattr(function, attribute))
 
         return wrapper
