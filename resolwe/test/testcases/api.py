@@ -7,6 +7,7 @@
 
 """
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import TestCase as DjangoTestCase
 from django.urls import reverse
@@ -66,24 +67,27 @@ class TransactionResolweAPITestCase(TestCaseHelpers, APITransactionTestCase):
     def setUp(self):
         """Prepare data."""
         super().setUp()
-
+        User = get_user_model()
         # TODO: Remove this when removing fixtures
-        if get_user_model().objects.filter(pk=2).exists():
-            self.user1 = get_user_model().objects.get(pk=2)
-        if get_user_model().objects.filter(pk=3).exists():
-            self.user2 = get_user_model().objects.get(pk=3)
-        if get_user_model().objects.filter(pk=4).exists():
-            self.user3 = get_user_model().objects.get(pk=4)
-        if get_user_model().objects.filter(pk=5).exists():
-            self.admin = get_user_model().objects.get(pk=5)
+        if User.objects.filter(pk=2).exists():
+            self.user1 = User.objects.get(pk=2)
+        if User.objects.filter(pk=3).exists():
+            self.user2 = User.objects.get(pk=3)
+        if User.objects.filter(pk=4).exists():
+            self.user3 = User.objects.get(pk=4)
+        if User.objects.filter(pk=5).exists():
+            self.admin = User.objects.get(pk=5)
 
-        user_model = get_user_model()
         # TODO: Change username to `admin` when fixtures are removed
-        self.admin = user_model.objects.create_superuser(
+        self.admin = User.objects.create_superuser(
             username="admin2", email="admin@test.com", password="admin"
         )
-        self.contributor = user_model.objects.create_user(username="contributor")
-        self.user = user_model.objects.create_user(username="user")
+        self.contributor = User.objects.create_user(username="contributor")
+        self.user = User.objects.create_user(username="user")
+        # Create the anonymous user (if it does not exist).
+        # The user is created during migrations, but deleted between tests.
+        if not User.objects.filter(username=settings.ANONYMOUS_USER_NAME).exists():
+            User.objects.create_user(username=settings.ANONYMOUS_USER_NAME)
 
         if not hasattr(self, "viewset"):
             raise KeyError("`self.viewset` must be defined in child class")

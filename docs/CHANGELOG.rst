@@ -14,6 +14,10 @@ Added
 -----
 - Add support for ``Python`` 3.10
 
+Changed
+-------
+- **BACKWARD INCOMPATIBLE:** Require ``Django`` 3.2
+
 
 ===================
 29.3.0 - 2021-02-15

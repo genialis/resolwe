@@ -51,7 +51,7 @@ setuptools.setup(
         "crcmod",
         "kubernetes~=12.0.1",
         "docker~=4.4.4",
-        "Django~=3.1.7",
+        "Django~=3.2.12",
         "djangorestframework~=3.12.2",
         "django-filter~=2.4.0",
         "django-guardian~=2.3.0",
