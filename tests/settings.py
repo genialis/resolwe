@@ -58,6 +58,8 @@ AUTHENTICATION_BACKENDS = (
     "resolwe.permissions.permissions.ResolwePermissionBackend",
 )
 
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
 ANONYMOUS_USER_NAME = "public"
 
 # Get the current Tox testing environment
