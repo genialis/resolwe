@@ -5,5 +5,3 @@ Storage
 =======
 
 """
-
-default_app_config = "resolwe.storage.apps.StorageConfig"
