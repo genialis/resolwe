@@ -2,8 +2,6 @@
 import sys
 import unittest
 
-from django.conf import settings
-from django.contrib.auth import get_user_model
 from django.test import LiveServerTestCase
 
 import resolwe.permissions.models
@@ -62,11 +60,6 @@ re-save collection-list "$(curl --silent --show-error $RESOLWE_HOST_URL/api/coll
 
         # Force reading anonymous user from the database for every test.
         resolwe.permissions.models.ANONYMOUS_USER = None
-
-        # Create Anonymous user (if it does not exist).
-        User = get_user_model()
-        if not User.objects.filter(username=settings.ANONYMOUS_USER_NAME).exists():
-            User.objects.create_user(username=settings.ANONYMOUS_USER_NAME)
 
         self.collection = Collection.objects.create(
             name="Collection", contributor=self.admin
