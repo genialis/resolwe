@@ -444,5 +444,17 @@ class PermissionObject(models.Model):
             self.permission_group_id = container.permission_group_id
         elif self.permission_group is None:
             self.permission_group = PermissionGroup.objects.create()
+        # The instance was not yet commited to the database and permission
+        # group attribute has been set.
+        # Be careful: this can happen on rollback due to slug colision on base
+        # object. In this case the property is set to a permission group, which
+        # is not commited to the database due to slug colision.
+        # We have to create a new one.
+        elif self.pk is None:
+            try:
+                self.permission_group.refresh_from_db()
+            except PermissionGroup.DoesNotExist:
+                # Instance was not commited to the database.
+                self.permission_group = PermissionGroup.objects.create()
 
         super().save(*args, **kwargs)

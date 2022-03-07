@@ -6,6 +6,7 @@ import subprocess
 import sys
 import threading
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
 from pathlib import Path
 from time import sleep
@@ -16,6 +17,7 @@ import zmq.asyncio
 from asgiref.sync import async_to_sync
 
 from django.conf import settings
+from django.db import connection, transaction
 from django.test import override_settings
 
 from resolwe.flow.executors.prepare import BaseFlowExecutorPreparer
@@ -331,6 +333,42 @@ class ManagerRunProcessTest(ProcessTestCase):
     def test_run_in_docker(self):
         data = self.run_process("test-docker")
         self.assertEqual(data.output["result"], "OK")
+
+    @with_null_executor
+    def test_slug_colision(self):
+        """Test slug colision resolution.
+
+        Create multiple data objects in with threadpoolexecutor and observe
+        that the process completes successfully.
+
+        This checks for a bug in permission architecture that caused exception
+        due to missing permission_group when slug colision occured.
+        """
+        process = Process.objects.filter(slug="test-min").latest()
+
+        def create_data():
+            """Create and return the data object with name 'data'."""
+            result = Data.objects.create(
+                name="data", process=process, contributor=self.contributor
+            )
+            # Connection to the database must be closed explicitely in threads.
+            connection.close()
+            return result
+
+        # Create 'how_many' data objects with the same name. Since they are
+        # created in threads, the slug colision will occur (the slug is
+        # derived) from name property by default).
+        how_many = 2
+        with transaction.atomic():
+            with ThreadPoolExecutor(max_workers=how_many) as executor:
+                executor_results = [
+                    executor.submit(create_data) for _ in range(how_many)
+                ]
+
+        for executor_result in executor_results:
+            data = executor_result.result()
+            self.assertEqual(data.name, "data")
+            self.assertTrue(data.slug.startswith("data"))
 
     @with_docker_executor
     @disable_auto_calls()
