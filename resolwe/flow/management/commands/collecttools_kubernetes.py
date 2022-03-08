@@ -7,6 +7,7 @@ Collect Processes' tools and store them in configmap object in Kubernetes
 """
 import hashlib
 import json
+import logging
 from pathlib import Path
 from typing import Any, Dict
 
@@ -15,16 +16,19 @@ import kubernetes
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
-from resolwe.flow.executors.prepare import BaseFlowExecutorPreparer
 from resolwe.flow.managers.workload_connectors.kubernetes import (
     sanitize_kubernetes_label,
 )
+from resolwe.flow.utils import get_apps_tools
+from resolwe.utils import BraceMessage as __
 
 # Timeout (in seconds) to wait for response from kubernetes API.
 KUBERNETES_TIMEOUT = 30
 KUBERNETES_NAMESPACE = getattr(settings, "KUBERNETES_SETTINGS", {}).get(
     "namespace", "default"
 )
+
+logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
@@ -65,7 +69,7 @@ class Command(BaseCommand):
             data=content, metadata=meta, kind="ConfigMap"
         )
         try:
-            core_api.patch_namespaced_config_map(
+            core_api.replace_namespaced_config_map(
                 name=name, namespace=KUBERNETES_NAMESPACE, body=configmap
             )
         except kubernetes.client.rest.ApiException:
@@ -89,23 +93,21 @@ class Command(BaseCommand):
             }
 
         configmaps = dict()
-        preparer = BaseFlowExecutorPreparer()
-        tools_paths = preparer.get_tools_paths(from_applications=True)
-        for tool_path in tools_paths:
-            tool_path = Path(tool_path)
+        for app_name, tool_path in get_apps_tools().items():
+            logger.info(__("Processing '{}' from '{}'.", app_name, tool_path))
             data = dict_from_directory(tool_path)
             data_md5 = hashlib.md5(
                 json.dumps(data, sort_keys=True).encode()
             ).hexdigest()
-            configmap_name = sanitize_kubernetes_label(
-                f"tools-{tool_path.name}-{data_md5}"
-            )
+            configmap_name = sanitize_kubernetes_label(f"tools-{app_name}-{data_md5}")
+            logger.info(__("Assigned configmap name '{}'.", configmap_name))
             self.update_configmap(configmap_name, data, core_api)
-            configmaps[sanitize_kubernetes_label(tool_path.name)] = configmap_name
+            configmaps[sanitize_kubernetes_label(app_name)] = configmap_name
 
         description_configmap_name = getattr(
             settings, "KUBERNETES_TOOLS_CONFIGMAPS", "tools-configmaps"
         )
+        logger.info(__("Updating main configmap '{}'", description_configmap_name))
         self.update_configmap(description_configmap_name, configmaps, core_api)
 
     def handle(self, **options):
