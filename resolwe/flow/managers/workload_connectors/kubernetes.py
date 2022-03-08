@@ -23,8 +23,8 @@ from django.db.models import Sum
 from django.db.models.functions import Coalesce
 
 from resolwe.flow.executors import constants
-from resolwe.flow.executors.prepare import BaseFlowExecutorPreparer
 from resolwe.flow.models import Data, DataDependency, Process
+from resolwe.flow.utils import get_apps_tools
 from resolwe.storage import settings as storage_settings
 from resolwe.storage.connectors import connectors
 from resolwe.storage.connectors.baseconnector import BaseStorageConnector
@@ -420,7 +420,7 @@ class Connector(BaseConnector):
                 "readOnly": True,
             },
         ]
-        for tool_index in range(len(BaseFlowExecutorPreparer().get_tools_paths())):
+        for tool_index in range(len(get_apps_tools())):
             mount_points.append(
                 {
                     "name": f"tools-{tool_index}",
