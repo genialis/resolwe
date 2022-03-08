@@ -14,7 +14,6 @@ from .utils import (
     check_owner_permission,
     check_public_permissions,
     check_user_permissions,
-    translate_from_old_syntax,
     update_permission,
 )
 
@@ -99,15 +98,13 @@ class ResolwePermissionsMixin:
             obj.refresh_from_db()
 
         if request.method == "POST":
-            payload = translate_from_old_syntax(request.data, obj)
-            user = request.user
-            allow_owner = obj.is_owner(user) or user.is_superuser
-            check_owner_permission(payload, allow_owner, obj)
-            check_public_permissions(payload)
-            check_user_permissions(payload, request.user.pk)
+            allow_owner = obj.is_owner(request.user) or request.user.is_superuser
+            check_owner_permission(request.data, allow_owner, obj)
+            check_public_permissions(request.data)
+            check_user_permissions(request.data, request.user.pk)
 
             with transaction.atomic():
-                update_permission(obj, payload)
+                update_permission(obj, request.data)
                 owner_count = obj.permission_group.permissions.filter(
                     value=Permission.OWNER.value, user__isnull=False
                 ).count()

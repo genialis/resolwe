@@ -7,7 +7,7 @@ Permissions utils
 .. autofunction:: copy_permissions
 
 """
-from typing import List, Optional, Tuple, Union
+from typing import Optional, Tuple, Union
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser, Group, User
@@ -17,7 +17,6 @@ from rest_framework import exceptions
 
 from resolwe.permissions.models import (
     Permission,
-    PermissionList,
     PermissionModel,
     UserOrGroup,
     get_anonymous_user,
@@ -204,84 +203,6 @@ def check_user_permissions(payload: dict, user_pk: int):
     user_pks = payload.get("users", {}).keys()
     if user_pk in user_pks:
         raise exceptions.PermissionDenied("You cannot change your own permissions")
-
-
-def set_permission_compatible(
-    permission_names: List[str],
-    userorgroup: UserOrGroup,
-    operation: str,
-    obj: models.Model,
-) -> str:
-    """Compute which permission to set.
-
-    Given a list of permission names, operation ('add' or 'remove') and
-    user compute the permission that must be set to get the same result.
-
-    :raises RuntimeError: when operation is not 'add' or 'remove'.
-
-    :raises exception.ParseError: when permission name is not known.
-    """
-
-    def to_permissions(permission_names: List[str]) -> PermissionList:
-        """Return permission objects from permission names.
-
-        :raises ParseError: when permission name is not known.
-        """
-        permissions = []
-        for permission_name in permission_names:
-            try:
-                permissions.append(Permission.from_name(permission_name))
-            except KeyError:
-                raise exceptions.ParseError(f"Unknown permission: {permission_name}")
-        return permissions
-
-    permissions = to_permissions(permission_names)
-    if operation == "add":
-        return str(max(permissions))
-    elif operation == "remove":
-        current_permission = obj.get_permission(userorgroup)
-        min_permission = min(permissions)
-        permission_to_leave = max(
-            permission for permission in Permission if permission < min_permission
-        )
-        return str(min(current_permission, permission_to_leave))
-    else:
-        raise RuntimeError(f"Operation must be 'add' or 'remove', not '{operation}'.")
-
-
-def translate_from_old_syntax(data: dict, obj: models.Model) -> dict:
-    """Given user permission dictionary translate from old style to new.
-
-    Old:
-
-    {"add":     {user_pk1: [list1], user_pk2: [list2] ...}
-        "remove":  {user_pk3: [list3], user_pk4: [list5] ...}
-    }
-
-    New:
-        {user_pk1: perm1, user_pk2: perm2}.
-    """
-    anonymous_user = get_anonymous_user()
-    for entity_type in ["users", "groups"]:
-        fetch_entity = fetch_user if entity_type == "users" else fetch_group
-        entity_permissions = data.get(entity_type, {})
-        for operation in "add", "remove":
-            permission_dict = entity_permissions.pop(operation, {})
-            for usergroup, permission_names in permission_dict.items():
-                if usergroup in entity_permissions:
-                    raise RuntimeError(
-                        f"Multiple permission operation for same user or group '{usergroup}'."
-                    )
-                entity_permissions[usergroup] = set_permission_compatible(
-                    permission_names, fetch_entity(str(usergroup)), operation, obj
-                )
-    public_permissions = data.get("public", {})
-    for operation in "add", "remove":
-        if operation in public_permissions:
-            data["public"] = set_permission_compatible(
-                public_permissions[operation], anonymous_user, operation, obj
-            )
-    return data
 
 
 def update_permission(obj: models.Model, data):

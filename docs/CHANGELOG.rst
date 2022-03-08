@@ -29,6 +29,7 @@ Changed
 - Enable Docker containers to connect to the custom network
 - Auto-delete completed jobs in Kubernetes after 5 minutes
 - Optionally add affinity to the Kubernetes job
+- Remove support for setting permissions using old syntax
 
 
 ===================
