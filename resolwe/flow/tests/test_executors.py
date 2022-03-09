@@ -6,18 +6,18 @@ import subprocess
 import sys
 import threading
 import unittest
-from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
 from pathlib import Path
 from time import sleep
 from unittest import mock
+from unittest.mock import patch
 
 import zmq
 import zmq.asyncio
 from asgiref.sync import async_to_sync
 
 from django.conf import settings
-from django.db import connection, transaction
+from django.db import IntegrityError
 from django.test import override_settings
 
 from resolwe.flow.executors.prepare import BaseFlowExecutorPreparer
@@ -25,8 +25,10 @@ from resolwe.flow.executors.socket_utils import Message
 from resolwe.flow.executors.startup_processing_container import ProcessingManager
 from resolwe.flow.executors.zeromq_utils import ZMQCommunicator
 from resolwe.flow.managers import manager
+from resolwe.flow.managers.dispatcher import Manager
 from resolwe.flow.managers.utils import disable_auto_calls
 from resolwe.flow.models import Data, DataDependency, Process, Worker
+from resolwe.flow.models.fields import ResolweSlugField
 from resolwe.storage import settings as storage_settings
 from resolwe.test import (
     ProcessTestCase,
@@ -334,41 +336,45 @@ class ManagerRunProcessTest(ProcessTestCase):
         data = self.run_process("test-docker")
         self.assertEqual(data.output["result"], "OK")
 
-    @with_null_executor
-    def test_slug_colision(self):
+    @patch.object(Manager, "communicate")
+    def test_slug_colision(self, communicate_mock):
         """Test slug colision resolution.
 
-        Create multiple data objects in with threadpoolexecutor and observe
-        that the process completes successfully.
+        Use mocking to force slug colision.
 
         This checks for a bug in permission architecture that caused exception
         due to missing permission_group when slug colision occured.
         """
-        process = Process.objects.filter(slug="test-min").latest()
 
-        def create_data():
-            """Create and return the data object with name 'data'."""
-            result = Data.objects.create(
-                name="data", process=process, contributor=self.contributor
-            )
-            # Connection to the database must be closed explicitely in threads.
-            connection.close()
-            return result
+        async def dummy_coroutine(*args, **kwargs):
+            """Dummy coroutine."""
+            pass
 
-        # Create 'how_many' data objects with the same name. Since they are
-        # created in threads, the slug colision will occur (the slug is
-        # derived) from name property by default).
-        how_many = 2
-        with transaction.atomic():
-            with ThreadPoolExecutor(max_workers=how_many) as executor:
-                executor_results = [
-                    executor.submit(create_data) for _ in range(how_many)
-                ]
+        def pre_save(instance, add):
+            """Set the current slug or raise exception."""
+            current_slug = slugs.pop(0)
 
-        for executor_result in executor_results:
-            data = executor_result.result()
-            self.assertEqual(data.name, "data")
-            self.assertTrue(data.slug.startswith("data"))
+            if isinstance(current_slug, Exception):
+                raise current_slug
+
+            instance.slug = current_slug
+            return current_slug
+
+        expected_slug = "my_data_slug"
+        slugs = [IntegrityError("flow_data_slug"), expected_slug]
+        process = Process.objects.create(contributor=self.contributor)
+
+        # INFO: Remove this line and the coroutine above after we stop
+        # supporting Python <= 3.8. Starting with Python 3.8 Mock objects can
+        # be awaited.
+        communicate_mock.side_effect = dummy_coroutine
+
+        with patch.object(ResolweSlugField, "pre_save", side_effect=pre_save):
+            data = Data.objects.create(process=process, contributor=self.contributor)
+        data.refresh_from_db()
+        self.assertEqual(data.slug, expected_slug)
+        self.assertTrue(data.pk is not None)
+        self.assertTrue(data.permission_group is not None)
 
     @with_docker_executor
     @disable_auto_calls()
