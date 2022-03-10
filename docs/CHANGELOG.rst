@@ -13,16 +13,6 @@ Unreleased
 Added
 -----
 - Add support for ``Python`` 3.10
-
-Changed
--------
-- **BACKWARD INCOMPATIBLE:** Require ``Django`` 3.2
-- **BACKWARD INCOMPATIBLE:** Require ``Django Priority Batch`` version 4
-
-===========
-
-Added
------
 - Add health checks support for deploy in Kubernetes
 - Add ``collecttools_kubernetes`` management command
 - Add ``COMMUNICATION_CONTAINER_LISTENER_CONNECTION`` to separate settings for
@@ -33,6 +23,8 @@ Added
 
 Changed
 -------
+- **BACKWARD INCOMPATIBLE:** Require ``Django`` 3.2
+- **BACKWARD INCOMPATIBLE:** Require ``Django Priority Batch`` version 4
 - Do not prepare tools configmaps in Kubernetes workload connector
 - Enable Docker containers to connect to the custom network
 - Auto-delete completed jobs in Kubernetes after 5 minutes
