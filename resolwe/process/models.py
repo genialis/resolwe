@@ -57,7 +57,6 @@ class ModelField(Field):
 
 
 FIELDS_MAP = {
-    "BigAutoField": IntegerField,
     "AutoField": IntegerField,
     "VersionField": StringField,
     "CharField": StringField,

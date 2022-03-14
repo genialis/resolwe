@@ -58,7 +58,7 @@ AUTHENTICATION_BACKENDS = (
     "resolwe.permissions.permissions.ResolwePermissionBackend",
 )
 
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
 
 ANONYMOUS_USER_NAME = "public"
 
