@@ -47,6 +47,7 @@ class ProcessDescriptor:
         data_name = None
         entity = None
         lineno = None
+        abstract = False
 
         def __repr__(self):
             """Return string representation."""

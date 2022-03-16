@@ -1,6 +1,7 @@
 """Process runtime."""
 import logging
 import sys
+from collections import ChainMap
 from pathlib import Path
 from typing import Dict, List, Union
 
@@ -62,29 +63,57 @@ class ProcessMeta(type):
         if "_abstract" in namespace:
             return type.__new__(mcs, name, bases, namespace)
 
+        parent_descriptors = []
+        if "abstract" not in namespace:
+            parent_descriptors = [
+                parent_class._meta
+                for parent_class in bases
+                if hasattr(parent_class, "_meta")
+            ]
+        parents_metadata = ChainMap(
+            *[descriptor.metadata.__dict__ for descriptor in parent_descriptors]
+        )
+
         # Generate a runtime version of the process descriptor.
         meta = ProcessDescriptor()
         for meta_name in dir(meta.metadata):
             if meta_name.startswith("_"):
                 continue
+            # Try to set a value: if one is not given, try to read it from the parents metadata.
+            setattr(
+                meta.metadata,
+                meta_name,
+                namespace.pop(meta_name, parents_metadata.get(meta_name)),
+            )
 
-            setattr(meta.metadata, meta_name, namespace.pop(meta_name, None))
+        parents_input_output = ChainMap(
+            *[
+                {
+                    PROCESS_INPUTS_NAME: descriptor.inputs,
+                    PROCESS_OUTPUTS_NAME: descriptor.outputs,
+                }
+                for descriptor in parent_descriptors
+                if descriptor.inputs
+            ]
+        )
 
         for nsp, fields in (
             (PROCESS_INPUTS_NAME, meta.inputs),
             (PROCESS_OUTPUTS_NAME, meta.outputs),
         ):
-            inputs = namespace.pop(nsp, {})
-            for field_name in dir(inputs):
+            inputs_outputs = namespace.pop(nsp, parents_input_output.get(nsp, {}))
+            for field_name in dir(inputs_outputs):
                 if field_name.startswith("_"):
                     continue
 
-                field = getattr(inputs, field_name)
+                field = getattr(inputs_outputs, field_name)
                 if not isinstance(field, Field):
                     continue
                 field.contribute_to_class(meta, fields, field_name)
 
-        meta.validate()
+        # Do not validate abstract classes as they may not be complete.
+        if not meta.metadata.abstract:
+            meta.validate()
 
         result = type.__new__(mcs, name, bases, namespace)
         result._meta = meta

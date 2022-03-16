@@ -128,6 +128,22 @@ class PythonProcessTest(ProcessTestCase):
         self.assertEqual(dsc["general"]["description"], "desc")
 
     @with_docker_executor
+    @tag_process("test-python-process-inheritance")
+    def test_process_inheritance(self):
+        """Test Python process can inherit from one another.
+
+        Also test that:
+        - input/output are inherited parent and overriden if specified.
+        - metadata are taken from the parent and overriden if specified.
+        """
+        process = Process.objects.get(slug="test-python-process-inheritance")
+        self.assertEqual(process.version, "1.2.4")
+        self.assertEqual(process.requirements, {"expression-engine": "jinja"})
+
+        data = self.run_process("test-python-process-inheritance", {"num": 10})
+        self.assertEqual(data.output["children_out"], 10)
+
+    @with_docker_executor
     @tag_process("test-python-process", "test-save-file", "entity-process")
     def test_python_process(self):
         with self.preparation_stage():

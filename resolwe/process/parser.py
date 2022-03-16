@@ -2,6 +2,7 @@
 import ast
 import collections
 import json
+from copy import deepcopy
 from inspect import isclass
 
 import asteval
@@ -29,6 +30,19 @@ class StaticStringMetadata(StaticMetadata):
             raise TypeError("must be a string literal")
 
         return node.s
+
+
+class StaticBooleanMetadata(StaticMetadata):
+    """Boolean metadata item."""
+
+    def get_value(self, node):
+        """Convert value from an AST node."""
+        if not isinstance(node, (ast.NameConstant, ast.Constant)):
+            raise TypeError("must be a constant boolean literal")
+        value = getattr(node, "s", node.value)
+        if not isinstance(value, bool):
+            raise TypeError("must be a constant boolean literal")
+        return value
 
 
 class StaticEnumMetadata(StaticMetadata):
@@ -87,6 +101,7 @@ PROCESS_METADATA = {
     "requirements": StaticDictMetadata(),
     "data_name": StaticStringMetadata(),
     "entity": StaticDictMetadata(),
+    "abstract": StaticBooleanMetadata(),
 }
 
 
@@ -111,6 +126,11 @@ class ProcessVisitor(ast.NodeVisitor):
         self.source = source
         self.processes = []
         self.base_classes = set()
+        # The defined classes list is a list of all processes defined in the
+        # given file we have seen so far.
+        # This allows us to define processes that inherit from other processes
+        # defined it the same file.
+        self.defined_clases = dict()
 
         super().__init__()
 
@@ -164,28 +184,49 @@ class ProcessVisitor(ast.NodeVisitor):
     def visit_ClassDef(self, node):
         """Visit top-level classes."""
         # Resolve everything as root scope contains everything from the process module.
+        # Iterate through all base classes for the given class and determine
+        # if it represents the Python process. It represents the process if:
+        # * it is derived from one of registered Python runtime classes or
+        # * it is derived from one of the processes defined previously in the
+        #   same file.
         for base in node.bases:
+            base_name = ""
             # Cover `from resolwe.process import ...`.
             if isinstance(base, ast.Name) and isinstance(base.ctx, ast.Load):
+                base_name = base.id
                 base = python_runtimes_manager.registered_class(base.id)
                 if base is not None:
                     self.base_classes.add(base.__name__)
 
             # Cover `from resolwe import process`.
             elif isinstance(base, ast.Attribute) and isinstance(base.ctx, ast.Load):
+                base_name = base.attr
                 base = python_runtimes_manager.registered_class(base.attr)
                 if base is not None:
                     self.base_classes.add(base.__name__)
             else:
                 continue
 
-            if isclass(base) and issubclass(base, runtime.Process):
+            if (isclass(base) and issubclass(base, runtime.Process)) or (
+                base_name in self.defined_clases
+            ):
                 break
         else:
             return
 
         descriptor = ProcessDescriptor(source=self.source)
+        parent_descriptor = self.defined_clases.get(base_name)
+        if parent_descriptor is not None:
+            # Copy from parent.
+            descriptor.metadata.__dict__ = deepcopy(parent_descriptor.metadata.__dict__)
+            descriptor.metadata.abstract = False
+            descriptor.inputs = deepcopy(parent_descriptor.inputs)
+            descriptor.outputs = deepcopy(parent_descriptor.outputs)
+            descriptor.relations = deepcopy(parent_descriptor.relations)
+            descriptor.parent_process = parent_descriptor.parent_process
+
         descriptor.metadata.lineno = node.lineno
+        descriptor.metadata.description = None
 
         # Available embedded classes.
         embedded_class_fields = {
@@ -217,13 +258,21 @@ class ProcessVisitor(ast.NodeVisitor):
                 isinstance(item, ast.ClassDef)
                 and item.name in embedded_class_fields.keys()
             ):
-                # Possible input/output declaration.
+                # Possible input/output declaration. Remove input/output set
+                # from the parents classes (if any).
+                embedded_class_fields[item.name].clear()
                 self.visit_field_class(
                     item, descriptor, embedded_class_fields[item.name]
                 )
 
-        descriptor.validate()
-        self.processes.append(descriptor)
+        # Store descriptor for later use.
+        self.defined_clases[node.name] = descriptor
+
+        # Do not validate and return abstract processes, parts of them may be
+        # missing.
+        if not descriptor.metadata.abstract:
+            descriptor.validate()
+            self.processes.append(descriptor)
 
 
 class SafeParser:
@@ -251,6 +300,9 @@ class SafeParser:
 
         :return: A list of the base classes for the processes.
         """
+
+        print(self._source)
+
         root = ast.parse(self._source)
         visitor = ProcessVisitor(source=self._source)
         visitor.visit(root)

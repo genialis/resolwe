@@ -329,6 +329,42 @@ class ProcessWithWorkflowInput(Process):
         pass
 
 
+class BaseAbstractClass(Process):
+    version = "1.2.3"
+    requirements = {"expression-engine": "jinja"}
+    process_type = "data:basic"
+    abstract = True
+
+    class Input:
+        """Input fields."""
+
+        num = IntegerField(label="Number")
+
+    class Output:
+        """Output fields."""
+
+        parent_out = IntegerField(label="Number")
+
+    def run(self, inputs, outputs):
+        outputs.parent_out = inputs.num
+
+
+class InheritedProcess(BaseAbstractClass):
+    "Test simple process inheritance."
+
+    version = "1.2.4"
+    slug = "test-python-process-inheritance"
+    name = "Inheritance test"
+
+    class Output:
+        """Output fields."""
+
+        children_out = IntegerField(label="Number")
+
+    def run(self, inputs, outputs):
+        outputs.children_out = inputs.num
+
+
 class ProcessWithChoicesInput(Process):
     slug = "process-with-choices-input"
     name = "Process with choices input"
