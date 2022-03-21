@@ -8,7 +8,7 @@ from inspect import isclass
 import asteval
 
 from . import runtime
-from .descriptor import Persistence, ProcessDescriptor, SchedulingClass
+from .descriptor import Persistence, ProcessDescriptor, SchedulingClass, ValidationError
 from .fields import get_available_fields
 from .runtimes import python_runtimes_manager
 
@@ -189,6 +189,7 @@ class ProcessVisitor(ast.NodeVisitor):
         # * it is derived from one of registered Python runtime classes or
         # * it is derived from one of the processes defined previously in the
         #   same file.
+        derived_class = False  # Class is extended from non-base Process class.
         for base in node.bases:
             base_name = ""
             # Cover `from resolwe.process import ...`.
@@ -207,9 +208,11 @@ class ProcessVisitor(ast.NodeVisitor):
             else:
                 continue
 
-            if (isclass(base) and issubclass(base, runtime.Process)) or (
-                base_name in self.defined_clases
-            ):
+            if isclass(base) and issubclass(base, runtime.Process):
+                break
+
+            if base_name in self.defined_clases:
+                derived_class = True
                 break
         else:
             return
@@ -234,6 +237,8 @@ class ProcessVisitor(ast.NodeVisitor):
             runtime.PROCESS_OUTPUTS_NAME: descriptor.outputs,
         }
 
+        # The set of explicitely defined metadata attributes in the process.
+        defined_metadata_attributes = set()
         # Parse metadata in class body.
         for item in node.body:
             if isinstance(item, ast.Assign):
@@ -245,8 +250,13 @@ class ProcessVisitor(ast.NodeVisitor):
                     and item.targets[0].id in PROCESS_METADATA
                 ):
                     # Try to get the metadata value.
-                    value = PROCESS_METADATA[item.targets[0].id].get_value(item.value)
-                    setattr(descriptor.metadata, item.targets[0].id, value)
+                    metadata_attribute_name = item.targets[0].id
+                    value = PROCESS_METADATA[metadata_attribute_name].get_value(
+                        item.value
+                    )
+                    setattr(descriptor.metadata, metadata_attribute_name, value)
+                    defined_metadata_attributes.add(metadata_attribute_name)
+
             elif (
                 isinstance(item, ast.Expr)
                 and isinstance(item.value, ast.Str)
@@ -265,14 +275,25 @@ class ProcessVisitor(ast.NodeVisitor):
                     item, descriptor, embedded_class_fields[item.name]
                 )
 
-        # Store descriptor for later use.
-        self.defined_clases[node.name] = descriptor
+        # The abstract class must have the version attribute defined.
+        if descriptor.metadata.abstract and descriptor.metadata.version is None:
+            raise ValidationError(
+                f"Abstract process '{node.name}' is missing version attribute."
+            )
+        # Derived class must have no version attribute defined.
+        elif derived_class and "version" in defined_metadata_attributes:
+            raise ValidationError(
+                f"Derived class '{node.name}' must not define the version attribute."
+            )
 
         # Do not validate and return abstract processes, parts of them may be
         # missing.
         if not descriptor.metadata.abstract:
             descriptor.validate()
             self.processes.append(descriptor)
+
+        # Store descriptor for later use.
+        self.defined_clases[node.name] = descriptor
 
 
 class SafeParser:

@@ -11,6 +11,7 @@ from django.test import override_settings
 
 from resolwe.flow.models import Data, Process
 from resolwe.permissions.models import Permission
+from resolwe.process.descriptor import ValidationError
 from resolwe.test import ProcessTestCase, TestCase
 
 PROCESSES_DIR = os.path.join(os.path.dirname(__file__), "processes")
@@ -146,6 +147,33 @@ class ProcessRegisterTest(TestCase):
         self.assertEqual(Process.objects.filter(is_active=True)[0].version, "2.0.0")
         # The process with associated data is inactive
         self.assertEqual(Process.objects.filter(is_active=False).count(), 1)
+
+    def test_abstract_must_have_version(self):
+        """Abstract process class must have version defined."""
+
+        with self.settings(
+            FLOW_PROCESSES_DIRS=[os.path.join(PROCESSES_DIR, "abstract_version")]
+        ):
+            with self.assertRaisesRegex(
+                ValidationError,
+                "Abstract process 'BaseAbstractClassNoVersion' is missing "
+                "version attribute.",
+            ):
+                call_command("register")
+
+    def test_derived_class_must_not_have_version(self):
+        """Derived process class must not have version defined."""
+        out, err = StringIO(), StringIO()
+
+        with self.settings(
+            FLOW_PROCESSES_DIRS=[os.path.join(PROCESSES_DIR, "derived_no_version")]
+        ):
+            with self.assertRaisesRegex(
+                ValidationError,
+                "Derived class 'InheritedProcess' must not define the version "
+                "attribute.",
+            ):
+                call_command("register", stdout=out, stderr=err)
 
 
 @override_settings(

@@ -350,9 +350,8 @@ class BaseAbstractClass(Process):
 
 
 class InheritedProcess(BaseAbstractClass):
-    "Test simple process inheritance."
+    """Test simple process inheritance."""
 
-    version = "1.2.4"
     slug = "test-python-process-inheritance"
     name = "Inheritance test"
 

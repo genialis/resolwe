@@ -17,6 +17,7 @@ from resolwe.flow.models import (
     Storage,
 )
 from resolwe.permissions.models import Permission
+from resolwe.process.descriptor import ValidationError
 from resolwe.test import (
     ProcessTestCase,
     tag_process,
@@ -137,7 +138,7 @@ class PythonProcessTest(ProcessTestCase):
         - metadata are taken from the parent and overriden if specified.
         """
         process = Process.objects.get(slug="test-python-process-inheritance")
-        self.assertEqual(process.version, "1.2.4")
+        self.assertEqual(process.version, "1.2.3")
         self.assertEqual(process.requirements, {"expression-engine": "jinja"})
 
         data = self.run_process("test-python-process-inheritance", {"num": 10})
