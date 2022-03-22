@@ -56,7 +56,7 @@ def manager_post_save_handler(sender, instance: Data, created: bool, **kwargs):
 # NOTE: m2m_changed signal cannot be used because of a bug:
 # https://code.djangoproject.com/ticket/17688
 @receiver(post_delete, sender=RelationPartition)
-def delete_relation(sender, instance, **kwargs):
+def delete_relation(sender, instance: RelationPartition, **kwargs):
     """Delete the Relation object when the last Entity is removed."""
 
     def process_signal(relation_id):
