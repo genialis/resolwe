@@ -78,7 +78,6 @@ async def exit_consumer():
         "type": "_resolwe_manager_quit",
     }
     await get_channel_layer().send(state.MANAGER_CONTROL_CHANNEL, packet)
-    await get_channel_layer().send(state.LISTENER_CONTROL_CHANNEL, packet)
 
 
 class ManagerConsumer(AsyncConsumer):
