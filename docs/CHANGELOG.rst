@@ -6,6 +6,16 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Added
+-----
+- Custom signal ``resolwe.flow.signals.before_processing`` is sent when data
+  object is ready for processing
+
+
 ===================
 30.0.0 - 2022-03-14
 ===================
