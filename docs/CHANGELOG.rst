@@ -14,6 +14,8 @@ Added
 -----
 - Custom signal ``resolwe.flow.signals.before_processing`` is sent when data
   object is ready for processing
+- Support setting ``descriptor`` and ``DescriptorSchema`` on Data during
+  process runtime
 
 
 ===================

@@ -496,6 +496,29 @@ class User(Model):
     _model_name = "User"
 
 
+class DescriptorSchema(Model):
+    """User model."""
+
+    _app_name = "flow"
+    _model_name = "DescriptorSchema"
+
+    @classmethod
+    def get_latest(cls, slug: str) -> "Model":
+        """Get a latest version of the DescriptorSchema with the given slug.
+
+        :raises RuntimeError: when no object can be retrieved.
+        """
+        pks = communicator.filter_objects(
+            cls._app_name, cls._model_name, {"slug": slug}, ["-version"], ["id"]
+        )
+        if len(pks) == 0:
+            raise RuntimeError(
+                "No objects match the given criteria or no permission to read object."
+            )
+        else:
+            return cls(pks[0][0])
+
+
 class Collection(Model):
     """Collection model."""
 

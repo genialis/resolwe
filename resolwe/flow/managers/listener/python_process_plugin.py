@@ -17,7 +17,14 @@ from django.db.models import ForeignKey, JSONField, ManyToManyField, Model, Quer
 
 from resolwe.flow.executors import constants
 from resolwe.flow.executors.socket_utils import Message, Response
-from resolwe.flow.models import Collection, Data, Entity, Process, Storage
+from resolwe.flow.models import (
+    Collection,
+    Data,
+    DescriptorSchema,
+    Entity,
+    Process,
+    Storage,
+)
 from resolwe.flow.models.utils import serialize_collection_relations
 from resolwe.flow.utils import dict_dot
 from resolwe.permissions.models import Permission
@@ -234,6 +241,8 @@ class ExposeData(ExposeObjectPlugin):
             "collection_id",
             "collection",
             "name",
+            "descriptor_schema_id",
+            "descriptor_schema",
             "descriptor",
         }
         not_allowed_keys = set(model_data.keys()) - allowed_fields
@@ -250,6 +259,11 @@ class ExposeData(ExposeObjectPlugin):
         if "collection_id" in model_data:
             # Check collection permissions.
             self._has_permission(user, Collection, model_data["collection_id"], "edit")
+        if "descriptor_schema_id" in model_data:
+            # Check DescriptorSchema permissions.
+            self._has_permission(
+                user, DescriptorSchema, model_data["descriptor_schema_id"], "view"
+            )
 
     def filter_objects(
         self, user: UserClass, queryset: QuerySet, data: Data
@@ -257,6 +271,12 @@ class ExposeData(ExposeObjectPlugin):
         """Filter the objects for the given user."""
         inputs = queryset.filter(id__in=data.parents.all())
         return queryset.filter_for_user(user).distinct().union(inputs)
+
+
+class ExposeDescriptorSchema(ExposeObjectPlugin):
+    """Expose the DescriptorSchema model."""
+
+    full_model_name = "flow.DescriptorSchema"
 
 
 class ExposeUser(ExposeObjectPlugin):
