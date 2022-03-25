@@ -108,7 +108,7 @@ class ResolwePermissions(permissions.DjangoObjectPermissions):
             return False
 
         # `share` permission is required for editing permissions
-        if "permissions" in view.action:
+        if view.action is not None and "permissions" in view.action:
             self.perms_map["POST"] = [Permission.SHARE]
 
         if hasattr(view, "get_queryset"):
