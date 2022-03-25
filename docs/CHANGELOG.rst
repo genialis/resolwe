@@ -14,6 +14,7 @@ Added
 -----
 - Send custom signal ``post_duplicate`` when objects are duplicated since
   regular Django signals are not sent
+- Add ``auditlog`` application to log user actions
 
 
 ===================
