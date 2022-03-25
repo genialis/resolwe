@@ -9,6 +9,7 @@ from typing import Iterable, List, Optional, Union
 from django.db import models
 from django.utils.timezone import now
 
+from resolwe.auditlog.models import AuditModel
 from resolwe.flow.models import Data
 from resolwe.storage.connectors import DEFAULT_CONNECTOR_PRIORITY, connectors
 from resolwe.storage.connectors.baseconnector import BaseStorageConnector
@@ -19,7 +20,7 @@ from resolwe.storage.settings import STORAGE_CONNECTORS
 logger = logging.getLogger(__name__)
 
 
-class FileStorage(models.Model):
+class FileStorage(AuditModel):
     """Proxy between Data object and StorageLocation objects."""
 
     #: creation date and time
@@ -315,7 +316,7 @@ class AllLocationsManager(models.Manager):
         )
 
 
-class StorageLocation(models.Model):
+class StorageLocation(AuditModel):
     """Stores path to where the actual data is stored."""
 
     # Access all objects through all_objects storage manager.
@@ -527,7 +528,7 @@ class StorageLocation(models.Model):
         return all(future.result() for future in futures)
 
 
-class AccessLog(models.Model):
+class AccessLog(AuditModel):
     """Class that holds access log to storage locations."""
 
     #: when accessing storage location data started
@@ -550,7 +551,7 @@ class AccessLog(models.Model):
     )
 
 
-class ReferencedPath(models.Model):
+class ReferencedPath(AuditModel):
     """Stores reference to a single object (file or directory).
 
     All references are relative according to the subpath stored in the

@@ -4,6 +4,8 @@ from versionfield import VersionField
 from django.conf import settings
 from django.db import IntegrityError, models, transaction
 
+from resolwe.auditlog.models import AuditModel
+
 from .fields import ResolweSlugField
 
 VERSION_NUMBER_BITS = (8, 10, 14)
@@ -51,7 +53,7 @@ class BaseQuerySet(models.QuerySet):
         return delete_chunked(self, chunk_size=chunk_size)
 
 
-class BaseModel(models.Model):
+class BaseModel(AuditModel):
     """Abstract model that includes common fields for other models."""
 
     class Meta:
