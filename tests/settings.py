@@ -27,6 +27,7 @@ INSTALLED_APPS = (
     "channels",
     # 'kombu.transport.django',  # required for Celery to work with Django DB.
     "rest_framework",
+    "django_filters",
     "versionfield",
     "resolwe",
     "resolwe.permissions",
