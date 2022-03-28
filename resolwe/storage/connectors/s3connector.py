@@ -6,6 +6,7 @@ import os
 import threading
 import uuid
 from pathlib import Path
+from typing import Dict, Optional
 
 import boto3
 import botocore
@@ -121,7 +122,13 @@ class AwsS3Connector(BaseStorageConnector):
 
     def __getattr__(self, name):
         """Lazy initialize some attributes."""
-        requires_initialization = ["client", "awss3", "sts", "session"]
+        requires_initialization = [
+            "client",
+            "awss3",
+            "sts",
+            "session",
+            "original_session",
+        ]
         if name not in requires_initialization:
             raise AttributeError()
         with self._init_lock:
@@ -364,3 +371,60 @@ class AwsS3Connector(BaseStorageConnector):
 
         # The response contains the presigned URL
         return response
+
+    def temporary_credentials(
+        self, prefix: str, duration: int = 900, role_arn: Optional[str] = None, **kwargs
+    ) -> Dict:
+        """Get the temporary credentials for role_arn.
+
+        The credentials are further limited to access only objects which names
+        start with '/prefix/'.
+
+        :attr role_arn: arn of the role to assume. If none is given it is taken
+            from connector settings.
+
+        :attr prefix: the string representing prefix.
+
+        :attr duration: the duration of the credentials in seconds (defaults to 60).
+
+        :raises KeyError: when no role_arn is gives as argument or connector
+            setting.
+
+        :returns: the dictionary with credentials, see
+        https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sts.html#STS.Client.assume_role
+        for detailed description.
+        """
+        # Policy to add access only to the objects named '/prefix/*'.
+        policy = {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Sid": "AllowAllS3ActionsInUserFolder",
+                    "Effect": "Allow",
+                    "Action": [
+                        "s3:PutObject",
+                        "s3:AbortMultipartUpload",
+                        "s3:GetObject",
+                    ],
+                    "Resource": [f"arn:aws:s3:::{self.bucket_name}/{prefix}/*"],
+                },
+                {
+                    "Sid": "AllowUserKMSUsage",
+                    "Effect": "Allow",
+                    "Action": ["kms:GenerateDataKey", "kms:Decrypt"],
+                    "Resource": ["*"],
+                },
+            ],
+        }
+        aws_response = self.original_session.client("sts").assume_role(
+            RoleArn=role_arn or self.config["role_arn"],
+            RoleSessionName="upload-" + prefix,
+            DurationSeconds=duration,
+            Policy=json.dumps(policy),
+        )
+        return {
+            "credentials": aws_response["Credentials"],
+            "bucket_name": self.bucket_name,
+            "region": self.config.get("region_name"),
+            "prefix": prefix,
+        }

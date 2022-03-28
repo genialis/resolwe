@@ -328,3 +328,10 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
     def __repr__(self):
         """Get string representation."""
         return self.__str__()
+
+    def temporary_credentials(self, prefix: str, duration: int = 900, **kwargs) -> Dict:
+        """Get the temporary credentials.
+
+        The default implementation returns empty dictionary.
+        """
+        return {}
