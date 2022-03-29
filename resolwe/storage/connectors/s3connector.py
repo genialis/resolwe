@@ -11,7 +11,12 @@ from typing import Dict, Optional
 import boto3
 import botocore
 
-from .baseconnector import BaseStorageConnector, validate_url, validate_urls
+from .baseconnector import (
+    BaseStorageConnector,
+    ConnectorType,
+    validate_url,
+    validate_urls,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +25,7 @@ class AwsS3Connector(BaseStorageConnector):
     """Amazon S3 storage connector."""
 
     REQUIRED_SETTINGS = ["bucket"]
+    CONNECTOR_TYPE = ConnectorType.S3
 
     def __init__(self, config: dict, name: str):
         """Connector initialization."""

@@ -3,7 +3,12 @@ import os
 import shutil
 from pathlib import Path
 
-from .baseconnector import BaseStorageConnector, validate_url, validate_urls
+from .baseconnector import (
+    BaseStorageConnector,
+    ConnectorType,
+    validate_url,
+    validate_urls,
+)
 from .hasher import StreamHasher
 
 
@@ -12,6 +17,7 @@ class LocalFilesystemConnector(BaseStorageConnector):
 
     #: Read files by chunks of the given size
     REQUIRED_SETTINGS = ["path"]
+    CONNECTOR_TYPE = ConnectorType.S3
 
     def __init__(self, config: dict, name: str):
         """Connector initialization."""

@@ -9,13 +9,19 @@ from pathlib import Path
 from google.api_core.exceptions import NotFound
 from google.cloud import storage
 
-from .baseconnector import BaseStorageConnector, validate_url, validate_urls
+from .baseconnector import (
+    BaseStorageConnector,
+    ConnectorType,
+    validate_url,
+    validate_urls,
+)
 
 
 class GoogleConnector(BaseStorageConnector):
     """Google Cloud Storage storage connector."""
 
     REQUIRED_SETTINGS = ["bucket", "credentials"]
+    CONNECTOR_TYPE = ConnectorType.GCS
 
     def __init__(self, config: dict, name: str):
         """Initialize Google connector."""

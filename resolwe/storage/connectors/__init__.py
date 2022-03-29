@@ -6,7 +6,7 @@ Resolwe Storage Connectors
 
 """
 
-from .baseconnector import DEFAULT_CONNECTOR_PRIORITY
+from .baseconnector import DEFAULT_CONNECTOR_PRIORITY, ConnectorType
 from .localconnector import LocalFilesystemConnector
 from .registry import StorageConnectors, connectors
 from .transfer import Transfer
@@ -29,4 +29,5 @@ __all__ = (
     "Transfer",
     "DEFAULT_CONNECTOR_PRIORITY",
     "connectors",
+    "ConnectorType",
 )

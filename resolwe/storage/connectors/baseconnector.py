@@ -1,6 +1,7 @@
 """Storage connector."""
 import abc
 import copy
+from enum import Enum, auto
 from inspect import getfullargspec
 from os import PathLike
 from pathlib import PurePath
@@ -9,6 +10,15 @@ from typing import BinaryIO, Dict, List, Optional, Union
 from wrapt import decorator
 
 DEFAULT_CONNECTOR_PRIORITY = 100
+
+
+class ConnectorType(Enum):
+    """Type of storage connector."""
+
+    LOCAL = auto()
+    S3 = auto()
+    GCS = auto()
+    UNKNOWN = auto()
 
 
 @decorator
@@ -54,6 +64,7 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
 
     REQUIRED_SETTINGS = ["Connector must override REQUIRED_SETTINGS"]
     CHUNK_SIZE = 8 * 1024 * 1024  # 8 MB
+    CONNECTOR_TYPE = ConnectorType.UNKNOWN
 
     def __init__(self, config: dict, name: str):
         """Connector initialization."""
