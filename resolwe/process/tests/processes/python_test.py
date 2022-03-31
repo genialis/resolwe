@@ -415,6 +415,28 @@ class DataNameProcess(Process):
         outputs.name = self.name
 
 
+class ParentProcessSchema(Process):
+    """Test if a contributor can access output schema of parent process.
+
+    Even if no permission are given to the contributor on the process.
+    """
+
+    slug = "parent-process-schema"
+    name = "Get the output schema of parent process"
+    data_name = "{{ data_input | name | default('?') }}"
+    version = "1.0.0"
+    process_type = "data:name"
+    requirements = {"expression-engine": "jinja"}
+
+    class Input:
+        input1 = DataField(data_type="", label="Data input 1")
+        input2 = DataField(data_type="", label="Data input 2")
+
+    def run(self, inputs, outputs):
+        inputs.input1.output
+        inputs.input2.output
+
+
 class CreateCollection(Process):
     slug = "create-collection"
     name = "Create collection"

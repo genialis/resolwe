@@ -5,6 +5,7 @@ import unittest
 
 from django.test import LiveServerTestCase, override_settings
 
+import resolwe.permissions.models
 from resolwe.flow.models import (
     Collection,
     Data,
@@ -16,7 +17,7 @@ from resolwe.flow.models import (
     RelationType,
     Storage,
 )
-from resolwe.permissions.models import Permission
+from resolwe.permissions.models import Permission, get_anonymous_user
 from resolwe.test import (
     ProcessTestCase,
     tag_process,
@@ -38,6 +39,8 @@ class PythonProcessTest(ProcessTestCase):
             descriptors_paths=[DESCRIPTORS_DIR],
         )
         self.files_path = FILES_PATH
+        # Force reading anonymous user from the database for every test.
+        resolwe.permissions.models.ANONYMOUS_USER = None
 
     @with_docker_executor
     def test_registration(self):
@@ -399,6 +402,26 @@ class PythonProcessTest(ProcessTestCase):
         )
         data = self.run_process("get-collection", {"collection_name": collection_name})
         self.assertEqual(data.output["collection_slug"], collection.slug)
+
+    @with_docker_executor
+    @tag_process("parent-process-schema", "test-python-process-requirements")
+    def test_get_parent_schema(self):
+        """Test access to parent object schema.
+
+        Even when user has no permission to access the process of the parent
+        data object.
+        """
+        anonymous_user = get_anonymous_user()
+        main_process = Process.objects.get(slug="parent-process-schema")
+        main_process.set_permission(Permission.VIEW, anonymous_user)
+        input_process = Process.objects.get(slug="test-python-process-requirements")
+        input_process.set_permission(Permission.NONE, anonymous_user)
+
+        inputs = {
+            "input1": self.run_process(input_process.slug).id,
+            "input2": self.run_process(input_process.slug).id,
+        }
+        self.run_process(main_process.slug, inputs, contributor=anonymous_user)
 
     @with_docker_executor
     @tag_process("get-latest-process")

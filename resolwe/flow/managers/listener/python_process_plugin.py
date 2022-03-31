@@ -350,7 +350,7 @@ class ExposeProcess(ExposeObjectPlugin):
         self, user: UserClass, queryset: QuerySet, data: Data
     ) -> QuerySet:
         """Filter the objects for the given user."""
-        processes_of_inputs = queryset.filter(data__in=data.parents.all())
+        processes_of_inputs = queryset.filter(data__in=data.parents.all()).distinct()
         return queryset.filter_for_user(user).distinct().union(processes_of_inputs)
 
 

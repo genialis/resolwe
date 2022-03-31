@@ -20,6 +20,12 @@ Added
   edit, owner, group, shared_with_me)
 - Support filtering Data and Entity objects by relation id
 
+Fixed
+-----
+- Do not return multiple version of the same process while checking for
+  permissions in Python processes
+
+
 ===================
 30.0.0 - 2022-03-14
 ===================
