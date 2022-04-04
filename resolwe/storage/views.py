@@ -1,5 +1,6 @@
 """Storage application views."""
 import json
+import logging
 import re
 import tempfile
 from datetime import datetime
@@ -12,17 +13,56 @@ from urllib.parse import urlencode, urlparse
 import pytz
 from bs4 import BeautifulSoup
 
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import ImproperlyConfigured, PermissionDenied
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils import timezone
 from django.views import View
 
+from rest_framework.response import Response
+from rest_framework.viewsets import ViewSet
+
 from resolwe.flow.models import Data
 from resolwe.flow.models.collection import Collection
+from resolwe.permissions.utils import get_user
+from resolwe.storage.connectors import connectors
 from resolwe.storage.connectors.baseconnector import BaseStorageConnector
 from resolwe.storage.models import FileStorage, ReferencedPath
+
+logger = logging.getLogger(__name__)
+
+
+class UploadConfig(ViewSet):
+    """Get the upload configuration."""
+
+    def list(self, request):
+        """Return the JSON representing the upload configuration.
+
+        The returning object is JSON representation of the dictionary with the
+        following fields:
+
+        - type: the type of upload connector. Currently we
+          support 'LOCAL', and 'S3' connector types. Upload through server is
+          always supported.
+
+        - credentials: the dictionary representing the set of credentials that
+          are used to upload data. This dictionary is specific to connector
+          type and may be empty.
+        """
+        try:
+            upload_connector = connectors.for_storage("upload")[0]
+            prefix = get_user(request.user).id
+            response = {
+                "type": upload_connector.CONNECTOR_TYPE.name,
+                "config": upload_connector.temporary_credentials(prefix),
+            }
+        except Exception:
+            message = "Upload connector could not be determined."
+            logger.exception(message)
+            raise ImproperlyConfigured(message)
+
+        return Response(response)
 
 
 class DataBrowseView(View):

@@ -19,6 +19,9 @@ Added
 - Support filtering Data, Entity and Collections based on permissions (view,
   edit, owner, group, shared_with_me)
 - Support filtering Data and Entity objects by relation id
+- Create ``upload_config`` API endpoint that specifies upload connector type
+  and credentials client can use for optimized upload
+
 
 Fixed
 -----
