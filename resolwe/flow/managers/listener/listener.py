@@ -411,7 +411,7 @@ class Processor:
         await consumer.send_event(
             {
                 WorkerProtocol.COMMAND: WorkerProtocol.ABORT,
-                WorkerProtocol.DATA_ID: self.data.id,
+                WorkerProtocol.DATA_ID: self.data_id,
                 WorkerProtocol.FINISH_COMMUNICATE_EXTRA: {
                     "executor": getattr(settings, "FLOW_EXECUTOR", {}).get(
                         "NAME", "resolwe.flow.executors.local"
@@ -437,7 +437,7 @@ class Processor:
         await consumer.send_event(
             {
                 WorkerProtocol.COMMAND: WorkerProtocol.FINISH,
-                WorkerProtocol.DATA_ID: self.data.id,
+                WorkerProtocol.DATA_ID: self.data_id,
                 WorkerProtocol.FINISH_COMMUNICATE_EXTRA: {
                     "executor": getattr(settings, "FLOW_EXECUTOR", {}).get(
                         "NAME", "resolwe.flow.executors.local"

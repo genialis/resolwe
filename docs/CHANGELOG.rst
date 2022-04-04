@@ -29,6 +29,12 @@ Fixed
   permissions in Python processes
 
 
+Changed
+-------
+- Use ``data_id`` instead of ``data.id`` when notifying dispatcher to avoid
+  potential database query inside async context
+
+
 ===================
 30.0.0 - 2022-03-14
 ===================
