@@ -624,9 +624,9 @@ class FileDescriptor:
                 else file_name
             )
 
-        # Large file download from Google Drive requires cookie and token.
         try:
             response = None
+            # Large file download from Google Drive requires cookie and token.
             if re.match(
                 r"^https://drive.google.com/[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]$",
                 src,
@@ -649,11 +649,12 @@ class FileDescriptor:
                 src,
             ):
                 response = requests.get(src, stream=True)
+
         except requests.exceptions.ConnectionError:
             raise requests.exceptions.ConnectionError(
                 "Could not connect to {}".format(src)
             )
-
+        # The response was received with OK status code.
         if response:
             with open(file_name, "wb") as f:
                 total = response.headers.get("content-length")
@@ -687,6 +688,15 @@ class FileDescriptor:
                 raise ValueError("Downloaded file not found {}".format(file_name))
 
             src = file_name
+        # The response was received with error code indicating failure.
+        elif response is not None:
+            response_content = next(response.iter_content(chunk_size=200))
+            raise RuntimeError(
+                f"Error when downoading {src}. The received response code is "
+                f"{response.status_code}, first 200 bytes of the response: "
+                f"'{response_content}'."
+            )
+        # The response is still None, import the file from upload directory.
         else:
             # If scr is file it needs to have upload directory prepended.
             if "UPLOAD_DIR" not in os.environ:

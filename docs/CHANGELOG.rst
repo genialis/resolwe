@@ -27,6 +27,8 @@ Fixed
 -----
 - Do not return multiple version of the same process while checking for
   permissions in Python processes
+- Change misleading error message when importing file if the response with
+  status code indicating error was received from the upstream server
 
 
 Changed
