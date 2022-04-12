@@ -52,7 +52,7 @@ class UploadConfig(ViewSet):
         """
         try:
             upload_connector = connectors.for_storage("upload")[0]
-            prefix = get_user(request.user).id
+            prefix = str(get_user(request.user).id)
             response = {
                 "type": upload_connector.CONNECTOR_TYPE.name,
                 "config": upload_connector.temporary_credentials(prefix),
