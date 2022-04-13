@@ -17,7 +17,7 @@ class LocalFilesystemConnector(BaseStorageConnector):
 
     #: Read files by chunks of the given size
     REQUIRED_SETTINGS = ["path"]
-    CONNECTOR_TYPE = ConnectorType.S3
+    CONNECTOR_TYPE = ConnectorType.LOCAL
 
     def __init__(self, config: dict, name: str):
         """Connector initialization."""
