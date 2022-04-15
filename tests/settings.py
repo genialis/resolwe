@@ -17,6 +17,7 @@ MIDDLEWARE = (
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "resolwe.auditlog.middleware.ResolweAuditMiddleware",
 )
 
 INSTALLED_APPS = (
@@ -35,6 +36,7 @@ INSTALLED_APPS = (
     "resolwe.storage",
     "resolwe.toolkit",
     "resolwe.test_helpers",
+    "resolwe.auditlog",
 )
 
 ROOT_URLCONF = "tests.urls"
@@ -272,12 +274,20 @@ LOGGING = {
         "standard": {
             "format": "%(asctime)s - %(levelname)s - %(name)s[%(process)s]: %(message)s",
         },
+        "auditlog": {
+            "format": "%(asctime)s - %(name)s[%(process)s]: %(message)s ; SID='%(session_id)s' RID='%(request_id)s'",
+        },
     },
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
             "level": CONSOLE_LEVEL,
             "formatter": "standard",
+        },
+        "auditlog": {
+            "class": "logging.StreamHandler",
+            "level": "INFO",
+            "formatter": "auditlog",
         },
         "file": {
             "class": "logging.handlers.RotatingFileHandler",
@@ -290,6 +300,10 @@ LOGGING = {
         "": {
             "handlers": default_logger_handlers,
             "level": "DEBUG",
+        },
+        "auditlog": {
+            "handlers": ["auditlog"],
+            "level": "INFO",
         },
     },
 }
