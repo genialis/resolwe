@@ -23,6 +23,10 @@ from resolwe.flow.models.entity import RelationPartition
 # processing takes place.
 before_processing = Signal()
 
+# Sent when data objects are copied in bulk (for instance when duplicating
+# data objects) and no other signals are sent.
+post_duplicate = Signal()
+
 
 def commit_signal(data: Data, created: bool, update_fields: Optional[List[str]]):
     """Nudge manager at the end of every Data object save event.

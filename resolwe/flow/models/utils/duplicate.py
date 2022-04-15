@@ -252,6 +252,10 @@ def copy_objects(objects, contributor, name_prefix, obj_processor=None):
         # Add another atomic block to avoid corupting the main one.
         with transaction.atomic():
             model.objects.bulk_create(new_objects)
+            # Send the bulk create custom signal, avoid circular import.
+            from resolwe.flow.signals import post_duplicate
+
+            post_duplicate.send(sender=model, instances=new_objects)
     except IntegrityError:
         # Probably a slug collision occured, try to create objects one by one.
         for obj in new_objects:

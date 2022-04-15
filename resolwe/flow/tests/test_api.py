@@ -1,4 +1,6 @@
 # pylint: disable=missing-docstring
+from unittest.mock import MagicMock
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import DEFAULT_DB_ALIAS, connections
@@ -16,6 +18,7 @@ from resolwe.flow.models import (
     Entity,
     Process,
 )
+from resolwe.flow.signals import post_duplicate
 from resolwe.flow.views import (
     CollectionViewSet,
     DataViewSet,
@@ -554,6 +557,10 @@ class TestDataViewSetCase(TestCase):
             data.save()
             return data
 
+        # Handler is called when post_duplicate signal is triggered.
+        handler = MagicMock()
+        post_duplicate.connect(handler, sender=Data)
+
         # Simplest form:
         data = create_data()
         request = factory.post(
@@ -561,9 +568,12 @@ class TestDataViewSetCase(TestCase):
         )
         force_authenticate(request, self.contributor)
         response = self.duplicate_viewset(request)
-
         duplicate = Data.objects.get(id=response.data[0]["id"])
         self.assertTrue(duplicate.is_duplicate())
+        handler.assert_called_once_with(
+            signal=post_duplicate, instances=[duplicate], sender=Data
+        )
+        handler.reset_mock()
 
         # Inherit collection
         data = create_data()
@@ -577,10 +587,12 @@ class TestDataViewSetCase(TestCase):
         force_authenticate(request, self.contributor)
         response = self.duplicate_viewset(request)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-
         duplicate = Data.objects.get(id=response.data[0]["id"])
         self.assertTrue(duplicate.is_duplicate())
         self.assertTrue(duplicate.collection.id, self.collection.id)
+        handler.assert_called_once_with(
+            signal=post_duplicate, instances=[duplicate], sender=Data
+        )
 
     def test_duplicate_not_auth(self):
         request = factory.post(reverse("resolwe-api:data-duplicate"), format="json")
@@ -886,6 +898,10 @@ class TestCollectionViewSetCase(TestCase):
         self.assertFalse(Entity.objects.filter(pk=entity_2.pk).exists())
 
     def test_duplicate(self):
+        # Handler is called when post_duplicate signal is triggered.
+        handler = MagicMock()
+        post_duplicate.connect(handler, sender=Collection)
+
         request = factory.post("/", {}, format="json")
         force_authenticate(request, self.contributor)
         self.collection_list_viewset(request)
@@ -902,6 +918,9 @@ class TestCollectionViewSetCase(TestCase):
 
         duplicate = Collection.objects.get(id=response.data[0]["id"])
         self.assertTrue(duplicate.is_duplicate())
+        handler.assert_called_once_with(
+            signal=post_duplicate, instances=[duplicate], sender=Collection
+        )
 
     def test_duplicate_not_auth(self):
         request = factory.post(
@@ -1350,6 +1369,10 @@ class EntityViewSetTest(TestCase):
         self.assertFalse(Data.objects.filter(pk=data_2.pk).exists())
 
     def test_duplicate(self):
+
+        handler = MagicMock()
+        post_duplicate.connect(handler, sender=Entity)
+
         collection = Collection.objects.create(contributor=self.contributor)
         collection.set_permission(Permission.EDIT, self.contributor)
         entity = Entity.objects.first()
@@ -1365,6 +1388,10 @@ class EntityViewSetTest(TestCase):
         self.assertTrue(duplicate.is_duplicate())
         self.assertEqual(collection.entity_set.count(), 1)
         self.assertEqual(collection.data.count(), 1)
+        handler.assert_called_once_with(
+            signal=post_duplicate, instances=[duplicate], sender=Entity
+        )
+        handler.reset_mock()
 
         request = factory.post(
             reverse("resolwe-api:entity-duplicate"),
@@ -1376,6 +1403,11 @@ class EntityViewSetTest(TestCase):
 
         self.assertEqual(collection.entity_set.count(), 2)
         self.assertEqual(collection.data.count(), 2)
+        duplicate = Entity.objects.get(id=response.data[0]["id"])
+        handler.assert_called_once_with(
+            signal=post_duplicate, instances=[duplicate], sender=Entity
+        )
+        handler.reset_mock()
 
         # Assert collection membership.
         collection_without_perm = Collection.objects.create(
