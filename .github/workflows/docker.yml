@@ -6,6 +6,7 @@ on:
       - master
     tags:
       - "[0-9]+.[0-9]+.[0-9]+*"
+  pull_request:
 
 env:
   AWS_REGISTRY: public.ecr.aws/genialis

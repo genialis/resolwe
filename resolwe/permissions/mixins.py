@@ -7,6 +7,7 @@ from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
 
+from resolwe.auditlog.auditmanager import AuditManager
 from resolwe.permissions.models import Permission
 from resolwe.permissions.shortcuts import get_object_perms
 
@@ -97,7 +98,10 @@ class ResolwePermissionsMixin:
         if obj.has_permission(Permission.SHARE, request.user):
             obj.refresh_from_db()
 
+        audit_manager = AuditManager.global_instance()
+
         if request.method == "POST":
+            audit_manager.log_message("Permissions updated: %s", request.data)
             allow_owner = obj.is_owner(request.user) or request.user.is_superuser
             check_owner_permission(request.data, allow_owner, obj)
             check_public_permissions(request.data)
@@ -111,6 +115,8 @@ class ResolwePermissionsMixin:
 
                 if not owner_count:
                     raise exceptions.ParseError("Object must have at least one owner.")
+        else:
+            audit_manager.log_message("Permissions read: %s", request.data)
 
         return Response(get_object_perms(obj))
 
