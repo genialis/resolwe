@@ -55,37 +55,24 @@ jobs:
           password: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
       - name: Generate tags
-        run: |
-          tags=""
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.AWS_REGISTRY }}/${{ matrix.repository }}
+          flavor: |
+            latest=true
+            suffix=${{ matrix.suffix }},onlatest=true
 
-          # Devel (all commits to master)
-          if ${{ github.ref == 'refs/heads/master' }};
-          # Do not wrap conditions in brackets or quotes here, since bash would evaluate it as a string.
-          then
-            tags=$tags,${{ env.AWS_REGISTRY }}/${{ matrix.repository }}:latest${{ matrix.suffix }}
-          fi
-
-          # Staging (all tagged commits)
-          if ${{ startsWith(github.ref, 'refs/tags') }};
-          # Do not wrap conditions in brackets or quotes here, since bash would evaluate it as a string.
-          then
-            tags=$tags,${{ env.AWS_REGISTRY }}/${{ matrix.repository }}:${GITHUB_REF#refs/tags/}${{ matrix.suffix }}
-            tags=$tags,${{ env.AWS_REGISTRY }}/${{ matrix.repository }}:staging${{ matrix.suffix }}
-          fi
-
-          # Stable (all commits tagged with a stable version tag)
-          if [[ ${{ github.event.ref }} =~ ^refs/tags/[0-9]+\.[0-9]+\.[0-9]+$ ]];
-          # Here, brackets are required due to regex comparison
-          then
-            tags=$tags,${{ env.AWS_REGISTRY }}/${{ matrix.repository }}:stable${{ matrix.suffix }}
-          fi
-
-          echo "TAGS=$tags" >> $GITHUB_ENV
+          tags: |
+            type=pep440,pattern={{version}}
+            type=raw,value=staging,enable=${{ startsWith(github.ref, 'refs/tags') }}
+            type=match,group=1,value=${{ github.ref }}stable,pattern=refs/tags/[0-9]+\.[0-9]+\.[0-9]+(stable)$
 
       - name: Build and push tagged image ${{ matrix.image }}
         uses: docker/build-push-action@v2
+        if: tojson(steps.meta.outputs.tags) != '[]'
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.file }}
-          tags: ${{ env.TAGS }}
+          tags: ${{ steps.meta.outputs.tags }}
           push: true
