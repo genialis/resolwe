@@ -10,6 +10,7 @@ on:
 env:
   AWS_REGISTRY: public.ecr.aws/genialis
   AWS_REGION: us-east-1
+  PLATFORMS: linux/amd64,linux/arm64
 
 jobs:
   build:
@@ -75,4 +76,5 @@ jobs:
           context: ${{ matrix.context }}
           file: ${{ matrix.file }}
           tags: ${{ steps.meta.outputs.tags }}
+          platforms: ${{ env.PLATFORMS }}
           push: true
