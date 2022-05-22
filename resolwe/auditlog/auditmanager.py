@@ -3,7 +3,7 @@
 import threading
 from collections import defaultdict
 from enum import IntEnum
-from typing import Dict, Iterator, List, NamedTuple, Optional, Set, Tuple, Type
+from typing import Dict, Iterator, List, NamedTuple, Optional, Set, Tuple, Type, Union
 
 from django.db import models
 from django.http import HttpRequest, HttpResponse
@@ -12,7 +12,7 @@ GLOBAL_AUDIT_MANAGER = threading.local()
 
 Field = str
 ContentType = str
-ObjectId = int
+ObjectId = Union[int, str]
 ObjectIds = Set[ObjectId]
 Fields = Set[str]
 
@@ -54,7 +54,7 @@ class AccessLogger:
         """Initialize."""
         #        self._access =
         self._access: Dict[
-            ContentType, Dict[int, Dict[AccessType, Fields]]
+            ContentType, Dict[ObjectId, Dict[AccessType, Fields]]
         ] = defaultdict(lambda: defaultdict(lambda: defaultdict(set)))
 
     def clear(self):
