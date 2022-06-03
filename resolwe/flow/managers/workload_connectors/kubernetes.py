@@ -498,9 +498,9 @@ class Connector(BaseConnector):
         # Create kubernetes API every time otherwise it will time out
         # eventually and raise API exception.
         try:
-            kubernetes.config.load_incluster_config()
-        except kubernetes.config.config_exception.ConfigException:
             kubernetes.config.load_kube_config()
+        except kubernetes.config.config_exception.ConfigException:
+            kubernetes.config.load_incluster_config()
 
         batch_api = kubernetes.client.BatchV1Api()
         core_api = kubernetes.client.CoreV1Api()
