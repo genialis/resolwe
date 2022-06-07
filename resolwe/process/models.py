@@ -17,7 +17,18 @@ from .fields import (
     fields_from_schema,
 )
 
+# Get the user model label. First try the standard Django way.
+# If it fails (no Django installed) try to get it from the listener.
+try:
+    from django.contrib.auth import get_user_model
+
+    USER_MODEL_LABEL = get_user_model()._meta.label
+except ModuleNotFoundError:
+    USER_MODEL_LABEL = communicator.get_user_model_label()
+
+
 DATA_ID = int(os.getenv("DATA_ID", "-1"))
+USER_MODEL_APP, USER_MODEL_NAME = USER_MODEL_LABEL.split(".")
 
 
 class ModelField(Field):
@@ -490,10 +501,10 @@ class Storage(Model):
 
 
 class User(Model):
-    """User model."""
+    """Django user model."""
 
-    _app_name = "auth"
-    _model_name = "User"
+    _app_name = USER_MODEL_APP
+    _model_name = USER_MODEL_NAME
 
 
 class DescriptorSchema(Model):

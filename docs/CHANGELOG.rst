@@ -6,6 +6,15 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Added
+-----
+- Support custom user model in Python processes
+
+
 ===================
 30.2.0 - 2022-05-16
 ===================

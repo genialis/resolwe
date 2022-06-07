@@ -285,7 +285,7 @@ class ExposeUser(ExposeObjectPlugin):
     Used to read contributor data.
     """
 
-    full_model_name = "auth.User"
+    full_model_name = UserClass._meta.label
 
     def filter_objects(
         self, user: UserClass, queryset: QuerySet, data: Data
@@ -696,3 +696,13 @@ class PythonProcess(ListenerPlugin):
 
         zipped.seek(0)
         return message.respond_ok(b64encode(zipped.read()).decode())
+
+    def handle_get_user_model_label(
+        self, message: Message[str], manager: "Processor"
+    ) -> Response[str]:
+        """Return the label of the custom user model.
+
+        It is used to connect the model in Python process runtime with the
+        custom user model.
+        """
+        return message.respond_ok(UserClass._meta.label)
