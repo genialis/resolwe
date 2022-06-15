@@ -219,7 +219,7 @@ class ExposeData(ExposeObjectPlugin):
 
         if "entity_id" in model_data:
             # Check entity permissions.
-            self._has_permission(user, Process, model_data["entity_id"], "edit")
+            self._has_permission(user, Entity, model_data["entity_id"], "edit")
 
         if "collection_id" in model_data:
             # Check collection permissions.

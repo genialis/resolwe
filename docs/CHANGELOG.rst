@@ -14,6 +14,11 @@ Changed
 -------
 - Rename ``docker-compose.yml`` to ``compose.yaml``
 
+Fixed
+-----
+- Fix a typo in ``listener`` permission handling when creating data model: a
+  check was performed on the wrong object type
+
 
 ===================
 30.3.0 - 2022-06-13
