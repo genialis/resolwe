@@ -249,8 +249,10 @@ class ExposeData(ExposeObjectPlugin):
         if not_allowed_keys:
             raise RuntimeError(f"Not allowed to set {','.join(not_allowed_keys)}.")
 
-        # Check permission to modify the Data object.
-        self._has_permission(user, Data, model_instance.id, "edit")
+        # Check permission to modify the Data object. The current data object
+        # can always be modified.
+        if model_instance.id != data.id:
+            self._has_permission(user, Data, model_instance.id, "edit")
 
         if "entity_id" in model_data:
             # Check entity permissions.
