@@ -12,7 +12,7 @@ include pyproject.toml
 include .coveragerc
 include .pylintrc
 include tests/.env
-recursive-include tests *.py *.yml *.rst
+recursive-include tests *.py *.yaml *.rst
 recursive-include resolwe/elastic/tests *.py
 recursive-include resolwe/flow/tests *.py
 recursive-include resolwe/flow/tests/descriptors *.yml
