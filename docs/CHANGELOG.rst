@@ -14,7 +14,7 @@ Changed
 -------
 - Rename ``docker-compose.yml`` to ``compose.yaml``
 - Listener can always modify the data object that it is processing
-
+- Add original objects to ``post_duplicate`` call
 
 Fixed
 -----

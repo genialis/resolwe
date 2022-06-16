@@ -1,5 +1,5 @@
 # pylint: disable=missing-docstring
-from unittest.mock import MagicMock
+from unittest.mock import ANY, MagicMock
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -571,7 +571,10 @@ class TestDataViewSetCase(TestCase):
         duplicate = Data.objects.get(id=response.data[0]["id"])
         self.assertTrue(duplicate.is_duplicate())
         handler.assert_called_once_with(
-            signal=post_duplicate, instances=[duplicate], sender=Data
+            signal=post_duplicate,
+            instances=[duplicate],
+            old_instances=ANY,
+            sender=Data,
         )
         handler.reset_mock()
 
@@ -591,7 +594,10 @@ class TestDataViewSetCase(TestCase):
         self.assertTrue(duplicate.is_duplicate())
         self.assertTrue(duplicate.collection.id, self.collection.id)
         handler.assert_called_once_with(
-            signal=post_duplicate, instances=[duplicate], sender=Data
+            signal=post_duplicate,
+            instances=[duplicate],
+            old_instances=ANY,
+            sender=Data,
         )
 
     def test_duplicate_not_auth(self):
@@ -919,7 +925,10 @@ class TestCollectionViewSetCase(TestCase):
         duplicate = Collection.objects.get(id=response.data[0]["id"])
         self.assertTrue(duplicate.is_duplicate())
         handler.assert_called_once_with(
-            signal=post_duplicate, instances=[duplicate], sender=Collection
+            signal=post_duplicate,
+            instances=[duplicate],
+            old_instances=ANY,
+            sender=Collection,
         )
 
     def test_duplicate_not_auth(self):
@@ -1389,7 +1398,10 @@ class EntityViewSetTest(TestCase):
         self.assertEqual(collection.entity_set.count(), 1)
         self.assertEqual(collection.data.count(), 1)
         handler.assert_called_once_with(
-            signal=post_duplicate, instances=[duplicate], sender=Entity
+            signal=post_duplicate,
+            instances=[duplicate],
+            old_instances=ANY,
+            sender=Entity,
         )
         handler.reset_mock()
 
@@ -1405,7 +1417,10 @@ class EntityViewSetTest(TestCase):
         self.assertEqual(collection.data.count(), 2)
         duplicate = Entity.objects.get(id=response.data[0]["id"])
         handler.assert_called_once_with(
-            signal=post_duplicate, instances=[duplicate], sender=Entity
+            signal=post_duplicate,
+            instances=[duplicate],
+            old_instances=ANY,
+            sender=Entity,
         )
         handler.reset_mock()
 
