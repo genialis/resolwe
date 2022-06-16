@@ -255,7 +255,9 @@ def copy_objects(objects, contributor, name_prefix, obj_processor=None):
             # Send the bulk create custom signal, avoid circular import.
             from resolwe.flow.signals import post_duplicate
 
-            post_duplicate.send(sender=model, instances=new_objects)
+            post_duplicate.send(
+                sender=model, instances=new_objects, old_instances=objects
+            )
     except IntegrityError:
         # Probably a slug collision occured, try to create objects one by one.
         for obj in new_objects:
