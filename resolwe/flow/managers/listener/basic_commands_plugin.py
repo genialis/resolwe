@@ -445,7 +445,7 @@ class BasicCommands(ListenerPlugin):
         for key, values in message.message_data.items():
             data_key = f"process_{key}"
             max_length = Data._meta.get_field(data_key).base_field.max_length
-            changeset[data_key] = getattr(manager.data, data_key)
+            changeset[data_key] = getattr(manager.data, data_key).copy()
             if isinstance(values, str):
                 values = [values]
             for i, entry in enumerate(values):
