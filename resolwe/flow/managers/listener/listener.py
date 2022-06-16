@@ -269,9 +269,15 @@ class Processor:
 
     def _update_object(self, changes: Dict[str, Any], obj: Union[Worker, Data]):
         """Update object properties and save them to database."""
+        # Always update output.
+        needs_update = "output" in changes
         for key, value in changes.items():
-            setattr(obj, key, value)
-        obj.save(update_fields=list(changes.keys()))
+            if getattr(obj, key) != value:
+                setattr(obj, key, value)
+                needs_update = True
+
+        if needs_update:
+            obj.save(update_fields=list(changes.keys()))
 
     async def terminate(self):
         """Send the terminate command to the worker.
