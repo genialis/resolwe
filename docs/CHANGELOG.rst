@@ -15,6 +15,8 @@ Changed
 - Rename ``docker-compose.yml`` to ``compose.yaml``
 - Listener can always modify the data object that it is processing
 - Add original objects to ``post_duplicate`` call
+- Install ``asgiref`` version based on the version of the installed ``Python``
+  interpreter
 
 Fixed
 -----
