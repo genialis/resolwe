@@ -789,9 +789,9 @@ class Connector(BaseConnector):
     def cleanup(self, data_id: int):
         """Remove the persistent volume claims created by the executor."""
         try:
-            kubernetes.config.load_incluster_config()
-        except kubernetes.config.config_exception.ConfigException:
             kubernetes.config.load_kube_config()
+        except kubernetes.config.config_exception.ConfigException:
+            kubernetes.config.load_incluster_config()
 
         core_api = kubernetes.client.CoreV1Api()
         claim_names = [

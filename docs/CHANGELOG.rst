@@ -12,6 +12,8 @@ Unreleased
 
 Changed
 -------
+- **BACKWARD INCOMPATIBLE:** Always try to load kubernetes configuration via ``load_kube_config`` befofe
+  falling back to ``load_incluster_config``
 - Rename ``docker-compose.yml`` to ``compose.yaml``
 - Listener can always modify the data object that it is processing
 - Add original objects to ``post_duplicate`` call
