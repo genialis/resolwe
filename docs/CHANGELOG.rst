@@ -17,6 +17,8 @@ Changed
 - Add original objects to ``post_duplicate`` call
 - Install ``asgiref`` version based on the version of the installed ``Python``
   interpreter
+- Always try to load kubernetes configuration via ``load_kube_config`` befofe
+  falling back to ``load_incluster_config``
 
 Fixed
 -----
