@@ -21,6 +21,10 @@ Fixed
 - Fix a typo in ``listener`` permission handling when creating data model: a
   check was performed on the wrong object type
 
+Added
+------
+- Make requests and limits for the ``communication`` container configurable
+
 
 ===================
 30.3.0 - 2022-06-13

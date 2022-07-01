@@ -535,6 +535,18 @@ class Connector(BaseConnector):
         limits["memory"] *= 2**20  # 2 ** 20 = mebibyte
         requests["memory"] *= 2**20
 
+        # Get the limits and requests for the communicator container.
+        communicator_limits = getattr(
+            settings,
+            "FLOW_KUBERNETES_COMMUNICATOR_LIMITS",
+            {"memory": "256M", "cpu": 0.1},
+        )
+        communicator_requests = getattr(
+            settings,
+            "FLOW_KUBERNETES_COMMUNICATOR_REQUESTS",
+            {"memory": "256M", "cpu": 0.1},
+        )
+
         resources = data.process.requirements.get("resources", {})
         network = "bridge"
         use_host_network = False
@@ -682,8 +694,8 @@ class Connector(BaseConnector):
                                 "image": communicator_image,
                                 "imagePullPolicy": "Always",
                                 "resources": {
-                                    "limits": {"cpu": 1, "memory": "1024M"},
-                                    "requests": {"memory": "256M", "cpu": 0.1},
+                                    "limits": communicator_limits,
+                                    "requests": communicator_requests,
                                 },
                                 "securityContext": security_context,
                                 "env": container_environment,
