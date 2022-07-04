@@ -24,7 +24,6 @@ from django.db.models.functions import Coalesce
 
 from resolwe.flow.executors import constants
 from resolwe.flow.models import Data, DataDependency, Process
-from resolwe.flow.utils import get_apps_tools
 from resolwe.storage import settings as storage_settings
 from resolwe.storage.connectors import connectors
 from resolwe.storage.connectors.baseconnector import BaseStorageConnector
@@ -108,9 +107,13 @@ class Connector(BaseConnector):
         self.kubernetes_namespace = getattr(settings, "KUBERNETES_SETTINGS", {}).get(
             "namespace", "default"
         )
+        self.tools_path_prefix = Path("/usr/local/bin/resolwe")
 
     def _prepare_environment(
-        self, data: Data, listener_connection: Tuple[str, str, str]
+        self,
+        data: Data,
+        listener_connection: Tuple[str, str, str],
+        tools_configmaps: Dict[str, str],
     ) -> list:
         """Prepare environmental variables."""
         host, port, protocol = listener_connection
@@ -131,6 +134,10 @@ class Connector(BaseConnector):
                 connector.name
                 for connector in connectors.values()
                 if connector.mountable
+            ),
+            "TOOLS_PATHS": ":".join(
+                f"{self.tools_path_prefix / tools_name}"
+                for tools_name in tools_configmaps
             ),
         }
         with suppress(RuntimeError):
@@ -162,7 +169,7 @@ class Connector(BaseConnector):
                     _request_timeout=KUBERNETES_TIMEOUT,
                 )
 
-    def _get_tools_configmaps(self, core_api):
+    def _get_tools_configmaps(self, core_api) -> Dict[str, str]:
         """Get and return configmaps for tools."""
         description_configmap_name = (
             getattr(settings, "KUBERNETES_TOOLS_CONFIGMAPS", None) or "tools-configmaps"
@@ -170,7 +177,7 @@ class Connector(BaseConnector):
         configmap = core_api.read_namespaced_config_map(
             name=description_configmap_name, namespace=self.kubernetes_namespace
         )
-        return configmap.data.values()
+        return configmap.data
 
     def _get_files_configmap_name(self, location_subpath: Path, core_api: Any):
         """Get or create configmap for files.
@@ -212,7 +219,13 @@ class Connector(BaseConnector):
         self._create_configmap_if_needed(configmap_name, data, core_api)
         return configmap_name
 
-    def _volumes(self, data_id: int, location_subpath: Path, core_api: Any) -> list:
+    def _volumes(
+        self,
+        data_id: int,
+        location_subpath: Path,
+        core_api: Any,
+        tools_configmaps: Dict[str, str],
+    ) -> list:
         """Prepare all volumes."""
 
         def volume_from_config(volume_name: str, volume_config: dict):
@@ -247,11 +260,11 @@ class Connector(BaseConnector):
                 "configMap": {"name": files_configmap_name},
             }
         ]
-        tools_configmaps = self._get_tools_configmaps(core_api)
-        for index, configmap_name in enumerate(tools_configmaps):
+
+        for tools_name, configmap_name in tools_configmaps.items():
             volumes.append(
                 {
-                    "name": f"tools-{index}",
+                    "name": f"tools-{tools_name}",
                     "configMap": {"name": configmap_name, "defaultMode": 0o755},
                 }
             )
@@ -264,7 +277,7 @@ class Connector(BaseConnector):
 
         for storage_name, connector in get_mountable_connectors():
             claim_name = connector.config.get("persistent_volume_claim", None)
-            volume_data = {
+            volume_data: Dict[str, Any] = {
                 "name": connector.name,
             }
             if claim_name:
@@ -341,7 +354,7 @@ class Connector(BaseConnector):
         return mount_points
 
     def _processing_mountpoints(
-        self, location_subpath: Path, execution_engine_name: str
+        self, location_subpath: Path, tools_configmaps: Dict[str, str]
     ):
         """Mountpoints for processing container.
 
@@ -420,11 +433,11 @@ class Connector(BaseConnector):
                 "readOnly": True,
             },
         ]
-        for tool_index in range(len(get_apps_tools())):
+        for tool_name in tools_configmaps:
             mount_points.append(
                 {
-                    "name": f"tools-{tool_index}",
-                    "mountPath": f"/usr/local/bin/resolwe/{tool_index}",
+                    "name": f"tools-{tool_name}",
+                    "mountPath": f"{self.tools_path_prefix / tool_name}",
                 }
             )
         return mount_points
@@ -491,10 +504,6 @@ class Connector(BaseConnector):
 
         Construct kubernetes job description and pass it to the kubernetes.
         """
-        container_environment = self._prepare_environment(data, listener_connection)
-
-        location_subpath = Path(data.location.subpath)
-
         # Create kubernetes API every time otherwise it will time out
         # eventually and raise API exception.
         try:
@@ -504,6 +513,12 @@ class Connector(BaseConnector):
 
         batch_api = kubernetes.client.BatchV1Api()
         core_api = kubernetes.client.CoreV1Api()
+
+        tools_configmaps = self._get_tools_configmaps(core_api)
+        container_environment = self._prepare_environment(
+            data, listener_connection, tools_configmaps
+        )
+        location_subpath = Path(data.location.subpath)
 
         container_name_prefix = (
             getattr(settings, "FLOW_EXECUTOR", {})
