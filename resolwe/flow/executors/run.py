@@ -57,6 +57,7 @@ class BaseFlowExecutor:
         self.listener_connection = list(listener_connection)
         if not sys.platform.startswith("linux"):
             self.listener_connection[0] = "host.docker.internal"
+        self.tools_paths_prefix = Path("/usr/local/bin/resolwe")
 
     def _generate_container_name(self, prefix: str) -> str:
         """Generate unique container name."""
