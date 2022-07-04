@@ -849,12 +849,9 @@ class ListenerProtocol(BaseProtocol):
                 for key, value in env_vars.items()
             ]
 
-            # Paths for Resolwe tools.
-            tools_num = len(self._executor_preparer.get_tools_paths())
-            tools_paths = ":".join(
-                f"/usr/local/bin/resolwe/{i}" for i in range(tools_num)
-            )
-            export_commands += [f"export PATH=$PATH:{tools_paths}"]
+            # Add tools to the path. The tools paths environment variable must
+            # be prepared by the executor.
+            export_commands += ["export PATH=$PATH:$TOOLS_PATHS"]
 
             # Disable brace expansion and set echo.
             echo_commands = ["set -x +B"]
@@ -914,8 +911,12 @@ class ListenerProtocol(BaseProtocol):
 def handle_exceptions(loop, context):
     """Log uncaught exceptions in asyncio."""
     msg = context.get("exception", context["message"])
-    name = context.get("future").get_coro().__name__
-    logger.error(f"Caught exception from {name}: {msg}")
+    future = context.get("future")
+    if future is not None:
+        name = future.get_coro().__name__
+        logger.error(f"Caught exception from {name}: {msg}")
+    else:
+        logger.error(f"Caught exception: {msg}")
 
 
 class ExecutorListener:
