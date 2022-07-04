@@ -298,7 +298,7 @@ class FlowExecutor(LocalFlowExecutor):
 
         # Create mount points for tools.
         mount_points += [
-            ({"path": Path(tool)}, Path("/usr/local/bin/resolwe") / str(index), True)
+            ({"path": Path(tool)}, self.tools_paths_prefix / str(index), True)
             for index, tool in enumerate(self.get_tools_paths())
         ]
         return dict([self._new_volume(*mount_point) for mount_point in mount_points])
@@ -360,6 +360,10 @@ class FlowExecutor(LocalFlowExecutor):
                 connector.name
                 for connector in connectors.values()
                 if connector.mountable
+            ),
+            "TOOLS_PATHS": ":".join(
+                f"{self.tools_paths_prefix / str(i)}"
+                for i in range(len(self.get_tools_paths()))
             ),
         }
         with suppress(RuntimeError):
