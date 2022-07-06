@@ -334,6 +334,7 @@ class Processor:
 
         command_name = message.command_name
         handler_name = f"handle_{command_name}"
+        logger.debug(__("Message for handler {} received.", handler_name))
         handler = plugin_manager.get_handler(command_name)
         if not handler:
             error = f"No command handler for '{command_name}'."
@@ -360,6 +361,7 @@ class Processor:
         self.expected_sequence_number = message.sequence_number + 1
         try:
             with PrioritizedBatcher.global_instance():
+                logger.debug(__("Invoking handler {}.", handler_name))
                 result = handler(message, self)
                 # Set status of the response to ERROR when data object status
                 # is Data.STATUS_ERROR. Such response will trigger terminate
@@ -566,7 +568,9 @@ class ListenerProtocol(BaseProtocol):
 
         # Prepare Django settings.
         if "settings" not in self._bootstrap_cache:
+            logger.debug("Preparing settings static cache.")
             self._bootstrap_cache["settings"] = marshal_settings()
+            logger.debug("Settings static cache marshalled.")
             connectors_settings = copy.deepcopy(storage_settings.STORAGE_CONNECTORS)
             for connector_settings in connectors_settings.values():
                 # Fix class name for inclusion in the executor.
@@ -590,6 +594,7 @@ class ListenerProtocol(BaseProtocol):
                     connector_config["credentials"] = os.fspath(
                         constants.SECRETS_VOLUME / base_credentials_name
                     )
+            logger.debug("Connector settings prepared.")
             self._bootstrap_cache["settings"][
                 "STORAGE_CONNECTORS"
             ] = connectors_settings
@@ -604,7 +609,7 @@ class ListenerProtocol(BaseProtocol):
                 if k.startswith("SCHEDULING_CLASS_")
                 and isinstance(getattr(Process, k), str)
             }
-
+            logger.debug("Process settings prepared.")
             self._bootstrap_cache["process"] = dict()
 
     def bootstrap_prepare_process_cache(self, data: Data):
@@ -632,12 +637,20 @@ class ListenerProtocol(BaseProtocol):
         :raises RuntimeError: when settings name is not known.
         """
         data_id, settings_name = message.message_data
+        logger.debug(
+            __("Bootstraping peer for id {} for settings {}.", data_id, settings_name)
+        )
         data = Data.objects.get(pk=data_id)
+        logger.debug(__("Read data for peer with id {}.", data_id))
+
         if is_testing():
             self._bootstrap_cache = defaultdict(dict)
         self._bootstrap_prepare_static_cache()
+        logger.debug(__("Prepared static cache for peer {}.", data_id))
+
         response: Dict[str, Any] = dict()
         self.bootstrap_prepare_process_cache(data)
+        logger.debug(__("Prepared process cache for peer {}.", data_id))
 
         if settings_name == "executor":
             response[ExecutorFiles.EXECUTOR_SETTINGS] = {
@@ -660,6 +673,7 @@ class ListenerProtocol(BaseProtocol):
                 "FLOW_STORAGE": storage_settings.FLOW_STORAGE,
                 "FLOW_VOLUMES": storage_settings.FLOW_VOLUMES,
             }
+
             if hasattr(settings, constants.INPUTS_VOLUME_NAME):
                 response[ExecutorFiles.DJANGO_SETTINGS][
                     constants.INPUTS_VOLUME_NAME
@@ -716,6 +730,7 @@ class ListenerProtocol(BaseProtocol):
         # Logging and bootstraping are handled separately.
         if message.command_name in ["log", "bootstrap", "liveness_probe"]:
             try:
+                logger.debug(__("Handling special case {}", message.command_name))
                 handler = getattr(self, f"handle_{message.command_name}")
                 return await database_sync_to_async(handler, thread_sensitive=False)(
                     message
