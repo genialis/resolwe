@@ -334,6 +334,7 @@ class Processor:
 
         command_name = message.command_name
         handler_name = f"handle_{command_name}"
+        logger.debug(__("Message for handler {} received.", handler_name))
         handler = plugin_manager.get_handler(command_name)
         if not handler:
             error = f"No command handler for '{command_name}'."
@@ -360,6 +361,7 @@ class Processor:
         self.expected_sequence_number = message.sequence_number + 1
         try:
             with PrioritizedBatcher.global_instance():
+                logger.debug(__("Invoking handler {}.", handler_name))
                 result = handler(message, self)
                 # Set status of the response to ERROR when data object status
                 # is Data.STATUS_ERROR. Such response will trigger terminate
