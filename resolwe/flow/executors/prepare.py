@@ -56,9 +56,11 @@ class BaseFlowExecutorPreparer:
 
         else:
             tools_root = storage_settings.FLOW_VOLUMES["tools"]["config"]["path"]
+        try:
             subdirs = next(os.walk(tools_root))[1]
-
             return [os.path.join(tools_root, sdir) for sdir in subdirs]
+        except StopIteration:
+            return []
 
     def post_register_hook(self, verbosity=1):
         """Run hook after the 'register' management command finishes.
