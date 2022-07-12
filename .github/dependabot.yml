@@ -1,0 +1,7 @@
+# Check github actions for updates daily
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "daily"
