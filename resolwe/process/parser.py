@@ -188,7 +188,9 @@ class ProcessVisitor(ast.NodeVisitor):
         candidate_names = ["self.run_process"]
         for candidate in settings.FLOW_PROCESSES_RUNTIMES:
             candidate_names.append(f"{candidate}.get_latest")
+            candidate_names.append(f"{candidate}.get")
             candidate_names.append(f"{candidate.split('.')[-1]}.get_latest")
+            candidate_names.append(f"{candidate.split('.')[-1]}.get")
         for process_slug, process_node in self.ast_nodes.items():
             mapping = self.get_possible_variable_values(process_node)
             slugs[process_slug] = set()

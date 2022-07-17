@@ -5,6 +5,7 @@ Resolwe Test Runner
 ===================
 
 """
+import ast
 import asyncio
 import contextlib
 import errno
@@ -14,6 +15,7 @@ import re
 import shutil
 import subprocess
 import sys
+from functools import partial
 from pathlib import Path
 from unittest.mock import patch
 
@@ -35,6 +37,7 @@ import resolwe.test.testcases.setting_overrides as resolwe_settings
 from resolwe.flow.finders import get_finders
 from resolwe.flow.management.commands.prepare_runtime import Command as PrepareRuntime
 from resolwe.flow.managers import listener, manager, state
+from resolwe.process.parser import ProcessVisitor
 from resolwe.storage.connectors import connectors
 from resolwe.test.utils import generate_process_tag
 
@@ -563,8 +566,8 @@ class ResolweRunner(DiscoverRunner):
             elif file_type == "ignore":
                 # Ignore
                 pass
-            elif file_type == "process":
-                # Resolve process tag.
+            elif file_type in ("process", "python_process"):
+                # Add filename to the process list.
                 processes.append(os.path.join(top_level_path, filename))
             elif file_type == "test":
                 # Generate test name.
@@ -572,9 +575,15 @@ class ResolweRunner(DiscoverRunner):
             else:
                 raise CommandError("Unsupported file type: {}".format(file_type))
 
-        # Resolve tags.
-        tags = self.resolve_process_tags(processes)
-
+        # Resolve process tags. The resolwe_process_tags raises RuntimeError
+        # when dependencies can not be determined. The entire test suite should
+        # bemrun in such case.
+        try:
+            tags = self.resolve_process_tags(processes)
+        except RuntimeError as e:
+            print(f"Error while resolving process tags: '{e}'.")
+            full_suite = True
+            tags = []
         return result, tags, tests, full_suite
 
     def find_schemas(self, schema_path):
@@ -583,57 +592,92 @@ class ResolweRunner(DiscoverRunner):
         :param schema_path: Path where to look for process schemas
         :return: Found schemas
         """
-        schema_matches = []
+        schema_loader = {
+            "python": lambda file_handler: [file_handler.read()],
+            "yaml": partial(yaml.load, Loader=yaml.FullLoader),
+        }
+        changed_schemas = {"python": [], "yaml": []}
+        schema_file_suffixes = {"python": (".py",), "yaml": (".yml", ".yaml")}
 
         for root, _, files in os.walk(schema_path):
             for schema_file in [os.path.join(root, fn) for fn in files]:
+                # Check for processes of both types: python and yaml.
+                for schema_type in schema_loader.keys():
+                    if not schema_file.lower().endswith(
+                        schema_file_suffixes[schema_type]
+                    ):
+                        continue
 
-                if not schema_file.lower().endswith((".yml", ".yaml")):
-                    continue
+                    with open(schema_file) as file_handler:
+                        schemas = schema_loader[schema_type](file_handler)
 
-                with open(schema_file) as fn:
-                    schemas = yaml.load(fn, Loader=yaml.FullLoader)
+                    if not schemas:
+                        print(
+                            "WARNING: Could not read {}".format(schema_file),
+                            file=sys.stderr,
+                        )
+                        continue
 
-                if not schemas:
-                    print(
-                        "WARNING: Could not read YAML file {}".format(schema_file),
-                        file=sys.stderr,
-                    )
-                    continue
+                    for schema in schemas:
+                        changed_schemas[schema_type].append(schema)
 
-                for schema in schemas:
-                    schema_matches.append(schema)
+        return changed_schemas
 
-        return schema_matches
+    def find_python_dependencies(self, source):
+        """Find slugs of the processes that the given source can execute.
+
+        :raises RuntimeError: when dependencies could not be determines.
+        """
+        root = ast.parse(source)
+        visitor = ProcessVisitor(source=source)
+        visitor.visit(root)
+        return visitor.get_dependencies()
 
     def find_dependencies(self, schemas):
         """Compute process dependencies.
 
         :param schemas: A list of all discovered process schemas
+        :raises ValueError: when schema type (keys in schemas dictionary) is unknown.
         :return: Process dependency dictionary
         """
         dependencies = {}
+        # Schema type can be "python" or "yaml"
+        for schema_type in schemas:
+            for schema in schemas[schema_type]:
+                if schema_type == "yaml":
+                    slug = schema["slug"]
+                    run = schema.get("run", {})
+                    program = run.get("program", None)
+                    language = run.get("language", None)
 
-        for schema in schemas:
-            slug = schema["slug"]
-            run = schema.get("run", {})
-            program = run.get("program", None)
-            language = run.get("language", None)
-
-            if language == "workflow":
-                for step in program:
-                    dependencies.setdefault(step["run"], set()).add(slug)
-            elif language == "bash":
-                # Process re-spawn instructions to discover dependencies.
-                matches = SPAWN_PROCESS_REGEX.findall(program)
-                if matches:
-                    for match in matches:
-                        dependencies.setdefault(match, set()).add(slug)
-
+                    if language == "workflow":
+                        for step in program:
+                            dependencies.setdefault(step["run"], set()).add(slug)
+                    elif language == "bash":
+                        # Process re-spawn instructions to discover dependencies.
+                        matches = SPAWN_PROCESS_REGEX.findall(program)
+                        if matches:
+                            for match in matches:
+                                dependencies.setdefault(match, set()).add(slug)
+                elif schema_type == "python":
+                    python_dependencies = self.find_python_dependencies(schema)
+                    if python_dependencies:
+                        for (
+                            process_slug,
+                            called_processes,
+                        ) in python_dependencies.items():
+                            for called_process in called_processes:
+                                dependencies.setdefault(called_process, set()).add(
+                                    process_slug
+                                )
+                else:
+                    raise ValueError(
+                        f"Unknown schema type {schema_type}. It has to be one of 'python' or 'yaml'."
+                    )
         return dependencies
 
     def resolve_process_tags(self, files):
-        """Resolve process tags.
+        """Resolve process tags for yaml and Python processes.
 
         :param files: List of changed process files
         :return: Test tags that need to be run
@@ -642,15 +686,19 @@ class ResolweRunner(DiscoverRunner):
         for finder in get_finders():
             processes_paths.extend(finder.find_processes())
 
-        process_schemas = []
+        process_schemas = {"python": [], "yaml": []}
         for proc_path in processes_paths:
-            process_schemas.extend(self.find_schemas(proc_path))
+            schemas = self.find_schemas(proc_path)
+            for schema_type in schemas:
+                process_schemas[schema_type].extend(schemas[schema_type])
 
         # Switch to source branch and get all the schemas from there as well, since some schemas
         # might have been removed.
         with self.git_branch(self.only_changes_to):
             for proc_path in processes_paths:
-                process_schemas.extend(self.find_schemas(proc_path))
+                schemas = self.find_schemas(proc_path)
+                for schema_type in schemas:
+                    process_schemas[schema_type].extend(schemas[schema_type])
 
         dependencies = self.find_dependencies(process_schemas)
         processes = set()
@@ -658,11 +706,18 @@ class ResolweRunner(DiscoverRunner):
         def load_process_slugs(filename):
             """Add all process slugs from specified file."""
             with open(filename, "r") as process_file:
-                data = yaml.load(process_file, Loader=yaml.FullLoader)
-
-                for process in data:
-                    # Add all process slugs.
-                    processes.add(process["slug"])
+                if filename.endswith(".py"):
+                    source = process_file.read()
+                    root = ast.parse(source)
+                    visitor = ProcessVisitor(source=source)
+                    visitor.visit(root)
+                    for process in visitor.processes:
+                        processes.add(process.metadata.slug)
+                else:
+                    data = yaml.load(process_file, Loader=yaml.FullLoader)
+                    for process in data:
+                        # Add all process slugs.
+                        processes.add(process["slug"])
 
         for filename in files:
             try:
