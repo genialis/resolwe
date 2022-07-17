@@ -2,9 +2,14 @@
 import ast
 import collections
 import json
+from collections import defaultdict
+from contextlib import suppress
 from inspect import isclass
+from typing import Iterable, Mapping, Set
 
 import asteval
+
+from django.conf import settings
 
 from . import runtime
 from .descriptor import Persistence, ProcessDescriptor, SchedulingClass
@@ -111,8 +116,104 @@ class ProcessVisitor(ast.NodeVisitor):
         self.source = source
         self.processes = []
         self.base_classes = set()
+        # Mapping betwwen process slug and AST node representing the class.
+        self.ast_nodes = dict()
 
         super().__init__()
+
+    def _get_called_slug(self, process_slug, called_node: ast.Call):
+        """Get the slug of the process being called.
+
+        :raises RuntimeError: when slug could not be determined (for instance when
+            the slug is being a variable).
+        """
+        # Both methods (run_process and get_latest) take argument slug as the first
+        # argument, so no separation is necessary.
+        # When the first non-keyword argumet is given it must be slug.
+        keyword_map = {keyword.arg: keyword.value for keyword in called_node.keywords}
+        slug = (
+            called_node.args[0]
+            if len(called_node.args) >= 1
+            else keyword_map.get("slug")
+        )
+        if isinstance(slug, ast.Constant):
+            return slug.value, ast.Constant
+
+        if isinstance(slug, ast.Name) and isinstance(slug.ctx, ast.Load):
+            return slug.id, ast.Name
+
+        raise RuntimeError(
+            f"Spaned process slug could not be determined for the process {process_slug}."
+        )
+
+    def get_possible_variable_values(
+        self, process_node: ast.ClassDef
+    ) -> Mapping[str, Iterable[str]]:
+        """Get the mapping between variable names and their possible values.
+
+        The variable is only included in the mapping when it is assigned only
+        constant values.
+        """
+        mapping = defaultdict(list)
+        unknown_values: Set[str] = set()
+        for child_node in ast.walk(process_node):
+            if isinstance(child_node, ast.Assign):
+                if isinstance(child_node.value, ast.Constant):
+                    for target in child_node.targets:
+                        if isinstance(target, ast.Name):
+                            mapping[target.id].append(child_node.value.value)
+                else:
+                    unknown_values.update(
+                        target.id
+                        for target in child_node.targets
+                        if isinstance(target, ast.Name)
+                    )
+        # Remove the variables with non-constant assignment from the mapping.
+        for unknown in unknown_values:
+            mapping.pop(unknown, None)
+        return mapping
+
+    def get_dependencies(self):
+        """Get the dependencies between the processes.
+
+        :raises RuntimeError: when dependencies could not be determined. For
+            instance when process slug is a variable.
+
+        :returns: the dictionary where key is the process slug and the
+            corresponding value is the list of processes the process can spawn.
+        """
+        slugs = dict()
+        # Register the runtime with the full name and only the class name.
+        # For example "resolwe.process.runtime.Process" and "Process".
+        candidate_names = ["self.run_process"]
+        for candidate in settings.FLOW_PROCESSES_RUNTIMES:
+            candidate_names.append(f"{candidate}.get_latest")
+            candidate_names.append(f"{candidate.split('.')[-1]}.get_latest")
+        for process_slug, process_node in self.ast_nodes.items():
+            mapping = self.get_possible_variable_values(process_node)
+            slugs[process_slug] = set()
+            for child_node in ast.walk(process_node):
+                if isinstance(child_node, ast.Call):
+                    with suppress(AttributeError):
+                        candidate_name = (
+                            f"{child_node.func.value.id}.{child_node.func.attr}"
+                        )
+                        if candidate_name in candidate_names:
+                            called_slug, slug_type = self._get_called_slug(
+                                process_slug, child_node
+                            )
+                            # The slug is a variable. Collect its possible names.
+                            if slug_type == ast.Name:
+                                if called_slug not in mapping:
+                                    raise RuntimeError(
+                                        f"Unable to determine value for the "
+                                        f"variable '{called_slug}' in the "
+                                        f"process '{process_slug}'."
+                                    )
+                                slugs[process_slug].update(mapping[called_slug])
+                            if slug_type == ast.Constant:
+                                slugs[process_slug].add(called_slug)
+        return slugs
 
     def visit_field_class(self, item, descriptor=None, fields=None):
         """Visit a class node containing a list of field definitions."""
@@ -224,6 +325,8 @@ class ProcessVisitor(ast.NodeVisitor):
 
         descriptor.validate()
         self.processes.append(descriptor)
+        # Add mapping between the slug and the node.
+        self.ast_nodes[descriptor.metadata.slug] = node
 
 
 class SafeParser:
