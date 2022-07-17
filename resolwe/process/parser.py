@@ -124,8 +124,7 @@ class ProcessVisitor(ast.NodeVisitor):
     def _get_called_slug(self, process_slug, called_node: ast.Call):
         """Get the slug of the process being called.
 
-        :raises RuntimeError: when slug could not be determined (for instance when
-            the slug is being a variable).
+        :raises RuntimeError: when slug could not be determined.
         """
         # Both methods (run_process and get_latest) take argument slug as the first
         # argument, so no separation is necessary.
@@ -136,8 +135,8 @@ class ProcessVisitor(ast.NodeVisitor):
             if len(called_node.args) >= 1
             else keyword_map.get("slug")
         )
-        if isinstance(slug, ast.Constant):
-            return slug.value, ast.Constant
+        if isinstance(slug, (ast.Constant, ast.Str)):
+            return getattr(slug, "value", slug.s), ast.Constant
 
         if isinstance(slug, ast.Name) and isinstance(slug.ctx, ast.Load):
             return slug.id, ast.Name
@@ -158,10 +157,12 @@ class ProcessVisitor(ast.NodeVisitor):
         unknown_values: Set[str] = set()
         for child_node in ast.walk(process_node):
             if isinstance(child_node, ast.Assign):
-                if isinstance(child_node.value, ast.Constant):
+                if isinstance(child_node.value, (ast.Constant, ast.Str)):
                     for target in child_node.targets:
                         if isinstance(target, ast.Name):
-                            mapping[target.id].append(child_node.value.value)
+                            mapping[target.id].append(
+                                getattr(child_node.value, "value", child_node.value.s)
+                            )
                 else:
                     unknown_values.update(
                         target.id
@@ -188,7 +189,9 @@ class ProcessVisitor(ast.NodeVisitor):
         candidate_names = ["self.run_process"]
         for candidate in settings.FLOW_PROCESSES_RUNTIMES:
             candidate_names.append(f"{candidate}.get_latest")
+            candidate_names.append(f"{candidate}.get")
             candidate_names.append(f"{candidate.split('.')[-1]}.get_latest")
+            candidate_names.append(f"{candidate.split('.')[-1]}.get")
         for process_slug, process_node in self.ast_nodes.items():
             mapping = self.get_possible_variable_values(process_node)
             slugs[process_slug] = set()
