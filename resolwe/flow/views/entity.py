@@ -8,12 +8,13 @@ from rest_framework.response import Response
 from resolwe.flow.filters import EntityFilter
 from resolwe.flow.models import Collection, DescriptorSchema, Entity
 from resolwe.flow.serializers import EntitySerializer
+from resolwe.observers.mixins import ObservableMixin
 
 from .collection import BaseCollectionViewSet
 from .utils import get_collection_for_user
 
 
-class EntityViewSet(BaseCollectionViewSet):
+class EntityViewSet(ObservableMixin, BaseCollectionViewSet):
     """API view for entities."""
 
     serializer_class = EntitySerializer

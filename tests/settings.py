@@ -36,6 +36,7 @@ INSTALLED_APPS = (
     "resolwe.storage",
     "resolwe.toolkit",
     "resolwe.test_helpers",
+    "resolwe.observers",
     "resolwe.auditlog",
 )
 

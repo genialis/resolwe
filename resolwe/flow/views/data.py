@@ -10,6 +10,7 @@ from resolwe.flow.models import Collection, Data, DescriptorSchema, Entity, Proc
 from resolwe.flow.models.utils import fill_with_defaults
 from resolwe.flow.serializers import DataSerializer
 from resolwe.flow.utils import get_data_checksum
+from resolwe.observers.mixins import ObservableMixin
 from resolwe.permissions.loader import get_permissions_class
 from resolwe.permissions.mixins import ResolwePermissionsMixin
 from resolwe.permissions.models import Permission, PermissionModel
@@ -24,6 +25,7 @@ from .utils import get_collection_for_user
 
 
 class DataViewSet(
+    ObservableMixin,
     ResolweCreateModelMixin,
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,

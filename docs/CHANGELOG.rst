@@ -41,6 +41,8 @@ Changed
 -------
 - Retry loading ``Kubernetes`` configuration couple of times before giving up
   in the kubernetes workload connector
+- Add model observers that notify clients about model changes via a websocket
+  connection
 
 
 ===================

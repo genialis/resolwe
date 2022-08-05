@@ -18,7 +18,7 @@ UserOrGroup = Union[User, Group]
 ANONYMOUS_USER = None
 
 
-def get_anonymous_user() -> User:
+def get_anonymous_user(cache=True) -> User:
     """Get the anonymous user.
 
     Note that is the actual user object with username specified in setting
@@ -26,13 +26,13 @@ def get_anonymous_user() -> User:
     setting has precedence.
 
     Store the computed value into global variable get_anonymous_user() to avoid
-    querying the database every time.
+    querying the database every time, unless the cache parameter is False.
 
     :raises RuntimeError: when ANONYMOUS_USER_NAME and ANONYMOUS_USER_ID are
         not set.
     """
     global ANONYMOUS_USER
-    if ANONYMOUS_USER is None:
+    if ANONYMOUS_USER is None or not cache:
         ANONYMOUS_USER = get_user_model().objects.get(
             username=settings.ANONYMOUS_USER_NAME
         )

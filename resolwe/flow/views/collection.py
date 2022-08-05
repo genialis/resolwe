@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from resolwe.flow.filters import CollectionFilter
 from resolwe.flow.models import Collection, DescriptorSchema
 from resolwe.flow.serializers import CollectionSerializer
+from resolwe.observers.mixins import ObservableMixin
 from resolwe.permissions.loader import get_permissions_class
 from resolwe.permissions.mixins import ResolwePermissionsMixin
 from resolwe.permissions.models import Permission, PermissionModel
@@ -90,7 +91,7 @@ class BaseCollectionViewSet(
         return Response(serializer.data)
 
 
-class CollectionViewSet(BaseCollectionViewSet):
+class CollectionViewSet(ObservableMixin, BaseCollectionViewSet):
     """API view for :class:`Collection` objects."""
 
     serializer_class = CollectionSerializer
