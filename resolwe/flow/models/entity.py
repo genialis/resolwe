@@ -4,6 +4,7 @@ from django.contrib.postgres.indexes import GinIndex
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
 
+from resolwe.observers.protocol import post_permission_changed, pre_permission_changed
 from resolwe.permissions.models import PermissionObject, PermissionQuerySet
 
 from .base import BaseModel, BaseQuerySet
@@ -101,10 +102,12 @@ class Entity(BaseCollection, PermissionObject):
             raise ValidationError(
                 f"Entity {self}({self.pk}) can only be moved to another container."
             )
+        pre_permission_changed.send(sender=type(self), instance=self)
         self.collection = collection
         self.tags = collection.tags
         self.permission_group = collection.permission_group
         self.save(update_fields=["collection", "tags", "permission_group"])
+        post_permission_changed.send(sender=type(self), instance=self)
         self.data.update(
             permission_group=collection.permission_group,
             collection_id=collection.pk,

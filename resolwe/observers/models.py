@@ -1,6 +1,6 @@
 """The model Observer model."""
 import uuid
-from typing import List, Optional
+from typing import List, Optional, Set
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
@@ -74,6 +74,40 @@ class Observer(models.Model):
             if instance.has_permission(Permission.VIEW, subscriber.user):
                 # Register on_commit callbacks to send the signals.
                 Subscription.notify(subscriber.session_id, instance, change_type)
+
+    @classmethod
+    def observe_permission_changes(
+        cls, instance: any, gains: Set[int], losses: Set[int]
+    ):
+        """Handle a notification about a permission change.
+
+        Given an instance and a set of user_ids who gained/lost permissions for it,
+        only relevant observers will be notified of the instance's creation/deletion.
+        """
+        for change_type, user_ids in (
+            (ChangeType.CREATE, gains),
+            (ChangeType.DELETE, losses),
+        ):
+            # A shortcut if nothing actually changed.
+            if len(user_ids) == 0:
+                continue
+
+            # Find all sessions who have observers registered on this object.
+            interested = Observer.get_interested(
+                change_type=change_type,
+                content_type=ContentType.objects.get_for_model(instance),
+                object_id=instance.pk,
+            )
+            # Of all interested users, select only those whose permissions changed.
+            session_ids = set(
+                Subscription.objects.filter(observers__in=interested)
+                .filter(user__in=user_ids)
+                .values_list("session_id", flat=True)
+                .distinct()
+            )
+
+            for session_id in session_ids:
+                Subscription.notify(session_id, instance, change_type)
 
     def __str__(self) -> str:
         """Format the object representation."""

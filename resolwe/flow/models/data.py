@@ -21,6 +21,7 @@ from resolwe.flow.models.utils import (
     validation_schema,
 )
 from resolwe.flow.utils import dict_dot, get_data_checksum, iterate_fields
+from resolwe.observers.protocol import post_permission_changed, pre_permission_changed
 from resolwe.permissions.models import PermissionObject, PermissionQuerySet
 from resolwe.permissions.utils import assign_contributor_permissions, copy_permissions
 
@@ -576,21 +577,25 @@ class Data(BaseModel, PermissionObject):
     def move_to_collection(self, collection):
         """Move data object to collection."""
         self.validate_change_collection(collection)
+        pre_permission_changed.send(sender=type(self), instance=self)
         self.collection = collection
         self.permission_group = collection.permission_group
         if collection:
             self.tags = collection.tags
         self.save(update_fields=["tags", "permission_group", "collection"])
+        post_permission_changed.send(sender=type(self), instance=self)
 
     def move_to_entity(self, entity):
         """Move data object to entity."""
         if entity is None and self.in_container():
             raise ValidationError("Data object must not be removed from container.")
+        pre_permission_changed.send(sender=type(self), instance=self)
         self.entity = entity
         if entity:
             self.permission_group = entity.permission_group
         self.tags = entity.tags
         self.save(update_fields=["permission_group", "entity", "tags"])
+        post_permission_changed.send(sender=type(self), instance=self)
 
     def validate_change_collection(self, collection):
         """Raise validation error if data object cannot change collection."""

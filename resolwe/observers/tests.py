@@ -1,4 +1,5 @@
 # pylint: disable=missing-docstring
+
 import asyncio
 import json
 import uuid
@@ -139,6 +140,16 @@ class ObserverTestCase(TransactionTestCase):
         obj = await create_obj(pk=43)
         await database_sync_to_async(obj.set_permission)(
             Permission.OWNER, self.user_alice
+        )
+
+        # Assert we detect creations.
+        self.assertDictEqual(
+            json.loads(await client.receive_from()),
+            {
+                "object_id": 43,
+                "change_type": ChangeType.CREATE.name,
+                "subscription_id": self.subscription_id.hex,
+            },
         )
 
         # Assert we detect modifications.
@@ -282,6 +293,17 @@ class ObserverTestCase(TransactionTestCase):
 
         data = await create_data()
 
+        # Assert we detect creations.
+        self.assertDictEqual(
+            json.loads(await client.receive_from()),
+            {
+                "change_type": ChangeType.CREATE.name,
+                "object_id": 42,
+                "subscription_id": self.subscription_id.hex,
+            },
+        )
+        await self.assert_no_more_messages(client)
+
         # Delete the Data object.
         @database_sync_to_async
         def delete_data(data):
@@ -302,6 +324,143 @@ class ObserverTestCase(TransactionTestCase):
 
         # Assert subscription didn't delete because Data got deleted.
         await self.await_subscription_observer_count(2)
+
+    async def test_change_permission_group(self):
+        client = WebsocketCommunicator(self.client_consumer, "/ws/test_session")
+        connected, details = await client.connect()
+        self.assertTrue(connected)
+
+        # Create a Data object visible to Bob.
+        @database_sync_to_async
+        def create_data():
+            self.collection = Collection.objects.create(
+                contributor=self.user_alice,
+                name="Test collection",
+            )
+            self.collection.set_permission(Permission.VIEW, self.user_bob)
+
+            self.collection2 = Collection.objects.create(
+                contributor=self.user_alice,
+                name="Test collection 2",
+            )
+            self.collection2.set_permission(Permission.NONE, self.user_bob)
+
+            data = Data.objects.create(
+                pk=42,
+                name="Test data",
+                slug="test-data",
+                contributor=self.user_alice,
+                process=self.process,
+                collection=self.collection,
+                size=0,
+            )
+            return data
+
+        data = await create_data()
+
+        # Create a subscription to the Data object by Bob.
+        @database_sync_to_async
+        def subscribe():
+            Subscription.objects.create(
+                user=self.user_bob,
+                session_id="test_session",
+                subscription_id=self.subscription_id,
+            ).subscribe(
+                content_type=ContentType.objects.get_for_model(Data),
+                object_ids=[42],
+                change_types=[ChangeType.UPDATE, ChangeType.DELETE],
+            )
+
+        await subscribe()
+
+        # Reset the PermissionGroup of the Data object (removes permissions to Bob)
+        @database_sync_to_async
+        def change_permission_group(data):
+            data.move_to_collection(self.collection2)
+
+        await change_permission_group(data)
+
+        # Assert that Bob sees this as a deletion.
+        self.assertDictEqual(
+            json.loads(await client.receive_from()),
+            {
+                "change_type": ChangeType.DELETE.name,
+                "object_id": 42,
+                "subscription_id": self.subscription_id.hex,
+            },
+        )
+        await self.assert_no_more_messages(client)
+
+    async def test_modify_permissions(self):
+        client = WebsocketCommunicator(self.client_consumer, "/ws/test_session")
+        connected, details = await client.connect()
+        self.assertTrue(connected)
+
+        # Create a new Data object.
+        @database_sync_to_async
+        def create_data():
+            return Data.objects.create(
+                pk=42,
+                name="Test data",
+                slug="test-data",
+                contributor=self.user_alice,
+                process=self.process,
+                size=0,
+            )
+
+        data = await create_data()
+
+        # Create a subscription to the Data content_type by Bob.
+        @database_sync_to_async
+        def subscribe():
+            Subscription.objects.create(
+                user=self.user_bob,
+                session_id="test_session",
+                subscription_id=self.subscription_id,
+            ).subscribe(
+                content_type=ContentType.objects.get_for_model(Data),
+                object_ids=[None],
+                change_types=[ChangeType.CREATE, ChangeType.UPDATE, ChangeType.DELETE],
+            )
+
+        await subscribe()
+        await self.await_subscription_observer_count(3)
+
+        # Grant Bob view permissions to the Data object.
+        @database_sync_to_async
+        def grant_permissions(data):
+            data.set_permission(Permission.VIEW, self.user_bob)
+
+        await grant_permissions(data)
+
+        # Assert we detect gaining permissions as creations.
+        self.assertDictEqual(
+            json.loads(await client.receive_from()),
+            {
+                "change_type": ChangeType.CREATE.name,
+                "object_id": 42,
+                "subscription_id": self.subscription_id.hex,
+            },
+        )
+        await self.assert_no_more_messages(client)
+
+        # Revoke permissions for Bob.
+        @database_sync_to_async
+        def revoke_permissions(data):
+            data.set_permission(Permission.NONE, self.user_bob)
+
+        await revoke_permissions(data)
+
+        # Assert we detect losing permissions as deletions.
+        self.assertDictEqual(
+            json.loads(await client.receive_from()),
+            {
+                "change_type": ChangeType.DELETE.name,
+                "object_id": 42,
+                "subscription_id": self.subscription_id.hex,
+            },
+        )
+        await self.assert_no_more_messages(client)
 
     async def test_observe_table_no_permissions(self):
         client = WebsocketCommunicator(self.client_consumer, "/ws/test_session")
@@ -337,7 +496,17 @@ class ObserverTestCase(TransactionTestCase):
             )
             return data
 
-        await create_data()
+        data = await create_data()
+
+        # Assert we don't detect creations (Bob doesn't have permissions).
+        await self.assert_no_more_messages(client)
+
+        # Delete the Data object.
+        @database_sync_to_async
+        def delete_data(data):
+            data.delete()
+
+        await delete_data(data)
 
         # Assert we don't detect deletions.
         await self.assert_no_more_messages(client)

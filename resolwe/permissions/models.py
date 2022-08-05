@@ -9,6 +9,8 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, User
 from django.db import models, transaction
 
+from resolwe.observers.protocol import post_permission_changed, pre_permission_changed
+
 logger = logging.getLogger(__name__)
 PermissionList = List["Permission"]
 UserOrGroup = Union[User, Group]
@@ -239,6 +241,23 @@ class PermissionGroup(models.Model):
         else:
             return Permission.NONE
 
+    def users_with_permission(self, permission: Permission) -> List[User]:
+        """Get a list of users with at least this permission level.
+
+        Calling this with Permission.NONE will return users for whom an explicit
+        PermissionModel with Permission.NONE exists.
+        """
+        filtered = self.permissions.filter(value__gte=permission)
+        users = list(
+            get_user_model()
+            .objects.filter(
+                models.Q(groups__in=filtered.values_list("group", flat=True))
+                | models.Q(pk__in=filtered.values_list("user", flat=True))
+            )
+            .distinct()
+        )
+        return users
+
 
 class PermissionQuerySet(models.QuerySet):
     """Queryset with methods that simlify filtering by permissions."""
@@ -394,7 +413,11 @@ class PermissionObject(models.Model):
                 f"The permissions can not be set on object {self} ({self._meta.label}) in container."
             )
 
+        pre_permission_changed.send(sender=type(self), instance=self)
+
         self.permission_group.set_permission(permission, user_or_group)
+
+        post_permission_changed.send(sender=type(self), instance=self)
 
     def get_permission(self, user_or_group: UserOrGroup) -> Permission:
         """Get permission for given user or group on this instance."""
@@ -410,6 +433,14 @@ class PermissionObject(models.Model):
             return list(permission)
         else:
             return []
+
+    def users_with_permission(self, permission: Permission) -> List[User]:
+        """Get a list of users with at least this permission level.
+
+        Calling this with Permission.NONE will return users for whom an explicit
+        PermissionModel with Permission.NONE exists.
+        """
+        return self.permission_group.users_with_permission(permission)
 
     @property
     def topmost_container(self) -> Optional[models.Model]:

@@ -252,6 +252,35 @@ class ObjectPermsTestCase(TestCase):
         perms = response.data
         self.assertCountEqual(self._sort_perms(expected_perms), self._sort_perms(perms))
 
+    def test_users_with_permission(self):
+        self.group1.user_set.add(self.user1)
+        self.collection.set_permission(Permission.EDIT, self.user1)
+        self.collection.set_permission(Permission.SHARE, self.user2)
+        self.assertCountEqual(
+            self.collection.users_with_permission(Permission.VIEW),
+            [self.user1, self.user2],
+        )
+        self.assertCountEqual(
+            self.collection.users_with_permission(Permission.SHARE),
+            [self.user2],
+        )
+        self.assertCountEqual(
+            self.collection.users_with_permission(Permission.OWNER),
+            [],
+        )
+
+        self.collection.set_permission(Permission.NONE, self.user1)
+        self.assertCountEqual(
+            self.collection.users_with_permission(Permission.VIEW),
+            [self.user2],
+        )
+
+        self.collection.set_permission(Permission.VIEW, self.group1)
+        self.assertCountEqual(
+            self.collection.users_with_permission(Permission.VIEW),
+            [self.user1, self.user2],
+        )
+
 
 class StoragePermsTestCase(TestCase):
     def setUp(self):
