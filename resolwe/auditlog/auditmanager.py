@@ -156,6 +156,7 @@ class AuditManager:
     def reset(self):
         """Clear all stored data."""
         self._access_loger.clear()
+        self._custom_messages.clear()
 
     @staticmethod
     def global_instance() -> "AuditManager":
