@@ -6,6 +6,15 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Added
+-----
+- Add ``descriptor`` and ``descriptor_schema`` fields to the ``Relation`` model
+
+
 ===================
 31.1.0 - 2022-08-23
 ===================

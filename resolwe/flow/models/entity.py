@@ -8,7 +8,7 @@ from resolwe.permissions.models import PermissionObject, PermissionQuerySet
 
 from .base import BaseModel, BaseQuerySet
 from .collection import BaseCollection
-from .utils import bulk_duplicate
+from .utils import DirtyError, bulk_duplicate, validate_schema
 
 
 class EntityQuerySet(BaseQuerySet, PermissionQuerySet):
@@ -196,6 +196,17 @@ class Relation(BaseModel, PermissionObject):
     #: unit used in the partitions' positions (where applicable, e.g. for serieses)
     unit = models.CharField(max_length=3, choices=UNIT_CHOICES, null=True, blank=True)
 
+    #: relation descriptor schema
+    descriptor_schema = models.ForeignKey(
+        "flow.DescriptorSchema", blank=True, null=True, on_delete=models.PROTECT
+    )
+
+    #: relation descriptor
+    descriptor = models.JSONField(default=dict)
+
+    #: indicate whether `descriptor` doesn't match `descriptor_schema` (is dirty)
+    descriptor_dirty = models.BooleanField(default=False)
+
     #: custom manager with permission filtering methods
     objects = PermissionQuerySet.as_manager()
 
@@ -210,6 +221,20 @@ class Relation(BaseModel, PermissionObject):
             ("share", "Can share relation"),
             ("owner", "Is owner of the relation"),
         )
+
+    def save(self, *args, **kwargs):
+        """Perform descriptor validation and save object."""
+        if self.descriptor_schema:
+            try:
+                validate_schema(self.descriptor, self.descriptor_schema.schema)
+                self.descriptor_dirty = False
+            except DirtyError:
+                self.descriptor_dirty = True
+        elif self.descriptor and self.descriptor != {}:
+            raise ValueError(
+                "`descriptor_schema` must be defined if `descriptor` is given"
+            )
+        super().save()
 
 
 class RelationPartition(models.Model):

@@ -4,10 +4,12 @@ from django.db import transaction
 from rest_framework import serializers
 
 from resolwe.flow.models.collection import Collection
+from resolwe.flow.models.descriptor import DescriptorSchema
 from resolwe.flow.models.entity import Relation, RelationPartition, RelationType
-from resolwe.flow.serializers import CollectionSerializer
+from resolwe.flow.serializers import CollectionSerializer, DescriptorSchemaSerializer
 from resolwe.flow.serializers.fields import DictRelatedField
 from resolwe.permissions.models import Permission
+from resolwe.rest.fields import ProjectableJSONField
 from resolwe.rest.serializers import SelectiveFieldMixin
 
 from .base import ResolweBaseSerializer
@@ -35,6 +37,13 @@ class RelationSerializer(ResolweBaseSerializer):
     type = serializers.SlugRelatedField(
         queryset=RelationType.objects.all(), slug_field="name"
     )
+    descriptor = ProjectableJSONField(required=False)
+    descriptor_schema = DictRelatedField(
+        queryset=DescriptorSchema.objects.all(),
+        serializer=DescriptorSchemaSerializer,
+        allow_null=True,
+        required=False,
+    )
 
     class Meta:
         """RelationSerializer Meta options."""
@@ -44,6 +53,7 @@ class RelationSerializer(ResolweBaseSerializer):
             "created",
             "id",
             "modified",
+            "descriptor_dirty",
         )
         update_protected_fields = (
             "contributor",
@@ -57,6 +67,8 @@ class RelationSerializer(ResolweBaseSerializer):
                 "category",
                 "partitions",
                 "unit",
+                "descriptor",
+                "descriptor_schema",
             )
         )
 

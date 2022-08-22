@@ -35,6 +35,24 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
             verbosity=0,
         )
 
+        self.descriptor_schema = DescriptorSchema.objects.create(
+            slug="test-schema",
+            version="1.0.0",
+            contributor=self.contributor,
+            schema=[
+                {
+                    "name": "general",
+                    "group": [
+                        {
+                            "name": "relation_name",
+                            "type": "basic:string:",
+                            "required": True,
+                        },
+                    ],
+                }
+            ],
+        )
+
         self.collection = Collection.objects.create(
             name="Test collection", contributor=self.contributor
         )
@@ -64,6 +82,8 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
             contributor=self.contributor,
             collection=self.collection,
             type=self.rel_type_group,
+            descriptor_schema=self.descriptor_schema,
+            descriptor={"general": {"relation_name": "group"}},
             category="replicates",
         )
         self.group_partiton_1 = RelationPartition.objects.create(
@@ -79,6 +99,8 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
             type=self.rel_type_series,
             category="time-series",
             unit=Relation.UNIT_HOUR,
+            descriptor_schema=self.descriptor_schema,
+            descriptor={"general": {"relation_name": "series"}},
         )
         self.series_partiton_1 = RelationPartition.objects.create(
             relation=self.relation_series,
@@ -148,6 +170,13 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
         self.assertEqual(resp.data["type"], "group")
         self.assertEqual(resp.data["category"], "replicates")
         self.assertEqual(resp.data["unit"], None)
+        self.assertEqual(
+            resp.data["descriptor_schema"]["id"], self.descriptor_schema.id
+        )
+        self.assertEqual(resp.data["descriptor_dirty"], False)
+        self.assertEqual(
+            resp.data["descriptor"], {"general": {"relation_name": "group"}}
+        )
         self.assertCountEqual(
             resp.data["partitions"],
             [
@@ -173,6 +202,13 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
         self.assertEqual(resp.data["type"], "series")
         self.assertEqual(resp.data["category"], "time-series")
         self.assertEqual(resp.data["unit"], "hr")
+        self.assertEqual(
+            resp.data["descriptor_schema"]["id"], self.descriptor_schema.id
+        )
+        self.assertEqual(resp.data["descriptor_dirty"], False)
+        self.assertEqual(
+            resp.data["descriptor"], {"general": {"relation_name": "series"}}
+        )
         self.assertCountEqual(
             resp.data["partitions"],
             [
@@ -202,6 +238,15 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
                 },
             ],
         )
+
+    def test_dirty_descriptor(self):
+        self.assertEqual(self.relation_group.descriptor_dirty, False)
+        self.relation_group.descriptor = {}
+        self.relation_group.save()
+
+        self.relation_group.refresh_from_db()
+        self.assertEqual(self.relation_group.descriptor_dirty, True)
+        self.assertEqual(self.relation_group.descriptor, {})
 
     def test_get_public_user(self):
         resp = self._get_detail(self.relation_series.pk, user=AnonymousUser())

@@ -412,7 +412,12 @@ class RelationFilter(BaseResolweFilter):
         """Filter configuration."""
 
         model = Relation
-        fields = BaseResolweFilter.Meta.fields
+        fields = {
+            **BaseResolweFilter.Meta.fields,
+            **{
+                "descriptor_schema": ["exact"],
+            },
+        }
 
     def get_always_allowed_arguments(self):
         """Get always allowed query arguments."""
