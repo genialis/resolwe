@@ -7,6 +7,15 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
 ===================
+31.1.0 - 2022-08-23
+===================
+
+Fixed
+-----
+- Clear ``custom_messages`` array on auditlog reset call
+
+
+===================
 31.0.0 - 2022-07-18
 ===================
 
