@@ -96,13 +96,53 @@ Postgres ORM model for storing data migration history.
 .. autoclass:: resolwe.flow.models.DataMigrationHistory
     :members:
 
+AnnotationGroup model
+==========================
+
+Postgres ORM model for storing annotation group data.
+
+.. autoclass:: resolwe.flow.models.annotations.AnnotationGroup
+    :members:
+
+AnnotationField model
+==========================
+
+Postgres ORM model for storing annotation field data.
+
+.. autoclass:: resolwe.flow.models.annotations.AnnotationField
+    :members:
+
+AnnotationPreset model
+==========================
+
+Postgres ORM model for storing annotation presets data.
+
+.. autoclass:: resolwe.flow.models.annotations.AnnotationPreset
+    :members:
+
+AnnotationValue model
+==========================
+
+Postgres ORM model for storing annotation values.
+
+.. autoclass:: resolwe.flow.models.annotations.AnnotationValue
+    :members:
+
 Utility functions
 =================
 
 .. autofunction:: resolwe.flow.models.utils.duplicate.bulk_duplicate
 
+
+
 """
 
+from .annotations import (
+    AnnotationField,
+    AnnotationGroup,
+    AnnotationPreset,
+    AnnotationValue,
+)
 from .collection import Collection
 from .data import Data, DataDependency
 from .descriptor import DescriptorSchema
@@ -114,6 +154,10 @@ from .storage import Storage
 from .worker import Worker
 
 __all__ = (
+    "AnnotationGroup",
+    "AnnotationPreset",
+    "AnnotationField",
+    "AnnotationValue",
     "Collection",
     "Data",
     "DataDependency",

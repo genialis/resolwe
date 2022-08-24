@@ -4,9 +4,26 @@ from collections import OrderedDict
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils.encoding import smart_text
 
-from rest_framework import exceptions, relations
+from rest_framework import exceptions, relations, serializers
 
 from resolwe.permissions.models import Permission
+
+
+class PrimaryKeyDictRelatedField(serializers.PrimaryKeyRelatedField):
+    """Deserialize/serialize model to the dict with 'id' key."""
+
+    def to_internal_value(self, data):
+        """Extract id from dict and use the parent method."""
+        try:
+            if not isinstance(data, dict) or "id" not in data:
+                raise TypeError
+            return super().to_internal_value(data["id"])
+        except (TypeError, ValueError):
+            self.fail("incorrect_type", data_type=type(data).__name__)
+
+    def to_representation(self, value):
+        """Convert to dict representation - only id gets serialized."""
+        return {"id": value.pk}
 
 
 class DictRelatedField(relations.RelatedField):

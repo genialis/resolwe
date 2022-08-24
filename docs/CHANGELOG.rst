@@ -6,6 +6,15 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Added
+-----
+- Add new entity annotation framework
+
+
 ===================
 32.0.0 - 2022-11-14
 ===================

@@ -4,6 +4,18 @@
 Flow Views
 ==========
 
+.. autoclass:: resolwe.flow.views.annotations.AnnotationFieldViewSet
+    :members:
+
+.. autoclass:: resolwe.flow.views.annotations.AnnotationGroupViewSet
+    :members:
+
+.. autoclass:: resolwe.flow.views.annotations.AnnotationPresetViewSet
+    :members:
+
+.. autoclass:: resolwe.flow.views.annotations.AnnotationValueViewSet
+    :members:
+
 .. autoclass:: resolwe.flow.views.collection.CollectionViewSet
     :members:
 
@@ -26,6 +38,11 @@ Flow Views
     :members:
 
 """
+from .annotations import (
+    AnnotationFieldViewSet,
+    AnnotationPresetViewSet,
+    AnnotationValueViewSet,
+)
 from .collection import CollectionViewSet
 from .data import DataViewSet
 from .descriptor import DescriptorSchemaViewSet
@@ -35,6 +52,9 @@ from .relation import RelationViewSet
 from .storage import StorageViewSet
 
 __all__ = (
+    "AnnotationFieldViewSet",
+    "AnnotationPresetViewSet",
+    "AnnotationValueViewSet",
     "CollectionViewSet",
     "DataViewSet",
     "DescriptorSchemaViewSet",

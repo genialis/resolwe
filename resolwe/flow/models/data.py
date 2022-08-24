@@ -27,7 +27,7 @@ from resolwe.permissions.utils import assign_contributor_permissions, copy_permi
 
 from .base import BaseModel, BaseQuerySet
 from .descriptor import DescriptorSchema
-from .entity import Entity
+from .entity import Entity, EntityQuerySet
 from .secret import Secret
 from .storage import Storage
 from .utils import (
@@ -229,6 +229,27 @@ class DataQuerySet(BaseQuerySet, PermissionQuerySet):
         """
         for data in self:
             data.move_to_collection(destination_collection)
+
+    def annotate_sample_path(self, path, annotation_name, value_to_label=False):
+        """Add annotation to the Entity QuerySet.
+
+        The annotation is the value of the field with the given name (in the
+        given group).
+
+        :attr group_name: the name of the group annotation field belongs to.
+        :attr field_name: the name of the annotation field.
+        :attr annotation_name: the name under which annotation will be stored.
+            When empty the name f"{group_name}_{field_name}" will be used.
+        :attr value_to_label: optionally annotate with label instead of the
+            value. Only applicable when the vocabulary on the field is given.
+        """
+        annotation_data = EntityQuerySet._prepare_annotation_data(
+            path,
+            annotation_name,
+            value_to_label,
+            outerref_entity_pk_path="entity_id",
+        )
+        return self.annotate(**annotation_data)
 
 
 class Data(BaseModel, PermissionObject):

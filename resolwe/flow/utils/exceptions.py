@@ -31,6 +31,9 @@ def resolwe_exception_handler(exc, context):
         if response is None:
             response = Response({})
         response.status_code = 400
-        response.data["error"] = exc.message
+        if hasattr(exc, "message"):
+            response.data["error"] = exc.message
+        else:
+            response.data["error"] = [error for error in exc]
 
     return response

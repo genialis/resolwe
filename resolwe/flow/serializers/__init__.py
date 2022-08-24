@@ -14,6 +14,7 @@ Base Resolwe serializer.
 
 """
 
+from .annotations import AnnotationFieldSerializer, AnnotationPresetSerializer
 from .base import NoContentError, ResolweBaseSerializer
 from .collection import CollectionSerializer
 from .contributor import ContributorSerializer
@@ -25,6 +26,8 @@ from .relation import RelationPartitionSerializer, RelationSerializer
 from .storage import StorageSerializer
 
 __all__ = (
+    "AnnotationFieldSerializer",
+    "AnnotationPresetSerializer",
     "CollectionSerializer",
     "ContributorSerializer",
     "DataSerializer",

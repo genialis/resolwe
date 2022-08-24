@@ -5,6 +5,7 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, models, transaction
 from django.utils import timezone
 
+from resolwe.flow.models import AnnotationField, AnnotationValue
 from resolwe.flow.utils import iterate_fields
 from resolwe.permissions.models import Permission, PermissionGroup
 from resolwe.permissions.utils import assign_contributor_permissions, copy_permissions
@@ -380,9 +381,10 @@ def bulk_duplicate(
     if collections is not None:
         new_collections = copy_objects(collections, contributor, name_prefix)
 
-        collection_mapping = {
-            old.pk: new for old, new in zip(collections, new_collections)
-        }
+        collection_mapping = {}
+        for old, new in zip(collections, new_collections):
+            collection_mapping[old.pk] = new
+            AnnotationField.add_to_collection(old, new)
 
         entities = Entity.objects.filter(collection__in=collections)
         data = Data.objects.filter(collection__in=collections)
@@ -394,8 +396,17 @@ def bulk_duplicate(
         new_entities = copy_objects(
             entities, contributor, name_prefix, entity_processor
         )
+        # Copy the existing annotations to the new entity and create mapping
+        # between old and new entities.
+        new_annotations = []
+        entity_mapping = dict()
+        for old_entity, new_entity in zip(entities, new_entities):
+            entity_mapping[old_entity.pk] = new_entity
 
-        entity_mapping = {old.pk: new for old, new in zip(entities, new_entities)}
+            # If collection is not set the annotations cannot be copied.
+            if inherit_collection:
+                new_annotations += old_entity.copy_annotations(new_entity)
+        AnnotationValue.objects.bulk_create(new_annotations)
 
         # Entity data is also included in the collection, so we don't need to set it
         # here if it was already set (i.e. if we are duplicating a collection).

@@ -95,6 +95,11 @@ class Collection(BaseCollection, PermissionObject):
     #: duplication date and time
     duplicated = models.DateTimeField(blank=True, null=True)
 
+    #: annotation fields available to samples in this collection
+    annotation_fields = models.ManyToManyField(
+        "AnnotationField", related_name="collection"
+    )
+
     def is_duplicate(self):
         """Return True if collection is a duplicate."""
         return bool(self.duplicated)

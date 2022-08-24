@@ -5,6 +5,8 @@ Flow Filters
 ============
 
 """
+from functools import partial
+
 from django_filters import rest_framework as filters
 from django_filters.filterset import FilterSetMetaclass
 from versionfield import VersionField
@@ -14,12 +16,23 @@ from django.contrib.auth.models import Group
 from django.contrib.postgres.search import SearchQuery, SearchRank
 from django.db.models import Count, F, ForeignKey, Q, Subquery
 
+from rest_framework import exceptions
 from rest_framework.filters import OrderingFilter as DrfOrderingFilter
 
 from resolwe.composer import composer
 from resolwe.permissions.models import Permission, get_anonymous_user
 
-from .models import Collection, Data, DescriptorSchema, Entity, Process, Relation
+from .models import (
+    AnnotationField,
+    AnnotationPreset,
+    AnnotationValue,
+    Collection,
+    Data,
+    DescriptorSchema,
+    Entity,
+    Process,
+    Relation,
+)
 
 RELATED_LOOKUPS = [
     "exact",
@@ -453,3 +466,114 @@ class OrderingFilter(DrfOrderingFilter):
             return None
 
         return self.get_default_ordering(view)
+
+
+class AnnotationFieldFilter(BaseResolweFilter):
+    """Filter the AnnotationField endpoint."""
+
+    @classmethod
+    def filter_for_field(cls, field, field_name, lookup_expr=None):
+        """Add permission check for collections lookups.
+
+        The old filter method is moved to the original_filter and replaced with the
+        filter that checks the permissions on the collections.
+        """
+
+        def collection_permission_filter(self, qs, value):
+            """Check if user has access the collections.
+
+            The collection filer is defined in the parent filter.
+
+            :raises PermissionDenied: if user does not have the permissions to access any
+                of the collections defined by the filter.
+            """
+
+            if value:
+                field_name, lookup_expression = self.field_name, self.lookup_expr
+                if field_name == "collection":
+                    field_name += "__id"
+
+                collection_field = field_name.split("__", maxsplit=1)[1]
+                collection_filter = f"{collection_field}__{lookup_expression}"
+                filtered_collections = Collection.objects.filter(
+                    **{collection_filter: value}
+                )
+                user_visible_collections = filtered_collections.filter_for_user(
+                    self.parent.request.user
+                )
+                if filtered_collections.count() != user_visible_collections.count():
+                    raise exceptions.PermissionDenied()
+            return self.original_filter(qs, value)
+
+        base_filter = filters.FilterSet.filter_for_field(field, field_name, lookup_expr)
+        # No need to overwrite the exact filter.
+        if field_name.startswith("collection__"):
+            base_filter.original_filter = base_filter.filter
+            base_filter.filter = partial(collection_permission_filter, base_filter)
+        return base_filter
+
+    class Meta(BaseResolweFilter.Meta):
+        """Filter configuration."""
+
+        model = AnnotationField
+        fields = {
+            **{
+                "name": TEXT_LOOKUPS,
+                "label": TEXT_LOOKUPS,
+                "type": TEXT_LOOKUPS,
+                "description": TEXT_LOOKUPS,
+                "group__name": TEXT_LOOKUPS,
+                "collection": ["exact"],
+                "collection__name": TEXT_LOOKUPS[:],
+                "collection__slug": SLUG_LOOKUPS[:],
+            },
+        }
+
+
+class AnnotationPresetFilter(BaseResolweFilter):
+    """Filter the AnnotationPreset endpoint."""
+
+    class Meta(BaseResolweFilter.Meta):
+        """Filter configuration."""
+
+        model = AnnotationPreset
+        fields = {
+            **{
+                "name": TEXT_LOOKUPS,
+            },
+        }
+
+
+class AnnotationValueFilter(BaseResolweFilter):
+    """Filter the AnnotationValue endpoint."""
+
+    entity_ids = filters.CharFilter(method="filter_by_entities", required=True)
+    field_ids = filters.CharFilter(method="filter_by_fields")
+    value = filters.CharFilter(method="filter_by_value")
+
+    def filter_by_entities(self, queryset, name, entity_ids):
+        """Filter by the collection id.
+
+        The filtering must also take permissions on the collections in account.
+        """
+        entities = Entity.objects.filter(pk__in=entity_ids).filter_for_user(
+            self.request.user
+        )
+        return queryset.filter(entity__in=entities)
+
+    def filter_by_fields(self, queryset, name, field_ids):
+        """Filter by field ids."""
+        return queryset.filter(field_id__in=field_ids)
+
+    def filter_by_value(self, queryset, name, value):
+        """Filter by value."""
+        return queryset.filter(_value__value__icontains=value)
+
+    class Meta(BaseResolweFilter.Meta):
+        """Filter configuration."""
+
+        model = AnnotationValue
+        fields = {
+            **{"field__name": TEXT_LOOKUPS},
+            **{"field__label": TEXT_LOOKUPS},
+        }
