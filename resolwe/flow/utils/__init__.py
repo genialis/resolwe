@@ -23,6 +23,7 @@ from django.apps import apps
 from django.conf import settings
 from django.db import models
 
+from .decorators import retry
 from .iterators import iterate_dict, iterate_fields, iterate_schema
 
 __all__ = (
@@ -32,6 +33,7 @@ __all__ = (
     "iterate_dict",
     "iterate_fields",
     "iterate_schema",
+    "retry",
 )
 
 
