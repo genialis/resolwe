@@ -12,6 +12,7 @@ import os
 import re
 import time
 from contextlib import suppress
+from enum import Enum
 from importlib.util import find_spec
 from pathlib import Path
 from typing import Any, Dict, Iterable, Tuple
@@ -24,6 +25,7 @@ from django.db.models.functions import Coalesce
 
 from resolwe.flow.executors import constants
 from resolwe.flow.models import Data, DataDependency, Process
+from resolwe.flow.utils.decorators import retry
 from resolwe.storage import settings as storage_settings
 from resolwe.storage.connectors import connectors
 from resolwe.storage.connectors.baseconnector import BaseStorageConnector
@@ -92,11 +94,21 @@ def sanitize_kubernetes_label(label: str, trim_end: bool = True) -> str:
     return sanitized_label
 
 
+class ConfigLocation(Enum):
+    """The enum specifying where to read the configuration from."""
+
+    INCLUSTER = "incluster"
+    KUBECTL = "kubectl"
+
+
 class Connector(BaseConnector):
     """Kubernetes-based connector for job execution."""
 
     def __init__(self):
         """Initialize."""
+        self._config_location = ConfigLocation(
+            settings.KUBERNETES_DISPATCHER_CONFIG_LOCATION
+        )
         self._initialize_variables()
 
     def _initialize_variables(self):
@@ -499,17 +511,37 @@ class Connector(BaseConnector):
                 return f"{mapper[key]}{image_name[len(key):]}"
         return image_name
 
+    @retry(
+        logger=logger,
+        max_retries=5,
+        retry_exceptions=(kubernetes.config.config_exception.ConfigException,),
+    )
+    def _load_kubernetes_config(self):
+        """Load the kubernetes configuration.
+
+        :raises kubernetes.config.config_exception.ConfigException: when the
+            configuration could not be read.
+        """
+        (
+            kubernetes.config.load_incluster_config()
+            if self._config_location == ConfigLocation.INCLUSTER
+            else kubernetes.config.load_kube_config()
+        )
+
     def start(self, data: Data, listener_connection: Tuple[str, str, str]):
         """Start process execution.
 
         Construct kubernetes job description and pass it to the kubernetes.
         """
+
         # Create kubernetes API every time otherwise it will time out
         # eventually and raise API exception.
+
         try:
-            kubernetes.config.load_kube_config()
-        except kubernetes.config.config_exception.ConfigException:
-            kubernetes.config.load_incluster_config()
+            self._load_kubernetes_config()
+        except kubernetes.config.config_exception.ConfigException as exception:
+            logger.exception("Could not load the kubernetes configuration.")
+            raise exception
 
         batch_api = kubernetes.client.BatchV1Api()
         core_api = kubernetes.client.CoreV1Api()
@@ -805,9 +837,10 @@ class Connector(BaseConnector):
     def cleanup(self, data_id: int):
         """Remove the persistent volume claims created by the executor."""
         try:
-            kubernetes.config.load_kube_config()
+            self._load_kubernetes_config()
         except kubernetes.config.config_exception.ConfigException:
-            kubernetes.config.load_incluster_config()
+            logger.exception("Could not load the kubernetes configuration.")
+            raise
 
         core_api = kubernetes.client.CoreV1Api()
         claim_names = [

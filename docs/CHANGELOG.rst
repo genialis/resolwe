@@ -13,6 +13,13 @@ Unreleased
 Added
 -----
 - Add ``descriptor`` and ``descriptor_schema`` fields to the ``Relation`` model
+- Setting ``KUBERNETES_DISPATCHER_CONFIG_LOCATION`` specifying the location of
+  the kubernetes config to load in the ``Kubernetes`` workload connector
+
+Changed
+-------
+- Retry loading ``Kubernetes`` configuration couple of times before giving up
+  in the kubernetes workload connector
 
 
 ===================

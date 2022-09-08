@@ -114,6 +114,12 @@ COMMUNICATION_CONTAINER_LISTENER_CONNECTION = {"local": "172.17.0.1"}
 # Add affinity to Kubernetes jobs with key 'nodegroup' with the bellow value.
 FLOW_KUBERNETES_AFFINITY = os.environ.get("RESOLWE_KUBERNETES_AFFINITY", None)
 
+# The  ``KUBERNETES_DISPATCHER_CONFIG_LOCATION`` specifies where the
+# kubernetes workload connector reads the config from. The possible choices
+# are 'incluster' and 'kubectl'. The default value is 'incluster'.
+KUBERNETES_DISPATCHER_CONFIG_LOCATION = os.environ.get(
+    "RESOLWE_KUBERNETES_DISPATCHER_CONFIG", "incluster"
+)
 
 # Settings in OSX/Windows are different since Docker runs in a virtual machine.
 if sys.platform == "darwin":
