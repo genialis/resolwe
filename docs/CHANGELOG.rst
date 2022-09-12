@@ -14,6 +14,13 @@ Added
 -----
 - Add ``descriptor`` and ``descriptor_schema`` fields to the ``Relation`` model
 
+Changed
+-------
+- The ``Kubernetes`` configuration is loaded only once in the ``Kubernetes``
+  workload connector. This is possible due to the bug ignoring the
+  ``Kubernetes`` cluster ``API`` token expiration time being fixed in the
+  ``Kubernetes Python Client`` version ``v21.7.0``.
+
 
 ===================
 31.1.0 - 2022-08-23
