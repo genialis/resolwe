@@ -538,6 +538,12 @@ class Connector(BaseConnector):
 
         Construct kubernetes job description and pass it to the kubernetes.
         """
+        try:
+            self._load_kubernetes_config()
+        except kubernetes.config.config_exception.ConfigException as exception:
+            logger.exception("Could not load the kubernetes configuration.")
+            raise exception
+
         batch_api = kubernetes.client.BatchV1Api()
         core_api = kubernetes.client.CoreV1Api()
 
@@ -831,6 +837,12 @@ class Connector(BaseConnector):
 
     def cleanup(self, data_id: int):
         """Remove the persistent volume claims created by the executor."""
+        try:
+            self._load_kubernetes_config()
+        except kubernetes.config.config_exception.ConfigException as exception:
+            logger.exception("Could not load the kubernetes configuration.")
+            raise exception
+
         core_api = kubernetes.client.CoreV1Api()
         claim_names = [
             unique_volume_name(type_, data_id)

@@ -20,10 +20,6 @@ Changed
 -------
 - Retry loading ``Kubernetes`` configuration couple of times before giving up
   in the kubernetes workload connector
-- The ``Kubernetes`` configuration is loaded only once in the ``Kubernetes``
-  workload connector. This is possible due to the bug ignoring the
-  ``Kubernetes`` cluster ``API`` token expiration time being fixed in the
-  ``Kubernetes Python Client`` version ``v21.7.0``.
 
 
 ===================
