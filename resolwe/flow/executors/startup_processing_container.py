@@ -579,8 +579,6 @@ class ProcessingManager:
                         # Connect to the upload socket.
                         filenames = message["data"]
                         logger.debug("Sending filedescriptors.")
-                        # This can block, run in a thread maybe?
-                        logger.debug("Names: %s", filenames)
                         yield from self.send_file_descriptors(filenames)
                         logger.debug("File descriptors sent.")
                         response = respond(message, "OK", "")
