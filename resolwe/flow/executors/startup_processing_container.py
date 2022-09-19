@@ -47,10 +47,16 @@ UPLOAD_FILE_SOCKET = constants.SOCKETS_VOLUME / constants.UPLOAD_FILE_SOCKET
 # How many file descriptors to sent over socket in a single message.
 DESCRIPTOR_CHUNK_SIZE = int(os.environ.get("DESCRIPTOR_CHUNK_SIZE", 100))
 
+# Configure container log level.
+LOG_LEVEL = int(os.environ.get("LOG_LEVEL", logging.DEBUG))
+
+# Max characters to log in a single message: the processing script messages can
+# be hundreds lines long.
+LOG_MAX_LENGTH = int(os.environ.get("LOG_MAX_LENGTH", 200))
 
 logging.basicConfig(
     stream=sys.stdout,
-    level=logging.DEBUG,
+    level=LOG_LEVEL,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
@@ -138,7 +144,7 @@ class ProtocolHandler:
     @asyncio.coroutine
     def send_command(self, command):
         """Send a command and return a response."""
-        logger.debug("Sending command %s.", command)
+        logger.debug("Sending command %s.", str(command)[:LOG_MAX_LENGTH])
         with (yield from self._command_lock):
             self._command_counter += 1
             command["uuid"] = uuid.uuid4().hex
@@ -249,7 +255,7 @@ class ProtocolHandler:
         :returns: the return code of the script.
         """
         # Start the bash subprocess and write script to its standard input.
-        logger.debug("Executing script: %s.", script)
+        logger.debug("Executing script: %s.", script[:LOG_MAX_LENGTH])
         bash_command = "/bin/bash --login" + os.linesep
 
         # The following comment commands black to not reformat the code
@@ -570,7 +576,10 @@ class ProcessingManager:
                     with JSON_LOG_PATH.open("at") as json_file:
                         json_file.write(json.dumps(message) + os.linesep)
                         self.log_files_need_upload = True
-                    logger.debug("Processing script sent message: %s.", message)
+                    logger.debug(
+                        "Processing script sent message: %s.",
+                        str(message)[:LOG_MAX_LENGTH],
+                    )
                     command = message["type_data"]
                     if command == "export_files":
                         yield from self._handle_export_files(message["data"])
