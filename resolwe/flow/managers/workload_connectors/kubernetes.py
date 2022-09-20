@@ -109,11 +109,6 @@ class Connector(BaseConnector):
         self._config_location = ConfigLocation(
             settings.KUBERNETES_DISPATCHER_CONFIG_LOCATION
         )
-        try:
-            self._load_kubernetes_config()
-        except kubernetes.config.config_exception.ConfigException as exception:
-            logger.exception("Could not load the kubernetes configuration.")
-            raise exception
         self._initialize_variables()
 
     def _initialize_variables(self):
