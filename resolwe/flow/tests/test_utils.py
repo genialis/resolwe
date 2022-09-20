@@ -1,7 +1,7 @@
 # pylint: disable=missing-docstring
 import logging
 from time import time
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from django.core.exceptions import ValidationError
 
@@ -57,6 +57,7 @@ class RetryTestCase(TestCase):
 
     def test_retry_decorator(self):
         logger = logging.getLogger(__name__)
+        callback = MagicMock()
 
         @retry(logger=logger, min_sleep=0.01, max_sleep=0.1, max_retries=3)
         def retry_ok():
@@ -64,6 +65,18 @@ class RetryTestCase(TestCase):
 
         @retry(logger=logger, min_sleep=0.01, max_sleep=0.1, max_retries=3)
         def retry_one():
+            self.count += 1
+            if self.count < 2:
+                raise Exception("Error")
+
+        @retry(
+            logger=logger,
+            min_sleep=0.01,
+            max_sleep=0.1,
+            max_retries=3,
+            cleanup_callback=callback,
+        )
+        def retry_one_callback():
             self.count += 1
             if self.count < 2:
                 raise Exception("Error")
@@ -106,6 +119,26 @@ class RetryTestCase(TestCase):
         self.assertEqual(len(cm.output), len(expected_logger_output))
         for i in range(len(expected_logger_output)):
             self.assertIn(expected_logger_output[i], cm.output[i])
+
+        # Test method that raises single exception with cleanup callback.
+        # Assert that:
+        # - count is set to 2
+        # - single message is logged
+        # - callback was called once
+        self.count = 0
+        start = time()
+        with self.assertLogs(logger) as cm:
+            retry_one_callback()
+        end = time()
+        self.assertEqual(self.count, 2)
+        self.assertGreater(end - start, 0.01)
+        expected_logger_output = [
+            "ERROR:resolwe.flow.tests.test_utils:Retry 1/3 got exception, will retry in 0.01 seconds.\nTraceback"
+        ]
+        self.assertEqual(len(cm.output), len(expected_logger_output))
+        for i in range(len(expected_logger_output)):
+            self.assertIn(expected_logger_output[i], cm.output[i])
+        callback.assert_called_once()
 
         # Test method that raises two exceptions.
         # Assert that:

@@ -10,7 +10,7 @@ Utils functions.
 
 import logging
 import time
-from typing import Optional, Sequence, Type
+from typing import Callable, Optional, Sequence, Type
 
 import wrapt
 
@@ -21,6 +21,7 @@ def retry(
     retry_exceptions: Sequence[Type[Exception]] = (Exception,),
     min_sleep: int = 1,
     max_sleep: int = 10,
+    cleanup_callback: Optional[Callable] = None,
 ):
     """Retry decorator.
 
@@ -28,6 +29,11 @@ def retry(
     an exponential timeout ranging from ``min_sleep`` to ``max_sleep`` between
     retries. The method will be retried if it raises one of the exception in
     the ``retry_exceptions`` sequence.
+
+    :attr cleanup_callback: the callback to call after exception and the next
+        retry of the decorated function. It is given the same arguments as the
+        decorated function. Any exception raised by the cleanup_handler is
+        logged but not raised.
 
     :raises Exception: when all retries raise exception the last one is
         re-raised.
@@ -50,6 +56,11 @@ def retry(
                             max_retries,
                             sleep,
                         )
+                    if cleanup_callback is not None:
+                        try:
+                            cleanup_callback(*args, **kwargs)
+                        except Exception:
+                            logger.exception("Exception in callback handler.")
                     time.sleep(sleep)
                 # Raise exception if all retries have failed.
                 else:
