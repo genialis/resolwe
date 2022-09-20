@@ -520,6 +520,7 @@ class Connector(BaseConnector):
         logger=logger,
         max_retries=5,
         retry_exceptions=(kubernetes.config.config_exception.ConfigException,),
+        cleanup_callback=lambda: kubernetes.config.kube_config._cleanup_temp_files(),
     )
     def _load_kubernetes_config(self):
         """Load the kubernetes configuration.

@@ -13,6 +13,7 @@ Unreleased
 Changed
 -------
 - Add ``cleanup_callback`` to ``retry`` decorator
+- Clean ``kubernetes`` temporary files with credentials on config load error
 
 
 ===================
