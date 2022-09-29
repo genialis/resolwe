@@ -626,6 +626,9 @@ class FileDescriptor:
 
         try:
             response = None
+            # Resolve the given URL.
+            src = communicator.resolve_url(src)
+
             # Large file download from Google Drive requires cookie and token.
             if re.match(
                 r"^https://drive.google.com/[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]$",
