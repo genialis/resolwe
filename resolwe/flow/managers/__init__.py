@@ -23,9 +23,10 @@ Workflow workload managers.
 
 """
 from .dispatcher import Manager
-from .listener import ExecutorListener
+from .listener import ExecutorListener, basic_commands_plugin
 
-__all__ = ("manager", "listener")
+# The basic_commands_plugin is exported to allow mocking in tests.
+__all__ = ("manager", "listener", "basic_commands_plugin")
 
 manager = Manager()
 listener = ExecutorListener()

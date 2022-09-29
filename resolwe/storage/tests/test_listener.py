@@ -9,6 +9,7 @@ from resolwe.flow.managers.listener.listener import Processor
 from resolwe.flow.managers.protocol import ExecutorProtocol
 from resolwe.flow.models import Data, DataDependency, Worker
 from resolwe.storage.connectors.baseconnector import BaseStorageConnector
+from resolwe.storage.connectors.s3connector import AwsS3Connector
 from resolwe.storage.models import FileStorage, ReferencedPath, StorageLocation
 from resolwe.test import TestCase
 
@@ -143,6 +144,43 @@ class ListenerTest(TestCase):
         )
         storage_location.refresh_from_db()
         self.assertEqual(storage_location.status, StorageLocation.STATUS_DONE)
+
+    def test_handle_resolve_url(self):
+        """Test resolve URL."""
+
+        def resolve(url: str) -> str:
+            """Resolve the given URL."""
+            request = Message.command("resolve_url", url)
+            return self.processor.handle_resolve_url(request, self.manager).message_data
+
+        def presigned_url_mock(key: str, expiration: int):
+            """Patch for presigned URL method.
+
+            Just return the given key prefixed by "presigned_".
+            """
+            return f"presigned_{key}"
+
+        # When URL is not handled by the plugin it should not change.
+        url = "http://test_me"
+        self.assertEqual(resolve(url), url)
+        url = "unsupported urls should not change."
+        self.assertEqual(resolve(url), url)
+
+        # Test URL resolving for S3 plugin.
+        # When bucket is not known, the URL should not change.
+        # When bucket is known, is must be resolved to the presigned url.
+        s3connector = AwsS3Connector({"bucket": "test"}, "S3")
+        s3connector.presigned_url = presigned_url_mock
+        with patch(
+            "resolwe.flow.managers.basic_commands_plugin.connectors",
+            {"S3": s3connector},
+        ):
+            # Unknown bucket.
+            url = "s3://unknown-bucket/resolve"
+            self.assertEqual(resolve(url), url)
+            # Known bucket.
+            url = "s3://test/key"
+            self.assertEqual(resolve(url), "presigned_key")
 
     def test_handle_download_started_ok_lock(self):
         storage_location = StorageLocation.objects.create(
