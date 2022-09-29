@@ -1,6 +1,9 @@
 """Basic listener commands."""
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Union
+import re
+from collections import defaultdict
+from contextlib import suppress
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Union
 
 from django.conf import settings
 from django.db import transaction
@@ -276,6 +279,44 @@ class BasicCommands(ListenerPlugin):
             logger.debug("Created %s.", [e.path for e in created_paths])
 
         return message.respond_ok("OK")
+
+    def handle_resolve_url(
+        self, message: Message[str], manager: "Processor"
+    ) -> Response[str]:
+        """Resolve the download link.
+
+        The download link is of the format protocol://link.
+        Currently we support the protocol "s3".
+        """
+
+        def handle_s3(url: str) -> str:
+            """Handle the S3 url.
+
+            The URL is of the form s3://bucket-name/key_name.
+            """
+            # Avoid optional boto3 requirement on startup.
+            from resolwe.storage.connectors.s3connector import AwsS3Connector
+
+            allowed_characters = r"[1-9a-z\-\.]{3,63}"
+            regexp = rf"^s3://(?P<bucket>{allowed_characters})/(?P<key>(.*){{1,1024}})$"
+            with suppress(Exception):
+                bucket, key = re.match(regexp, url).groups()
+                for connector in connectors:
+                    if isinstance(connector, AwsS3Connector):
+                        if connector.bucket_name == bucket:
+                            return connector.presigned_url(key, expiration=3600)
+            return url
+
+        handle_default = lambda url: url
+        url = message.message_data
+        handlers: Dict[str, Callable[[str], str]] = defaultdict(lambda: handle_default)
+        handlers["s3"] = handle_s3
+        protocol_regex = r"^(?P<protocol>[a-z]+)://"
+        with suppress(Exception):
+            protocol = re.match(protocol_regex, url)["protocol"]
+            return message.respond_ok(handlers[protocol](url))
+
+        return message.respond_ok(url)
 
     def hydrate_spawned_files(
         self,

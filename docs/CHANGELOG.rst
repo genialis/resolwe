@@ -6,6 +6,17 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Added
+-----
+
+- Add handler ``resolve_url`` to listener
+- Add support for resolving urls in Python processes
+
+
 ===================
 31.2.1 - 2022-09-20
 ===================
