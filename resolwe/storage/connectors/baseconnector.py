@@ -315,6 +315,15 @@ class BaseStorageConnector(metaclass=abc.ABCMeta):
         """
         raise NotImplementedError
 
+    @validate_url
+    def url(self, url: Union[str, PathLike]) -> Optional[str]:
+        """Return the URL to the given file in connector native notation.
+
+        :returns: the url to the given file in connector native notation. By
+            default this is the same as presigned url.
+        """
+        return self.presigned_url(url)
+
     def __eq__(self, other):
         """Equality check.
 

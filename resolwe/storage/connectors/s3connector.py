@@ -347,6 +347,14 @@ class AwsS3Connector(BaseStorageConnector):
         return Path("")
 
     @validate_url
+    def url(self, url):
+        """Return the URL to the given file in connector native notation.
+
+        AWS native notation for file is S3 bucket is s3://bucket/file .
+        """
+        return f"s3://{self.bucket_name}/{url}"
+
+    @validate_url
     def presigned_url(self, url, expiration=60, force_download=False):
         """Create a presigned URL.
 
