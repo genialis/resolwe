@@ -176,6 +176,14 @@ class LocalFilesystemConnector(BaseStorageConnector):
         return Path(self.path)
 
     @validate_url
+    def url(self, url):
+        """Return the URL to the given file in connector native notation.
+
+        For local connector this is the same as the presigned URL.
+        """
+        return self.presigned_url(url)
+
+    @validate_url
     def presigned_url(self, url, expiration=3600, force_download=False):
         """Create a presigned URL.
 
