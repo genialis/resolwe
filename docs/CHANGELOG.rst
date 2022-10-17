@@ -6,13 +6,12 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+===================
+31.3.0 - 2022-10-17
+===================
 
 Added
 -----
-
 - Add handler ``resolve_url`` to listener
 - Add support for resolving urls in Python processes
 - Add ``url`` method to the ``BaseConnector`` class and override it in ``S3``
