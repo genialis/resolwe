@@ -6,6 +6,16 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Fix
+---
+- Make sure signals are triggered for data objects when their sample is moved
+  to a new collection
+
+
 ===================
 31.3.0 - 2022-10-17
 ===================

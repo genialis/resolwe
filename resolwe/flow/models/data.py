@@ -599,7 +599,7 @@ class Data(BaseModel, PermissionObject):
 
     def validate_change_collection(self, collection):
         """Raise validation error if data object cannot change collection."""
-        if self.entity:
+        if self.entity and self.entity.collection != collection:
             raise ValidationError(
                 "If Data is in entity, you can only move it to another collection "
                 "by moving entire entity."

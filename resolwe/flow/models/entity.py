@@ -108,11 +108,7 @@ class Entity(BaseCollection, PermissionObject):
         self.permission_group = collection.permission_group
         self.save(update_fields=["collection", "tags", "permission_group"])
         post_permission_changed.send(sender=type(self), instance=self)
-        self.data.update(
-            permission_group=collection.permission_group,
-            collection_id=collection.pk,
-            tags=collection.tags,
-        )
+        self.data.move_to_collection(collection)
 
 
 class RelationType(models.Model):
