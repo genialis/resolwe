@@ -1,14 +1,19 @@
 """Worker data model representing the state of the executor."""
+import logging
+
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
 from django.db import models
+
+logger = logging.getLogger(__name__)
 
 
 class Worker(models.Model):
     """Stores information about worker."""
 
     STATUS_PREPARING = "PP"
+    STATUS_FINISHED_PREPARING = "FP"
     STATUS_PROCESSING = "PR"
     STATUS_NONRESPONDING = "NR"
     STATUS_COMPLETED = "CM"
@@ -39,11 +44,15 @@ class Worker(models.Model):
 
         # Can only terminate running processes.
         if self.status != self.STATUS_PROCESSING:
+            logger.info(
+                "Worker has status %s, no terminate signal is sent.", self.status
+            )
             return
 
         packet = {"type": "terminate", "identity": str(self.data.id).encode()}
         from resolwe.flow.managers.state import LISTENER_CONTROL_CHANNEL
 
+        logger.debug("Sending the terminate signal for data '%d'.", self.data_id)
         async_to_sync(get_channel_layer().send)(LISTENER_CONTROL_CHANNEL, packet)
 
     def __str__(self):

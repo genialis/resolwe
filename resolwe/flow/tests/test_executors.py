@@ -4,29 +4,29 @@ import logging
 import os
 import subprocess
 import sys
-import threading
 import unittest
-from contextlib import suppress
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from time import sleep
+from time import sleep, time
 from unittest import mock
 from unittest.mock import patch
 
 import zmq
 import zmq.asyncio
-from asgiref.sync import async_to_sync
 
 from django.conf import settings
-from django.db import IntegrityError
+from django.db import IntegrityError, connection
 from django.test import override_settings
 
 from resolwe.flow.executors.prepare import BaseFlowExecutorPreparer
 from resolwe.flow.executors.socket_utils import Message
-from resolwe.flow.executors.startup_processing_container import ProcessingManager
+from resolwe.flow.executors.startup_processing_container import (
+    connect_to_communication_container,
+    initialize_connections,
+)
 from resolwe.flow.executors.zeromq_utils import ZMQCommunicator
-from resolwe.flow.managers import manager
+from resolwe.flow.managers import listener
 from resolwe.flow.managers.dispatcher import Manager
-from resolwe.flow.managers.utils import disable_auto_calls
 from resolwe.flow.models import Data, DataDependency, Process, Worker
 from resolwe.flow.models.fields import ResolweSlugField
 from resolwe.storage import settings as storage_settings
@@ -40,6 +40,8 @@ from resolwe.test import (
 
 PROCESSES_DIR = os.path.join(os.path.dirname(__file__), "processes")
 DESCRIPTORS_DIR = os.path.join(os.path.dirname(__file__), "descriptors")
+
+logger = logging.getLogger(__name__)
 
 
 class GetToolsTestCase(TestCase):
@@ -92,18 +94,6 @@ class ManagerRunProcessTest(ProcessTestCase):
         self._register_schemas(
             processes_paths=[PROCESSES_DIR], descriptors_paths=[DESCRIPTORS_DIR]
         )
-
-    @with_docker_executor
-    @tag_process("test-min-python34")
-    def test_python_34(self):
-        """Test that processing container starts on Python 3.4.
-
-        This test can be removed when we stop using
-        broadinstitute/genomes-in-the-cloud:2.3.1-1504795437 docker image in
-        the GATK3 pipeline.
-        """
-        data = self.run_process("test-min-python34")
-        self.assertEqual(data.output["out"], "OK")
 
     @tag_process("test-min")
     def test_minimal_process(self):
@@ -273,7 +263,6 @@ class ManagerRunProcessTest(ProcessTestCase):
         )
 
         self.assertEqual(data.status, Data.STATUS_ERROR)
-        print("ERROR", data.process_error[0])
         self.assertIn("must be a valid JSON, current: 1a", data.process_error[0])
 
     @tag_process("test-workflow-1")
@@ -377,44 +366,60 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.assertTrue(data.permission_group is not None)
 
     @with_docker_executor
-    @disable_auto_calls()
     def test_terminate_worker(self):
         process = Process.objects.get(slug="test-terminate")
-        data = Data.objects.create(
-            name="Test data",
-            contributor=self.contributor,
-            process=process,
-        )
 
-        def start_processing(data):
-            async_to_sync(manager.communicate)(data_id=data.pk, run_sync=True)
+        def get_status():
+            return (
+                Data.objects.filter(name="Test terminate")
+                .values_list("status", flat=True)
+                .first()
+            )
 
-        processing_thread = threading.Thread(target=start_processing, args=(data,))
-        processing_thread.start()
+        def wait_status_change(expected_statuses, timeout=20):
+            """Wait for the data object to change status.
 
-        # Wait up to 20s for process to start.
-        for _ in range(200):
-            sleep(0.1)
-            data.refresh_from_db()
-            with suppress(Data.worker.RelatedObjectDoesNotExist):
-                if data.worker.status == Worker.STATUS_PROCESSING:
-                    break
+            :attr timeout: how many seconds to wait for the status change.
 
-        self.assertEqual(data.worker.status, Worker.STATUS_PROCESSING)
-        data.worker.terminate()
+            :attr expected_statuses: the set of expected statuses to wait for.
 
-        # Wait up to 20 seconds for process to terminate.
-        for _ in range(200):
-            sleep(0.1)
-            data.refresh_from_db()
-            if data.worker.status == Worker.STATUS_COMPLETED:
-                break
+            :returns: the last known status.
+            """
+            start_time = time()
+            status = None
+            while time() - start_time < timeout and status not in expected_statuses:
+                sleep(0.1)
+                status = get_status()
+            return status
 
+        def check_processing():
+            """Start processing data object by saving it."""
+            # Wait up to 20s for process to start.
+            wait_status_change([Data.STATUS_PROCESSING])
+            data = Data.objects.get(name="Test terminate")
+            # Terminate the worker and wait for the process to complete. In the
+            # worst case it will take 60 seconds for the process to complete.
+            logger.debug("test_terminate_worker terminating data '%s'.", data.pk)
+            data.worker.terminate()
+            wait_status_change([Data.STATUS_ERROR, Data.STATUS_DONE])
+            connection.close()
+
+        start_time = time()
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            # Start the check_processing thread.
+            executor.submit(check_processing)
+            # Start processing data object.
+            data = Data.objects.create(
+                name="Test terminate", contributor=self.contributor, process=process
+            )
+
+        # To mark termination as a success it should take less than 50 seconds.
+        # The uninterrupted process would run for 60 seconds.
+        data.refresh_from_db()
         self.assertEqual(data.worker.status, Worker.STATUS_COMPLETED)
         self.assertEqual(data.status, Data.STATUS_ERROR)
         self.assertEqual(data.process_error[0], "Processing was cancelled.")
-        processing_thread.join(timeout=10)
-        self.assertFalse(processing_thread.is_alive())
+        self.assertLess(time() - start_time, 50)
 
     @with_docker_executor
     @tag_process("test-requirements-docker")
@@ -514,6 +519,15 @@ class ManagerRunProcessTest(ProcessTestCase):
         protocol = settings.FLOW_EXECUTOR.get("LISTENER_CONNECTION", {}).get(
             "protocol", "tcp"
         )
+
+        # Set the status or listener will imediatelly respond with error
+        # status. Make sure to also clear Redis cache for the data object.
+        data.worker.status = Worker.STATUS_PROCESSING
+        data.worker.save()
+        data.status = Data.STATUS_PROCESSING
+        data.save()
+        listener.listener_protocol._message_processor._redis_cache.clear(data.pk)
+
         process = subprocess.run(
             [
                 "python",
@@ -533,7 +547,7 @@ class ManagerRunProcessTest(ProcessTestCase):
         self.assertEqual(process.returncode, 0)
         data.refresh_from_db()
         self.assertEqual(data.output, {})
-        self.assertEqual(data.status, Data.STATUS_DONE)
+        self.assertEqual(data.status, Data.STATUS_PROCESSING)
         self.assertEqual(data.process_error, [])
         self.assertEqual(data.process_info, [])
         # Check that temporary file was not deleted.
@@ -542,18 +556,14 @@ class ManagerRunProcessTest(ProcessTestCase):
     @mock.patch(
         "resolwe.flow.executors.startup_processing_container.asyncio.open_unix_connection"
     )
-    @mock.patch(
-        "resolwe.flow.executors.startup_processing_container.constants.CONTAINER_TIMEOUT",
-        2,
-    )
     def test_processing_communication_connection_ok(self, open_mock):
         """Test connection under normal conditions."""
 
         async def main_test():
             """Main test coroutine."""
-            current_loop = asyncio.get_event_loop()
-            manager = ProcessingManager(current_loop)
-            await manager._wait_for_communication_container(None)
+            await asyncio.wait_for(
+                connect_to_communication_container("anypath"), timeout=1
+            )
 
         async def readline():
             """Return PING."""
@@ -575,18 +585,14 @@ class ManagerRunProcessTest(ProcessTestCase):
     @mock.patch(
         "resolwe.flow.executors.startup_processing_container.asyncio.open_unix_connection"
     )
-    @mock.patch(
-        "resolwe.flow.executors.startup_processing_container.constants.CONTAINER_TIMEOUT",
-        2,
-    )
-    def test_processing_communication_connection_ok_script(self, open_mock):
+    def test_processing_communication_connection_ok_retry(self, open_mock):
         """Test connection if first attempt fails."""
 
         async def main_test():
             """Main test coroutine."""
-            current_loop = asyncio.get_event_loop()
-            manager = ProcessingManager(current_loop)
-            await manager._wait_for_communication_container(None)
+            await asyncio.wait_for(
+                connect_to_communication_container("anypath"), timeout=3
+            )
 
         async def readline_ok():
             """Return PING."""
@@ -625,8 +631,7 @@ class ManagerRunProcessTest(ProcessTestCase):
         async def main_test():
             """Main test coroutine."""
             current_loop = asyncio.get_event_loop()
-            manager = ProcessingManager(current_loop)
-            await manager._wait_for_communication_container(None)
+            await initialize_connections(current_loop)
 
         async def readline_error():
             """Return ERROR."""
@@ -643,80 +648,9 @@ class ManagerRunProcessTest(ProcessTestCase):
         else:
             open_mock.side_effect = [reader_writer(), reader_writer()]
         loop = asyncio.new_event_loop()
-        with self.assertRaisesRegex(RuntimeError, "Communication .* unreacheable"):
-            loop.run_until_complete(main_test())
-
-    @mock.patch(
-        "resolwe.flow.executors.startup_processing_container.asyncio.open_unix_connection"
-    )
-    @mock.patch(
-        "resolwe.flow.executors.startup_processing_container.constants.CONTAINER_TIMEOUT",
-        2,
-    )
-    def test_processing_communication_connection_fail_script(self, open_mock):
-        """Test script behaviour if connection fails."""
-
-        async def main_test():
-            """Main test coroutine."""
-            protocol_mock = mock.Mock(terminate_script=terminate_script)
-            current_loop = asyncio.get_event_loop()
-            manager = ProcessingManager(current_loop)
-            manager.protocol_handler = protocol_mock
-            await manager.run()
-
-        async def terminate_script():
-            """Terminate script mock."""
-
-        async def readline_error():
-            """Return ERROR."""
-            return b"ERROR"
-
-        async def reader_writer():
-            """Return reader-writer tuple mock."""
-            return (mock.Mock(readline=readline_error), None)
-
-        reader_mock = mock.MagicMock()
-        reader_mock.readline.side_effect = [readline_error(), readline_error()]
-        if sys.version_info >= (3, 8):
-            open_mock.return_value = (reader_mock, None)
-        else:
-            open_mock.side_effect = [reader_writer(), reader_writer()]
-        loop = asyncio.new_event_loop()
-        with self.assertRaisesRegex(RuntimeError, "Communication .* unreacheable"):
-            loop.run_until_complete(main_test())
-
-    @mock.patch(
-        "resolwe.flow.executors.startup_processing_container.asyncio.open_unix_connection"
-    )
-    @mock.patch("resolwe.flow.executors.startup_processing_container.socket")
-    @mock.patch(
-        "resolwe.flow.executors.startup_processing_container.constants.CONTAINER_TIMEOUT",
-        2,
-    )
-    def test_processing_upload_fail(self, socket_mock, open_mock):
-        """Test startup script if opening upload socket fails."""
-
-        async def main_test():
-            """Main test coroutine."""
-            current_loop = asyncio.get_event_loop()
-            manager = ProcessingManager(current_loop)
-            await manager.run()
-
-        async def readline():
-            """Return PING."""
-            return b"PING"
-
-        async def reader_writer():
-            """Return reader-writer tuple mock."""
-            return (mock.Mock(readline=readline), None)
-
-        socket_mock.socket.return_value.connect.side_effect = RuntimeError
-        if sys.version_info >= (3, 8):
-            open_mock.return_value = (mock.Mock(readline=readline), None)
-        else:
-            open_mock.return_value = reader_writer()
-        loop = asyncio.new_event_loop()
-        with self.assertRaises(RuntimeError):
+        with self.assertRaisesRegex(
+            ConnectionError, "Timeout connecting to communication container."
+        ):
             loop.run_until_complete(main_test())
 
     @mock.patch(
@@ -726,103 +660,14 @@ class ManagerRunProcessTest(ProcessTestCase):
     @mock.patch(
         "resolwe.flow.executors.startup_processing_container.asyncio.start_unix_server"
     )
-    @mock.patch(
-        "resolwe.flow.executors.startup_processing_container.constants.CONTAINER_TIMEOUT",
-        2,
-    )
-    def test_processing_script_connection_fail(
-        self, server_mock, socket_mock, open_mock
-    ):
-        """Test startup script if opening processing script socket fails."""
-
-        async def main_test():
-            """Main test coroutine."""
-            current_loop = asyncio.get_event_loop()
-            manager = ProcessingManager(current_loop)
-            await manager.run()
-
-        async def readline():
-            """Return PING."""
-            return b"PING"
-
-        async def reader_writer():
-            """Return reader-writer tuple mock."""
-            return (mock.Mock(readline=readline), None)
-
-        socket_mock.socket.return_value.connect.side_effect = None
-        if sys.version_info >= (3, 8):
-            open_mock.return_value = (mock.Mock(readline=readline), None)
-        else:
-            open_mock.return_value = reader_writer()
-        loop = asyncio.new_event_loop()
-        server_mock.side_effect = ValueError("test")
-        with self.assertRaisesRegex(ValueError, "test"):
-            loop.run_until_complete(main_test())
-
-    @mock.patch(
-        "resolwe.flow.executors.startup_processing_container.asyncio.open_unix_connection"
-    )
-    @mock.patch("resolwe.flow.executors.startup_processing_container.socket")
-    @mock.patch("resolwe.flow.executors.startup_processing_container.create_task")
-    @mock.patch(
-        "resolwe.flow.executors.startup_processing_container.asyncio.start_unix_server"
-    )
-    @mock.patch(
-        "resolwe.flow.executors.startup_processing_container.constants.CONTAINER_TIMEOUT",
-        2,
-    )
-    def test_processing_create_task_called(
-        self, server_mock, create_mock, socket_mock, open_mock
-    ):
-        """Test that upload timer task is created."""
-
-        async def main_test():
-            """Main test coroutine."""
-            current_loop = asyncio.get_event_loop()
-            manager = ProcessingManager(current_loop)
-            await manager.run()
-
-        async def readline():
-            """Return PING."""
-            return b"PING"
-
-        async def reader_writer():
-            """Return reader-writer tuple mock."""
-            return (mock.Mock(readline=readline), None)
-
-        socket_mock.socket.return_value.connect.side_effect = None
-        if sys.version_info >= (3, 8):
-            open_mock.return_value = (mock.Mock(readline=readline), None)
-        else:
-            open_mock.return_value = reader_writer()
-        loop = asyncio.new_event_loop()
-        create_mock.side_effect = ValueError("test")
-        with self.assertRaisesRegex(ValueError, "test"):
-            loop.run_until_complete(main_test())
-
-    @mock.patch(
-        "resolwe.flow.executors.startup_processing_container.asyncio.open_unix_connection"
-    )
-    @mock.patch("resolwe.flow.executors.startup_processing_container.socket")
-    @mock.patch("resolwe.flow.executors.startup_processing_container.create_task")
-    @mock.patch("resolwe.flow.executors.startup_processing_container.ProtocolHandler")
-    @mock.patch(
-        "resolwe.flow.executors.startup_processing_container.asyncio.start_unix_server"
-    )
-    @mock.patch(
-        "resolwe.flow.executors.startup_processing_container.constants.CONTAINER_TIMEOUT",
-        2,
-    )
-    def test_processing_communicate(
-        self, server_mock, protocol_mock, create_mock, socket_mock, open_mock
-    ):
+    def test_processing_communicate(self, server_mock, socket_mock, open_mock):
         """Test that communicate is called."""
 
         async def main_test():
             """Main test coroutine."""
-            current_loop = asyncio.get_event_loop()
-            manager = ProcessingManager(current_loop)
-            await manager.run()
+            await asyncio.wait_for(
+                connect_to_communication_container("anypath"), timeout=1
+            )
 
         async def readline():
             """Return PING."""
@@ -837,7 +682,6 @@ class ManagerRunProcessTest(ProcessTestCase):
             open_mock.return_value = (mock.Mock(readline=readline), None)
         else:
             open_mock.return_value = reader_writer()
-        protocol_mock.return_value.communicate.side_effect = ValueError("test")
+        # protocol_mock.return_value.communicate.side_effect = ValueError("test")
         loop = asyncio.new_event_loop()
-        with self.assertRaisesRegex(ValueError, "test"):
-            loop.run_until_complete(main_test())
+        loop.run_until_complete(main_test())

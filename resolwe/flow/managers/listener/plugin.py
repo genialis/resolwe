@@ -89,7 +89,9 @@ class ListenerPlugins:
         self._plugin_instances[plugin_name] = plugin_instance
         logger.debug(__("Listener plugin {} was registered.", plugin_name))
 
-    def get_handler(self, command_name: str) -> Optional[Callable[[Message], Response]]:
+    def get_handler(
+        self, command_name: str
+    ) -> Optional[Callable[[int, Message, "Processor"], Response]]:
         """Return the handler for the given command.
 
         When such handler exists in multiple plugins one is chosen at random.

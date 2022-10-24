@@ -1,6 +1,9 @@
 # pylint: disable=missing-docstring
-from pathlib import Path
 from unittest.mock import patch
+
+import redis
+
+from django.conf import settings
 
 from resolwe.flow.executors import constants
 from resolwe.flow.executors.socket_utils import Message, Response, ResponseStatus
@@ -8,6 +11,7 @@ from resolwe.flow.managers.listener.basic_commands_plugin import BasicCommands
 from resolwe.flow.managers.listener.listener import Processor
 from resolwe.flow.managers.protocol import ExecutorProtocol
 from resolwe.flow.models import Data, DataDependency, Worker
+from resolwe.flow.models.process import Process
 from resolwe.storage.connectors.baseconnector import BaseStorageConnector
 from resolwe.storage.connectors.s3connector import AwsS3Connector
 from resolwe.storage.models import FileStorage, ReferencedPath, StorageLocation
@@ -19,7 +23,8 @@ class ListenerTest(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        cls.manager = Processor(b"1", 1, None)
+        redis_api = redis.from_url(settings.REDIS_CONNECTION_STRING)
+        cls.manager = Processor(None, redis_api)
         cls.processor = BasicCommands()
         cls.file_storage = FileStorage.objects.get(id=1)
         cls.storage_location = StorageLocation.objects.create(
@@ -33,7 +38,7 @@ class ListenerTest(TestCase):
     def test_handle_download_finished_missing_storage_location(self):
         obj = Message.command(ExecutorProtocol.DOWNLOAD_FINISHED, -2)
         with self.assertRaises(StorageLocation.DoesNotExist):
-            self.processor.handle_download_finished(obj, self.manager)
+            self.processor.handle_download_finished(b"1", obj, self.manager)
 
     def test_handle_download_finished(self):
         storage_location = StorageLocation.objects.create(
@@ -45,7 +50,7 @@ class ListenerTest(TestCase):
             "resolwe.storage.models.FileStorage.default_storage_location",
             self.storage_location,
         ):
-            response = self.processor.handle_download_finished(obj, self.manager)
+            response = self.processor.handle_download_finished(b"1", obj, self.manager)
 
         self.assertEqual(response.response_status, ResponseStatus.OK)
         storage_location.refresh_from_db()
@@ -59,7 +64,7 @@ class ListenerTest(TestCase):
 
     def test_handle_download_aborted_missing_storage_location(self):
         obj = Message.command(ExecutorProtocol.DOWNLOAD_ABORTED, -2)
-        response = self.processor.handle_download_aborted(obj, self.manager)
+        response = self.processor.handle_download_aborted(b"1", obj, self.manager)
         self.assertEqual(response.response_status, ResponseStatus.OK)
 
     def test_handle_download_aborted(self):
@@ -69,7 +74,7 @@ class ListenerTest(TestCase):
             status=StorageLocation.STATUS_UPLOADING,
         )
         obj = Message.command(ExecutorProtocol.DOWNLOAD_ABORTED, storage_location.id)
-        self.processor.handle_download_aborted(obj, self.manager)
+        self.processor.handle_download_aborted(b"1", obj, self.manager)
 
         storage_location.refresh_from_db()
         self.assertEqual(storage_location.status, StorageLocation.STATUS_PREPARING)
@@ -83,7 +88,7 @@ class ListenerTest(TestCase):
             },
         )
         with self.assertRaises(StorageLocation.DoesNotExist):
-            self.processor.handle_download_started(obj, self.manager)
+            self.processor.handle_download_started(b"1", obj, self.manager)
 
     def test_handle_download_started_ok_no_lock_preparing(self):
         storage_location = StorageLocation.objects.create(
@@ -97,7 +102,7 @@ class ListenerTest(TestCase):
                 "download_started_lock": False,
             },
         )
-        response = self.processor.handle_download_started(obj, self.manager)
+        response = self.processor.handle_download_started(b"1", obj, self.manager)
         self.assertEqual(
             response, Response(ResponseStatus.OK.value, "download_started")
         )
@@ -118,7 +123,7 @@ class ListenerTest(TestCase):
             },
         )
 
-        response = self.processor.handle_download_started(obj, self.manager)
+        response = self.processor.handle_download_started(b"1", obj, self.manager)
         self.assertEqual(
             response, Response(ResponseStatus.OK.value, "download_in_progress")
         )
@@ -138,7 +143,7 @@ class ListenerTest(TestCase):
                 "download_started_lock": False,
             },
         )
-        response = self.processor.handle_download_started(obj, self.manager)
+        response = self.processor.handle_download_started(b"1", obj, self.manager)
         self.assertEqual(
             response, Response(ResponseStatus.OK.value, "download_finished")
         )
@@ -151,7 +156,9 @@ class ListenerTest(TestCase):
         def resolve(url: str) -> str:
             """Resolve the given URL."""
             request = Message.command("resolve_url", url)
-            return self.processor.handle_resolve_url(request, self.manager).message_data
+            return self.processor.handle_resolve_url(
+                b"1", request, self.manager
+            ).message_data
 
         def presigned_url_mock(key: str, expiration: int):
             """Patch for presigned URL method.
@@ -194,7 +201,7 @@ class ListenerTest(TestCase):
                 "download_started_lock": True,
             },
         )
-        response = self.processor.handle_download_started(obj, self.manager)
+        response = self.processor.handle_download_started(b"1", obj, self.manager)
         self.assertEqual(
             response, Response(ResponseStatus.OK.value, "download_started")
         )
@@ -203,14 +210,14 @@ class ListenerTest(TestCase):
 
     def test_handle_get_files_to_download_missing_storage_location(self):
         obj = Message.command(ExecutorProtocol.GET_FILES_TO_DOWNLOAD, -2)
-        response = self.processor.handle_get_files_to_download(obj, self.manager)
+        response = self.processor.handle_get_files_to_download(b"1", obj, self.manager)
         self.assertEqual(response, Response(ResponseStatus.OK.value, []))
 
     def test_handle_get_files_to_download(self):
         obj = Message.command(
             ExecutorProtocol.GET_FILES_TO_DOWNLOAD, self.storage_location.id
         )
-        response = self.processor.handle_get_files_to_download(obj, self.manager)
+        response = self.processor.handle_get_files_to_download(b"1", obj, self.manager)
         expected = Response(
             ResponseStatus.OK.value,
             [
@@ -227,37 +234,9 @@ class ListenerTest(TestCase):
         )
         self.assertEqual(response, expected)
 
-    def test_handle_get_referenced_files(self):
-        obj = Message.command(ExecutorProtocol.GET_REFERENCED_FILES, "")
-        storage_location = StorageLocation.objects.create(
-            file_storage=self.file_storage,
-            connector_name="local",
-            status=StorageLocation.STATUS_DONE,
-            url=str(self.file_storage.id),
-        )
-        path = Path(storage_location.get_path(filename="output.txt"))
-        path.parent.mkdir(exist_ok=True, parents=True)
-        path.touch()
-        data = Data.objects.get(id=1)
-        data.process.output_schema = [{"name": "output_file", "type": "basic:file:"}]
-        data.process.save()
-        data.output = {"output_file": {"file": "output.txt"}}
-        data.save()
-
-        response = self.processor.handle_get_referenced_files(obj, self.manager)
-        expected = Response(
-            ResponseStatus.OK.value,
-            [
-                "jsonout.txt",
-                "stdout.txt",
-                "output.txt",
-            ],
-        )
-        self.assertEqual(response, expected)
-
     def test_handle_missing_data_locations_missing_data(self):
         obj = Message.command(ExecutorProtocol.MISSING_DATA_LOCATIONS, "")
-        response = self.processor.handle_missing_data_locations(obj, self.manager)
+        response = self.processor.handle_missing_data_locations(b"1", obj, self.manager)
         self.assertEqual(response, Response(ResponseStatus.OK.value, {}))
 
     def test_handle_missing_data_locations_missing_storage_location(self):
@@ -267,7 +246,7 @@ class ListenerTest(TestCase):
         DataDependency.objects.create(
             parent=parent, child=child, kind=DataDependency.KIND_IO
         )
-        response = self.processor.handle_missing_data_locations(obj, self.manager)
+        response = self.processor.handle_missing_data_locations(b"1", obj, self.manager)
         expected = Response(ResponseStatus.ERROR.value, "No storage location exists")
         self.assertEqual(response, expected)
         self.assertEqual(StorageLocation.all_objects.count(), 1)
@@ -285,7 +264,7 @@ class ListenerTest(TestCase):
             status=StorageLocation.STATUS_DONE,
             url="url",
         )
-        response = self.processor.handle_missing_data_locations(obj, self.manager)
+        response = self.processor.handle_missing_data_locations(b"1", obj, self.manager)
         expected = Response(ResponseStatus.OK.value, {})
         self.assertEqual(response, expected)
         self.assertEqual(StorageLocation.all_objects.count(), 2)
@@ -303,7 +282,7 @@ class ListenerTest(TestCase):
             status=StorageLocation.STATUS_DONE,
             url="url",
         )
-        response = self.processor.handle_missing_data_locations(obj, self.manager)
+        response = self.processor.handle_missing_data_locations(b"1", obj, self.manager)
         self.assertEqual(StorageLocation.all_objects.count(), 3)
         created = StorageLocation.all_objects.last()
         expected = Response(
@@ -321,15 +300,24 @@ class ListenerTest(TestCase):
         self.assertEqual(response, expected)
 
     def test_handle_resolve_data_path(self):
-        """Test data path resolwing."""
-        data = Data.objects.get(id=1)
-        Worker.objects.get_or_create(data=data, status=Worker.STATUS_PREPARING)
+        """Test data path resolving."""
+        file_storage = FileStorage.objects.create()
+        process = Process.objects.create(contributor=self.contributor)
+        data = Data.objects.create(
+            name="Test min", process=process, contributor=self.contributor
+        )
+        data.status = Data.STATUS_PROCESSING
+        data.location_id = file_storage.id
+        data.save()
+        Worker.objects.get_or_create(data_id=data.pk, status=Worker.STATUS_PROCESSING)
+
+        peer_identity = str(data.pk).encode()
         message = Message.command("resolve_data_path", data.pk)
-        response = self.manager.process_command(message)
-        assert response.message_data == str(constants.INPUTS_VOLUME)
+        response = self.manager.process_command(peer_identity, message)
+        self.assertEqual(response.message_data, str(constants.INPUTS_VOLUME))
         connector_name = "local"
         self.storage_location = StorageLocation.objects.create(
-            file_storage=self.file_storage, connector_name=connector_name, status="OK"
+            file_storage=file_storage, connector_name="local", status="OK"
         )
-        response = self.manager.process_command(message)
+        response = self.manager.process_command(peer_identity, message)
         self.assertEqual(response.message_data, f"/data_{connector_name}")
