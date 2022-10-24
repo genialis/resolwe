@@ -6,7 +6,7 @@ import os
 from base64 import b64encode
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Tuple, Type, Union
 from zipfile import ZIP_STORED, ZipFile
 
 from django.apps import apps
@@ -66,7 +66,7 @@ class PermissionManager:
         """Query permission manager if it can handle given model."""
         return full_model_name in self._plugins
 
-    def can_create(self, user, full_model_name, attributes, data):
+    def can_create(self, user, full_model_name: str, attributes, data_id: int):
         """Query if user can create the given model.
 
         :raises RuntimeError: if user does not have permissions to create the
@@ -74,9 +74,16 @@ class PermissionManager:
         :raises KeyError: if permission manager has no plugin registered for
             the given model.
         """
-        return self._plugins[full_model_name].can_create(user, attributes, data)
+        return self._plugins[full_model_name].can_create(user, attributes, data_id)
 
-    def can_update(self, user, full_model_name, model_instance, attributes, data):
+    def can_update(
+        self,
+        user,
+        full_model_name: str,
+        model_instance: Model,
+        attributes,
+        data_id: int,
+    ):
         """Query if user can update the given model.
 
         :raises RuntimeError: if user does not have permissions to update the
@@ -85,18 +92,20 @@ class PermissionManager:
             the given model.
         """
         return self._plugins[full_model_name].can_update(
-            user, model_instance, attributes, data
+            user, model_instance, attributes, data_id
         )
 
-    def filter_objects(self, user, full_model_name, queryset, data) -> QuerySet:
+    def filter_objects(
+        self, user, full_model_name: str, queryset: QuerySet, data_id: int
+    ) -> QuerySet:
         """Filter the objects for the given user.
 
         :raises KeyError: if permission manager has no plugin registered for
             the given model.
         """
-        return self._plugins[full_model_name].filter_objects(user, queryset, data)
+        return self._plugins[full_model_name].filter_objects(user, queryset, data_id)
 
-    def can_read(self, user, full_model_name, data):
+    def can_read(self, user, full_model_name: str, data_id: int):
         """Query if user can read the metadata of the given model.
 
         :raises RuntimeError: if user does not have permissions to read the
@@ -104,7 +113,7 @@ class PermissionManager:
         :raises KeyError: if permission manager has no plugin registered for
             the given model.
         """
-        return self._plugins[full_model_name].can_read(user, data)
+        return self._plugins[full_model_name].can_read(user, data_id)
 
 
 permission_manager = PermissionManager()
@@ -123,7 +132,7 @@ class ExposeObjectPlugin(metaclass=abc.ABCMeta):
         :raises RuntimeError: with detailed explanation when check fails.
         """
         object_ = model.objects.filter(pk=model_pk)
-        if not object_:
+        if not object_.exists():
             raise RuntimeError(
                 f"Object {model._meta.model_name} with id {model_pk} not found."
             )
@@ -140,7 +149,7 @@ class ExposeObjectPlugin(metaclass=abc.ABCMeta):
                     f"Object {model._meta.model_name} with id {model_pk} not found."
                 )
 
-    def can_create(self, user: UserClass, attributes: dict, data: Data):
+    def can_create(self, user: UserClass, attributes: dict, data_id: int):
         """Can user create the model with given attributes.
 
         :raises RuntimeError: if user does not have permissions to create the
@@ -154,7 +163,7 @@ class ExposeObjectPlugin(metaclass=abc.ABCMeta):
         )
 
     def can_update(
-        self, user: UserClass, model_instance: Model, attributes: Dict, data: Data
+        self, user: UserClass, model_instance: Model, attributes: Dict, data_id: int
     ):
         """Can user update the given model instance.
 
@@ -169,12 +178,12 @@ class ExposeObjectPlugin(metaclass=abc.ABCMeta):
         )
 
     def filter_objects(
-        self, user: UserClass, queryset: QuerySet, data: Data
+        self, user: UserClass, queryset: QuerySet, data_id: int
     ) -> QuerySet:
         """Filter the objects for the given user."""
         return queryset.filter_for_user(user)
 
-    def can_read(self, user: UserClass, data: Data):
+    def can_read(self, user: UserClass, data_id: int):
         """Can read model structural info.
 
         :raises RuntimeError: when user does not have permissions to access
@@ -193,7 +202,7 @@ class ExposeData(ExposeObjectPlugin):
 
     full_model_name = "flow.Data"
 
-    def can_create(self, user: UserClass, model_data: Dict, data: Data):
+    def can_create(self, user: UserClass, model_data: Dict, data_id: int):
         """Can user update the given model instance.
 
         :raises RuntimeError: if user does not have permissions to create the
@@ -226,7 +235,7 @@ class ExposeData(ExposeObjectPlugin):
             self._has_permission(user, Collection, model_data["collection_id"], "edit")
 
     def can_update(
-        self, user: UserClass, model_instance: Data, model_data: Dict, data: Data
+        self, user: UserClass, model_instance: Data, model_data: Dict, data_id: int
     ):
         """Can user update the given model instance.
 
@@ -251,7 +260,7 @@ class ExposeData(ExposeObjectPlugin):
 
         # Check permission to modify the Data object. The current data object
         # can always be modified.
-        if model_instance.id != data.id:
+        if model_instance.id != data_id:
             self._has_permission(user, Data, model_instance.id, "edit")
 
         if "entity_id" in model_data:
@@ -268,10 +277,11 @@ class ExposeData(ExposeObjectPlugin):
             )
 
     def filter_objects(
-        self, user: UserClass, queryset: QuerySet, data: Data
+        self, user: UserClass, queryset: QuerySet, data_id: int
     ) -> QuerySet:
         """Filter the objects for the given user."""
-        inputs = queryset.filter(id__in=data.parents.all())
+        parent_ids = Data.objects.filter(pk=data_id).values_list("parents")
+        inputs = queryset.filter(id__in=parent_ids)
         return queryset.filter_for_user(user).distinct().union(inputs)
 
 
@@ -290,10 +300,10 @@ class ExposeUser(ExposeObjectPlugin):
     full_model_name = UserClass._meta.label
 
     def filter_objects(
-        self, user: UserClass, queryset: QuerySet, data: Data
+        self, user: UserClass, queryset: QuerySet, data_id: int
     ) -> QuerySet:
         """Filter the objects for the given user."""
-        return queryset.filter(pk=user.pk)
+        return queryset.filter(pk=user.id)
 
 
 class ExposeEntity(ExposeObjectPlugin):
@@ -301,7 +311,7 @@ class ExposeEntity(ExposeObjectPlugin):
 
     full_model_name = "flow.Entity"
 
-    def can_create(self, user: UserClass, attributes: dict, data: Data):
+    def can_create(self, user: UserClass, attributes: dict, data_id: int):
         """Can user update the given model instance.
 
         :raises RuntimeError: if user does not have permissions to create the
@@ -309,7 +319,7 @@ class ExposeEntity(ExposeObjectPlugin):
         """
 
     def can_update(
-        self, user: UserClass, model_instance: Data, model_data: Dict, data: Data
+        self, user: UserClass, model_instance: Data, model_data: Dict, data_id: int
     ):
         """Can user update the given model instance.
 
@@ -335,7 +345,7 @@ class ExposeCollection(ExposeObjectPlugin):
 
     full_model_name = "flow.Collection"
 
-    def can_create(self, user: UserClass, attributes: dict, data: Data):
+    def can_create(self, user: UserClass, attributes: dict, data_id: int):
         """Can user update the given model instance.
 
         :raises RuntimeError: if user does not have permissions to create the
@@ -349,10 +359,11 @@ class ExposeProcess(ExposeObjectPlugin):
     full_model_name = "flow.Process"
 
     def filter_objects(
-        self, user: UserClass, queryset: QuerySet, data: Data
+        self, user: UserClass, queryset: QuerySet, data_id: int
     ) -> QuerySet:
         """Filter the objects for the given user."""
-        processes_of_inputs = queryset.filter(data__in=data.parents.all()).distinct()
+        parent_ids = Data.objects.filter(pk=data_id).values_list("parents")
+        processes_of_inputs = queryset.filter(data__in=parent_ids).distinct()
         return queryset.filter_for_user(user).distinct().union(processes_of_inputs)
 
 
@@ -362,7 +373,7 @@ class ExposeStorage(ExposeObjectPlugin):
     # TODO: permission based on permission on Data object.
     full_model_name = "flow.Storage"
 
-    def can_create(self, user: UserClass, attributes: dict, data: Data):
+    def can_create(self, user: UserClass, attributes: dict, data_id: int):
         """Can user create the model with given attributes.
 
         :raises RuntimeError: when user does not have permissions to create
@@ -370,7 +381,7 @@ class ExposeStorage(ExposeObjectPlugin):
         """
 
     def can_update(
-        self, user: UserClass, model_instance: Storage, model_data: Dict, data: Data
+        self, user: UserClass, model_instance: Storage, model_data: Dict, data_id: int
     ):
         """Can user update the given Storage object.
 
@@ -380,8 +391,10 @@ class ExposeStorage(ExposeObjectPlugin):
         processed_data_ids = set()
         # User must have permission to modify all the data objects this object belongs to.
         for data in model_instance.data.all():
-            permission_manager.can_update(user, "flow.Data", data, {"output": {}}, data)
-            processed_data_ids.add(data.pk)
+            permission_manager.can_update(
+                user, "flow.Data", data, {"output": {}}, data_id
+            )
+            processed_data_ids.add(data_id)
 
         # Only contributor can modify Storage object if it is orphaned.
         if not processed_data_ids and model_instance.contributor != user:
@@ -400,11 +413,11 @@ class ExposeStorage(ExposeObjectPlugin):
                     "flow.Data",
                     Data.objects.get(pk=data_id),
                     {"output": {}},
-                    data,
+                    data_id,
                 )
 
     def filter_objects(
-        self, user: UserClass, queryset: QuerySet, data: Data
+        self, user: UserClass, queryset: QuerySet, data_id: int
     ) -> QuerySet:
         """Filter the objects for the given user."""
         return (
@@ -430,7 +443,7 @@ class PythonProcess(ListenerPlugin):
         super().__init__()
 
     def handle_resolve_data_path(
-        self, message: Message[int], manager: "Processor"
+        self, data_id: int, message: Message[int], manager: "Processor"
     ) -> Response[str]:
         """Return the base path that stores given data."""
         data_pk = message.message_data
@@ -445,30 +458,41 @@ class PythonProcess(ListenerPlugin):
         return message.respond_ok(self._hydrate_cache[data_pk])
 
     def handle_get_python_program(
-        self, message: Message[Tuple[str, Dict[str, Any]]], manager: "Processor"
+        self,
+        data_id: int,
+        message: Message[Tuple[str, Dict[str, Any]]],
+        manager: "Processor",
     ) -> Response[str]:
         """Return the process source code for the given data object."""
-        return message.respond_ok(manager.data.process.run.get("program", ""))
+        run_dict = (
+            Process.objects.filter(data__id=data_id)
+            .values_list("run", flat=True)
+            .last()
+        ) or {}
+        return message.respond_ok(run_dict.get("program", ""))
 
     def handle_create_object(
-        self, message: Message[Tuple[str, Dict[str, Any]]], manager: "Processor"
+        self,
+        data_id: int,
+        message: Message[Tuple[str, str, Dict[str, Any]]],
+        manager: "Processor",
     ) -> Response[int]:
         """Create new object and return its id.
 
         :raises RuntimeError: if user has no permission to create the object.
         """
-        # TODO: modify Python processes to also send app name with the table!
         app_name, model_name, model_data = message.message_data
         full_model_name = f"{app_name}.{model_name}"
         self._permission_manager.can_create(
-            manager.contributor, full_model_name, model_data, manager.data
+            manager.contributor(data_id), full_model_name, model_data, data_id
         )
         model = apps.get_model(app_name, model_name)
-        model_data["contributor"] = manager.contributor
+        model_data["contributor_id"] = manager.contributor(data_id).id
         return message.respond_ok(model.objects.create(**model_data).id)
 
     def handle_filter_objects(
         self,
+        data_id: int,
         message: Message[
             Union[
                 Tuple[str, str, Dict[str, Any], List[str], List[str]],
@@ -492,24 +516,27 @@ class PythonProcess(ListenerPlugin):
         else:
             raise RuntimeError(
                 "Message in handle_filter_objects for the object "
-                f"{manager.data.pk} not in the correct format. Got tuple of"
+                f"{data_id} not in the correct format. Got tuple of"
                 f"length {len(message.message_data)}, expected length 4 or 5."
             )
 
         full_model_name = f"{app_name}.{model_name}"
         model = apps.get_model(app_name, model_name)
         filtered_objects = self._permission_manager.filter_objects(
-            manager.contributor,
+            manager.contributor(data_id),
             full_model_name,
             model.objects.filter(**filters),
-            manager.data,
+            data_id,
         )
         return message.respond_ok(
             list(filtered_objects.order_by(*sorting).values_list(*attributes))
         )
 
     def handle_update_model_fields(
-        self, message: Message[Tuple[str, int, Dict[str, Any]]], manager: "Processor"
+        self,
+        data_id: int,
+        message: Message[Tuple[str, str, int, Dict[str, Any]]],
+        manager: "Processor",
     ) -> Response[str]:
         """Update the value for the given fields.
 
@@ -523,17 +550,15 @@ class PythonProcess(ListenerPlugin):
         app_name, model_name, model_pk, mapping = message.message_data
         full_model_name = f"{app_name}.{model_name}"
 
-        # The most common request is for the data object we are processing.
-        # Avoid hitting the database in such case.
-        if full_model_name == "flow.Data" and model_pk == manager.data_id:
-            model_instance = manager.data
-            model = Data
-        else:
-            model = apps.get_model(app_name, model_name)
-            model_instance = model.objects.filter(pk=model_pk).get()
+        model = apps.get_model(app_name, model_name)
+        model_instance = model.objects.get(pk=model_pk)
 
         self._permission_manager.can_update(
-            manager.contributor, full_model_name, model_instance, mapping, manager.data
+            manager.contributor(data_id),
+            full_model_name,
+            model_instance,
+            mapping,
+            data_id,
         )
 
         # Update all fields except m2m.
@@ -576,8 +601,8 @@ class PythonProcess(ListenerPlugin):
         return message.respond_ok("OK")
 
     def handle_get_model_fields_details(
-        self, message: Message[str], manager: "Processor"
-    ) -> Response[Dict[str, Tuple[str, Optional[str]]]]:
+        self, data_id: int, message: Message[Tuple[str, str]], manager: "Processor"
+    ) -> Response[Dict[str, Tuple[str, bool, Any]]]:
         """Get the field names and types for the given model.
 
         The response is a dictionary which field maps names to its types.
@@ -588,7 +613,7 @@ class PythonProcess(ListenerPlugin):
         full_model_name = f"{app_name}.{model_name}"
 
         self._permission_manager.can_read(
-            manager.contributor, full_model_name, manager.data
+            manager.contributor(data_id), full_model_name, data_id
         )
         model = apps.get_model(app_name, model_name)
         response = {}
@@ -604,7 +629,10 @@ class PythonProcess(ListenerPlugin):
         return message.respond_ok(response)
 
     def handle_get_model_fields(
-        self, message: Message[Tuple[str, int, List[str]]], manager: "Processor"
+        self,
+        data_id: int,
+        message: Message[Tuple[str, str, int, List[str]]],
+        manager: "Processor",
     ) -> Response[Dict[str, Any]]:
         """Return the value of the given model for the given fields.
 
@@ -619,10 +647,10 @@ class PythonProcess(ListenerPlugin):
 
         model = apps.get_model(app_name, model_name)
         filtered_objects = self._permission_manager.filter_objects(
-            manager.contributor,
+            manager.contributor(data_id),
             full_model_name,
             model.objects.filter(pk=model_pk),
-            manager.data,
+            data_id,
         )
         values = filtered_objects.values(*field_names)
         # NOTE: non JSON serializable fields are NOT supported. If such field
@@ -635,40 +663,43 @@ class PythonProcess(ListenerPlugin):
         return message.respond_ok(values)
 
     def handle_get_relations(
-        self, message: Message[int], manager: "Processor"
+        self, data_id: int, message: Message[int], manager: "Processor"
     ) -> Response[List[dict]]:
         """Get relations for the given collection object."""
+        contributor = manager.contributor(data_id)
         collection = (
             Collection.objects.filter(id=message.message_data)
-            .filter_for_user(manager.contributor)
+            .filter_for_user(contributor)
             .get()
         )
         return message.respond_ok(serialize_collection_relations(collection))
 
     def handle_get_process_requirements(
-        self, message: Message[int], manager: "Processor"
+        self, data_id: int, message: Message[int], manager: "Processor"
     ) -> Response[dict]:
         """Return the requirements for the process with the given id."""
         process_id = message.message_data
         filtered_process = Process.objects.filter(pk=process_id).filter_for_user(
-            manager.contributor
+            manager.contributor(data_id)
         )[0]
+
         process_limits = filtered_process.get_resource_limits()
         process_requirements = filtered_process.requirements
         process_requirements["resources"] = process_limits
         return message.respond_ok(process_requirements)
 
     def handle_get_self_requirements(
-        self, message: Message[int], manager: "Processor"
+        self, data_id: int, message: Message[int], manager: "Processor"
     ) -> Response[dict]:
         """Return the requirements for the process being executed."""
-        limits = manager.data.get_resource_limits()
-        process_requirements = manager.data.process.requirements
+        data = manager.data(data_id)
+        limits = data.get_resource_limits()
+        process_requirements = data.process.requirements
         process_requirements["resources"] = limits
         return message.respond_ok(process_requirements)
 
     def handle_get_python_runtime(
-        self, message: Message[str], manager: "Processor"
+        self, data_id: int, message: Message[str], manager: "Processor"
     ) -> Response[str]:
         """Return the Python Process runtime.
 
@@ -700,7 +731,7 @@ class PythonProcess(ListenerPlugin):
         return message.respond_ok(b64encode(zipped.read()).decode())
 
     def handle_get_user_model_label(
-        self, message: Message[str], manager: "Processor"
+        self, data_id: int, message: Message[str], manager: "Processor"
     ) -> Response[str]:
         """Return the label of the custom user model.
 

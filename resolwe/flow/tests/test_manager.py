@@ -49,6 +49,8 @@ class TestManager(ProcessTestCase):
         spawned_process.entity_descriptor_schema = "test-schema"
         spawned_process.save()
 
+        # Make sure user can spawn the process.
+        spawned_process.set_permission(Permission.VIEW, self.contributor)
         self.collection.set_permission(Permission.VIEW, self.user)
         Data.objects.create(
             name="Test data",
@@ -157,10 +159,9 @@ class TestManager(ProcessTestCase):
 
         data.refresh_from_db()
 
-        self.assertEqual(len(data.process_info), 3)
+        self.assertEqual(len(data.process_info), 2)
         self.assertEqual(data.process_info[0], "abc")
         self.assertEqual(data.process_info[1][-5:], "xx...")
-        self.assertEqual(data.process_info[2][:8], "Response")
 
         self.assertEqual(len(data.process_warning), 1)
         self.assertEqual(data.process_warning[0][-5:], "yy...")

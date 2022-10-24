@@ -15,6 +15,7 @@ Changed
 - Drop support for Python 3.4 in the processing container
 - Rewrite the processing container code to make it more stable
 - Rewrite the commnication container code to make it more stable
+- Rewrite the listener to allow more than one of them to run at the same time
 
 
 ===================
