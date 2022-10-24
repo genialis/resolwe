@@ -9,6 +9,7 @@ class Worker(models.Model):
     """Stores information about worker."""
 
     STATUS_PREPARING = "PP"
+    STATUS_FINISHED_PREPARING = "FP"
     STATUS_PROCESSING = "PR"
     STATUS_NONRESPONDING = "NR"
     STATUS_COMPLETED = "CM"
