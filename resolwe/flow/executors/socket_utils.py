@@ -1055,77 +1055,79 @@ class BaseCommunicator:
         self,
         command: Message[MessageDataType],
         peer_identity: PeerIdentity = b"",
-        response_timeout: Optional[int] = 600,
-        enquire_timeout: int = 1200,
+        resend_timeout: Optional[int] = 30,
+        timeout: Optional[int] = 1200,
     ) -> Response:
-        """Send command and return the response.
+        """Send the command and return the response.
+
+        In order to receive the response, the listening task must be running.
+
+        :attr resend_timeout: retry sending the message after resend_timeout
+            elapsed and no response is received. The message can be resent
+            multiple times, each time the timeout between two sending events
+            is doubled.
+            When None is given no retry is performed.
+
+        :attr timeout: abort waiting for response after timeout. When None wait
+            forever.
 
         :raises RuntimeError: when response is not received within the
             given timeout.
         """
-        command.sequence_number = self.sequence_numbers.setdefault(peer_identity, 1)
-        self.sequence_numbers[peer_identity] += 1
-
-        self.logger.debug("Communicator %s: sending command %s.", self.name, command)
+        self.logger.debug(
+            "Communicator %s: sending command '%s' to peer '%s'.",
+            self.name,
+            command.command_name,
+            peer_identity,
+        )
         await self._send_message(command, peer_identity)
         response_received_event = EventWithResponse()
-
-        async def enquire(message_uuid):
-            """Enquire aboudt message status after enquire_timeout."""
-            await asyncio.sleep(enquire_timeout)
-            return await self._get_peer_message_status(message_uuid)
+        timeout_task: Optional[asyncio.Task] = None
+        resend_task: Optional[asyncio.Task] = None
+        base_tasks: List[asyncio.Task] = []
+        self._uuid_to_event[command.uuid] = response_received_event
+        response_received_task = asyncio.ensure_future(response_received_event.wait())
+        base_tasks.append(response_received_task)
+        if timeout:
+            timeout_task = asyncio.ensure_future(asyncio.sleep(timeout))
+            base_tasks.append(timeout_task)
 
         try:
-            # Both futures will be canceled in the finally clause.
-            enquire_future = asyncio.ensure_future(enquire(command.uuid))
-            response_received_future = asyncio.ensure_future(
-                response_received_event.wait()
-            )
+            while True:
+                tasks_to_wait = base_tasks[:]
+                if resend_timeout:
+                    resend_task = asyncio.ensure_future(asyncio.sleep(resend_timeout))
+                    resend_timeout *= 2
+                    tasks_to_wait.append(resend_task)
 
-            self._uuid_to_event[command.uuid] = response_received_event
-            response = None
-            start = time.time()
-            done, _ = await asyncio.wait(
-                (response_received_future, enquire_future),
-                timeout=response_timeout,
-                return_when=asyncio.FIRST_COMPLETED,
-            )
+                done, _ = await asyncio.wait(
+                    tasks_to_wait, return_when=asyncio.FIRST_COMPLETED
+                )
 
-            if response_received_future in done:
-                return response_received_event.response
-
-            elif enquire_future in done:
-                if enquire_future.result() == MessageStatus.UNKNOWN.value:
-                    raise RuntimeError(
-                        f"Communicator {self.name}: response not received by peer."
+                # Message received.
+                if response_received_task in done:
+                    self.logger.debug(
+                        "Received response to command '%s' with uuid '%s'.",
+                        command.command_name,
+                        command.uuid,
                     )
-            else:
-                raise RuntimeError(
-                    f"Communicator {self.name}: timeout for response to {command} has expired."
-                )
-
-            # Enquire future was successfull, peer is probably just processing the message.
-            # Wait for response until timeout.
-            if response_timeout is None:
-                remaining_timeout = None
-            else:
-                remaining_timeout = max(0, start + response_timeout - time.time())
-            try:
-                await asyncio.wait_for(
-                    response_received_future, timeout=remaining_timeout
-                )
-            except asyncio.CancelledError:
-                raise RuntimeError(
-                    f"Communicator {self.name}: timeout for response to {command} has expired."
-                )
-
-            response = response_received_event.response
-            self.logger.debug("Received response: %s", response)
+                    return response_received_event.response
+                # Timeout.
+                elif timeout_task in done:
+                    raise RuntimeError(
+                        f"Communicator {self.name}: no response to command "
+                        f"{command.command_name} with uuid {command.uuid} "
+                        f"from peer {peer_identity} in '{timeout} seconds'."
+                    )
+                # Resend task
+                elif resend_task in done:
+                    await self._send_message(command, peer_identity)
         finally:
-            enquire_future.cancel()
-            response_received_future.cancel()
-
-        return response
+            if resend_task:
+                resend_task.cancel()
+            if timeout_task:
+                timeout_task.cancel()
+            response_received_task.cancel()
 
     async def stop_listening(self):
         """Stop listening.
