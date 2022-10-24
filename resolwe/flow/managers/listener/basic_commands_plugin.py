@@ -14,9 +14,9 @@ from django.utils.timezone import now
 
 from resolwe.flow.executors.socket_utils import Message, Response
 from resolwe.flow.managers.protocol import ExecutorProtocol
-from resolwe.flow.models import Data, DataDependency, Process
-from resolwe.flow.models.utils import referenced_files, validate_data_object
-from resolwe.flow.utils import dict_dot, iterate_fields
+from resolwe.flow.models import Data, DataDependency, Entity, Process, Worker
+from resolwe.flow.models.utils import validate_data_object
+from resolwe.flow.utils import dict_dot, iterate_fields, iterate_schema
 from resolwe.storage.connectors import connectors
 from resolwe.storage.connectors.hasher import StreamHasher
 from resolwe.storage.models import ReferencedPath, StorageLocation
@@ -34,24 +34,29 @@ class BasicCommands(ListenerPlugin):
     """Basic listener handlers."""
 
     def handle_run(
-        self, message: Message[dict], manager: "Processor"
-    ) -> Response[List[int]]:
+        self, data_id: int, message: Message[dict], manager: "Processor"
+    ) -> Response[int]:
         """Handle spawning new data object.
 
-        The response is the id of the created object.
+        The response is the id of the created object or -1 when object can not
+        be created.
         """
         export_files_mapper = message.message_data["export_files_mapper"]
-        manager.data.refresh_from_db()
+        processing_data: Data = Data.objects.get(pk=data_id)
 
         try:
             data = message.message_data["data"]
             logger.debug(__("Spawning new data object from dict: {}", data))
 
-            data["contributor"] = manager.data.contributor
-            data["process"] = Process.objects.filter(slug=data["process"]).latest()
-            data["tags"] = manager.data.tags
-            data["collection"] = manager.data.collection
-            data["subprocess_parent"] = manager.data
+            data["contributor"] = processing_data.contributor
+            data["process"] = (
+                Process.objects.filter(slug=data["process"])
+                .filter_for_user(processing_data.contributor)
+                .latest()
+            )
+            data["tags"] = processing_data.tags
+            data["collection"] = processing_data.collection
+            data["subprocess_parent"] = processing_data
 
             with transaction.atomic():
                 for field_schema, fields in iterate_fields(
@@ -73,14 +78,15 @@ class BasicCommands(ListenerPlugin):
                 created_object = Data.objects.create(**data)
         except Exception:
             manager._log_exception(
-                f"Error while preparing spawned Data objects for process '{manager.data.process.slug}'"
+                processing_data,
+                f"Error while preparing spawned Data objects for process '{processing_data.process.slug}'",
             )
-            return message.respond_error([])
+            return message.respond_error(-1)
         else:
             return message.respond_ok(created_object.id)
 
     def handle_update_rc(
-        self, message: Message[dict], manager: "Processor"
+        self, data_id: int, message: Message[dict], manager: "Processor"
     ) -> Response[str]:
         """Update return code.
 
@@ -89,88 +95,68 @@ class BasicCommands(ListenerPlugin):
 
         :args: data contains at least key rc and possibly key error.
         """
-        return_code = message.message_data["rc"]
-        if return_code not in (0, manager.return_code):
-            changes: dict = {"process_rc": manager.return_code}
-            if manager.return_code == 0:
+        data = manager.data(data_id)
+        new_return_code = message.message_data["rc"]
+        if new_return_code not in (0, data.process_rc):
+            changes = ["process_rc"]
+            if data.process_rc is None or data.process_rc == 0:
+                max_length = Data._meta.get_field("process_error").base_field.max_length
                 error_details = message.message_data.get("error", "Unspecified error")
-                changes["status"] = Data.STATUS_ERROR
-                changes["process_error"] = manager.data.process_error
-                changes["process_error"].append(error_details)
-            manager.return_code = return_code
-            manager._update_data(changes)
+                if len(error_details) > max_length:
+                    error_details = error_details[: max_length - 3] + "..."
+                # Avoid duplicate entries in process_error.
+                if error_details not in data.process_error:
+                    data.process_error.append(error_details)
+                data.status = Data.STATUS_ERROR
+                changes += ["process_error", "status"]
+            data.process_rc = new_return_code
+            manager._save_data(data, changes)
         return message.respond_ok("OK")
 
-    def handle_get_output_files_dirs(
-        self, message: Message[str], manager: "Processor"
-    ) -> Response[dict]:
-        """Get the output for file and dir fields.
-
-        The sent dictionary has field names as its keys and tuple filed_type,
-        field_value for its values.
-        """
-
-        def is_file_or_dir(field_type: str) -> bool:
-            """Is file or directory."""
-            return "basic:file" in field_type or "basic:dir" in field_type
-
-        output = dict()
-        for field_schema, fields in iterate_fields(
-            manager.data.output, manager.data.process.output_schema
-        ):
-            if is_file_or_dir(field_schema["type"]):
-                name = field_schema["name"]
-                output[name] = (field_schema["type"], fields[name])
-
-        return message.respond_ok(output)
-
     def handle_finish(
-        self, message: Message[Dict], manager: "Processor"
+        self, data_id: int, message: Message[Dict], manager: "Processor"
     ) -> Response[str]:
         """Handle an incoming ``Data`` finished processing request."""
+        data = manager.data(data_id)
         process_rc = int(message.message_data.get("rc", 1))
-        changeset = {
-            "process_progress": 100,
-            "finished": now(),
-        }
+        data.process_progress = 100
+        data.finished = now()
+        changes = ["process_progress", "finished", "size"]
         if process_rc != 0:
-            changeset["process_rc"] = process_rc
-            if manager.data.status != Data.STATUS_ERROR:
-                changeset["status"] = Data.STATUS_ERROR
-                manager.data.process_error.append(
-                    message.message_data.get("error", "Process return code is not 0")
+            data.process_rc = process_rc
+            changes.append("process_rc")
+            if data.status != Data.STATUS_ERROR:
+                data.status = Data.STATUS_ERROR
+                changes.append("status")
+                error_message = message.message_data.get(
+                    "error", "Process return code is not 0."
                 )
-                changeset["process_error"] = manager.data.process_error
-        elif manager.data.status != Data.STATUS_ERROR:
-            changeset["status"] = Data.STATUS_DONE
+                if error_message not in data.process_error:
+                    data.process_error.append(error_message)
+                    changes.append("process_error")
+        elif data.status != Data.STATUS_ERROR:
+            data.status = Data.STATUS_DONE
+            changes.append("status")
 
-        changeset["size"] = manager.data.location.files.aggregate(
-            size=Coalesce(Sum("size"), 0)
-        ).get("size")
-        manager._update_data(changeset)
-
-        local_location = manager.data.location.default_storage_location
-        local_location.status = StorageLocation.STATUS_DONE
-        local_location.save()
+        data.size = data.location.files.aggregate(size=Coalesce(Sum("size"), 0)).get(
+            "size"
+        )
+        with transaction.atomic():
+            manager._save_data(data, changes)
+            data.worker.status = Worker.STATUS_COMPLETED
+            data.worker.save()
+            default_location = data.location.default_storage_location
+            default_location.status = StorageLocation.STATUS_DONE
+            default_location.save(update_fields=["status"])
 
         # Only validate objects with DONE status. Validating objects in ERROR
         # status will only cause unnecessary errors to be displayed.
-        if manager.data.status == Data.STATUS_DONE:
-            validate_data_object(manager.data)
+        if data.status == Data.STATUS_DONE:
+            validate_data_object(data)
         return message.respond_ok("OK")
 
-    def handle_get_referenced_files(
-        self, message: Message, manager: "Processor"
-    ) -> Response[List]:
-        """Get a list of files referenced by the data object.
-
-        The list also depends on the Data object itself, more specifically on
-        its output field. So the method is not idempotent.
-        """
-        return message.respond_ok(referenced_files(manager.data))
-
     def handle_missing_data_locations(
-        self, message: Message, manager: "Processor"
+        self, data_id: int, message: Message, manager: "Processor"
     ) -> Response[Union[str, Dict[str, Dict[str, Any]]]]:
         """Handle an incoming request to get missing data locations."""
         storage_name = "data"
@@ -187,11 +173,11 @@ class BasicCommands(ListenerPlugin):
         missing_data = dict()
         dependencies = (
             Data.objects.filter(
-                children_dependency__child=manager.data,
+                children_dependency__child_id=data_id,
                 children_dependency__kind=DataDependency.KIND_IO,
             )
             .exclude(location__isnull=True)
-            .exclude(pk=manager.data.id)
+            .exclude(pk=data_id)
             .distinct()
         )
 
@@ -206,7 +192,9 @@ class BasicCommands(ListenerPlugin):
 
             from_location = file_storage.default_storage_location
             if from_location is None:
+                data = manager.data(data_id)
                 manager._log_exception(
+                    data,
                     "No storage location exists (handle_get_missing_data_locations).",
                     extra={"file_storage_id": file_storage.id},
                 )
@@ -241,15 +229,16 @@ class BasicCommands(ListenerPlugin):
         return message.respond_ok(missing_data)
 
     def handle_referenced_files(
-        self, message: Message[List[dict]], manager: "Processor"
+        self, data_id: int, message: Message[List[dict]], manager: "Processor"
     ) -> Response[str]:
         """Store  a list of files and directories produced by the worker.
 
         The files are a list of dictionaries with keys 'path', 'size' and
         hashes.
         """
+        data = Data.objects.get(pk=data_id)
         update_fields = ["size"] + StreamHasher.KNOWN_HASH_TYPES
-        storage_location = manager.data.location.default_storage_location
+        storage_location = data.location.default_storage_location
         referenced_files = message.message_data
         paths = {
             referenced_file["path"]: referenced_file
@@ -281,7 +270,7 @@ class BasicCommands(ListenerPlugin):
         return message.respond_ok("OK")
 
     def handle_resolve_url(
-        self, message: Message[str], manager: "Processor"
+        self, data_id: int, message: Message[str], manager: "Processor"
     ) -> Response[str]:
         """Resolve the download link.
 
@@ -324,9 +313,7 @@ class BasicCommands(ListenerPlugin):
         return message.respond_ok(url)
 
     def hydrate_spawned_files(
-        self,
-        exported_files_mapper: Dict[str, str],
-        filename: str,
+        self, exported_files_mapper: Dict[str, str], filename: str
     ):
         """Pop the given file's map from the exported files mapping.
 
@@ -347,27 +334,38 @@ class BasicCommands(ListenerPlugin):
         return {"file_temp": exported_files_mapper.pop(filename), "file": filename}
 
     def handle_update_status(
-        self, message: Message[str], manager: "Processor"
+        self, data_id: int, message: Message[str], manager: "Processor"
     ) -> Response[str]:
         """Update data status."""
-        new_status = manager._choose_worst_status(
-            message.message_data, manager.data.status
-        )
-        if new_status != manager.data.status:
-            manager._update_data({"status": new_status})
+
+        data_status = manager.get_data_fields(data_id, "status")
+        new_status = manager._choose_worst_status(message.message_data, data_status)
+        if new_status != data_status:
+            data = manager.data(data_id)
+            data.status = new_status
+
+            with transaction.atomic():
+                manager._save_data(data, ["status"])
+                if new_status == Data.STATUS_PREPARING:
+                    data.worker.status = Worker.STATUS_PREPARING
+                    data.worker.save()
+                elif new_status == Data.STATUS_PROCESSING:
+                    data.worker.status = Worker.STATUS_PROCESSING
+                    data.worker.save()
+
             if new_status == Data.STATUS_ERROR:
                 logger.error(
                     __(
-                        "Error occured while running process '{}' (handle_update).",
-                        manager.data.process.slug,
+                        "Error occured while processing data object '{}' (handle_update).",
+                        data_id,
                     ),
                     extra={
-                        "data_id": manager.data.id,
+                        "data_id": data_id,
                         "api_url": "{}{}".format(
                             getattr(settings, "RESOLWE_HOST_URL", ""),
                             reverse(
                                 "resolwe-api:data-detail",
-                                kwargs={"pk": manager.data.id},
+                                kwargs={"pk": data_id},
                             ),
                         ),
                     },
@@ -375,34 +373,48 @@ class BasicCommands(ListenerPlugin):
         return message.respond_ok(new_status)
 
     def handle_get_data_by_slug(
-        self, message: Message[str], manager: "Processor"
+        self, data_id: int, message: Message[str], manager: "Processor"
     ) -> Response[int]:
         """Get data id by slug."""
-        return message.respond_ok(Data.objects.get(slug=message.message_data).id)
+        return message.respond_ok(
+            Data.objects.filter(slug=message.message_data)
+            .values_list("id", flat=True)
+            .get()
+        )
 
     def handle_set_data_size(
-        self, message: Message[int], manager: "Processor"
+        self, data_id: int, message: Message[int], manager: "Processor"
     ) -> Response[str]:
-        """Set size of data object."""
+        """Set size of data object.
+
+        Note: the signals on data object are not triggered on size change.
+        """
         assert isinstance(message.message_data, int)
-        manager._update_data({"size": message.message_data})
+        manager._update_data(data_id, {"size": message.message_data})
         return message.respond_ok("OK")
 
     def handle_update_output(
-        self, message: Message[Dict[str, Any]], manager: "Processor"
+        self, data_id: int, message: Message[Dict[str, Any]], manager: "Processor"
     ) -> Response[str]:
         """Update data output."""
-        for key, val in message.message_data.items():
-            if key not in manager.storage_fields:
-                dict_dot(manager.data.output, key, val)
-            else:
-                manager.save_storage(key, val)
+        data = manager.data(data_id)
+        output_schema = manager.get_data_fields(data_id, ("process__output_schema"))
+        storage_fields = {
+            field_name
+            for schema, _, field_name in iterate_schema(data.output, output_schema)
+            if schema["type"].startswith("basic:json:")
+        }
+
         with transaction.atomic():
-            manager._update_data({"output": manager.data.output})
+            for key, val in message.message_data.items():
+                if key in storage_fields:
+                    val = manager.save_storage(key, val, data).pk
+                dict_dot(data.output, key, val)
+            manager._save_data(data, ["output"])
         return message.respond_ok("OK")
 
     def handle_get_files_to_download(
-        self, message: Message[int], manager: "Processor"
+        self, data_id: int, message: Message[int], manager: "Processor"
     ) -> Response[Union[str, List[dict]]]:
         """Get a list of files belonging to a given storage location object."""
         return message.respond_ok(
@@ -414,7 +426,7 @@ class BasicCommands(ListenerPlugin):
         )
 
     def handle_download_started(
-        self, message: Message[dict], manager: "Processor"
+        self, data_id: int, message: Message[dict], manager: "Processor"
     ) -> Response[str]:
         """Handle an incoming request to start downloading data.
 
@@ -440,7 +452,7 @@ class BasicCommands(ListenerPlugin):
         return message.respond_ok(return_status)
 
     def handle_download_aborted(
-        self, message: Message[int], manager: "Processor"
+        self, data_id: int, message: Message[int], manager: "Processor"
     ) -> Response[str]:
         """Handle an incoming download aborted request.
 
@@ -453,7 +465,7 @@ class BasicCommands(ListenerPlugin):
         return message.respond_ok("OK")
 
     def handle_download_finished(
-        self, message: Message[int], manager: "Processor"
+        self, data_id: int, message: Message[int], manager: "Processor"
     ) -> Response[str]:
         """Handle an incoming download finished request."""
         storage_location = StorageLocation.all_objects.get(pk=message.message_data)
@@ -468,51 +480,54 @@ class BasicCommands(ListenerPlugin):
         return message.respond_ok("OK")
 
     def handle_annotate(
-        self, message: Message[dict], manager: "Processor"
+        self, data_id: int, message: Message[dict], manager: "Processor"
     ) -> Response[str]:
         """Handle an incoming ``Data`` object annotate request."""
+        (entity_id,) = manager.get_data_fields(data_id, ["entity_id"])
 
-        if manager.data.entity is None:
-            raise RuntimeError(
-                f"No entity to annotate for process '{manager.data.process.slug}'"
-            )
+        if entity_id is None:
+            raise RuntimeError(f"No entity to annotate for object '{data_id}'")
 
+        # The entity must be retrieved and saved or schema validation on the
+        # entity must be done manually.
+        entity = Entity.objects.get(pk=entity_id)
         for key, val in message.message_data.items():
-            dict_dot(manager.data.entity.descriptor, key, val)
+            dict_dot(entity.descriptor, key, val)
+        entity.save()
 
-        manager.data.entity.save()
         return message.respond_ok("OK")
 
     def handle_process_log(
-        self, message: Message[dict], manager: "Processor"
+        self, data_id, message: Message[dict], manager: "Processor"
     ) -> Response[str]:
         """Handle an process log request."""
-        changeset = dict()
+        data = manager.data(data_id)
+        changes = []
         for key, values in message.message_data.items():
             data_key = f"process_{key}"
+            changes.append(data_key)
             max_length = Data._meta.get_field(data_key).base_field.max_length
-            changeset[data_key] = getattr(manager.data, data_key).copy()
             if isinstance(values, str):
                 values = [values]
             for i, entry in enumerate(values):
                 if len(entry) > max_length:
                     values[i] = entry[: max_length - 3] + "..."
-            changeset[data_key].extend(values)
-        if "process_error" in changeset:
-            changeset["status"] = Data.STATUS_ERROR
-
-        manager._update_data(changeset)
+                # Avoid duplicates.
+                log_list = getattr(data, data_key)
+                if values[i] not in log_list:
+                    log_list.append(values[i])
+        if "process_error" in changes:
+            data.status = Data.STATUS_ERROR
+            changes.append("status")
+        manager._save_data(data, changes)
         return message.respond_ok("OK")
 
     def handle_progress(
-        self, message: Message[float], manager: "Processor"
+        self, data_id: int, message: Message[float], manager: "Processor"
     ) -> Response[str]:
-        """Handle a progress change request."""
-        manager._update_data({"process_progress": message.message_data})
-        return message.respond_ok("OK")
+        """Handle a progress change request.
 
-    def handle_get_script(
-        self, message: Message[str], manager: "Processor"
-    ) -> Response[str]:
-        """Return script for the current Data object."""
-        return message.respond_ok(manager._listener.get_program(manager.data))
+        Do not trigger the signals when only progress changes.
+        """
+        manager._update_data(data_id, {"process_progress": message.message_data})
+        return message.respond_ok("OK")
