@@ -340,7 +340,7 @@ class Data(BaseModel, PermissionObject):
     process_progress = models.PositiveSmallIntegerField(default=0)
 
     #: return code
-    process_rc = models.PositiveSmallIntegerField(blank=True, null=True)
+    process_rc = models.SmallIntegerField(blank=True, null=True)
 
     #: info log message
     process_info = ArrayField(models.CharField(max_length=255), default=list)

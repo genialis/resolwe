@@ -13,19 +13,14 @@ socket for communication.
 """
 
 import asyncio
-import copy
-import json
 import logging
-import os
-import shlex
-import threading
-import time
-from collections import defaultdict
 from contextlib import suppress
-from importlib import import_module
-from pathlib import Path
-from typing import Any, Dict, List, MutableMapping, Optional, Set, Tuple, Union
+from datetime import datetime
+from functools import lru_cache
+from time import time
+from typing import Any, ChainMap, Dict, Iterable, List, Optional, Set, Union
 
+import redis
 import zmq
 import zmq.asyncio
 from asgiref.sync import async_to_sync
@@ -33,40 +28,37 @@ from channels.db import database_sync_to_async
 from channels.layers import get_channel_layer
 
 from django.conf import settings
-from django.core.exceptions import PermissionDenied, ValidationError
-from django.forms.models import model_to_dict
+from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
+from django.db import models, transaction
 from django.utils.timezone import now
 
 from django_priority_batch import PrioritizedBatcher
 
-from resolwe.flow.engine import BaseEngine, InvalidEngineError, load_engines
-from resolwe.flow.executors import constants
 from resolwe.flow.executors.socket_utils import (
     BaseProtocol,
     Message,
     PeerIdentity,
-    PeerStatus,
     Response,
-    ResponseStatus,
 )
 from resolwe.flow.executors.zeromq_utils import ZMQCommunicator
 from resolwe.flow.managers import consumer
-from resolwe.flow.managers.protocol import ExecutorFiles, WorkerProtocol
+from resolwe.flow.managers.protocol import WorkerProtocol
 from resolwe.flow.managers.state import LISTENER_CONTROL_CHANNEL  # noqa: F401
-from resolwe.flow.models import Data, Process, Storage, Worker
+from resolwe.flow.models import Data, Storage, Worker
 from resolwe.flow.utils import iterate_schema
-from resolwe.storage import settings as storage_settings
 from resolwe.storage.models import AccessLog
 from resolwe.test.utils import is_testing
 from resolwe.utils import BraceMessage as __
 
 # Register plugins by importing them.
 from .basic_commands_plugin import BasicCommands  # noqa: F401
-from .init_container_plugin import InitContainerPlugin  # noqa: F401
+from .bootstrap_plugin import BootstrapCommands  # noqa: F401
 from .plugin import plugin_manager
 from .python_process_plugin import PythonProcess  # noqa: F401
 
 logger = logging.getLogger(__name__)
+User = get_user_model()
 
 
 class RedisCache:
@@ -162,38 +154,90 @@ class RedisCache:
         self._redis.transaction(update_cache)
 
 
-        self.peer_identity = peer_identity
-        self.data_id = int(peer_identity)
-        self._data: Optional[Data] = None
-        self._worker: Optional[Worker] = None
-        self._storage_fields: Optional[Set[str]] = None
+class Processor:
+    """Process the messages sent by the workers.
+
+    Some of the data attributes are cached by redis.
+
+    Important: the consistincy of the cache is guaranteed only when the
+    `_update_data`  or `_save_data` method is used to save data.
+    """
+
+    def __init__(self, listener: "ListenerProtocol", redis: redis.Redis):
+        """Initialize variables."""
         self._listener = listener
-        self.expected_sequence_number = starting_sequence_number
-        self.return_code = 0
+        self._return_codes: Dict[PeerIdentity, int] = dict()
+        self._redis_cache = RedisCache(redis)
 
-    @property
-    def contributor(self) -> settings.AUTH_USER_MODEL:
-        """Get the user that created the Data object we are processing.
+    def get_data_fields(self, data_id: int, field_names: Union[List[str], str]) -> Any:
+        """Get the data fields for the data with the given id.
 
-        This user is used when checking permissions.
+        Note: no permission check is done so only call this method on Data
+            objects user is clear to access.
+
+        :attr data_id: the id of the data object.
+        :attr field_names: the names of the fields. This can be a sequence or
+            a string.
+        :return: a single value when field_names is a string or a tuple of
+            values when it is a sequence of strings.
         """
-        return self.data.contributor
+        # When testing clear the redis cache every time since data ids are
+        # repeating.
+        if is_testing():
+            self._redis_cache.clear(data_id)
 
-    @property
-    def data(self) -> Data:
-        """Get the data object.
+        fields = [field_names] if isinstance(field_names, str) else field_names
+        # Construct the set of fields to retrieve from the database/redis.
+        database_fields = set(fields) - RedisCache.cached_fields_set
 
-        The evaluation is done when needed in order not to make potentially
-        failing SQL query in the constructor.
+        # Get the redis cache.
+        redis_cache = self._redis_cache.get_cache(data_id, fields)
 
-        This method uses Django ORM.
+        # When returned fields have value None we have to read them from the
+        # database.
+        database_fields.update(
+            name for name in redis_cache if redis_cache[name] is None
+        )
+
+        # Make sure to only read the data if database fields are not empty.
+        # Django interprets empty dict as "read all fields".
+        database_data = {}
+        if database_fields:
+            database_data = (
+                Data.objects.filter(pk=data_id).values(*database_fields).get()
+            )
+        # Now update redis cache from the values read from the database. The
+        # values we can update are the ones that had None value in Redis.
+        self._redis_cache.set_cache(data_id, database_data)
+
+        combined = ChainMap(database_data, redis_cache)
+        result = [combined[field_name] for field_name in fields]
+        return result[0] if isinstance(field_names, str) else result
+
+    @lru_cache(maxsize=100)
+    def contributor_id(self, data_id: int) -> int:
+        """Get the id of the user that created the given data object.
+
+        This function is cached since contributor is immutable.
         """
-        if self._data is None:
-            self._data = Data.objects.get(pk=self.data_id)
-        return self._data
+        return self.contributor(data_id).id
 
-    @property
-    def worker(self) -> Worker:
+    @lru_cache(maxsize=100)
+    def contributor(self, data_id: int):
+        """Get the user that created the given data objects.
+
+        This function is cached since contributor is immutable.
+        """
+        return User.objects.get(data__id=data_id)
+
+    def data(self, data_id: int) -> Data:
+        """Get the data object for the given data id.
+
+        Use with caution: loading the entire data object is slow.
+        """
+        return Data.objects.get(pk=data_id)
+
+    def worker(self, data_id: int) -> Worker:
         """Get the worker object.
 
         The evaluation is done when needed in order not to make potentially
@@ -201,51 +245,47 @@ class RedisCache:
 
         This method uses Django ORM.
         """
-        if self._worker is None:
-            self._worker = Worker.objects.get(data=self.data)
-        return self._worker
+        return Worker.objects.get(data=data_id)
 
-    @property
-    def storage_fields(self) -> Set[str]:
-        """Get the names of storage fields in schema."""
-        if self._storage_fields is None:
-            self._storage_fields = {
-                field_name
-                for schema, _, field_name in iterate_schema(
-                    self.data.output, self.data.process.output_schema
-                )
-                if schema["type"].startswith("basic:json:")
-            }
-        return self._storage_fields
+    def storage_fields(self, data_id) -> Set[str]:
+        """Get the names of storage fields in the schema.
 
-    def save_storage(self, key: str, content: str, data: Optional[Data] = None):
-        """Save storage to data object.
-
-        It is the responsibility of the caller to save the changes to the Data
-        object.
+        :attrs data_id: the id of the data object to get the fields for.
         """
-        data = data or self.data
-        if key in data.output:
-            storage = Storage.objects.get(pk=data.output[key])
-            storage.json = content
-            storage.save()
-        else:
-            storage = Storage.objects.create(
-                json=content,
-                name="Storage for data id {}".format(data.pk),
-                contributor=data.contributor,
-            )
-            storage.data.add(data)
-            data.output[key] = storage.pk
+        output_schema = self.get_data_fields(data_id, "process__output_schema")
+        return {
+            field_name
+            for schema, _, field_name in iterate_schema({}, output_schema)
+            if schema["type"].startswith("basic:json:")
+        }
 
-    def _unlock_all_inputs(self):
+    def save_storage(self, key: str, content: str, data: Data) -> Storage:
+        """Save storage field and add it to the given data.
+
+        :return: the pk of the saved storage object.
+        :raise TypeError: when the data object does not exist.
+        """
+
+        storage_pk = data.output.get(key)
+        storage_defaults = {
+            "json": content,
+            "name": f"Storage for data id {data.pk}",
+            "contributor_id": data.contributor_id,
+        }
+        storage: Storage = Storage.objects.update_or_create(
+            pk=storage_pk, defaults=storage_defaults
+        )[0]
+        storage.data.add(data)
+        return storage
+
+    def _unlock_all_inputs(self, data_id: int):
         """Unlock all data objects that were locked by the given data.
 
         If exception occurs during unlocking we can not do much but ignore it.
         The method is called when dispatcher is nudged.
         """
         with suppress(Exception):
-            query = AccessLog.objects.filter(cause_id=self.data_id)
+            query = AccessLog.objects.filter(cause_id=data_id)
             query.update(finished=now())
 
     def _choose_worst_status(self, status1: str, status2: str) -> str:
@@ -263,20 +303,30 @@ class RedisCache:
         assert status2 in statuses
         return max([status1, status2], key=lambda status: statuses.index(status))
 
-    def _save_error(self, error: str):
+    def _save_error(self, data_id: int, error: str):
         """Log error to Data object, ignore possible exceptions.
 
         The status of Data object is changed to ``Data.STATUS_ERROR``.
+
+        Note: this function is not idempotent: when called multiple times the
+            error will be appended to the process_error list multiple times.
         """
-        with suppress(Exception):
-            self.data.refresh_from_db()
-        self.data.process_error.append(error)
-        self.data.status = Data.STATUS_ERROR
-        with suppress(Exception):
-            self.data.save(update_fields=["process_error", "status"])
+        logger.debug("Saving error to data object %s", data_id)
+        Data.objects.filter(pk=data_id).update(
+            process_error=models.Func(
+                models.F("process_error"),
+                models.Value(error),
+                function="array_append",
+            ),
+            status=Data.STATUS_ERROR,
+        )
 
     def _log_exception(
-        self, error: str, extra: Optional[dict] = None, save_to_data_object: bool = True
+        self,
+        data_id: int,
+        error: str,
+        extra: Optional[dict] = None,
+        save_to_data_object: bool = True,
     ):
         """Log current exception and optionally store it to the data object.
 
@@ -285,25 +335,29 @@ class RedisCache:
         """
         if extra is None:
             extra = dict()
-        extra.update({"data_id": self.data.id})
+        extra.update({"data_id": data_id})
         logger.exception(error, extra=extra)
         if save_to_data_object:
-            self._save_error(error)
+            self._save_error(data_id, error)
 
     def _log_error(
-        self, error: str, extra: dict = {}, save_to_data_object: bool = True
+        self,
+        data_id: int,
+        error: str,
+        extra: dict = {},
+        save_to_data_object: bool = True,
     ):
         """Log error and optionally store it to the data object.
 
         When argument ``save_to_data_object`` is false the status of the
         data object is not changed.
         """
-        extra.update({"data_id": self.data.id})
+        extra.update({"data_id": data_id})
         logger.error(error, extra=extra)
         if save_to_data_object:
-            self._save_error(error)
+            self._save_error(data_id, error)
 
-    def _abort_processing(self):
+    def _abort_processing(self, data_id: int):
         """Abort processing.
 
         Use this call with caution. It also notifier the dispatcher to abort
@@ -312,67 +366,74 @@ class RedisCache:
         A sensible default is to call this method only when peer becomes
         unresponsive.
         """
-        self.notify_dispatcher_abort()
-        self._listener.remove_peer(str(self.data_id).encode())
+        self.notify_dispatcher_abort(data_id)
 
-    async def _finish_processing(self):
+    async def _finish_processing(self, data_id: int):
         """Finish processing.
 
         This method notifies the dispatcher that the worker has finished
         processing the data object.
         """
-        self.notify_dispatcher_finish()
+        self.notify_dispatcher_finish(data_id)
 
-    def _update_data(self, changes: Dict[str, Any], refresh: bool = False):
-        """Update the data object.
+    def _save_data(self, data: Data, changes: Iterable[str]):
+        """Update the data object with the given id.
 
         Changes are dictionary mapping from field names to field values.
 
-        :param changes: dictionary with chenges to be saved.
-        :param refresh: if True refresh data object before applying changes.
+        :attr changes: dictionary with changes to be saved.
+        :attr data_id: the given data id.
 
         :raises: exception when data object cannot be saved.
         """
-        if "process_rc" in changes and changes["process_rc"] < 0:
-            changes["process_rc"] = abs(changes["process_rc"])
-        self._update_object(changes, self.data)
+        # Set the redis cache.
+        self._redis_cache.set_cache(
+            data.id, {change: getattr(data, change) for change in changes}
+        )
+        # Save the data object.
+        data.save(update_fields=changes)
 
-    def _update_worker(self, changes: Dict[str, Any]):
-        """Update the worker object.
+    def _update_data(self, data_id: int, changes: Dict[str, Any]):
+        """Update the data object with the given id.
+
+        Changes are dictionary mapping from field names to field values.
+
+        :attr changes: dictionary with changes to be saved.
+        :attr data_id: the given data id.
 
         :raises: exception when data object cannot be saved.
         """
-        self._update_object(changes, self.worker)
+        # Update the redis cache.
+        self._redis_cache.set_cache(data_id, changes)
+        # Update the data object.
+        Data.objects.filter(pk=data_id).update(**changes)
 
-    def _update_object(self, changes: Dict[str, Any], obj: Union[Worker, Data]):
-        """Update object properties and save them to database."""
-        # Always update output.
-        needs_update = "output" in changes
-        for key, value in changes.items():
-            if getattr(obj, key) != value:
-                setattr(obj, key, value)
-                needs_update = True
+    def _update_worker(self, data_id: int, changes: Dict[str, Any]):
+        """Update the worker object for the given data.
 
-        if needs_update:
-            obj.save(update_fields=list(changes.keys()))
+        :raises: exception when data object cannot be saved.
+        """
+        Worker.objects.filter(data__pk=data_id).update(**changes)
 
-    async def terminate(self):
-        """Send the terminate command to the worker.
+    async def terminate(self, peer_identity: PeerIdentity):
+        """Send the terminate command to the worker for the given data object.
 
         Peer should terminate by itself and send finish message back to us.
         """
         await database_sync_to_async(self._save_error, thread_sensitive=False)(
-            "Processing was cancelled."
+            int(peer_identity), "Processing was cancelled."
         )
-        # Ignore the possible timeout.
+        # Send with a short timeout, no need to wait for the response.
         with suppress(RuntimeError):
+            logger.debug("Sending terminate command to the peer '%s'.", peer_identity)
             await self._listener.communicator.send_command(
-                Message.command("terminate", ""),
-                peer_identity=str(self.data_id).encode(),
-                response_timeout=1,
+                Message.command("terminate", "Terminate worker"),
+                peer_identity=peer_identity,
+                timeout=5,
             )
+            logger.debug("Terminate command to the peer '%s' sent.", peer_identity)
 
-    async def peer_not_responding(self):
+    async def peer_not_responding(self, identity: PeerIdentity):
         """Peer is not responding, abort the processing.
 
         TODO: what to do with unresponsive peer which wakes up later and
@@ -380,86 +441,82 @@ class RedisCache:
         is handled by sending "terminate" command to it and ignore its
         commands.
         """
-        logger.debug(__("Peer with id={} is not responding.", self.data_id))
-        await database_sync_to_async(self._log_error)("Worker is not responding")
-        await database_sync_to_async(self._update_worker)(
-            {"status": Worker.STATUS_NONRESPONDING}
-        )
-        await self.notify_dispatcher_abort_async()
-        self._listener.remove_peer(str(self.data_id).encode())
+        logger.debug(__("Peer with id={} is not responding.", identity))
 
-    def process_command(self, message: Message) -> Response:
+        data_id = int(identity)
+        await database_sync_to_async(self._log_error)(
+            data_id, "Worker is not responding"
+        )
+        await database_sync_to_async(self._update_worker)(
+            data_id, {"status": Worker.STATUS_NONRESPONDING}
+        )
+        await self.notify_dispatcher_abort_async(data_id)
+
+    def _can_process_object(self, worker_status: str, data_status: str) -> bool:
+        """Check if the given data and worker status are ok to process."""
+        acceptable_worker_statuses = (
+            Worker.STATUS_PROCESSING,
+            Worker.STATUS_PREPARING,
+            Worker.STATUS_FINISHED_PREPARING,
+        )
+        unacceptable_data_statuses = (Data.STATUS_DONE, Data.STATUS_DIRTY)
+        return (data_status not in unacceptable_data_statuses) and (
+            worker_status in acceptable_worker_statuses
+        )
+
+    def process_command(self, identity: PeerIdentity, message: Message) -> Response:
         """Process a single command from the peer.
 
         This command is run in the database_sync_to_async so it is safe to
         perform Django ORM operations inside.
 
-        Exceptions will be handler one level up and error response will be
-        sent in this case.
-        """
-        # This worker must be in status processing or preparing.
-        # All messages from workers not in this status will be discarted and
-        # error will be returned.
-        if self.worker.status not in [
-            Worker.STATUS_PROCESSING,
-            Worker.STATUS_PREPARING,
-        ]:
-            self._log_error(
-                f"Wrong worker status: {self.worker.status} for peer with id {self.data_id}."
-            )
-            return message.respond_error(f"Wrong worker status: {self.worker.status}")
+        All exceptions will be handled and logged inside this method. The error
 
-        command_name = message.command_name
-        handler_name = f"handle_{command_name}"
+        """
+        data_id = int(identity)
+
+        # Do not proccess messages from Workers that have already finish
+        # processing data objects.
+        worker_status, data_status, started = self.get_data_fields(
+            data_id, ["worker__status", "status", "started"]
+        )
+        if not self._can_process_object(worker_status, data_status):
+            return message.respond_error(
+                f"Unable to process the data object {data_id} with status {data_status}."
+            )
+
+        handler_name = f"handle_{message.command_name}"
         logger.debug(__("Message for handler {} received.", handler_name))
-        handler = plugin_manager.get_handler(command_name)
+        handler = plugin_manager.get_handler(message.command_name)
         if not handler:
-            error = f"No command handler for '{command_name}'."
-            self._log_error(error, save_to_data_object=False)
+            error = f"Unknow command '{message.command_name}'."
+            self._log_error(data_id, error, save_to_data_object=False)
             return message.respond_error(error)
 
-        # Read sequence number and refresh data object if it differs.
-        if self.expected_sequence_number != message.sequence_number:
-            try:
-                self.data.refresh_from_db()
-                self.worker.refresh_from_db()
-            except:
-                self._log_exception("Unable to refresh data object")
-                return message.respond_error("Unable to refresh the data object")
+        # Set the data started on the first command.
+        if started is None:
+            self._update_data(data_id, {"started": now()})
 
-        if self.worker.status != Worker.STATUS_PROCESSING:
-            self.worker.status = Worker.STATUS_PROCESSING
-            self.worker.save(update_fields=["status"])
-
-        if self.data.started is None:
-            self.data.started = now()
-            self.data.save(update_fields=["started"])
-
-        self.expected_sequence_number = message.sequence_number + 1
         try:
             with PrioritizedBatcher.global_instance():
                 logger.debug(__("Invoking handler {}.", handler_name))
-                result = handler(message, self)
-                # Set status of the response to ERROR when data object status
-                # is Data.STATUS_ERROR. Such response will trigger terminate
-                # procedure in the processing container and stop processing.
-                if self.data.status == Data.STATUS_ERROR:
-                    result.type_data = ResponseStatus.ERROR.value
-                return result
+                return handler(data_id, message, self)
         except ValidationError as err:
             error = (
-                f"Validation error when saving Data object of process "
-                f"'{self.data.process.slug}' ({handler_name}): "
-                f"{err}"
+                f"Validation error when running handler {handler_name} for "
+                f"Data object with the id {data_id}: {err}."
             )
-            self._log_exception(error)
+            self._log_exception(data_id, error)
             return message.respond_error("Validation error")
         except Exception as err:
-            error = f"Error in command handler '{handler_name}': {err}"
-            self._log_exception(error)
-            return message.respond_error(f"Error in command handler '{handler_name}'")
+            error = (
+                f"Exception when running handler {handler_name} for data "
+                f"object with the id {data_id}: {err}."
+            )
+            self._log_exception(data_id, error)
+            return message.respond_error(f"Error in command handler '{handler_name}'.")
 
-    def notify_dispatcher_abort(self):
+    def notify_dispatcher_abort(self, data_id: int):
         """Notify dispatcher that processing was aborted.
 
         .. IMPORTANT::
@@ -477,9 +534,9 @@ class RedisCache:
                                this command was triggered by],
                 }
         """
-        async_to_sync(self.notify_dispatcher_abort_async)()
+        async_to_sync(self.notify_dispatcher_abort_async)(data_id)
 
-    async def notify_dispatcher_abort_async(self):
+    async def notify_dispatcher_abort_async(self, data_id: int):
         """Notify dispatcher that processing was aborted.
 
         :param obj: The Channels message object. Command object format:
@@ -492,11 +549,11 @@ class RedisCache:
                                this command was triggered by],
                 }
         """
-        await database_sync_to_async(self._unlock_all_inputs)()
+        await database_sync_to_async(self._unlock_all_inputs)(data_id)
         await consumer.send_event(
             {
                 WorkerProtocol.COMMAND: WorkerProtocol.ABORT,
-                WorkerProtocol.DATA_ID: self.data_id,
+                WorkerProtocol.DATA_ID: data_id,
                 WorkerProtocol.FINISH_COMMUNICATE_EXTRA: {
                     "executor": getattr(settings, "FLOW_EXECUTOR", {}).get(
                         "NAME", "resolwe.flow.executors.local"
@@ -506,23 +563,23 @@ class RedisCache:
         )
         logger.debug("notify_dispatcher_abort: consumer event sent")
 
-    def notify_dispatcher_finish(self):
+    def notify_dispatcher_finish(self, data_id: int):
         """Notify dispatcher that the processing is finished.
 
         See ``notify_dispatcher_abort`` for message format.
         """
-        async_to_sync(self.notify_dispatcher_finish_async)()
+        async_to_sync(self.notify_dispatcher_finish_async)(data_id)
 
-    async def notify_dispatcher_finish_async(self):
+    async def notify_dispatcher_finish_async(self, data_id: int):
         """Notify dispatcher that the processing is finished.
 
         See ``notify_dispatcher_abort`` for message format.
         """
-        await database_sync_to_async(self._unlock_all_inputs)()
+        await database_sync_to_async(self._unlock_all_inputs)(data_id)
         await consumer.send_event(
             {
                 WorkerProtocol.COMMAND: WorkerProtocol.FINISH,
-                WorkerProtocol.DATA_ID: self.data_id,
+                WorkerProtocol.DATA_ID: data_id,
                 WorkerProtocol.FINISH_COMMUNICATE_EXTRA: {
                     "executor": getattr(settings, "FLOW_EXECUTOR", {}).get(
                         "NAME", "resolwe.flow.executors.local"
@@ -551,453 +608,71 @@ class ListenerProtocol(BaseProtocol):
                 zmq_socket.bind(f"{protocol}://{host}:{port}")
 
         super().__init__(
-            ZMQCommunicator(
-                zmq_socket, "listener <-> workers", logger, self.peer_status_changed
-            ),
+            ZMQCommunicator(zmq_socket, "listener <-> workers", logger),
             logger,
         )
+        self.communicator.heartbeat_handler = self.heartbeat_handler
 
-        # Mapping from the data ID to the Worker instance. Each data object is
-        # processed by (at most) one Worker so the map is one-to-one.
-        self.peers: MutableMapping[PeerIdentity, Processor] = dict()
-
-        # The code above is used when preparing script for the worker when it
-        # is requested. Maybe there is a better way?
-        self._execution_engines = self._load_execution_engines()
-        logger.info(
-            __(
-                "Found {} execution engines: {}",
-                len(self._execution_engines),
-                ", ".join(self._execution_engines.keys()),
-            )
+        self._redis = redis.from_url(
+            settings.REDIS_CONNECTION_STRING, decode_responses=True
         )
-        self._expression_engines = self._load_expression_engines()
-        logger.info(
-            __(
-                "Found {} expression engines: {}",
-                len(self._expression_engines),
-                ", ".join(self._expression_engines.keys()),
-            )
-        )
-        self._executor_preparer = self._load_executor_preparer()
+        self._message_processor = Processor(self, self._redis)
 
-        self._parallel_commands_counter = 0
-        self._max_parallel_commands = 10
-        self._parallel_commands_semaphore: Optional[asyncio.Semaphore] = None
-        self._get_program_lock = threading.Lock()
+    async def heartbeat_handler(self, peer_identity: PeerIdentity):
+        """Handle the heartbeat messages."""
+        # The redis key contains the timestamp when the worker was last seen.
+        # When the key does not exist in the redis database create one with the
+        # current timestamp.
+        one_day = 24 * 3600
+        redis_key = f"resolwe-worker-{str(peer_identity)}"
+        self._redis.set(redis_key, int(time()))
+        self._redis.expire(redis_key, one_day)
 
-        self._bootstrap_cache: Dict[str, Any] = defaultdict(dict)
-
-    def handle_log(
-        self, message: Message[Union[str, bytes, bytearray]]
-    ) -> Response[str]:
-        """Handle an incoming log processing request.
-
-        :param obj: The Channels message object. Command object format:
-
-            .. code-block:: none
-
-                {
-                    'command': 'log',
-                    'message': [log message]
-                }
-        """
-        record_dict = json.loads(message.message_data)
-        record_dict["args"] = tuple(record_dict["args"])
-
-        executors_dir = Path(__file__).parents[1] / "executors"
-        record_dict["pathname"] = os.fspath(executors_dir / record_dict["pathname"])
-        logger.handle(logging.makeLogRecord(record_dict))
-        return message.respond_ok("OK")
-
-    def _bootstrap_prepare_static_cache(self):
-        """Prepare cache for bootstrap."""
-
-        def marshal_settings() -> dict:
-            """Marshal Django settings into a serializable object.
-
-            :return: The serialized settings.
-            :rtype: dict
-            """
-            result = {}
-            for key in dir(settings):
-                if any(
-                    map(
-                        key.startswith,
-                        [
-                            "FLOW_",
-                            "RESOLWE_",
-                            "CELERY_",
-                            "KUBERNETES_",
-                        ],
+    async def check_workers(self):
+        """Check all workers and possibly mark them as stalled."""
+        default_timeout = 600
+        non_responsive_timeout = {Worker.STATUS_FINISHED_PREPARING: 7200}
+        one_day = 24 * 3600
+        current_timestamp = int(time())
+        for data_id, worker_status in Worker.objects.exclude(
+            status__in=Worker.FINAL_STATUSES
+        ).values_list("data_id", "status"):
+            redis_key = f"resolwe-worker-{data_id}"
+            last_seen = self._redis.get(redis_key)
+            if last_seen is None:
+                self._redis.set(redis_key, current_timestamp)
+                self._redis.expire(redis_key, one_day)
+            elapsed_seconds = current_timestamp - (last_seen or current_timestamp)
+            if elapsed_seconds > non_responsive_timeout.get(
+                worker_status, default_timeout
+            ):
+                with transaction.atomic():
+                    Worker.objects.filter(data__id=data_id).update(
+                        status=Worker.STATUS_NONRESPONDING
                     )
-                ):
-                    result[key] = getattr(settings, key)
-            result.update(
-                {
-                    "USE_TZ": settings.USE_TZ,
-                    "FLOW_EXECUTOR_TOOLS_PATHS": self._executor_preparer.get_tools_paths(),
-                    "FLOW_STORAGE": storage_settings.FLOW_STORAGE,
-                }
-            )
-            # TODO: this is q&d solution for serializing Path objects.
-            return json.loads(json.dumps(result, default=str))
 
-        # Prepare Django settings.
-        if "settings" not in self._bootstrap_cache:
-            logger.debug("Preparing settings static cache.")
-            self._bootstrap_cache["settings"] = marshal_settings()
-            logger.debug("Settings static cache marshalled.")
-            connectors_settings = copy.deepcopy(storage_settings.STORAGE_CONNECTORS)
-            for connector_settings in connectors_settings.values():
-                # Fix class name for inclusion in the executor.
-                klass = connector_settings["connector"]
-                klass = "executors." + klass.rsplit(".storage.")[-1]
-                connector_settings["connector"] = klass
-                connector_config = connector_settings["config"]
-                # Prepare credentials for executor.
-                if "credentials" in connector_config:
-                    src_credentials = connector_config["credentials"]
-                    base_credentials_name = os.path.basename(src_credentials)
-
-                    self._bootstrap_cache["connector_secrets"][
-                        base_credentials_name
-                    ] = ""
-                    if os.path.isfile(src_credentials):
-                        with open(src_credentials, "r") as f:
-                            self._bootstrap_cache["connector_secrets"][
-                                base_credentials_name
-                            ] = f.read()
-                    connector_config["credentials"] = os.fspath(
-                        constants.SECRETS_VOLUME / base_credentials_name
-                    )
-            logger.debug("Connector settings prepared.")
-            self._bootstrap_cache["settings"][
-                "STORAGE_CONNECTORS"
-            ] = connectors_settings
-            self._bootstrap_cache["settings"][
-                "FLOW_VOLUMES"
-            ] = storage_settings.FLOW_VOLUMES
-
-            # Prepare process meta data.
-            self._bootstrap_cache["process_meta"] = {
-                k: getattr(Process, k)
-                for k in dir(Process)
-                if k.startswith("SCHEDULING_CLASS_")
-                and isinstance(getattr(Process, k), str)
-            }
-            logger.debug("Process settings prepared.")
-            self._bootstrap_cache["process"] = dict()
-
-    def bootstrap_prepare_process_cache(self, data: Data):
-        """Prepare cache for process with the given id."""
-        if data.process_id not in self._bootstrap_cache["process"]:
-            self._bootstrap_cache["process"][data.process_id] = model_to_dict(
-                data.process
-            )
-            self._bootstrap_cache["process"][data.process_id][
-                "resource_limits"
-            ] = data.process.get_resource_limits()
-
-    def handle_liveness_probe(
-        self, message: Message[Tuple[int, str]]
-    ) -> Response[bool]:
-        """Respond to liveness probe ping.
-
-        Used in Kubernetes to check if the listener is responding.
-        """
-        return message.respond_ok(True)
-
-    def handle_bootstrap(self, message: Message[Tuple[int, str]]) -> Response[Dict]:
-        """Handle bootstrap request.
-
-        :raises RuntimeError: when settings name is not known.
-        """
-        data_id, settings_name = message.message_data
-        logger.debug(
-            __("Bootstraping peer for id {} for settings {}.", data_id, settings_name)
-        )
-        data = Data.objects.get(pk=data_id)
-        logger.debug(__("Read data for peer with id {}.", data_id))
-
-        if is_testing():
-            self._bootstrap_cache = defaultdict(dict)
-        self._bootstrap_prepare_static_cache()
-        logger.debug(__("Prepared static cache for peer {}.", data_id))
-
-        response: Dict[str, Any] = dict()
-        self.bootstrap_prepare_process_cache(data)
-        logger.debug(__("Prepared process cache for peer {}.", data_id))
-
-        if settings_name == "executor":
-            response[ExecutorFiles.EXECUTOR_SETTINGS] = {
-                "DATA_DIR": data.location.get_path()
-            }
-            response[ExecutorFiles.LOCATION_SUBPATH] = data.location.subpath
-            response[ExecutorFiles.DJANGO_SETTINGS] = self._bootstrap_cache[
-                "settings"
-            ].copy()
-            response[ExecutorFiles.PROCESS_META] = self._bootstrap_cache["process_meta"]
-            response[ExecutorFiles.PROCESS] = self._bootstrap_cache["process"][
-                data.process.id
-            ]
-
-        elif settings_name == "init":
-            response[ExecutorFiles.DJANGO_SETTINGS] = {
-                "STORAGE_CONNECTORS": self._bootstrap_cache["settings"][
-                    "STORAGE_CONNECTORS"
-                ],
-                "FLOW_STORAGE": storage_settings.FLOW_STORAGE,
-                "FLOW_VOLUMES": storage_settings.FLOW_VOLUMES,
-            }
-
-            if hasattr(settings, constants.INPUTS_VOLUME_NAME):
-                response[ExecutorFiles.DJANGO_SETTINGS][
-                    constants.INPUTS_VOLUME_NAME
-                ] = self._bootstrap_cache["settings"][constants.INPUTS_VOLUME_NAME]
-            response[ExecutorFiles.SECRETS_DIR] = self._bootstrap_cache[
-                "connector_secrets"
-            ]
-            try:
-                response[ExecutorFiles.SECRETS_DIR].update(data.resolve_secrets())
-            except PermissionDenied as e:
-                data.process_error.append(str(e))
-                data.save(update_fields=["process_error"])
-                raise
-            response[ExecutorFiles.LOCATION_SUBPATH] = data.location.subpath
-        elif settings_name == "communication":
-            response[ExecutorFiles.DJANGO_SETTINGS] = {
-                "STORAGE_CONNECTORS": self._bootstrap_cache["settings"][
-                    "STORAGE_CONNECTORS"
-                ],
-                "FLOW_STORAGE": storage_settings.FLOW_STORAGE,
-            }
-            response[ExecutorFiles.LOCATION_SUBPATH] = data.location.subpath
-        else:
-            raise RuntimeError(
-                f"Settings {settings_name} sent by peer with id {data_id} unknown."
-            )
-        return message.respond_ok(response)
-
-    async def peer_status_changed(
-        self, peer_identity: PeerIdentity, status: PeerStatus
-    ):
-        """Check the new peer status and invoke the necessary handlers.
-
-        Remove the unresponsive peer from the list of peers and update its
-        status to UNRESPONSIVE.
-        """
-        logger.debug(__("Peer {} status changed: {}.", peer_identity, status))
-        if status == PeerStatus.UNRESPONSIVE:
-            peer = self.remove_peer(peer_identity)
-            if peer is not None:
-                await peer.peer_not_responding()
-
-    def remove_peer(self, peer_identity: PeerIdentity) -> Optional[Processor]:
-        """Remove peer from list of known peers."""
-        peer = self.peers.pop(peer_identity, None)
-        if peer is None:
-            logger.error("Peer %s is not known, can not remove.", peer_identity)
-        return peer
-
-    async def _get_response(
-        self, peer_identity: PeerIdentity, message: Message
+    async def default_command_handler(
+        self, received_message: Message, peer_identity: PeerIdentity
     ) -> Response:
-        """Handle command received over 0MQ."""
-        # Logging and bootstraping are handled separately.
-        if message.command_name in ["log", "bootstrap", "liveness_probe"]:
-            try:
-                logger.debug(__("Handling special case {}", message.command_name))
-                handler = getattr(self, f"handle_{message.command_name}")
-                return await database_sync_to_async(handler, thread_sensitive=False)(
-                    message
-                )
-            except Exception:
-                logger.exception(
-                    __(
-                        "Error handling command {} for peer {}.",
-                        message.command_name,
-                        peer_identity,
-                    )
-                )
-                return message.respond("Error in handler.", ResponseStatus.ERROR)
-
-        if peer_identity not in self.peers:
-            try:
-                peer = Processor(
-                    peer_identity,
-                    message.sequence_number,
-                    self,
-                )
-                self.peers[peer_identity] = peer
-            except:
-                logger.exception("Error creating Processor instance.")
-                return message.respond(
-                    "Error creating Processor instance", ResponseStatus.ERROR
-                )
-
-        peer = self.peers[peer_identity]
-        try:
-            response = await database_sync_to_async(
-                peer.process_command, thread_sensitive=False
-            )(message)
-        except:
-            logger.exception("Error in process_command method.")
-            return message.respond("Error processing command", ResponseStatus.ERROR)
-        else:
-            return response
-
-    async def _process_command(
-        self, peer_identity: PeerIdentity, received_message: Message
-    ):
         """Process command."""
         # Executor uses separate identity of the form f"e_{data.id}".
-        response_identity = peer_identity
         if b"_" in peer_identity:
             peer_identity = peer_identity.split(b"_")[1]
+        response = await database_sync_to_async(
+            self._message_processor.process_command, thread_sensitive=False
+        )(peer_identity, received_message)
 
-        if self._parallel_commands_semaphore is None:
-            self._parallel_commands_semaphore = asyncio.Semaphore(
-                self._max_parallel_commands
-            )
+        self.logger.debug(__("Response time: {}", received_message.time_elapsed()))
+        return response
 
-        self.logger.debug(
-            __("Internal semaphore count: {}", self._parallel_commands_semaphore._value)
-        )
-        async with self._parallel_commands_semaphore:
-            self._parallel_commands_counter += 1
-            self.logger.debug(
-                __("Processing {} commands", self._parallel_commands_counter)
-            )
-            response = await self._get_response(peer_identity, received_message)
-            self.logger.debug(
-                __("Processing {} commands", self._parallel_commands_counter)
-            )
-            try:
-                assert received_message.sent_timestamp is not None
-                response_time = time.time() - received_message.sent_timestamp
-                self.logger.debug(__("Response time: {}", response_time))
-                await self.communicator.send_response(response, response_identity)
-
-            except RuntimeError:
-                # When unable to send message just log the error. Peer will be
-                # removed by the watchdog later on.
-                self.logger.exception(
-                    __("Protocol: error sending response to {}.", received_message)
-                )
-            try:
-                # Remove peer and nudge manager on "finish" command.
-                if received_message.command_name == "finish":
-                    peer = self.peers[peer_identity]
-                    self.remove_peer(peer_identity)
-
-                    # Worker status must be updated in the dispatcher to avoid
-                    # synchronization issues while testing (if status is updated here
-                    # another message might raise runtime barrier before our message
-                    # reaches the dispatcher.
-                    with suppress(Data.DoesNotExist):
-                        await peer.notify_dispatcher_finish_async()
-            except:
-                logger.exception(
-                    __("Error processing 'finish' for peer {}", peer_identity)
-                )
-            finally:
-                self._parallel_commands_counter -= 1
-                logger.debug(
-                    __(
-                        "Finished processing command, {} remaining.",
-                        self._parallel_commands_counter,
-                    )
-                )
-
-    async def process_command(
-        self, peer_identity: PeerIdentity, received_message: Message
-    ):
-        """Override process command in socket_utils."""
-        # Make it run in the background so another message can be processed.
-        asyncio.ensure_future(self._process_command(peer_identity, received_message))
-
-    def get_program(self, data: Data) -> str:
-        """Get a program for given data object."""
-        # When multiple get_script commands run in parallel the string
-        # escaping will be fragile at best. Process this command here
-        # without offloading it to the listener.
-        with self._get_program_lock:
-            execution_engine_name = data.process.run.get("language", None)
-            program = [self._get_execution_engine(execution_engine_name).evaluate(data)]
-            # TODO: should executor be changed? Definitely for tests (from case to case).
-            # Should I use file prepared by the Dispatcher (that takes care of that)?
-            env_vars = self.get_executor().get_environment_variables()
-            settings_env_vars = {
-                "RESOLWE_HOST_URL": getattr(settings, "RESOLWE_HOST_URL", "localhost"),
-            }
-            additional_env_vars = getattr(settings, "FLOW_EXECUTOR", {}).get(
-                "SET_ENV", {}
-            )
-            env_vars.update(settings_env_vars)
-            env_vars.update(additional_env_vars)
-            export_commands = [
-                "export {}={}".format(key, shlex.quote(value))
-                for key, value in env_vars.items()
-            ]
-
-            # Add tools to the path. The tools paths environment variable must
-            # be prepared by the executor.
-            export_commands += ["export PATH=$PATH:$TOOLS_PATHS"]
-
-            # Disable brace expansion and set echo.
-            echo_commands = ["set -x +B"]
-
-            commands = echo_commands + export_commands + program
-            return os.linesep.join(commands)
-
-    def _get_execution_engine(self, name):
-        """Return an execution engine instance."""
+    async def post_finish(self, message: Message, peer_identity: PeerIdentity):
+        """Notify dispatcher after finish command was received."""
         try:
-            return self._execution_engines[name]
-        except KeyError:
-            raise InvalidEngineError("Unsupported execution engine: {}".format(name))
-
-    def _load_execution_engines(self) -> Dict[str, BaseEngine]:
-        """Load execution engines."""
-        execution_engines = getattr(
-            settings, "FLOW_EXECUTION_ENGINES", ["resolwe.flow.execution_engines.bash"]
-        )
-        return load_engines(
-            self, "ExecutionEngine", "execution_engines", execution_engines
-        )
-
-    def _load_expression_engines(self) -> Dict[str, BaseEngine]:
-        """Load expression engines."""
-        expression_engines = getattr(
-            settings,
-            "FLOW_EXPRESSION_ENGINES",
-            ["resolwe.flow.expression_engines.jinja"],
-        )
-        return load_engines(
-            self, "ExpressionEngine", "expression_engines", expression_engines
-        )
-
-    def _load_executor_preparer(self) -> Any:
-        """Load and return the executor preparer class."""
-        executor_name = (
-            getattr(settings, "FLOW_EXECUTOR", {}).get(
-                "NAME", "resolwe.flow.executors.docker"
-            )
-            + ".prepare"
-        )
-        return import_module(executor_name).FlowExecutorPreparer()
-
-    def get_executor(self) -> Any:
-        """Get the executor preparer class."""
-        return self._executor_preparer
-
-    def get_expression_engine(self, name: str):
-        """Return an expression engine instance."""
-        try:
-            return self._expression_engines[name]
-        except KeyError:
-            raise InvalidEngineError("Unsupported expression engine: {}".format(name))
+            data_id = int(peer_identity)
+            with suppress(Data.DoesNotExist):
+                await self._message_processor.notify_dispatcher_finish_async(data_id)
+        except Exception:
+            logger.exception("Error processing post finish command.")
 
 
 def handle_exceptions(loop, context):
@@ -1071,7 +746,7 @@ class ExecutorListener:
         self._hosts = list(hosts.values())
 
     @property
-    def listener_protocol(self):
+    def listener_protocol(self) -> ListenerProtocol:
         """Return the listener protocol object.
 
         Used to lazy create object when property is accessed.
@@ -1084,20 +759,19 @@ class ExecutorListener:
 
     async def channels_listener(self):
         """Listen for terminate command and forward it to worker."""
-        # Refresh channel name when testing.
-        if is_testing:
+        # Use different channel name when running tests.
+        if is_testing():
             redis_prefix = getattr(settings, "FLOW_MANAGER", {}).get("REDIS_PREFIX", "")
             LISTENER_CONTROL_CHANNEL = "{}.listener".format(redis_prefix)  # noqa: F811
 
+        logger.debug("Listener for terminate on channel %s", LISTENER_CONTROL_CHANNEL)
         channel_layer = get_channel_layer()
         while True:
             message = await channel_layer.receive(LISTENER_CONTROL_CHANNEL)
-            logger.debug("Got channels message %s", message)
             message_type, peer_identity = message.get("type"), message.get("identity")
             if message_type == "terminate" and peer_identity is not None:
-                peer = self.listener_protocol.peers.get(peer_identity)
-                if peer is not None:
-                    await peer.terminate()
+                logger.debug("Terminating peer '%s'.", peer_identity)
+                await self.listener_protocol._message_processor.terminate(peer_identity)
             else:
                 logger.error(__("Received unknown channels message '{}'.", message))
 
@@ -1117,12 +791,15 @@ class ExecutorListener:
 
             Exceptions are all propagated.
         """
+        logger.debug("Listener exiting context.")
         assert self._runner_future is not None
         assert self._channels_listener is not None
         self._channels_listener.cancel()
         self.terminate()
+        logger.debug("Awaiting runner future.")
         await asyncio.gather(self._runner_future)
         self._listener_protocol = None
+        logger.debug("Listener exited context.")
 
     def terminate(self):
         """Stop the standalone manager."""
