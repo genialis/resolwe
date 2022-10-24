@@ -2,25 +2,44 @@
 import array
 import asyncio
 import concurrent
-import functools
 import json
 import logging
 import os
+import select
 import shlex
 import shutil
 import signal
 import socket
 import sys
-import time
 import uuid
-from contextlib import suppress
+from contextlib import closing, suppress
 from distutils.util import strtobool
+from functools import partial
 from pathlib import Path
+from time import time
+from typing import Dict, List, Optional, Sequence
 
 try:
     import constants
+    from socket_utils import (
+        BaseCommunicator,
+        BaseProtocol,
+        Message,
+        PeerIdentity,
+        Response,
+        SocketCommunicator,
+    )
+
 except ImportError:
     from resolwe.flow.executors import constants
+    from resolwe.flow.executors.socket_utils import (
+        BaseCommunicator,
+        BaseProtocol,
+        Message,
+        PeerIdentity,
+        Response,
+        SocketCommunicator,
+    )
 
 # The directory where local processing is done.
 TMP_DIR = Path(os.environ.get("TMP_DIR", ".tmp"))
@@ -57,283 +76,291 @@ LOG_MAX_LENGTH = int(os.environ.get("LOG_MAX_LENGTH", 200))
 logging.basicConfig(
     stream=sys.stdout,
     level=LOG_LEVEL,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    format=f"%(asctime)s - %(name)s - %(levelname)s - %(message).{LOG_MAX_LENGTH}s",
 )
 logger = logging.getLogger(__name__)
 
 
 assert sys.version_info[0] == 3, "Only Python3 is supported"
-assert sys.version_info[1] >= 4, "Only Python >= 3.4 is supported"
-
-if sys.version_info[1] == 4:
-    # This is done to awoid syntax error in Python >= 3.7
-    create_task = getattr(asyncio, "async")
-else:
-    create_task = asyncio.ensure_future
+assert sys.version_info[1] >= 6, "Only Python >= 3.6 is supported"
 
 
-def respond(message, status, response_data):
-    """Return a response to the given message."""
-    if message["type"] in ["COMMAND", "EQR"]:
-        response_type = "RESPONSE"
-    else:
-        response_type = "HBTR"
-    response = {"type": response_type}
-    response["type_data"] = status
-    response["data"] = response_data
-    response["uuid"] = message.get("uuid", uuid.uuid4().hex)
-    if "sequence_number" in message:
-        response["sequence_number"] = message["sequence_number"]
-    response["timestamp"] = time.time()
-    return response
+async def stop_task(task: Optional[asyncio.Task], timeout: int = 1):
+    """Cancel the given task.
+
+    Also wait for task to stop for up to timeout seconds.
+    """
+    if task is not None and not task.done():
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await asyncio.wait_for(task, timeout=timeout)
 
 
-class ProtocolHandler:
+async def log_exception(
+    message: str, communicator: BaseCommunicator, timeout: int = 60
+):
+    """Log the exception via logger and send it to the communicator.
+
+    Log it using logger and send error message to the communication
+    container. Make sure no exception is ever raised and that the method
+    completes in timeout seconds.
+    """
+    with suppress(Exception):
+        logger.exception(message)
+    with suppress(Exception):
+        log_coroutine = communicator.process_log({"error": [message]})
+
+        await asyncio.wait_for(log_coroutine, timeout)
+
+
+async def heartbeat_task(communicator: BaseCommunicator, heartbeat_interval: int = 60):
+    """Periodically send heartbeats.
+
+    This task will run indefinitely and has to be cancelled to stop.
+
+    :attr heartbeat_interval: seconds between successive heartbeat messages.
+    """
+    while True:
+        await communicator.send_heartbeat()
+        await asyncio.sleep(heartbeat_interval)
+
+
+async def log_error(message: str, communicator: BaseCommunicator, timeout: int = 60):
+    """Log the error via logger and send it to the communicator.
+
+    Log it using logger and send error message to the communication
+    container. Make sure no exception is ever raised and that the method
+    completes in timeout seconds.
+    """
+    with suppress(Exception):
+        logger.error(message)
+    with suppress(Exception):
+        log_coroutine = communicator.process_log({"error": [message]})
+
+        await asyncio.wait_for(log_coroutine, timeout)
+
+
+async def connect_to_communication_container(path: str) -> SocketCommunicator:
+    """Wait for the communication container to start.
+
+    Assumption is that the communication container is accepting connections
+    and will send a single PING when connected.
+
+    The coroutine will only exit when the connection is successfully
+    established it is the responsibility of the caller to terminate the
+    coroutine when the connection can not be established for some time.
+    """
+    while True:
+        with suppress(Exception):
+            reader, writer = await asyncio.open_unix_connection(path)
+            line = (await reader.readline()).decode("utf-8")
+            assert line.strip() == "PING", "Expected 'PING', got '{}'.".format(line)
+            return SocketCommunicator(
+                reader, writer, "processing<->communication", logger
+            )
+        await asyncio.sleep(1)
+
+
+async def start_script(script: str) -> asyncio.subprocess.Process:
+    """Start processing the script.
+
+    :raises Exception: when script could not be started.
+    """
+    # Start the bash subprocess and write script to its standard input.
+    logger.debug("Executing script: '%s'.", script)
+    bash_command = "/bin/bash --login" + os.linesep
+    proc = await asyncio.subprocess.create_subprocess_exec(
+        *shlex.split(bash_command),
+        limit=4 * (2**20),  # 4MB buffer size for line buffering
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
+    )
+    # Assert that stdin and stdout streams are connected to the proc.
+    error_message = "The stream '{}' could not connect to the script."
+    assert proc.stdin is not None, error_message.format("stdin")
+    assert proc.stdout is not None, error_message.format("stdout")
+    proc.stdin.write(script.encode("utf-8"))
+    proc.stdin.close()
+    logger.debug("Code sent to stdin of the script process.")
+    return proc
+
+
+async def communicate_with_process(
+    proc: asyncio.subprocess.Process, manager: "ProcessingManager"
+) -> int:
+    """Read the given process standard output and write it to the log file.
+
+    :return: the process's return code.
+    """
+    try:
+        assert proc.stdout is not None
+        while not proc.stdout.at_eof():
+            # Here we tap into the internal structures of the StreamReader
+            # in order to read as much data as we can in one chunk.
+            await proc.stdout._wait_for_data("execute_script")  # type: ignore
+            # Send received data to upload manager.
+            manager.upload_handler.update_stdout(proc.stdout._buffer)
+            proc.stdout._buffer.clear()
+            # Break the loop if EOF is reached.
+            if proc.stdout.at_eof():
+                logger.debug("Processing script stdout eof.")
+                break
+        # Wait for the script to terminate.
+        await proc.wait()
+
+    except Exception:
+        logger.exception("Exception running the script process.")
+        # Terminate process if it is still running.
+        with suppress(Exception):
+            if proc.returncode is None:
+                proc.terminate()
+                with suppress(asyncio.TimeoutError):
+                    await asyncio.wait_for(proc.wait(), timeout=60)
+            if proc.returncode is None:
+                proc.kill()
+                with suppress(asyncio.TimeoutError):
+                    await asyncio.wait_for(proc.wait(), timeout=60)
+    finally:
+        # Return the return code (if available) or general error code 1.
+        return_code = proc.returncode if proc.returncode is not None else 1
+        logger.debug("Script finished with the return code '%d'.", return_code)
+        manager.terminate()
+        return return_code
+
+
+async def initialize_connections(
+    loop: asyncio.AbstractEventLoop,
+) -> "ProcessingManager":
+    """Start the processing manager.
+
+    This method does the following:
+    - connects to the communication container,
+    - connects to the upload socket (unix socket) and
+    - starts the socket server for the communication with the processing
+        script.
+
+    :raises ConnectionError: when connection can not be established.
+    :return: the processing manager instance.
+    """
+    # Connect to the communication container and start processing script
+    # server first.
+    logger.debug(
+        "Connecting to the communication container via socket '%s'.",
+        COMMUNICATION_SOCKET,
+    )
+    start = time()
+    communicator_future: asyncio.Task = asyncio.ensure_future(
+        connect_to_communication_container(str(COMMUNICATION_SOCKET))
+    )
+    try:
+        socket_communicator = await asyncio.wait_for(
+            communicator_future, timeout=constants.CONTAINER_TIMEOUT
+        )
+    except (asyncio.CancelledError, asyncio.TimeoutError):
+        raise ConnectionError("Timeout connecting to communication container.")
+    logger.debug(
+        "Connected to the communication container in '%.2f' seconds.",
+        time() - start,
+    )
+
+    # Connect to the upload socket and start the periodic upload of log files.
+    upload_socket = socket.socket(family=socket.AF_UNIX)
+    upload_socket.connect(str(UPLOAD_FILE_SOCKET))
+    upload_handler = UploadHandler(upload_socket, loop)
+    logger.debug("Connected to the upload socket '%s'.", UPLOAD_FILE_SOCKET)
+    upload_handler.start_log_upload()
+
+    # Start the server to handle processing script connections.
+    logger.debug(
+        "Starting the processing script server on the socket '%s'.", SCRIPT_SOCKET
+    )
+    script_server_future: asyncio.Task = asyncio.ensure_future(
+        asyncio.start_unix_server(
+            partial(
+                handle_processing_script_connection,
+                socket_communicator,
+                upload_handler,
+            ),
+            str(SCRIPT_SOCKET),
+        )
+    )
+    try:
+        script_server = await asyncio.wait_for(script_server_future, timeout=60)
+    except asyncio.CancelledError:
+        raise ConnectionError("Timeout starting processing script server.")
+
+    return ProcessingManager(socket_communicator, upload_handler, script_server, loop)
+
+
+async def handle_processing_script_connection(
+    communication_communicator: SocketCommunicator,
+    upload_handler: "UploadHandler",
+    reader: asyncio.StreamReader,
+    writer: asyncio.StreamWriter,
+):
+    """Handle incoming connection from the processing script.
+
+    Python process opens a single connection while Resolwe runtime utils opens
+    a new connection for every request.
+    """
+    try:
+        logger.info("Processing script connected to the socket.")
+        communicator = SocketCommunicator(reader, writer, "script", logger)
+        protocol_handler = ScriptProtocol(
+            communication_communicator, communicator, upload_handler
+        )
+        await protocol_handler.communicate()
+    except (asyncio.IncompleteReadError, GeneratorExit):
+        logger.info("Processing script closed connection.")
+    except Exception:
+        logger.exception("Unknown exception while handling processing script message.")
+        raise
+
+
+class CommunicationProtocol(BaseProtocol):
     """Handles communication with the communication container."""
 
-    def __init__(self, manager):
-        # type: (ProcessingManager) -> None
-        """Initialize."""
-        self._script_future = None  # type: Optional[asyncio.Future] # noqa: F821
-        self.return_code = 0
-        self.manager = manager
-        self.communicator = manager.communicator
-        self._script_finishing = None
-        self._response_queue = list()
-        self._command_lock = asyncio.Lock()
-        self._message_in_queue = asyncio.Event()
-        self._command_counter = 0
+    def __init__(self, manager: "ProcessingManager"):
+        """Initialize variables."""
+        super().__init__(manager.communicator, logger)
+        self.processing_manager = manager
+        self.script_task: Optional[asyncio.Task] = None
+        self._script_starting = asyncio.Lock()
+        self.script_started = asyncio.Event()
 
-    @asyncio.coroutine
-    def communicate(self):
-        """Listen for messages from communication container."""
-        while True:
-            message = yield from self.communicator.receive_data()
-            if message is None:
-                break
-            if message["type"] == "HBT":
-                logger.debug("Responding to HBT.")
-                yield from self.communicator.send_data(respond(message, "OK", ""))
-            elif message["type"] == "EQR":
-                logger.debug("Responding to EQR.")
-                yield from self.communicator.send_data(
-                    respond(message, "OK", "received")
-                )
-            elif message["type"] == "COMMAND":
-                command_name = message["type_data"]
-                if command_name == "process_script":
-                    if self._script_future is not None:
-                        response = respond(message, "ERR", "Already processing")
-                        yield from self.communicator.send_data(response)
-                    else:
-                        create_task(self.process_script(message))
-                elif command_name == "terminate":
-                    logger.info("Got terminate command, shutting down ASAP.")
-                    break
-                else:
-                    logger.error("Unknown command: %s.", command_name)
-                    response = respond(message, "ERR", "Unknown command")
-                    yield from self.communicator.send_data(response)
-                    break
-            elif message["type"] == "RESPONSE":
-                self._response_queue.append(message)
-                self._message_in_queue.set()
+    async def handle_process_script(
+        self, message: Message, identity: PeerIdentity
+    ) -> Response[int]:
+        """Handle the process_script message."""
+        # This message can arrive multiple times so make sure the script is
+        # started only once.
+        if self.script_started.is_set():
+            return message.respond_ok("Already processing")
+        self.script_started.set()
+        if self.script_task is None:
+            process = await start_script(message.message_data)
+            self.script_task = asyncio.ensure_future(
+                communicate_with_process(process, self.processing_manager)
+            )
+        return message.respond_ok("Script started.")
 
-        logger.debug("Communication with communication container stopped.")
+    async def terminate_script(self):
+        """Terminate the script."""
+        await stop_task(self.script_task)
 
-    @asyncio.coroutine
-    def send_command(self, command):
-        """Send a command and return a response."""
-        logger.debug("Sending command %s.", str(command)[:LOG_MAX_LENGTH])
-        with (yield from self._command_lock):
-            self._command_counter += 1
-            command["uuid"] = uuid.uuid4().hex
-            command["sequence_number"] = self._command_counter
-            command["timestamp"] = time.time()
-            try:
-                assert len(self._response_queue) == 0
-                self._message_in_queue.clear()
-                yield from self.communicator.send_data(command)
-                yield from self._message_in_queue.wait()
-                return self._response_queue.pop()
-            except:
-                logger.exception("Unknown exception in send_command.")
-                raise
+    async def post_terminate(self, message: Message, identity: PeerIdentity):
+        """Stop the processing script and stop the manager."""
+        logger.debug("Stopping all the tasks in the post_terminate handler.")
+        await stop_task(self.script_task)
+        self.processing_manager.terminate()
 
-    @asyncio.coroutine
-    def _send_log(self, message):
-        """Send log message."""
-        log_command = {
-            "type": "COMMAND",
-            "type_data": "process_log",
-            "data": message,
-        }
-        yield from self.send_command(log_command)
-
-    @asyncio.coroutine
-    def process_script(self, message):
-        # type: (dict) -> ()
-        """Process the given script."""
-        self.return_code = 1
-        self._script_future = create_task(self._execute_script(message["data"]))
-        try:
-            yield from self._script_future
-            self.return_code = self._script_future.result()
-        finally:
-            self._script_future = None
-            try:
-                # Cancel sending logs on timer.
-                logger.debug("Stopping upload log future.")
-                self.manager.update_logs_future.cancel()
-                yield from self.manager.update_logs_future
-                logger.debug("Uploading latest log files.")
-                try:
-                    yield from self.manager.upload_log_files()
-                except:
-                    yield from self._send_log(
-                        {"error": "Error uploading final log files."}
-                    )
-                    logger.exception("Error uploading final log files.")
-                    if self.return_code == 0:
-                        self.return_code = -1
-
-                if KEEP_DATA:
-                    try:
-                        yield from self.manager.send_file_descriptors(
-                            [
-                                str(file)
-                                for file in Path("./").rglob("*")
-                                if file.is_file()
-                            ]
-                        )
-                    except:
-                        logger.exception("Error sending file descriptors (keep_data).")
-                        yield from self._send_log(
-                            {
-                                "error": "Error uploading final file descriptors (keep_data)."
-                            }
-                        )
-                        if self.return_code == 0:
-                            self.return_code = -1
-
-                response = respond(message, "OK", self.return_code)
-                yield from self.communicator.send_data(response)
-
-            except:
-                logger.exception(
-                    "Unexpected exception in process_script finally clause."
-                )
-            finally:
-                # Close the cliet socket to notify communicator that processing is
-                # finished.
-                logger.debug("Closing upload socket.")
-                self.manager.upload_socket.close()
-                logger.debug("Upload socket closed.")
-                if self._script_finishing:
-                    logger.debug("Setting script finishing.")
-                    self._script_finishing.set()
-
-    @asyncio.coroutine
-    def terminate_script(self, message=None):
-        """Terminate the running script and optionally send log message."""
-        try:
-            if message is not None:
-                yield from self._send_log(message)
-        except:
-            logger.exception("Error sending terminating message to listener.")
-        finally:
-            if self._script_future is not None:
-                logger.debug("Terminating script")
-                self._script_finishing = asyncio.Event()
-                self._script_future.cancel()
-
-    @asyncio.coroutine
-    def _execute_script(self, script):
-        # type: (str) -> int
-        """Execute given bash script.
-
-        :returns: the return code of the script.
-        """
-        # Start the bash subprocess and write script to its standard input.
-        logger.debug("Executing script: %s.", script[:LOG_MAX_LENGTH])
-        bash_command = "/bin/bash --login" + os.linesep
-
-        # The following comment commands black to not reformat the code
-        # block. It must not have trailing comma due compatibility with
-        # Python 3.4.
-
-        # fmt: off
-        proc = yield from asyncio.subprocess.create_subprocess_exec(
-            *shlex.split(bash_command),
-            limit=4 * (2 ** 20),  # 4MB buffer size for line buffering
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.STDOUT
-        )
-        # fmt: on
-        assert proc.stdin is not None
-        assert proc.stdout is not None
-        proc.stdin.write(script.encode("utf-8"))
-        proc.stdin.close()
-        logger.debug("Script sent to stdin.")
-
-        try:
-            received = yield from proc.stdout.readline()
-            while received:
-                with (yield from self.manager._uploading_log_files_lock):
-                    with STDOUT_LOG_PATH.open("ab") as stdout_file:
-                        stdout_file.write(received)
-                        self.manager.log_files_need_upload = True
-                received = yield from proc.stdout.readline()
-        except asyncio.CancelledError:
-            # Task was cancelled: terminate the running subprocess immediately.
-            proc.kill()
-        finally:
-            yield from proc.wait()
-            assert proc.returncode is not None
-            logger.debug("Script finished with rc %d.", proc.returncode)
-            return proc.returncode
-
-
-class Communicator:
-    """Simple communication class."""
-
-    def __init__(self, reader, writer):
-        """Initialize."""
-        self.reader = reader
-        self.writer = writer
-
-    @asyncio.coroutine
-    def send_data(self, data, size_bytes=8):
-        # type: (dict, int) -> None
-        """Send data over socket.
-
-        :param s: socket to send over.
-        :param data: dict that must be serialzable to JSON.
-        :param size_bytes: how first many bytes in message are dedicated to the
-            message size (send as binary number).
-        :raises: exception on failure.
-        """
-        payload = json.dumps(data).encode("utf-8")
-        size = len(payload).to_bytes(size_bytes, byteorder="big")
-        self.writer.write(size)
-        self.writer.write(payload)
-        yield from self.writer.drain()
-
-    @asyncio.coroutine
-    def receive_data(self, size_bytes=8):
-        # type: (socket.SocketType, int) -> Optional[Dict] # noqa: F821
-        """Recieve data over the given socket.
-
-        :param size_bytes: how first many bytes in message are dedicated to the
-            message size (binary number).
-        """
-        with suppress(asyncio.IncompleteReadError):
-            received = yield from self.reader.readexactly(size_bytes)
-            message_size = int.from_bytes(received, byteorder="big")
-            received = yield from self.reader.readexactly(message_size)
-            assert len(received) == message_size
-            return json.loads(received.decode("utf-8"))
+    async def handle_terminate(
+        self, message: Message, identity: PeerIdentity
+    ) -> Response[str]:
+        """Handle the terminate command."""
+        logger.debug("Received terminate command from the communication container.")
+        return message.respond_ok("Terminating")
 
 
 class ProcessingManager:
@@ -342,145 +369,257 @@ class ProcessingManager:
     It starts network servers and executes the received script.
     """
 
-    def __init__(self, loop):
-        """Initialize."""
-        self.worker_reader = None  # type: Optional[asyncio.StreamReader] # noqa: F821
-        self.worker_writer = None  # type: Optional[asyncio.StreamWriter] # noqa: F821
-        self.protocol_handler = None  # type: Optional[BaseProtocol] # noqa: F821
-        self.worker_connected = asyncio.Event()
-        self.exported_files_mapper = dict()  # type: Dict[str, str] # noqa: F821
-        self.upload_socket = None
-        self.update_logs_future = None
+    def __init__(
+        self,
+        communicator: BaseCommunicator,
+        upload_handler: "UploadHandler",
+        script_server,
+        loop: asyncio.AbstractEventLoop,
+    ):
+        """Initialize variables, start the communicator and heartbeat task."""
+        self.upload_handler = upload_handler
+        self.communicator = communicator
+        self.loop = loop
+        self.protocol_handler = CommunicationProtocol(self)
+        self.script_server = script_server
+
+        self.communicator_task = asyncio.ensure_future(
+            self.protocol_handler.communicate()
+        )
+        self.heartbeat_task = asyncio.ensure_future(heartbeat_task(communicator))
+
         # TODO: drop this when we stop supporting Python 3.6.
         # This class has been implicitly getting the current running loop since 3.7.
-        lock_arguments = {}
+        lock_arguments: Dict[str, asyncio.AbstractEventLoop] = {}
         if sys.version_info < (3, 7):
             lock_arguments = {"loop": loop}
-        self._uploading_log_files_lock = asyncio.Lock(**lock_arguments)
-        self._send_file_descriptors_lock = asyncio.Lock(**lock_arguments)
-        self.log_files_need_upload = False
-        self.loop = loop
+        self._terminating = asyncio.Event(**lock_arguments)
 
-    @asyncio.coroutine
-    def _wait_for_communication_container(self, path):
-        # type: (str) -> Communicator
-        r"""Wait for communication container to start.
+    def terminate(self):
+        """Terminate the processing container."""
+        self._terminating.set()
 
-        Assumption is that the communication container is accepting connections
-        and will send a single b"PING\n" when connected.
+    async def _stop_all_tasks(self, stop_timeout=60):
+        """Stop all running tasks."""
+        # Stop the processing script.
+        logger.debug("Stopping all the tasks in the processing manager.")
+        logger.debug("Stopping the processing script task.")
+        await stop_task(self.protocol_handler.script_task)
 
-        :raises RuntimeError: if unable to connect to the communication
-            container for COMMUNICATOR_WAIT_TIMEOUT seconds.
-        """
-        for retry in range(constants.CONTAINER_TIMEOUT):
+        # Stop the script server.
+        logger.debug("Stopping the script server.")
+        with suppress(Exception):
+            self.script_server.close()
+            await asyncio.wait_for(
+                self.script_server.wait_closed(), timeout=stop_timeout
+            )
+
+        # Stop the periodic log upload task.
+        logger.debug("Stopping periodic log upload task.")
+        await self.upload_handler.stop_log_upload()
+
+        # Upload latest log files (in case there was a change). Notify the
+        # listener on failure.
+        logger.debug("Uploading latest log files.")
+        try:
+            # Give it up to one minute to upload the latest log files.
+            latest_log_upload = asyncio.ensure_future(
+                self.upload_handler.upload_log_files()
+            )
+            await asyncio.wait_for(latest_log_upload, timeout=60)
+        except Exception:
+            await log_exception("Unable to upload the latest logs.", self.communicator)
+
+        # If data should be kept it must be uploaded to the data dir.
+        if KEEP_DATA:
+            logger.debug("Flag KEEP_DATA is set, uploading files.")
             try:
-                reader, writer = yield from asyncio.open_unix_connection(path)
-                line = (yield from reader.readline()).decode("utf-8")
-                assert line.strip() == "PING", "Expected 'PING', got '{}'.".format(line)
-                return Communicator(reader, writer)
-            except:
-                # Raise RuntimeError on final retry.
-                if retry + 1 == constants.CONTAINER_TIMEOUT:
-                    raise RuntimeError("Communication container is unreacheable.")
-                with suppress(Exception):
-                    writer.close()
-                    yield from writer.wait_closed()
-                time.sleep(1)
+                # The KEEP_DATA setting is used only for debugging purposes so the
+                # task should not be used to transfer very large files.
+                # We wait for up to 10 minutes for it to complete.
+                send_coroutine = self.upload_handler.send_file_descriptors(
+                    [str(file) for file in Path("./").rglob("*") if file.is_file()]
+                )
+                await asyncio.wait_for(send_coroutine, timeout=600)
+            except Exception:
+                await log_exception(
+                    "Unable to upload the data (KEEP_DATA flag is set).",
+                    self.communicator,
+                )
 
-    @asyncio.coroutine
-    def run(self):
-        # type: () -> int
+        # Send the finish command to the communication container.
+        logger.debug("Send the finish command to the communication container.")
+        await self.communicator.finish(self.return_code)
+
+        # Stop the heartbeat task.
+        logger.debug("Stopping the heartbeat task.")
+        await stop_task(self.heartbeat_task)
+
+        # Finally, stop the communicator task.
+        with suppress(Exception):
+            logger.debug("Stopping communication with the communication container.")
+            self.protocol_handler.stop_communicate()
+            await asyncio.wait_for(self.communicator_task, timeout=stop_timeout)
+        logger.debug("All tasks stopped.")
+
+    @property
+    def return_code(self):
+        """Get the return code.
+
+        :return: return the script task return code. When the script task is
+            still running return 1.
+        """
+        task = self.protocol_handler.script_task
+        if task is None or task.result() is None:
+            return 1
+        return task.result()
+
+    async def run(self) -> int:
         """Start the main method.
 
         :raises RuntimeError: in case of failure.
         """
+        # Wait up to 60 seconds to start the script.
+        script_start_timeout = 60
         try:
-            logger.debug("Connecting to the communication container.")
-            self.communicator = yield from self._wait_for_communication_container(
-                str(COMMUNICATION_SOCKET)
+            await asyncio.wait(
+                [self.protocol_handler.script_started.wait(), self._terminating.wait()],
+                timeout=script_start_timeout,
+                return_when=asyncio.FIRST_COMPLETED,
             )
-            logger.info("Connected to the communication container.")
-
-            self.protocol_handler = ProtocolHandler(self)
-
-            # Connect to the upload socket.
-            self.upload_socket = socket.socket(family=socket.AF_UNIX)
-            logger.debug("Connecting upload socket to: %s.", UPLOAD_FILE_SOCKET)
-            self.upload_socket.connect(str(UPLOAD_FILE_SOCKET))
-
-            # Accept network connections from the processing script.
-            yield from asyncio.start_unix_server(
-                self._handle_processing_script_connection,
-                str(SCRIPT_SOCKET),
+            if self._terminating.is_set():
+                logger.debug("Terminating message received.")
+            elif not self.protocol_handler.script_started.is_set():
+                await log_error(
+                    f"The script failed to start in {script_start_timeout} seconds.",
+                    self.communicator,
+                )
+            else:
+                monitored_tasks = (
+                    self.script_server.wait_closed(),
+                    self.upload_handler.upload_task,
+                    self.communicator_task,
+                    self._terminating.wait(),
+                )
+                # Stop processing when any of the following tasks complete.
+                await asyncio.wait(monitored_tasks, return_when=asyncio.FIRST_COMPLETED)
+        except Exception:
+            await log_exception(
+                "Unexpected exception in the processing container.", self.communicator
             )
-
-            # Update log files.
-            self.update_logs_future = create_task(self.update_log_files_timer())
-
-            # Await messages from the communication controler. The command
-            # stops when socket is closed or communication is stopped.
-            yield from self.protocol_handler.communicate()
         finally:
-            # Just in case connection was closed before script was finished.
-            yield from self.protocol_handler.terminate_script()
-            logger.debug("Stopping processing container.")
-        return self.protocol_handler.return_code
+            # Send the return code to the communicate container.
+            await self._stop_all_tasks()
+            return self.return_code
 
-    @asyncio.coroutine
-    def _handle_export_files(self, file_names):
-        # type: (dict) -> None
+
+class UploadHandler:
+    """Handle upload of files via communication container."""
+
+    def __init__(
+        self, upload_socket: socket.socket, loop: asyncio.AbstractEventLoop
+    ) -> None:
+        """Initialize local variables."""
+        self._log_buffers = {"JSON": bytearray(), "STDOUT": bytearray()}
+        self._log_files = {"JSON": JSON_LOG_PATH, "STDOUT": STDOUT_LOG_PATH}
+
+        self.upload_socket = upload_socket
+        self.exported_files_mapper: Dict[str, str] = dict()
+        self.upload_task: Optional[asyncio.Task] = None
+        lock_arguments: Dict[str, asyncio.AbstractEventLoop] = dict()
+        if sys.version_info < (3, 7):
+            lock_arguments = {"loop": loop}
+        self._uploading_log_files_lock = asyncio.Lock(**lock_arguments)
+        self._send_file_descriptors_lock = asyncio.Lock(**lock_arguments)
+        self.loop = loop
+
+    async def export_files(self, file_names: Sequence[str]):
         """Handle export files."""
         unique_names = []
         for file_name in file_names:
             unique_name = "export_" + uuid.uuid4().hex
             shutil.move(file_name, unique_name)
             unique_names.append(unique_name)
-        presigned_urls = yield from self.send_file_descriptors(
+        presigned_urls = await self.send_file_descriptors(
             unique_names, need_presigned_urls=True, storage_name="upload"
         )
         for file_name, presigned_url in zip(file_names, presigned_urls):
             self.exported_files_mapper[file_name] = presigned_url
 
-    @asyncio.coroutine
-    def update_log_files_timer(self):
-        """Update log files every UPDATE_LOG_FILES_TIMEOUT secods."""
+    def update_stdout(self, data: bytes):
+        """Write data bytes to stdout."""
+        self._log_buffers["STDOUT"] += data
+
+    def update_jsonout(self, data: bytes):
+        """Write data bytes to jsonout."""
+        self._log_buffers["JSON"] += data
+
+    def start_log_upload(self) -> asyncio.Task:
+        """Start the timer that periodically uploads the log files.
+
+        On multiple calls already created task is returned.
+        """
+        if self.upload_task is None or self.upload_task.done():
+            self.upload_task = asyncio.ensure_future(self._update_logs_timer())
+        return self.upload_task
+
+    async def stop_log_upload(self):
+        """Stop the timer that periodically uploads the log files."""
+        if self.upload_task is not None:
+            # Only cancel the task when uploading is not in progress.
+            async with self._uploading_log_files_lock:
+                await stop_task(self.upload_task)
+
+    async def _update_logs_timer(self, stop_after: int = 3):
+        """Update log files every UPDATE_LOG_FILES_TIMEOUT secods.
+
+        :attr stop_after: the integer indication how many exceptions must occur
+            during log upload to terminate the timer task.
+
+        :raises Exception: when stop_after exceptions occur during transfer the
+            last exception is re-raised.
+        """
+        exception_count = 0
         while True:
             try:
-                logger.debug("Uploading log files on timer.")
-                yield from self.upload_log_files()
-                yield from asyncio.sleep(UPDATE_LOG_FILES_TIMEOUT)
+                await asyncio.sleep(UPDATE_LOG_FILES_TIMEOUT)
+                logger.debug("Uploading log timer triggered.")
+                await self.upload_log_files()
             except asyncio.CancelledError:
-                logger.info("Update log_files_timer canceled.")
+                logger.debug("Update log files timer canceled.")
                 break
-            except:
+            except Exception:
                 logger.exception("Error uploading log files.")
-                yield from self.protocol_handler.terminate_script(
-                    {"error": "Error uploading log files."}
-                )
+                exception_count += 1
+                if exception_count >= stop_after:
+                    raise
 
-    @asyncio.coroutine
-    def upload_log_files(self):
+    async def upload_log_files(self):
         """Upload log files if needed.
 
         :raises BrokenPipeError: when upload socket is not available.
         """
-        if self.log_files_need_upload:
-            log_paths = [
-                log_file.relative_to(WORKING_DIRECTORY)
-                for log_file in [STDOUT_LOG_PATH, JSON_LOG_PATH]
-            ]
-            logger.debug("Uploading log files %s.", log_paths)
-            with (yield from self._uploading_log_files_lock):
-                yield from self.send_file_descriptors(log_paths)
-            self.log_files_need_upload = False
-        else:
-            logger.debug("Log files have not changed.")
+        to_upload = []
+        for log_type in ["JSON", "STDOUT"]:
+            if self._log_buffers[log_type]:
+                to_upload.append(
+                    self._log_files[log_type].relative_to(WORKING_DIRECTORY)
+                )
+                with self._log_files[log_type].open("ba") as log_file:
+                    log_file.write(self._log_buffers[log_type])
+                    self._log_buffers[log_type].clear()
 
-    @asyncio.coroutine
-    def send_file_descriptors(
-        self, filenames, need_presigned_urls=False, storage_name="data"
+        if to_upload:
+            logger.debug("Uploading log files: %s.", to_upload)
+            async with self._uploading_log_files_lock:
+                await self.send_file_descriptors(to_upload)
+
+    async def send_file_descriptors(
+        self,
+        filenames: Sequence[str],
+        need_presigned_urls: bool = False,
+        storage_name: str = "data",
     ):
-        # type: (Tuple(str, Union[List[str], PurePath], bool)) -> List  # noqa: F821
         """Send file descriptors over UNIX sockets.
 
         Code is based on the sample in manual
@@ -493,7 +632,32 @@ class ProcessingManager:
         :raises RuntimeError: on failure.
         """
 
-        def send_chunk(processing_filenames):
+        def receive(length: int) -> bytes:
+            """Receive the length bytes from the upload socket."""
+            received = 0
+            message = b""
+            while received != length:
+                select.select([self.upload_socket], [], [])
+                payload = self.upload_socket.recv(length - received)
+                if payload == b"":
+                    raise RuntimeError("Error reading data from the upload socket.")
+                message += payload
+                received = len(message)
+            return message
+
+        def send(payload: bytes):
+            """Send the payload over the upload socket."""
+            bytes_sent = 0
+            to_send = len(payload)
+            while bytes_sent < to_send:
+                select.select([], [self.upload_socket], [])
+                chunk_size = self.upload_socket.send(payload)
+                bytes_sent += chunk_size
+                payload = payload[chunk_size:]
+                if chunk_size == 0:
+                    raise RuntimeError("Error sending data to the upload socket.")
+
+        def send_chunk(processing_filenames: Sequence[str]) -> List[str]:
             """Send chunk of filenames to uploader.
 
             :raises RuntimeError: on failure.
@@ -502,12 +666,14 @@ class ProcessingManager:
             logger.debug("Sending file descriptors for files: %s", processing_filenames)
             message = [storage_name, processing_filenames, need_presigned_urls]
             payload = json.dumps(message).encode()
+
             # File handlers must be created before file descriptors otherwise
             # garbage collector will kick in and close the handlers. Handlers
             # will be closed when function completes.
             file_handlers = [open(filename, "rb") for filename in processing_filenames]
             file_descriptors = [file_handler.fileno() for file_handler in file_handlers]
-            self.upload_socket.sendall(len(payload).to_bytes(8, byteorder="big"))
+            send(len(payload).to_bytes(8, byteorder="big"))
+            select.select([], [self.upload_socket], [])
             self.upload_socket.sendmsg(
                 [payload],
                 [
@@ -518,10 +684,8 @@ class ProcessingManager:
                     )
                 ],
             )
-            response_length = int.from_bytes(
-                self.upload_socket.recv(8), byteorder="big"
-            )
-            response = json.loads(self.upload_socket.recv(response_length).decode())
+            response_length = int.from_bytes(receive(8), byteorder="big")
+            response = json.loads(receive(response_length).decode())
             if not response["success"]:
                 raise RuntimeError(
                     "Communication container response indicates error sending "
@@ -530,154 +694,116 @@ class ProcessingManager:
             return response["presigned_urls"]
 
         result = []
-        with (yield from self._send_file_descriptors_lock):
+        self.upload_socket.setblocking(False)
+        async with self._send_file_descriptors_lock:
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                 for i in range(0, len(filenames), DESCRIPTOR_CHUNK_SIZE):
                     processing_filenames = [
                         str(file_) for file_ in filenames[i : i + DESCRIPTOR_CHUNK_SIZE]
                     ]
-                    response = yield from self.loop.run_in_executor(
+                    response = await self.loop.run_in_executor(
                         pool, send_chunk, processing_filenames
                     )
                     if need_presigned_urls:
                         result += response
         return result
 
-    @asyncio.coroutine
-    def _handle_processing_script_connection(self, reader, writer):
-        # type: (asyncio.StreamReader, asyncio.StreamWriter) -> None
-        """Handle incoming connection from the processing script.
-
-        The requests are just proxied to the communication container with
-        the exception of the .
-
-        Python process starts a single connection while Resolwe runtime utils
-        starts a new connection for every request.
-        """
-        try:
-            communicator = Communicator(reader, writer)
-            logger.debug("Processing script connected to socket.")
-
-            message = yield from communicator.receive_data()
-            while message:
-                # Lock uploading log files for the duration of the processing
-                # of the received command.
-                # Doing so we avoid issues with processing container issuing
-                # two commands at (almost) the same time. Since listener can
-                # process received commands in parallel and each of them is
-                # executed inside transaction the final state of the data
-                # object depends on the exact timing of these transactions.
-                # One possible outcome is that the transaction that updates
-                # log files is executed while transaction that updates outputs
-                # is in progress and finishes last, effectively canceling the
-                # first transaction leading to a data loss.
-
-                with (yield from self._uploading_log_files_lock):
-                    with JSON_LOG_PATH.open("at") as json_file:
-                        json_file.write(json.dumps(message) + os.linesep)
-                        self.log_files_need_upload = True
-                    logger.debug(
-                        "Processing script sent message: %s.",
-                        str(message)[:LOG_MAX_LENGTH],
-                    )
-                    command = message["type_data"]
-                    if command == "export_files":
-                        yield from self._handle_export_files(message["data"])
-                        response = respond(message, "OK", "")
-                    elif command == "upload_files":
-                        # Connect to the upload socket.
-                        filenames = message["data"]
-                        logger.debug("Sending filedescriptors.")
-                        yield from self.send_file_descriptors(filenames)
-                        logger.debug("File descriptors sent.")
-                        response = respond(message, "OK", "")
-                    elif command == "run":
-                        message["data"] = {
-                            "data": message["data"],
-                            "export_files_mapper": self.exported_files_mapper,
-                        }
-                        response = yield from self.protocol_handler.send_command(
-                            message
-                        )
-                    else:
-                        response = yield from self.protocol_handler.send_command(
-                            message
-                        )
-
-                # Terminate the script on ERROR response. This has to be
-                # outside the lock block above since it sends latest log files
-                # to the listener.
-                if response["type_data"] == "ERR":
-                    logger.debug("Response with error status received, terminating")
-                    # Terminate the script and wait for termination.
-                    # Otherwise script may continue to run and produce
-                    # hard to debug error messages.
-                    yield from self.protocol_handler.terminate_script(
-                        {"info": "Response with status 'ERROR' received from listener."}
-                    )
-                    if self.protocol_handler._script_finishing is not None:
-                        yield from self.protocol_handler._script_finishing.wait()
-                        break
-                else:
-                    yield from communicator.send_data(response)
-                message = yield from communicator.receive_data()
-
-        except (asyncio.IncompleteReadError, GeneratorExit):
-            logger.info("Processing script closed connection.")
-        except:
-            logger.exception(
-                "Unknown exception while handling processing script message."
-            )
-            yield from self.protocol_handler.terminate_script(
-                {
-                    "error": "Unexpected exception while handling processing script message."
-                }
-            )
-            yield from self.protocol_handler._script_finishing.wait()
-        finally:
-            writer.close()
+    def close(self):
+        """Close the upload socket."""
+        self.upload_socket.close()
 
 
-@asyncio.coroutine
-def sig_term_handler(processing_manager):
-    # type: (asyncio.Future) -> None
+class ScriptProtocol(BaseProtocol):
+    """Process the processing script messages."""
+
+    def __init__(
+        self,
+        communication_communicator: SocketCommunicator,
+        script_communicator: SocketCommunicator,
+        upload_handler: UploadHandler,
+    ):
+        """Initialize."""
+        super().__init__(script_communicator, logger)
+        self.communication_communicator = communication_communicator
+        self.upload_handler = upload_handler
+
+    async def process_command(
+        self, peer_identity: PeerIdentity, received_message: Message
+    ):
+        """Log the received message and call the parents handler."""
+        self.upload_handler.update_jsonout(
+            json.dumps(received_message.to_dict()).encode()
+        )
+        return await super().process_command(peer_identity, received_message)
+
+    async def handle_export_files(
+        self, message: Message, identity: PeerIdentity
+    ) -> Response[str]:
+        """Export files by sending them to the communication container."""
+        await self.upload_handler.export_files(message.message_data)
+        return message.respond_ok("")
+
+    async def handle_upload_files(
+        self, message: Message, identity: PeerIdentity
+    ) -> Response[str]:
+        """Upload files by sending them to the communication container."""
+        filenames = message.message_data
+        await self.upload_handler.send_file_descriptors(filenames)
+        return message.respond_ok("")
+
+    async def handle_run(
+        self, message: Message, identity: PeerIdentity
+    ) -> Response[str]:
+        """Handle the run command."""
+        command_data = {
+            "data": message.message_data,
+            "export_files_mapper": self.upload_handler.exported_files_mapper,
+        }
+        command = Message.command(message.command_name, command_data)
+        return await self.communication_communicator.send_command(command)
+
+    async def default_command_handler(
+        self, message: Message, identity: PeerIdentity
+    ) -> Response:
+        """By default proxy all commands to the communication container."""
+        return await self.communication_communicator.send_command(message)
+
+
+def sig_term_handler(processing_manager: ProcessingManager):
     """Gracefully terminate the running process."""
     logger.debug("SIG_INT received, shutting down.")
-    yield from processing_manager.protocol_handler.terminate_script(
-        {"error": "SIG_INT received, terminating."}
-    )
+    processing_manager.terminate()
 
 
-@asyncio.coroutine
-def start_processing_container(loop):
-    # type: () -> None
-    """Start the processing manager and set SIGINT handler."""
-    processing_manager = ProcessingManager(loop)
-    manager_future = create_task(processing_manager.run())
-
-    asyncio.get_event_loop().add_signal_handler(
-        signal.SIGINT,
-        functools.partial(create_task, sig_term_handler(processing_manager)),
-    )
-
-    # Wait for the manager task to finish.
-    return (yield from manager_future)
-
-
-if __name__ == "__main__":
+async def init(loop: asyncio.AbstractEventLoop) -> ProcessingManager:
+    """Create necessary objects."""
+    # Create temporary directory inside working directory.
     temporary_directory = WORKING_DIRECTORY / TMP_DIR
-    # TODO: after we stop supporting Python3.4 add parameter exist_ok to mkdir
-    # and remove the if statement.
-    if not temporary_directory.is_dir():
-        temporary_directory.mkdir()
+    temporary_directory.mkdir(exist_ok=True)
 
-    # Create log files.
+    # Create (empty) log files.
     STDOUT_LOG_PATH.touch()
     JSON_LOG_PATH.touch()
 
+    # Create the processing manager.
+    processing_manager = await initialize_connections(loop)
+
+    # Addd signal handler for SIGINT and SIGTERM.
+    loop.add_signal_handler(
+        signal.SIGINT, partial(sig_term_handler, processing_manager)
+    )
+    loop.add_signal_handler(
+        signal.SIGTERM, partial(sig_term_handler, processing_manager)
+    )
+
+    return processing_manager
+
+
+if __name__ == "__main__":
+
     # Replace the code bellow with asyncio.run when we no longer have to
     # support python 3.6.
-    loop = asyncio.get_event_loop()
-    return_code = loop.run_until_complete(start_processing_container(loop))
-    loop.close()
+    with closing(asyncio.get_event_loop()) as loop:
+        processing_manager = loop.run_until_complete(init(loop))
+        return_code = loop.run_until_complete(processing_manager.run())
     sys.exit(return_code)
