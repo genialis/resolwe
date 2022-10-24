@@ -278,9 +278,9 @@ class Message(Generic[MessageDataType]):
 
     @property
     def command_name(self) -> str:
-        """Get response status if message type is ``MessageType.RESPONSE``.
+        """Get command name.
 
-        :raises AssertionError: if type is not ``MessageType.RESPONSE``.
+        :raises AssertionError: if message type is not ``MessageType.COMMAND``.
         """
         assert self.message_type is MessageType.COMMAND
         return self.type_data
