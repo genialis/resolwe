@@ -36,8 +36,6 @@ class MessageType(Enum):
     COMMAND = "COMMAND"
     RESPONSE = "RESPONSE"
     HEARTBEAT = "HBT"
-    HEARTBEAT_RESPONSE = "HBTR"
-    ENQUIRE = "EQR"
 
 
 class ResponseStatus(Enum):
