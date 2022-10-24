@@ -69,22 +69,99 @@ from .python_process_plugin import PythonProcess  # noqa: F401
 logger = logging.getLogger(__name__)
 
 
-class Processor:
-    """Class respresents instance of one connected worker."""
+class RedisCache:
+    """The Redis cache."""
 
-    def __init__(
+    cached_fields_type = {"status": str, "started": datetime, "worker__status": str}
+    cached_fields_set = set(cached_fields_type)
+
+    def __init__(self, redis: redis.Redis, *args, **kwargs):
+        """Set the cached field set."""
+        # The set of fields on the data object that can be safely cached inside
+        # Redis to avoid hitting the database (we are assuming Redis is faster).
+        # The list contains a set of commonly used fields that do not change
+        # from the outside (or do no harm if they do).
+
+        self._redis = redis
+
+        super().__init__(*args, **kwargs)
+
+    def get_redis_key(self, data_id: int, field_name: str) -> str:
+        """Get the redis key from the field name."""
+        return f"resolwe-listener-data-{data_id}-redis-cache-{field_name}"
+
+    def get_cache(
         self,
-        peer_identity: PeerIdentity,
-        starting_sequence_number: int,
-        listener: "ListenerProtocol",
-    ):
-        """Initialize.
+        data_id: int,
+        field_names: Iterable[str],
+    ) -> Dict[str, Any]:
+        """Obtain the set of fields from the redis cache.
 
-        Assumption: first_message is checked to be of the expected type.
+        If field_name is requested that is not cached the request is silently
+        ignored.
 
-        :raises ValueError: when identity is not in the correct format.
-        :raises Data.DoesNotExist: when Data object is not found.
+        The query is run in a transaction.
         """
+
+        def get_redis_data(
+            pipeline: redis.client.Pipeline,
+        ) -> Dict[str, Optional[Union[str, datetime]]]:
+            def get_redis_field(
+                redis_key: str, field_name: str
+            ) -> Optional[Union[str, datetime]]:
+                """Get the redis data from the specific key."""
+                field_type = self.cached_fields_type[field_name]
+                value: Optional[str] = pipeline.get(redis_key)  # type: ignore
+                if value is not None and field_type is datetime:
+                    return datetime.strptime(value, r"%Y-%m-%dT%H:%M:%S.%f")
+                else:
+                    return value
+
+            return {
+                field_name: get_redis_field(
+                    self.get_redis_key(data_id, field_name), field_name
+                )
+                for field_name in field_names
+                if field_name in self.cached_fields_set
+            }
+
+        watches = [
+            self.get_redis_key(data_id, field_name)
+            for field_name in field_names
+            if field_name in self.cached_fields_set
+        ]
+        return self._redis.transaction(
+            get_redis_data, *watches, value_from_callable=True
+        )
+
+    def clear(self, data_id: int):
+        """Clear the entire Redis cache for the given data object."""
+        redis_keys = (
+            self.get_redis_key(data_id, field_name)
+            for field_name in self.cached_fields_set
+        )
+        self._redis.delete(*redis_keys)
+
+    def set_cache(self, data_id: int, field_values: Dict[str, Any]):
+        """Set the redis cache in the transaction.
+
+        When field is not in the set of cached fields it is silentry ignored.
+        """
+
+        def update_cache(pipeline: redis.client.Pipeline):
+            """Update the cache using pipeline."""
+            for field_name, field_value in field_values.items():
+                if field_name not in self.cached_fields_set:
+                    continue
+                key = self.get_redis_key(data_id, field_name)
+                if field_value is None:
+                    pipeline.delete(key)
+                else:
+                    pipeline.set(key, str(field_value))
+
+        self._redis.transaction(update_cache)
+
+
         self.peer_identity = peer_identity
         self.data_id = int(peer_identity)
         self._data: Optional[Data] = None
