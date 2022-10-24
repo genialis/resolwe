@@ -387,6 +387,16 @@ class Message(Generic[MessageDataType]):
             "timestamp": self.sent_timestamp,
         }
 
+    def time_elapsed(self) -> Optional[float]:
+        """Get the time elapsed from when message was sent until now.
+
+        :return: the float representing number of seconds passed from the
+            moment the message was sent or None if it can not be determined.
+        """
+        if self.sent_timestamp is None:
+            return None
+        return now() - self.sent_timestamp
+
     def __repr__(self) -> str:
         """Return the string representation."""
         return str(self.to_dict())
