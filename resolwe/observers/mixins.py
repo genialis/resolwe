@@ -51,13 +51,14 @@ class ObservableMixin:
     def unsubscribe(self, request: Request) -> Response:
         """Unregister a subscription."""
         subscription_id = request.data.get("subscription_id", None)
+        user = request.user if request.user.is_authenticated else get_anonymous_user()
         subscription = Subscription.objects.filter(
-            subscription_id=subscription_id, user=request.user
+            subscription_id=subscription_id, user=user
         ).first()
 
         if subscription is None:
             raise NotFound(
-                f"Subscription {subscription_id} for user {request.user} does not exist."
+                f"Subscription {subscription_id} for user {user} does not exist."
             )
 
         subscription.delete()
