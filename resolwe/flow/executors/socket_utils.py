@@ -3,24 +3,21 @@ import asyncio
 import functools
 import json
 import logging
-import random
 import socket
 import time
 import uuid
-from collections import deque
+from collections import defaultdict, deque
 from contextlib import suppress
 from enum import Enum, unique
 from time import time as now
 from typing import (
     Any,
     Callable,
-    Coroutine,
     Deque,
     Dict,
     Generic,
-    MutableMapping,
+    List,
     Optional,
-    Set,
     Tuple,
     Type,
     TypeVar,
@@ -206,8 +203,7 @@ async def async_send_data(
     """
     message = json.dumps(data).encode("utf-8")
     message_size = len(message).to_bytes(size_bytes, byteorder="big")
-    writer.write(message_size)
-    writer.write(message)
+    writer.write(message_size + message)
     await writer.drain()
 
 
@@ -292,12 +288,6 @@ class Message(Generic[MessageDataType]):
             response_data,
             self.uuid,
         )
-
-    def respond_heartbeat(self) -> "Response[str]":
-        """Respond heartbeat messages."""
-        response = self.respond_ok("")
-        response.message_type = MessageType.HEARTBEAT_RESPONSE
-        return response
 
     def respond_ok(
         self, response_data: ResponseDataType
@@ -448,13 +438,6 @@ class Response(Message[MessageDataType]):
         )
 
 
-class MessageStatus(Enum):
-    """Status of the message."""
-
-    RECEIVED = "received"
-    UNKNOWN = "unknown"
-
-
 class EventWithResponse(asyncio.Event):
     """Event class with response property."""
 
@@ -511,8 +494,6 @@ class BaseCommunicator:
     ``terminate`` method and wait for the receiving task to finish.
     """
 
-    FINAL_COMMAND_NAME = "finish"
-
     def __init__(
         self,
         name: str,
@@ -521,9 +502,7 @@ class BaseCommunicator:
         writer: Any,
         send_method: Callable,
         receive_method: Callable,
-        peer_status_changed: Optional[
-            Callable[[PeerIdentity, PeerStatus], Coroutine]
-        ] = None,
+        heartbeat_handler: Optional[Callable[[PeerIdentity], Any]] = None,
     ):
         """Initialize.
 
@@ -533,7 +512,7 @@ class BaseCommunicator:
         :param writer: object to use when sending messages.
         :param send_method: method to use when sending messages.
         :param receive_method: method to use when receiving messages.
-
+        :param heartbeat_handler: method to call on heartbeat messages.
         """
         self.name = name
         self.logger = logger
@@ -543,38 +522,20 @@ class BaseCommunicator:
         self.receive_method = receive_method
         self.reader = reader
         self.writer = writer
+        self.heartbeat_handler = heartbeat_handler
 
         self._listening_future: Optional[asyncio.Future] = None
         # Wait for x seconds for listening future to complete when _terminating
         # flag is set.
         self._listening_future_wait_timeout = 30
 
-        self.sequence_numbers: MutableMapping[PeerIdentity, int] = dict()
         self._command_queue: Deque[Tuple[PeerIdentity, Message]] = deque()
 
         self._uuid_to_event: Dict[str, EventWithResponse] = dict()
 
-        # Keep two lists of received messages. After 10 minutes move current
-        # messages to older list and discard older messages. So the list
-        # of received messages will not become too large.
-        self._uuids_received: Set[str] = set()
-        self._uuids_received_old: Set[str] = set()
-        # When no message has been exchanged with the peer for
-        # _heartbeat_interval seconds the heartbeat message is sent.
-        self._heartbeat_interval = 120
-
-        # After that many unanswered heartbeats the peer is removed from the
-        # _known_peers list and heartbeats are no longer sent to it.
-        self._max_heartbeats_skipped = 5
-        # Mapping from peer identity to the timestamp of the last message
-        # received by the peer.
-        self._known_peers: Dict[PeerIdentity, float] = dict()
-        self._degraded_peers: Set[PeerIdentity] = set()
-        self._last_heartbeat: Dict[PeerIdentity, float] = dict()
-        self.peer_status_changed = peer_status_changed
-        self._heartbeat_messages_future: Optional[asyncio.Future] = None
-        self._watchdog_future: Optional[asyncio.Future] = None
-        self._recycle_uuids_future: Optional[asyncio.Future] = None
+        # Keep last uuid and timestamp from every peer to avoid forwarding
+        # duplicated requests.
+        self._uuids_received: Dict[PeerIdentity, Dict[str, int]] = defaultdict(dict)
 
     def __getattr__(self, name: str):
         """Call arbitrary 'command' with 'communicator.command(args)' syntax."""
@@ -588,16 +549,6 @@ class BaseCommunicator:
             return None
         else:
             return call_command
-
-    async def _recycle_received_uuids(self, timeout: int = 600):
-        """Recycle the list of received messages uuids.
-
-        Move received messages to the old list and discard old ones.
-        """
-        while True:
-            self._uuids_received_old = self._uuids_received
-            self._uuids_received = set()
-            await asyncio.sleep(timeout)
 
     async def _receive_message(self) -> Optional[Tuple[PeerIdentity, Message]]:
         """Receive a single message.
@@ -622,13 +573,12 @@ class BaseCommunicator:
             receive_task = asyncio.ensure_future(self.receive_method(self.reader))
             terminating_task = asyncio.ensure_future(self._terminating.wait())
             done, pending = await asyncio.wait(
-                (receive_task, terminating_task),
-                return_when=asyncio.FIRST_COMPLETED,
+                (receive_task, terminating_task), return_when=asyncio.FIRST_COMPLETED
             )
             if receive_task in done:
                 try:
                     received = receive_task.result()
-                except asyncio.exceptions.IncompleteReadError:
+                except asyncio.IncompleteReadError:
                     self.logger.info("Socket closed by peer, stopping communication.")
                     received = None
                 if received is not None:
@@ -643,7 +593,7 @@ class BaseCommunicator:
                     self.name,
                 )
         # Do not log cancelled errors.
-        except asyncio.exceptions.CancelledError:
+        except asyncio.CancelledError:
             self.logger.debug(
                 "Communicator %s: CancelledError in _receive_message.", self.name
             )
@@ -682,8 +632,8 @@ class BaseCommunicator:
 
         :returns: the result of the sending method call (usually None).
 
-        :raises RuntimeError: when user supplied method raises exception when
-            sending message or timeout occured when sending message.
+        :raises RuntimeError: if sending method raises exception or timeout
+            occurs sending message.
         """
         retries = 0
         while retries < send_retries:
@@ -702,6 +652,12 @@ class BaseCommunicator:
                     f"Communicator {self.name}: sending message was canceled."
                 )
                 return
+            except BrokenPipeError:
+                # No need to retry, the pipe will not reconnect.
+                error_message = f"Communicator {self.name}: broaken pipe."
+                self.logger.exception(error_message)
+                raise RuntimeError(error_message)
+
             except Exception:
                 self.logger.exception(
                     f"Communicator {self.name}: exception while sending message (retry {retries+1}/{send_retries})."
@@ -713,219 +669,23 @@ class BaseCommunicator:
     async def __aenter__(self):
         """Start listening for messages on entering context."""
         assert self._listening_future is None
-        assert self._heartbeat_messages_future is None
-        assert self._watchdog_future is None
-        assert self._recycle_uuids_future is None
-
         self._terminating.clear()
-
         self._listening_future = asyncio.ensure_future(self.start_listening())
-        self._heartbeat_messages_future = asyncio.ensure_future(
-            self._send_heartbeat_messages()
-        )
-        self._watchdog_future = asyncio.ensure_future(self._watchdog())
-        self._recycle_uuids_future = asyncio.ensure_future(
-            self._recycle_received_uuids()
-        )
-
         self.logger.debug("Communicator %s: entering context.", self.name)
         return self
 
     async def __aexit__(self, typ, value, trace):
         """On exiting a context, stop listening for messages."""
         self.logger.debug(f"Communicator {self.name}: leaving context.")
-        assert self._heartbeat_messages_future is not None
-        assert self._watchdog_future is not None
         assert self._listening_future is not None
-        assert self._recycle_uuids_future is not None
 
         self._terminating.set()
         with suppress(asyncio.TimeoutError):
             await asyncio.wait_for(
                 self._listening_future, timeout=self._listening_future_wait_timeout
             )
-        self._watchdog_future.cancel()
-        self._heartbeat_messages_future.cancel()
-        self._recycle_uuids_future.cancel()
-        self._watchdog_future = None
-        self._listening_future = None
         self._listening_future = None
         self.logger.debug("Communicator %s: leaving context.", self.name)
-
-    def _message_status(self, message_uuid: str) -> MessageStatus:
-        """Get status of message with the given UUID."""
-        self.logger.debug("Checking for message status: %s.", message_uuid)
-        if (
-            message_uuid in self._uuids_received
-            or message_uuid in self._uuids_received_old
-        ):
-            return MessageStatus.RECEIVED
-        else:
-            return MessageStatus.UNKNOWN
-
-    async def _status_changed(self, peer: PeerIdentity, status: PeerStatus):
-        """Notify (if possible) of the peer status change."""
-        if self.peer_status_changed is not None:
-            try:
-                await self.peer_status_changed(peer, status)
-            except:
-                self.logger.exception("Exception in peer_status_changed.")
-
-    async def _get_peer_message_status(
-        self, message_uuid: str, identity: bytes = b"", response_timeout: int = 300
-    ) -> str:
-        """Enquire peer for the message status.
-
-        :raises RuntimeError: on failure.
-        """
-        result = await self.send_command(
-            Message(MessageType.ENQUIRE, "", message_uuid),
-            peer_identity=identity,
-            response_timeout=response_timeout,
-        )
-        return result.message_data
-
-    async def _send_heartbeat_messages(self):
-        """Send heartbeat messages when necessary.
-
-        This coroutine never stops and must be cancelled by the parent.
-        """
-        while True:
-            try:
-                self.logger.debug(
-                    "Heartbeat checking known peers %s.", list(self._known_peers.keys())
-                )
-                # Wait a little longer than heartbeat interval if there is nothing to do.
-                min_sleep_interval = self._heartbeat_interval + 5
-                for identity, last_received in self._known_peers.items():
-                    # Count time from last received message or last sent heartbeat.
-                    last_event = max(
-                        last_received, self._last_heartbeat.get(identity, last_received)
-                    )
-                    logger.debug(
-                        "Last seen %s: %d seconds ago",
-                        identity,
-                        now() - last_received,
-                    )
-                    # Add a little random noise to spread the heartbeats around.
-                    sleep_interval = int(
-                        last_event
-                        + self._heartbeat_interval
-                        + random.uniform(0, 5 + 1)
-                        - now()
-                    )
-                    logger.debug("Heartbeat in: %d seconds.", sleep_interval)
-
-                    if sleep_interval <= 0:
-                        logger.debug("Sending heartbeat to peer '%s'.", identity)
-                        asyncio.ensure_future(
-                            self._send_message(Message.heartbeat(), identity=identity)
-                        )
-                        self._last_heartbeat[identity] = now()
-                    else:
-                        min_sleep_interval = min(min_sleep_interval, sleep_interval)
-                self.logger.debug(
-                    "Next heartbeat check: in %d seconds.", min_sleep_interval
-                )
-                await asyncio.sleep(min_sleep_interval)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                self.logger.exception("Unexpected exception while sending heartbeats.")
-
-    def suspend_heartbeat(self, peer_identity: PeerIdentity):
-        """Temporary suspend heartbeat from the peer.
-
-        The heartbeats are resumed on the first message received from the peer.
-        """
-        logger.debug("Suspended heartbeat for peer '%s'.", peer_identity)
-        self._last_heartbeat.pop(peer_identity, None)
-        self._known_peers.pop(peer_identity, None)
-
-    async def _watchdog(self):
-        """Watches and reports peer status changes."""
-        try:
-            to_remove_interval = int(
-                self._max_heartbeats_skipped * self._heartbeat_interval
-                + self._heartbeat_interval / 2
-            )
-            while True:
-                failed_peers = set()
-                recovered_peers = set()
-                degraded_peers = set()
-                sleep_interval = self._heartbeat_interval + 5
-                # Check all peers for which heartbeats were sent and not responded.
-                for identity, timestamp in self._last_heartbeat.items():
-                    last_seen = self._known_peers[identity]
-                    self.logger.debug(
-                        "Watchdog (%s) observing peer %s", self.name, identity
-                    )
-                    self.logger.debug("Last peer activity: %s.", last_seen)
-                    self.logger.debug("Last peer heartbeat sent: %s.", timestamp)
-                    self.logger.debug("Since last ping: %d", now() - timestamp)
-                    self.logger.debug("Since last seen: %d", now() - last_seen)
-                    self.logger.debug(
-                        "Until to remove: %d", last_seen + to_remove_interval - now()
-                    )
-                    self.logger.debug("To remove interval: %d", to_remove_interval)
-                    # Message received after heartbeat was sent.
-                    # If peer was in degraded state before move it to recovered.
-                    if last_seen > timestamp:
-                        recovered_peers.add(identity)
-                    # Peer is unresponsive.
-                    elif now() - last_seen > to_remove_interval:
-                        failed_peers.add(identity)
-                        continue
-                    # Peer failed to answer for 2 heartbeat intervals, entering
-                    # degraded state.
-                    elif (
-                        now() - last_seen > 2 * self._heartbeat_interval
-                        and identity not in self._degraded_peers
-                    ):
-                        degraded_peers.add(identity)
-
-                    till_next_heartbeat = int(
-                        timestamp + self._heartbeat_interval - now()
-                    )
-                    till_remove = int(last_seen + to_remove_interval - now())
-
-                    sleep_interval = min(
-                        sleep_interval, till_remove, till_next_heartbeat
-                    ) + random.uniform(2, 5)
-                self.logger.debug(
-                    "Watchdog (%s) adjusting sleep interval: %d",
-                    self.name,
-                    sleep_interval,
-                )
-
-                for recovered_peer in recovered_peers:
-                    del self._last_heartbeat[recovered_peer]
-                    if recovered_peer in self._degraded_peers:
-                        self.logger.debug("Peer %s recovering.", recovered_peer)
-                        self._degraded_peers.remove(recovered_peer)
-                        await self._status_changed(
-                            recovered_peer, PeerStatus.RESPONSIVE
-                        )
-                for failed_peer in failed_peers:
-                    self.logger.debug(
-                        "Peer %s entering unresponsive state.", failed_peer
-                    )
-                    del self._known_peers[failed_peer]
-                    del self._last_heartbeat[failed_peer]
-                    await self._status_changed(failed_peer, PeerStatus.UNRESPONSIVE)
-
-                for degraded_peer in degraded_peers:
-                    self.logger.debug("Peer %s entering degraded state.", degraded_peer)
-                    self._degraded_peers.add(degraded_peer)
-                    await self._status_changed(degraded_peer, PeerStatus.DEGRADED)
-                self.logger.debug(
-                    "Watchdog (%s) sleeping for %d seconds.", self.name, sleep_interval
-                )
-                await asyncio.sleep(sleep_interval)
-        except asyncio.CancelledError:
-            logger.info("Watchdog shutting down.")
-        except:
-            logger.exception("Unhandled exception in watchdog.")
 
     async def start_listening(self):
         """Start listening for messages.
@@ -950,55 +710,13 @@ class BaseCommunicator:
 
                 identity, message = received
 
-                # Only add to known peers if the identity is an integer.
-                # When executor communicates with listener (sending logs for
-                # instance) in uses identity contianing letters. Such should
-                # should not be added to known_peers dict since we do not have
-                # to monitor them using watchdog.
-                with suppress(ValueError):
-                    int(identity)
-                    if identity not in self._known_peers:
-                        self.logger.debug("Adding new peer with identity %s.", identity)
-                    self._known_peers[identity] = now()
-
                 if message.message_type is MessageType.HEARTBEAT:
-                    # Send response in the background.
-                    logger.debug("Responding to heartbeat from peer '%s'.", identity)
-                    asyncio.ensure_future(
-                        self._send_message(
-                            message.respond_heartbeat(), identity=identity
-                        )
-                    )
-
-                elif message.message_type is MessageType.HEARTBEAT_RESPONSE:
-                    logger.debug("Got heartbeat response from peer '%s'.", identity)
-                    if identity in self._last_heartbeat:
-                        del self._last_heartbeat[identity]
-                    else:
-                        self.logger.warning(
-                            "The identity %s sent unknown heartbear response.", identity
-                        )
-
-                elif message.message_type is MessageType.ENQUIRE:
-                    # Send response in the background.
-                    asyncio.ensure_future(
-                        self._send_message(
-                            message.respond(
-                                self._message_status(message.message_data).value
-                            ),
-                            identity=identity,
-                        )
-                    )
+                    logger.debug("Got heartbeat from peer '%s'.", identity)
+                    if self.heartbeat_handler is not None:
+                        asyncio.ensure_future(self.heartbeat_handler(identity))
 
                 elif message.message_type is MessageType.COMMAND:
-                    if message.uuid not in self._uuids_received:
-                        # If final command is received remove the peer from
-                        # the list of known peers.
-                        if message.command_name == self.FINAL_COMMAND_NAME:
-                            if identity in self._known_peers:
-                                del self._known_peers[identity]
-                            if identity in self._last_heartbeat:
-                                del self._last_heartbeat[identity]
+                    if message.uuid not in self._uuids_received[identity]:
                         self._command_queue.append((identity, message))
                         self.logger.debug(
                             "Received command '%s' from peer '%s'.",
@@ -1008,7 +726,6 @@ class BaseCommunicator:
                         self.logger.debug(
                             f"Number of messages in queue: {len(self._command_queue)}"
                         )
-
                         self.has_message.set()
 
                 elif message.message_type is MessageType.RESPONSE:
@@ -1027,8 +744,7 @@ class BaseCommunicator:
                     self.logger.error(
                         f"Communicator {self.name} got unknown message: {message}."
                     )
-
-                self._uuids_received.add(message.uuid)
+                self._uuids_received[identity] = {message.uuid: now()}
 
         except Exception:
             self.logger.exception("Exception while listening for messages.")
@@ -1051,6 +767,11 @@ class BaseCommunicator:
         """Send response."""
         await self._send_message(response, peer_identity)
 
+    async def send_heartbeat(self, peer_identity: PeerIdentity = b""):
+        """Send the heartbeat message to the peer."""
+        with suppress(RuntimeError):
+            await self.send_command(Message.heartbeat(), timeout=1)
+
     async def send_command(
         self,
         command: Message[MessageDataType],
@@ -1071,13 +792,16 @@ class BaseCommunicator:
         :attr timeout: abort waiting for response after timeout. When None wait
             forever.
 
+        :attr await_response: when set to true return imediatelly and do not
+            wait for the response.
+
         :raises RuntimeError: when response is not received within the
             given timeout.
         """
         self.logger.debug(
-            "Communicator %s: sending command '%s' to peer '%s'.",
+            "Communicator %s: sending message '%s' to peer '%s'.",
             self.name,
-            command.command_name,
+            command.type_data,
             peer_identity,
         )
         await self._send_message(command, peer_identity)
@@ -1116,7 +840,7 @@ class BaseCommunicator:
                 elif timeout_task in done:
                     raise RuntimeError(
                         f"Communicator {self.name}: no response to command "
-                        f"{command.command_name} with uuid {command.uuid} "
+                        f"{command.message_type} with uuid {command.uuid} "
                         f"from peer {peer_identity} in '{timeout} seconds'."
                     )
                 # Resend task
@@ -1137,21 +861,15 @@ class BaseCommunicator:
         This method should only be used when not communicator object is not
         used as a context manager.
         """
-        self.logger.debug("Communicator %s stopped listening", self.name)
+        self.logger.debug("Stopping communicator %s.", self.name)
         self._terminating.set()
 
     async def terminate(self, reason: str):
         """Stop listening and close the socket.
 
-        Also notify the peer about termination.
-
         :raises AssertionError: when no listening task is running.
         """
         if self._listening_future is not None:
-            with suppress(RuntimeError):
-                await self.send_command(
-                    Message(MessageType.COMMAND, "terminate", reason)
-                )
             await self.stop_listening()
             with suppress(asyncio.CancelledError):
                 await self._listening_future
@@ -1167,9 +885,7 @@ class SocketCommunicator(BaseCommunicator):
         writer: asyncio.StreamWriter,
         name: str,
         logger: logging.Logger,
-        peer_status_changed: Optional[
-            Callable[[PeerIdentity, PeerStatus], Coroutine]
-        ] = None,
+        heartbeat_handler: Optional[Callable[[PeerIdentity], Any]] = None,
     ):
         """Initialize."""
         super().__init__(
@@ -1179,7 +895,7 @@ class SocketCommunicator(BaseCommunicator):
             writer,
             async_send_data,
             async_receive_data,
-            peer_status_changed,
+            heartbeat_handler,
         )
 
 
@@ -1190,38 +906,51 @@ class BaseProtocol:
         self,
         communicator: BaseCommunicator,
         logger: logging.Logger,
+        max_concurrent_commands: int = 10,
     ):
         """Initialize."""
         self.communicator = communicator
         self.logger = logger
         self._should_stop = asyncio.Event()
+        self._max_concurrent_commands = max_concurrent_commands
+        self._concurrent_semaphore = asyncio.Semaphore(self._max_concurrent_commands)
+        self._command_counter = 0
 
     async def process_command(
         self, peer_identity: PeerIdentity, received_message: Message
     ):
-        """Process single command."""
-        command_name = received_message.type_data
-        handler_name = "handle_" + command_name
-        handler = getattr(self, handler_name, None)
-        if handler is None:
-            handler = self.default_command_handler
-        try:
-            response = await handler(received_message, peer_identity)
-        except Exception as ex:
-            self.logger.exception(
-                f"Exception while running command handler '{handler_name}'"
-            )
-            response = received_message.respond_error(
-                f"Exception while running command handler {handler_name}: {ex}"
-            )
+        """Process single command.
 
-        try:
-            await self.communicator.send_response(response, peer_identity)
-        except RuntimeError:
-            self.logger.exception(
-                "Protocol: error sending response to {received_message}."
-            )
-            await self._abort_with_error("Error sending response.")
+        Use semaphore to make sure no more than max_concurrent_commands are
+        processed at any given time.
+        """
+        self.logger.debug(
+            "Concurrent semaphore count: %s.", self._concurrent_semaphore._value
+        )
+
+        async with self._concurrent_semaphore:
+            command_name = received_message.type_data
+            handler_name = "handle_" + command_name
+            handler = getattr(self, handler_name, None)
+            if handler is None:
+                handler = self.default_command_handler
+            try:
+                response = await handler(received_message, peer_identity)
+            except Exception as ex:
+                self.logger.exception(
+                    f"Exception while running command handler '{handler_name}'"
+                )
+                response = received_message.respond_error(
+                    f"Exception while running command handler {handler_name}: {ex}"
+                )
+
+            try:
+                await self.communicator.send_response(response, peer_identity)
+            except RuntimeError:
+                self.logger.exception(
+                    "Protocol: error sending response to {received_message}."
+                )
+                await self._abort_with_error("Error sending response.")
 
     def post_processing_command(
         self,
@@ -1234,6 +963,7 @@ class BaseProtocol:
         handler_name = "post_" + command_name
         handler = getattr(self, handler_name, None)
         if handler is not None:
+            self.logger.debug("Running post processing handler '%s'.", handler_name)
             asyncio.ensure_future(handler(received_message, peer_identity))
 
     async def default_command_handler(
@@ -1261,6 +991,7 @@ class BaseProtocol:
 
         This coroutine stopss when it is canceled or _should_stop flag is set.
         """
+        self._should_stop.clear()
         async with self.communicator:
             try:
                 while not self._should_stop.is_set():

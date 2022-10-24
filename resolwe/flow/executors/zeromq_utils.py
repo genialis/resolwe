@@ -1,12 +1,12 @@
 """Utils for working with zeromq."""
 import json
 from logging import Logger
-from typing import Any, Callable, Coroutine, Optional, Tuple
+from typing import Any, Optional, Tuple
 
 import zmq
 import zmq.asyncio
 
-from .socket_utils import BaseCommunicator, PeerIdentity, PeerStatus
+from .socket_utils import BaseCommunicator, PeerIdentity
 
 
 async def async_zmq_send_data(
@@ -61,9 +61,6 @@ class ZMQCommunicator(BaseCommunicator):
         socket: zmq.asyncio.Socket,
         name: str,
         logger: Logger,
-        peer_status_changed: Optional[
-            Callable[[PeerIdentity, PeerStatus], Coroutine]
-        ] = None,
     ):
         """Initialize."""
         super().__init__(
@@ -73,5 +70,4 @@ class ZMQCommunicator(BaseCommunicator):
             socket,
             async_zmq_send_data,
             async_zmq_receive_data,
-            peer_status_changed,
         )
