@@ -334,12 +334,19 @@ class Message(Generic[MessageDataType]):
     def is_valid(message_dict: Dict) -> bool:
         """Validate the dictionary representing the message."""
         try:
-            required_keys = ("type", "type_data", "data", "uuid")
-            value_types: Tuple = (str, str, object, str)
+            required_keys = ("type", "type_data", "data")
+            optional_keys = ("uuid",)
+            required_value_types = (str, str, object)
+            optional_value_types = (str,)
             assert set(required_keys).issubset(set(message_dict.keys()))
             assert all(
                 isinstance(message_dict[key], value_type)
-                for key, value_type in zip(required_keys, value_types)
+                for key, value_type in zip(required_keys, required_value_types)
+            )
+            assert all(
+                isinstance(message_dict[key], value_type)
+                for key, value_type in zip(optional_keys, optional_value_types)
+                if key in message_dict
             )
             message_type = MessageType(message_dict["type"])
             # If message is response chech that type_data is of the correct type.
