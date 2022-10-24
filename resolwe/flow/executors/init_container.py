@@ -20,7 +20,7 @@ from executors import constants, global_settings
 from executors.connectors import Transfer, connectors
 from executors.connectors.baseconnector import BaseStorageConnector
 from executors.connectors.exceptions import DataTransferError
-from executors.connectors.utils import paralelize
+from executors.connectors.utils import async_paralelize
 from executors.protocol import ExecutorFiles
 from executors.socket_utils import BaseCommunicator, BaseProtocol, Message, PeerIdentity
 from executors.zeromq_utils import ZMQCommunicator
@@ -71,6 +71,18 @@ for boto_logger in ["botocore", "boto3", "s3transfer", "urllib3"]:
 
 for google_logger in ["google"]:
     logging.getLogger(google_logger).setLevel(GOOGLE_LOG_LEVEL)
+
+
+async def send_heartbeat(communicator: BaseCommunicator, heartbeat_interval: int = 60):
+    """Periodically send heartbeats.
+
+    This task will run indefinitely and has to be cancelled to stop.
+
+    :attr heartbeat_interval: seconds between successive heartbeat messages.
+    """
+    while True:
+        await communicator.send_heartbeat()
+        await asyncio.sleep(heartbeat_interval)
 
 
 class PreviousDataExistsError(Exception):
@@ -138,12 +150,13 @@ async def download_to_location(
     transfer = Transfer(from_connector, to_connector)
     # Start futures and evaluate their results. If exception occured it will
     # be re-raised.
-    for future in paralelize(
+    for task in await async_paralelize(
         objects=files,
         worker=lambda objects: transfer.transfer_chunk(None, objects),
+        loop=asyncio.get_running_loop(),
         max_threads=max_threads,
     ):
-        future.result()
+        task.result()
 
 
 def check_for_previous_data():
@@ -225,8 +238,6 @@ class InitProtocol(BaseProtocol):
         await self.communicator.update_status("PP")
         missing_data = (await self.communicator.missing_data_locations("")).message_data
 
-        await self.communicator.init_suspend_heartbeat("")
-
         to_filesystem = {
             url: entry | {"url": url}
             for url, entry in missing_data.items()
@@ -304,12 +315,12 @@ async def main():
     """
     communicator = _get_communicator()
     protocol = InitProtocol(communicator, logger)
-    communicate_task = asyncio.ensure_future(protocol.communicate())
+    communicate_task = asyncio.create_task(protocol.communicate())
+    heartbeat_task = asyncio.create_task(send_heartbeat(communicator))
 
     # Initialize settings constants by bootstraping.
-    response = await communicator.send_command(
-        Message.command("bootstrap", (DATA_ID, "init"))
-    )
+    response = await communicator.bootstrap((DATA_ID, "init"))
+
     global_settings.initialize_constants(DATA_ID, response.message_data)
     initialize_secrets(response.message_data[ExecutorFiles.SECRETS_DIR])
     modify_connector_settings()
@@ -318,8 +329,10 @@ async def main():
     try:
         prepare_volumes()
         await protocol.transfer_missing_data()
+        # Notify the manager that init is completed.
+        await communicator.init_completed("")
     except PreviousDataExistsError:
-        logger.warning("Previous run data exists, aborting processing.")
+        logger.error("Previous run data exists, aborting processing.")
         raise
     except Exception as exception:
         message = f"Unexpected exception in init container: {exception}."
@@ -327,6 +340,10 @@ async def main():
         await error(message, communicator)
         raise
     finally:
+        # Stop the heartbeat task and the communicator.
+        heartbeat_task.cancel()
+        with suppress(asyncio.exceptions.CancelledError):
+            await asyncio.wait_for(heartbeat_task, timeout=10)
         protocol.stop_communicate()
         with suppress(asyncio.TimeoutError):
             await asyncio.wait_for(communicate_task, timeout=10)

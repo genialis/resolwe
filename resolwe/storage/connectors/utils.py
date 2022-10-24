@@ -1,4 +1,5 @@
 """Connector utils."""
+import asyncio
 import concurrent.futures
 import os
 from pathlib import Path
@@ -100,3 +101,30 @@ def paralelize(
         for objects_chunk in objects_chunks:
             futures.append(executor.submit(worker, objects_chunk))
     return futures
+
+
+async def async_paralelize(
+    objects: Sequence[Any],
+    worker: Callable[[Sequence[Any]], Any],
+    loop: asyncio.BaseEventLoop,
+    max_threads: int = 10,
+) -> Sequence[asyncio.Future]:
+    """Paralelize tasks using connector on list of URLS.
+
+    URLs are split into up-to num_threads chunks and each chunk is processed
+    in its own thread. Connectors in worker method MUST be duplicated to ensure
+    thread safety.
+
+    :returns: collection of instance of Future objects, each one corresponding
+        to one thread. It is caller responsibility to check if threads have
+        finished successfully.
+    """
+    number_of_chunks = min(len(objects), max_threads)
+    objects_chunks = chunks(objects, number_of_chunks)
+
+    tasks = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
+        for objects_chunk in objects_chunks:
+            tasks.append(loop.run_in_executor(executor, worker, objects_chunk))
+        await asyncio.wait(tasks)
+    return tasks
