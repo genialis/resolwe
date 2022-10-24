@@ -31,7 +31,6 @@ class ExecutorProtocol:
     STORAGE_DATA_LOCATIONS = "storage_data_locations"
 
     GET_FILES_TO_DOWNLOAD = "get_files_to_download"
-    GET_REFERENCED_FILES = "get_referenced_files"
     REFERENCED_FILES = "referenced_files"
 
     RESULT = "result"
