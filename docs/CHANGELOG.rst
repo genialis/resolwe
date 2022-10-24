@@ -6,6 +6,17 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Changed
+-------
+- **BACKWARD INCOMPATIBLE:** Drop support for Python 3.4 in the processing
+  container
+- Rewrite the processing container code to make it more stable
+
+
 ===================
 31.3.1 - 2022-10-19
 ===================
