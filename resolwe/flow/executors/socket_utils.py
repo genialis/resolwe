@@ -241,7 +241,6 @@ class Message(Generic[MessageDataType]):
         type_data: str,
         message_data: MessageDataType,
         message_uuid: Optional[str] = None,
-        sequence_number: Optional[int] = None,
         sent_timestamp: Optional[float] = None,
     ):
         """Initialize.
@@ -252,7 +251,6 @@ class Message(Generic[MessageDataType]):
         self.message_data = message_data
         self.type_data = type_data
         self.uuid = message_uuid or self._get_random_message_identifier()
-        self.sequence_number = sequence_number or 1
         self.sent_timestamp = sent_timestamp
 
     def _get_random_message_identifier(self) -> str:
@@ -293,7 +291,6 @@ class Message(Generic[MessageDataType]):
             response_status.value,
             response_data,
             self.uuid,
-            self.sequence_number,
         )
 
     def respond_heartbeat(self) -> "Response[str]":
@@ -319,7 +316,6 @@ class Message(Generic[MessageDataType]):
         command_name: str,
         message_data: MessageDataType,
         message_uuid: Optional[str] = None,
-        sequence_number: Optional[int] = None,
     ) -> "Message[MessageDataType]":
         """Construct and return a command."""
         return Message(
@@ -327,7 +323,6 @@ class Message(Generic[MessageDataType]):
             command_name,
             message_data,
             message_uuid,
-            sequence_number,
         )
 
     @staticmethod
@@ -339,8 +334,8 @@ class Message(Generic[MessageDataType]):
     def is_valid(message_dict: Dict) -> bool:
         """Validate the dictionary representing the message."""
         try:
-            required_keys = ("type", "type_data", "data", "uuid", "sequence_number")
-            value_types: Tuple = (str, str, object, str, int)
+            required_keys = ("type", "type_data", "data", "uuid")
+            value_types: Tuple = (str, str, object, str)
             assert set(required_keys).issubset(set(message_dict.keys()))
             assert all(
                 isinstance(message_dict[key], value_type)
@@ -369,7 +364,6 @@ class Message(Generic[MessageDataType]):
             message_dict["type_data"],
             message_dict["data"],
             message_dict.get("uuid"),
-            message_dict.get("sequence_number"),
             message_dict.get("timestamp"),
         )
 
@@ -383,7 +377,6 @@ class Message(Generic[MessageDataType]):
             "type_data": self.type_data,
             "data": self.message_data,
             "uuid": self.uuid,
-            "sequence_number": self.sequence_number,
             "timestamp": self.sent_timestamp,
         }
 
@@ -410,7 +403,6 @@ class Response(Message[MessageDataType]):
         type_data: str,
         message_data: MessageDataType,
         message_uuid: Optional[str] = None,
-        sequence_number: Optional[int] = None,
         sent_timestamp: Optional[float] = None,
     ):
         """Initialize."""
@@ -419,7 +411,6 @@ class Response(Message[MessageDataType]):
             type_data,
             message_data,
             message_uuid,
-            sequence_number,
             sent_timestamp,
         )
         self.status: ResponseStatus = ResponseStatus(type_data)
@@ -436,7 +427,6 @@ class Response(Message[MessageDataType]):
             message_dict["type_data"],
             message_dict["data"],
             message_dict.get("uuid"),
-            message_dict.get("sequence_number"),
             message_dict.get("timestamp"),
         )
 
