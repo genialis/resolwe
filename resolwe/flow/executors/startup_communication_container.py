@@ -11,6 +11,7 @@ import signal
 import socket
 import sys
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
 from distutils.util import strtobool
 from pathlib import Path
@@ -108,7 +109,7 @@ def purge_secrets():
                 shutil.rmtree(os.path.join(root, d), onerror=handle_error)
 
     except OSError:
-        logger.exception("Manager exception while removing data runtime directory.")
+        logger.exception("Manager exception while removing secrets directory.")
 
 
 class FakeConnector(BaseStorageConnector):
@@ -193,7 +194,7 @@ class FakeConnector(BaseStorageConnector):
         return file_stream
 
 
-class Uploader(threading.Thread):
+class Uploader:
     """Upload referenced files to remote location."""
 
     def __init__(self, manager: "Manager", loop: asyncio.AbstractEventLoop):
@@ -217,16 +218,13 @@ class Uploader(threading.Thread):
         3. Send response in the form {"success": bool, "presigned_urls": list}.
         """
         filenames_length = int.from_bytes(sock.recv(8), byteorder="big")
-        logger.debug(
-            "Received file descriptors message of length: %d.", filenames_length
-        )
         if filenames_length == 0:
             return ("", dict(), False)
         fds = array.array("i")  # Array of ints
         msg, ancdata, flags, addr = sock.recvmsg(
             filenames_length, socket.CMSG_LEN(DESCRIPTOR_CHUNK_SIZE * fds.itemsize)
         )
-        logger.debug("Received file descriptors: %s, %s.", msg, ancdata)
+        logger.debug("Received file descriptors for files: %s.", msg)
         storage_name, filenames, need_presigned_urls = json.loads(msg.decode())
         for cmsg_level, cmsg_type, cmsg_data in ancdata:
             if cmsg_level == socket.SOL_SOCKET and cmsg_type == socket.SCM_RIGHTS:
@@ -258,9 +256,9 @@ class Uploader(threading.Thread):
         try:
             client, info = server_socket.accept()
         except socket.timeout:
-            logger.error("Processing container is not connected to the upload socket")
-            self.upload_socket.close()
-            return
+            logger.error("Processing container is not connected to the upload socket.")
+            server_socket.close()
+            raise
 
         # Set the timeout for blocking operations to 1 second so we can
         # check for terminating condition.
@@ -278,7 +276,6 @@ class Uploader(threading.Thread):
                     if not file_descriptors:
                         break
                 except socket.timeout:
-                    logger.info("Uploader timeout waiting for data.")
                     continue
                 except:
                     logger.exception(
@@ -379,6 +376,7 @@ class Uploader(threading.Thread):
                 finally:
                     for stream in file_streams.values():
                         stream.close()
+        logger.debug("Upload run command stopped.")
 
     def terminate(self):
         """Stop the uploader thread."""
@@ -395,29 +393,51 @@ class ListenerProtocol(BaseProtocol):
         super().__init__(communicator, logger)
         self.processing_communicator = processing_communicator
 
+    async def bootstrap(self):
+        """Read boostrap data from the listener and modify the setting.
+
+        :raises RuntimeError: when bootstrop data could not be read.
+        """
+        # Initialize settings constants by bootstraping.
+        response = await self.communicator.bootstrap((DATA_ID, "communication"))
+        if response.status != ResponseStatus.OK:
+            raise RuntimeError("Error reading bootstrap data.")
+
+        global_settings.initialize_constants(DATA_ID, response.message_data)
+        modify_connector_settings()
+        # Recreate connectors with received settings.
+        connectors.recreate_connectors()
+        set_default_storage_connectors()
+
     async def get_script(self) -> str:
-        """Get the script from the listener."""
-        response = await self.communicator.send_command(
-            Message.command("get_script", "")
-        )
+        """Update data status to PR and nhach the script from the listener.
+
+        :raises RuntimeError: when there is error communicating with the
+            listener service.
+        """
+        response = await self.communicator.update_status("PR")
+        if response.status == ResponseStatus.ERROR:
+            raise RuntimeError("Error changing data status to PR.")
+
+        response = await self.communicator.get_script("")
         if response.response_status == ResponseStatus.ERROR:
-            raise RuntimeError("Response status error while fetching script.")
+            raise RuntimeError("Error while fetching script.")
 
         return response.message_data
 
     async def finish(self, return_code: int):
         """Send finish command."""
-        await self.communicator.send_command(
-            Message.command("finish", {"rc": return_code})
-        )
+        await self.communicator.finish({"rc": return_code})
 
     async def handle_terminate(
         self, message: Message, identity: PeerIdentity
     ) -> Response[str]:
         """Handle terminate command."""
-        response = await self.processing_communicator.send_command(
-            Message.command("terminate", "")
+        logger.debug(
+            "Received terminate command from liseter. Proxying it to the "
+            "processing container."
         )
+        response = await self.processing_communicator.send_command(message)
         response.uuid = message.uuid
         return response
 
@@ -426,17 +446,36 @@ class ProcessingProtocol(BaseProtocol):
     """Processing protocol."""
 
     def __init__(
-        self, communicator: BaseCommunicator, listener_communicator: BaseCommunicator
+        self,
+        manager: "Manager",
+        communicator: BaseCommunicator,
+        listener_communicator: BaseCommunicator,
     ):
         """Initialize."""
         super().__init__(communicator, logger)
         self.listener_communicator = listener_communicator
+        self.manager = manager
+        self.return_code = 1
+        self.communicator.heartbeat_handler = self.heartbeat_handler
+
+    async def heartbeat_handler(self, identity: PeerIdentity):
+        """Proxy heartbeat messages to the listener."""
+        await self.listener_communicator.send_heartbeat()
 
     async def default_command_handler(
         self, message: Message, identity: PeerIdentity
     ) -> Response:
         """Proxy command to the listener."""
+        logger.debug(
+            "Proxying command '%s' to the processing container.", message.command_name
+        )
         return await self.listener_communicator.send_command(message, identity)
+
+    async def handle_finish(self, message: Message[int], identity: PeerIdentity):
+        """Process the finish message."""
+        self.return_code = message.message_data
+        self.manager.stop()
+        return message.respond_ok("")
 
     async def handle_upload_dirs(
         self, message: Message[list[str]], identity: PeerIdentity
@@ -454,30 +493,27 @@ class ProcessingProtocol(BaseProtocol):
                     destination_dir = mounted_connector.path / subpath / directory
                     destination_dir.mkdir(parents=True, exist_ok=True)
             referenced_dirs.append({"path": os.path.join(directory, ""), "size": 0})
-
-        return await self.listener_communicator.send_command(
-            Message.command("referenced_files", referenced_dirs)
+        response = await self.listener_communicator.referenced_files(referenced_dirs)
+        response_method = (
+            message.respond_ok
+            if response.status == ResponseStatus.OK
+            else message.respond_error
         )
+        return response_method(response.message_data)
 
-    async def process_script(self, script: str) -> int:
+    async def process_script(self, script: str):
         """Send the script to the processing container.
 
-        This method can be very long running as it waits for the return code
-        the processing container.
-
-        :returns: return code of the process running the script.
+        :raises RuntimeError: when script could not be sent to the processing
+            container.
         """
-        try:
-            response = await self.communicator.send_command(
-                Message.command("process_script", script), response_timeout=None
-            )
-            return response.message_data
-        except asyncio.CancelledError:
-            return 1
+        response = await self.communicator.process_script(script)
+        if response.status != ResponseStatus.OK:
+            raise RuntimeError("Error sending script to the processing container.")
 
-    async def terminate(self):
+    async def terminate(self, reason: str = ""):
         """Terminate the processing container."""
-        await self.communicator.send_command(Message.command("terminate", ""))
+        await self.communicator.send_command(Message.command("terminate", reason))
 
 
 class Manager:
@@ -492,12 +528,16 @@ class Manager:
         self.listener_communicator: Optional[BaseCommunicator] = None
         self.processing_container_connected = asyncio.Event()
         self._process_script_task: Optional[asyncio.Task] = None
+        self._terminating = asyncio.Event()
 
     async def send_referenced_files(self, referenced_files):
         """Send referenced files to the listener."""
-        return await self.listener_communicator.send_command(
-            Message.command("referenced_files", referenced_files)
-        )
+        return await self.listener_communicator.referenced_files(referenced_files)
+
+    def stop(self):
+        """Stop the communication container."""
+        logger.debug("Manager got stop call.")
+        self._terminating.set()
 
     async def _handle_processing_container_connection(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
@@ -514,7 +554,7 @@ class Manager:
         await writer.drain()
         self.processing_container_connected.set()
         self.processing_communicator = SocketCommunicator(
-            reader, writer, "(self <-> processing)", logger
+            reader, writer, "(communication <-> processing)", logger
         )
 
     async def start_processing_socket(self):
@@ -526,7 +566,9 @@ class Manager:
         await asyncio.start_unix_server(
             self._handle_processing_container_connection, os.fspath(PROCESSING_SOCKET)
         )
-        logger.debug("Started listening on %s.", PROCESSING_SOCKET)
+        logger.debug(
+            "Started listening for processing container on '%s'.", PROCESSING_SOCKET
+        )
 
     async def open_listener_connection(self) -> ZMQCommunicator:
         """Connect to the listener service.
@@ -538,9 +580,9 @@ class Manager:
         zmq_socket = zmq_context.socket(zmq.DEALER)
         zmq_socket.setsockopt(zmq.IDENTITY, str(DATA_ID).encode())
         connect_string = f"{LISTENER_PROTOCOL}://{LISTENER_IP}:{LISTENER_PORT}"
-        logger.debug("Opening listener connection to %s", connect_string)
+        logger.debug("Opening listener connection to '%s'.", connect_string)
         zmq_socket.connect(connect_string)
-        return ZMQCommunicator(zmq_socket, "worker <-> listener", logger)
+        return ZMQCommunicator(zmq_socket, "communication <-> listener", logger)
 
     async def transfer_missing_data(self):
         """Transfer missing data.
@@ -554,33 +596,41 @@ class Manager:
             await transfer_data(self.listener_communicator)
         except RuntimeError:
             with suppress(Exception):
-                await self.listener_communicator.send_command(
-                    Message.command(
-                        "process_log", {"error": ["Error transfering missing data."]}
-                    )
+                await self.listener_communicator.process_log(
+                    {"error": ["Error transfering missing data."]}
                 )
             raise
-
-    def _communicator_stopped(self, future: asyncio.Future):
-        """Stop processing if necessary."""
-        if self._process_script_task:
-            logger.debug("Communicator closed, cancelling script processing.")
-            self._process_script_task.cancel()
 
     async def start(self) -> int:
         """Start the main program."""
         try:
-            return_code = 1
+            loop = asyncio.get_running_loop()
+
+            # Here we have to:
+            # - start the upload thread
+            # - connect to the listener service
+            # - connect to the processing container
+            # When something of the above fails, we have to terminate.
+
+            # Start the upload thread.
             logger.debug("Starting upload thread")
-            upload_thread = Uploader(self, asyncio.get_running_loop())
-            upload_thread.start()
-            # Wait up to 60 seconds for uploader to get ready.
-            if not upload_thread.ready.wait(60):
+            thread_pool_executor = ThreadPoolExecutor(max_workers=1)
+            uploader = Uploader(self, loop)
+
+            uploader_task = loop.run_in_executor(thread_pool_executor, uploader.run)
+
+            # Start server on the socket so processing container can connect.
+            await self.start_processing_socket()
+
+            # Open connection to the listener service.
+            self.listener_communicator = await self.open_listener_connection()
+
+            # First Wait up to 60 seconds for uploader to get ready.
+            if not uploader.ready.wait(60):
                 logger.error("Upload thread failed to start, terminating.")
                 raise RuntimeError("Upload thread failed to start.")
 
-            await self.start_processing_socket()
-            self.listener_communicator = await self.open_listener_connection()
+            # Wait for the processing container to connect to the socket.
             try:
                 logger.debug("Waiting for the processing container to connect")
                 await asyncio.wait_for(
@@ -590,11 +640,7 @@ class Manager:
             except asyncio.TimeoutError:
                 message = "Unable to connect to the processing container."
                 logger.critical(message)
-                with suppress(Exception):
-                    await self.listener_communicator.send_command(
-                        Message.command("process_log", {"error": [message]})
-                    )
-                sys.exit(1)
+                raise RuntimeError(message)
 
             logger.debug("Connected to the processing container.")
 
@@ -602,81 +648,94 @@ class Manager:
                 self.listener_communicator, self.processing_communicator
             )
             processing = ProcessingProtocol(
-                self.processing_communicator, self.listener_communicator
+                self, self.processing_communicator, self.listener_communicator
             )
 
             try:
                 # Start listening for messages from the communication and the
                 # processing container.
-                listener_task = asyncio.ensure_future(listener.communicate())
+                listener_task = asyncio.create_task(listener.communicate())
+                processing_task = asyncio.create_task(processing.communicate())
 
-                # Initialize settings constants by bootstraping.
-                response = await self.listener_communicator.send_command(
-                    Message.command("bootstrap", (DATA_ID, "communication"))
-                )
-                global_settings.initialize_constants(DATA_ID, response.message_data)
-                modify_connector_settings()
-                # Recreate connectors with received settings.
-                connectors.recreate_connectors()
-                set_default_storage_connectors()
+                # Read bootstrap data from the listener.
+                await listener.bootstrap()
 
-                processing_task = asyncio.ensure_future(processing.communicate())
-                listener_task.add_done_callback(self._communicator_stopped)
-                processing_task.add_done_callback(self._communicator_stopped)
+                # Send script to the processing container for processing.
+                try:
+                    script = await listener.get_script()
+                except RuntimeError:
+                    logger.exception("Error fetching script")
+                    logger.exception("Terminating processing container")
+                    await processing.terminate()
+                else:
+                    await processing.process_script(script)
 
-                await self.listener_communicator.send_command(
-                    Message.command("update_status", "PR")
-                )
+                # Wait until:
+                # - upload thread is alive
+                # - listener connection is closed
+                # - communication container connection is closed
+                # - communication container signals end of the processing
+                # - listener signals the end of the processing
 
-                script = await listener.get_script()
-                self._process_script_task = asyncio.create_task(
-                    processing.process_script(script)
-                )
-                return_code = await self._process_script_task
-                self._process_script_task = None
+                terminating_task = asyncio.create_task(self._terminating.wait())
 
+                monitored_tasks = [
+                    listener_task,
+                    processing_task,
+                    uploader_task,
+                    terminating_task,
+                ]
+
+                await asyncio.wait(monitored_tasks, return_when=asyncio.FIRST_COMPLETED)
             except RuntimeError as runtime_exception:
                 logger.exception("Error processing script.")
                 with suppress(Exception):
-                    await self.listener_communicator.send_command(
-                        Message.command(
-                            "process_log",
-                            {
-                                "error": [
-                                    "Runtime error in communication container: "
-                                    f"{runtime_exception}."
-                                ]
-                            },
-                        )
+                    await self.listener_communicator.process_log(
+                        {
+                            "error": [
+                                "Runtime error in communication container: "
+                                f"{runtime_exception}."
+                            ]
+                        }
                     )
 
-        except Exception:
-            logger.exception("While running communication container")
+        except Exception as e:
+            logger.exception("Unhandled exception in the communication container.")
+            with suppress(Exception):
+                await self.listener_communicator.process_log({"error": [str(e)]})
 
         finally:
-            logger.debug("Terminating upload thread.")
-            upload_thread.terminate()
-            upload_thread.join()
-            if not KEEP_DATA:
-                purge_secrets()
-
             # Notify listener that the processing is finished.
             try:
-                await listener.finish(return_code)
+                await listener.finish(processing.return_code)
             except RuntimeError:
                 logger.exception("Error sending finish command.")
             except:
                 logger.exception("Unknown error sending finish command.")
 
-            listener.stop_communicate()
-            processing.stop_communicate()
+            logger.debug("Signaling upload task to stop.")
+            uploader.terminate()
+            with suppress(asyncio.CancelledError):
+                await asyncio.wait_for(uploader_task, timeout=60)
 
+            if not KEEP_DATA:
+                logger.debug("Purging secrets.")
+                purge_secrets()
+
+            logger.debug("Stopping the processing and listener communicators.")
+            processing.stop_communicate()
+            listener.stop_communicate()
             # Wait for up to 10 seconds to close the tasks.
             with suppress(asyncio.TimeoutError):
                 await asyncio.wait_for(
-                    asyncio.gather(listener_task, processing_task), timeout=10
+                    asyncio.gather(listener_task, processing_task), timeout=60
                 )
-            return return_code
+
+            # Shut down the thread pool executor.
+            logger.debug("Stopping the thread pool executor.")
+            thread_pool_executor.shutdown()
+            logger.debug("Thread pool executor stopped.")
+            return processing.return_code
 
 
 def set_default_storage_connectors():
