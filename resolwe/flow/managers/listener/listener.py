@@ -493,7 +493,7 @@ class Processor:
         All exceptions will be handled and logged inside this method. The error
 
         """
-        data_id = int(identity)
+        data_id = abs(int(identity))
 
         # Do not proccess messages from Workers that have already finish
         # processing data objects.
@@ -713,8 +713,6 @@ class ListenerProtocol(BaseProtocol):
     ) -> Response:
         """Process command."""
         # Executor uses separate identity of the form f"e_{data.id}".
-        if b"_" in peer_identity:
-            peer_identity = peer_identity.split(b"_")[1]
         response = await database_sync_to_async(
             self._message_processor.process_command, thread_sensitive=False
         )(peer_identity, received_message)
@@ -725,7 +723,7 @@ class ListenerProtocol(BaseProtocol):
     async def post_finish(self, message: Message, peer_identity: PeerIdentity):
         """Notify dispatcher after finish command was received."""
         try:
-            data_id = int(peer_identity)
+            data_id = abs(int(peer_identity))
             with suppress(Data.DoesNotExist):
                 await self._message_processor.notify_dispatcher_finish_async(data_id)
         except Exception:
