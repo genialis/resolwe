@@ -58,7 +58,7 @@ async def open_listener_connection(data_id, host, port, protocol) -> ZMQCommunic
     """Connect to the listener service."""
     zmq_context = zmq.asyncio.Context.instance()
     zmq_socket = zmq_context.socket(zmq.DEALER)
-    zmq_socket.setsockopt(zmq.IDENTITY, f"e_{data_id}".encode())
+    zmq_socket.setsockopt(zmq.IDENTITY, f"-{data_id}".encode())
     connect_string = f"{protocol}://{host}:{port}"
     zmq_socket.connect(connect_string)
     null_logger = logging.getLogger("Docker executor<->Listener")
