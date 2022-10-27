@@ -380,13 +380,9 @@
   name: Looooong running process
   version: 1.0.0
   type: "data:test:min"
-  output:
-    - name: result
-      label: Result
-      type: basic:string
   run:
     program: |
-      sleep 100000
+      sleep 60
 
 
 - slug: test-requirements-docker

@@ -40,12 +40,17 @@ class Worker(models.Model):
 
         # Can only terminate running processes.
         if self.status != self.STATUS_PROCESSING:
+            print("Wrong status, no go")
+            print(self.status)
             return
 
         packet = {"type": "terminate", "identity": str(self.data.id).encode()}
         from resolwe.flow.managers.state import LISTENER_CONTROL_CHANNEL
 
+        print("Sending terminate signal")
+        print("On ", LISTENER_CONTROL_CHANNEL)
         async_to_sync(get_channel_layer().send)(LISTENER_CONTROL_CHANNEL, packet)
+        print("Sent terminate signal")
 
     def __str__(self):
         """Return the string representation."""
