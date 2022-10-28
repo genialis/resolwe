@@ -6,7 +6,6 @@ import os
 import socket
 
 from .global_settings import DATA_ID
-from .socket_utils import Message
 
 
 class JSONFormatter(logging.Formatter):
@@ -40,8 +39,7 @@ class ZeromqHandler(logging.Handler):
     def emit(self, record):
         """Send log message to the listener."""
         asyncio.run_coroutine_threadsafe(
-            self.communicator.send_command(Message.command("log", self.format(record))),
-            self.loop,
+            self.communicator.log(self.format(record)), self.loop
         )
 
 
