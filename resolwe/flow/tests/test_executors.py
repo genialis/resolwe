@@ -41,6 +41,8 @@ from resolwe.test import (
 PROCESSES_DIR = os.path.join(os.path.dirname(__file__), "processes")
 DESCRIPTORS_DIR = os.path.join(os.path.dirname(__file__), "descriptors")
 
+logger = logging.getLogger(__name__)
+
 
 class GetToolsTestCase(TestCase):
     @mock.patch("resolwe.flow.utils.apps")
@@ -392,30 +394,41 @@ class ManagerRunProcessTest(ProcessTestCase):
 
         def check_processing():
             """Start processing data object by saving it."""
+            print("check_processing")
             # Wait up to 20s for process to start.
             wait_status_change([Data.STATUS_PROCESSING])
+            data = Data.objects.get(name="Test terminate")
             # Terminate the worker and wait for the process to complete. In the
             # worst case it will take 60 seconds for the process to complete.
-            Worker.objects.get(data__name="Test terminate").terminate()
+            logger.debug("test_terminate_worker terminating data '%s'.", data.pk)
+            data.worker.terminate()
             wait_status_change([Data.STATUS_ERROR, Data.STATUS_DONE])
             connection.close()
 
         start_time = time()
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            # Start the check_processing thread.
-            executor.submit(check_processing)
-            # Start processing data object.
-            data = Data.objects.create(
-                name="Test terminate", contributor=self.contributor, process=process
-            )
+        try:
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                # Start the check_processing thread.
+                print("Submitting")
+                future = executor.submit(check_processing)
+                # Start processing data object.
+                print("CCC Creating data object.")
+                data = Data.objects.create(
+                    name="Test terminate", contributor=self.contributor, process=process
+                )
 
-        # To mark termination as a success it should take less than 50 seconds.
-        # The uninterrupted process would run for 60 seconds.
-        data.refresh_from_db()
-        self.assertEqual(data.worker.status, Worker.STATUS_COMPLETED)
-        self.assertEqual(data.status, Data.STATUS_ERROR)
-        self.assertEqual(data.process_error[0], "Processing was cancelled.")
-        self.assertLess(time() - start_time, 50)
+            # To mark termination as a success it should take less than 50 seconds.
+            # The uninterrupted process would run for 60 seconds.
+            print("CCC Result", future.result())
+            print("CCC Data object...")
+            print("CCC ", data.id)
+            data.refresh_from_db()
+            self.assertEqual(data.worker.status, Worker.STATUS_COMPLETED)
+            self.assertEqual(data.status, Data.STATUS_ERROR)
+            self.assertEqual(data.process_error[0], "Processing was cancelled.")
+            self.assertLess(time() - start_time, 50)
+        except Exception as e:
+            print("CCC Ex", e)
 
     @with_docker_executor
     @tag_process("test-requirements-docker")

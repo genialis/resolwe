@@ -407,22 +407,20 @@ class Processor:
         """
         Worker.objects.filter(data__pk=data_id).update(**changes)
 
+    def _save_database_terminate(self, data_id: int):
+        """Save error to the database."""
+        data = self.data(data_id)
+        self._save_error(data, "Processing was cancelled.")
+
     async def terminate(self, peer_identity: PeerIdentity):
         """Send the terminate command to the worker for the given data object.
 
         Peer should terminate by itself and send finish message back to us.
         """
-
-        def save_database(data_id):
-            """Save error to the database."""
-            data = self.data(data_id)
-            self._save_error(data, "Processing was cancelled.")
-
-        await database_sync_to_async(save_database, thread_sensitive=False)(
-            int(peer_identity)
-        )
-        # Send with a short timeout, no need to wait for the response.
-        with suppress(RuntimeError):
+        try:
+            await database_sync_to_async(
+                self._save_database_terminate, thread_sensitive=False
+            )(int(peer_identity))
             logger.debug("Sending terminate command to the peer '%s'.", peer_identity)
             await self._listener.communicator.send_command(
                 Message.command("terminate", "Terminate worker"),
@@ -430,6 +428,8 @@ class Processor:
                 timeout=5,
             )
             logger.debug("Terminate command to the peer '%s' sent.", peer_identity)
+        except Exception:
+            logger.exception("Error terminating worker.")
 
     async def peer_not_responding(self, data_id: int):
         """Peer is not responding, abort the processing.

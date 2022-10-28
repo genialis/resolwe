@@ -11,6 +11,7 @@ from resolwe.flow.managers.listener.basic_commands_plugin import BasicCommands
 from resolwe.flow.managers.listener.listener import Processor
 from resolwe.flow.managers.protocol import ExecutorProtocol
 from resolwe.flow.models import Data, DataDependency, Worker
+from resolwe.flow.models.process import Process
 from resolwe.storage.connectors.baseconnector import BaseStorageConnector
 from resolwe.storage.connectors.s3connector import AwsS3Connector
 from resolwe.storage.models import FileStorage, ReferencedPath, StorageLocation
@@ -299,21 +300,24 @@ class ListenerTest(TestCase):
         self.assertEqual(response, expected)
 
     def test_handle_resolve_data_path(self):
-        """Test data path resolwing.
-
-        Reuse already computed data object.
-        """
-        data = Data.objects.get(id=1)
+        """Test data path resolving."""
+        file_storage = FileStorage.objects.create()
+        process = Process.objects.create(contributor=self.contributor)
+        data = Data.objects.create(
+            name="Test min", process=process, contributor=self.contributor
+        )
         data.status = Data.STATUS_PROCESSING
+        data.location_id = file_storage.id
         data.save()
-        Worker.objects.get_or_create(data=data, status=Worker.STATUS_PREPARING)
-        self.manager._redis_cache.clear(1)
+        Worker.objects.get_or_create(data_id=data.pk, status=Worker.STATUS_PROCESSING)
+
+        peer_identity = str(data.pk).encode()
         message = Message.command("resolve_data_path", data.pk)
-        response = self.manager.process_command(b"1", message)
+        response = self.manager.process_command(peer_identity, message)
         self.assertEqual(response.message_data, str(constants.INPUTS_VOLUME))
         connector_name = "local"
         self.storage_location = StorageLocation.objects.create(
-            file_storage=self.file_storage, connector_name=connector_name, status="OK"
+            file_storage=file_storage, connector_name="local", status="OK"
         )
-        response = self.manager.process_command(b"1", message)
+        response = self.manager.process_command(peer_identity, message)
         self.assertEqual(response.message_data, f"/data_{connector_name}")
