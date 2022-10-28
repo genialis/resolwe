@@ -406,29 +406,21 @@ class ManagerRunProcessTest(ProcessTestCase):
             connection.close()
 
         start_time = time()
-        try:
-            with ThreadPoolExecutor(max_workers=2) as executor:
-                # Start the check_processing thread.
-                print("Submitting")
-                future = executor.submit(check_processing)
-                # Start processing data object.
-                print("CCC Creating data object.")
-                data = Data.objects.create(
-                    name="Test terminate", contributor=self.contributor, process=process
-                )
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            # Start the check_processing thread.
+            executor.submit(check_processing)
+            # Start processing data object.
+            data = Data.objects.create(
+                name="Test terminate", contributor=self.contributor, process=process
+            )
 
-            # To mark termination as a success it should take less than 50 seconds.
-            # The uninterrupted process would run for 60 seconds.
-            print("CCC Result", future.result())
-            print("CCC Data object...")
-            print("CCC ", data.id)
-            data.refresh_from_db()
-            self.assertEqual(data.worker.status, Worker.STATUS_COMPLETED)
-            self.assertEqual(data.status, Data.STATUS_ERROR)
-            self.assertEqual(data.process_error[0], "Processing was cancelled.")
-            self.assertLess(time() - start_time, 50)
-        except Exception as e:
-            print("CCC Ex", e)
+        # To mark termination as a success it should take less than 50 seconds.
+        # The uninterrupted process would run for 60 seconds.
+        data.refresh_from_db()
+        self.assertEqual(data.worker.status, Worker.STATUS_COMPLETED)
+        self.assertEqual(data.status, Data.STATUS_ERROR)
+        self.assertEqual(data.process_error[0], "Processing was cancelled.")
+        self.assertLess(time() - start_time, 50)
 
     @with_docker_executor
     @tag_process("test-requirements-docker")
