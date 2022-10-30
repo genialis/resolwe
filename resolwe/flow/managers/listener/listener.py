@@ -708,6 +708,12 @@ class ListenerProtocol(BaseProtocol):
                         "Exception updating unresponsive peer status."
                     )
 
+    async def handle_liveness_probe(
+        self, message: Message, peer_identity: PeerIdentity
+    ) -> Response[bool]:
+        """Respond to the liveness probe."""
+        return message.respond_ok(True)
+
     async def default_command_handler(
         self, received_message: Message, peer_identity: PeerIdentity
     ) -> Response:
