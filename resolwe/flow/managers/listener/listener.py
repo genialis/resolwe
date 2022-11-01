@@ -650,10 +650,14 @@ class ListenerProtocol(BaseProtocol):
         # The redis key contains the timestamp when the worker was last seen.
         # When the key does not exist in the redis database create one with the
         # current timestamp.
-        one_day = 24 * 3600
-        redis_key = f"resolwe-worker-{str(peer_identity)}"
-        self._redis.set(redis_key, int(time()))
-        self._redis.expire(redis_key, one_day)
+        try:
+            one_day = 24 * 3600
+            data_id = abs(int(peer_identity))
+            redis_key = f"resolwe-worker-{data_id}"
+            self._redis.set(redis_key, int(time()))
+            self._redis.expire(redis_key, one_day)
+        except Exception:
+            logger.exception("Exception in heartbeat handler.")
 
     async def heartbeat_task(self, check_interval=60):
         """Periodically check workers.
