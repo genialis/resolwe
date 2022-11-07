@@ -670,7 +670,7 @@ class ListenerProtocol(BaseProtocol):
         while True:
             logger.debug("Checking workers.")
             await self.check_workers()
-            await asyncio.sleep()
+            await asyncio.sleep(check_interval)
 
     async def check_workers(self):
         """Check all workers and possibly mark them as stalled."""
