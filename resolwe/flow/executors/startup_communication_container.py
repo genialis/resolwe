@@ -473,6 +473,9 @@ class ProcessingProtocol(BaseProtocol):
 
     async def handle_finish(self, message: Message[int], identity: PeerIdentity):
         """Process the finish message."""
+        logger.debug(
+            "Received finish command with the return code: %s.", message.message_data
+        )
         self.return_code = message.message_data
         self.manager.stop()
         return message.respond_ok("")
@@ -707,6 +710,10 @@ class Manager:
         finally:
             # Notify listener that the processing is finished.
             try:
+                logger.debug(
+                    "Sending finish command with the return code %s.",
+                    processing.return_code,
+                )
                 await listener.finish(processing.return_code)
             except RuntimeError:
                 logger.exception("Error sending finish command.")
