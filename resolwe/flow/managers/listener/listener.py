@@ -688,8 +688,13 @@ class ListenerProtocol(BaseProtocol):
             )
 
         default_timeout = 600
-        non_responsive_timeout = {Worker.STATUS_FINISHED_PREPARING: 7200}
         one_day = 24 * 3600
+        one_week = 7 * one_day
+        non_responsive_timeout = {
+            Worker.STATUS_FINISHED_PREPARING: 7200,
+            Worker.STATUS_PREPARING: one_week,
+        }
+
         current_timestamp = int(time())
         for data_id, worker_status in await database_sync_to_async(
             get_data, thread_sensitive=False
