@@ -854,7 +854,7 @@ class ExecutorListener:
         self._runner_future = asyncio.ensure_future(self.run())
         self._channels_listener = asyncio.ensure_future(self.channels_listener())
         self._heartbeat_future = asyncio.ensure_future(
-            self.listener_protocol.check_workers()
+            self.listener_protocol.heartbeat_task()
         )
         return self
 
