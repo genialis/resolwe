@@ -158,7 +158,7 @@ def hydrate_input_uploads(input_, input_schema, hydrate_values=True):
                 files.extend(value)
 
     urlregex = re.compile(
-        r"^(https?|ftp)://[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]"
+        r"^(https?|ftp|s3)://[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]"
     )
     for value in files:
         if "file_temp" in value:
