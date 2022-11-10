@@ -18,6 +18,7 @@ Changed
   them to run at the same time
 - Rewrite the processing container code to make it more stable
 - Rewrite the commnication container code to make it more stable
+- Add ``resolve_url`` call to the ``re_import.sh`` bash script
 
 
 ===================

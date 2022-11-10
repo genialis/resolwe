@@ -28,6 +28,8 @@ re-import() {
     MAX_PROGRES=${5:-1.0}
     COMPRESSION=$6
 
+    echo "Resolving $TEMP..."
+    TEMP=`python3 -c "from resolwe_runtime_utils import *; print(send_message(command('resolve_url', '$TEMP'))['data'])"`
     echo "Importing and compressing..."
     shopt -s nocasematch
 
