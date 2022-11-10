@@ -20,6 +20,10 @@ Changed
 - Rewrite the commnication container code to make it more stable
 - Add ``resolve_url`` call to the ``re_import.sh`` bash script
 
+Changed
+-----
+- Migrate base docker images to Ubuntu 22.04 and Fedora 36
+
 
 ===================
 31.3.1 - 2022-10-19
