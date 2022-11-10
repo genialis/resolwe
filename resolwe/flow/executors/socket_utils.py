@@ -582,6 +582,7 @@ class BaseCommunicator:
                     self.logger.info("Socket closed by peer, stopping communication.")
                     received = None
                 if received is not None:
+                    self.logger.debug("Received message: '%s'.", received)
                     assert isinstance(received, tuple)
                     assert len(received) == 2
                     assert isinstance(received[0], bytes)
