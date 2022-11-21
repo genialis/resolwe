@@ -124,8 +124,7 @@ class ProcessVisitor(ast.NodeVisitor):
     def _get_called_slug(self, process_slug, called_node: ast.Call):
         """Get the slug of the process being called.
 
-        :raises RuntimeError: when slug could not be determined (for instance when
-            the slug is being a variable).
+        :raises RuntimeError: when slug could not be determined.
         """
         # Both methods (run_process and get_latest) take argument slug as the first
         # argument, so no separation is necessary.
@@ -136,12 +135,18 @@ class ProcessVisitor(ast.NodeVisitor):
             if len(called_node.args) >= 1
             else keyword_map.get("slug")
         )
-        if isinstance(slug, ast.Constant):
+        if isinstance(slug, ast.Constant) or isinstance(slug, ast.Str):
             return slug.value, ast.Constant
 
         if isinstance(slug, ast.Name) and isinstance(slug.ctx, ast.Load):
             return slug.id, ast.Name
 
+        print("Something wwent wrong.")
+        print(called_node.args)
+        print(called_node.keywords)
+        print(keyword_map)
+        print(slug)
+        print(type(slug))
         raise RuntimeError(
             f"Spaned process slug could not be determined for the process {process_slug}."
         )
