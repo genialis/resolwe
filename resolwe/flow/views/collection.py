@@ -100,7 +100,7 @@ class CollectionViewSet(ObservableMixin, BaseCollectionViewSet):
     serializer_class = CollectionSerializer
 
     def get_queryset(self):
-        """Annotate Get requests with entity count and return queryset."""
+        """Prefetch entity data and return queryset."""
         return super().get_queryset().prefetch_related("entity_set")
 
     @action(detail=True, methods=["post"])
