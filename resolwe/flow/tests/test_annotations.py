@@ -52,10 +52,10 @@ class AnnotationViewSetsTest(TestCase):
         self.collection2.set_permission(Permission.VIEW, self.contributor)
 
         self.annotation_group1: AnnotationGroup = AnnotationGroup.objects.create(
-            name="Annotation group 1", sort_order=2
+            name="group1", label="Annotation group 1", sort_order=2
         )
         self.annotation_group2: AnnotationGroup = AnnotationGroup.objects.create(
-            name="Annotation group 2", sort_order=1
+            name="group2", label="Annotation group 2", sort_order=1
         )
 
         self.annotation_field1: AnnotationField = AnnotationField.objects.create(
@@ -99,6 +99,14 @@ class AnnotationViewSetsTest(TestCase):
         self.annotation_value2: AnnotationValue = AnnotationValue.objects.create(
             entity=self.entity2, field=self.annotation_field2, value=2
         )
+
+    def test_annotate_path(self):
+        """Test annotate entity queryset."""
+        entities = Entity.objects.all().annotate_path("group1.field1")
+        first = entities.get(pk=self.entity1.pk)
+        second = entities.get(pk=self.entity2.pk)
+        self.assertEqual(first.group1_field1, "string")
+        self.assertIsNone(second.group1_field1)
 
     def test_list_filter_preset(self):
         request = factory.get("/", {}, format="json")

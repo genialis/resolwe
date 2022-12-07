@@ -82,7 +82,7 @@ class EntityQuerySet(BaseQuerySet, PermissionQuerySet):
                     function="jsonb_extract_path",
                     output_field=models.JSONField(),
                 ),
-                models.functions.Cast("annotations__json__value", models.JSONField()),
+                models.functions.Cast("annotations___value__value", models.JSONField()),
             )
         return self.annotate(**annotation_data)
 
@@ -107,7 +107,7 @@ class EntityQuerySet(BaseQuerySet, PermissionQuerySet):
                     models.Func(
                         models.F("field__vocabulary"),
                         models.Func(
-                            models.F("json"),
+                            models.F("_value"),
                             models.Value("value"),
                             function="jsonb_extract_path_text",
                         ),
@@ -115,7 +115,7 @@ class EntityQuerySet(BaseQuerySet, PermissionQuerySet):
                         output_field=models.JSONField(),
                     ),
                     models.Func(
-                        models.F("json"),
+                        models.F("_value"),
                         models.Value("value"),
                         function="jsonb_extract_path_text",
                         output_field=models.JSONField(),
@@ -123,7 +123,7 @@ class EntityQuerySet(BaseQuerySet, PermissionQuerySet):
                 )
             )
         else:
-            subquery = subquery.annotate(final_value=models.F("json__value"))
+            subquery = subquery.annotate(final_value=models.F("_value__value"))
 
         annotation_name = annotation_name or f"{group_name}_{field_name}"
         return {annotation_name: models.Subquery(subquery.values("final_value")[:1])}
