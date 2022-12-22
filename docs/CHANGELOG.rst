@@ -13,6 +13,7 @@ Unreleased
 Added
 -----
 - Add new entity annotation framework
+- Add set_permission method on PermissionQuerySet
 
 
 ===================
