@@ -45,6 +45,19 @@ class CollectionPermissionsTest(ResolweAPITestCase):
 
         super().setUp()
 
+    def test_set_permission(self):
+        """Test set permission on permission queryset."""
+        collection = Collection.objects.create(
+            contributor=self.owner, name="Test collection 2"
+        )
+        self.assertEqual(collection.get_permission(self.user1), Permission.NONE)
+        self.assertEqual(self.collection.get_permission(self.user1), Permission.NONE)
+        Collection.objects.filter(name__startswith="Test collection").set_permission(
+            Permission.VIEW, self.user1
+        )
+        self.assertEqual(collection.get_permission(self.user1), Permission.VIEW)
+        self.assertEqual(self.collection.get_permission(self.user1), Permission.VIEW)
+
     def test_public_user(self):
         """Public user cannot create/edit anything"""
         set_permission(Permission.SHARE, self.user1, self.collection)
