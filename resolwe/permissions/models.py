@@ -362,6 +362,18 @@ class PermissionQuerySet(models.QuerySet):
             user, groups, permission, public, with_superuser
         )
 
+    def set_permission(self, permission: Permission, user_or_group: UserOrGroup):
+        """Set the permission on the objects in the queryset."""
+        from resolwe.permissions.utils import get_identity  # Circular import
+
+        entity, entity_name = get_identity(user_or_group)
+
+        for permission_group_id in self.values_list("permission_group", flat=True):
+            PermissionModel.all_objects.update_or_create(
+                **{"permission_group_id": permission_group_id, entity_name: entity},
+                defaults={"value": permission.value},
+            )
+
 
 class PermissionObject(models.Model):
     """Base permission object.
