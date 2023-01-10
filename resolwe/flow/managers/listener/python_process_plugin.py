@@ -16,7 +16,7 @@ from django.contrib.postgres.fields.jsonb import JSONField as JSONFieldb
 from django.db.models import ForeignKey, JSONField, ManyToManyField, Model, QuerySet
 
 from resolwe.flow.executors import constants
-from resolwe.flow.executors.socket_utils import Message, Response
+from resolwe.flow.executors.socket_utils import Message, Response, retry
 from resolwe.flow.models import (
     Collection,
     Data,
@@ -25,6 +25,7 @@ from resolwe.flow.models import (
     Process,
     Storage,
 )
+from resolwe.flow.models.base import UniqueSlugError
 from resolwe.flow.models.utils import serialize_collection_relations
 from resolwe.flow.utils import dict_dot
 from resolwe.permissions.models import Permission
@@ -40,6 +41,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 UserClass = get_user_model()
+
+# How many times to retry creating new object on slug collision error.
+OBJECT_CREATE_RETRIES = 10
 
 
 class PermissionManager:
@@ -481,6 +485,20 @@ class PythonProcess(ListenerPlugin):
 
         :raises RuntimeError: if user has no permission to create the object.
         """
+
+        @retry(
+            max_retries=OBJECT_CREATE_RETRIES,
+            retry_exceptions=(UniqueSlugError,),
+            min_sleep=1,
+            max_sleep=1,
+        )
+        def create_model(model: Type[Model], model_data: Dict[str, Any]):
+            """Create the model.
+
+            Retry up to 10 times on slug colision error.
+            """
+            return model.objects.create(**model_data)
+
         app_name, model_name, model_data = message.message_data
         full_model_name = f"{app_name}.{model_name}"
         self._permission_manager.can_create(
@@ -488,7 +506,7 @@ class PythonProcess(ListenerPlugin):
         )
         model = apps.get_model(app_name, model_name)
         model_data["contributor_id"] = manager.contributor(data_id).id
-        return message.respond_ok(model.objects.create(**model_data).id)
+        return message.respond_ok(create_model(model, model_data).id)
 
     def handle_filter_objects(
         self,

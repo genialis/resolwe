@@ -14,6 +14,10 @@ VERSION_NUMBER_BITS = (8, 10, 14)
 MAX_SLUG_RETRIES = 10
 
 
+class UniqueSlugError(IntegrityError):
+    """The error indicates slug collision."""
+
+
 # NOTE: This method is used in migrations.
 def delete_chunked(queryset, chunk_size=500):
     """Chunked delete, which should be used if deleting many objects.
@@ -106,6 +110,6 @@ class BaseModel(AuditModel):
 
                 raise
         else:
-            raise IntegrityError(
-                "Maximum number of retries exceeded during slug generation"
+            raise UniqueSlugError(
+                f"Unable to generate unique slug after {MAX_SLUG_RETRIES} retries."
             )

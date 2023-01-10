@@ -17,6 +17,11 @@ Added
 - Add notify_create method on Subscription model in observers to enable
   sending notification when object is created
 
+Changed
+-------
+- When slug collision occurs in the listener when creating new objects retry up
+  to ten times before raising the exception
+
 
 ===================
 32.0.0 - 2022-11-14
