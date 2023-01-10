@@ -191,3 +191,18 @@ class Subscription(models.Model):
             async_to_sync(channel_layer.group_send)(channel, notification)
 
         transaction.on_commit(trigger)
+
+    def notify_created(self, content_type: ContentType):
+        """Send a create notification.
+
+        Used to send signal when models without permissions are created.
+        """
+        notification = {
+            "type": ChangeType.CREATE,
+            "content_type_pk": content_type.pk,
+            "change_type_value": ChangeType.CREATE.value,
+            "object_id": None,
+        }
+        channel_layer = get_channel_layer()
+        channel = GROUP_SESSIONS.format(session_id=self.session_id)
+        async_to_sync(channel_layer.group_send)(channel, notification)
