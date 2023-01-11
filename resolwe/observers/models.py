@@ -198,7 +198,7 @@ class Subscription(models.Model):
         Used to send signal when models without permissions are created.
         """
         notification = {
-            "type": ChangeType.CREATE,
+            "type": TYPE_ITEM_UPDATE,
             "content_type_pk": content_type.pk,
             "change_type_value": ChangeType.CREATE.value,
             "object_id": None,
