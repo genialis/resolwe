@@ -16,6 +16,7 @@ Added
 - Add set_permission method on PermissionQuerySet
 - Add notify_create method on Subscription model in observers to enable
   sending notification when object is created
+- Add email field to contributor serializer
 
 Changed
 -------

@@ -22,6 +22,7 @@ class ContributorSerializer(SelectiveFieldMixin, serializers.ModelSerializer):
             "id",
             "last_name",
             "username",
+            "email",
         )
 
     def __init__(self, instance=None, data=empty, **kwargs):

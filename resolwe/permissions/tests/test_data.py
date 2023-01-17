@@ -165,6 +165,7 @@ class DataTestCase(ResolweAPITestCase):
                 "username": self.user1.username,
                 "first_name": self.user1.first_name,
                 "last_name": self.user1.last_name,
+                "email": self.user1.email,
             },
         )
 
@@ -180,6 +181,7 @@ class DataTestCase(ResolweAPITestCase):
                 "username": self.user1.username,
                 "first_name": self.user1.first_name,
                 "last_name": self.user1.last_name,
+                "email": self.user1.email,
             },
         )
 
@@ -195,6 +197,7 @@ class DataTestCase(ResolweAPITestCase):
                 "username": self.user1.username,
                 "first_name": self.user1.first_name,
                 "last_name": self.user1.last_name,
+                "email": self.user1.email,
             },
         )
 
@@ -212,6 +215,7 @@ class DataTestCase(ResolweAPITestCase):
                 "username": self.user1.username,
                 "first_name": self.user1.first_name,
                 "last_name": self.user1.last_name,
+                "email": self.user1.email,
             },
         )
 

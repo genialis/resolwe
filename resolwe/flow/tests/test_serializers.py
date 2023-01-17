@@ -93,6 +93,7 @@ class ResolweDictRelatedFieldTest(TestCase):
                         ("first_name", "Joe"),
                         ("last_name", "Miller"),
                         ("username", "contributor"),
+                        ("email", "contributor@test.com"),
                     ]
                 ),
             },
