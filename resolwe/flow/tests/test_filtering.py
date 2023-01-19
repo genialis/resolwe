@@ -1145,6 +1145,24 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
         result = self._check_filter({"text": "data", "ordering": "id"}, self.data)
         self.assertEqual(result.data[0]["id"], self.data[0].pk)
 
+    def test_ordering_entity_name(self):
+        """Check that data can be ordered by the entity name."""
+        expected = ["My entity", "Other entity", None, None]
+
+        request = factory.get("/", {"ordering": "entity__name"}, format="json")
+        force_authenticate(request, self.admin)
+        response = self.viewset(request)
+        received = [(item.get("entity") or {}).get("name") for item in response.data]
+        self.assertTrue(status.is_success(response.status_code))
+        self.assertEqual(expected, received)
+
+        request = factory.get("/", {"ordering": "-entity__name"}, format="json")
+        force_authenticate(request, self.admin)
+        response = self.viewset(request)
+        received = [(item.get("entity") or {}).get("name") for item in response.data]
+        self.assertTrue(status.is_success(response.status_code))
+        self.assertEqual(list(reversed(expected)), received)
+
     def test_nonexisting_parameter(self):
         response = self._check_filter({"foo": "bar"}, [], expected_status_code=400)
 

@@ -87,6 +87,7 @@ class DataViewSet(
         "process__name",
         "process__type",
         "started",
+        "entity__name",
     )
     ordering = "-created"
 
