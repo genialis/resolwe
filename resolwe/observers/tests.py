@@ -18,6 +18,7 @@ from rest_framework import status
 
 from resolwe.flow.models import Collection, Data, Entity, Process
 from resolwe.flow.views import DataViewSet
+from resolwe.observers.protocol import post_permission_changed
 from resolwe.permissions.models import Permission
 from resolwe.permissions.utils import get_anonymous_user
 from resolwe.test import TransactionResolweAPITestCase
@@ -291,6 +292,24 @@ class ObserverTestCase(TransactionTestCase):
                 size=0,
             )
 
+        # Create a new Data object in the collection.
+        @database_sync_to_async
+        def create_data_in_collection():
+            collection = Collection.objects.create(
+                contributor=self.user_alice, name="test collection"
+            )
+            collection.set_permission(Permission.OWNER, self.user_alice)
+            data = Data.objects.create(
+                pk=43,
+                name="Test data",
+                slug="test-data-collection",
+                contributor=self.user_alice,
+                process=self.process,
+                size=0,
+                collection=collection,
+            )
+            post_permission_changed.send(sender=Data, instance=data)
+
         data = await create_data()
 
         # Assert we detect creations.
@@ -299,6 +318,22 @@ class ObserverTestCase(TransactionTestCase):
             {
                 "change_type": ChangeType.CREATE.name,
                 "object_id": 42,
+                "subscription_id": self.subscription_id.hex,
+            },
+        )
+        await self.assert_no_more_messages(client)
+
+        # Repeat the test with data object in collection. This asserts that the signal
+        # post_permission_changed can be triggered without the previous call to the
+        # pre_permission_changed  signal.
+        await create_data_in_collection()
+
+        # Assert we detect creations.
+        self.assertDictEqual(
+            json.loads(await client.receive_from()),
+            {
+                "change_type": ChangeType.CREATE.name,
+                "object_id": 43,
                 "subscription_id": self.subscription_id.hex,
             },
         )

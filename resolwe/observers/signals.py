@@ -40,8 +40,10 @@ def handle_permission_change(instance, **kwargs):
     """Compare permissions for an object whose permissions changed."""
     if not IN_MIGRATIONS:
         new = set(instance.users_with_permission(Permission.VIEW))
-        old = set(instance._old_viewers)
-
+        # The "_old_viewers" property may not exist. For instance if data object is
+        # created in the collection and collection permissions are assigned to it
+        # without set_permission call.
+        old = set(getattr(instance, "_old_viewers", []))
         gains = new - old
         losses = old - new
         Observer.observe_permission_changes(instance, gains, losses)
