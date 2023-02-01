@@ -167,7 +167,9 @@ class Subscription(models.Model):
         """
         # Find related observers with only one remaining subscription
         # (it must be this one) and delete them first.
-        self.observers.annotate(subs=Count("subscriptions")).filter(subs=1).delete()
+        Observer.objects.annotate(subs=Count("subscriptions")).filter(
+            subscriptions=self.pk, subs=1
+        ).delete()
         super().delete()
 
     @classmethod
