@@ -298,18 +298,12 @@ class ObserverTestCase(TransactionTestCase):
             collection = Collection.objects.create(
                 contributor=self.user_alice, name="test collection"
             )
-            process = Process.objects.create(
-                type="data:test:process",
-                slug="test-process",
-                version="1.0.0",
-                contributor=self.user_alice,
-            )
             collection.set_permission(Permission.OWNER, self.user_alice)
-            process.set_permission(Permission.OWNER, self.user_alice)
+            self.process.set_permission(Permission.OWNER, self.user_alice)
 
             factory = APIRequestFactory()
             data = {
-                "process": {"slug": "test-process"},
+                "process": {"slug": self.process.slug},
                 "collection": {"id": collection.id},
             }
             request = factory.post("/", data, format="json")
