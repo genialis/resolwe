@@ -14,6 +14,14 @@ from .protocol import ChangeType, post_permission_changed, pre_permission_change
 IN_MIGRATIONS = False
 
 
+def observe_containers(instance: Model):
+    """Send notifications to containers when instance changes."""
+    for container_attribute in ("collection", "entity"):
+        container = getattr(instance, container_attribute, None)
+        if container is not None:
+            Observer.observe_instance_changes(container, ChangeType.UPDATE)
+
+
 @dispatch.receiver(model_signals.pre_migrate)
 def model_pre_migrate(*args, **kwargs):
     """Set 'in migrations' flag."""
@@ -47,6 +55,7 @@ def handle_permission_change(instance, **kwargs):
         gains = new - old
         losses = old - new
         Observer.observe_permission_changes(instance, gains, losses)
+        observe_containers(instance)
 
 
 @dispatch.receiver(model_signals.post_save)
@@ -61,6 +70,7 @@ def observe_model_modification(
 
     if isinstance(instance, PermissionObject) and not IN_MIGRATIONS:
         Observer.observe_instance_changes(instance, ChangeType.UPDATE)
+        observe_containers(instance)
 
 
 @dispatch.receiver(model_signals.pre_delete)

@@ -18,7 +18,7 @@ from rest_framework import status
 from rest_framework.test import APIRequestFactory, force_authenticate
 
 from resolwe.flow.models import Collection, Data, Entity, Process
-from resolwe.flow.views import DataViewSet
+from resolwe.flow.views import DataViewSet, EntityViewSet
 from resolwe.permissions.models import Permission
 from resolwe.permissions.utils import get_anonymous_user
 from resolwe.test import TransactionResolweAPITestCase
@@ -258,6 +258,235 @@ class ObserverTestCase(TransactionTestCase):
         await self.await_subscription_observer_count(1)
         await client.disconnect()
         await self.await_subscription_observer_count(0)
+
+    async def test_observe_containers_update(self):
+        """Test containers are also observed when object in them changes."""
+        client = WebsocketCommunicator(self.client_consumer, "/ws/test_session")
+        connected, _ = await client.connect()
+        self.assertTrue(connected)
+
+        @database_sync_to_async
+        def create_entity_collection():
+            collection = Collection.objects.create(
+                pk=40, contributor=self.user_alice, name="test collection"
+            )
+            entity = Entity.objects.create(
+                pk=41,
+                contributor=self.user_alice,
+                name="test entity",
+                collection=collection,
+            )
+            data = Data.objects.create(
+                pk=42,
+                name="Test data",
+                slug="test-data",
+                contributor=self.user_alice,
+                process=self.process,
+                size=0,
+                collection=collection,
+                entity=entity,
+            )
+            collection.set_permission(Permission.OWNER, self.user_alice)
+            return collection, entity, data
+
+        # Create collection, entity and data before subscribing.
+        collection, entity, data = await create_entity_collection()
+
+        # Create a subscription to the Data, Entity and Collection content_type.
+        @database_sync_to_async
+        def subscribe():
+            subscription = Subscription.objects.create(
+                user=self.user_alice,
+                session_id="test_session",
+                subscription_id=self.subscription_id,
+            )
+
+            subscription.subscribe(
+                content_type=ContentType.objects.get_for_model(Data),
+                object_ids=[data.id],
+                change_types=[ChangeType.UPDATE],
+            )
+            subscription.subscribe(
+                content_type=ContentType.objects.get_for_model(Entity),
+                object_ids=[entity.id],
+                change_types=[ChangeType.UPDATE],
+            )
+            subscription.subscribe(
+                content_type=ContentType.objects.get_for_model(Collection),
+                object_ids=[collection.id],
+                change_types=[ChangeType.UPDATE],
+            )
+
+        await subscribe()
+        await self.await_subscription_observer_count(3)
+
+        # Create a new Data object in the collection and entity.
+        @database_sync_to_async
+        def update_data():
+            data.status = Data.STATUS_DONE
+            data.save()
+
+        await update_data()
+
+        updates = [json.loads(await client.receive_from()) for _ in range(3)]
+        self.assertCountEqual(
+            updates,
+            [
+                {
+                    "change_type": ChangeType.UPDATE.name,
+                    "object_id": 40,
+                    "subscription_id": self.subscription_id.hex,
+                },
+                {
+                    "change_type": ChangeType.UPDATE.name,
+                    "object_id": 41,
+                    "subscription_id": self.subscription_id.hex,
+                },
+                {
+                    "change_type": ChangeType.UPDATE.name,
+                    "object_id": 42,
+                    "subscription_id": self.subscription_id.hex,
+                },
+            ],
+        )
+        await self.assert_no_more_messages(client)
+
+        @database_sync_to_async
+        def update_entity():
+            entity.name = "New entity name"
+            entity.save()
+
+        await update_entity()
+        updates = [json.loads(await client.receive_from()) for _ in range(2)]
+        self.assertCountEqual(
+            updates,
+            [
+                {
+                    "change_type": ChangeType.UPDATE.name,
+                    "object_id": 40,
+                    "subscription_id": self.subscription_id.hex,
+                },
+                {
+                    "change_type": ChangeType.UPDATE.name,
+                    "object_id": 41,
+                    "subscription_id": self.subscription_id.hex,
+                },
+            ],
+        )
+        await self.assert_no_more_messages(client)
+
+    async def test_observe_containers_create(self):
+        """Test containers are also observed when object in them changes."""
+        client = WebsocketCommunicator(self.client_consumer, "/ws/test_session")
+        connected, _ = await client.connect()
+        self.assertTrue(connected)
+
+        @database_sync_to_async
+        def create_collection():
+            collection = Collection.objects.create(
+                pk=40, contributor=self.user_alice, name="test collection"
+            )
+            collection.set_permission(Permission.OWNER, self.user_alice)
+            return collection
+
+        # Create collection before subscribing.
+        collection = await create_collection()
+
+        # Create a subscription to Collection object.
+        @database_sync_to_async
+        def subscribe():
+            subscription = Subscription.objects.create(
+                user=self.user_alice,
+                session_id="test_session",
+                subscription_id=self.subscription_id,
+            )
+            subscription.subscribe(
+                content_type=ContentType.objects.get_for_model(Collection),
+                object_ids=[collection.id],
+                change_types=[ChangeType.UPDATE],
+            )
+
+        await subscribe()
+        await self.await_subscription_observer_count(1)
+
+        # Create a new Entity object in the collection.
+        @database_sync_to_async
+        def create_entity():
+            factory = APIRequestFactory()
+            entity = {
+                "name": "Entity name",
+                "collection": {"id": collection.id},
+            }
+            request = factory.post("/", entity, format="json")
+            force_authenticate(request, self.user_alice)
+            viewset = EntityViewSet.as_view(actions={"post": "create"})
+            response = viewset(request)
+            return Entity.objects.get(pk=response.data["id"])
+
+        entity = await create_entity()
+        update = json.loads(await client.receive_from())
+        self.assertDictEqual(
+            update,
+            {
+                "change_type": ChangeType.UPDATE.name,
+                "object_id": collection.id,
+                "subscription_id": self.subscription_id.hex,
+            },
+        )
+        await self.assert_no_more_messages(client)
+
+        # Create a subscription to entity.
+        @database_sync_to_async
+        def subscribe_entity():
+            entity = Entity.objects.get()
+
+            subscription = Subscription.objects.get(
+                user=self.user_alice,
+                session_id="test_session",
+                subscription_id=self.subscription_id,
+            )
+            subscription.subscribe(
+                content_type=ContentType.objects.get_for_model(Entity),
+                object_ids=[entity.id],
+                change_types=[ChangeType.UPDATE],
+            )
+
+        await subscribe_entity()
+
+        @database_sync_to_async
+        def create_data():
+            self.process.set_permission(Permission.OWNER, self.user_alice)
+            factory = APIRequestFactory()
+            data = {
+                "process": {"slug": self.process.slug},
+                "collection": {"id": collection.id},
+                "entity": {"id": entity.id},
+            }
+            request = factory.post("/", data, format="json")
+            force_authenticate(request, self.user_alice)
+            viewset = DataViewSet.as_view(actions={"post": "create"})
+            response = viewset(request)
+            return response.data["id"]
+
+        await create_data()
+
+        updates = [json.loads(await client.receive_from()) for _ in range(2)]
+        self.assertCountEqual(
+            updates,
+            [
+                {
+                    "change_type": ChangeType.UPDATE.name,
+                    "object_id": collection.id,
+                    "subscription_id": self.subscription_id.hex,
+                },
+                {
+                    "change_type": ChangeType.UPDATE.name,
+                    "object_id": entity.id,
+                    "subscription_id": self.subscription_id.hex,
+                },
+            ],
+        )
+        await self.assert_no_more_messages(client)
 
     async def test_observe_table(self):
         client = WebsocketCommunicator(self.client_consumer, "/ws/test_session")

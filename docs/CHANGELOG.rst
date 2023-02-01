@@ -27,6 +27,7 @@ Fixed
 -----
 - Notify user when object (data, entity) is created in the container
 - Do not delete observers in use by other subscriptions when unsubscribing
+- Notify subscribers to the collection if object inside them is modified
 
 
 ===================
