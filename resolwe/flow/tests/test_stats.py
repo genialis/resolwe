@@ -93,7 +93,6 @@ class TestStatUtils(TestCase):
         self.assertAlmostEqual(avg.intervals["1m"].value, 0, places=1)
 
     def test_load_avg_display(self):
-
         self.assertEqual(stats._display_interval(59), "59s")
         self.assertEqual(stats._display_interval(60), "1m")
         self.assertEqual(stats._display_interval(65), "1m5s")

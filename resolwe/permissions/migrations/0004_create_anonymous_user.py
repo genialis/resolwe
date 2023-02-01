@@ -11,7 +11,6 @@ def create_anonymous_user(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("permissions", "0003_change_default_manager_on_permission_model"),
     ]

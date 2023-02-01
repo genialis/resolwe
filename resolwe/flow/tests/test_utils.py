@@ -189,7 +189,6 @@ class RetryTestCase(TestCase):
 
 class KubernetesTestCase(TestCase):
     def test_kubernetes_label_sanitizer(self):
-
         label = "this-is-a-valid-label"
         self.assertEqual(label, sanitize_kubernetes_label(label))
 

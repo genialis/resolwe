@@ -15,7 +15,6 @@ class PythonProcessExample(Process):
         foo = StringField(label="Foo")
 
     class Output:
-
         foo = StringField(label="Foo")
 
     def run(self, inputs, outputs):

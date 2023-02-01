@@ -800,7 +800,6 @@ async def init(loop: asyncio.AbstractEventLoop) -> ProcessingManager:
 
 
 if __name__ == "__main__":
-
     # Replace the code bellow with asyncio.run when we no longer have to
     # support python 3.6.
     with closing(asyncio.get_event_loop()) as loop:

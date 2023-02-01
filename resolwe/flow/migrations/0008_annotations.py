@@ -5,7 +5,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("permissions", "0004_create_anonymous_user"),
         ("flow", "0007_alter_data_process_rc"),

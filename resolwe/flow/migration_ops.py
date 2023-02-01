@@ -167,7 +167,6 @@ class ResolweProcessOperation(base.Operation):
         Process = from_state.apps.get_model("flow", "Process")
         Data = from_state.apps.get_model("flow", "Data")
         try:
-
             ProcessMigrationHistory = from_state.apps.get_model(
                 "flow", "ProcessMigrationHistory"
             )

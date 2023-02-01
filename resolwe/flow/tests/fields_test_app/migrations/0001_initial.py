@@ -8,7 +8,6 @@ import versionfield
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = []

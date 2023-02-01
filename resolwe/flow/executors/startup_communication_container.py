@@ -592,7 +592,6 @@ class Manager:
         :raises: RuntimeError on failure.
         """
         try:
-
             await transfer_data(self.listener_communicator)
         except RuntimeError:
             with suppress(Exception):

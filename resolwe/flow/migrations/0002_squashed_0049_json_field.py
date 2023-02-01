@@ -23,7 +23,6 @@ def load_triggers(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
         ("storage", "0001_squashed_0009_referencedpath_chunk_size"),

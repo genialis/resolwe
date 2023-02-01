@@ -5,7 +5,6 @@ import django.db.models.deletion
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("permissions", "0001_initial"),
         ("flow", "0002_squashed_0049_json_field"),

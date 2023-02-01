@@ -22,7 +22,6 @@ def create_duplicate_dependencies(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("flow", "0004_data_process_resources"),
     ]

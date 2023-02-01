@@ -108,7 +108,6 @@ class TestDataViewSetCase(TestCase):
         self.descriptor_schema.set_permission(Permission.VIEW, self.contributor)
 
     def test_prefetch(self):
-
         process_2 = Process.objects.create(contributor=self.user)
         descriptor_schema_2 = DescriptorSchema.objects.create(
             contributor=self.user,
@@ -1378,7 +1377,6 @@ class EntityViewSetTest(TestCase):
         self.assertFalse(Data.objects.filter(pk=data_2.pk).exists())
 
     def test_duplicate(self):
-
         handler = MagicMock()
         post_duplicate.connect(handler, sender=Entity)
 

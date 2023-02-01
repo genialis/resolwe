@@ -170,7 +170,6 @@ class TestingFrameworkTestCase(TestCase):
         isfile_mock = mock.MagicMock(return_value=False)
         with mock.patch.object(os.path, "join", join_mock):
             with mock.patch.object(os.path, "isfile", isfile_mock):
-
                 self.assertRaisesRegex(
                     AssertionError,
                     "Output file .* missing so it was created.",
@@ -202,7 +201,6 @@ class TestingFrameworkTestCase(TestCase):
             stdout_file.seek(0)
             with mock.patch.object(os.path, "join", side_effect=[stdout_file.name]):
                 with mock.patch.object(os.path, "isfile", return_value=True):
-
                     # https://github.com/PyCQA/pylint/issues/1653
                     self.assertRegex(
                         ProcessTestCase._debug_info(dummy_case, obj_mock),
