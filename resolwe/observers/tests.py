@@ -15,10 +15,10 @@ from django.test import TransactionTestCase, override_settings
 from django.urls import path
 
 from rest_framework import status
+from rest_framework.test import APIRequestFactory, force_authenticate
 
 from resolwe.flow.models import Collection, Data, Entity, Process
 from resolwe.flow.views import DataViewSet
-from resolwe.observers.protocol import post_permission_changed
 from resolwe.permissions.models import Permission
 from resolwe.permissions.utils import get_anonymous_user
 from resolwe.test import TransactionResolweAPITestCase
@@ -292,23 +292,31 @@ class ObserverTestCase(TransactionTestCase):
                 size=0,
             )
 
-        # Create a new Data object in the collection.
+        # Create a new Data object in the collection using the API call.
         @database_sync_to_async
         def create_data_in_collection():
             collection = Collection.objects.create(
                 contributor=self.user_alice, name="test collection"
             )
-            collection.set_permission(Permission.OWNER, self.user_alice)
-            data = Data.objects.create(
-                pk=43,
-                name="Test data",
-                slug="test-data-collection",
+            process = Process.objects.create(
+                type="data:test:process",
+                slug="test-process",
+                version="1.0.0",
                 contributor=self.user_alice,
-                process=self.process,
-                size=0,
-                collection=collection,
             )
-            post_permission_changed.send(sender=Data, instance=data)
+            collection.set_permission(Permission.OWNER, self.user_alice)
+            process.set_permission(Permission.OWNER, self.user_alice)
+
+            factory = APIRequestFactory()
+            data = {
+                "process": {"slug": "test-process"},
+                "collection": {"id": collection.id},
+            }
+            request = factory.post("/", data, format="json")
+            force_authenticate(request, self.user_alice)
+            viewset = DataViewSet.as_view(actions={"post": "create"})
+            response = viewset(request)
+            return response.data["id"]
 
         data = await create_data()
 
@@ -325,15 +333,16 @@ class ObserverTestCase(TransactionTestCase):
 
         # Repeat the test with data object in collection. This asserts that the signal
         # post_permission_changed can be triggered without the previous call to the
-        # pre_permission_changed  signal.
-        await create_data_in_collection()
+        # pre_permission_changed  signal and user is notified when object is created in
+        # container using API.
+        data_id = await create_data_in_collection()
 
         # Assert we detect creations.
         self.assertDictEqual(
             json.loads(await client.receive_from()),
             {
                 "change_type": ChangeType.CREATE.name,
-                "object_id": 43,
+                "object_id": data_id,
                 "subscription_id": self.subscription_id.hex,
             },
         )

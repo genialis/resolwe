@@ -23,6 +23,10 @@ Changed
 - When slug collision occurs in the listener when creating new objects retry up
   to ten times before raising the exception
 
+Fixed
+-----
+- Notify user when object (data, entity) is created in the container
+
 
 ===================
 32.0.0 - 2022-11-14
