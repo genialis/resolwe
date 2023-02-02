@@ -23,6 +23,8 @@ Changed
 -------
 - When slug collision occurs in the listener when creating new objects retry up
   to ten times before raising the exception
+- Enable overriding user and group id of the processing container with
+  environmental variable
 
 Fixed
 -----

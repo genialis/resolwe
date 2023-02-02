@@ -129,6 +129,7 @@ class Connector(BaseConnector):
     ) -> list:
         """Prepare environmental variables."""
         host, port, protocol = listener_connection
+        processing_uid, processing_gid = self._get_processing_uid_gid()
         environment = {
             "LISTENER_SERVICE_HOST": host,
             "LISTENER_SERVICE_PORT": port,
@@ -139,8 +140,8 @@ class Connector(BaseConnector):
             ),
             "RUNNING_IN_CONTAINER": 1,
             "RUNNING_IN_KUBERNETES": 1,
-            "GENIALIS_UID": os.getuid(),
-            "GENIALIS_GID": os.getgid(),
+            "GENIALIS_UID": processing_uid,
+            "GENIALIS_GID": processing_gid,
             "DESCRIPTOR_CHUNK_SIZE": 100,
             "MOUNTED_CONNECTORS": ",".join(
                 connector.name
@@ -198,10 +199,11 @@ class Connector(BaseConnector):
         This is done using configmap which is mostly static. This command
         returns description for this configmap.
         """
+        processing_uid, processing_gid = self._get_processing_uid_gid()
         passwd_content = "root:x:0:0:root:/root:/bin/bash\n"
-        passwd_content += f"user:x:{os.getuid()}:{os.getgid()}:user:{os.fspath(constants.PROCESSING_VOLUME)}:/bin/bash\n"
+        passwd_content += f"user:x:{processing_uid}:{processing_gid}:user:{os.fspath(constants.PROCESSING_VOLUME)}:/bin/bash\n"
         group_content = "root:x:0:\n"
-        group_content += f"user:x:{os.getgid()}:user\n"
+        group_content += f"user:x:{processing_gid}:user\n"
 
         data = dict()
         modules = {
@@ -473,6 +475,12 @@ class Connector(BaseConnector):
             },
         }
 
+    def _get_processing_uid_gid(self) -> Tuple[int, int]:
+        """Get the UID and GID of the processing container."""
+        return getattr(settings, "FLOW_PROCESSING_USER", os.getuid()), getattr(
+            settings, "FLOW_PROCESSING_GROUP", os.getgid()
+        )
+
     def _data_inputs_size(self, data: Data, safety_buffer: int = 2**30) -> int:
         """Get the size of data inputs.
 
@@ -602,9 +610,10 @@ class Connector(BaseConnector):
             use_host_network = network == "host"
 
         # Generate and set seccomp policy to limit syscalls.
+        processing_uid, processing_gid = self._get_processing_uid_gid()
         security_context = {
-            "runAsUser": os.getuid(),
-            "runAsGroup": os.getgid(),
+            "runAsUser": processing_uid,
+            "runAsGroup": processing_gid,
             "allowPrivilegeEscalation": False,
             "privileged": False,
             "capabilities": {"drop": ["ALL"]},
