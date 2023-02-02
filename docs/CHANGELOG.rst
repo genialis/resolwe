@@ -17,6 +17,7 @@ Added
 - Add notify_create method on Subscription model in observers to enable
   sending notification when object is created
 - Allow ordering data endpoint by entity name
+- Add ``with_superusers`` argument to ``users_with_permission`` method
 
 Changed
 -------

@@ -256,25 +256,42 @@ class ObjectPermsTestCase(TestCase):
         self.group1.user_set.add(self.user1)
         self.collection.set_permission(Permission.EDIT, self.user1)
         self.collection.set_permission(Permission.SHARE, self.user2)
+        admin = get_user_model().objects.create_superuser(
+            username="admin",
+            email="admin@test.com",
+            password="admin",
+            first_name="James",
+            last_name="Smith",
+        )
         self.assertCountEqual(
             self.collection.users_with_permission(Permission.VIEW),
             [self.user1, self.user2],
+        )
+        self.assertCountEqual(
+            self.collection.users_with_permission(Permission.VIEW, True),
+            [self.user1, self.user2, admin],
         )
         self.assertCountEqual(
             self.collection.users_with_permission(Permission.SHARE),
             [self.user2],
         )
         self.assertCountEqual(
+            self.collection.users_with_permission(Permission.SHARE, True),
+            [self.user2, admin],
+        )
+        self.assertCountEqual(
             self.collection.users_with_permission(Permission.OWNER),
             [],
         )
-
+        self.assertCountEqual(
+            self.collection.users_with_permission(Permission.OWNER, True),
+            [admin],
+        )
         self.collection.set_permission(Permission.NONE, self.user1)
         self.assertCountEqual(
             self.collection.users_with_permission(Permission.VIEW),
             [self.user2],
         )
-
         self.collection.set_permission(Permission.VIEW, self.group1)
         self.assertCountEqual(
             self.collection.users_with_permission(Permission.VIEW),

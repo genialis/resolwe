@@ -241,22 +241,24 @@ class PermissionGroup(models.Model):
         else:
             return Permission.NONE
 
-    def users_with_permission(self, permission: Permission) -> List[User]:
+    def users_with_permission(
+        self, permission: Permission, with_superusers=False
+    ) -> List[User]:
         """Get a list of users with at least this permission level.
 
         Calling this with Permission.NONE will return users for whom an explicit
         PermissionModel with Permission.NONE exists.
+
+        :attr permission: the permission level user must have.
+        :attr with_superusers: should superusers be included in the returned list.
         """
-        filtered = self.permissions.filter(value__gte=permission)
-        users = list(
-            get_user_model()
-            .objects.filter(
-                models.Q(groups__in=filtered.values_list("group", flat=True))
-                | models.Q(pk__in=filtered.values_list("user", flat=True))
-            )
-            .distinct()
-        )
-        return users
+        filtered_permissions = self.permissions.filter(value__gte=permission)
+        filter = models.Q(
+            groups__in=filtered_permissions.values_list("group", flat=True)
+        ) | models.Q(pk__in=filtered_permissions.values_list("user", flat=True))
+        if with_superusers:
+            filter |= models.Q(is_superuser=True)
+        return list(get_user_model().objects.filter(filter).distinct())
 
 
 class PermissionQuerySet(models.QuerySet):
@@ -448,13 +450,18 @@ class PermissionObject(models.Model):
         else:
             return []
 
-    def users_with_permission(self, permission: Permission) -> List[User]:
+    def users_with_permission(
+        self, permission: Permission, with_superusers=False
+    ) -> List[User]:
         """Get a list of users with at least this permission level.
 
         Calling this with Permission.NONE will return users for whom an explicit
         PermissionModel with Permission.NONE exists.
+
+        :attr permission: the permission level user must have.
+        :attr with_superusers: should superusers be included in the returned list.
         """
-        return self.permission_group.users_with_permission(permission)
+        return self.permission_group.users_with_permission(permission, with_superusers)
 
     @property
     def topmost_container(self) -> Optional[models.Model]:
