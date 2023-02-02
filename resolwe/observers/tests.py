@@ -541,6 +541,27 @@ class ObserverTestCase(TransactionTestCase):
             response = viewset(request)
             return response.data["id"]
 
+        @database_sync_to_async
+        def create_data_in_collection_superuser():
+            """Test observing works for superusers without explicit permissions."""
+            self.user_alice.is_superuser = True
+            self.user_alice.save()
+            collection = Collection.objects.create(
+                contributor=self.user_alice, name="test collection"
+            )
+            factory = APIRequestFactory()
+            data = {
+                "process": {"slug": self.process.slug},
+                "collection": {"id": collection.id},
+            }
+            request = factory.post("/", data, format="json")
+            force_authenticate(request, self.user_alice)
+            viewset = DataViewSet.as_view(actions={"post": "create"})
+            response = viewset(request)
+            self.user_alice.is_superuser = False
+            self.user_alice.save()
+            return response.data["id"]
+
         data = await create_data()
 
         # Assert we detect creations.
@@ -559,6 +580,20 @@ class ObserverTestCase(TransactionTestCase):
         # pre_permission_changed  signal and user is notified when object is created in
         # container using API.
         data_id = await create_data_in_collection()
+
+        # Assert we detect creations.
+        self.assertDictEqual(
+            json.loads(await client.receive_from()),
+            {
+                "change_type": ChangeType.CREATE.name,
+                "object_id": data_id,
+                "subscription_id": self.subscription_id.hex,
+            },
+        )
+        await self.assert_no_more_messages(client)
+
+        # Repeat the test above for superuser without explicit permissions.
+        data_id = await create_data_in_collection_superuser()
 
         # Assert we detect creations.
         self.assertDictEqual(

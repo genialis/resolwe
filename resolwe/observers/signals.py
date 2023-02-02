@@ -40,14 +40,16 @@ def model_post_migrate(*args, **kwargs):
 def prepare_permission_change(instance, **kwargs):
     """Store old permissions for an object whose permissions are about to change."""
     if not IN_MIGRATIONS:
-        instance._old_viewers = instance.users_with_permission(Permission.VIEW)
+        instance._old_viewers = instance.users_with_permission(
+            Permission.VIEW, with_superusers=True
+        )
 
 
 @dispatch.receiver(post_permission_changed)
 def handle_permission_change(instance, **kwargs):
     """Compare permissions for an object whose permissions changed."""
     if not IN_MIGRATIONS:
-        new = set(instance.users_with_permission(Permission.VIEW))
+        new = set(instance.users_with_permission(Permission.VIEW, with_superusers=True))
         # The "_old_viewers" property may not exist. For instance if data object is
         # created in the collection and collection permissions are assigned to it
         # without set_permission call.
