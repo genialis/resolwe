@@ -521,6 +521,22 @@ class ObserverTestCase(TransactionTestCase):
                 size=0,
             )
 
+        # Create a new Data object as superuser through API.
+        @database_sync_to_async
+        def create_data_superuser():
+            self.user_alice.is_superuser = True
+            self.user_alice.save()
+
+            factory = APIRequestFactory()
+            data = {"process": {"slug": self.process.slug}}
+            request = factory.post("/", data, format="json")
+            force_authenticate(request, self.user_alice)
+            viewset = DataViewSet.as_view(actions={"post": "create"})
+            response = viewset(request)
+            self.user_alice.is_superuser = False
+            self.user_alice.save()
+            return response.data["id"]
+
         # Create a new Data object in the collection using the API call.
         @database_sync_to_async
         def create_data_in_collection():
@@ -562,6 +578,11 @@ class ObserverTestCase(TransactionTestCase):
             self.user_alice.save()
             return response.data["id"]
 
+        # Chech that data creation works for regular users. This actually checks that
+        # contributor permissions are assigned during creation, since permission change
+        # actually triggers the notification.
+        # For other observable objects (Entity, Collection) this is done when they are
+        # created through API call and no signal is sent on create.
         data = await create_data()
 
         # Assert we detect creations.
@@ -570,6 +591,22 @@ class ObserverTestCase(TransactionTestCase):
             {
                 "change_type": ChangeType.CREATE.name,
                 "object_id": 42,
+                "subscription_id": self.subscription_id.hex,
+            },
+        )
+        await self.assert_no_more_messages(client)
+
+        # Create data as superuser. Create API to create data, else superusers will not
+        # be notified. Since superusers always have all the permissions, the signal will
+        # not be sent when creating data directly.
+        data_id = await create_data_superuser()
+
+        # Assert we detect creations.
+        self.assertDictEqual(
+            json.loads(await client.receive_from()),
+            {
+                "change_type": ChangeType.CREATE.name,
+                "object_id": data_id,
                 "subscription_id": self.subscription_id.hex,
             },
         )

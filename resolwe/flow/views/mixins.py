@@ -46,17 +46,13 @@ class ResolweCreateModelMixin(mixins.CreateModelMixin):
         """Create a resource."""
         with transaction.atomic():
             instance = serializer.save()
+            # Notify the users without explicit permissions (superusers).
+            post_permission_changed.send(sender=type(instance), instance=instance)
             if hasattr(instance, "permission_group"):
                 # Assign all permissions to the object contributor when object is not
                 # in container.
                 if not instance.in_container():
                     assign_contributor_permissions(instance)
-                # The object was created inheriting permissions from its container.
-                # Notify observers.
-                else:
-                    post_permission_changed.send(
-                        sender=type(instance), instance=instance
-                    )
 
 
 class ResolweUpdateModelMixin(mixins.UpdateModelMixin):

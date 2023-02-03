@@ -58,6 +58,7 @@ def handle_permission_change(instance, **kwargs):
         losses = old - new
         Observer.observe_permission_changes(instance, gains, losses)
         observe_containers(instance)
+        instance._old_viewers = []
 
 
 @dispatch.receiver(model_signals.post_save)
