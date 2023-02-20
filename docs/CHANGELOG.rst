@@ -6,6 +6,17 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Changed
+-------
+- **BACKWARD INCOMPATIBLE:** Drop support for ``Python 3.6``, ``Python 3.7``, 
+  ``Python 3.8`` and ``Python 3.9``. The processing container continues to
+  support ``Python >= 3.6``.
+
+
 ===================
 32.1.0 - 2023-02-13
 ===================
