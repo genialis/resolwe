@@ -26,10 +26,10 @@ MESSAGES = {
 class DataTestCase(ResolweAPITestCase):
     fixtures = [
         "users.yaml",
+        "permissions.yaml",
         "collections.yaml",
         "processes.yaml",
         "data.yaml",
-        "permissions.yaml",
     ]
 
     def setUp(self):

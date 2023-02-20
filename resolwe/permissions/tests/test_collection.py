@@ -14,10 +14,10 @@ MESSAGES = {
 class CollectionTestCase(ResolweAPITestCase):
     fixtures = [
         "users.yaml",
+        "permissions.yaml",
         "data.yaml",
         "collections.yaml",
         "processes.yaml",
-        "permissions.yaml",
     ]
 
     def setUp(self):

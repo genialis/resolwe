@@ -1,4 +1,7 @@
 ---
+- model: permissions.permissiongroup
+  pk: 2
+  fields: {}
 
 - model: flow.process
   pk: 1
@@ -26,4 +29,5 @@
     slug: 'test_process'
     type: 'data:test:'
     version: 1.0.0
+    permission_group: 2
   

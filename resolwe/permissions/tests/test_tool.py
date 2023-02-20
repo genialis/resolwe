@@ -9,10 +9,10 @@ from resolwe.test import ResolweAPITestCase
 class ProcessTestCase(ResolweAPITestCase):
     fixtures = [
         "users.yaml",
+        "permissions.yaml",
         "processes.yaml",
         "data.yaml",
         "collections.yaml",
-        "permissions.yaml",
     ]
 
     def setUp(self):

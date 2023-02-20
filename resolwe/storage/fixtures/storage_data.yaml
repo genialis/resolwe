@@ -5,6 +5,10 @@
     id: 1
     created: 2020-01-01T09:00:00.000+0000
 
+- model: permissions.permissiongroup
+  pk: 1
+  fields: {}
+
 - model: flow.data
   pk: 1
   fields:
@@ -21,12 +25,12 @@
     version: 0.0.0
     size: 42
     location: 1
+    permission_group: 1
 
 - model: storage.FileStorage
   fields:
     id: 2
     created: 2020-01-01T09:00:00.000+0000
-    
 
 - model: flow.data
   pk: 2
@@ -44,3 +48,4 @@
     version: 0.0.0
     size: 42
     location: 2
+    permission_group: 1
