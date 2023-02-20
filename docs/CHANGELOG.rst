@@ -28,6 +28,10 @@ Changed
 - Add ``source`` attribute to observer notifications
 - When subscribing to observer endpoint without explicit ids subscribe to CREATE and
   DELETE notifications by default
+- Send ``CREATE`` and ``DELETE`` notifications to the containers of the given object
+  when permissions to it are gained/lost or it is moved between containers. The
+  notifications also contain the ``source`` and ``source_id`` context containing
+  content type and id of the object that triggered the change.
 
 
 ===================

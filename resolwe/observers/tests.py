@@ -112,12 +112,13 @@ class ObserverTestCase(TransactionTestCase):
         # Subscribe to C/D and U separately.
         @database_sync_to_async
         def subscribe():
+            content_type = ContentType.objects.get_for_model(Object)
             Subscription.objects.create(
                 user=self.user_alice,
                 session_id="test_session",
                 subscription_id=self.subscription_id,
             ).subscribe(
-                content_type=ContentType.objects.get_for_model(Object),
+                content_type=content_type,
                 object_ids=[43],
                 change_types=[ChangeType.CREATE, ChangeType.DELETE],
             )
@@ -126,12 +127,13 @@ class ObserverTestCase(TransactionTestCase):
                 session_id="test_session",
                 subscription_id=self.subscription_id2,
             ).subscribe(
-                content_type=ContentType.objects.get_for_model(Object),
+                content_type=content_type,
                 object_ids=[43],
                 change_types=[ChangeType.UPDATE],
             )
+            return content_type
 
-        await subscribe()
+        content_type = await subscribe()
 
         await self.await_object_count(Subscription, 2)
         await self.await_object_count(Observer, 3)
@@ -150,6 +152,7 @@ class ObserverTestCase(TransactionTestCase):
                 "object_id": 43,
                 "change_type": ChangeType.CREATE.name,
                 "subscription_id": self.subscription_id.hex,
+                "source": [content_type.name, 43],
             },
         )
 
@@ -162,6 +165,7 @@ class ObserverTestCase(TransactionTestCase):
                 "object_id": 43,
                 "change_type": ChangeType.UPDATE.name,
                 "subscription_id": self.subscription_id2.hex,
+                "source": [content_type.name, 43],
             },
         )
 
@@ -192,6 +196,7 @@ class ObserverTestCase(TransactionTestCase):
                 "object_id": 43,
                 "change_type": ChangeType.DELETE.name,
                 "subscription_id": self.subscription_id.hex,
+                "source": [content_type.name, 43],
             },
         )
 
@@ -336,16 +341,19 @@ class ObserverTestCase(TransactionTestCase):
                     "change_type": ChangeType.UPDATE.name,
                     "object_id": 40,
                     "subscription_id": self.subscription_id.hex,
+                    "source": ["data", 42],
                 },
                 {
                     "change_type": ChangeType.UPDATE.name,
                     "object_id": 41,
                     "subscription_id": self.subscription_id.hex,
+                    "source": ["data", 42],
                 },
                 {
                     "change_type": ChangeType.UPDATE.name,
                     "object_id": 42,
                     "subscription_id": self.subscription_id.hex,
+                    "source": ["data", 42],
                 },
             ],
         )
@@ -365,11 +373,13 @@ class ObserverTestCase(TransactionTestCase):
                     "change_type": ChangeType.UPDATE.name,
                     "object_id": 40,
                     "subscription_id": self.subscription_id.hex,
+                    "source": ["entity", 41],
                 },
                 {
                     "change_type": ChangeType.UPDATE.name,
                     "object_id": 41,
                     "subscription_id": self.subscription_id.hex,
+                    "source": ["entity", 41],
                 },
             ],
         )
@@ -403,7 +413,7 @@ class ObserverTestCase(TransactionTestCase):
             subscription.subscribe(
                 content_type=ContentType.objects.get_for_model(Collection),
                 object_ids=[collection.id],
-                change_types=[ChangeType.UPDATE],
+                change_types=[ChangeType.CREATE],
             )
 
         await subscribe()
@@ -428,9 +438,10 @@ class ObserverTestCase(TransactionTestCase):
         self.assertDictEqual(
             update,
             {
-                "change_type": ChangeType.UPDATE.name,
+                "change_type": ChangeType.CREATE.name,
                 "object_id": collection.id,
                 "subscription_id": self.subscription_id.hex,
+                "source": ["entity", entity.id],
             },
         )
         await self.assert_no_more_messages(client)
@@ -448,7 +459,7 @@ class ObserverTestCase(TransactionTestCase):
             subscription.subscribe(
                 content_type=ContentType.objects.get_for_model(Entity),
                 object_ids=[entity.id],
-                change_types=[ChangeType.UPDATE],
+                change_types=[ChangeType.CREATE],
             )
 
         await subscribe_entity()
@@ -468,21 +479,22 @@ class ObserverTestCase(TransactionTestCase):
             response = viewset(request)
             return response.data["id"]
 
-        await create_data()
-
+        data_id = await create_data()
         updates = [json.loads(await client.receive_from()) for _ in range(2)]
         self.assertCountEqual(
             updates,
             [
                 {
-                    "change_type": ChangeType.UPDATE.name,
+                    "change_type": ChangeType.CREATE.name,
                     "object_id": collection.id,
                     "subscription_id": self.subscription_id.hex,
+                    "source": ["data", data_id],
                 },
                 {
-                    "change_type": ChangeType.UPDATE.name,
+                    "change_type": ChangeType.CREATE.name,
                     "object_id": entity.id,
                     "subscription_id": self.subscription_id.hex,
+                    "source": ["data", data_id],
                 },
             ],
         )
@@ -571,6 +583,7 @@ class ObserverTestCase(TransactionTestCase):
                 "change_type": ChangeType.CREATE.name,
                 "object_id": 42,
                 "subscription_id": self.subscription_id.hex,
+                "source": ["data", 42],
             },
         )
         await self.assert_no_more_messages(client)
@@ -588,6 +601,7 @@ class ObserverTestCase(TransactionTestCase):
                 "change_type": ChangeType.CREATE.name,
                 "object_id": data_id,
                 "subscription_id": self.subscription_id.hex,
+                "source": ["data", data_id],
             },
         )
         await self.assert_no_more_messages(client)
@@ -602,6 +616,7 @@ class ObserverTestCase(TransactionTestCase):
                 "change_type": ChangeType.CREATE.name,
                 "object_id": data_id,
                 "subscription_id": self.subscription_id.hex,
+                "source": ["data", data_id],
             },
         )
         await self.assert_no_more_messages(client)
@@ -620,6 +635,7 @@ class ObserverTestCase(TransactionTestCase):
                 "change_type": ChangeType.DELETE.name,
                 "object_id": 42,
                 "subscription_id": self.subscription_id.hex,
+                "source": ["data", 42],
             },
         )
         await self.assert_no_more_messages(client)
@@ -628,9 +644,15 @@ class ObserverTestCase(TransactionTestCase):
         await self.await_subscription_observer_count(2)
 
     async def test_change_permission_group(self):
-        client = WebsocketCommunicator(self.client_consumer, "/ws/test_session")
-        connected, details = await client.connect()
-        self.assertTrue(connected)
+        client_bob = WebsocketCommunicator(self.client_consumer, "/ws/test_session_bob")
+        connected_bob, _ = await client_bob.connect()
+        self.assertTrue(connected_bob)
+
+        client_alice = WebsocketCommunicator(
+            self.client_consumer, "/ws/test_session_alice"
+        )
+        connected_alice, _ = await client_alice.connect()
+        self.assertTrue(connected_alice)
 
         # Create a Data object visible to Bob.
         @database_sync_to_async
@@ -640,12 +662,14 @@ class ObserverTestCase(TransactionTestCase):
                 name="Test collection",
             )
             self.collection.set_permission(Permission.VIEW, self.user_bob)
+            self.collection.set_permission(Permission.VIEW, self.user_alice)
 
             self.collection2 = Collection.objects.create(
                 contributor=self.user_alice,
                 name="Test collection 2",
             )
             self.collection2.set_permission(Permission.NONE, self.user_bob)
+            self.collection2.set_permission(Permission.VIEW, self.user_alice)
 
             data = Data.objects.create(
                 pk=42,
@@ -662,18 +686,40 @@ class ObserverTestCase(TransactionTestCase):
 
         # Create a subscription to the Data object by Bob.
         @database_sync_to_async
-        def subscribe():
-            Subscription.objects.create(
+        def subscribe(data):
+            subscription_bob = Subscription.objects.create(
                 user=self.user_bob,
-                session_id="test_session",
+                session_id="test_session_bob",
                 subscription_id=self.subscription_id,
-            ).subscribe(
+            )
+            subscription_bob.subscribe(
                 content_type=ContentType.objects.get_for_model(Data),
                 object_ids=[42],
                 change_types=[ChangeType.UPDATE, ChangeType.DELETE],
             )
+            subscription_bob.subscribe(
+                content_type=ContentType.objects.get_for_model(Collection),
+                object_ids=[self.collection.pk, self.collection2.pk],
+                change_types=[ChangeType.UPDATE, ChangeType.DELETE, ChangeType.CREATE],
+            )
 
-        await subscribe()
+            subscription_alice = Subscription.objects.create(
+                user=self.user_alice,
+                session_id="test_session_alice",
+                subscription_id=self.subscription_id2,
+            )
+            subscription_alice.subscribe(
+                content_type=ContentType.objects.get_for_model(Collection),
+                object_ids=[self.collection.pk, self.collection2.pk],
+                change_types=[ChangeType.DELETE, ChangeType.CREATE, ChangeType.UPDATE],
+            )
+            subscription_alice.subscribe(
+                content_type=ContentType.objects.get_for_model(Data),
+                object_ids=[data.pk],
+                change_types=[ChangeType.DELETE, ChangeType.CREATE, ChangeType.UPDATE],
+            )
+
+        await subscribe(data)
 
         # Reset the PermissionGroup of the Data object (removes permissions to Bob)
         @database_sync_to_async
@@ -681,17 +727,56 @@ class ObserverTestCase(TransactionTestCase):
             data.move_to_collection(self.collection2)
 
         await change_permission_group(data)
+        notifications_bob = [
+            json.loads(await client_bob.receive_from()) for _ in range(2)
+        ]
+        notifications_alice = [
+            json.loads(await client_alice.receive_from()) for _ in range(3)
+        ]
 
         # Assert that Bob sees this as a deletion.
-        self.assertDictEqual(
-            json.loads(await client.receive_from()),
-            {
-                "change_type": ChangeType.DELETE.name,
-                "object_id": 42,
-                "subscription_id": self.subscription_id.hex,
-            },
+        self.assertCountEqual(
+            notifications_bob,
+            [
+                {
+                    "change_type": ChangeType.DELETE.name,
+                    "object_id": 42,
+                    "subscription_id": self.subscription_id.hex,
+                    "source": ["data", 42],
+                },
+                {
+                    "object_id": self.collection.pk,
+                    "change_type": ChangeType.DELETE.name,
+                    "source": ["data", 42],
+                    "subscription_id": self.subscription_id.hex,
+                },
+            ],
         )
-        await self.assert_no_more_messages(client)
+        self.assertCountEqual(
+            notifications_alice,
+            [
+                {
+                    "object_id": data.pk,
+                    "change_type": ChangeType.UPDATE.name,
+                    "subscription_id": self.subscription_id2.hex,
+                    "source": ["data", 42],
+                },
+                {
+                    "object_id": self.collection.pk,
+                    "change_type": ChangeType.DELETE.name,
+                    "source": ["data", 42],
+                    "subscription_id": self.subscription_id2.hex,
+                },
+                {
+                    "object_id": self.collection2.pk,
+                    "change_type": ChangeType.CREATE.name,
+                    "source": ["data", 42],
+                    "subscription_id": self.subscription_id2.hex,
+                },
+            ],
+        )
+        await self.assert_no_more_messages(client_bob)
+        await self.assert_no_more_messages(client_alice)
 
     async def test_modify_permissions(self):
         client = WebsocketCommunicator(self.client_consumer, "/ws/test_session")
@@ -742,6 +827,7 @@ class ObserverTestCase(TransactionTestCase):
                 "change_type": ChangeType.CREATE.name,
                 "object_id": 42,
                 "subscription_id": self.subscription_id.hex,
+                "source": ["data", 42],
             },
         )
         await self.assert_no_more_messages(client)
@@ -760,6 +846,7 @@ class ObserverTestCase(TransactionTestCase):
                 "change_type": ChangeType.DELETE.name,
                 "object_id": 42,
                 "subscription_id": self.subscription_id.hex,
+                "source": ["data", 42],
             },
         )
         await self.assert_no_more_messages(client)
@@ -860,7 +947,8 @@ class ObserverAPITestCase(TransactionResolweAPITestCase):
             resp.data,
             {"subscription_id": Subscription.objects.all()[0].subscription_id.hex},
         )
-        self.assertEqual(Observer.objects.count(), 1)
+        # There should be 2 subscriptions: for CREATE and DLETE.
+        self.assertEqual(Observer.objects.count(), 2)
         self.assertEqual(
             Observer.objects.filter(
                 change_type=ChangeType.CREATE.value,
@@ -883,7 +971,7 @@ class ObserverAPITestCase(TransactionResolweAPITestCase):
             resp.data,
             {"subscription_id": sub_qs.first().subscription_id.hex},
         )
-        self.assertEqual(Observer.objects.count(), 3)
+        self.assertEqual(Observer.objects.count(), 4)
         self.assertEqual(
             Observer.objects.filter(
                 change_type=ChangeType.UPDATE.value,
@@ -907,7 +995,7 @@ class ObserverAPITestCase(TransactionResolweAPITestCase):
         )
         # Assert we don't have duplicate observers.
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(Observer.objects.count(), 3)
+        self.assertEqual(Observer.objects.count(), 4)
 
     def test_subscribe_to_forbidden_object(self):
         resp = self._post(user=self.user_bob, data={"session_id": "test", "ids": [42]})
