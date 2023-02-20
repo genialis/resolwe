@@ -14,6 +14,8 @@ Added
 -----
 - Add ``suppress_observer_notifications`` and ``move_to_container`` decorators
   to observers
+- Add types ``ChannelsMessage`` and ``WebsocketMessage`` describing type of
+  observers messages
 
 Changed
 -------

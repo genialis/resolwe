@@ -1,5 +1,6 @@
 """Constants used for Observer communication."""
 from enum import Enum, auto
+from typing import Optional, TypedDict
 
 from django import dispatch
 
@@ -29,3 +30,32 @@ post_container_changed = dispatch.Signal(providing_args=["instance"])
 
 # Attribute to use on the observable instance to temporary suppress notifications
 suppress_notifications_attribute = "__observer_notification_suppressed"
+
+
+class ChannelsMessage(TypedDict):
+    """The type for channels message to be sent."""
+
+    type: str
+    object_id: Optional[int]
+    content_type_pk: int
+    change_type_value: int
+    source: Optional[tuple[str, int]]
+
+
+class WebsocketMessage(TypedDict):
+    """The type of websocket message to be sent.
+
+    :attr object_id: the id of the object to notify
+    :attr change_type: the type of change (create/delete/update)
+    :attr subscription_id: the id of the subscription
+    :attr source: the tuple (content_type, source_id) of the object, that triggered
+        this notification. For instence when data object with id 1 in the collection
+        with id 2 is modified, the following messages are sent.
+        * {1, update, (data, 1), subscription_id }
+        * {2, update, (data, 1), subscription_id }
+    """
+
+    object_id: Optional[int]
+    change_type: str
+    source: Optional[tuple[str, int]]
+    subscription_id: str
