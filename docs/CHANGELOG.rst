@@ -10,6 +10,11 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Added
+-----
+- Add ``suppress_observer_notifications`` and ``move_to_container`` decorators
+  to observers
+
 Changed
 -------
 - **BACKWARD INCOMPATIBLE:** Drop support for ``Python 3.6``, ``Python 3.7``, 

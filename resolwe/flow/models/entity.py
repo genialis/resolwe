@@ -11,7 +11,7 @@ from resolwe.flow.models.annotations import (
     AnnotationValue,
     HandleMissingAnnotations,
 )
-from resolwe.observers.protocol import post_permission_changed, pre_permission_changed
+from resolwe.observers.decorators import move_to_container
 from resolwe.permissions.models import PermissionObject, PermissionQuerySet
 
 from .base import BaseModel, BaseQuerySet
@@ -234,6 +234,7 @@ class Entity(BaseCollection, PermissionObject):
         )[0]
 
     @transaction.atomic
+    @move_to_container
     def move_to_collection(
         self,
         collection: Collection,
@@ -254,7 +255,6 @@ class Entity(BaseCollection, PermissionObject):
             raise ValidationError(
                 f"Entity {self}({self.pk}) can only be moved to another container."
             )
-        pre_permission_changed.send(sender=type(self), instance=self)
 
         missing_annotations = AnnotationField.objects.none()
         if self.collection is not None:
@@ -272,7 +272,6 @@ class Entity(BaseCollection, PermissionObject):
         self.tags = collection.tags
         self.permission_group = collection.permission_group
         self.save(update_fields=["collection", "tags", "permission_group"])
-        post_permission_changed.send(sender=type(self), instance=self)
         self.data.move_to_collection(collection)
 
     def invalid_annotation_fields(self, annotation_fields=None):
