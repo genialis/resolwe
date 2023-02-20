@@ -1,6 +1,6 @@
 """The model Observer model."""
 import uuid
-from typing import List, Optional, Set
+from typing import Any, List, Optional, Set, Tuple
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
@@ -13,7 +13,7 @@ from django.db.models.query import QuerySet
 
 from resolwe.permissions.models import Permission, PermissionObject
 
-from .protocol import GROUP_SESSIONS, TYPE_ITEM_UPDATE, ChangeType
+from .protocol import GROUP_SESSIONS, TYPE_ITEM_UPDATE, ChangeType, ChannelsMessage
 
 # Type alias for observable object.
 Observable = PermissionObject
@@ -63,10 +63,10 @@ class Observer(models.Model):
     @classmethod
     def observe_instance_changes(cls, instance: Observable, change_type: ChangeType):
         """Handle a notification about an instance change."""
-
+        content_type = ContentType.objects.get_for_model(instance)
         observers = Observer.get_interested(
             change_type=change_type,
-            content_type=ContentType.objects.get_for_model(instance),
+            content_type=content_type,
             object_id=instance.pk,
         )
 
@@ -74,11 +74,16 @@ class Observer(models.Model):
         for subscriber in Subscription.objects.filter(observers__in=observers):
             if instance.has_permission(Permission.VIEW, subscriber.user):
                 # Register on_commit callbacks to send the signals.
-                Subscription.notify(subscriber.session_id, instance, change_type)
+                Subscription.notify(
+                    subscriber.session_id,
+                    instance,
+                    change_type,
+                    source=(content_type.name, instance.pk),
+                )
 
     @classmethod
     def observe_permission_changes(
-        cls, instance: any, gains: Set[int], losses: Set[int]
+        cls, instance: Any, gains: Set[int], losses: Set[int]
     ):
         """Handle a notification about a permission change.
 
@@ -94,9 +99,10 @@ class Observer(models.Model):
                 continue
 
             # Find all sessions who have observers registered on this object.
+            content_type = ContentType.objects.get_for_model(instance)
             interested = Observer.get_interested(
                 change_type=change_type,
-                content_type=ContentType.objects.get_for_model(instance),
+                content_type=content_type,
                 object_id=instance.pk,
             )
             # Of all interested users, select only those whose permissions changed.
@@ -108,7 +114,12 @@ class Observer(models.Model):
             )
 
             for session_id in session_ids:
-                Subscription.notify(session_id, instance, change_type)
+                Subscription.notify(
+                    session_id,
+                    instance,
+                    change_type,
+                    source=(content_type.name, instance.pk),
+                )
 
     def __str__(self) -> str:
         """Format the object representation."""
@@ -174,13 +185,20 @@ class Subscription(models.Model):
         super().delete()
 
     @classmethod
-    def notify(cls, session_id: str, instance: Observable, change_type: ChangeType):
+    def notify(
+        cls,
+        session_id: str,
+        instance: Observable,
+        change_type: ChangeType,
+        source: Optional[Tuple[str, int]],
+    ):
         """Register a callback to send a change notification on transaction commit."""
-        notification = {
+        notification: ChannelsMessage = {
             "type": TYPE_ITEM_UPDATE,
             "content_type_pk": ContentType.objects.get_for_model(instance).pk,
             "change_type_value": change_type.value,
             "object_id": instance.pk,
+            "source": source,
         }
 
         # Define a callback, but copy variable values.
@@ -198,11 +216,12 @@ class Subscription(models.Model):
 
         Used to send signal when models without permissions are created.
         """
-        notification = {
+        notification: ChannelsMessage = {
             "type": TYPE_ITEM_UPDATE,
             "content_type_pk": content_type.pk,
             "change_type_value": ChangeType.CREATE.value,
             "object_id": None,
+            "source": None,
         }
         channel_layer = get_channel_layer()
         channel = GROUP_SESSIONS.format(session_id=self.session_id)

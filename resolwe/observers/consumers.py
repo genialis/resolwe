@@ -1,13 +1,13 @@
 """Consumers for Observers."""
 
-from typing import Dict, List, Union
+from typing import Dict, List
 
 from channels.generic.websocket import JsonWebsocketConsumer
 
 from django.contrib.contenttypes.models import ContentType
 
 from .models import Observer, Subscription
-from .protocol import GROUP_SESSIONS, ChangeType
+from .protocol import GROUP_SESSIONS, ChangeType, ChannelsMessage, WebsocketMessage
 
 
 class ClientConsumer(JsonWebsocketConsumer):
@@ -33,11 +33,12 @@ class ClientConsumer(JsonWebsocketConsumer):
         Subscription.objects.filter(session_id=self.session_id).delete()
         self.close()
 
-    def observers_item_update(self, msg: Dict[str, Union[str, int]]):
+    def observers_item_update(self, msg: ChannelsMessage):
         """Handle an item update signal."""
         content_type = ContentType.objects.get_for_id(msg["content_type_pk"])
         object_id = msg["object_id"]
         change_type = ChangeType(msg["change_type_value"])
+        source = msg["source"]
 
         interested = Observer.get_interested(
             content_type=content_type, object_id=object_id, change_type=change_type
@@ -50,7 +51,7 @@ class ClientConsumer(JsonWebsocketConsumer):
             .distinct()
         ]
 
-        if change_type == ChangeType.DELETE:
+        if change_type == ChangeType.DELETE and source is None:
             # The observed object was either deleted or the user lost permissions.
             subscription = Subscription.objects.get(session_id=self.session_id)
             observers = Observer.objects.filter(
@@ -60,11 +61,13 @@ class ClientConsumer(JsonWebsocketConsumer):
             # Assure we don't stay subscribed to an illegal object.
             subscription.observers.remove(*observers)
 
+        to_send: WebsocketMessage = {
+            "object_id": object_id,
+            "change_type": change_type.name,
+            "subscription_id": "0",
+            "source": source,
+        }
+
         for subscription_id in subscription_ids:
-            self.send_json(
-                {
-                    "subscription_id": subscription_id,
-                    "object_id": object_id,
-                    "change_type": change_type.name,
-                }
-            )
+            to_send["subscription_id"] = subscription_id
+            self.send_json(to_send)
