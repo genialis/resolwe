@@ -34,7 +34,9 @@ class ObservableMixin:
 
         if ids is None:
             # Subscribe to the whole table.
-            subscription.subscribe(content_type, [None], (ChangeType.CREATE,))
+            subscription.subscribe(
+                content_type, [None], (ChangeType.CREATE, ChangeType.DELETE)
+            )
         else:
             # Verify all ids exists and user has permissions to view them.
             for id in ids:

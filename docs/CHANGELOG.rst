@@ -23,6 +23,8 @@ Changed
   ``Python 3.8`` and ``Python 3.9``. The processing container continues to
   support ``Python >= 3.6``.
 - Add ``source`` attribute to observer notifications
+- When subscribing to observer endpoint without explicit ids subscribe to CREATE and
+  DELETE notifications by default
 
 
 ===================
