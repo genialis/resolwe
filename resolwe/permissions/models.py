@@ -2,7 +2,7 @@
 import logging
 from enum import IntEnum
 from functools import reduce
-from typing import List, Optional, Union
+from typing import Iterable, List, Optional, Union
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -474,6 +474,15 @@ class PermissionObject(models.Model):
             if value is not None:
                 return value
         return None
+
+    @property
+    def containers(self) -> Iterable[models.Model]:
+        """Get the sequence of containers this object is in.
+
+        :returns: a sequence of containers (may be empty) this object is in.
+        """
+        containers = (getattr(self, prop, None) for prop in self._container_properties)
+        return [container for container in containers if container is not None]
 
     def in_container(self) -> bool:
         """Return if object lies in a container."""

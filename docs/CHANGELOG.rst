@@ -16,6 +16,8 @@ Added
   to observers
 - Add types ``ChannelsMessage`` and ``WebsocketMessage`` describing type of
   observers messages
+- Add property ``containers`` on the ``PermissionObject`` that returns all the
+  containers for the given instance
 
 Changed
 -------
