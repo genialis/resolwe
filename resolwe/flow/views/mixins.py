@@ -7,7 +7,6 @@ from rest_framework.exceptions import ParseError
 from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
 
-from resolwe.observers.protocol import post_permission_changed
 from resolwe.permissions.models import get_anonymous_user
 from resolwe.permissions.utils import assign_contributor_permissions
 
@@ -51,12 +50,6 @@ class ResolweCreateModelMixin(mixins.CreateModelMixin):
                 # in container.
                 if not instance.in_container():
                     assign_contributor_permissions(instance)
-                # The object was created inheriting permissions from its container.
-                # Notify observers.
-                else:
-                    post_permission_changed.send(
-                        sender=type(instance), instance=instance
-                    )
 
 
 class ResolweUpdateModelMixin(mixins.UpdateModelMixin):
