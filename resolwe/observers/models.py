@@ -1,6 +1,6 @@
 """The model Observer model."""
 import uuid
-from typing import Any, List, Optional, Set, Tuple
+from typing import Any, Iterable, List, Optional, Set, Tuple
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
@@ -61,6 +61,37 @@ class Observer(models.Model):
         return cls.objects.filter(query)
 
     @classmethod
+    def observe_instance_container(
+        cls,
+        instance: Observable,
+        change_type: ChangeType,
+        containers: Optional[Iterable[Observable]] = None,
+    ):
+        """Handle a notifications to the containers of the given instance.
+
+        When containers are given notify them else infer them from the instance.
+        """
+        for container in containers or instance.containers:
+            observers = Observer.get_interested(
+                change_type=change_type,
+                content_type=ContentType.objects.get_for_model(container),
+                object_id=container.pk,
+            )
+            # Forward the message to the appropriate groups.
+            for subscriber in Subscription.objects.filter(observers__in=observers):
+                if container.has_permission(Permission.VIEW, subscriber.user):
+                    # Register on_commit callbacks to send the signals.
+                    Subscription.notify(
+                        subscriber.session_id,
+                        container,
+                        change_type,
+                        source=(
+                            ContentType.objects.get_for_model(instance).name,
+                            instance.pk,
+                        ),
+                    )
+
+    @classmethod
     def observe_instance_changes(cls, instance: Observable, change_type: ChangeType):
         """Handle a notification about an instance change."""
         content_type = ContentType.objects.get_for_model(instance)
@@ -83,12 +114,19 @@ class Observer(models.Model):
 
     @classmethod
     def observe_permission_changes(
-        cls, instance: Any, gains: Set[int], losses: Set[int]
+        cls,
+        instance: Any,
+        gains: Set[int],
+        losses: Set[int],
+        observe_containers: bool = True,
     ):
         """Handle a notification about a permission change.
 
         Given an instance and a set of user_ids who gained/lost permissions for it,
         only relevant observers will be notified of the instance's creation/deletion.
+
+        When observe_containers is set to True (default), also object's containers are
+        notified using the same change type.
         """
         for change_type, user_ids in (
             (ChangeType.CREATE, gains),
@@ -120,6 +158,9 @@ class Observer(models.Model):
                     change_type,
                     source=(content_type.name, instance.pk),
                 )
+
+            if observe_containers:
+                cls.observe_instance_container(instance, change_type)
 
     def __str__(self) -> str:
         """Format the object representation."""

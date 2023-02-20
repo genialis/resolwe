@@ -18,6 +18,7 @@ Added
   observers messages
 - Add property ``containers`` on the ``PermissionObject`` that returns all the
   containers for the given instance
+- Add ``observe_instance_containers`` method to observer models
 
 Changed
 -------
