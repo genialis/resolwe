@@ -3,7 +3,7 @@
 
 from contextlib import suppress
 
-from resolwe.observers.models import PermissionObject
+from resolwe.observers.models import Observable
 from resolwe.observers.protocol import (
     post_container_changed,
     pre_container_changed,
@@ -38,7 +38,7 @@ def suppress_observer_notifications(function):
 
     def wrapper(self, *args, **kwargs):
         assert isinstance(
-            self, PermissionObject
+            self, Observable
         ), "The first argument of the method must be observable object."
         setattr(self, suppress_notifications_attribute, True)
         try:

@@ -4,9 +4,9 @@ from django import dispatch
 from django.db.models import Model
 from django.db.models import signals as model_signals
 
-from resolwe.permissions.models import Permission, PermissionObject
+from resolwe.permissions.models import Permission
 
-from .models import Observer
+from .models import Observable, Observer
 from .protocol import ChangeType, post_permission_changed, pre_permission_changed
 
 # Global 'in migrations' flag to ignore signals during migrations.
@@ -70,7 +70,7 @@ def observe_model_modification(
     if created:
         return
 
-    if isinstance(instance, PermissionObject) and not IN_MIGRATIONS:
+    if isinstance(instance, Observable) and not IN_MIGRATIONS:
         Observer.observe_instance_changes(instance, ChangeType.UPDATE)
         observe_containers(instance)
 
@@ -78,5 +78,5 @@ def observe_model_modification(
 @dispatch.receiver(model_signals.pre_delete)
 def observe_model_deletion(sender: type, instance: Model, **kwargs):
     """Receive model deletions."""
-    if isinstance(instance, PermissionObject) and not IN_MIGRATIONS:
+    if isinstance(instance, Observable) and not IN_MIGRATIONS:
         Observer.observe_instance_changes(instance, ChangeType.DELETE)

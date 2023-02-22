@@ -15,6 +15,9 @@ from resolwe.permissions.models import Permission, PermissionObject
 
 from .protocol import GROUP_SESSIONS, TYPE_ITEM_UPDATE, ChangeType
 
+# Type alias for observable object.
+Observable = PermissionObject
+
 
 def get_random_uuid() -> str:
     """Generate a random UUID in string format."""
@@ -58,9 +61,7 @@ class Observer(models.Model):
         return cls.objects.filter(query)
 
     @classmethod
-    def observe_instance_changes(
-        cls, instance: PermissionObject, change_type: ChangeType
-    ):
+    def observe_instance_changes(cls, instance: Observable, change_type: ChangeType):
         """Handle a notification about an instance change."""
 
         observers = Observer.get_interested(
@@ -173,9 +174,7 @@ class Subscription(models.Model):
         super().delete()
 
     @classmethod
-    def notify(
-        cls, session_id: str, instance: PermissionObject, change_type: ChangeType
-    ):
+    def notify(cls, session_id: str, instance: Observable, change_type: ChangeType):
         """Register a callback to send a change notification on transaction commit."""
         notification = {
             "type": TYPE_ITEM_UPDATE,
