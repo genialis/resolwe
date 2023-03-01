@@ -1,23 +1,28 @@
 """Consumers for Observers."""
 
-from typing import Dict, List
+from typing import Callable
 
-from channels.consumer import AsyncConsumer
+from channels.consumer import SyncConsumer
 from channels.generic.websocket import JsonWebsocketConsumer
 
 from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import ValidationError
+from django.utils import timezone
 
-from .models import Observer, Subscription
+from resolwe.flow.models.utils import bulk_duplicate
+
+from .models import BackgroundTask, Observer, Subscription
 from .protocol import GROUP_SESSIONS, ChangeType, ChannelsMessage, WebsocketMessage
 
 # The channel used to listen for BackgrountTask events
 BACKGROUND_TASK_CHANNEL = "observers.background_task"
+from django.contrib.auth import get_user_model
 
 
 class ClientConsumer(JsonWebsocketConsumer):
     """Consumer for client communication."""
 
-    def websocket_connect(self, event: Dict[str, str]):
+    def websocket_connect(self, event: dict[str, str]):
         """Handle establishing a WebSocket connection."""
         session_id: str = self.scope["url_route"]["kwargs"]["session_id"]
         self.session_id = session_id
@@ -26,7 +31,7 @@ class ClientConsumer(JsonWebsocketConsumer):
         super().websocket_connect(event)
 
     @property
-    def groups(self) -> List[str]:
+    def groups(self) -> list[str]:
         """Generate a list of groups this channel should add itself to."""
         if not hasattr(self, "session_id"):
             return []
@@ -77,5 +82,68 @@ class ClientConsumer(JsonWebsocketConsumer):
             self.send_json(to_send)
 
 
-class BackgroundTaskConsumer(AsyncConsumer):
+class BackgroundTaskConsumer(SyncConsumer):
     """The background task consumer."""
+
+    def wrap_task(self, function: Callable, task: BackgroundTask):
+        """Start the function and update background task status."""
+        try:
+            task.started = timezone.now()
+            task.status = BackgroundTask.STATUS_PROCESSING
+            task.save(update_fields=["status", "started"])
+            task.output = function()
+            task.status = BackgroundTask.STATUS_DONE
+        except ValidationError as e:
+            task.status = BackgroundTask.STATUS_ERROR
+            task.output = e.messages
+        except Exception as e:
+            task.status = BackgroundTask.STATUS_ERROR
+            task.output = str(e)
+        finally:
+            task.finished = timezone.now()
+            task.save(update_fields=["status", "finished", "output"])
+
+    def duplicate_data(self, message: dict):
+        """Duplicate the data and update task status."""
+        # Break circular import.
+        from resolwe.flow.models import Data
+
+        def duplicate():
+            duplicates = bulk_duplicate(
+                data=Data.objects.filter(pk__in=message["data_ids"]),
+                contributor=get_user_model().objects.get(pk=message["contributor_id"]),
+                inherit_entity=message["inherit_entity"],
+                inherit_collection=message["inherit_collection"],
+            )
+            return list(duplicates.values_list("pk", flat=True))
+
+        self.wrap_task(duplicate, BackgroundTask.objects.get(pk=message["task_id"]))
+
+    def duplicate_entity(self, message: dict):
+        """Duplicate the entities and update task status."""
+        # Break circular import.
+        from resolwe.flow.models import Entity
+
+        def duplicate():
+            duplicates = bulk_duplicate(
+                entities=Entity.objects.filter(pk__in=message["entity_ids"]),
+                contributor=get_user_model().objects.get(pk=message["contributor_id"]),
+                inherit_collection=message["inherit_collection"],
+            )
+            return list(duplicates.values_list("pk", flat=True))
+
+        self.wrap_task(duplicate, BackgroundTask.objects.get(pk=message["task_id"]))
+
+    def duplicate_collection(self, message: dict):
+        """Duplicate the collections and update task status."""
+        # Break circular import.
+        from resolwe.flow.models import Collection
+
+        def duplicate():
+            duplicates = bulk_duplicate(
+                collections=Collection.objects.filter(pk__in=message["collection_ids"]),
+                contributor=get_user_model().objects.get(pk=message["contributor_id"]),
+            )
+            return list(duplicates.values_list("pk", flat=True))
+
+        self.wrap_task(duplicate, BackgroundTask.objects.get(pk=message["task_id"]))
