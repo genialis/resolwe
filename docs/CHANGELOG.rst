@@ -10,6 +10,11 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Added
+-----
+- Add ``BackgroundTask`` model to enable support for observable long running
+  backend tasks
+
 Changed
 -------
 - **BACKWARD INCOMPATIBLE** Remove the duplicated ``collection`` subfield from the ``entity`` field when

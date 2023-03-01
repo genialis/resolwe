@@ -1,5 +1,6 @@
 """The model Observer model."""
 import uuid
+from time import sleep, time
 from typing import Any, Iterable, List, Optional, Set, Tuple
 
 from asgiref.sync import async_to_sync
@@ -17,6 +18,86 @@ from .protocol import GROUP_SESSIONS, TYPE_ITEM_UPDATE, ChangeType, ChannelsMess
 
 # Type alias for observable object.
 Observable = PermissionObject
+
+
+class BackgroundTask(Observable):
+    """The observable model representing the background task.
+
+    When a long running task is started, the instance of type BackgroundTask is created
+    and frontend can subscribe to receive its notifications.
+    """
+
+    #: background task is waiting
+    STATUS_WAITING = "WA"
+    #: background task is processing
+    STATUS_PROCESSING = "PR"
+    #: background task has finished successfully
+    STATUS_DONE = "OK"
+    #: background task has finished with error
+    STATUS_ERROR = "ER"
+
+    STATUS_CHOICES = (
+        (STATUS_WAITING, "Waiting"),
+        (STATUS_PROCESSING, "Processing"),
+        (STATUS_DONE, "Done"),
+        (STATUS_ERROR, "Error"),
+    )
+
+    #: task start date and time
+    started = models.DateTimeField(blank=True, null=True, db_index=True)
+
+    #: task finished date and time
+    finished = models.DateTimeField(blank=True, null=True, db_index=True)
+
+    #: status of the background task
+    status = models.CharField(
+        max_length=2, choices=STATUS_CHOICES, default=STATUS_WAITING
+    )
+
+    #: task description
+    description = models.CharField(max_length=256)
+
+    #: the field containing output from the backgroud task, such as list of ids of
+    #: duplicated objects, error details...
+    output = models.JSONField(default="")
+
+    def wait(
+        self,
+        timeout: float = 2,
+        final_statuses: list[str] = [STATUS_DONE],
+        polling_interval: float = 0.3,
+    ):
+        """Wait for up to timeout seconds for task to transition into final_statuses.
+
+        The method is meant to be used in tests as it creates lots of database queries.
+
+        :raises RuntimeError: when desired status was not reached within timeout.
+        """
+        started = time()
+        while self.status not in final_statuses and time() - started < timeout:
+            sleep(polling_interval)
+            self.refresh_from_db()
+
+        if self.status not in final_statuses:
+            raise RuntimeError(
+                f"Task failed to reach {final_statuses} within {timeout} seconds."
+            )
+
+    def result(
+        self,
+        timeout: float = 2,
+        final_statuses: list[str] = [STATUS_DONE],
+        polling_interval: float = 0.3,
+    ) -> Any:
+        """Return the output field of the background task when finished.
+
+        The method waits for up to timeout seconds for task to reach the one of
+        final_statuses and returns its result (output field).
+
+        :raises RuntimeError: when desired status was not reached within the timeout.
+        """
+        self.wait(timeout, final_statuses, polling_interval)
+        return self.output
 
 
 def get_random_uuid() -> str:
