@@ -103,7 +103,8 @@ class TransactionResolweAPITestCase(TestCaseHelpers, APITransactionTestCase):
         if hasattr(self.viewset, "create"):
             list_url_mapping["post"] = "create"
 
-        self.list_view = self.viewset.as_view(list_url_mapping)
+        if list_url_mapping:
+            self.list_view = self.viewset.as_view(list_url_mapping)
 
         detail_url_mapping = {}
         if hasattr(self.viewset, "retrieve"):
@@ -117,7 +118,8 @@ class TransactionResolweAPITestCase(TestCaseHelpers, APITransactionTestCase):
         if hasattr(self.viewset, "detail_permissions"):
             detail_url_mapping["post"] = "detail_permissions"
 
-        self.detail_view = self.viewset.as_view(detail_url_mapping)
+        if detail_url_mapping:
+            self.detail_view = self.viewset.as_view(detail_url_mapping)
 
     def detail_url(self, pk):
         """Get detail url."""
