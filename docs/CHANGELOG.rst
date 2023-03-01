@@ -30,6 +30,8 @@ Changed
 - Annotate the queryset in the ``EntityViewSet`` with ``data_statuses`` and
   and ``data_count`` attributes to reduce the number of queries 
 - Modify the ``DataViewSet`` to remove redundant queries
+- Add ``duplicate_data``, ``duplicate_entity`` and ``duplicate_collection``
+  methods to ``BackgroundTaskConsumer`` class
 
 Fixed
 -----
