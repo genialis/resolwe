@@ -2,12 +2,16 @@
 
 from typing import Dict, List
 
+from channels.consumer import AsyncConsumer
 from channels.generic.websocket import JsonWebsocketConsumer
 
 from django.contrib.contenttypes.models import ContentType
 
 from .models import Observer, Subscription
 from .protocol import GROUP_SESSIONS, ChangeType, ChannelsMessage, WebsocketMessage
+
+# The channel used to listen for BackgrountTask events
+BACKGROUND_TASK_CHANNEL = "observers.background_task"
 
 
 class ClientConsumer(JsonWebsocketConsumer):
@@ -71,3 +75,7 @@ class ClientConsumer(JsonWebsocketConsumer):
         for subscription_id in subscription_ids:
             to_send["subscription_id"] = subscription_id
             self.send_json(to_send)
+
+
+class BackgroundTaskConsumer(AsyncConsumer):
+    """The background task consumer."""

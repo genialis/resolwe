@@ -14,6 +14,7 @@ Added
 -----
 - Add ``BackgroundTask`` model to enable support for observable long running
   backend tasks
+- Add ``BackgroundTaskConsumer`` class to handle starting background jobs
 
 Changed
 -------
