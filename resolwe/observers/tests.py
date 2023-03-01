@@ -24,8 +24,9 @@ from resolwe.permissions.utils import get_anonymous_user
 from resolwe.test import TransactionResolweAPITestCase
 
 from .consumers import ClientConsumer
-from .models import Observer, Subscription
+from .models import BackgroundTask, Observer, Subscription
 from .protocol import ChangeType
+from .views import BackgroundTaksViewSet, BackgroundTaskSerializer
 
 
 # If FLOW_MANAGER_DISABLE_AUTO_CALLS is False, Data objects will receive
@@ -902,6 +903,106 @@ class ObserverTestCase(TransactionTestCase):
 
         # Assert subscription didn't delete.
         await self.await_subscription_observer_count(3)
+
+
+class BackgroundTaskTestCase(TransactionResolweAPITestCase):
+    def setUp(self):
+        self.viewset = BackgroundTaksViewSet
+        self.resource_name = "backgroundtask"
+        super().setUp()
+        self.task_preparing = BackgroundTask.objects.create(
+            status=BackgroundTask.STATUS_WAITING,
+            description="Preparing",
+            output="Output preparing",
+        )
+        self.task_running = BackgroundTask.objects.create(
+            status=BackgroundTask.STATUS_PROCESSING,
+            description="Processing",
+            output="Output processing",
+        )
+        self.task_ok = BackgroundTask.objects.create(
+            status=BackgroundTask.STATUS_DONE, description="Done", output="Output done"
+        )
+        self.task_error = BackgroundTask.objects.create(
+            status=BackgroundTask.STATUS_ERROR,
+            description="Error",
+            output="Output error",
+        )
+
+        User = get_user_model()
+        self.alice = User.objects.create(
+            username="alice",
+            email="alice@test.com",
+            first_name="Ana",
+            last_name="Banana",
+        )
+        # Alice has access to all the tasks by default.
+        self.task_preparing.set_permission(Permission.VIEW, self.alice)
+        self.task_running.set_permission(Permission.VIEW, self.alice)
+        self.task_ok.set_permission(Permission.VIEW, self.alice)
+        self.task_error.set_permission(Permission.VIEW, self.alice)
+
+    def test_background_task_list(self):
+        # Public access should be empty.
+        result = self._get_list()
+        self.assertEqual(result.status_code, status.HTTP_200_OK)
+        self.assertEqual(result.data, [])
+
+        result = BackgroundTaskSerializer(self.task_preparing).data
+
+        # Alice should see the preparing and running tasks by default.
+        expected = [
+            BackgroundTaskSerializer(self.task_preparing).data,
+            BackgroundTaskSerializer(self.task_running).data,
+        ]
+        result = self._get_list(
+            user=self.alice,
+            query_params={
+                "status__in": f"{BackgroundTask.STATUS_WAITING},{BackgroundTask.STATUS_PROCESSING}"
+            },
+        )
+        self.assertEqual(result.status_code, status.HTTP_200_OK)
+        self.assertCountEqual(result.data, expected)
+
+        # Filter only tasks in status OK and ERROR.
+        result = self._get_list(
+            user=self.alice,
+            query_params={
+                "status__in": f"{BackgroundTask.STATUS_DONE},{BackgroundTask.STATUS_ERROR}",
+            },
+        )
+        expected = [
+            BackgroundTaskSerializer(self.task_ok).data,
+            BackgroundTaskSerializer(self.task_error).data,
+        ]
+        self.assertEqual(result.status_code, status.HTTP_200_OK)
+        self.assertCountEqual(result.data, expected)
+
+        # Alice should not see tasks without explicit permissions.
+        self.task_running.set_permission(Permission.NONE, self.alice)
+        expected = [BackgroundTaskSerializer(self.task_preparing).data]
+        result = self._get_list(
+            user=self.alice,
+            query_params={
+                "status__in": f"{BackgroundTask.STATUS_WAITING},{BackgroundTask.STATUS_PROCESSING}"
+            },
+        )
+        self.assertEqual(result.status_code, status.HTTP_200_OK)
+        self.assertCountEqual(result.data, expected)
+
+        # Alice should see all tasks if superuser.
+        self.alice.is_superuser = True
+        self.alice.is_staff = True
+        self.alice.save()
+        expected = [
+            BackgroundTaskSerializer(self.task_preparing).data,
+            BackgroundTaskSerializer(self.task_running).data,
+            BackgroundTaskSerializer(self.task_ok).data,
+            BackgroundTaskSerializer(self.task_error).data,
+        ]
+        result = self._get_list(user=self.alice)
+        self.assertEqual(result.status_code, status.HTTP_200_OK)
+        self.assertCountEqual(result.data, expected)
 
 
 class ObserverAPITestCase(TransactionResolweAPITestCase):
