@@ -11,6 +11,7 @@ from resolwe.flow.models.utils import fill_with_defaults
 from resolwe.flow.serializers import DataSerializer
 from resolwe.flow.utils import get_data_checksum
 from resolwe.observers.mixins import ObservableMixin
+from resolwe.observers.views import BackgroundTaskSerializer
 from resolwe.permissions.loader import get_permissions_class
 from resolwe.permissions.mixins import ResolwePermissionsMixin
 from resolwe.permissions.models import Permission, PermissionModel
@@ -76,7 +77,11 @@ class DataViewSet(
 
     @action(detail=False, methods=["post"])
     def duplicate(self, request, *args, **kwargs):
-        """Duplicate (make copy of) ``Data`` objects."""
+        """Duplicate (make copy of) ``Data`` objects.
+
+        The objects are duplicated in the background and the details of the background
+        task handling the duplication are returned.
+        """
         if not request.user.is_authenticated:
             raise exceptions.NotFound
 
@@ -94,12 +99,10 @@ class DataViewSet(
                 )
             )
 
-        duplicated = queryset.duplicate(
-            contributor=request.user,
-            inherit_collection=inherit_collection,
+        task = queryset.duplicate(
+            contributor=request.user, inherit_collection=inherit_collection
         )
-
-        serializer = self.get_serializer(duplicated, many=True)
+        serializer = BackgroundTaskSerializer(task)
         return Response(serializer.data)
 
     @action(detail=False, methods=["post"])
