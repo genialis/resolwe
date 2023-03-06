@@ -25,9 +25,11 @@ from resolwe.flow.views import (
     EntityViewSet,
     ProcessViewSet,
 )
+from resolwe.observers.models import BackgroundTask
+from resolwe.observers.utils import with_background_task_consumer
 from resolwe.permissions.models import Permission, get_anonymous_user
 from resolwe.permissions.utils import set_permission
-from resolwe.test import ResolweAPITestCase, TestCase
+from resolwe.test import ResolweAPITestCase, TestCase, TransactionTestCase
 from resolwe.test.utils import create_data_location
 
 factory = APIRequestFactory()
@@ -37,6 +39,226 @@ MESSAGES = {
     "NOT_FOUND": "Not found.",
     "NO_PERMS": "You do not have permission to perform this action.",
 }
+
+
+class TestDuplicate(TransactionTestCase):
+    """Test API duplicate calls."""
+
+    def setUp(self):
+        super().setUp()
+        self.proc = Process.objects.create(
+            type="data:test:process",
+            slug="test-process",
+            version="1.0.0",
+            contributor=self.contributor,
+            entity_descriptor_schema="test-schema",
+            input_schema=[
+                {"name": "input_data", "type": "data:test:", "required": False}
+            ],
+        )
+        self.descriptor_schema = DescriptorSchema.objects.create(
+            slug="test-schema",
+            version="1.0.0",
+            contributor=self.contributor,
+        )
+        self.data_duplicate_viewset = DataViewSet.as_view(
+            actions={
+                "post": "duplicate",
+            }
+        )
+        self.collection_duplicate_viewset = CollectionViewSet.as_view(
+            actions={
+                "post": "duplicate",
+            }
+        )
+        self.entity_duplicate_viewset = EntityViewSet.as_view(
+            actions={
+                "post": "duplicate",
+            }
+        )
+        self.collection_list_viewset = CollectionViewSet.as_view(
+            actions={"get": "list"}
+        )
+
+        self.collection = Collection.objects.create(
+            contributor=self.contributor,
+            descriptor_schema=self.descriptor_schema,
+            name="Test collection",
+        )
+        self.collection2 = Collection.objects.create(
+            name="Test Collection 2", contributor=self.contributor
+        )
+
+        self.entity = Entity.objects.create(
+            collection=self.collection,
+            contributor=self.contributor,
+            descriptor_schema=self.descriptor_schema,
+            name="Test entity",
+        )
+        self.data = Data.objects.create(
+            name="Test data",
+            contributor=self.contributor,
+            process=self.proc,
+            status=Data.STATUS_DONE,
+            collection=self.collection,
+            entity=self.entity,
+        )
+
+        self.collection2.set_permission(Permission.VIEW, self.contributor)
+        self.collection.set_permission(Permission.EDIT, self.contributor)
+        self.proc.set_permission(Permission.VIEW, self.contributor)
+        self.descriptor_schema.set_permission(Permission.VIEW, self.contributor)
+
+    @with_background_task_consumer
+    def test_duplicate_data(self):
+        data = Data.objects.create(contributor=self.contributor, process=self.proc)
+        set_permission(
+            Permission.VIEW,
+            self.contributor,
+            data.collection or data.entity or data,
+        )
+        data_location = create_data_location()
+        data_location.data.add(data)
+
+        data.status = Data.STATUS_DONE
+        data.save()
+
+        # Handler is called when post_duplicate signal is triggered.
+        handler = MagicMock()
+        post_duplicate.connect(handler, sender=Data)
+        request = factory.post(
+            reverse("resolwe-api:data-duplicate"), {"ids": [data.id]}, format="json"
+        )
+        force_authenticate(request, self.contributor)
+        response = self.data_duplicate_viewset(request)
+        task = BackgroundTask.objects.get(pk=response.data["pk"])
+        duplicate = Data.objects.get(pk__in=task.result())
+        self.assertTrue(duplicate.is_duplicate())
+        handler.assert_called_once_with(
+            signal=post_duplicate,
+            instances=[duplicate],
+            old_instances=ANY,
+            sender=Data,
+        )
+        handler.reset_mock()
+
+        # Inherit collection
+        self.collection.set_permission(Permission.EDIT, self.contributor)
+        self.collection.data.add(data)
+        request = factory.post(
+            reverse("resolwe-api:data-duplicate"),
+            {"ids": [data.id], "inherit_collection": True},
+            format="json",
+        )
+        force_authenticate(request, self.contributor)
+        response = self.data_duplicate_viewset(request)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        task = BackgroundTask.objects.get(pk=response.data["pk"])
+        duplicate = Data.objects.get(pk__in=task.result())
+        self.assertTrue(duplicate.is_duplicate())
+        self.assertTrue(duplicate.collection.id, self.collection.id)
+        handler.assert_called_once_with(
+            signal=post_duplicate,
+            instances=[duplicate],
+            old_instances=ANY,
+            sender=Data,
+        )
+
+    @with_background_task_consumer
+    def test_duplicate_collection(self):
+        # Handler is called when post_duplicate signal is triggered.
+        handler = MagicMock()
+        post_duplicate.connect(handler, sender=Collection)
+
+        request = factory.post("/", {}, format="json")
+        force_authenticate(request, self.contributor)
+        self.collection_list_viewset(request)
+
+        collection = Collection.objects.first()
+
+        request = factory.post(
+            reverse("resolwe-api:collection-duplicate"),
+            {"ids": [collection.id]},
+            format="json",
+        )
+        force_authenticate(request, self.contributor)
+        response = self.collection_duplicate_viewset(request)
+        task = BackgroundTask.objects.get(pk=response.data["pk"])
+        duplicate = Collection.objects.get(id__in=task.result())
+        self.assertTrue(duplicate.is_duplicate())
+        handler.assert_called_once_with(
+            signal=post_duplicate,
+            instances=[duplicate],
+            old_instances=ANY,
+            sender=Collection,
+        )
+
+    @with_background_task_consumer
+    def test_duplicate_entity(self):
+        handler = MagicMock()
+        post_duplicate.connect(handler, sender=Entity)
+
+        collection = Collection.objects.create(contributor=self.contributor)
+        collection.set_permission(Permission.EDIT, self.contributor)
+        entity = self.entity
+        entity.move_to_collection(collection)
+
+        request = factory.post(
+            reverse("resolwe-api:entity-duplicate"), {"ids": [entity.id]}, format="json"
+        )
+        force_authenticate(request, self.contributor)
+        response = self.entity_duplicate_viewset(request)
+        task = BackgroundTask.objects.get(pk=response.data["pk"])
+        duplicate = Entity.objects.get(id__in=task.result())
+        self.assertTrue(duplicate.is_duplicate())
+        self.assertEqual(collection.entity_set.count(), 1)
+        self.assertEqual(collection.data.count(), 1)
+        handler.assert_called_once_with(
+            signal=post_duplicate,
+            instances=[duplicate],
+            old_instances=ANY,
+            sender=Entity,
+        )
+        handler.reset_mock()
+
+        request = factory.post(
+            reverse("resolwe-api:entity-duplicate"),
+            {"ids": [entity.id], "inherit_collection": True},
+            format="json",
+        )
+        force_authenticate(request, self.contributor)
+        response = self.entity_duplicate_viewset(request)
+        task = BackgroundTask.objects.get(pk=response.data["pk"])
+        duplicate = Entity.objects.get(id__in=task.result())
+
+        self.assertEqual(collection.entity_set.count(), 2)
+        self.assertEqual(collection.data.count(), 2)
+        handler.assert_called_once_with(
+            signal=post_duplicate,
+            instances=[duplicate],
+            old_instances=ANY,
+            sender=Entity,
+        )
+        handler.reset_mock()
+
+        # Assert collection membership.
+        collection_without_perm = Collection.objects.create(
+            contributor=self.contributor
+        )
+        entity.move_to_collection(collection_without_perm)
+
+        request = factory.post(
+            reverse("resolwe-api:entity-duplicate"),
+            {"ids": [entity.id], "inherit_collection": True},
+            format="json",
+        )
+        force_authenticate(request, self.contributor)
+        response = self.entity_duplicate_viewset(request)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(collection_without_perm.entity_set.count(), 1)
+        self.assertEqual(collection_without_perm.data.count(), 1)
 
 
 class TestDataViewSetCase(TestCase):
@@ -74,7 +296,6 @@ class TestDataViewSetCase(TestCase):
                 "get": "children",
             }
         )
-
         self.proc = Process.objects.create(
             type="data:test:process",
             slug="test-process",
@@ -86,18 +307,15 @@ class TestDataViewSetCase(TestCase):
                 {"name": "input_data", "type": "data:test:", "required": False}
             ],
         )
-
         self.descriptor_schema = DescriptorSchema.objects.create(
             slug="test-schema",
             version="1.0.0",
             contributor=self.contributor,
         )
-
         self.collection = Collection.objects.create(
             contributor=self.contributor,
             descriptor_schema=self.descriptor_schema,
         )
-
         self.entity = Entity.objects.create(
             collection=self.collection,
             contributor=self.contributor,
@@ -540,65 +758,6 @@ class TestDataViewSetCase(TestCase):
         response = self.data_viewset(request)
         self.assertEqual(response.status_code, 400)
 
-    def test_duplicate(self):
-        def create_data():
-            data = Data.objects.create(contributor=self.contributor, process=self.proc)
-            set_permission(
-                Permission.VIEW,
-                self.contributor,
-                data.collection or data.entity or data,
-            )
-
-            data_location = create_data_location()
-            data_location.data.add(data)
-
-            data.status = Data.STATUS_DONE
-            data.save()
-            return data
-
-        # Handler is called when post_duplicate signal is triggered.
-        handler = MagicMock()
-        post_duplicate.connect(handler, sender=Data)
-
-        # Simplest form:
-        data = create_data()
-        request = factory.post(
-            reverse("resolwe-api:data-duplicate"), {"ids": [data.id]}, format="json"
-        )
-        force_authenticate(request, self.contributor)
-        response = self.duplicate_viewset(request)
-        duplicate = Data.objects.get(id=response.data[0]["id"])
-        self.assertTrue(duplicate.is_duplicate())
-        handler.assert_called_once_with(
-            signal=post_duplicate,
-            instances=[duplicate],
-            old_instances=ANY,
-            sender=Data,
-        )
-        handler.reset_mock()
-
-        # Inherit collection
-        data = create_data()
-        self.collection.set_permission(Permission.EDIT, self.contributor)
-        self.collection.data.add(data)
-        request = factory.post(
-            reverse("resolwe-api:data-duplicate"),
-            {"ids": [data.id], "inherit_collection": True},
-            format="json",
-        )
-        force_authenticate(request, self.contributor)
-        response = self.duplicate_viewset(request)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        duplicate = Data.objects.get(id=response.data[0]["id"])
-        self.assertTrue(duplicate.is_duplicate())
-        self.assertTrue(duplicate.collection.id, self.collection.id)
-        handler.assert_called_once_with(
-            signal=post_duplicate,
-            instances=[duplicate],
-            old_instances=ANY,
-            sender=Data,
-        )
-
     def test_duplicate_not_auth(self):
         request = factory.post(reverse("resolwe-api:data-duplicate"), format="json")
         response = self.duplicate_viewset(request)
@@ -901,34 +1060,6 @@ class TestCollectionViewSetCase(TestCase):
         self.assertFalse(Data.objects.filter(pk=data_2.pk).exists())
         self.assertFalse(Entity.objects.filter(pk=entity_1.pk).exists())
         self.assertFalse(Entity.objects.filter(pk=entity_2.pk).exists())
-
-    def test_duplicate(self):
-        # Handler is called when post_duplicate signal is triggered.
-        handler = MagicMock()
-        post_duplicate.connect(handler, sender=Collection)
-
-        request = factory.post("/", {}, format="json")
-        force_authenticate(request, self.contributor)
-        self.collection_list_viewset(request)
-
-        collection = Collection.objects.first()
-
-        request = factory.post(
-            reverse("resolwe-api:collection-duplicate"),
-            {"ids": [collection.id]},
-            format="json",
-        )
-        force_authenticate(request, self.contributor)
-        response = self.duplicate_viewset(request)
-
-        duplicate = Collection.objects.get(id=response.data[0]["id"])
-        self.assertTrue(duplicate.is_duplicate())
-        handler.assert_called_once_with(
-            signal=post_duplicate,
-            instances=[duplicate],
-            old_instances=ANY,
-            sender=Collection,
-        )
 
     def test_duplicate_not_auth(self):
         request = factory.post(
@@ -1375,69 +1506,6 @@ class EntityViewSetTest(TestCase):
         # are deleted, regardless of their permission.
         self.assertFalse(Data.objects.filter(pk=data_1.pk).exists())
         self.assertFalse(Data.objects.filter(pk=data_2.pk).exists())
-
-    def test_duplicate(self):
-        handler = MagicMock()
-        post_duplicate.connect(handler, sender=Entity)
-
-        collection = Collection.objects.create(contributor=self.contributor)
-        collection.set_permission(Permission.EDIT, self.contributor)
-        entity = Entity.objects.first()
-        entity.move_to_collection(collection)
-
-        request = factory.post(
-            reverse("resolwe-api:entity-duplicate"), {"ids": [entity.id]}, format="json"
-        )
-        force_authenticate(request, self.contributor)
-        response = self.duplicate_viewset(request)
-
-        duplicate = Entity.objects.get(id=response.data[0]["id"])
-        self.assertTrue(duplicate.is_duplicate())
-        self.assertEqual(collection.entity_set.count(), 1)
-        self.assertEqual(collection.data.count(), 1)
-        handler.assert_called_once_with(
-            signal=post_duplicate,
-            instances=[duplicate],
-            old_instances=ANY,
-            sender=Entity,
-        )
-        handler.reset_mock()
-
-        request = factory.post(
-            reverse("resolwe-api:entity-duplicate"),
-            {"ids": [entity.id], "inherit_collection": True},
-            format="json",
-        )
-        force_authenticate(request, self.contributor)
-        response = self.duplicate_viewset(request)
-
-        self.assertEqual(collection.entity_set.count(), 2)
-        self.assertEqual(collection.data.count(), 2)
-        duplicate = Entity.objects.get(id=response.data[0]["id"])
-        handler.assert_called_once_with(
-            signal=post_duplicate,
-            instances=[duplicate],
-            old_instances=ANY,
-            sender=Entity,
-        )
-        handler.reset_mock()
-
-        # Assert collection membership.
-        collection_without_perm = Collection.objects.create(
-            contributor=self.contributor
-        )
-        entity.move_to_collection(collection_without_perm)
-
-        request = factory.post(
-            reverse("resolwe-api:entity-duplicate"),
-            {"ids": [entity.id], "inherit_collection": True},
-            format="json",
-        )
-        force_authenticate(request, self.contributor)
-        response = self.duplicate_viewset(request)
-
-        self.assertEqual(collection_without_perm.entity_set.count(), 1)
-        self.assertEqual(collection_without_perm.data.count(), 1)
 
     def test_duplicate_not_auth(self):
         request = factory.post(reverse("resolwe-api:entity-duplicate"), format="json")

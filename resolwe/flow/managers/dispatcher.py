@@ -345,7 +345,7 @@ class Manager:
 
         try:
             if cmd == WorkerProtocol.COMMUNICATE:
-                await database_sync_to_async(self._data_scan)(
+                await database_sync_to_async(self._data_scan, thread_sensitive=False)(
                     **message[WorkerProtocol.COMMUNICATE_EXTRA]
                 )
 
@@ -415,7 +415,9 @@ class Manager:
             logger.debug(__("Message counter: {}", self._messages_processing))
 
             if self._sync_finished_event is not None and self._messages_processing == 0:
-                if await database_sync_to_async(workers_finished)():
+                if await database_sync_to_async(
+                    workers_finished, thread_sensitive=False
+                )():
                     self._sync_finished_event.set()
 
     async def execution_barrier(self):
