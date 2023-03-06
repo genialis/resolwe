@@ -1,13 +1,18 @@
 """Resolwe collection model."""
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.indexes import GinIndex
 from django.contrib.postgres.search import SearchVectorField
-from django.db import models, transaction
+from django.db import models
 
+from resolwe.observers.consumers import BACKGROUND_TASK_CHANNEL
+from resolwe.observers.models import BackgroundTask
 from resolwe.permissions.models import PermissionObject, PermissionQuerySet
 
 from .base import BaseModel, BaseQuerySet
-from .utils import DirtyError, bulk_duplicate, validate_schema
+from .utils import DirtyError, validate_schema
 
 
 class BaseCollection(BaseModel):
@@ -58,10 +63,20 @@ class BaseCollection(BaseModel):
 class CollectionQuerySet(BaseQuerySet, PermissionQuerySet):
     """Query set for ``Collection`` objects."""
 
-    @transaction.atomic
     def duplicate(self, contributor):
-        """Duplicate (make a copy) ``Collection`` objects."""
-        return bulk_duplicate(collections=self, contributor=contributor)
+        """Duplicate (make a copy) ``Data`` objects in the background.
+
+        :param contributor: Duplication user
+        """
+        task = BackgroundTask.objects.create(description="Duplicate collections")
+        packet = {
+            "type": "duplicate_collection",
+            "collection_ids": list(self.values_list("pk", flat=True)),
+            "task_id": task.id,
+            "contributor_id": contributor.id,
+        }
+        async_to_sync(get_channel_layer().send)(BACKGROUND_TASK_CHANNEL, packet)
+        return task
 
 
 class Collection(BaseCollection, PermissionObject):
@@ -105,8 +120,16 @@ class Collection(BaseCollection, PermissionObject):
         return bool(self.duplicated)
 
     def duplicate(self, contributor):
-        """Duplicate (make a copy)."""
-        return bulk_duplicate(
-            collections=self._meta.model.objects.filter(pk=self.pk),
-            contributor=contributor,
-        )[0]
+        """Duplicate (make a copy) of object in the background.
+
+        :param contributor: Duplication user
+        """
+        task = BackgroundTask.objects.create(description="Duplicate collections")
+        packet = {
+            "type": "duplicate_collection",
+            "collection_ids": [self.pk],
+            "task_id": task.id,
+            "contributor_id": contributor.id,
+        }
+        async_to_sync(get_channel_layer().send)(BACKGROUND_TASK_CHANNEL, packet)
+        return task

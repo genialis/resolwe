@@ -1,6 +1,9 @@
 """Resolwe entity model."""
 from typing import Any, List, Optional, Union
 
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+
 from django.contrib.postgres.fields import CICharField
 from django.contrib.postgres.indexes import GinIndex
 from django.core.exceptions import ValidationError
@@ -11,36 +14,35 @@ from resolwe.flow.models.annotations import (
     AnnotationValue,
     HandleMissingAnnotations,
 )
+from resolwe.observers.consumers import BACKGROUND_TASK_CHANNEL
 from resolwe.observers.decorators import move_to_container
+from resolwe.observers.models import BackgroundTask
 from resolwe.permissions.models import PermissionObject, PermissionQuerySet
 
 from .base import BaseModel, BaseQuerySet
 from .collection import BaseCollection, Collection
-from .utils import DirtyError, bulk_duplicate, validate_schema
+from .utils import DirtyError, validate_schema
 
 
 class EntityQuerySet(BaseQuerySet, PermissionQuerySet):
     """Query set for ``Entity`` objects."""
 
-    @transaction.atomic
-    def duplicate(
-        self, contributor, inherit_collection: bool = False
-    ) -> models.QuerySet:
-        """Duplicate (make a copy) ``Entity`` objects.
+    def duplicate(self, contributor, inherit_entity=False, inherit_collection=False):
+        """Duplicate (make a copy) ``Entity`` objects in the background.
 
         :param contributor: Duplication user
-        :param inherit_collection: If ``True`` then duplicated
-            entities will be added to collection the original entity
-            is part of. Duplicated entities' data objects will also be
-            added to the collection, but only those which are in the
-            collection
-        :return: A list of duplicated entities
         """
-        return bulk_duplicate(
-            entities=self,
-            contributor=contributor,
-            inherit_collection=inherit_collection,
-        )
+        task = BackgroundTask.objects.create(description="Duplicate entity")
+        packet = {
+            "type": "duplicate_entity",
+            "entity_ids": list(self.values_list("pk", flat=True)),
+            "task_id": task.id,
+            "contributor_id": contributor.id,
+            "inherit_entity": inherit_entity,
+            "inherit_collection": inherit_collection,
+        }
+        async_to_sync(get_channel_layer().send)(BACKGROUND_TASK_CHANNEL, packet)
+        return task
 
     @transaction.atomic
     def move_to_collection(
@@ -225,13 +227,21 @@ class Entity(BaseCollection, PermissionObject):
         """Return True if entity is a duplicate."""
         return bool(self.duplicated)
 
-    def duplicate(self, contributor, inherit_collection: bool = False) -> "Entity":
-        """Duplicate (make a copy)."""
-        return bulk_duplicate(
-            entities=self._meta.model.objects.filter(pk=self.pk),
-            contributor=contributor,
-            inherit_collection=inherit_collection,
-        )[0]
+    def duplicate(self, contributor, inherit_collection=False):
+        """Duplicate (make a copy) ``Data`` objects in the background.
+
+        :param contributor: Duplication user
+        """
+        task = BackgroundTask.objects.create(description="Duplicate entity")
+        packet = {
+            "type": "duplicate_entity",
+            "entity_ids": [self.pk],
+            "task_id": task.id,
+            "contributor_id": contributor.id,
+            "inherit_collection": inherit_collection,
+        }
+        async_to_sync(get_channel_layer().send)(BACKGROUND_TASK_CHANNEL, packet)
+        return task
 
     @transaction.atomic
     @move_to_container
