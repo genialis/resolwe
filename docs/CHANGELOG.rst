@@ -22,6 +22,9 @@ Changed
   serializing ``Data`` objects
 - **BACKWARD INCOMPATIBLE:** Replace ``duplicate`` methods on ``Data``, ``Entity`` and
  ``Collection`` objects with the call to the corresponding background duplicate job.
+- **BACKWARD INCOMPATIBLE:** The ``duplicate`` endpoints on ``Data``, ``Entity`` and ``Collection`` return the
+  details of the ``BackgroundTask`` instance that is used to track the duplication
+  status
 - When subscribing to an object for notifications the ``CREATE`` notifications are also
   sent along. This is necessary to receive CREATE notifications triggered from the data
   inside the container on the container.

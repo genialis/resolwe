@@ -17,6 +17,7 @@ from resolwe.flow.serializers.annotations import (
     AnnotationValueSerializer,
 )
 from resolwe.observers.mixins import ObservableMixin
+from resolwe.observers.views import BackgroundTaskSerializer
 from resolwe.process.descriptor import ValidationError
 
 from .collection import BaseCollectionViewSet
@@ -157,7 +158,11 @@ class EntityViewSet(ObservableMixin, BaseCollectionViewSet):
 
     @action(detail=False, methods=["post"])
     def duplicate(self, request, *args, **kwargs):
-        """Duplicate (make copy of) ``Entity`` models."""
+        """Duplicate (make copy of) ``Entity`` models.
+
+        The objects are duplicated in the background and the details of the background
+        task handling the duplication are returned.
+        """
         if not request.user.is_authenticated:
             raise exceptions.NotFound
 
@@ -173,11 +178,10 @@ class EntityViewSet(ObservableMixin, BaseCollectionViewSet):
                 )
             )
 
-        duplicated = queryset.duplicate(
+        task = queryset.duplicate(
             contributor=request.user, inherit_collection=inherit_collection
         )
-
-        serializer = self.get_serializer(duplicated, many=True)
+        serializer = BackgroundTaskSerializer(task)
         return Response(serializer.data)
 
     @action(detail=True, methods=["post"])
