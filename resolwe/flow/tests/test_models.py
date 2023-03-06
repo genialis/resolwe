@@ -23,6 +23,8 @@ from resolwe.flow.models import (
 from resolwe.flow.models.data import Data, DataDependency, hydrate_size, render_template
 from resolwe.flow.models.utils import hydrate_input_references, referenced_files
 from resolwe.flow.views import DataViewSet
+from resolwe.observers.models import BackgroundTask
+from resolwe.observers.utils import with_background_task_consumer
 from resolwe.permissions.models import Permission
 from resolwe.test import TestCase, TransactionTestCase
 from resolwe.test.utils import create_data_location, save_storage
@@ -605,7 +607,8 @@ class GetOrCreateTestCase(APITestCase):
         self.assertNotEqual(response.data["id"], self.data.pk)
 
 
-class DuplicateTestCase(TestCase):
+class DuplicateTestCase(TransactionTestCase):
+    @with_background_task_consumer
     def test_data_duplicate(self):
         process1 = Process.objects.create(
             contributor=self.user,
@@ -647,7 +650,8 @@ class DuplicateTestCase(TestCase):
         data2.migration_history.create(migration="migration_2")
 
         # Duplicate.
-        duplicates = Data.objects.filter(id=data2.id).duplicate(self.contributor)
+        task = Data.objects.filter(id=data2.id).duplicate(self.contributor)
+        duplicates = Data.objects.filter(pk__in=task.result())
         self.assertEqual(len(duplicates), 1)
         duplicate = duplicates[0]
         self.assertTrue(duplicate.is_duplicate())
@@ -733,6 +737,7 @@ class DuplicateTestCase(TestCase):
         # Assert permissions.
         self.assertEqual(len(duplicate.get_permissions(self.contributor)), 4)
 
+    @with_background_task_consumer
     def test_data_duplicate_duplicate(self):
         process1 = Process.objects.create(
             contributor=self.user,
@@ -761,8 +766,10 @@ class DuplicateTestCase(TestCase):
         data.migration_history.create(migration="migration_1")
 
         # Duplicate.
-        duplicate = data.duplicate(self.contributor)
-        duplicate_of_duplicate = duplicate.duplicate(self.contributor)
+        task = data.duplicate(self.contributor)
+        duplicate = Data.objects.get(pk__in=task.result())
+        task = duplicate.duplicate(self.contributor)
+        duplicate_of_duplicate = Data.objects.get(pk__in=task.result())
 
         self.assertEqual(
             duplicate.contributor.id, duplicate_of_duplicate.contributor.id
@@ -807,7 +814,13 @@ class DuplicateTestCase(TestCase):
             len(duplicate_of_duplicate.get_permissions(self.contributor)), 4
         )
 
+    @with_background_task_consumer
     def test_input_rewiring(self):
+        """Auto calls must be disabled or duplication with multiple objects will fail.
+
+        The first object will call the dispatcher and wait for the workers to finish,
+        while the second one will wait for the first.
+        """
         process1 = Process.objects.create(
             contributor=self.user,
             type="data:test:first:",
@@ -828,7 +841,8 @@ class DuplicateTestCase(TestCase):
             status=Data.STATUS_DONE,
         )
 
-        should_not_be_rewritten = data1.duplicate(self.user)
+        task = data1.duplicate(self.user)
+        should_not_be_rewritten = Data.objects.get(pk__in=task.result())
 
         data2 = Data.objects.create(
             contributor=self.user,
@@ -841,13 +855,10 @@ class DuplicateTestCase(TestCase):
             status=Data.STATUS_DONE,
         )
 
-        # Duplicate.
-        duplicate1, duplicate2 = (
-            Data.objects.filter(id__in=[data1.id, data2.id])
-            .order_by("id")
-            .duplicate(self.contributor)
-        ).order_by("id")
-
+        task = Data.objects.filter(id__in=[data1.id, data2.id]).duplicate(
+            self.contributor
+        )
+        duplicate1, duplicate2 = Data.objects.filter(pk__in=task.result(timeout=10))
         self.assertEqual(duplicate2.input["data_field1"], duplicate1.id)
         self.assertEqual(duplicate2.input["data_field2"], should_not_be_rewritten.id)
         self.assertEqual(
@@ -855,6 +866,7 @@ class DuplicateTestCase(TestCase):
             [duplicate1.id, should_not_be_rewritten.id],
         )
 
+    @with_background_task_consumer
     def test_data_status_not_done(self):
         process = Process.objects.create(contributor=self.user)
         data = Data.objects.create(
@@ -864,12 +876,16 @@ class DuplicateTestCase(TestCase):
             contributor=self.user, process=process, status=Data.STATUS_DONE
         )
 
-        with self.assertRaisesMessage(
-            ValidationError,
-            "Data object must have done or error status to be duplicated",
-        ):
-            Data.objects.filter(id__in=[data.id, data2.id]).duplicate(self.contributor)
+        task = Data.objects.filter(id__in=[data.id, data2.id]).duplicate(
+            self.contributor
+        )
+        task.wait(final_statuses=[BackgroundTask.STATUS_ERROR])
+        self.assertCountEqual(
+            task.output,
+            ["Data object must have done or error status to be duplicated."],
+        )
 
+    @with_background_task_consumer
     def test_data_long_name(self):
         process = Process.objects.create(contributor=self.user)
 
@@ -881,12 +897,13 @@ class DuplicateTestCase(TestCase):
             status=Data.STATUS_DONE,
         )
 
-        duplicate = Data.objects.filter(id=data.id).duplicate(self.contributor)[0]
-
+        task = Data.objects.filter(id=data.id).duplicate(self.contributor)
+        duplicate = Data.objects.get(pk__in=task.result())
         self.assertTrue(duplicate.name.startswith("Copy of "))
         self.assertTrue(duplicate.name.endswith("..."))
         self.assertEqual(len(duplicate.name), Data._meta.get_field("name").max_length)
 
+    @with_background_task_consumer
     def test_entity_duplicate(self):
         process = Process.objects.create(contributor=self.user)
         collection = Collection.objects.create(contributor=self.user)
@@ -911,7 +928,9 @@ class DuplicateTestCase(TestCase):
         )
 
         # Duplicate.
-        entities = Entity.objects.filter(id=entity.id).duplicate(self.contributor)
+
+        task = Entity.objects.filter(id=entity.id).duplicate(self.contributor)
+        entities = Entity.objects.filter(pk__in=task.result())
         self.assertEqual(len(entities), 1)
         duplicate = entities[0]
 
@@ -977,6 +996,7 @@ class DuplicateTestCase(TestCase):
         # Assert permissions.
         self.assertEqual(len(duplicate.get_permissions(self.contributor)), 4)
 
+    @with_background_task_consumer
     def test_entity_duplicate_inherit(self):
         process = Process.objects.create(contributor=self.user)
 
@@ -993,10 +1013,10 @@ class DuplicateTestCase(TestCase):
         collection.set_permission(Permission.VIEW, self.contributor)
 
         # Duplicate.
-        duplicated_entity1 = Entity.objects.filter(id=entity.id).duplicate(
+        task = Entity.objects.filter(id=entity.id).duplicate(
             self.user, inherit_collection=False
-        )[0]
-
+        )
+        duplicated_entity1 = Entity.objects.get(pk__in=task.result())
         self.assertEqual(collection.entity_set.count(), 1)
         self.assertEqual(collection.entity_set.first().id, entity.id)
         self.assertEqual(collection.data.count(), 1)
@@ -1022,15 +1042,16 @@ class DuplicateTestCase(TestCase):
             [Permission.VIEW],
         )
 
-        with self.assertRaises(ValidationError):
-            Entity.objects.filter(id=entity.id).duplicate(
-                self.contributor, inherit_collection=True
-            )[0]
+        task = Entity.objects.filter(id=entity.id).duplicate(
+            self.contributor, inherit_collection=True
+        )
+        task.wait(final_statuses=[BackgroundTask.STATUS_ERROR])
+        self.assertCountEqual(task.output, ["User doesn't have 'edit' permission on ."])
 
-        duplicated_entity2 = Entity.objects.filter(id=entity.id).duplicate(
+        task = Entity.objects.filter(id=entity.id).duplicate(
             self.user, inherit_collection=True
-        )[0]
-
+        )
+        duplicated_entity2 = Entity.objects.get(pk__in=task.result())
         self.assertEqual(collection.entity_set.count(), 2)
         self.assertEqual(collection.entity_set.first().id, entity.id)
         self.assertEqual(collection.entity_set.last().id, duplicated_entity2.id)
@@ -1055,6 +1076,7 @@ class DuplicateTestCase(TestCase):
             collection.get_permissions(self.contributor), [Permission.VIEW]
         )
 
+    @with_background_task_consumer
     def test_collection_duplicate(self):
         collection = Collection.objects.create(name="Collection", contributor=self.user)
         entity = Entity.objects.create(
@@ -1064,9 +1086,8 @@ class DuplicateTestCase(TestCase):
         collection.set_permission(Permission.OWNER, self.contributor)
 
         # Duplicate.
-        collections = Collection.objects.filter(id=collection.id).duplicate(
-            self.contributor
-        )
+        task = Collection.objects.filter(id=collection.id).duplicate(self.contributor)
+        collections = Collection.objects.filter(pk__in=task.result())
         self.assertEqual(len(collections), 1)
         duplicate = collections[0]
 
