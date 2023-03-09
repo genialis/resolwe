@@ -971,7 +971,7 @@ class ObserverAPITestCase(TransactionResolweAPITestCase):
             resp.data,
             {"subscription_id": sub_qs.first().subscription_id.hex},
         )
-        self.assertEqual(Observer.objects.count(), 4)
+        self.assertEqual(Observer.objects.count(), 5)
         self.assertEqual(
             Observer.objects.filter(
                 change_type=ChangeType.UPDATE.value,
@@ -995,7 +995,7 @@ class ObserverAPITestCase(TransactionResolweAPITestCase):
         )
         # Assert we don't have duplicate observers.
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertEqual(Observer.objects.count(), 4)
+        self.assertEqual(Observer.objects.count(), 5)
 
     def test_subscribe_to_forbidden_object(self):
         resp = self._post(user=self.user_bob, data={"session_id": "test", "ids": [42]})

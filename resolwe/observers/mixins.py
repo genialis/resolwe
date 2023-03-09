@@ -43,7 +43,7 @@ class ObservableMixin:
                 if not self.user_has_permission(id, request.user):
                     raise NotFound(f"Item {id} does not exist")
 
-            change_types = (ChangeType.UPDATE, ChangeType.DELETE)
+            change_types = (ChangeType.UPDATE, ChangeType.DELETE, ChangeType.CREATE)
             subscription.subscribe(content_type, ids, change_types)
 
         resp = {"subscription_id": subscription.subscription_id}
