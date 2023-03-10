@@ -15,6 +15,9 @@ Changed
 - When subscribing to an object for notifications the ``CREATE`` notifications are also
   sent along. This is necessary to receive CREATE notifications triggered from the data
   inside the container on the container.
+- Remove the redundant prefetch in the ``BaseCollectionViewSet``
+- Annotate the queryset in the ``BaseCollectionViewSet`` with ``data_statuses``,
+  ``entity_count`` and ``data_count`` attributes to reduce the number of queries
 
 
 ===================

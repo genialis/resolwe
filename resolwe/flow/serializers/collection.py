@@ -29,14 +29,19 @@ class BaseCollectionSerializer(ResolweBaseSerializer):
 
     def get_data_count(self, collection):
         """Return number of data objects on the collection."""
-        return collection.data.count()
+        # Use 'data_count' attribute when available. It is created in the
+        # BaseCollectionViewSet class.
+        return (
+            collection.data_count
+            if hasattr(collection, "data_count")
+            else collection.data.count()
+        )
 
     def get_status(self, collection):
-        """Return status of the collection based on the status of data objects."""
-        status_set = set([data.status for data in collection.data.all()])
+        """Return status of the collection based on the status of data objects.
 
-        if not status_set:
-            return None
+        When collection contains no data objects None is returned.
+        """
 
         status_order = [
             Data.STATUS_ERROR,
@@ -47,6 +52,18 @@ class BaseCollectionSerializer(ResolweBaseSerializer):
             Data.STATUS_RESOLVING,
             Data.STATUS_DONE,
         ]
+
+        # Use 'data_statuses' attribute when available. It is created in the
+        # BaseCollectionViewSet class. It contains all the distinct statuses of the
+        # data objects in the collection.
+        status_set = (
+            set(collection.data_statuses)
+            if hasattr(collection, "data_statuses")
+            else collection.data.values_list("status", flat=True).distinct()
+        )
+
+        if not status_set:
+            return None
 
         for status in status_order:
             if status in status_set:
@@ -94,7 +111,13 @@ class CollectionSerializer(BaseCollectionSerializer):
 
     def get_entity_count(self, collection):
         """Return number of entities on the collection."""
-        return collection.entity_set.count()
+        # Use 'entity_count' attribute when available. It is created in the
+        # BaseCollectionViewSet class.
+        return (
+            collection.entity_count
+            if hasattr(collection, "entity_count")
+            else collection.entity_set.count()
+        )
 
     class Meta(BaseCollectionSerializer.Meta):
         """CollectionSerializer Meta options."""

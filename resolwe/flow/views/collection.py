@@ -1,13 +1,14 @@
 """Collection viewset."""
 from django.db import transaction
-from django.db.models import Prefetch
+from django.db.models import F, Func, OuterRef, Prefetch, Subquery
+from django.db.models.functions import Coalesce
 
 from rest_framework import exceptions, mixins, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from resolwe.flow.filters import CollectionFilter
-from resolwe.flow.models import Collection, DescriptorSchema
+from resolwe.flow.models import Collection, Data, DescriptorSchema, Entity
 from resolwe.flow.models.annotations import AnnotationValue
 from resolwe.flow.serializers import CollectionSerializer
 from resolwe.flow.serializers.annotations import AnnotationFieldDictSerializer
@@ -37,11 +38,44 @@ class BaseCollectionViewSet(
 ):
     """Base API view for :class:`Collection` objects."""
 
-    qs_descriptor_schema = DescriptorSchema.objects.select_related("contributor")
     qs_permission_model = PermissionModel.objects.select_related("user", "group")
 
-    queryset = Collection.objects.select_related("contributor").prefetch_related(
-        "data", Prefetch("descriptor_schema", queryset=qs_descriptor_schema)
+    # Add entity count as a subquery: by default Django joins tables and this explodes
+    # when one tries to annotate the collection query with data and entity count at the
+    # same time.
+    entity_count_subquery = (
+        Entity.objects.filter(collection_id=OuterRef("pk"))
+        .annotate(count=Func(F("id"), function="Count"))
+        .values("count")
+    )
+    data_count_subquery = (
+        Data.objects.filter(collection_id=OuterRef("pk"))
+        .annotate(count=Func(F("id"), function="Count"))
+        .values("count")
+    )
+    data_status_subquery = (
+        Data.objects.filter(collection_id=OuterRef("pk"))
+        .annotate(
+            count=Coalesce(
+                Func(
+                    F("status"),
+                    function="ARRAY_AGG",
+                    template="%(function)s(DISTINCT %(expressions)s)",
+                ),
+                [],
+            )
+        )
+        .values("count")
+    )
+
+    qs_descriptor_schema = DescriptorSchema.objects.select_related("contributor")
+
+    queryset = (
+        Collection.objects.select_related("contributor")
+        .prefetch_related(Prefetch("descriptor_schema", queryset=qs_descriptor_schema))
+        .annotate(data_statuses=Subquery(data_status_subquery))
+        .annotate(data_count=Subquery(data_count_subquery))
+        .annotate(entity_count=Subquery(entity_count_subquery))
     )
 
     filter_class = CollectionFilter
@@ -98,10 +132,6 @@ class CollectionViewSet(ObservableMixin, BaseCollectionViewSet):
     """API view for :class:`Collection` objects."""
 
     serializer_class = CollectionSerializer
-
-    def get_queryset(self):
-        """Prefetch entity data and return queryset."""
-        return super().get_queryset().prefetch_related("entity_set")
 
     @action(detail=True, methods=["post"])
     def add_fields_to_collection(self, request, pk=None):

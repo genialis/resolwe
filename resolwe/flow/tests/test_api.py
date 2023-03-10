@@ -772,7 +772,7 @@ class TestCollectionViewSetCase(TestCase):
         with CaptureQueriesContext(conn) as captured_queries:
             response = self.collection_list_viewset(request)
             self.assertEqual(len(response.data), 10)
-            self.assertEqual(len(captured_queries), 8)
+            self.assertEqual(len(captured_queries), 6)
 
     def test_set_descriptor_schema(self):
         d_schema = DescriptorSchema.objects.create(
