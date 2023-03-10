@@ -18,6 +18,9 @@ Changed
 - Remove the redundant prefetch in the ``BaseCollectionViewSet``
 - Annotate the queryset in the ``BaseCollectionViewSet`` with ``data_statuses``,
   ``entity_count`` and ``data_count`` attributes to reduce the number of queries
+- Remove the redundant prefetch in the ``EntityViewSet``
+- Annotate the queryset in the ``EntityViewSet`` with ``data_statuses`` and
+  and ``data_count`` attributes to reduce the number of queries 
 
 
 ===================

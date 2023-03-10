@@ -1,14 +1,15 @@
 """Entity viewset."""
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
-from django.db.models import Prefetch
+from django.db.models import F, Func, OuterRef, Prefetch, Subquery
+from django.db.models.functions import Coalesce
 
 from rest_framework import exceptions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from resolwe.flow.filters import EntityFilter
-from resolwe.flow.models import AnnotationValue, Collection, DescriptorSchema, Entity
+from resolwe.flow.models import AnnotationValue, Data, DescriptorSchema, Entity
 from resolwe.flow.models.annotations import AnnotationField, HandleMissingAnnotations
 from resolwe.flow.serializers import EntitySerializer
 from resolwe.flow.serializers.annotations import (
@@ -27,18 +28,34 @@ class EntityViewSet(ObservableMixin, BaseCollectionViewSet):
 
     serializer_class = EntitySerializer
     filter_class = EntityFilter
-    qs_collection_ds = DescriptorSchema.objects.select_related("contributor")
-    qs_collection = Collection.objects.select_related("contributor")
-    qs_collection = qs_collection.prefetch_related(
-        "data",
-        "entity_set",
-        Prefetch("descriptor_schema", queryset=qs_collection_ds),
-    )
     qs_descriptor_schema = DescriptorSchema.objects.select_related("contributor")
-    queryset = Entity.objects.select_related("contributor").prefetch_related(
-        "data",
-        Prefetch("collection", queryset=qs_collection),
-        Prefetch("descriptor_schema", queryset=qs_descriptor_schema),
+
+    data_count_subquery = (
+        Data.objects.filter(entity_id=OuterRef("pk"))
+        .annotate(count=Func(F("id"), function="Count"))
+        .values("count")
+    )
+    data_status_subquery = (
+        Data.objects.filter(entity_id=OuterRef("pk"))
+        .annotate(
+            count=Coalesce(
+                Func(
+                    F("status"),
+                    function="ARRAY_AGG",
+                    template="%(function)s(DISTINCT %(expressions)s)",
+                ),
+                [],
+            )
+        )
+        .values("count")
+    )
+    queryset = (
+        Entity.objects.select_related("contributor", "descriptor_schema__contributor")
+        .prefetch_related(
+            Prefetch("collection", queryset=BaseCollectionViewSet.queryset)
+        )
+        .annotate(data_statuses=Subquery(data_status_subquery))
+        .annotate(data_count=Subquery(data_count_subquery))
     )
 
     def _get_entities(self, user, ids):

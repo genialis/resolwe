@@ -1268,7 +1268,7 @@ class EntityViewSetTest(TestCase):
         with CaptureQueriesContext(conn) as captured_queries:
             response = self.entity_list_viewset(request)
             self.assertEqual(len(response.data), 10)
-            self.assertEqual(len(captured_queries), 11)
+            self.assertEqual(len(captured_queries), 7)
 
     def test_list_filter_collection(self):
         request = factory.get("/", {}, format="json")
