@@ -12,6 +12,8 @@ Unreleased
 
 Changed
 -------
+- **BACKWARD INCOMPATIBLE** Remove the duplicated ``collection`` subfield from the ``entity`` field when
+  serializing ``Data`` objects
 - When subscribing to an object for notifications the ``CREATE`` notifications are also
   sent along. This is necessary to receive CREATE notifications triggered from the data
   inside the container on the container.
@@ -21,6 +23,7 @@ Changed
 - Remove the redundant prefetch in the ``EntityViewSet``
 - Annotate the queryset in the ``EntityViewSet`` with ``data_statuses`` and
   and ``data_count`` attributes to reduce the number of queries 
+- Modify the ``DataViewSet`` to remove redundant queries
 
 
 ===================

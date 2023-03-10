@@ -10,7 +10,7 @@ from resolwe.rest.fields import ProjectableJSONField
 from .base import ResolweBaseSerializer
 from .collection import CollectionSerializer
 from .descriptor import DescriptorSchemaSerializer
-from .entity import EntitySerializer
+from .entity import BaseEntitySerializer
 from .fields import DictRelatedField
 from .process import ProcessSerializer
 
@@ -40,7 +40,7 @@ class DataSerializer(ResolweBaseSerializer):
     )
     entity = DictRelatedField(
         queryset=Entity.objects.all(),
-        serializer=EntitySerializer,
+        serializer=BaseEntitySerializer,
         allow_null=True,
         required=False,
         write_permission=Permission.EDIT,

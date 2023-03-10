@@ -6,7 +6,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from resolwe.flow.filters import DataFilter
-from resolwe.flow.models import Collection, Data, DescriptorSchema, Entity, Process
+from resolwe.flow.models import Data, DescriptorSchema, Process
 from resolwe.flow.models.utils import fill_with_defaults
 from resolwe.flow.serializers import DataSerializer
 from resolwe.flow.utils import get_data_checksum
@@ -15,6 +15,8 @@ from resolwe.permissions.loader import get_permissions_class
 from resolwe.permissions.mixins import ResolwePermissionsMixin
 from resolwe.permissions.models import Permission, PermissionModel
 
+from .collection import BaseCollectionViewSet
+from .entity import EntityViewSet
 from .mixins import (
     ParametersMixin,
     ResolweCheckSlugMixin,
@@ -39,35 +41,12 @@ class DataViewSet(
     """API view for :class:`Data` objects."""
 
     qs_permission_model = PermissionModel.objects.select_related("user", "group")
-    qs_collection_ds = DescriptorSchema.objects.select_related("contributor")
-    qs_collection = Collection.objects.select_related("contributor")
-    qs_collection = qs_collection.prefetch_related(
-        "data",
-        "entity_set",
-        Prefetch("descriptor_schema", queryset=qs_collection_ds),
-    )
-
     qs_descriptor_schema = DescriptorSchema.objects.select_related("contributor")
-
-    qs_entity_col_ds = DescriptorSchema.objects.select_related("contributor")
-    qs_entity_col = Collection.objects.select_related("contributor")
-    qs_entity_col = qs_entity_col.prefetch_related(
-        "data",
-        "entity_set",
-        Prefetch("descriptor_schema", queryset=qs_entity_col_ds),
-    )
-    qs_entity_ds = DescriptorSchema.objects.select_related("contributor")
-    qs_entity = Entity.objects.select_related("contributor")
-    qs_entity = qs_entity.prefetch_related(
-        "data",
-        Prefetch("collection", queryset=qs_entity_col),
-        Prefetch("descriptor_schema", queryset=qs_entity_ds),
-    )
     qs_process = Process.objects.select_related("contributor")
     queryset = Data.objects.select_related("contributor").prefetch_related(
-        Prefetch("collection", queryset=qs_collection),
+        Prefetch("collection", queryset=BaseCollectionViewSet.queryset),
         Prefetch("descriptor_schema", queryset=qs_descriptor_schema),
-        Prefetch("entity", queryset=qs_entity),
+        Prefetch("entity", queryset=EntityViewSet.queryset),
         Prefetch("process", queryset=qs_process),
     )
 

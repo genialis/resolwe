@@ -157,7 +157,7 @@ class TestDataViewSetCase(TestCase):
         with CaptureQueriesContext(conn) as captured_queries:
             response = self.data_viewset(request)
             self.assertEqual(len(response.data), 10)
-            self.assertEqual(len(captured_queries), 18)
+            self.assertEqual(len(captured_queries), 12)
 
     def test_descriptor_schema(self):
         # Descriptor schema can be assigned by slug.
