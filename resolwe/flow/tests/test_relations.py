@@ -160,7 +160,7 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
         with CaptureQueriesContext(conn) as captured_queries:
             response = self._get_list(self.contributor)
             self.assertEqual(len(response.data), 10)
-            self.assertEqual(len(captured_queries), 8)
+            self.assertEqual(len(captured_queries), 6)
 
     def test_get(self):
         resp = self._get_detail(self.relation_group.pk, user=self.contributor)

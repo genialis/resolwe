@@ -7,10 +7,11 @@ from rest_framework import exceptions, permissions, status, viewsets
 from rest_framework.response import Response
 
 from resolwe.flow.filters import RelationFilter
-from resolwe.flow.models import Collection, DescriptorSchema, Relation
+from resolwe.flow.models import DescriptorSchema, Relation
 from resolwe.flow.serializers import RelationSerializer
 from resolwe.permissions.models import Permission
 
+from .collection import BaseCollectionViewSet
 from .mixins import ResolweCreateModelMixin
 
 
@@ -19,18 +20,12 @@ class RelationViewSet(ResolweCreateModelMixin, viewsets.ModelViewSet):
 
     qs_collection_ds = DescriptorSchema.objects.select_related("contributor")
 
-    qs_collection = Collection.objects.select_related("contributor")
-    qs_collection = qs_collection.prefetch_related(
-        "data",
-        "entity_set",
-        Prefetch("descriptor_schema", queryset=qs_collection_ds),
-    )
-
     queryset = (
         Relation.objects.all()
         .select_related("contributor", "type")
         .prefetch_related(
-            Prefetch("collection", queryset=qs_collection), "relationpartition_set"
+            Prefetch("collection", queryset=BaseCollectionViewSet.queryset),
+            "relationpartition_set",
         )
     )
 
