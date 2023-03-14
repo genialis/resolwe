@@ -25,6 +25,11 @@ Changed
   and ``data_count`` attributes to reduce the number of queries 
 - Modify the ``DataViewSet`` to remove redundant queries
 
+Fixed
+-----
+- Send observer notifications when data object is automatically assigned to the entity
+  via ``entity_type`` in the process
+
 
 ===================
 33.0.0 - 2023-03-13

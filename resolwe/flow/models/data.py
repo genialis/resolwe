@@ -3,6 +3,7 @@ import copy
 import enum
 import json
 import logging
+from typing import Union
 
 import jsonschema
 
@@ -59,7 +60,7 @@ class DataQuerySet(BaseQuerySet, PermissionQuerySet):
     """Query set for Data objects."""
 
     @staticmethod
-    def _handle_entity(obj):
+    def _handle_entity(obj: "Data"):
         """Create entity if `entity.type` is defined in process.
 
         Following rules applies for adding `Data` object to `Entity`:
@@ -79,7 +80,7 @@ class DataQuerySet(BaseQuerySet, PermissionQuerySet):
         operation = HandleEntityOperation.PASS
 
         if entity_type:
-            data_filter = {}
+            data_filter: dict[str, Union[list, int]] = {}
             if entity_input:
                 input_id = dict_dot(obj.input, entity_input, default=lambda: None)
                 if input_id is None:
@@ -115,28 +116,23 @@ class DataQuerySet(BaseQuerySet, PermissionQuerySet):
                     tags=obj.tags,
                 )
                 assign_contributor_permissions(entity)
+                obj.move_to_entity(entity)
                 operation = HandleEntityOperation.CREATE
 
             elif entity_count == 1:
                 entity = entity_query.first()
-                obj.tags = entity.tags
-                copy_permissions(entity, obj)
                 operation = HandleEntityOperation.ADD
+                obj.move_to_entity(entity)
 
             else:
                 logger.info(
                     "Skipping creation of entity due to multiple entities found."
                 )
-                entity = None
-
-            if entity:
-                obj.entity = entity
-                obj.save()
 
             return operation
 
     @staticmethod
-    def _handle_collection(obj, entity_operation=None):
+    def _handle_collection(obj: "Data", entity_operation: HandleEntityOperation):
         """Correctly assign Collection to Data and it's Entity.
 
         There are 2 x 4 possible scenarios how to handle collection
@@ -169,15 +165,10 @@ class DataQuerySet(BaseQuerySet, PermissionQuerySet):
 
         # 1.4
         if not obj.collection and obj.entity and obj.entity.collection:
-            obj.collection = obj.entity.collection
-            obj.tags = obj.entity.collection.tags
-            obj.save()
+            obj.move_to_collection(obj.entity.collection)
         # 2.2
         if entity_operation == HandleEntityOperation.CREATE and obj.collection:
-            obj.entity.collection = obj.collection
-            obj.entity.tags = obj.collection.tags
-            obj.entity.save()
-            copy_permissions(obj.collection, obj.entity)
+            obj.entity.move_to_collection(obj.collection)
 
     @transaction.atomic
     def create(self, subprocess_parent=None, **kwargs):

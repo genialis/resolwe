@@ -17,7 +17,7 @@ from django.urls import path
 from rest_framework import status
 from rest_framework.test import APIRequestFactory, force_authenticate
 
-from resolwe.flow.models import Collection, Data, Entity, Process
+from resolwe.flow.models import Collection, Data, DescriptorSchema, Entity, Process
 from resolwe.flow.views import DataViewSet, EntityViewSet
 from resolwe.permissions.models import Permission
 from resolwe.permissions.utils import get_anonymous_user
@@ -47,8 +47,18 @@ class ObserverTestCase(TransactionTestCase):
             first_name="Capital",
             last_name="Bobnik",
         )
+        DescriptorSchema.objects.create(
+            name="Sample", slug="sample", contributor=self.user_alice
+        )
         self.process = Process.objects.create(
             name="Dummy process", contributor=self.user_alice
+        )
+
+        self.process_auto_entity = Process.objects.create(
+            name="Dummy process",
+            contributor=self.user_alice,
+            entity_type="sample",
+            entity_descriptor_schema="sample",
         )
 
         self.client_consumer = URLRouter(
@@ -386,7 +396,7 @@ class ObserverTestCase(TransactionTestCase):
         await self.assert_no_more_messages(client)
 
     async def test_observe_containers_create(self):
-        """Test containers are also observed when object in them changes."""
+        """Test containers are also observed when object is added."""
         client = WebsocketCommunicator(self.client_consumer, "/ws/test_session")
         connected, _ = await client.connect()
         self.assertTrue(connected)
@@ -500,7 +510,8 @@ class ObserverTestCase(TransactionTestCase):
         )
         await self.assert_no_more_messages(client)
 
-    async def test_observe_table(self):
+    async def test_observe_data_table(self):
+        """Assert creation and deletion messages are sent on data table."""
         client = WebsocketCommunicator(self.client_consumer, "/ws/test_session")
         connected, _ = await client.connect()
         self.assertTrue(connected)
@@ -525,54 +536,11 @@ class ObserverTestCase(TransactionTestCase):
         @database_sync_to_async
         def create_data():
             return Data.objects.create(
-                pk=42,
                 name="Test data",
-                slug="test-data",
                 contributor=self.user_alice,
                 process=self.process,
                 size=0,
             )
-
-        # Create a new Data object in the collection using the API call.
-        @database_sync_to_async
-        def create_data_in_collection():
-            collection = Collection.objects.create(
-                contributor=self.user_alice, name="test collection"
-            )
-            collection.set_permission(Permission.OWNER, self.user_alice)
-            self.process.set_permission(Permission.OWNER, self.user_alice)
-
-            factory = APIRequestFactory()
-            data = {
-                "process": {"slug": self.process.slug},
-                "collection": {"id": collection.id},
-            }
-            request = factory.post("/", data, format="json")
-            force_authenticate(request, self.user_alice)
-            viewset = DataViewSet.as_view(actions={"post": "create"})
-            response = viewset(request)
-            return response.data["id"]
-
-        @database_sync_to_async
-        def create_data_in_collection_superuser():
-            """Test observing works for superusers without explicit permissions."""
-            self.user_alice.is_superuser = True
-            self.user_alice.save()
-            collection = Collection.objects.create(
-                contributor=self.user_alice, name="test collection"
-            )
-            factory = APIRequestFactory()
-            data = {
-                "process": {"slug": self.process.slug},
-                "collection": {"id": collection.id},
-            }
-            request = factory.post("/", data, format="json")
-            force_authenticate(request, self.user_alice)
-            viewset = DataViewSet.as_view(actions={"post": "create"})
-            response = viewset(request)
-            self.user_alice.is_superuser = False
-            self.user_alice.save()
-            return response.data["id"]
 
         data = await create_data()
 
@@ -581,42 +549,9 @@ class ObserverTestCase(TransactionTestCase):
             json.loads(await client.receive_from()),
             {
                 "change_type": ChangeType.CREATE.name,
-                "object_id": 42,
+                "object_id": data.pk,
                 "subscription_id": self.subscription_id.hex,
-                "source": ["data", 42],
-            },
-        )
-        await self.assert_no_more_messages(client)
-
-        # Repeat the test with data object in collection. This asserts that the signal
-        # post_permission_changed can be triggered without the previous call to the
-        # pre_permission_changed  signal and user is notified when object is created in
-        # container using API.
-        data_id = await create_data_in_collection()
-
-        # Assert we detect creations.
-        self.assertDictEqual(
-            json.loads(await client.receive_from()),
-            {
-                "change_type": ChangeType.CREATE.name,
-                "object_id": data_id,
-                "subscription_id": self.subscription_id.hex,
-                "source": ["data", data_id],
-            },
-        )
-        await self.assert_no_more_messages(client)
-
-        # Repeat the test above for superuser without explicit permissions.
-        data_id = await create_data_in_collection_superuser()
-
-        # Assert we detect creations.
-        self.assertDictEqual(
-            json.loads(await client.receive_from()),
-            {
-                "change_type": ChangeType.CREATE.name,
-                "object_id": data_id,
-                "subscription_id": self.subscription_id.hex,
-                "source": ["data", data_id],
+                "source": ["data", data.pk],
             },
         )
         await self.assert_no_more_messages(client)
@@ -626,6 +561,7 @@ class ObserverTestCase(TransactionTestCase):
         def delete_data(data):
             data.delete()
 
+        data_pk = data.pk
         await delete_data(data)
 
         # Assert we detect deletions.
@@ -633,15 +569,454 @@ class ObserverTestCase(TransactionTestCase):
             json.loads(await client.receive_from()),
             {
                 "change_type": ChangeType.DELETE.name,
-                "object_id": 42,
+                "object_id": data_pk,
                 "subscription_id": self.subscription_id.hex,
-                "source": ["data", 42],
+                "source": ["data", data_pk],
+            },
+        )
+        await self.assert_no_more_messages(client)
+        # Assert subscription didn't delete because Data got deleted.
+        await self.await_subscription_observer_count(2)
+
+    async def test_observe_entity_table(self):
+        """Assert that creation and deletion works on entity table."""
+        client = WebsocketCommunicator(self.client_consumer, "/ws/test_session")
+        connected, _ = await client.connect()
+        self.assertTrue(connected)
+
+        # Create a subscription to the Data and Collection content_type.
+        @database_sync_to_async
+        def subscribe():
+            Subscription.objects.create(
+                user=self.user_alice,
+                session_id="test_session",
+                subscription_id=self.subscription_id,
+            ).subscribe(
+                content_type=ContentType.objects.get_for_model(Entity),
+                object_ids=[None],
+                change_types=[ChangeType.CREATE, ChangeType.DELETE],
+            )
+
+        await subscribe()
+        await self.await_subscription_observer_count(2)
+
+        # Create a new Entity object.
+        @database_sync_to_async
+        def create_entity():
+            return Entity.objects.create(name="Entity", contributor=self.user_alice)
+
+        # Delete the object.
+        @database_sync_to_async
+        def delete_object(obj):
+            obj.delete()
+
+        @database_sync_to_async
+        def set_permission(obj, permission, user):
+            obj.set_permission(permission, user)
+
+        @database_sync_to_async
+        def modify_superuser(user, issuperuser):
+            user.is_superuser = issuperuser
+            user.save()
+
+        # First test for regular user.
+        # - creation should not sent message
+        # - assigning permission must sent create message
+        # - removing permission must sent delete message
+        # - deleting entity must sent delete message
+        entity = await create_entity()
+
+        # No messages when Alice has no permissions.
+        await self.assert_no_more_messages(client)
+
+        # CREATE when permission is gained.
+        await set_permission(entity, Permission.VIEW, self.user_alice)
+        # Assert we detect creations.
+        self.assertDictEqual(
+            json.loads(await client.receive_from()),
+            {
+                "change_type": ChangeType.CREATE.name,
+                "object_id": entity.pk,
+                "subscription_id": self.subscription_id.hex,
+                "source": ["entity", entity.pk],
             },
         )
         await self.assert_no_more_messages(client)
 
-        # Assert subscription didn't delete because Data got deleted.
+        # DELETE when permission is removed.
+        await set_permission(entity, Permission.NONE, self.user_alice)
+        self.assertDictEqual(
+            json.loads(await client.receive_from()),
+            {
+                "change_type": ChangeType.DELETE.name,
+                "object_id": entity.pk,
+                "subscription_id": self.subscription_id.hex,
+                "source": ["entity", entity.pk],
+            },
+        )
+        await self.assert_no_more_messages(client)
+
+        # CREATE when permission is gained.
+        await set_permission(entity, Permission.VIEW, self.user_alice)
+        # Assert we detect creations.
+        self.assertDictEqual(
+            json.loads(await client.receive_from()),
+            {
+                "change_type": ChangeType.CREATE.name,
+                "object_id": entity.pk,
+                "subscription_id": self.subscription_id.hex,
+                "source": ["entity", entity.pk],
+            },
+        )
+        await self.assert_no_more_messages(client)
+
+        # DELETE when entity is deleted.
+        entity_pk = entity.pk
+        await delete_object(entity)
+        self.assertDictEqual(
+            json.loads(await client.receive_from()),
+            {
+                "change_type": ChangeType.DELETE.name,
+                "object_id": entity_pk,
+                "subscription_id": self.subscription_id.hex,
+                "source": ["entity", entity_pk],
+            },
+        )
+        await self.assert_no_more_messages(client)
+
+        # Repeat for superuser
+        # - creation must sent create message
+        # - assigning permission must not sent message
+        # - removing permission must not sent delete message
+        # - deleting entity must sent delete message
+        await modify_superuser(self.user_alice, True)
+
+        entity = await create_entity()
+        self.assertDictEqual(
+            json.loads(await client.receive_from()),
+            {
+                "change_type": ChangeType.CREATE.name,
+                "object_id": entity.pk,
+                "subscription_id": self.subscription_id.hex,
+                "source": ["entity", entity.pk],
+            },
+        )
+        await self.assert_no_more_messages(client)
+
+        # CREATE when permission is gained.
+        await set_permission(entity, Permission.VIEW, self.user_alice)
+        await self.assert_no_more_messages(client)
+
+        # No DELETE when permission is removed.
+        await set_permission(entity, Permission.NONE, self.user_alice)
+        await self.assert_no_more_messages(client)
+
+        # No CREATE when permission is gained.
+        await set_permission(entity, Permission.VIEW, self.user_alice)
+        # Assert we detect creations.
+        await self.assert_no_more_messages(client)
+
+        # DELETE when entity is deleted.
+        entity_pk = entity.pk
+        await delete_object(entity)
+        self.assertDictEqual(
+            json.loads(await client.receive_from()),
+            {
+                "change_type": ChangeType.DELETE.name,
+                "object_id": entity_pk,
+                "subscription_id": self.subscription_id.hex,
+                "source": ["entity", entity_pk],
+            },
+        )
+        await self.assert_no_more_messages(client)
+
+        # Test data creation/deletion in the entity sends message.
+        # First for regular user, then superuser.
+        await modify_superuser(self.user_alice, False)
+
+        @database_sync_to_async
+        def create_data(entity):
+            return Data.objects.create(
+                name="Test data",
+                contributor=self.user_alice,
+                process=self.process,
+                size=0,
+                entity=entity,
+            )
+
+        entity = await create_entity()
+        await set_permission(entity, Permission.VIEW, self.user_alice)
+        self.assertDictEqual(
+            json.loads(await client.receive_from()),
+            {
+                "change_type": ChangeType.CREATE.name,
+                "object_id": entity.pk,
+                "subscription_id": self.subscription_id.hex,
+                "source": ["entity", entity.pk],
+            },
+        )
+        await self.assert_no_more_messages(client)
+
+        data = await create_data(entity)
+        self.assertDictEqual(
+            json.loads(await client.receive_from()),
+            {
+                "change_type": ChangeType.CREATE.name,
+                "object_id": entity.pk,
+                "subscription_id": self.subscription_id.hex,
+                "source": ["data", data.pk],
+            },
+        )
+        await self.assert_no_more_messages(client)
+
+        data_pk = data.pk
+        await delete_object(data)
+        self.assertDictEqual(
+            json.loads(await client.receive_from()),
+            {
+                "change_type": ChangeType.DELETE.name,
+                "object_id": entity.pk,
+                "subscription_id": self.subscription_id.hex,
+                "source": ["data", data_pk],
+            },
+        )
+        await self.assert_no_more_messages(client)
+
+        entity_pk = entity.pk
+        await delete_object(entity)
+        self.assertDictEqual(
+            json.loads(await client.receive_from()),
+            {
+                "change_type": ChangeType.DELETE.name,
+                "object_id": entity_pk,
+                "subscription_id": self.subscription_id.hex,
+                "source": ["entity", entity_pk],
+            },
+        )
+        await self.assert_no_more_messages(client)
+
+        # Now repeat the test for superuser.
+        await modify_superuser(self.user_alice, True)
+        entity = await create_entity()
+        self.assertDictEqual(
+            json.loads(await client.receive_from()),
+            {
+                "change_type": ChangeType.CREATE.name,
+                "object_id": entity.pk,
+                "subscription_id": self.subscription_id.hex,
+                "source": ["entity", entity.pk],
+            },
+        )
+        await self.assert_no_more_messages(client)
+
+        data = await create_data(entity)
+        self.assertDictEqual(
+            json.loads(await client.receive_from()),
+            {
+                "change_type": ChangeType.CREATE.name,
+                "object_id": entity.pk,
+                "subscription_id": self.subscription_id.hex,
+                "source": ["data", data.pk],
+            },
+        )
+        await self.assert_no_more_messages(client)
+
+        data_pk = data.pk
+        await delete_object(data)
+        self.assertDictEqual(
+            json.loads(await client.receive_from()),
+            {
+                "change_type": ChangeType.DELETE.name,
+                "object_id": entity.pk,
+                "subscription_id": self.subscription_id.hex,
+                "source": ["data", data_pk],
+            },
+        )
+        await self.assert_no_more_messages(client)
+
+        entity_pk = entity.pk
+        await delete_object(entity)
+        self.assertDictEqual(
+            json.loads(await client.receive_from()),
+            {
+                "change_type": ChangeType.DELETE.name,
+                "object_id": entity_pk,
+                "subscription_id": self.subscription_id.hex,
+                "source": ["entity", entity_pk],
+            },
+        )
+        await self.assert_no_more_messages(client)
+
+    async def test_observe_collection_table(self):
+        """Assert that creation and deletion works on collection table."""
+        client = WebsocketCommunicator(self.client_consumer, "/ws/test_session")
+        connected, _ = await client.connect()
+        self.assertTrue(connected)
+
+        # Create a subscription to the Data and Collection content_type.
+        @database_sync_to_async
+        def subscribe():
+            Subscription.objects.create(
+                user=self.user_alice,
+                session_id="test_session",
+                subscription_id=self.subscription_id,
+            ).subscribe(
+                content_type=ContentType.objects.get_for_model(Collection),
+                object_ids=[None],
+                change_types=[ChangeType.CREATE, ChangeType.DELETE],
+            )
+
+        await subscribe()
         await self.await_subscription_observer_count(2)
+
+        # Create a new Collection object.
+        @database_sync_to_async
+        def create_collection():
+            return Collection.objects.create(
+                name="Collection", contributor=self.user_alice
+            )
+
+        # Delete the object.
+        @database_sync_to_async
+        def delete_object(obj):
+            obj.delete()
+
+        @database_sync_to_async
+        def set_permission(obj, permission, user):
+            obj.set_permission(permission, user)
+
+        @database_sync_to_async
+        def modify_superuser(user, issuperuser):
+            user.is_superuser = issuperuser
+            user.save()
+
+        @database_sync_to_async
+        def create_data(collection):
+            return Data.objects.create(
+                name="Test data",
+                contributor=self.user_alice,
+                process=self.process_auto_entity,
+                size=0,
+                collection=collection,
+            )
+
+        # Test that creating data object with auto entity assignes triggers messages.
+
+        # First test for regular user.
+        # - collection creation should not sent message
+        # - assigning permission on collection must sent create message
+        # - creating data object must sent entity and data create messages
+        collection = await create_collection()
+
+        # No messages when Alice has no permissions.
+        await self.assert_no_more_messages(client)
+
+        # CREATE when permission is gained.
+        await set_permission(collection, Permission.VIEW, self.user_alice)
+        # Assert we detect creations.
+        self.assertDictEqual(
+            json.loads(await client.receive_from()),
+            {
+                "change_type": ChangeType.CREATE.name,
+                "object_id": collection.pk,
+                "subscription_id": self.subscription_id.hex,
+                "source": ["collection", collection.pk],
+            },
+        )
+        await self.assert_no_more_messages(client)
+
+        # We expect 2 messages: one for data and one for the entity.
+        data = await create_data(collection)
+        entity = data.entity
+
+        self.assertCountEqual(
+            [json.loads(await client.receive_from()) for _ in range(2)],
+            [
+                {
+                    "change_type": ChangeType.CREATE.name,
+                    "object_id": collection.pk,
+                    "subscription_id": self.subscription_id.hex,
+                    "source": ["data", data.pk],
+                },
+                {
+                    "change_type": ChangeType.CREATE.name,
+                    "object_id": collection.pk,
+                    "subscription_id": self.subscription_id.hex,
+                    "source": ["entity", entity.pk],
+                },
+            ],
+        )
+        await self.assert_no_more_messages(client)
+
+        # Delete the entity object: we expect two messages on collection.
+        data_pk = data.pk
+        entity_pk = entity.pk
+        await delete_object(entity)
+        self.assertCountEqual(
+            [json.loads(await client.receive_from()) for _ in range(2)],
+            [
+                {
+                    "change_type": ChangeType.DELETE.name,
+                    "object_id": collection.pk,
+                    "subscription_id": self.subscription_id.hex,
+                    "source": ["data", data_pk],
+                },
+                {
+                    "change_type": ChangeType.DELETE.name,
+                    "object_id": collection.pk,
+                    "subscription_id": self.subscription_id.hex,
+                    "source": ["entity", entity_pk],
+                },
+            ],
+        )
+        await self.assert_no_more_messages(client)
+
+        # Repeat for superuser.
+        await modify_superuser(self.user_alice, True)
+        data = await create_data(collection)
+        entity = data.entity
+
+        self.assertCountEqual(
+            [json.loads(await client.receive_from()) for _ in range(2)],
+            [
+                {
+                    "change_type": ChangeType.CREATE.name,
+                    "object_id": collection.pk,
+                    "subscription_id": self.subscription_id.hex,
+                    "source": ["data", data.pk],
+                },
+                {
+                    "change_type": ChangeType.CREATE.name,
+                    "object_id": collection.pk,
+                    "subscription_id": self.subscription_id.hex,
+                    "source": ["entity", entity.pk],
+                },
+            ],
+        )
+        await self.assert_no_more_messages(client)
+
+        # Delete the entity object: we expect two messages on collection.
+        data_pk = data.pk
+        entity_pk = entity.pk
+        await delete_object(entity)
+        self.assertCountEqual(
+            [json.loads(await client.receive_from()) for _ in range(2)],
+            [
+                {
+                    "change_type": ChangeType.DELETE.name,
+                    "object_id": collection.pk,
+                    "subscription_id": self.subscription_id.hex,
+                    "source": ["data", data_pk],
+                },
+                {
+                    "change_type": ChangeType.DELETE.name,
+                    "object_id": collection.pk,
+                    "subscription_id": self.subscription_id.hex,
+                    "source": ["entity", entity_pk],
+                },
+            ],
+        )
+        await self.assert_no_more_messages(client)
 
     async def test_change_permission_group(self):
         client_bob = WebsocketCommunicator(self.client_consumer, "/ws/test_session_bob")
