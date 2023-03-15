@@ -25,10 +25,11 @@ class ProcessRegisterTest(TestCase):
     def test_process_register_all(self):
         out, err = StringIO(), StringIO()
         call_command("register", stdout=out, stderr=err)
-        self.assertTrue("Inserted test-min" in out.getvalue())
-        self.assertTrue(
-            "Skip processor test-min: newer version installed" in err.getvalue()
+        self.assertIn("Inserted test-min", out.getvalue())
+        self.assertIn(
+            "Skip processor test-min: newer version installed", err.getvalue()
         )
+        self.assertNotIn("setting is_active to True", out.getvalue())
 
         # Check that contributor gets all permissions.
         process = Process.objects.first()
@@ -37,23 +38,26 @@ class ProcessRegisterTest(TestCase):
 
         out, err = StringIO(), StringIO()
         call_command("register", stdout=out, stderr=err)
-        self.assertTrue(
-            "Skip processor test-min: same version installed" in out.getvalue()
+        self.assertIn("Skip processor test-min: same version installed", out.getvalue())
+        self.assertIn(
+            "Skip processor test-bloated: same version installed", out.getvalue()
         )
-        self.assertTrue(
-            "Skip processor test-bloated: same version installed" in out.getvalue()
+        self.assertIn(
+            "Skip processor test-min: newer version installed", err.getvalue()
         )
-        self.assertTrue(
-            "Skip processor test-min: newer version installed" in err.getvalue()
-        )
+        self.assertNotIn("setting is_active to True", out.getvalue())
 
         out, err = StringIO(), StringIO()
         call_command("register", force=True, stdout=out, stderr=err)
-        self.assertTrue("Updated test-min" in out.getvalue())
-        self.assertTrue("Updated test-bloated" in out.getvalue())
-        self.assertTrue(
-            "Skip processor test-min: newer version installed" in err.getvalue()
+        self.assertIn("Updated test-min", out.getvalue())
+        self.assertIn("Updated test-bloated", out.getvalue())
+        self.assertIn(
+            "Skip processor test-min: newer version installed", err.getvalue()
         )
+        self.assertNotIn("setting is_active to True", out.getvalue())
+        Process.objects.filter(slug="test-min").update(is_active=False)
+        call_command("register", stdout=out, stderr=err)
+        self.assertIn("Processor test-min: setting is_active to True", out.getvalue())
 
     def test_validation_of_defaults(self):
         out, err = StringIO(), StringIO()

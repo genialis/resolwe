@@ -284,6 +284,14 @@ class Command(BaseCommand):
 
             process_query = Process.objects.filter(slug=slug, version=version)
             if process_query.exists():
+                is_active = process_query.values_list("is_active", flat=True).get()
+                if not is_active:
+                    p["is_active"] = True
+                    if verbosity > 0:
+                        self.stdout.write(
+                            "Processor {}: setting is_active to True".format(slug)
+                        )
+
                 if not force:
                     if verbosity > 0:
                         self.stdout.write(

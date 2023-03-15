@@ -37,6 +37,9 @@ Changed
 - Modify the ``DataViewSet`` to remove redundant queries
 - Add ``duplicate_data``, ``duplicate_entity`` and ``duplicate_collection``
   methods to ``BackgroundTaskConsumer`` class
+- Set ``is_active`` to ``True`` for all available processes every time ``register``
+  management command is run even if the same version of the process already exists in
+  the database
 
 Fixed
 -----
