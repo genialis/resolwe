@@ -30,6 +30,7 @@ Fixed
 - Send observer notifications when data object is automatically assigned to the entity
   via ``entity_type`` in the process
 - Remove observer from subscription if object is deleted
+- Handle empty iterable in ``observe_instance_container`` method
 
 
 ===================

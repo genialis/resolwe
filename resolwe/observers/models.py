@@ -71,7 +71,10 @@ class Observer(models.Model):
 
         When containers are given notify them else infer them from the instance.
         """
-        for container in containers or instance.containers:
+        # Test explicitely for None, since containers may be empty.
+        if containers is None:
+            containers = instance.containers
+        for container in containers:
             observers = Observer.get_interested(
                 change_type=change_type,
                 content_type=ContentType.objects.get_for_model(container),
