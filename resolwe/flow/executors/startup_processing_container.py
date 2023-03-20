@@ -73,6 +73,10 @@ LOG_LEVEL = int(os.environ.get("LOG_LEVEL", logging.DEBUG))
 # be hundreds lines long.
 LOG_MAX_LENGTH = int(os.environ.get("LOG_MAX_LENGTH", 200))
 
+# How long to wait for the response from the communication container.
+# Do not set too low or script may fail to start. The default is 20 minutes.
+SCRIPT_START_TIMEOUT = int(os.environ.get("SCRIPT_START_TIMEOUT", 1200))
+
 logging.basicConfig(
     stream=sys.stdout,
     level=LOG_LEVEL,
@@ -479,19 +483,17 @@ class ProcessingManager:
 
         :raises RuntimeError: in case of failure.
         """
-        # Wait up to 60 seconds to start the script.
-        script_start_timeout = 60
         try:
             await asyncio.wait(
                 [self.protocol_handler.script_started.wait(), self._terminating.wait()],
-                timeout=script_start_timeout,
+                timeout=SCRIPT_START_TIMEOUT,
                 return_when=asyncio.FIRST_COMPLETED,
             )
             if self._terminating.is_set():
                 logger.debug("Terminating message received.")
             elif not self.protocol_handler.script_started.is_set():
                 await log_error(
-                    f"The script failed to start in {script_start_timeout} seconds.",
+                    f"The script failed to start in {SCRIPT_START_TIMEOUT} seconds.",
                     self.communicator,
                 )
             else:
