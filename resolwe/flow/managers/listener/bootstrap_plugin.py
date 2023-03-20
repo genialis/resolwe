@@ -232,7 +232,10 @@ class BootstrapCommands(ListenerPlugin):
         self, data_id: int, message: Message[str], manager: "Processor"
     ) -> Response[str]:
         """Return script for the current Data object."""
-        return message.respond_ok(self.get_program(data_id))
+        logger.debug("Preparing the script for data %d.", data_id)
+        response = self.get_program(data_id)
+        logger.debug("Got the script: '%s ...'.", response[:20])
+        return message.respond_ok(response)
 
     def handle_log(
         self,
