@@ -44,6 +44,7 @@ Fixed
   via ``entity_type`` in the process
 - Remove observer from subscription if object is deleted
 - Handle empty iterable in ``observe_instance_container`` method
+- Remove call to ``close`` in observers consumer that caused ``RuntimeError``
 
 
 ===================

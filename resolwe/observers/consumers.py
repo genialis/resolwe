@@ -40,7 +40,6 @@ class ClientConsumer(JsonWebsocketConsumer):
     def disconnect(self, code: int):
         """Handle closing the WebSocket connection."""
         Subscription.objects.filter(session_id=self.session_id).delete()
-        self.close()
 
     def observers_item_update(self, msg: ChannelsMessage):
         """Handle an item update signal."""
