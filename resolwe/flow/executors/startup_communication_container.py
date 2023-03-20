@@ -661,12 +661,14 @@ class Manager:
 
                 # Send script to the processing container for processing.
                 try:
+                    logger.debug("Retrieving script from the listener.")
                     script = await listener.get_script()
                 except RuntimeError:
                     logger.exception("Error fetching script")
                     logger.exception("Terminating processing container")
                     await processing.terminate()
                 else:
+                    logger.debug("Forwarding the script to the processing container.")
                     await processing.process_script(script)
 
                 # Wait until:
