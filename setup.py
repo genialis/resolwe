@@ -64,6 +64,7 @@ setuptools.setup(
         "Sphinx~=4.3.2",
         "wrapt~=1.13.3",
         "pyzmq~=22.3.0",
+        "uvloop~=0.17.0",
     ],
     extras_require={
         "storage_s3": [
