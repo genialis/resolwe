@@ -13,6 +13,8 @@ Command to run on local machine::
 import asyncio
 from signal import SIGINT, SIGTERM
 
+import uvloop
+
 from django.core.management.base import BaseCommand
 
 from resolwe.flow.managers.listener import ExecutorListener
@@ -49,6 +51,8 @@ class Command(BaseCommand):
             async with listener:
                 await listener.should_stop.wait()
 
+        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
         loop = asyncio.new_event_loop()
+
         loop.run_until_complete(_runner())
         loop.close()
