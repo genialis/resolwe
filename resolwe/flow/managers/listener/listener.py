@@ -664,8 +664,7 @@ class ListenerProtocol(BaseProtocol):
                 zmq_socket.bind(f"{protocol}://{host}:{port}")
 
         super().__init__(
-            ZMQCommunicator(zmq_socket, "listener <-> workers", logger),
-            logger,
+            ZMQCommunicator(zmq_socket, "listener <-> workers", logger), logger, 40
         )
         self.communicator.heartbeat_handler = self.heartbeat_handler
 
