@@ -3,6 +3,8 @@ import logging
 import re
 from collections import defaultdict
 from contextlib import suppress
+from functools import wraps
+from time import time
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Union
 
 from django.conf import settings
@@ -30,9 +32,25 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def timing(f):
+    """Time the execution time."""
+
+    @wraps(f)
+    def wrap(*args, **kw):
+        ts = time()
+        print("Starting func %r", f.__name__)
+        result = f(*args, **kw)
+        te = time()
+        print("func:%r args:[%r, %r] took: %2.4f sec" % (f.__name__, args, kw, te - ts))
+        return result
+
+    return wrap
+
+
 class BasicCommands(ListenerPlugin):
     """Basic listener handlers."""
 
+    @timing
     def handle_run(
         self, data_id: int, message: Message[dict], manager: "Processor"
     ) -> Response[int]:
@@ -85,6 +103,7 @@ class BasicCommands(ListenerPlugin):
         else:
             return message.respond_ok(created_object.id)
 
+    @timing
     def handle_update_rc(
         self, data_id: int, message: Message[dict], manager: "Processor"
     ) -> Response[str]:
@@ -113,6 +132,7 @@ class BasicCommands(ListenerPlugin):
             manager._save_data(data, changes)
         return message.respond_ok("OK")
 
+    @timing
     def handle_finish(
         self, data_id: int, message: Message[Dict], manager: "Processor"
     ) -> Response[str]:
@@ -155,6 +175,7 @@ class BasicCommands(ListenerPlugin):
             validate_data_object(data)
         return message.respond_ok("OK")
 
+    @timing
     def handle_missing_data_locations(
         self, data_id: int, message: Message, manager: "Processor"
     ) -> Response[Union[str, Dict[str, Dict[str, Any]]]]:
@@ -228,6 +249,7 @@ class BasicCommands(ListenerPlugin):
             from_location.save()
         return message.respond_ok(missing_data)
 
+    @timing
     def handle_referenced_files(
         self, data_id: int, message: Message[List[dict]], manager: "Processor"
     ) -> Response[str]:
@@ -269,6 +291,7 @@ class BasicCommands(ListenerPlugin):
 
         return message.respond_ok("OK")
 
+    @timing
     def handle_resolve_url(
         self, data_id: int, message: Message[str], manager: "Processor"
     ) -> Response[str]:
@@ -312,6 +335,7 @@ class BasicCommands(ListenerPlugin):
 
         return message.respond_ok(url)
 
+    @timing
     def hydrate_spawned_files(
         self, exported_files_mapper: Dict[str, str], filename: str
     ):
@@ -333,6 +357,7 @@ class BasicCommands(ListenerPlugin):
             )
         return {"file_temp": exported_files_mapper.pop(filename), "file": filename}
 
+    @timing
     def handle_update_status(
         self, data_id: int, message: Message[str], manager: "Processor"
     ) -> Response[str]:
@@ -372,6 +397,7 @@ class BasicCommands(ListenerPlugin):
                 )
         return message.respond_ok(new_status)
 
+    @timing
     def handle_get_data_by_slug(
         self, data_id: int, message: Message[str], manager: "Processor"
     ) -> Response[int]:
@@ -382,6 +408,7 @@ class BasicCommands(ListenerPlugin):
             .get()
         )
 
+    @timing
     def handle_set_data_size(
         self, data_id: int, message: Message[int], manager: "Processor"
     ) -> Response[str]:
@@ -393,6 +420,7 @@ class BasicCommands(ListenerPlugin):
         manager._update_data(data_id, {"size": message.message_data})
         return message.respond_ok("OK")
 
+    @timing
     def handle_update_output(
         self, data_id: int, message: Message[Dict[str, Any]], manager: "Processor"
     ) -> Response[str]:
@@ -413,6 +441,7 @@ class BasicCommands(ListenerPlugin):
             manager._save_data(data, ["output"])
         return message.respond_ok("OK")
 
+    @timing
     def handle_get_files_to_download(
         self, data_id: int, message: Message[int], manager: "Processor"
     ) -> Response[Union[str, List[dict]]]:
@@ -425,6 +454,7 @@ class BasicCommands(ListenerPlugin):
             )
         )
 
+    @timing
     def handle_download_started(
         self, data_id: int, message: Message[dict], manager: "Processor"
     ) -> Response[str]:
@@ -451,6 +481,7 @@ class BasicCommands(ListenerPlugin):
 
         return message.respond_ok(return_status)
 
+    @timing
     def handle_download_aborted(
         self, data_id: int, message: Message[int], manager: "Processor"
     ) -> Response[str]:
@@ -464,6 +495,7 @@ class BasicCommands(ListenerPlugin):
         )
         return message.respond_ok("OK")
 
+    @timing
     def handle_download_finished(
         self, data_id: int, message: Message[int], manager: "Processor"
     ) -> Response[str]:
@@ -479,6 +511,7 @@ class BasicCommands(ListenerPlugin):
             storage_location.save()
         return message.respond_ok("OK")
 
+    @timing
     def handle_annotate(
         self, data_id: int, message: Message[dict], manager: "Processor"
     ) -> Response[str]:
@@ -497,6 +530,7 @@ class BasicCommands(ListenerPlugin):
 
         return message.respond_ok("OK")
 
+    @timing
     def handle_process_log(
         self, data_id, message: Message[dict], manager: "Processor"
     ) -> Response[str]:
@@ -522,6 +556,7 @@ class BasicCommands(ListenerPlugin):
         manager._save_data(data, changes)
         return message.respond_ok("OK")
 
+    @timing
     def handle_progress(
         self, data_id: int, message: Message[float], manager: "Processor"
     ) -> Response[str]:

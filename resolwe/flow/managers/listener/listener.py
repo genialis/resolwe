@@ -16,7 +16,7 @@ import logging
 import pickle
 from contextlib import suppress
 from datetime import datetime
-from functools import lru_cache
+from functools import lru_cache, wraps
 from os import getpid
 from time import time
 from typing import Any, ChainMap, Dict, Iterable, List, Optional, Set, Union
@@ -61,6 +61,21 @@ from .python_process_plugin import PythonProcess  # noqa: F401
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
+
+
+def timing(f):
+    """Time the execution time."""
+
+    @wraps(f)
+    def wrap(*args, **kw):
+        ts = time()
+        print("Starting func %r", f.__name__)
+        result = f(*args, **kw)
+        te = time()
+        print("func:%r args:[%r, %r] took: %2.4f sec" % (f.__name__, args, kw, te - ts))
+        return result
+
+    return wrap
 
 
 class RedisCache:
@@ -188,6 +203,7 @@ class Processor:
         self._return_codes: Dict[PeerIdentity, int] = dict()
         self._redis_cache = RedisCache(redis)
 
+    @timing
     def get_data_fields(self, data_id: int, field_names: Union[List[str], str]) -> Any:
         """Get the data fields for the data with the given id.
 
@@ -228,6 +244,7 @@ class Processor:
         result = [combined[field_name] for field_name in fields]
         return result[0] if isinstance(field_names, str) else result
 
+    @timing
     @lru_cache(maxsize=100)
     def contributor_id(self, data_id: int) -> int:
         """Get the id of the user that created the given data object.
@@ -236,6 +253,7 @@ class Processor:
         """
         return self.contributor(data_id).id
 
+    @timing
     @lru_cache(maxsize=100)
     def contributor(self, data_id: int):
         """Get the user that created the given data objects.
@@ -244,6 +262,7 @@ class Processor:
         """
         return User.objects.get(data__id=data_id)
 
+    @timing
     def data(self, data_id: int) -> Data:
         """Get the data object for the given data id.
 
@@ -251,6 +270,7 @@ class Processor:
         """
         return Data.objects.get(pk=data_id)
 
+    @timing
     def worker(self, data_id: int) -> Worker:
         """Get the worker object.
 
@@ -261,6 +281,7 @@ class Processor:
         """
         return Worker.objects.get(data=data_id)
 
+    @timing
     def storage_fields(self, data_id) -> Set[str]:
         """Get the names of storage fields in the schema.
 
@@ -273,6 +294,7 @@ class Processor:
             if schema["type"].startswith("basic:json:")
         }
 
+    @timing
     def save_storage(self, key: str, content: str, data: Data) -> Storage:
         """Save storage field and add it to the given data.
 
@@ -484,6 +506,7 @@ class Processor:
 
         return data_status not in unacceptable_data_statuses
 
+    @timing
     def process_command(self, identity: PeerIdentity, message: Message) -> Response:
         """Process a single command from the peer.
 
@@ -541,6 +564,7 @@ class Processor:
             self._log_exception(self.data(data_id), error)
             return message.respond_error(f"Error in command handler '{handler_name}'.")
 
+    @timing
     def notify_dispatcher_abort(self, data_id: int):
         """Notify dispatcher that processing was aborted.
 
@@ -561,6 +585,7 @@ class Processor:
         """
         async_to_sync(self.notify_dispatcher_abort_async)(data_id)
 
+    @timing
     async def notify_dispatcher_abort_async(self, data_id: int):
         """Notify dispatcher that processing was aborted.
 
@@ -590,6 +615,7 @@ class Processor:
         )
         logger.debug("notify_dispatcher_abort: consumer event sent")
 
+    @timing
     def notify_dispatcher_finish(self, data_id: int):
         """Notify dispatcher that the processing is finished.
 
@@ -597,6 +623,7 @@ class Processor:
         """
         async_to_sync(self.notify_dispatcher_finish_async)(data_id)
 
+    @timing
     async def notify_dispatcher_finish_async(self, data_id: int):
         """Notify dispatcher that the processing is finished.
 
@@ -645,6 +672,7 @@ class ListenerProtocol(BaseProtocol):
         self._redis = redis.from_url(settings.REDIS_CONNECTION_STRING)
         self._message_processor = Processor(self, self._redis)
 
+    @timing
     async def heartbeat_handler(self, peer_identity: PeerIdentity):
         """Handle the heartbeat messages."""
         # The redis key contains the timestamp when the worker was last seen.
@@ -723,6 +751,7 @@ class ListenerProtocol(BaseProtocol):
         """Respond to the liveness probe."""
         return message.respond_ok(True)
 
+    @timing
     async def default_command_handler(
         self, received_message: Message, peer_identity: PeerIdentity
     ) -> Response:
@@ -732,9 +761,17 @@ class ListenerProtocol(BaseProtocol):
             self._message_processor.process_command, thread_sensitive=False
         )(peer_identity, received_message)
 
-        self.logger.debug(__("Response time: {}", received_message.time_elapsed()))
+        command_name = received_message.command_name
+        self.logger.debug(
+            __(
+                "Response time for command {}: {}",
+                command_name,
+                received_message.time_elapsed(),
+            )
+        )
         return response
 
+    @timing
     async def post_finish(self, message: Message, peer_identity: PeerIdentity):
         """Notify dispatcher after finish command was received."""
         try:

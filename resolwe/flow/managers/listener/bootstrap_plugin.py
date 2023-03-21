@@ -6,8 +6,10 @@ import os
 import shlex
 import threading
 from collections import defaultdict
+from functools import wraps
 from importlib import import_module
 from pathlib import Path
+from time import time
 from typing import TYPE_CHECKING, Any, Dict, Tuple, Union
 
 from django.conf import settings
@@ -29,6 +31,21 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from resolwe.flow.managers.listener.listener import Processor
+
+
+def timing(f):
+    """Time the execution time."""
+
+    @wraps(f)
+    def wrap(*args, **kw):
+        ts = time()
+        print("Starting func %r", f.__name__)
+        result = f(*args, **kw)
+        te = time()
+        print("func:%r args:[%r, %r] took: %2.4f sec" % (f.__name__, args, kw, te - ts))
+        return result
+
+    return wrap
 
 
 class BootstrapCommands(ListenerPlugin):
@@ -136,6 +153,7 @@ class BootstrapCommands(ListenerPlugin):
             logger.debug("Process settings prepared.")
             self._bootstrap_cache["process"] = dict()
 
+    @timing
     def bootstrap_prepare_process_cache(self, data: Data):
         """Prepare cache for process with the given id."""
         if data.process_id not in self._bootstrap_cache["process"]:
@@ -146,6 +164,7 @@ class BootstrapCommands(ListenerPlugin):
                 "resource_limits"
             ] = data.process.get_resource_limits()
 
+    @timing
     def handle_init_completed(
         self, data_id: int, message: Message[str], manager: "Processor"
     ) -> Response[str]:
@@ -155,6 +174,7 @@ class BootstrapCommands(ListenerPlugin):
         worker.save(update_fields=["status"])
         return message.respond_ok("")
 
+    @timing
     def handle_bootstrap(
         self, data_id: int, message: Message[Tuple[int, str]], manager: "Processor"
     ) -> Response[Dict]:
@@ -228,6 +248,7 @@ class BootstrapCommands(ListenerPlugin):
             )
         return message.respond_ok(response)
 
+    @timing
     def handle_get_script(
         self, data_id: int, message: Message[str], manager: "Processor"
     ) -> Response[str]:
@@ -262,6 +283,7 @@ class BootstrapCommands(ListenerPlugin):
         logger.handle(logging.makeLogRecord(record_dict))
         return message.respond_ok("OK")
 
+    @timing
     def get_program(self, data_id: int) -> str:
         """Get a program for given data object."""
         # When multiple get_script commands run in parallel the string
