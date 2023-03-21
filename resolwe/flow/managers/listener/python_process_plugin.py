@@ -4,8 +4,10 @@ import importlib
 import logging
 import os
 from base64 import b64encode
+from functools import wraps
 from io import BytesIO
 from pathlib import Path
+from time import time
 from typing import TYPE_CHECKING, Any, Dict, List, Tuple, Type, Union
 from zipfile import ZIP_STORED, ZipFile
 
@@ -44,6 +46,21 @@ UserClass = get_user_model()
 
 # How many times to retry creating new object on slug collision error.
 OBJECT_CREATE_RETRIES = 10
+
+
+def timing(f):
+    """Time the execution time."""
+
+    @wraps(f)
+    def wrap(*args, **kw):
+        ts = time()
+        print("Starting func %r", f.__name__)
+        result = f(*args, **kw)
+        te = time()
+        print("func:%r args:[%r, %r] took: %2.4f sec" % (f.__name__, args, kw, te - ts))
+        return result
+
+    return wrap
 
 
 class PermissionManager:
@@ -446,6 +463,7 @@ class PythonProcess(ListenerPlugin):
         self._hydrate_cache: Dict[int, str] = dict()
         super().__init__()
 
+    @timing
     def handle_resolve_data_path(
         self, data_id: int, message: Message[int], manager: "Processor"
     ) -> Response[str]:
@@ -461,6 +479,7 @@ class PythonProcess(ListenerPlugin):
             self._hydrate_cache[data_pk] = mount_point
         return message.respond_ok(self._hydrate_cache[data_pk])
 
+    @timing
     def handle_get_python_program(
         self,
         data_id: int,
@@ -475,6 +494,7 @@ class PythonProcess(ListenerPlugin):
         ) or {}
         return message.respond_ok(run_dict.get("program", ""))
 
+    @timing
     def handle_create_object(
         self,
         data_id: int,
@@ -508,6 +528,7 @@ class PythonProcess(ListenerPlugin):
         model_data["contributor_id"] = manager.contributor(data_id).id
         return message.respond_ok(create_model(model, model_data).id)
 
+    @timing
     def handle_filter_objects(
         self,
         data_id: int,
@@ -526,6 +547,7 @@ class PythonProcess(ListenerPlugin):
         """
         # Sorting was added later. For compatibility reasons handle both
         # message types, remove the one without sorting ASAP.
+        start = time()
         sorting: List[str] = []
         if len(message.message_data) == 4:
             app_name, model_name, filters, attributes = message.message_data
@@ -540,16 +562,22 @@ class PythonProcess(ListenerPlugin):
 
         full_model_name = f"{app_name}.{model_name}"
         model = apps.get_model(app_name, model_name)
+
+        print("Handle_filter_objectss", filters, sorting, attributes)
+        print("Handle_filter_objectss filtered start", time() - start)
+
         filtered_objects = self._permission_manager.filter_objects(
             manager.contributor(data_id),
             full_model_name,
             model.objects.filter(**filters),
             data_id,
         )
-        return message.respond_ok(
-            list(filtered_objects.order_by(*sorting).values_list(*attributes))
-        )
+        print("Handle_filter_objectss filtered finish", time() - start)
+        result = list(filtered_objects.order_by(*sorting).values_list(*attributes))
+        print("Handle_filter_objectss result", time() - start)
+        return message.respond_ok(result)
 
+    @timing
     def handle_update_model_fields(
         self,
         data_id: int,
@@ -618,6 +646,7 @@ class PythonProcess(ListenerPlugin):
         model_instance.save(update_fields=update_fields)
         return message.respond_ok("OK")
 
+    @timing
     def handle_get_model_fields_details(
         self, data_id: int, message: Message[Tuple[str, str]], manager: "Processor"
     ) -> Response[Dict[str, Tuple[str, bool, Any]]]:
@@ -646,6 +675,7 @@ class PythonProcess(ListenerPlugin):
             )
         return message.respond_ok(response)
 
+    @timing
     def handle_get_model_fields(
         self,
         data_id: int,
@@ -680,6 +710,7 @@ class PythonProcess(ListenerPlugin):
             values = dict()
         return message.respond_ok(values)
 
+    @timing
     def handle_get_relations(
         self, data_id: int, message: Message[int], manager: "Processor"
     ) -> Response[List[dict]]:
@@ -692,6 +723,7 @@ class PythonProcess(ListenerPlugin):
         )
         return message.respond_ok(serialize_collection_relations(collection))
 
+    @timing
     def handle_get_process_requirements(
         self, data_id: int, message: Message[int], manager: "Processor"
     ) -> Response[dict]:
@@ -706,6 +738,7 @@ class PythonProcess(ListenerPlugin):
         process_requirements["resources"] = process_limits
         return message.respond_ok(process_requirements)
 
+    @timing
     def handle_get_self_requirements(
         self, data_id: int, message: Message[int], manager: "Processor"
     ) -> Response[dict]:
@@ -716,6 +749,7 @@ class PythonProcess(ListenerPlugin):
         process_requirements["resources"] = limits
         return message.respond_ok(process_requirements)
 
+    @timing
     def handle_get_python_runtime(
         self, data_id: int, message: Message[str], manager: "Processor"
     ) -> Response[str]:
@@ -748,6 +782,7 @@ class PythonProcess(ListenerPlugin):
         zipped.seek(0)
         return message.respond_ok(b64encode(zipped.read()).decode())
 
+    @timing
     def handle_get_user_model_label(
         self, data_id: int, message: Message[str], manager: "Processor"
     ) -> Response[str]:

@@ -935,6 +935,7 @@ class BaseProtocol:
             if handler is None:
                 handler = self.default_command_handler
             try:
+                logger.debug("Invoking handler: '%s'.", handler.__name__)
                 response = await handler(received_message, peer_identity)
             except Exception as ex:
                 self.logger.exception(
@@ -945,7 +946,9 @@ class BaseProtocol:
                 )
 
             try:
+                logger.debug("Sending response to: '%s'.", peer_identity)
                 await self.communicator.send_response(response, peer_identity)
+                logger.debug("Response sent to: '%s'.", peer_identity)
             except RuntimeError:
                 self.logger.exception(
                     "Protocol: error sending response to {received_message}."
