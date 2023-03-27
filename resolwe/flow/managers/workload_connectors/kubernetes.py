@@ -563,6 +563,19 @@ class Connector(BaseConnector):
                     }
                 }
 
+    def _get_overcommit_factors(self, data: Data) -> dict:
+        """Get the overcommit settings for CPU and memory.
+
+        The returned dict is of the form:
+        { 'cpu': 0.8, 'memory': 0.8 }
+
+        The numbers indicite that we will only request 80% of CPU and RAM requested in
+        the process.
+        """
+        default = {"cpu": 0.8, "memory": 0.8}
+        job_type = dict(Process.SCHEDULING_CLASS_CHOICES)[data.process.scheduling_class]
+        return default | settings.FLOW_KUBERNETES_OVERCOMMIT.get(job_type, {})
+
     def start(self, data: Data, listener_connection: Tuple[str, str, str]):
         """Start process execution.
 
@@ -594,21 +607,20 @@ class Connector(BaseConnector):
         # Set resource limits.
         requests = dict()
         limits = data.get_resource_limits()
+        overcommit_factors = self._get_overcommit_factors(data)
 
-        requests["cpu"] = limits.pop("cores")
-        limits["cpu"] = requests["cpu"] + 1
-        # Overcommit CPU by 20%.
-        requests["cpu"] *= 0.8
+        requests["cpu"] = limits["cores"] * overcommit_factors["cpu"]
+        limits["cpu"] = limits.pop("cores") + 1
 
         # The memory in the database is stored in megabytes but the kubertenes
         # requires memory in bytes.
-        # We request 10% less memory than stored in the database and set limit
-        # at 10% more plus KUBERNETES_MEMORY_HARD_LIMIT_BUFFER. The processes
-        # usually require 16GB, 32GB... and since the node usualy has 64GB of
-        # memory and some of it is consumed by the system processes only one
-        # process process that requires 32GB can run on a node instead of 2.
+        # We request less memory than stored in the database and set limit at 10% more
+        # plus KUBERNETES_MEMORY_HARD_LIMIT_BUFFER. The processes usually require 16GB,
+        # 32GB... and since the node usualy has 64GB of memory and some of it is
+        # consumed by the system processes only one process process that requires 32GB
+        # can run on a node instead of 2.
 
-        requests["memory"] = 0.9 * limits["memory"]
+        requests["memory"] = limits["memory"] * overcommit_factors["memory"]
         limits["memory"] = 1.1 * limits["memory"] + KUBERNETES_MEMORY_HARD_LIMIT_BUFFER
         limits["memory"] *= 2**20  # 2 ** 20 = mebibyte
         requests["memory"] *= 2**20
