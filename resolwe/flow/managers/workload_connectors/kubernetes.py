@@ -537,6 +537,32 @@ class Connector(BaseConnector):
             else kubernetes.config.load_kube_config()
         )
 
+    def optimize_job_scheduling(self, data: Data, job_description: dict):
+        """Optimize the scheduling by modifying the job description.
+
+        Moodify the job description to be a better fit on the scheduler. Currently this
+        is used to schedule based on the process scheduling class.
+        """
+        scheduling_class_name = dict(Process.SCHEDULING_CLASS_CHOICES)[
+            data.process.scheduling_class
+        ].lower()
+        if kubernetes_affinity := getattr(settings, "FLOW_KUBERNETES_AFFINITY", None):
+            scheduling_class_affinity = kubernetes_affinity.get("scheduling_class", {})
+            affinity_settings = scheduling_class_affinity.get(scheduling_class_name, {})
+            if match_expressions := [
+                {"key": key, "operator": "In", "values": values}
+                for key, values in affinity_settings.items()
+            ]:
+                job_description["spec"]["template"]["spec"]["affinity"] = {
+                    "nodeAffinity": {
+                        "requiredDuringSchedulingIgnoredDuringExecution": {
+                            "nodeSelectorTerms": [
+                                {"matchExpressions": match_expressions}
+                            ]
+                        }
+                    }
+                }
+
     def start(self, data: Data, listener_connection: Tuple[str, str, str]):
         """Start process execution.
 
@@ -661,27 +687,6 @@ class Connector(BaseConnector):
             processing_container_image, mapper
         )
 
-        affinity = {}
-        kubernetes_affinity = getattr(settings, "FLOW_KUBERNETES_AFFINITY", None)
-        if kubernetes_affinity:
-            affinity = {
-                "nodeAffinity": {
-                    "requiredDuringSchedulingIgnoredDuringExecution": {
-                        "nodeSelectorTerms": [
-                            {
-                                "matchExpressions": [
-                                    {
-                                        "key": "nodegroup",
-                                        "operator": "In",
-                                        "values": [kubernetes_affinity],
-                                    }
-                                ]
-                            }
-                        ]
-                    }
-                }
-            }
-
         job_type = dict(Process.SCHEDULING_CLASS_CHOICES)[data.process.scheduling_class]
         job_description = {
             "apiVersion": "batch/v1",
@@ -706,7 +711,7 @@ class Connector(BaseConnector):
                         "annotations": annotations,
                     },
                     "spec": {
-                        "affinity": affinity,
+                        "affinity": {},
                         "hostNetwork": use_host_network,
                         "volumes": self._volumes(
                             data.id, location_subpath, core_api, tools_configmaps
@@ -766,6 +771,7 @@ class Connector(BaseConnector):
                 "backoffLimit": 0,
             },
         }
+        self.optimize_job_scheduling(data, job_description)
         start_time = time.time()
 
         processing_name = constants.PROCESSING_VOLUME_NAME

@@ -112,7 +112,11 @@ LISTENER_CONNECTION = {
 # The setting is a dictionary where key is the name of the workload connector.
 COMMUNICATION_CONTAINER_LISTENER_CONNECTION = {"local": "172.17.0.1"}
 
-# Add affinity to Kubernetes jobs with key 'nodegroup' with the bellow value.
+#: Add affinity to the Kubernetes jobs. Example:
+#: {"scheduling_class":
+#:   {"batch": {"nodegroup": ["compute"]}, "interactive": {"nodegroup": ["interactive"]}}
+#: The keys in the scheduling_class dictionary must correspond to the lower
+#: case name of the process scheduling class.
 FLOW_KUBERNETES_AFFINITY = os.environ.get("RESOLWE_KUBERNETES_AFFINITY", None)
 
 # The  ``KUBERNETES_DISPATCHER_CONFIG_LOCATION`` specifies where the

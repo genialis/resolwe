@@ -40,6 +40,8 @@ Changed
 - Set ``is_active`` to ``True`` for all available processes every time ``register``
   management command is run even if the same version of the process already exists in
   the database
+- The ``FLOW_KUBERNETES_AFFINITY`` variable is now a JSON dictionary with information
+  about affinity for interactive and batch processes
 
 Fixed
 -----
