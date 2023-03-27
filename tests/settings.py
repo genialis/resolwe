@@ -119,6 +119,12 @@ COMMUNICATION_CONTAINER_LISTENER_CONNECTION = {"local": "172.17.0.1"}
 #: case name of the process scheduling class.
 FLOW_KUBERNETES_AFFINITY = os.environ.get("RESOLWE_KUBERNETES_AFFINITY", None)
 
+# Add the settings to overcommit the CPU and memory based on the process
+# scheduling type. Example:
+# {"batch": {"cpu": 0.8, "memory": 0.8}}
+# The default overcommitment factor is 0.8.
+FLOW_KUBERNETES_OVERCOMMIT = None
+
 # The  ``KUBERNETES_DISPATCHER_CONFIG_LOCATION`` specifies where the
 # kubernetes workload connector reads the config from. The possible choices
 # are 'incluster' and 'kubectl'. The default value is 'incluster'.
