@@ -117,7 +117,7 @@ COMMUNICATION_CONTAINER_LISTENER_CONNECTION = {"local": "172.17.0.1"}
 #:   {"batch": {"nodegroup": ["compute"]}, "interactive": {"nodegroup": ["interactive"]}}
 #: The keys in the scheduling_class dictionary must correspond to the lower
 #: case name of the process scheduling class.
-FLOW_KUBERNETES_AFFINITY = os.environ.get("RESOLWE_KUBERNETES_AFFINITY", None)
+FLOW_KUBERNETES_AFFINITY = None
 
 # Add the settings to overcommit the CPU and memory based on the process
 # scheduling type. Example:
