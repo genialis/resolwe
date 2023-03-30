@@ -23,6 +23,7 @@ from resolwe.flow.views import (
     DescriptorSchemaViewSet,
     EntityViewSet,
     ProcessViewSet,
+    RelationViewSet,
 )
 from resolwe.permissions.models import Permission, get_anonymous_user
 from resolwe.test import TestCase
@@ -1318,3 +1319,33 @@ class ProcessViewSetFiltersTest(BaseViewSetFiltersTest):
 
         self._check_filter({"is_active": "true"}, [self.proc_2])
         self._check_filter({"is_active": "false"}, [self.proc_1])
+
+
+class RelationViewSetFiltersTest(BaseViewSetFiltersTest):
+    @classmethod
+    def setUpTestData(cls):
+        super().setUpTestData()
+
+        cls.collection_1 = Collection.objects.create(
+            contributor=cls.contributor,
+            tags=["first-tag"],
+        )
+
+        cls.collection_2 = Collection.objects.create(
+            contributor=cls.contributor,
+            tags=["second-tag"],
+        )
+
+        cls.rel_type = RelationType.objects.create(name="series", ordered=True)
+        cls.relation_1 = Relation.objects.create(
+            type=cls.rel_type, collection=cls.collection_1, contributor=cls.contributor
+        )
+
+        cls.relation_2 = Relation.objects.create(
+            type=cls.rel_type, collection=cls.collection_2, contributor=cls.contributor
+        )
+
+        cls.viewset_class = RelationViewSet
+
+    def test_filter_tags(self):
+        self._check_filter({"tags": "first-tag"}, [self.relation_1])

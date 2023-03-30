@@ -420,6 +420,7 @@ class RelationFilter(BaseResolweFilter):
     category = filters.CharFilter(lookup_expr="iexact")
     collection = filters.ModelChoiceFilter(queryset=Collection.objects.all())
     type = filters.CharFilter(field_name="type__name")
+    tags = TagsFilter(field_name="collection__tags")
 
     class Meta(BaseResolweFilter.Meta):
         """Filter configuration."""

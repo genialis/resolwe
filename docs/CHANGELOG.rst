@@ -16,6 +16,7 @@ Added
   backend tasks
 - Add ``BackgroundTaskConsumer`` class to handle starting background jobs
 - Make ``Kubernetes`` overcommitment factors configurable via settings
+- Support filtering by tags on relation API endpoint
 
 Changed
 -------
@@ -34,7 +35,7 @@ Changed
   ``entity_count`` and ``data_count`` attributes to reduce the number of queries
 - Remove the redundant prefetch in the ``EntityViewSet``
 - Annotate the queryset in the ``EntityViewSet`` with ``data_statuses`` and
-  and ``data_count`` attributes to reduce the number of queries 
+  and ``data_count`` attributes to reduce the number of queries
 - Modify the ``DataViewSet`` to remove redundant queries
 - Add ``duplicate_data``, ``duplicate_entity`` and ``duplicate_collection``
   methods to ``BackgroundTaskConsumer`` class
@@ -69,7 +70,7 @@ Added
 
 Changed
 -------
-- **BACKWARD INCOMPATIBLE:** Drop support for ``Python 3.6``, ``Python 3.7``, 
+- **BACKWARD INCOMPATIBLE:** Drop support for ``Python 3.6``, ``Python 3.7``,
   ``Python 3.8`` and ``Python 3.9``. The processing container continues to
   support ``Python >= 3.6``.
 - Add ``source`` attribute to observer notifications
