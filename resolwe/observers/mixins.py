@@ -9,7 +9,7 @@ from rest_framework.response import Response
 
 from resolwe.permissions.models import get_anonymous_user
 
-from .models import Subscription
+from .models import Observer, Subscription
 from .protocol import ChangeType
 
 
@@ -35,7 +35,7 @@ class ObservableMixin:
         if ids is None:
             # Subscribe to the whole table.
             subscription.subscribe(
-                content_type, [None], (ChangeType.CREATE, ChangeType.DELETE)
+                content_type, [Observer.ALL_IDS], (ChangeType.CREATE, ChangeType.DELETE)
             )
         else:
             # Verify all ids exists and user has permissions to view them.

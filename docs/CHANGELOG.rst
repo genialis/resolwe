@@ -52,6 +52,8 @@ Fixed
 - Remove observer from subscription if object is deleted
 - Handle empty iterable in ``observe_instance_container`` method
 - Remove call to ``close`` in observers consumer that caused ``RuntimeError``
+- Instances of ``Observer`` class could be duplicated when ``object_id`` was ``None``
+  due to PostgreSQL handling of NULL values
 
 
 ===================

@@ -112,12 +112,13 @@ class Observer(models.Model):
     Several subscriptions can subscribe to the same observer.
     """
 
+    ALL_IDS = 0  # The constant used for catchall object id.
     CHANGE_TYPES = [(change.value, change.name) for change in ChangeType]
 
     #: table of the observed resource
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
     #: primary key of the observed resource (null if watching the whole table)
-    object_id = models.PositiveIntegerField(null=True)
+    object_id = models.PositiveIntegerField(null=False)
     #: the type of change to observe for
     change_type = models.PositiveSmallIntegerField(choices=CHANGE_TYPES)
 
@@ -131,14 +132,14 @@ class Observer(models.Model):
     def get_interested(
         cls,
         content_type: ContentType,
-        object_id: Optional[int] = None,
+        object_id: int,
         change_type: Optional[ChangeType] = None,
     ) -> "QuerySet[Observer]":
         """Find all observers watching for changes of a given item/table."""
         query = Q(content_type=content_type)
         if change_type is not None:
             query &= Q(change_type=change_type.value)
-        query &= Q(object_id=object_id) | Q(object_id__isnull=True)
+        query &= Q(object_id=object_id) | Q(object_id=Observer.ALL_IDS)
         return cls.objects.filter(query)
 
     @classmethod
@@ -284,7 +285,7 @@ class Subscription(models.Model):
     def subscribe(
         self,
         content_type: ContentType,
-        object_ids: List[Optional[int]],
+        object_ids: List[int],
         change_types: List[ChangeType],
     ):
         """Assign self to multiple observers at once."""
@@ -345,7 +346,7 @@ class Subscription(models.Model):
             "type": TYPE_ITEM_UPDATE,
             "content_type_pk": content_type.pk,
             "change_type_value": ChangeType.CREATE.value,
-            "object_id": None,
+            "object_id": Observer.ALL_IDS,
             "source": None,
         }
         channel_layer = get_channel_layer()

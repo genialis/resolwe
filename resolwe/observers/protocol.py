@@ -36,7 +36,7 @@ class ChannelsMessage(TypedDict):
     """The type for channels message to be sent."""
 
     type: str
-    object_id: Optional[int]
+    object_id: int
     content_type_pk: int
     change_type_value: int
     source: Optional[tuple[str, int]]
