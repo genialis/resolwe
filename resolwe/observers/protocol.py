@@ -1,16 +1,16 @@
 """Constants used for Observer communication."""
-from enum import Enum, auto
+from enum import IntEnum
 from typing import Optional, TypedDict
 
 from django import dispatch
 
 
-class ChangeType(Enum):
+class ChangeType(IntEnum):
     """Types of database changes."""
 
-    CREATE = auto()
-    UPDATE = auto()
-    DELETE = auto()
+    CREATE = 1
+    UPDATE = 2
+    DELETE = 3
 
 
 # Group used for individual sessions.
