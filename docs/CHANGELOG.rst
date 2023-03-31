@@ -43,6 +43,7 @@ Changed
   the database
 - The ``FLOW_KUBERNETES_AFFINITY`` variable is now a JSON dictionary with information
   about affinity for interactive and batch processes
+- Fix values in observer ``ChangeType`` enum to prevent accidental value change
 
 Fixed
 -----
