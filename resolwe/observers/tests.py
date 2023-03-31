@@ -526,7 +526,7 @@ class ObserverTestCase(TransactionTestCase):
                 subscription_id=self.subscription_id,
             ).subscribe(
                 content_type=ContentType.objects.get_for_model(Data),
-                object_ids=[None],
+                object_ids=[Observer.ALL_IDS],
                 change_types=[ChangeType.CREATE, ChangeType.DELETE],
             )
 
@@ -594,7 +594,7 @@ class ObserverTestCase(TransactionTestCase):
                 subscription_id=self.subscription_id,
             ).subscribe(
                 content_type=ContentType.objects.get_for_model(Entity),
-                object_ids=[None],
+                object_ids=[Observer.ALL_IDS],
                 change_types=[ChangeType.CREATE, ChangeType.DELETE],
             )
 
@@ -863,7 +863,7 @@ class ObserverTestCase(TransactionTestCase):
                 subscription_id=self.subscription_id,
             ).subscribe(
                 content_type=ContentType.objects.get_for_model(Collection),
-                object_ids=[None],
+                object_ids=[Observer.ALL_IDS],
                 change_types=[ChangeType.CREATE, ChangeType.DELETE],
             )
 
@@ -1182,7 +1182,7 @@ class ObserverTestCase(TransactionTestCase):
                 subscription_id=self.subscription_id,
             ).subscribe(
                 content_type=ContentType.objects.get_for_model(Data),
-                object_ids=[None],
+                object_ids=[Observer.ALL_IDS],
                 change_types=[ChangeType.CREATE, ChangeType.UPDATE, ChangeType.DELETE],
             )
 
@@ -1241,7 +1241,7 @@ class ObserverTestCase(TransactionTestCase):
                 subscription_id=self.subscription_id,
             ).subscribe(
                 content_type=ContentType.objects.get_for_model(Data),
-                object_ids=[None],
+                object_ids=[Observer.ALL_IDS],
                 change_types=[ChangeType.CREATE, ChangeType.UPDATE, ChangeType.DELETE],
             )
 
@@ -1428,7 +1428,7 @@ class ObserverAPITestCase(TransactionResolweAPITestCase):
         self.assertEqual(
             Observer.objects.filter(
                 change_type=ChangeType.CREATE.value,
-                object_id=None,
+                object_id=Observer.ALL_IDS,
                 content_type=ContentType.objects.get_for_model(Data),
             ).count(),
             1,
