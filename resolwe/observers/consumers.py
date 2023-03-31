@@ -59,7 +59,8 @@ class ClientConsumer(JsonWebsocketConsumer):
             .distinct()
         ]
 
-        if change_type == ChangeType.DELETE and source == (content_type, object_id):
+        is_object_source = source == (content_type.name, object_id)
+        if change_type == ChangeType.DELETE and is_object_source:
             # The observed object was either deleted or the user lost permissions.
             subscription = Subscription.objects.get(session_id=self.session_id)
             observers = Observer.objects.filter(
