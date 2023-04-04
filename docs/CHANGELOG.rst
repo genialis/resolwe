@@ -55,6 +55,8 @@ Fixed
 - Instances of ``Observer`` class could be duplicated when ``object_id`` was ``None``
   due to PostgreSQL handling of NULL values
 - Delete the observer subscription when object is deleted
+- Check response status when bootstraping executor and print out sensible error message
+  on failure
 
 
 ===================
