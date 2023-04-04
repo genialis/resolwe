@@ -40,6 +40,7 @@ import zmq.asyncio
 from .connectors import connectors
 from .global_settings import initialize_constants
 from .logger import configure_logging
+from .socket_utils import Response, ResponseStatus
 from .zeromq_utils import ZMQCommunicator
 
 logger = logging.getLogger(__name__)
@@ -52,6 +53,17 @@ def handle_exception(exc_type, exc_value, exc_traceback):
 
 
 sys.excepthook = handle_exception
+
+
+def validate_response(response: Response):
+    """Check the response status and raise excection on error.
+
+    :raise RuntimeError: when response has error status.
+    """
+    if response.response_status == ResponseStatus.ERROR:
+        raise RuntimeError(
+            f"Response with error status received: '{response.message_data}'."
+        )
 
 
 async def open_listener_connection(data_id, host, port, protocol) -> ZMQCommunicator:
@@ -94,6 +106,7 @@ async def _run_executor():
     configure_logging(communicator)
 
     response = await communicator.bootstrap((args.data_id, "executor"))
+    validate_response(response)
     initialize_constants(args.data_id, response.message_data)
     connectors.recreate_connectors()
 
