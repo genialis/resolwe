@@ -31,7 +31,10 @@ class BackgroundTaskSerializer(serializers.ModelSerializer):
 
 
 class BackgroundTaksViewSet(
-    ObservableMixin, mixins.ListModelMixin, viewsets.GenericViewSet
+    ObservableMixin,
+    mixins.RetrieveModelMixin,
+    mixins.ListModelMixin,
+    viewsets.GenericViewSet,
 ):
     """Observable task viewset.
 
