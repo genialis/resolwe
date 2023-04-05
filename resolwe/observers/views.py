@@ -27,7 +27,7 @@ class BackgroundTaskSerializer(serializers.ModelSerializer):
         """Set the model."""
 
         model = BackgroundTask
-        fields = ("pk", "started", "finished", "status", "description", "output")
+        fields = ("id", "started", "finished", "status", "description", "output")
 
 
 class BackgroundTaksViewSet(

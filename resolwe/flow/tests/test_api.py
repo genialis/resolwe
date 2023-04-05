@@ -129,7 +129,7 @@ class TestDuplicate(TransactionTestCase):
         )
         force_authenticate(request, self.contributor)
         response = self.data_duplicate_viewset(request)
-        task = BackgroundTask.objects.get(pk=response.data["pk"])
+        task = BackgroundTask.objects.get(pk=response.data["id"])
         duplicate = Data.objects.get(pk__in=task.result())
         self.assertTrue(duplicate.is_duplicate())
         handler.assert_called_once_with(
@@ -152,7 +152,7 @@ class TestDuplicate(TransactionTestCase):
         response = self.data_duplicate_viewset(request)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        task = BackgroundTask.objects.get(pk=response.data["pk"])
+        task = BackgroundTask.objects.get(pk=response.data["id"])
         duplicate = Data.objects.get(pk__in=task.result())
         self.assertTrue(duplicate.is_duplicate())
         self.assertTrue(duplicate.collection.id, self.collection.id)
@@ -181,7 +181,7 @@ class TestDuplicate(TransactionTestCase):
         )
         force_authenticate(request, self.contributor)
         response = self.collection_duplicate_viewset(request)
-        task = BackgroundTask.objects.get(pk=response.data["pk"])
+        task = BackgroundTask.objects.get(pk=response.data["id"])
         duplicate = Collection.objects.get(id__in=task.result())
         self.assertTrue(duplicate.is_duplicate())
         handler.assert_called_once_with(
@@ -205,7 +205,7 @@ class TestDuplicate(TransactionTestCase):
         )
         force_authenticate(request, self.contributor)
         response = self.entity_duplicate_viewset(request)
-        task = BackgroundTask.objects.get(pk=response.data["pk"])
+        task = BackgroundTask.objects.get(pk=response.data["id"])
         duplicate = Entity.objects.get(id__in=task.result())
         self.assertTrue(duplicate.is_duplicate())
         self.assertEqual(collection.entity_set.count(), 1)
@@ -225,7 +225,7 @@ class TestDuplicate(TransactionTestCase):
         )
         force_authenticate(request, self.contributor)
         response = self.entity_duplicate_viewset(request)
-        task = BackgroundTask.objects.get(pk=response.data["pk"])
+        task = BackgroundTask.objects.get(pk=response.data["id"])
         duplicate = Entity.objects.get(id__in=task.result())
 
         self.assertEqual(collection.entity_set.count(), 2)
