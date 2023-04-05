@@ -1,14 +1,12 @@
 """Resolwe collection model."""
-from asgiref.sync import async_to_sync
-from channels.layers import get_channel_layer
 
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.indexes import GinIndex
 from django.contrib.postgres.search import SearchVectorField
 from django.db import models
 
-from resolwe.observers.consumers import BACKGROUND_TASK_CHANNEL
 from resolwe.observers.models import BackgroundTask
+from resolwe.observers.utils import start_background_task
 from resolwe.permissions.models import PermissionObject, PermissionQuerySet
 
 from .base import BaseModel, BaseQuerySet
@@ -69,13 +67,14 @@ class CollectionQuerySet(BaseQuerySet, PermissionQuerySet):
         :param contributor: Duplication user
         """
         task = BackgroundTask.objects.create(description="Duplicate collections")
-        packet = {
-            "type": "duplicate_collection",
-            "collection_ids": list(self.values_list("pk", flat=True)),
-            "task_id": task.id,
-            "contributor_id": contributor.id,
-        }
-        async_to_sync(get_channel_layer().send)(BACKGROUND_TASK_CHANNEL, packet)
+        start_background_task(
+            {
+                "type": "duplicate_collection",
+                "collection_ids": list(self.values_list("pk", flat=True)),
+                "task_id": task.id,
+                "contributor_id": contributor.id,
+            }
+        )
         return task
 
 
@@ -125,11 +124,12 @@ class Collection(BaseCollection, PermissionObject):
         :param contributor: Duplication user
         """
         task = BackgroundTask.objects.create(description="Duplicate collections")
-        packet = {
-            "type": "duplicate_collection",
-            "collection_ids": [self.pk],
-            "task_id": task.id,
-            "contributor_id": contributor.id,
-        }
-        async_to_sync(get_channel_layer().send)(BACKGROUND_TASK_CHANNEL, packet)
+        start_background_task(
+            {
+                "type": "duplicate_collection",
+                "collection_ids": [self.pk],
+                "task_id": task.id,
+                "contributor_id": contributor.id,
+            }
+        )
         return task

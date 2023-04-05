@@ -3,27 +3,16 @@
 import asyncio
 from contextlib import suppress
 
-from channels.db import database_sync_to_async
+from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from channels.testing import ApplicationCommunicator
 
-from resolwe.observers.consumers import BACKGROUND_TASK_CHANNEL, BackgroundTaskConsumer
+from resolwe.observers import consumers
 
 
-def with_background_task_consumer(test_case):
-    """Use to decorate the sync test case.
-
-    When decorated, the test case will become async and background task consomer ill be
-    running for the duration of the test.
-    """
-
-    async def wrapper(*args, **kwargs):
-        async with BackgroundTaskConsumerManager():
-            await database_sync_to_async(test_case, thread_sensitive=False)(
-                *args, **kwargs
-            )
-
-    return wrapper
+def start_background_task(packet: dict):
+    """Send the packet to background task consumer."""
+    async_to_sync(get_channel_layer().send)(consumers.BACKGROUND_TASK_CHANNEL, packet)
 
 
 class BackgroundTaskConsumerManager:
@@ -38,11 +27,11 @@ class BackgroundTaskConsumerManager:
     async def _consumer_task(self):
         """Start the consumer."""
         try:
-            scope = {"channel": BACKGROUND_TASK_CHANNEL}
-            app = ApplicationCommunicator(BackgroundTaskConsumer(), scope)
+            scope = {"channel": consumers.BACKGROUND_TASK_CHANNEL}
+            app = ApplicationCommunicator(consumers.BackgroundTaskConsumer(), scope)
             channel_layer = get_channel_layer()
             while True:
-                message = await channel_layer.receive(BACKGROUND_TASK_CHANNEL)
+                message = await channel_layer.receive(consumers.BACKGROUND_TASK_CHANNEL)
                 message.update(scope)
                 await app.send_input(message)
         finally:

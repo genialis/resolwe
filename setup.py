@@ -42,7 +42,7 @@ setuptools.setup(
         "asteval==0.9.26",
         "async-timeout~=4.0.2",
         "channels~=3.0.4",
-        "channels_redis~=3.3.1",
+        "channels_redis~=3.4.1",
         # Storage requirement for computing hashes.
         "crcmod",
         "kubernetes~=21.7.0",

@@ -24,7 +24,6 @@ from resolwe.flow.models.data import Data, DataDependency, hydrate_size, render_
 from resolwe.flow.models.utils import hydrate_input_references, referenced_files
 from resolwe.flow.views import DataViewSet
 from resolwe.observers.models import BackgroundTask
-from resolwe.observers.utils import with_background_task_consumer
 from resolwe.permissions.models import Permission
 from resolwe.test import TestCase, TransactionTestCase
 from resolwe.test.utils import create_data_location, save_storage
@@ -608,7 +607,6 @@ class GetOrCreateTestCase(APITestCase):
 
 
 class DuplicateTestCase(TransactionTestCase):
-    @with_background_task_consumer
     def test_data_duplicate(self):
         process1 = Process.objects.create(
             contributor=self.user,
@@ -737,7 +735,6 @@ class DuplicateTestCase(TransactionTestCase):
         # Assert permissions.
         self.assertEqual(len(duplicate.get_permissions(self.contributor)), 4)
 
-    @with_background_task_consumer
     def test_data_duplicate_duplicate(self):
         process1 = Process.objects.create(
             contributor=self.user,
@@ -814,7 +811,6 @@ class DuplicateTestCase(TransactionTestCase):
             len(duplicate_of_duplicate.get_permissions(self.contributor)), 4
         )
 
-    @with_background_task_consumer
     def test_input_rewiring(self):
         """Auto calls must be disabled or duplication with multiple objects will fail.
 
@@ -866,7 +862,6 @@ class DuplicateTestCase(TransactionTestCase):
             [duplicate1.id, should_not_be_rewritten.id],
         )
 
-    @with_background_task_consumer
     def test_data_status_not_done(self):
         process = Process.objects.create(contributor=self.user)
         data = Data.objects.create(
@@ -885,7 +880,6 @@ class DuplicateTestCase(TransactionTestCase):
             ["Data object must have done or error status to be duplicated."],
         )
 
-    @with_background_task_consumer
     def test_data_long_name(self):
         process = Process.objects.create(contributor=self.user)
 
@@ -903,7 +897,6 @@ class DuplicateTestCase(TransactionTestCase):
         self.assertTrue(duplicate.name.endswith("..."))
         self.assertEqual(len(duplicate.name), Data._meta.get_field("name").max_length)
 
-    @with_background_task_consumer
     def test_entity_duplicate(self):
         process = Process.objects.create(contributor=self.user)
         collection = Collection.objects.create(contributor=self.user)
@@ -996,7 +989,6 @@ class DuplicateTestCase(TransactionTestCase):
         # Assert permissions.
         self.assertEqual(len(duplicate.get_permissions(self.contributor)), 4)
 
-    @with_background_task_consumer
     def test_entity_duplicate_inherit(self):
         process = Process.objects.create(contributor=self.user)
 
@@ -1076,7 +1068,6 @@ class DuplicateTestCase(TransactionTestCase):
             collection.get_permissions(self.contributor), [Permission.VIEW]
         )
 
-    @with_background_task_consumer
     def test_collection_duplicate(self):
         collection = Collection.objects.create(name="Collection", contributor=self.user)
         entity = Entity.objects.create(

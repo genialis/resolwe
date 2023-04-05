@@ -1,9 +1,6 @@
 """Resolwe entity model."""
 from typing import Any, List, Optional, Union
 
-from asgiref.sync import async_to_sync
-from channels.layers import get_channel_layer
-
 from django.contrib.postgres.fields import CICharField
 from django.contrib.postgres.indexes import GinIndex
 from django.core.exceptions import ValidationError
@@ -14,9 +11,9 @@ from resolwe.flow.models.annotations import (
     AnnotationValue,
     HandleMissingAnnotations,
 )
-from resolwe.observers.consumers import BACKGROUND_TASK_CHANNEL
 from resolwe.observers.decorators import move_to_container
 from resolwe.observers.models import BackgroundTask
+from resolwe.observers.utils import start_background_task
 from resolwe.permissions.models import PermissionObject, PermissionQuerySet
 
 from .base import BaseModel, BaseQuerySet
@@ -33,15 +30,16 @@ class EntityQuerySet(BaseQuerySet, PermissionQuerySet):
         :param contributor: Duplication user
         """
         task = BackgroundTask.objects.create(description="Duplicate entity")
-        packet = {
-            "type": "duplicate_entity",
-            "entity_ids": list(self.values_list("pk", flat=True)),
-            "task_id": task.id,
-            "contributor_id": contributor.id,
-            "inherit_entity": inherit_entity,
-            "inherit_collection": inherit_collection,
-        }
-        async_to_sync(get_channel_layer().send)(BACKGROUND_TASK_CHANNEL, packet)
+        start_background_task(
+            {
+                "type": "duplicate_entity",
+                "entity_ids": list(self.values_list("pk", flat=True)),
+                "task_id": task.id,
+                "contributor_id": contributor.id,
+                "inherit_entity": inherit_entity,
+                "inherit_collection": inherit_collection,
+            }
+        )
         return task
 
     @transaction.atomic
@@ -233,14 +231,15 @@ class Entity(BaseCollection, PermissionObject):
         :param contributor: Duplication user
         """
         task = BackgroundTask.objects.create(description="Duplicate entity")
-        packet = {
-            "type": "duplicate_entity",
-            "entity_ids": [self.pk],
-            "task_id": task.id,
-            "contributor_id": contributor.id,
-            "inherit_collection": inherit_collection,
-        }
-        async_to_sync(get_channel_layer().send)(BACKGROUND_TASK_CHANNEL, packet)
+        start_background_task(
+            {
+                "type": "duplicate_entity",
+                "entity_ids": [self.pk],
+                "task_id": task.id,
+                "contributor_id": contributor.id,
+                "inherit_collection": inherit_collection,
+            }
+        )
         return task
 
     @transaction.atomic

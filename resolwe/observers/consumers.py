@@ -5,6 +5,8 @@ from typing import Callable
 from channels.consumer import SyncConsumer
 from channels.generic.websocket import JsonWebsocketConsumer
 
+from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.utils import timezone
@@ -16,7 +18,24 @@ from .protocol import GROUP_SESSIONS, ChangeType, ChannelsMessage, WebsocketMess
 
 # The channel used to listen for BackgrountTask events
 BACKGROUND_TASK_CHANNEL = "observers.background_task"
-from django.contrib.auth import get_user_model
+
+
+def update_constants():
+    """Recreate channel name constant with changed settings.
+
+    This kludge is mostly needed due to the way Django settings are
+    patched for testing and how modules need to be imported throughout
+    the project. On import time, settings are not patched yet, but some
+    of the code needs static values immediately. Updating functions such
+    as this one are then needed to fix dummy values.
+    """
+    global BACKGROUND_TASK_CHANNEL
+    redis_prefix = getattr(settings, "FLOW_MANAGER", {}).get("REDIS_PREFIX", "")
+
+    BACKGROUND_TASK_CHANNEL = f"{redis_prefix}.observers.background_task"
+
+
+update_constants()
 
 
 class ClientConsumer(JsonWebsocketConsumer):

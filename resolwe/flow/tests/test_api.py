@@ -26,7 +26,6 @@ from resolwe.flow.views import (
     ProcessViewSet,
 )
 from resolwe.observers.models import BackgroundTask
-from resolwe.observers.utils import with_background_task_consumer
 from resolwe.permissions.models import Permission, get_anonymous_user
 from resolwe.permissions.utils import set_permission
 from resolwe.test import ResolweAPITestCase, TestCase, TransactionTestCase
@@ -109,7 +108,6 @@ class TestDuplicate(TransactionTestCase):
         self.proc.set_permission(Permission.VIEW, self.contributor)
         self.descriptor_schema.set_permission(Permission.VIEW, self.contributor)
 
-    @with_background_task_consumer
     def test_duplicate_data(self):
         data = Data.objects.create(contributor=self.contributor, process=self.proc)
         set_permission(
@@ -165,7 +163,6 @@ class TestDuplicate(TransactionTestCase):
             sender=Data,
         )
 
-    @with_background_task_consumer
     def test_duplicate_collection(self):
         # Handler is called when post_duplicate signal is triggered.
         handler = MagicMock()
@@ -194,7 +191,6 @@ class TestDuplicate(TransactionTestCase):
             sender=Collection,
         )
 
-    @with_background_task_consumer
     def test_duplicate_entity(self):
         handler = MagicMock()
         post_duplicate.connect(handler, sender=Entity)
