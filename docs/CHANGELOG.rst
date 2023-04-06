@@ -59,6 +59,7 @@ Fixed
 - Delete the observer subscription when object is deleted
 - Check response status when bootstraping executor and print out sensible error message
   on failure
+- Do not run the test twice when it is tagged and contained in the changed test file
 
 
 ===================

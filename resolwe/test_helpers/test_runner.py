@@ -497,6 +497,9 @@ class ResolweRunner(DiscoverRunner):
                 if tests:
                     self.parallel = parallel
                     self.tags = set()
+                    # Exclude tests with the given tags as they ran in the previous step.
+                    self.exclude_tags = tags
+
                     failed_tests += super().run_tests(tests, **kwargs)
 
                 return failed_tests
@@ -642,7 +645,8 @@ class ResolweRunner(DiscoverRunner):
 
         :param schemas: A list of all discovered process schemas
         :raises ValueError: when schema type (keys in schemas dictionary) is unknown.
-        :return: Process dependency dictionary
+        :return: Process dependency dictionary. The keys are processes and the values
+            are the processes that call them as part of their workflow.
         """
         dependencies = {}
         # Schema type can be "python" or "yaml"
