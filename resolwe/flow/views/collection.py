@@ -80,7 +80,7 @@ class BaseCollectionViewSet(
         .annotate(entity_count=Subquery(entity_count_subquery))
     )
 
-    filter_class = CollectionFilter
+    filterset_class = CollectionFilter
     permission_classes = (get_permissions_class(),)
 
     ordering_fields = (

@@ -53,7 +53,7 @@ class DataViewSet(
     )
 
     serializer_class = DataSerializer
-    filter_class = DataFilter
+    filterset_class = DataFilter
     permission_classes = (get_permissions_class(),)
 
     ordering_fields = (

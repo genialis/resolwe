@@ -28,7 +28,7 @@ class EntityViewSet(ObservableMixin, BaseCollectionViewSet):
     """API view for entities."""
 
     serializer_class = EntitySerializer
-    filter_class = EntityFilter
+    filterset_class = EntityFilter
     qs_descriptor_schema = DescriptorSchema.objects.select_related("contributor")
 
     data_count_subquery = (
