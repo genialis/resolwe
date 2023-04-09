@@ -4,7 +4,7 @@ from contextlib import suppress
 from importlib import import_module
 
 from django.apps import AppConfig
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 from resolwe.storage.connectors import connectors
 from resolwe.storage.connectors.baseconnector import BaseStorageConnector
