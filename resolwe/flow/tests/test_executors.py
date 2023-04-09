@@ -165,7 +165,7 @@ class ManagerRunProcessTest(ProcessTestCase):
             "test-annotate-wrong-type", assert_status=Data.STATUS_ERROR
         )
         self.assertEqual(len(data.process_error), 1)
-        self.assertIn("is not of type", data.process_error[0])
+        self.assertIn("is not valid under any of the given schemas", data.process_error[0])
 
     @tag_process("test-annotate-missing-field")
     def test_annotate_missing_field(self):
