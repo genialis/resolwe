@@ -2,7 +2,7 @@
 from collections import OrderedDict
 
 from django.core.exceptions import ObjectDoesNotExist
-from django.utils.encoding import smart_text
+from django.utils.encoding import smart_str
 
 from rest_framework import exceptions, relations, serializers
 
@@ -103,7 +103,7 @@ class DictRelatedField(relations.RelatedField):
                     pass
 
             self.fail(
-                "does_not_exist", value=smart_text(data), model_name=self.model_name
+                "does_not_exist", value=smart_str(data), model_name=self.model_name
             )
 
     def to_representation(self, obj):
