@@ -21,12 +21,12 @@ TYPE_ITEM_UPDATE = "observers.item_update"
 
 # Signal to be sent before and after PermissionObject.set_permission is called
 # or before and after a PermissionObject's container is changed.
-pre_permission_changed = dispatch.Signal(providing_args=["instance"])
-post_permission_changed = dispatch.Signal(providing_args=["instance"])
+pre_permission_changed = dispatch.Signal()
+post_permission_changed = dispatch.Signal()
 
 # Signal to be sent before and after container is changed.
-pre_container_changed = dispatch.Signal(providing_args=["instance"])
-post_container_changed = dispatch.Signal(providing_args=["instance"])
+pre_container_changed = dispatch.Signal()
+post_container_changed = dispatch.Signal()
 
 # Attribute to use on the observable instance to temporary suppress notifications
 suppress_notifications_attribute = "__observer_notification_suppressed"
