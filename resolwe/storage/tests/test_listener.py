@@ -21,11 +21,16 @@ from resolwe.test import TestCase
 class ListenerTest(TestCase):
     fixtures = ["storage_data.yaml", "storage_processes.yaml", "storage_users.yaml"]
 
+    def setUp(self):
+        """Initialize."""
+        super().setUp()
+        redis_api = redis.from_url(settings.REDIS_CONNECTION_STRING)
+        self.manager = Processor(None, redis_api)
+        self.processor = BasicCommands()
+
     @classmethod
     def setUpTestData(cls):
-        redis_api = redis.from_url(settings.REDIS_CONNECTION_STRING)
-        cls.manager = Processor(None, redis_api)
-        cls.processor = BasicCommands()
+        super().setUpTestData()
         cls.file_storage = FileStorage.objects.get(id=1)
         cls.storage_location = StorageLocation.objects.create(
             file_storage=cls.file_storage, connector_name="GCS", status="OK"
