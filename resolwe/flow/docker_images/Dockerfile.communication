@@ -1,4 +1,4 @@
-FROM docker.io/python:3.9-alpine as common
+FROM docker.io/python:3.11-alpine as common
 LABEL MAINTAINER Resolwe authors https://github.com/genialis/resolwe
 
 FROM common as builder
@@ -6,7 +6,7 @@ WORKDIR /install
 RUN apk add --update --no-cache build-base libffi-dev zeromq-dev openssl-dev
 RUN pip install --upgrade pip
 RUN pip install --prefix=/install --no-warn-script-location \
-    wrapt~=1.11.1 crcmod google-cloud-storage~=1.42.1 boto3~=1.18.40 pyzmq~=20.0.0
+    wrapt~=1.15.0 crcmod google-cloud-storage~=2.8.0 boto3~=1.26.109 pyzmq~=25.0.2
 
 FROM common
 COPY --from=builder /install /usr/local
