@@ -3,7 +3,7 @@
 #
 services:
   postgresql:
-    image: postgres:10
+    image: postgres:14
     environment:
       POSTGRES_USER: resolwe
       POSTGRES_DB: resolwe
