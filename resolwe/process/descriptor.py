@@ -73,6 +73,7 @@ class ProcessDescriptor:
                     )
                 )
 
+        assert self.metadata.process_type is not None  # For mypy inference.
         if not PROCESSOR_TYPE_RE.match(self.metadata.process_type):
             raise ValidationError(
                 "process '{}' has invalid type: {}".format(
@@ -83,6 +84,7 @@ class ProcessDescriptor:
     def to_schema(self):
         """Return process schema for this process."""
         process_type = self.metadata.process_type
+        assert self.metadata.process_type is not None  # Should be checked by validate.
         if not process_type.endswith(":"):
             process_type = "{}:".format(process_type)
 

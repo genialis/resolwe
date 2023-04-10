@@ -1,5 +1,5 @@
 """Iterator utils."""
-import collections
+from collections.abc import Mapping
 
 
 def iterate_fields(fields, schema, path_prefix=None):
@@ -85,7 +85,7 @@ def iterate_dict(container, exclude=None, path=None):
         if callable(exclude) and exclude(key, value):
             continue
 
-        if isinstance(value, collections.Mapping):
+        if isinstance(value, Mapping):
             for inner_path, inner_key, inner_value in iterate_dict(
                 value, exclude=exclude, path=path + [key]
             ):

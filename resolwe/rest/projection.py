@@ -1,5 +1,5 @@
 """Implementation of field projection."""
-from collections.abc import Mapping, Sequence
+from collections.abc import MutableMapping, Sequence
 
 FIELD_SEPARATOR = ","
 FIELD_DEREFERENCE = "__"
@@ -69,7 +69,7 @@ def apply_projection(projection, value):
     if isinstance(value, Sequence):
         # Apply projection to each item in the list.
         return [apply_projection(projection, item) for item in value]
-    elif not isinstance(value, Mapping):
+    elif not isinstance(value, MutableMapping):
         # Non-dictionary values are simply ignored.
         return value
 

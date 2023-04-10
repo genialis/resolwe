@@ -1,8 +1,8 @@
 """Compute hashes from stream."""
 import hashlib
-from io import RawIOBase
+from io import IOBase
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, TypedDict
 
 import crcmod
 
@@ -62,8 +62,13 @@ class AWSS3ETagHash:
 class StreamHasher:
     """Compute hash for data in the stream."""
 
-    KNOWN_HASH_TYPES = ["md5", "crc32c", "awss3etag"]
-    _hashers = {
+    class Hashers(TypedDict):
+        awss3etag: Callable
+        md5: Callable
+        crc32c: Callable
+
+    KNOWN_HASH_TYPES = list(Hashers.__required_keys__)
+    _hashers: Hashers = {
         "awss3etag": AWSS3ETagHash,
         "md5": hashlib.md5,
         "crc32c": lambda: crcmod.predefined.PredefinedCrc("crc32c"),
@@ -86,7 +91,7 @@ class StreamHasher:
         """Initialize known hashers."""
         self._hashers = {name: StreamHasher._hashers[name]() for name in self.hashes}
 
-    def compute(self, stream_in: RawIOBase, stream_out: RawIOBase = None):
+    def compute(self, stream_in: IOBase, stream_out: IOBase = None):
         """Compute and return the hash for the given stream.
 
         The data is read from stream_in until EOF, given to the hasher, and
