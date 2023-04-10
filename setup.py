@@ -36,7 +36,7 @@ setuptools.setup(
             "toolkit/tools/**.py",
         ]
     },
-    python_requires=">=3.10, <3.11",
+    python_requires=">=3.10, <3.12",
     install_requires=[
         "asgiref~=3.5.2",
         "asteval==0.9.26",
@@ -111,6 +111,7 @@ setuptools.setup(
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
     ],
     keywords="resolwe dataflow django",
 )
