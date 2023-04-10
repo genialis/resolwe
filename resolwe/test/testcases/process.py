@@ -301,7 +301,7 @@ class ProcessTestCase(TransactionTestCase):
                 return exc_list[-1][1]
 
         result = self.defaultTestResult()
-        self._feedErrorsToResult(result, self._outcome.errors)
+        # self._feedErrorsToResult(result, self._outcome.errors)
         error = list2reason(result.errors)
         failure = list2reason(result.failures)
 
