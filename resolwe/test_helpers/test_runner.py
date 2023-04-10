@@ -38,7 +38,7 @@ from resolwe.flow.finders import get_finders
 from resolwe.flow.management.commands.prepare_runtime import Command as PrepareRuntime
 from resolwe.flow.managers import listener, manager, state
 from resolwe.observers.consumers import update_constants as update_observer_constants
-from resolwe.observers.utils import BackgroundTaskConsumerManager
+from resolwe.observers.utils import background_task_manager
 from resolwe.process.parser import ProcessVisitor
 from resolwe.storage.connectors import connectors
 from resolwe.test.utils import generate_process_tag
@@ -282,7 +282,7 @@ async def _run_on_infrastructure(meth, *args, **kwargs):
                 listener.port = port
                 listener.protocol = protocol
                 listener.zmq_socket = zmq_socket
-                async with listener, BackgroundTaskConsumerManager():
+                async with listener, background_task_manager:
                     try:
                         with override_settings(FLOW_MANAGER_SYNC_AUTO_CALLS=True):
                             # Run the test in the new thread instead on the

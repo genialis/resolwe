@@ -2,6 +2,7 @@
 
 import asyncio
 from contextlib import suppress
+from typing import Optional
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
@@ -16,13 +17,16 @@ def start_background_task(packet: dict):
 
 
 class BackgroundTaskConsumerManager:
-    """Start the background task consumer.
+    """The background task consumer context manager.
 
-    The context manager is helpfull while testing. Example:
+    Starts the background task consumer in its context.
 
-    async with BackgroundTaskConsumerManager() as task:
-        methods requiring background task consumer to run.
+    The manager is reentrant and reusable.
     """
+
+    def __init__(self) -> None:
+        """Initialize constants."""
+        self._background_task: Optional[asyncio.Task] = None
 
     async def _consumer_task(self):
         """Start the consumer."""
@@ -39,11 +43,16 @@ class BackgroundTaskConsumerManager:
 
     async def __aenter__(self):
         """Start the consumer task and return it."""
-        self._consumer_task = asyncio.create_task(self._consumer_task())
-        return self._consumer_task
+        if self._background_task is None:
+            self._background_task = asyncio.create_task(self._consumer_task())
+        return self._background_task
 
     async def __aexit__(self, exc_type, exc_value, traceback):
         """Stop the consumer task and wait for it to finish."""
-        self._consumer_task.cancel()
+        self._background_task.cancel()
         with suppress(Exception):
-            await self._consumer_task()
+            await self._background_task()
+        self._background_task = None
+
+
+background_task_manager = BackgroundTaskConsumerManager()
