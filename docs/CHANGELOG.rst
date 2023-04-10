@@ -15,6 +15,12 @@ Added
 - Add ``slug`` to the relation serializer
 - Add support for ``Python 3.11``
 
+Changed
+-------
+- **BACKWARD INCOMPATIBLE:** Bump ``Django`` requirement to version ``4.2``
+- **BACKWARD INCOMPATIBLE:** Bump ``channels`` requirement to version ``4.0``
+- Bump other requirements to the latest versions
+
 
 ===================
 35.1.0 - 2023-06-19
