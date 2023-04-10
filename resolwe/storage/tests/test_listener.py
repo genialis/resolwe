@@ -19,6 +19,7 @@ class ListenerTest(TestCase):
 
     @classmethod
     def setUpTestData(cls):
+        super().setUpTestData()
         cls.manager = Processor(None)
         cls.processor = BasicCommands()
         cls.file_storage = FileStorage.objects.get(id=1)
