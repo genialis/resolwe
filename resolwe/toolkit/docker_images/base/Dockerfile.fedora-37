@@ -1,4 +1,4 @@
-FROM docker.io/fedora:36
+FROM docker.io/fedora:37
 
 LABEL MAINTAINER Resolwe authors https://github.com/genialis/resolwe
 
