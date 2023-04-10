@@ -13,6 +13,7 @@ Unreleased
 Added
 -----
 - Add ``slug`` to the relation serializer
+- Add support for ``Python 3.11``
 
 
 ===================
