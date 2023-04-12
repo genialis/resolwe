@@ -4,6 +4,9 @@ from django.urls import include, path
 from rest_framework import routers
 
 from .flow.views import (
+    AnnotationFieldViewSet,
+    AnnotationPresetViewSet,
+    AnnotationValueViewSet,
     CollectionViewSet,
     DataViewSet,
     DescriptorSchemaViewSet,
@@ -25,6 +28,9 @@ api_router.register(r"descriptorschema", DescriptorSchemaViewSet)
 api_router.register(r"storage", StorageViewSet)
 api_router.register(r"upload_config", UploadConfig, basename="upload_config")
 api_router.register(r"task", BackgroundTaksViewSet, basename="backgroundtask")
+api_router.register(r"annotation_field", AnnotationFieldViewSet)
+api_router.register(r"annotation_preset", AnnotationPresetViewSet)
+api_router.register(r"annotation_value", AnnotationValueViewSet)
 
 
 urlpatterns = [
