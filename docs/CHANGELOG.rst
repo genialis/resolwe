@@ -13,6 +13,7 @@ Unreleased
 Added
 -----
 - Add endpoints for new annotation models
+- Send observer create signals on object duplication
 
 
 ===================

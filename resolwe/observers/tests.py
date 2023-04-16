@@ -848,6 +848,90 @@ class ObserverTestCase(TransactionTestCase):
         )
         await self.assert_no_more_messages(client)
 
+    async def test_duplicate(self):
+        """Duplicate handles custom signal and has to be test separately."""
+        client = WebsocketCommunicator(self.client_consumer, "/ws/test_session")
+        connected, _ = await client.connect()
+        self.assertTrue(connected)
+
+        # Create a new Collection, Enttity and Data object.
+        @database_sync_to_async
+        def prepare_test():
+            collection = Collection.objects.create(
+                name="Collection", contributor=self.user_alice
+            )
+
+            entity = Entity.objects.create(
+                name="Entity", collection=collection, contributor=self.user_alice
+            )
+
+            Data.objects.create(
+                name="Data",
+                contributor=self.user_alice,
+                process=self.process,
+                size=0,
+                collection=collection,
+                entity=entity,
+                status=Data.STATUS_DONE,
+            )
+            collection.set_permission(Permission.VIEW, self.user_alice)
+            return collection
+
+        collection = await prepare_test()
+
+        # Create a subscription to the Data and Collection content_type.
+        @database_sync_to_async
+        def subscribe():
+            Subscription.objects.create(
+                user=self.user_alice,
+                session_id="test_session",
+                subscription_id=self.subscription_id,
+            ).subscribe(
+                content_type=ContentType.objects.get_for_model(Collection),
+                object_ids=[Observer.ALL_IDS],
+                change_types=[ChangeType.CREATE, ChangeType.DELETE],
+            )
+
+        await subscribe()
+        await self.await_subscription_observer_count(2)
+
+        @database_sync_to_async
+        def duplicate(collection):
+            result = collection.duplicate(contributor=self.user_alice).result()
+            duplicated_collection = Collection.objects.get(pk__in=result)
+            duplicated_entity = duplicated_collection.entity_set.get()
+            duplicated_data = duplicated_collection.data.get()
+            return duplicated_data, duplicated_entity, duplicated_collection
+
+        duplicated_data, duplicated_entity, duplicated_collection = await duplicate(
+            collection
+        )
+        result = [json.loads(await client.receive_from()) for _ in range(3)]
+        self.assertCountEqual(
+            result,
+            [
+                {
+                    "change_type": ChangeType.CREATE.name,
+                    "object_id": duplicated_collection.pk,
+                    "subscription_id": self.subscription_id.hex,
+                    "source": ["data", duplicated_data.pk],
+                },
+                {
+                    "change_type": ChangeType.CREATE.name,
+                    "object_id": duplicated_collection.pk,
+                    "subscription_id": self.subscription_id.hex,
+                    "source": ["entity", duplicated_entity.pk],
+                },
+                {
+                    "change_type": ChangeType.CREATE.name,
+                    "object_id": duplicated_collection.pk,
+                    "subscription_id": self.subscription_id.hex,
+                    "source": ["collection", duplicated_collection.pk],
+                },
+            ],
+        )
+        await self.assert_no_more_messages(client)
+
     async def test_observe_collection_table(self):
         """Assert that creation and deletion works on collection table."""
         client = WebsocketCommunicator(self.client_consumer, "/ws/test_session")

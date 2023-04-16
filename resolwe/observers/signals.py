@@ -1,9 +1,13 @@
 """ORM signal handlers."""
 
+from typing import Union
+
 from django import dispatch
 from django.db.models import Model
 from django.db.models import signals as model_signals
 
+from resolwe.flow.models import Collection, Data, Entity
+from resolwe.flow.signals import post_duplicate
 from resolwe.permissions.models import Permission
 
 from .models import Observable, Observer
@@ -19,6 +23,8 @@ from .protocol import (
 # Global 'in migrations' flag to ignore signals during migrations.
 # Signal handlers that access the database can crash the migration process.
 IN_MIGRATIONS = False
+
+Duplicate = Union[Data, Entity, Collection]
 
 
 @dispatch.receiver(model_signals.pre_migrate)
@@ -124,3 +130,25 @@ def observe_model_deletion(sender: type, instance: Model, **kwargs):
     if isinstance(instance, Observable):
         Observer.observe_instance_changes(instance, ChangeType.DELETE)
         Observer.observe_instance_container(instance, ChangeType.DELETE)
+
+
+@dispatch.receiver(post_duplicate)
+def post_duplicate_models(
+    sender, instances: list[Duplicate], old_instances: list[Duplicate], **kwargs
+):
+    """Send create notification when duplicates are created.
+
+    This is necessary since bulk_duplicate does not trigger post_save signals.
+    """
+    # Make sure all instances have the same permisions.
+    instance_groups = {instance.permission_group_id for instance in instances}
+    assert (
+        len(instance_groups) == 1
+    ), "Duplicated instances must have same security group."
+
+    first_instance = instances[0]
+    gains = set(
+        first_instance.users_with_permission(Permission.VIEW, with_superusers=True)
+    )
+    for instance in instances:
+        Observer.observe_permission_changes(instance, gains, set())
