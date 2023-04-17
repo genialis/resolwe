@@ -2,7 +2,8 @@
 
 from typing import Callable
 
-from channels.consumer import SyncConsumer
+from channels.consumer import AsyncConsumer
+from channels.db import database_sync_to_async
 from channels.generic.websocket import JsonWebsocketConsumer
 
 from django.conf import settings
@@ -36,6 +37,19 @@ def update_constants():
 
 
 update_constants()
+
+
+def database_sync_to_async_new_thread(*args, **kwargs):
+    """Patched database_sync_to_async decorator.
+
+    That sets thread_sensitive to True by default, otherwise the defalut executor tends
+    to lock.
+    """
+    target_arg_name = "thread_sensitive"
+    # Make sure not to override explicitely set flag.
+    if target_arg_name not in kwargs:
+        kwargs[target_arg_name] = False
+    return database_sync_to_async(*args, **kwargs)
 
 
 class ClientConsumer(JsonWebsocketConsumer):
@@ -101,12 +115,14 @@ class ClientConsumer(JsonWebsocketConsumer):
             self.send_json(to_send)
 
 
-class BackgroundTaskConsumer(SyncConsumer):
+class BackgroundTaskConsumer(AsyncConsumer):
     """The background task consumer."""
 
-    def wrap_task(self, function: Callable, task: BackgroundTask):
+    @database_sync_to_async_new_thread
+    def wrap_task(self, function: Callable, task_id: int):
         """Start the function and update background task status."""
         try:
+            task = BackgroundTask.objects.get(pk=task_id)
             task.started = timezone.now()
             task.status = BackgroundTask.STATUS_PROCESSING
             task.save(update_fields=["status", "started"])
@@ -122,7 +138,7 @@ class BackgroundTaskConsumer(SyncConsumer):
             task.finished = timezone.now()
             task.save(update_fields=["status", "finished", "output"])
 
-    def duplicate_data(self, message: dict):
+    async def duplicate_data(self, message: dict):
         """Duplicate the data and update task status."""
         # Break circular import.
         from resolwe.flow.models import Data
@@ -136,9 +152,9 @@ class BackgroundTaskConsumer(SyncConsumer):
             )
             return list(duplicates.values_list("pk", flat=True))
 
-        self.wrap_task(duplicate, BackgroundTask.objects.get(pk=message["task_id"]))
+        await self.wrap_task(duplicate, message["task_id"])
 
-    def duplicate_entity(self, message: dict):
+    async def duplicate_entity(self, message: dict):
         """Duplicate the entities and update task status."""
         # Break circular import.
         from resolwe.flow.models import Entity
@@ -151,9 +167,9 @@ class BackgroundTaskConsumer(SyncConsumer):
             )
             return list(duplicates.values_list("pk", flat=True))
 
-        self.wrap_task(duplicate, BackgroundTask.objects.get(pk=message["task_id"]))
+        await self.wrap_task(duplicate, message["task_id"])
 
-    def duplicate_collection(self, message: dict):
+    async def duplicate_collection(self, message: dict):
         """Duplicate the collections and update task status."""
         # Break circular import.
         from resolwe.flow.models import Collection
@@ -165,4 +181,4 @@ class BackgroundTaskConsumer(SyncConsumer):
             )
             return list(duplicates.values_list("pk", flat=True))
 
-        self.wrap_task(duplicate, BackgroundTask.objects.get(pk=message["task_id"]))
+        await self.wrap_task(duplicate, message["task_id"])
