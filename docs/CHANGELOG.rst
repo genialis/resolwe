@@ -6,9 +6,9 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+===================
+34.0.0 - 2023-04-17
+===================
 
 Added
 -----
@@ -20,13 +20,13 @@ Added
 
 Changed
 -------
-- **BACKWARD INCOMPATIBLE** Remove the duplicated ``collection`` subfield from the ``entity`` field when
-  serializing ``Data`` objects
+- **BACKWARD INCOMPATIBLE** Remove the duplicated ``collection`` subfield from the 
+  ``entity`` field when serializing ``Data`` objects
 - **BACKWARD INCOMPATIBLE:** Replace ``duplicate`` methods on ``Data``, ``Entity`` and
  ``Collection`` objects with the call to the corresponding background duplicate job.
-- **BACKWARD INCOMPATIBLE:** The ``duplicate`` endpoints on ``Data``, ``Entity`` and ``Collection`` return the
-  details of the ``BackgroundTask`` instance that is used to track the duplication
-  status
+- **BACKWARD INCOMPATIBLE:** The ``duplicate`` endpoints on ``Data``, ``Entity`` and
+  ``Collection`` return the details of the ``BackgroundTask`` instance that is used to
+  track the duplication status
 - When subscribing to an object for notifications the ``CREATE`` notifications are also
   sent along. This is necessary to receive CREATE notifications triggered from the data
   inside the container on the container.
