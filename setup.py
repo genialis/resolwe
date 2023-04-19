@@ -51,7 +51,7 @@ setuptools.setup(
         "djangorestframework~=3.14.0",
         "django-filter~=23.1",
         "django-versionfield~=1.0.3",
-        "django-fernet-fields~=0.6",
+        "django-fernet-fields-v2~=0.8",
         "django-priority-batch >=5.0a1, ==5.*",
         "Jinja2~=3.1.2",
         "jsonschema~=4.17.3",
