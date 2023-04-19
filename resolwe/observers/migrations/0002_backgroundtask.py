@@ -2,6 +2,7 @@
 
 from django.db import migrations, models
 import django.db.models.deletion
+import resolwe.observers.models
 
 
 class Migration(migrations.Migration):
@@ -33,7 +34,7 @@ class Migration(migrations.Migration):
                             ("OK", "Done"),
                             ("ER", "Error"),
                         ],
-                        default="WA",
+                        default="WT",
                         max_length=2,
                     ),
                 ),
@@ -42,7 +43,12 @@ class Migration(migrations.Migration):
                     models.DateTimeField(blank=True, db_index=True, null=True),
                 ),
                 ("description", models.CharField(max_length=256)),
-                ("output", models.JSONField(default="")),
+                (
+                    "output",
+                    models.JSONField(
+                        default=resolwe.observers.models._default_output_value
+                    ),
+                ),
                 (
                     "permission_group",
                     models.ForeignKey(

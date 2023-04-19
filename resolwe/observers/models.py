@@ -20,6 +20,14 @@ from .protocol import GROUP_SESSIONS, TYPE_ITEM_UPDATE, ChangeType, ChannelsMess
 Observable = PermissionObject
 
 
+def _default_output_value():
+    """Return the default value for output field in the BackgroundTask model.
+
+    Must be named method due to Django bug in migrations.
+    """
+    return ""
+
+
 class BackgroundTask(Observable):
     """The observable model representing the background task.
 
@@ -59,7 +67,7 @@ class BackgroundTask(Observable):
 
     #: the field containing output from the backgroud task, such as list of ids of
     #: duplicated objects, error details...
-    output = models.JSONField(default="")
+    output = models.JSONField(default=_default_output_value)
 
     def wait(
         self,
