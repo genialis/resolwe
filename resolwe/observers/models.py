@@ -28,7 +28,7 @@ class BackgroundTask(Observable):
     """
 
     #: background task is waiting
-    STATUS_WAITING = "WA"
+    STATUS_WAITING = "WT"
     #: background task is processing
     STATUS_PROCESSING = "PR"
     #: background task has finished successfully

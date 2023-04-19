@@ -28,7 +28,7 @@ class Migration(migrations.Migration):
                     "status",
                     models.CharField(
                         choices=[
-                            ("WA", "Waiting"),
+                            ("WT", "Waiting"),
                             ("PR", "Processing"),
                             ("OK", "Done"),
                             ("ER", "Error"),
