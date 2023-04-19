@@ -115,11 +115,10 @@ class HealtCheckConsumer(AsyncConsumer):
         logger.debug(__("Performing health check with message {}.", message))
         path = Path(message["file"])
 
-        if await self.check_database():
+        if await database_sync_to_async(self.check_database, thread_sensitive=False)():
             logger.debug("Health check passed.")
             path.touch(exist_ok=True)
 
-    @database_sync_to_async
     def check_database(self) -> bool:
         """Perform a simple database check."""
         with connection.cursor() as cursor:
