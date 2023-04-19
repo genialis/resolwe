@@ -20,6 +20,8 @@ Changed
 - **BACKWARD INCOMPATIBLE:** Bump ``Django`` requirement to version ``4.2``
 - **BACKWARD INCOMPATIBLE:** Bump ``channels`` requirement to version ``4.0``
 - Bump other requirements to the latest versions
+- Replace ``django-fernet-fields`` with ``django-fernet-fields-v2`` to support
+  ``Django 4.2``
 
 
 ===================
