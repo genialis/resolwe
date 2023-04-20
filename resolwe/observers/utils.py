@@ -8,11 +8,27 @@ from channels.layers import get_channel_layer
 from channels.testing import ApplicationCommunicator
 
 from resolwe.observers import consumers
+from resolwe.observers.models import BackgroundTask
+from resolwe.permissions.utils import assign_contributor_permissions
 
 
-def start_background_task(packet: dict):
-    """Send the packet to background task consumer."""
+def start_background_task(
+    task_type: consumers.BackgroundTaskType,
+    task_description: str,
+    task_data: dict,
+    contributor,
+) -> BackgroundTask:
+    """Create the BackgroundTask and start it."""
+    task = BackgroundTask.objects.create(description=task_description)
+    assign_contributor_permissions(task, contributor)
+    packet = {
+        "type": task_type.value,
+        "task_id": task.id,
+        "contributor_id": contributor.id,
+        **task_data,
+    }
     async_to_sync(get_channel_layer().send)(consumers.BACKGROUND_TASK_CHANNEL, packet)
+    return task
 
 
 class BackgroundTaskConsumerManager:

@@ -22,6 +22,7 @@ from resolwe.flow.models.utils import (
     validation_schema,
 )
 from resolwe.flow.utils import dict_dot, get_data_checksum, iterate_fields
+from resolwe.observers.consumers import BackgroundTaskType
 from resolwe.observers.decorators import move_to_container
 from resolwe.observers.models import BackgroundTask
 from resolwe.observers.utils import start_background_task
@@ -198,23 +199,18 @@ class DataQuerySet(BaseQuerySet, PermissionQuerySet):
 
         return obj
 
-    def duplicate(self, contributor, inherit_entity=False, inherit_collection=False):
-        """Duplicate (make a copy) ``Data`` objects in the background.
-
-        :param contributor: Duplication user
-        """
-        task = BackgroundTask.objects.create(description="Duplicate data")
-        start_background_task(
-            {
-                "type": "duplicate_data",
-                "data_ids": list(self.values_list("pk", flat=True)),
-                "task_id": task.id,
-                "contributor_id": contributor.id,
-                "inherit_entity": inherit_entity,
-                "inherit_collection": inherit_collection,
-            }
+    def duplicate(
+        self, contributor, inherit_entity=False, inherit_collection=False
+    ) -> BackgroundTask:
+        """Duplicate (make a copy) ``Data`` objects in the background."""
+        task_data = {
+            "data_ids": list(self.values_list("pk", flat=True)),
+            "inherit_entity": inherit_entity,
+            "inherit_collection": inherit_collection,
+        }
+        return start_background_task(
+            BackgroundTaskType.DUPLICATE_DATA, "Duplicate data", task_data, contributor
         )
-        return task
 
     @transaction.atomic
     def move_to_collection(self, destination_collection):
@@ -582,20 +578,18 @@ class Data(BaseModel, PermissionObject):
         """Return True if data object is a duplicate."""
         return bool(self.duplicated)
 
-    def duplicate(self, contributor, inherit_entity=False, inherit_collection=False):
-        """Duplicate (make a copy) in the background."""
-        task = BackgroundTask.objects.create(description="Duplicate data")
-        start_background_task(
-            {
-                "type": "duplicate_data",
-                "data_ids": [self.pk],
-                "task_id": task.id,
-                "contributor_id": contributor.id,
-                "inherit_entity": inherit_entity,
-                "inherit_collection": inherit_collection,
-            }
+    def duplicate(
+        self, contributor, inherit_entity=False, inherit_collection=False
+    ) -> BackgroundTask:
+        """Duplicate (make a copy) object in the background."""
+        task_data = {
+            "data_ids": [self.pk],
+            "inherit_entity": inherit_entity,
+            "inherit_collection": inherit_collection,
+        }
+        return start_background_task(
+            BackgroundTaskType.DUPLICATE_DATA, "Duplicate data", task_data, contributor
         )
-        return task
 
     @move_to_container
     def move_to_collection(self, collection):

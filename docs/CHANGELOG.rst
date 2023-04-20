@@ -10,6 +10,10 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Fixed
+------
+- The contributor is assigned VIEW permission to the ``BackgroundTask``
+
 Added
 -----
 - Add endpoints for new annotation models

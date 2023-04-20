@@ -131,6 +131,7 @@ class TestDuplicate(TransactionTestCase):
         response = self.data_duplicate_viewset(request)
         task = BackgroundTask.objects.get(pk=response.data["id"])
         duplicate = Data.objects.get(pk__in=task.result())
+        self.assertTrue(task.has_permission(Permission.VIEW, self.contributor))
         self.assertTrue(duplicate.is_duplicate())
         handler.assert_called_once_with(
             signal=post_duplicate,
@@ -154,6 +155,7 @@ class TestDuplicate(TransactionTestCase):
 
         task = BackgroundTask.objects.get(pk=response.data["id"])
         duplicate = Data.objects.get(pk__in=task.result())
+        self.assertTrue(task.has_permission(Permission.VIEW, self.contributor))
         self.assertTrue(duplicate.is_duplicate())
         self.assertTrue(duplicate.collection.id, self.collection.id)
         handler.assert_called_once_with(
@@ -183,6 +185,7 @@ class TestDuplicate(TransactionTestCase):
         response = self.collection_duplicate_viewset(request)
         task = BackgroundTask.objects.get(pk=response.data["id"])
         duplicate = Collection.objects.get(id__in=task.result())
+        self.assertTrue(task.has_permission(Permission.VIEW, self.contributor))
         self.assertTrue(duplicate.is_duplicate())
         handler.assert_called_once_with(
             signal=post_duplicate,
@@ -207,6 +210,7 @@ class TestDuplicate(TransactionTestCase):
         response = self.entity_duplicate_viewset(request)
         task = BackgroundTask.objects.get(pk=response.data["id"])
         duplicate = Entity.objects.get(id__in=task.result())
+        self.assertTrue(task.has_permission(Permission.VIEW, self.contributor))
         self.assertTrue(duplicate.is_duplicate())
         self.assertEqual(collection.entity_set.count(), 1)
         self.assertEqual(collection.data.count(), 1)
@@ -227,7 +231,7 @@ class TestDuplicate(TransactionTestCase):
         response = self.entity_duplicate_viewset(request)
         task = BackgroundTask.objects.get(pk=response.data["id"])
         duplicate = Entity.objects.get(id__in=task.result())
-
+        self.assertTrue(task.has_permission(Permission.VIEW, self.contributor))
         self.assertEqual(collection.entity_set.count(), 2)
         self.assertEqual(collection.data.count(), 2)
         handler.assert_called_once_with(

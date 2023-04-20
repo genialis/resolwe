@@ -5,6 +5,7 @@ from django.contrib.postgres.indexes import GinIndex
 from django.contrib.postgres.search import SearchVectorField
 from django.db import models
 
+from resolwe.observers.consumers import BackgroundTaskType
 from resolwe.observers.models import BackgroundTask
 from resolwe.observers.utils import start_background_task
 from resolwe.permissions.models import PermissionObject, PermissionQuerySet
@@ -61,21 +62,15 @@ class BaseCollection(BaseModel):
 class CollectionQuerySet(BaseQuerySet, PermissionQuerySet):
     """Query set for ``Collection`` objects."""
 
-    def duplicate(self, contributor):
-        """Duplicate (make a copy) ``Data`` objects in the background.
-
-        :param contributor: Duplication user
-        """
-        task = BackgroundTask.objects.create(description="Duplicate collections")
-        start_background_task(
-            {
-                "type": "duplicate_collection",
-                "collection_ids": list(self.values_list("pk", flat=True)),
-                "task_id": task.id,
-                "contributor_id": contributor.id,
-            }
+    def duplicate(self, contributor) -> BackgroundTask:
+        """Duplicate (make a copy) ``Collection`` objects in the background."""
+        task_data = {"collection_ids": list(self.values_list("pk", flat=True))}
+        return start_background_task(
+            BackgroundTaskType.DUPLICATE_COLLECTION,
+            "Duplicate collections",
+            task_data,
+            contributor,
         )
-        return task
 
 
 class Collection(BaseCollection, PermissionObject):
@@ -118,18 +113,12 @@ class Collection(BaseCollection, PermissionObject):
         """Return True if collection is a duplicate."""
         return bool(self.duplicated)
 
-    def duplicate(self, contributor):
-        """Duplicate (make a copy) of object in the background.
-
-        :param contributor: Duplication user
-        """
-        task = BackgroundTask.objects.create(description="Duplicate collections")
-        start_background_task(
-            {
-                "type": "duplicate_collection",
-                "collection_ids": [self.pk],
-                "task_id": task.id,
-                "contributor_id": contributor.id,
-            }
+    def duplicate(self, contributor) -> BackgroundTask:
+        """Duplicate (make a copy) object in the background."""
+        task_data = {"collection_ids": [self.pk]}
+        return start_background_task(
+            BackgroundTaskType.DUPLICATE_COLLECTION,
+            "Duplicate collection",
+            task_data,
+            contributor,
         )
-        return task

@@ -1,5 +1,6 @@
 """Consumers for Observers."""
 
+from enum import Enum
 from typing import Callable
 
 from channels.consumer import AsyncConsumer
@@ -19,6 +20,14 @@ from .protocol import GROUP_SESSIONS, ChangeType, ChannelsMessage, WebsocketMess
 
 # The channel used to listen for BackgrountTask events
 BACKGROUND_TASK_CHANNEL = "observers.background_task"
+
+
+class BackgroundTaskType(Enum):
+    """Background task types."""
+
+    DUPLICATE_DATA = "duplicate_data"
+    DUPLICATE_ENTITY = "duplicate_entity"
+    DUPLICATE_COLLECTION = "duplicate_collection"
 
 
 def update_constants():
