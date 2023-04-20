@@ -1423,6 +1423,27 @@ class BackgroundTaskTestCase(TransactionResolweAPITestCase):
         self.assertEqual(result.status_code, status.HTTP_200_OK)
         self.assertCountEqual(result.data, expected)
 
+        # Filter task by the specific id.
+        expected = [BackgroundTaskSerializer(self.task_preparing).data]
+        result = self._get_list(
+            user=self.alice,
+            query_params={"id": self.task_preparing.id},
+        )
+        self.assertEqual(result.status_code, status.HTTP_200_OK)
+        self.assertCountEqual(result.data, expected)
+
+        # Filter task by the list of ids.
+        expected = [
+            BackgroundTaskSerializer(self.task_preparing).data,
+            BackgroundTaskSerializer(self.task_running).data,
+        ]
+        result = self._get_list(
+            user=self.alice,
+            query_params={"id__in": f"{self.task_preparing.id},{self.task_running.id}"},
+        )
+        self.assertEqual(result.status_code, status.HTTP_200_OK)
+        self.assertCountEqual(result.data, expected)
+
         # Filter only tasks in status OK and ERROR.
         result = self._get_list(
             user=self.alice,

@@ -17,7 +17,7 @@ class BackgroundTaskFilter(filters.FilterSet):
         """Set the filter lookups for the status field."""
 
         model = BackgroundTask
-        fields = {"status": ["exact", "in"]}
+        fields = {"status": ["exact", "in"], "id": ["exact", "in"]}
 
 
 class BackgroundTaskSerializer(serializers.ModelSerializer):

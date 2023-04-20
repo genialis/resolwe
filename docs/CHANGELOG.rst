@@ -18,6 +18,7 @@ Added
 -----
 - Add endpoints for new annotation models
 - Send observer create signals on object duplication
+- Add filtering by id to the background task endpoint
 
 
 ===================
