@@ -834,7 +834,7 @@ class TestDataViewSetCase(TestCase):
         self.assertEqual(response.data[0]["id"], parent.pk)
 
 
-class TestCollectionViewSetCase(TestCase):
+class TestCollectionViewSetCaseCommonMixin:
     def setUp(self):
         super().setUp()
 
@@ -904,6 +904,8 @@ class TestCollectionViewSetCase(TestCase):
 
         return entity
 
+
+class TestCollectionViewSetCase(TestCollectionViewSetCaseCommonMixin, TestCase):
     def test_prefetch(self):
         descriptor_schema_1 = DescriptorSchema.objects.create(
             contributor=self.contributor,
@@ -1036,30 +1038,6 @@ class TestCollectionViewSetCase(TestCase):
         force_authenticate(request, self.admin)
         resp = self.checkslug_viewset(request)
         self.assertEqual(resp.status_code, 400)
-
-    def test_delete(self):
-        collection = Collection.objects.create(
-            name="Test collection",
-            contributor=self.contributor,
-        )
-        data_1, data_2 = self._create_data(), self._create_data()
-        entity_1, entity_2 = self._create_entity(), self._create_entity()
-        data_1.move_to_collection(collection)
-        data_2.move_to_collection(collection)
-        entity_1.move_to_collection(collection)
-        entity_2.move_to_collection(collection)
-
-        collection.set_permission(Permission.EDIT, self.user)
-
-        request = factory.delete(self.detail_url(collection.pk))
-        force_authenticate(request, self.user)
-        self.collection_detail_viewset(request, pk=collection.pk)
-
-        # All containing objects are deleted, regardless of their permission.
-        self.assertFalse(Data.objects.filter(pk=data_1.pk).exists())
-        self.assertFalse(Data.objects.filter(pk=data_2.pk).exists())
-        self.assertFalse(Entity.objects.filter(pk=entity_1.pk).exists())
-        self.assertFalse(Entity.objects.filter(pk=entity_2.pk).exists())
 
     def test_duplicate_not_auth(self):
         request = factory.post(
@@ -1217,6 +1195,40 @@ class TestCollectionViewSetCase(TestCase):
         self.assertEqual(get_collection(collections, "empty")["status"], None)
 
 
+class TestCollectionViewSetCaseDelete(
+    TestCollectionViewSetCaseCommonMixin, TransactionTestCase
+):
+    """Test background delete of collection..
+
+    This test case is isolated not to slow down the other tests.
+    """
+
+    def test_delete(self):
+        collection = Collection.objects.create(
+            name="Test collection",
+            contributor=self.contributor,
+        )
+        data_1, data_2 = self._create_data(), self._create_data()
+        entity_1, entity_2 = self._create_entity(), self._create_entity()
+        data_1.move_to_collection(collection)
+        data_2.move_to_collection(collection)
+        entity_1.move_to_collection(collection)
+        entity_2.move_to_collection(collection)
+
+        collection.set_permission(Permission.EDIT, self.user)
+
+        request = factory.delete(self.detail_url(collection.pk))
+        force_authenticate(request, self.user)
+        response = self.collection_detail_viewset(request, pk=collection.pk)
+        # Wait for the background task to complete.
+        BackgroundTask.objects.get(pk=response.data["id"]).wait()
+        # All containing objects are deleted, regardless of their permission.
+        self.assertFalse(Data.objects.filter(pk=data_1.pk).exists())
+        self.assertFalse(Data.objects.filter(pk=data_2.pk).exists())
+        self.assertFalse(Entity.objects.filter(pk=entity_1.pk).exists())
+        self.assertFalse(Entity.objects.filter(pk=entity_2.pk).exists())
+
+
 class ProcessTestCase(ResolweAPITestCase):
     def setUp(self):
         self.resource_name = "process"
@@ -1257,7 +1269,7 @@ class ProcessTestCase(ResolweAPITestCase):
         self.assertEqual(response.status_code, 405)  # PATCH not allowed on process
 
 
-class EntityViewSetTest(TestCase):
+class EntityViewSetTestCommonMixin:
     def setUp(self):
         super().setUp()
 
@@ -1353,6 +1365,8 @@ class EntityViewSetTest(TestCase):
             process=process,
         )
 
+
+class EntityViewSetTest(EntityViewSetTestCommonMixin, TestCase):
     def test_prefetch(self):
         self.entity.delete()
 
@@ -1487,6 +1501,14 @@ class EntityViewSetTest(TestCase):
         self.assertEqual(destination_collection.entity_set.first().id, entity.id)
         self.assertEqual(destination_collection.data.first().id, data.id)
 
+    def test_duplicate_not_auth(self):
+        request = factory.post(reverse("resolwe-api:entity-duplicate"), format="json")
+        response = self.duplicate_viewset(request)
+
+        self.assertEqual(response.data["detail"], MESSAGES["NOT_FOUND"])
+
+
+class EntityViewSetTestDelete(EntityViewSetTestCommonMixin, TransactionTestCase):
     def test_delete(self):
         entity = Entity.objects.create(
             name="Test entity",
@@ -1500,15 +1522,10 @@ class EntityViewSetTest(TestCase):
 
         request = factory.delete(self.detail_url(entity.pk))
         force_authenticate(request, self.user)
-        self.entity_detail_viewset(request, pk=entity.pk)
+        response = self.entity_detail_viewset(request, pk=entity.pk)
+        BackgroundTask.objects.get(pk=response.data["id"]).wait()
 
         # If user has edit permison on entity, all containing objects
         # are deleted, regardless of their permission.
         self.assertFalse(Data.objects.filter(pk=data_1.pk).exists())
         self.assertFalse(Data.objects.filter(pk=data_2.pk).exists())
-
-    def test_duplicate_not_auth(self):
-        request = factory.post(reverse("resolwe-api:entity-duplicate"), format="json")
-        response = self.duplicate_viewset(request)
-
-        self.assertEqual(response.data["detail"], MESSAGES["NOT_FOUND"])

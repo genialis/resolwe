@@ -1,9 +1,14 @@
 # pylint: disable=missing-docstring
+from django.contrib.auth import get_user_model
+from django.test import TransactionTestCase as DjangoTransactionTestCase
+
 from rest_framework import status
 
 from resolwe.flow.models import Collection
 from resolwe.flow.views import CollectionViewSet
-from resolwe.test import ResolweAPITestCase
+from resolwe.observers.models import BackgroundTask
+from resolwe.permissions.models import get_anonymous_user
+from resolwe.test import ResolweAPITestCase, TransactionResolweAPITestCase
 
 MESSAGES = {
     "NOT_FOUND": "Not found.",
@@ -11,7 +16,7 @@ MESSAGES = {
 }
 
 
-class CollectionTestCase(ResolweAPITestCase):
+class CollectionTestCaseCommonMixin:
     fixtures = [
         "users.yaml",
         "permissions.yaml",
@@ -31,8 +36,13 @@ class CollectionTestCase(ResolweAPITestCase):
             "slug": "test_collection",
         }
 
+        # Reset the anonymous user for each test. This is important since permissions
+        # are set in fixtures but id of the public user changes between tests.
+        get_anonymous_user(cache=False)
         super().setUp()
 
+
+class CollectionTestCase(CollectionTestCaseCommonMixin, ResolweAPITestCase):
     def test_get_list(self):
         resp = self._get_list(self.user1)
         self.assertEqual(len(resp.data), 3)
@@ -184,20 +194,42 @@ class CollectionTestCase(ResolweAPITestCase):
         p = Collection.objects.get(pk=3)
         self.assertEqual(p.name, "Test collection 3")
 
+
+class CollectionTestCaseDelete(
+    CollectionTestCaseCommonMixin,
+    TransactionResolweAPITestCase,
+    DjangoTransactionTestCase,
+):
+    """Test deleting collections.
+
+    We have to inherit from DjangoTransactionTestCase because the deletion in done in a
+    background task. The tests are in a separate class not to slow down the other tests.
+    """
+
+    def _pre_setup(self, *args, **kwargs):
+        """Delete all previously created users.
+
+        The public user is created in the migrations and recreated during test case,
+        but with a different id which breaks the loading of the fixtures.
+        """
+        get_user_model().objects.all().delete()
+        super()._pre_setup(*args, **kwargs)
+
     def test_delete(self):
-        resp = self._delete(1, self.user1)
-        self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
+        response = self._delete(1, self.user1)
+        BackgroundTask.objects.get(pk=response.data["id"]).wait()
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
         collection_exists = Collection.objects.filter(pk=1).exists()
         self.assertFalse(collection_exists)
 
     def test_delete_no_perm(self):
-        resp = self._delete(2, self.user2)
-        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+        response = self._delete(2, self.user2)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         collection_exists = Collection.objects.filter(pk=2).exists()
         self.assertTrue(collection_exists)
 
     def test_delete_public_user(self):
-        resp = self._delete(3)
-        self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
+        response = self._delete(3)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         collection_exists = Collection.objects.filter(pk=3).exists()
         self.assertTrue(collection_exists)

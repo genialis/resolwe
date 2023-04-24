@@ -7,6 +7,8 @@ from rest_framework.exceptions import ParseError
 from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
 
+from resolwe.observers.models import BackgroundTask
+from resolwe.observers.views import BackgroundTaskSerializer
 from resolwe.permissions.models import get_anonymous_user
 from resolwe.permissions.utils import assign_contributor_permissions
 
@@ -50,6 +52,32 @@ class ResolweCreateModelMixin(mixins.CreateModelMixin):
                 # in container.
                 if not instance.in_container():
                     assign_contributor_permissions(instance)
+
+
+class ResolweBackgroundDeleteMixin(mixins.DestroyModelMixin):
+    """Delete a model instance in the background if possible."""
+
+    BACKGROUND_DELETE_METHOD = "delete_background"
+
+    def perform_destroy(self, instance):
+        """Perform the actual delete.
+
+        If possible, detele the object in the background.
+        """
+        return getattr(instance, self.BACKGROUND_DELETE_METHOD, "delete")()
+
+    def destroy(self, request, *args, **kwargs):
+        """Delete a resource."""
+        instance = self.get_object()
+        return_value = self.perform_destroy(instance)
+        # When the object is deleted in the background, return a task description.
+        if isinstance(return_value, BackgroundTask):
+            return Response(
+                status=status.HTTP_200_OK,
+                data=BackgroundTaskSerializer(return_value).data,
+            )
+        else:
+            return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class ResolweUpdateModelMixin(mixins.UpdateModelMixin):

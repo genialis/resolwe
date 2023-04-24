@@ -1,7 +1,8 @@
 """Consumers for Observers."""
 
+import asyncio
 from enum import Enum
-from typing import Callable
+from typing import Callable, Optional
 
 from channels.consumer import AsyncConsumer
 from channels.db import database_sync_to_async
@@ -131,6 +132,7 @@ class BackgroundTaskConsumer(AsyncConsumer):
     @database_sync_to_async_new_thread
     def wrap_task(self, function: Callable, task_id: int):
         """Start the function and update background task status."""
+        task: Optional[BackgroundTask] = None
         try:
             task = BackgroundTask.objects.get(pk=task_id)
             task.started = timezone.now()
@@ -138,15 +140,24 @@ class BackgroundTaskConsumer(AsyncConsumer):
             task.save(update_fields=["status", "started"])
             task.output = function() or "Task completed."
             task.status = BackgroundTask.STATUS_DONE
+        # Task may not exist here if the consumer was cancelled duging the creation
+        # of the task. Only proceed if it is defined.
         except ValidationError as e:
-            task.status = BackgroundTask.STATUS_ERROR
-            task.output = e.messages
+            if task:
+                task.status = BackgroundTask.STATUS_ERROR
+                task.output = e.messages
+        except asyncio.CancelledError:
+            if task:
+                task.status = BackgroundTask.STATUS_ERROR
+                task.output = "Task was cancelled."
         except Exception as e:
-            task.status = BackgroundTask.STATUS_ERROR
-            task.output = str(e)
+            if task:
+                task.status = BackgroundTask.STATUS_ERROR
+                task.output = str(e)
         finally:
-            task.finished = timezone.now()
-            task.save(update_fields=["status", "finished", "output"])
+            if task:
+                task.finished = timezone.now()
+                task.save(update_fields=["status", "finished", "output"])
 
     async def duplicate_data(self, message: dict):
         """Duplicate the data and update task status."""

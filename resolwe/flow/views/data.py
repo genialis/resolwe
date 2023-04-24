@@ -20,6 +20,7 @@ from .collection import BaseCollectionViewSet
 from .entity import EntityViewSet
 from .mixins import (
     ParametersMixin,
+    ResolweBackgroundDeleteMixin,
     ResolweCheckSlugMixin,
     ResolweCreateModelMixin,
     ResolweUpdateModelMixin,
@@ -33,7 +34,7 @@ class DataViewSet(
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
     ResolweUpdateModelMixin,
-    mixins.DestroyModelMixin,
+    ResolweBackgroundDeleteMixin,
     ResolwePermissionsMixin,
     ResolweCheckSlugMixin,
     ParametersMixin,

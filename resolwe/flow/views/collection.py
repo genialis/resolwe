@@ -20,6 +20,7 @@ from resolwe.permissions.models import Permission, PermissionModel
 
 from .mixins import (
     ParametersMixin,
+    ResolweBackgroundDeleteMixin,
     ResolweCheckSlugMixin,
     ResolweCreateModelMixin,
     ResolweUpdateModelMixin,
@@ -30,7 +31,7 @@ class BaseCollectionViewSet(
     ResolweCreateModelMixin,
     mixins.RetrieveModelMixin,
     ResolweUpdateModelMixin,
-    mixins.DestroyModelMixin,
+    ResolweBackgroundDeleteMixin,
     mixins.ListModelMixin,
     ResolwePermissionsMixin,
     ResolweCheckSlugMixin,

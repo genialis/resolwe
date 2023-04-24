@@ -3,7 +3,9 @@ import shutil
 import unittest
 from datetime import timedelta
 
+from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
+from django.test import TransactionTestCase as DjangoTransactionTestCase
 from django.utils.timezone import now
 
 from rest_framework import exceptions, status
@@ -11,8 +13,9 @@ from rest_framework import exceptions, status
 from resolwe.flow.models import Collection, Data
 from resolwe.flow.serializers import ContributorSerializer
 from resolwe.flow.views import DataViewSet
+from resolwe.observers.models import BackgroundTask
 from resolwe.permissions.models import Permission
-from resolwe.test import ResolweAPITestCase
+from resolwe.test import ResolweAPITestCase, TransactionResolweAPITestCase
 
 DATE_FORMAT = r"%Y-%m-%dT%H:%M:%S.%f"
 
@@ -23,7 +26,7 @@ MESSAGES = {
 }
 
 
-class DataTestCase(ResolweAPITestCase):
+class DataTestCaseCommonMixin:
     fixtures = [
         "users.yaml",
         "permissions.yaml",
@@ -54,6 +57,8 @@ class DataTestCase(ResolweAPITestCase):
 
         super().tearDown()
 
+
+class DataTestCase(DataTestCaseCommonMixin, ResolweAPITestCase):
     def test_get_list(self):
         resp = self._get_list(self.user1)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
@@ -607,20 +612,34 @@ class DataTestCase(ResolweAPITestCase):
         self.assertEqual(d.process_id, 1)
         self.assertEqual(d.modified.isoformat(), self.data1.modified.isoformat())
 
+
+class DataTestCaseDelete(
+    DataTestCaseCommonMixin, TransactionResolweAPITestCase, DjangoTransactionTestCase
+):
+    def _pre_setup(self, *args, **kwargs):
+        """Delete all previously created users.
+
+        The public user is created in the migrations and recreated during test case,
+        but with a different id which breaks the loading of the fixtures.
+        """
+        get_user_model().objects.all().delete()
+        super()._pre_setup(*args, **kwargs)
+
     def test_delete(self):
-        resp = self._delete(1, self.user1)
-        self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
+        response = self._delete(1, self.user1)
+        BackgroundTask.objects.get(pk=response.data["id"]).wait()
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
         query = Data.objects.filter(pk=1).exists()
         self.assertFalse(query)
 
     def test_delete_no_perms(self):
-        resp = self._delete(2, self.user2)
-        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+        response = self._delete(2, self.user2)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         query = Data.objects.filter(pk=2).exists()
         self.assertTrue(query)
 
     def test_delete_public_user(self):
-        resp = self._delete(2)
-        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+        response = self._delete(2)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         query = Data.objects.filter(pk=2).exists()
         self.assertTrue(query)

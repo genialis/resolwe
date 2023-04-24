@@ -10,10 +10,6 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 34.1.0 - 2023-05-02
 ===================
 
-Fixed
-------
-- The contributor is assigned VIEW permission to the ``BackgroundTask``
-
 Added
 -----
 - Add endpoints for new annotation models
@@ -21,6 +17,15 @@ Added
 - Add filtering by id to the background task endpoint
 - Add ``delete`` method to the background consumer
 - Add ``delete_background`` method to data, entity and collection model and queryset
+
+Changed
+-------
+- **BACKWARD INCOMPATIBLE:** Delete objects in the background in the ``data``,
+  ``entity`` and ``collection`` endpoints
+
+Fixed
+------
+- The contributor is assigned VIEW permission to the ``BackgroundTask``
 
 
 ===================
