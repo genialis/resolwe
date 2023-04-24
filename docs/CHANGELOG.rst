@@ -20,6 +20,7 @@ Added
 - Send observer create signals on object duplication
 - Add filtering by id to the background task endpoint
 - Add ``delete`` method to the background consumer
+- Add ``delete_background`` method to data, entity and collection model and queryset
 
 
 ===================

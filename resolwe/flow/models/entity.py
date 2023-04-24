@@ -1,6 +1,7 @@
 """Resolwe entity model."""
 from typing import Any, List, Optional, Union
 
+from django.contrib.contenttypes.models import ContentType
 from django.contrib.postgres.fields import CICharField
 from django.contrib.postgres.indexes import GinIndex
 from django.core.exceptions import ValidationError
@@ -36,6 +37,16 @@ class EntityQuerySet(BaseQuerySet, PermissionQuerySet):
             "Duplicate entity",
             task_data,
             contributor,
+        )
+
+    def delete_background(self):
+        """Delete the ``Entity`` objects in the background."""
+        task_data = {
+            "object_ids": list(self.values_list("pk", flat=True)),
+            "content_type_id": ContentType.objects.get_for_model(self).pk,
+        }
+        return start_background_task(
+            BackgroundTaskType.DELETE, "Delete entities", task_data, self.contributor
         )
 
     @transaction.atomic
@@ -229,6 +240,16 @@ class Entity(BaseCollection, PermissionObject):
             "Duplicate entity",
             task_data,
             contributor,
+        )
+
+    def delete_background(self):
+        """Delete the object in the background."""
+        task_data = {
+            "object_ids": [self.pk],
+            "content_type_id": ContentType.objects.get_for_model(self).pk,
+        }
+        return start_background_task(
+            BackgroundTaskType.DELETE, "Delete entitiy", task_data, self.contributor
         )
 
     @transaction.atomic

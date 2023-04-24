@@ -848,6 +848,94 @@ class ObserverTestCase(TransactionTestCase):
         )
         await self.assert_no_more_messages(client)
 
+    async def test_background_delete(self):
+        """Test background delete."""
+        client = WebsocketCommunicator(self.client_consumer, "/ws/test_session")
+        connected, _ = await client.connect()
+        self.assertTrue(connected)
+
+        @database_sync_to_async
+        def prepare_test():
+            collection = Collection.objects.create(
+                name="Collection", contributor=self.user_alice
+            )
+
+            entity = Entity.objects.create(
+                name="Entity", collection=collection, contributor=self.user_alice
+            )
+
+            Data.objects.create(
+                name="Data",
+                contributor=self.user_alice,
+                process=self.process,
+                size=0,
+                collection=collection,
+                entity=entity,
+                status=Data.STATUS_DONE,
+                output={},
+            )
+            collection.set_permission(Permission.VIEW, self.user_alice)
+            return collection
+
+        collection = await prepare_test()
+
+        # Create a subscription to the Collection content_type.
+        @database_sync_to_async
+        def subscribe():
+            Subscription.objects.create(
+                user=self.user_alice,
+                session_id="test_session",
+                subscription_id=self.subscription_id,
+            ).subscribe(
+                content_type=ContentType.objects.get_for_model(Collection),
+                object_ids=[Observer.ALL_IDS],
+                change_types=[ChangeType.CREATE, ChangeType.DELETE],
+            )
+
+        await subscribe()
+        await self.await_subscription_observer_count(2)
+
+        @database_sync_to_async
+        def assert_collection_deleted(collection):
+            collection_pk = collection.pk
+            entity_pk = collection.entity_set.first().pk
+            data_pk = collection.data.first().pk
+            collection.delete_background().wait()
+            with self.assertRaises(Collection.DoesNotExist):
+                collection.refresh_from_db()
+            with self.assertRaises(Entity.DoesNotExist):
+                Entity.objects.get(pk=entity_pk)
+            with self.assertRaises(Data.DoesNotExist):
+                Data.objects.get(pk=data_pk)
+            return collection_pk, entity_pk, data_pk
+
+        collection_pk, entity_pk, data_pk = await assert_collection_deleted(collection)
+        result = [json.loads(await client.receive_from()) for _ in range(3)]
+        self.assertCountEqual(
+            result,
+            [
+                {
+                    "change_type": ChangeType.DELETE.name,
+                    "object_id": collection_pk,
+                    "subscription_id": self.subscription_id.hex,
+                    "source": ["data", data_pk],
+                },
+                {
+                    "change_type": ChangeType.DELETE.name,
+                    "object_id": collection_pk,
+                    "subscription_id": self.subscription_id.hex,
+                    "source": ["entity", entity_pk],
+                },
+                {
+                    "change_type": ChangeType.DELETE.name,
+                    "object_id": collection_pk,
+                    "subscription_id": self.subscription_id.hex,
+                    "source": ["collection", collection_pk],
+                },
+            ],
+        )
+        await self.assert_no_more_messages(client)
+
     async def test_duplicate(self):
         """Duplicate handles custom signal and has to be test separately."""
         client = WebsocketCommunicator(self.client_consumer, "/ws/test_session")

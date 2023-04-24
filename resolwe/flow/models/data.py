@@ -7,6 +7,7 @@ from typing import Union
 
 import jsonschema
 
+from django.contrib.contenttypes.models import ContentType
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.indexes import GinIndex
 from django.contrib.postgres.search import SearchVectorField
@@ -210,6 +211,16 @@ class DataQuerySet(BaseQuerySet, PermissionQuerySet):
         }
         return start_background_task(
             BackgroundTaskType.DUPLICATE_DATA, "Duplicate data", task_data, contributor
+        )
+
+    def delete_background(self):
+        """Delete the ``Data`` objects in the background."""
+        task_data = {
+            "object_ids": list(self.values_list("pk", flat=True)),
+            "content_type_id": ContentType.objects.get_for_model(self).pk,
+        }
+        return start_background_task(
+            BackgroundTaskType.DELETE, "Delete data", task_data, self.contributor
         )
 
     @transaction.atomic
@@ -573,6 +584,16 @@ class Data(BaseModel, PermissionObject):
         super().delete(*args, **kwargs)
 
         Storage.objects.filter(pk__in=storage_ids, data=None).delete()
+
+    def delete_background(self):
+        """Delete the object in the background."""
+        task_data = {
+            "object_ids": [self.pk],
+            "content_type_id": ContentType.objects.get_for_model(self).pk,
+        }
+        return start_background_task(
+            BackgroundTaskType.DELETE, "Delete data", task_data, self.contributor
+        )
 
     def is_duplicate(self):
         """Return True if data object is a duplicate."""

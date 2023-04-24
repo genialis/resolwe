@@ -1,5 +1,6 @@
 """Resolwe collection model."""
 
+from django.contrib.contenttypes.models import ContentType
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.indexes import GinIndex
 from django.contrib.postgres.search import SearchVectorField
@@ -72,6 +73,16 @@ class CollectionQuerySet(BaseQuerySet, PermissionQuerySet):
             contributor,
         )
 
+    def delete_background(self):
+        """Delete the ``Collection`` objects in the background."""
+        task_data = {
+            "object_ids": list(self.values_list("pk", flat=True)),
+            "content_type_id": ContentType.objects.get_for_model(self).pk,
+        }
+        return start_background_task(
+            BackgroundTaskType.DELETE, "Delete collections", task_data, self.contributor
+        )
+
 
 class Collection(BaseCollection, PermissionObject):
     """Postgres model for storing a collection."""
@@ -121,4 +132,14 @@ class Collection(BaseCollection, PermissionObject):
             "Duplicate collection",
             task_data,
             contributor,
+        )
+
+    def delete_background(self):
+        """Delete the object in the background."""
+        task_data = {
+            "object_ids": [self.pk],
+            "content_type_id": ContentType.objects.get_for_model(self).pk,
+        }
+        return start_background_task(
+            BackgroundTaskType.DELETE, "Delete collections", task_data, self.contributor
         )

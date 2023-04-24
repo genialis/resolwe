@@ -136,7 +136,7 @@ class BackgroundTaskConsumer(AsyncConsumer):
             task.started = timezone.now()
             task.status = BackgroundTask.STATUS_PROCESSING
             task.save(update_fields=["status", "started"])
-            task.output = function()
+            task.output = function() or "Task completed."
             task.status = BackgroundTask.STATUS_DONE
         except ValidationError as e:
             task.status = BackgroundTask.STATUS_ERROR
