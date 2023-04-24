@@ -28,6 +28,7 @@ class BackgroundTaskType(Enum):
     DUPLICATE_DATA = "duplicate_data"
     DUPLICATE_ENTITY = "duplicate_entity"
     DUPLICATE_COLLECTION = "duplicate_collection"
+    DELETE = "delete"
 
 
 def update_constants():
@@ -191,3 +192,24 @@ class BackgroundTaskConsumer(AsyncConsumer):
             return list(duplicates.values_list("pk", flat=True))
 
         await self.wrap_task(duplicate, message["task_id"])
+
+    async def delete(self, message: dict):
+        """Delete the objects and update task status.
+
+        :param message: the message containing the following keys:
+            - ``task_id``: the id of the background task
+            - ``content_type_id``: the content type of the model to be deleted
+            - ``object_ids``: the ids of the objects to be deleted
+        """
+
+        def delete():
+            Model = ContentType.objects.get_for_id(
+                message["content_type_id"]
+            ).model_class()
+            to_delete = Model.objects.filter(pk__in=message["object_ids"])
+
+            # Use iterator and delete one object at a time to trigger the signals.
+            for obj in to_delete.iterator():
+                obj.delete()
+
+        await self.wrap_task(delete, message["task_id"])
