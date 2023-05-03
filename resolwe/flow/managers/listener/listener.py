@@ -34,8 +34,6 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils.timezone import now
 
-from django_priority_batch import PrioritizedBatcher
-
 from resolwe.flow.executors.socket_utils import (
     BaseProtocol,
     Message,
@@ -519,13 +517,12 @@ class Processor:
             self._update_data(data_id, {"started": now()})
 
         try:
-            with PrioritizedBatcher.global_instance():
-                logger.debug(__("Invoking handler {}.", handler_name))
-                response = handler(data_id, message, self)
-                # Check if data status was changed by the handler.
-                if self.get_data_fields(data_id, "status") == Data.STATUS_ERROR:
-                    response.status = ResponseStatus.ERROR
-                return response
+            logger.debug(__("Invoking handler {}.", handler_name))
+            response = handler(data_id, message, self)
+            # Check if data status was changed by the handler.
+            if self.get_data_fields(data_id, "status") == Data.STATUS_ERROR:
+                response.status = ResponseStatus.ERROR
+            return response
         except ValidationError as err:
             error = (
                 f"Validation error when running handler {handler_name} for "
