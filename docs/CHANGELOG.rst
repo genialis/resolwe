@@ -26,6 +26,7 @@ Changed
 - Bump dependencies in the communication container image to the latest versions
 - Bump ``psycopg`` version to 3.1.9
 - Upgrade ``Fedora`` base image to version 37
+- Remove ``Django Priority Batch`` dependency
 
 
 ===================
