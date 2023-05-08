@@ -20,9 +20,10 @@ class ExecutionEngine(BaseExecutionEngine):
         """
         if not path.lower().endswith(".py"):
             return []
-        parser = SafeParser(open(path).read())
-        processes = parser.parse()
-        return [process.to_schema() for process in processes]
+        with open(path) as handle:
+            parser = SafeParser(handle.read())
+            processes = parser.parse()
+            return [process.to_schema() for process in processes]
 
     def evaluate(self, data):
         """Evaluate the code needed to compute a given Data object."""
