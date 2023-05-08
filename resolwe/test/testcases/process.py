@@ -13,6 +13,7 @@ import io
 import json
 import os
 import shutil
+import sys
 import tarfile
 import tempfile
 import time
@@ -301,7 +302,10 @@ class ProcessTestCase(TransactionTestCase):
                 return exc_list[-1][1]
 
         result = self.defaultTestResult()
-        self._feedErrorsToResult(result, self._outcome.errors)
+
+        # Python 3.11 has no feedErrorsToResult method.
+        if sys.version_info.major == 3 and sys.version_info.minor <= 10:
+            self._feedErrorsToResult(result, self._outcome.errors)
         error = list2reason(result.errors)
         failure = list2reason(result.failures)
 
