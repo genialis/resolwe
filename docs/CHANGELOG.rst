@@ -22,6 +22,9 @@ Changed
 - Bump other requirements to the latest versions
 - Replace ``django-fernet-fields`` with ``django-fernet-fields-v2`` to support
   ``Django 4.2``
+- Bump ``PostgreSQL`` version to 14 since 10 is no longer supported
+- Bump dependencies in the communication container image to the latest versions
+- Bump ``psycopg`` version to 3.1.9
 
 
 ===================

@@ -56,7 +56,7 @@ setuptools.setup(
         "Jinja2~=3.1.2",
         "jsonschema~=4.17.3",
         "plumbum~=1.8.1",
-        "psycopg2-binary~=2.9.6",
+        "psycopg[binary]~=3.1.9",
         "PyYAML~=6.0",
         "redis~=4.5.4",
         "shellescape~=3.8.1",
