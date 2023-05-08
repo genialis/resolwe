@@ -225,13 +225,8 @@ REST_FRAMEWORK = {
         "resolwe.flow.filters.OrderingFilter",
     ),
     "EXCEPTION_HANDLER": "resolwe.flow.utils.exceptions.resolwe_exception_handler",
-    # Python<3.7 cannot parse iso-8601 formatted datetimes with tz-info form
-    # "+01:00" (DRF default). It can only parse "+0100" form, so we need to
-    # modify this setting. This will be fixed in Python3.7, where "+01:00" can
-    # be parsed by ``datetime.datetime.strptime`` syntax.
-    # For more, check "%z" syntax description in:
-    # https://docs.python.org/3.7/library/datetime.html#strftime-and-strptime-behavior
-    "DATETIME_FORMAT": "%Y-%m-%dT%H:%M:%S.%f%z",
+    "DATETIME_FORMAT": "iso-8601",
+    "DATE_FORMAT": "iso-8601",
 }
 
 # Time
