@@ -19,6 +19,8 @@ Changed
 -------
 - **BACKWARD INCOMPATIBLE:** Delete objects in the background in the ``data``,
   ``entity`` and ``collection`` endpoints
+- Bump ``Docker`` SDK version to fix requests/urllib incompatibility issue
+  (<https://github.com/docker/docker-py/issues/3113>)
 
 
 ===================

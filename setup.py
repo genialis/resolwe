@@ -46,7 +46,7 @@ setuptools.setup(
         # Storage requirement for computing hashes.
         "crcmod",
         "kubernetes~=21.7.0",
-        "docker~=5.0.3",
+        "docker~=6.1.1",
         "Django~=3.2.12",
         "djangorestframework~=3.13.1",
         "django-filter~=21.1",
