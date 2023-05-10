@@ -8,7 +8,6 @@
 import asyncio
 import copy
 import functools
-import json
 import logging
 import os
 import random
@@ -27,7 +26,6 @@ from ..connectors.baseconnector import BaseStorageConnector
 from ..global_settings import LOCATION_SUBPATH, PROCESS_META, SETTINGS
 from ..local.run import FlowExecutor as LocalFlowExecutor
 from ..protocol import ExecutorFiles
-from .seccomp import SECCOMP_POLICY
 
 # Limits of containers' access to memory. We set the limit to ensure
 # processes are stable and do not get killed by OOM signal.
@@ -310,12 +308,14 @@ class FlowExecutor(LocalFlowExecutor):
         )
         memory_swap = int(memory * DOCKER_MEMORY_SWAP_RATIO)
 
-        # By default the container is connected to the bridge network.
+        # By default the communication container is connected to the bridge network.
         network = SETTINGS.get("FLOW_EXECUTOR", {}).get("NETWORK", "bridge")
 
-        security_options = []
-        if not SETTINGS.get("FLOW_DOCKER_DISABLE_SECCOMP", False):
-            security_options.append(f"seccomp={json.dumps(SECCOMP_POLICY)}")
+        # The network in the processing container depends on the process requirements.
+        if "network" in self.resources:
+            network_mode = f"container:{self.container_name}-communicator"
+        else:
+            network_mode = "none"
 
         processing_image = self.requirements.get(
             "image",
@@ -406,7 +406,6 @@ class FlowExecutor(LocalFlowExecutor):
             "mem_reservation": "200m",
             "network": network,
             "cap_drop": ["all"],
-            "security_opt": security_options,
             "user": f"{os.getuid()}:{os.getgid()}",
             "environment": environment,
         }
@@ -415,7 +414,7 @@ class FlowExecutor(LocalFlowExecutor):
             "volumes": self._processing_volumes(),
             "command": ["python3", "/start.py"],
             "image": processing_image,
-            "network_mode": f"container:{self.container_name}-communicator",
+            "network_mode": network_mode,
             "working_dir": os.fspath(self.processing_working_dir),
             "detach": True,
             "cpu_quota": self.process["resource_limits"]["cores"] * (10**6),
@@ -425,7 +424,6 @@ class FlowExecutor(LocalFlowExecutor):
             "memswap_limit": f"{memory_swap}m",
             "name": self.container_name,
             "cap_drop": ["all"],
-            "security_opt": security_options,
             "user": f"{os.getuid()}:{os.getgid()}",
             "ulimits": ulimits,
             "environment": environment,

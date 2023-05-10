@@ -174,11 +174,6 @@ FLOW_DOCKER_IGNORE_PULL_ERRORS = strtobool(
 # Don't pull Docker images if set via the environment variable.
 FLOW_DOCKER_DONT_PULL = strtobool(os.environ.get("RESOLWE_DOCKER_DONT_PULL", "0"))
 
-# Disable SECCOMP if set via environment variable.
-FLOW_DOCKER_DISABLE_SECCOMP = strtobool(
-    os.environ.get("RESOLWE_DOCKER_DISABLE_SECCOMP", "0")
-)
-
 # Ensure all container images follow a specific format.
 FLOW_CONTAINER_VALIDATE_IMAGE = r".+:(?!latest)"
 

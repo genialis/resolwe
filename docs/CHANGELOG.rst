@@ -23,6 +23,7 @@ Changed
   ``entity`` and ``collection`` endpoints
 - Bump ``Docker`` SDK version to fix requests/urllib incompatibility issue
   (<https://github.com/docker/docker-py/issues/3113>)
+- Always use ``Docker`` default seccomp profile
 
 
 ===================

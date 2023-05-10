@@ -662,19 +662,18 @@ class Connector(BaseConnector):
         # Do not evict job from node.
         annotations["cluster-autoscaler.kubernetes.io/safe-to-evict"] = "false"
 
-        if not getattr(settings, "FLOW_DOCKER_DISABLE_SECCOMP", False):
-            # The path is a relative path in the kubelet root
-            # directory:
-            # <seccomp_root>/<path>, where <seccomp_root> is defined via the
-            # --seccomp-profile-root flag on the Kubelet. If the
-            # --seccomp-profile-root flag is not defined, the default path will
-            # be used, which is <root-dir>/seccomp where <root-dir> is
-            # specified by the --root-dir flag.
-            # https://kubernetes.io/docs/concepts/policy/pod-security-policy/
-            #
-            # The file is transfered to kubelets with daemonset ? Currently I
-            # mount my /tmp directory to the /seccomp directory in minikube.
-            annotations["seccomp.security.alpha.kubernetes.io/pod"] = "runtime/default"
+        # The path is a relative path in the kubelet root
+        # directory:
+        # <seccomp_root>/<path>, where <seccomp_root> is defined via the
+        # --seccomp-profile-root flag on the Kubelet. If the
+        # --seccomp-profile-root flag is not defined, the default path will
+        # be used, which is <root-dir>/seccomp where <root-dir> is
+        # specified by the --root-dir flag.
+        # https://kubernetes.io/docs/concepts/policy/pod-security-policy/
+        #
+        # The file is transfered to kubelets with daemonset ? Currently I
+        # mount my /tmp directory to the /seccomp directory in minikube.
+        annotations["seccomp.security.alpha.kubernetes.io/pod"] = "runtime/default"
 
         mapper = getattr(settings, "FLOW_CONTAINER_IMAGE_MAP", {})
         communicator_image = getattr(
