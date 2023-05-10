@@ -14,6 +14,8 @@ Added
 -----
 - Add ``delete`` method to the background consumer
 - Add ``delete_background`` method to data, entity and collection model and queryset
+- Allow ``IP`` protocol sockets to be opened in the processing container by the seccomp
+  security profile
 
 Changed
 -------

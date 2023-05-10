@@ -389,6 +389,33 @@ SECCOMP_POLICY = {
             "name": "socket",
             "action": "SCMP_ACT_ALLOW",
             "args": [
+                {
+                    "index": 0,
+                    "value": 2,  # AF_INET
+                    "valueTwo": 0,
+                    "op": "SCMP_CMP_EQ",
+                },
+                {
+                    "index": 1,
+                    "value": 1,  # SOCK_STREAM
+                    "valueTwo": 1,
+                    # This needs to be masked since python automatically adds
+                    # flags when creating socket in Linux.
+                    # See https://bugs.python.org/issue32331 for more details.
+                    "op": "SCMP_CMP_MASKED_EQ",
+                },
+                {
+                    "index": 2,
+                    "value": 0,  # IPPROTO_IP
+                    "valueTwo": 0,
+                    "op": "SCMP_CMP_EQ",
+                },
+            ],
+        },
+        {
+            "name": "socket",
+            "action": "SCMP_ACT_ALLOW",
+            "args": [
                 {"index": 0, "value": 2, "valueTwo": 0, "op": "SCMP_CMP_EQ"},  # AF_INET
                 {
                     "index": 1,
