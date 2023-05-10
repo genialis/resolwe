@@ -90,12 +90,21 @@ class RelationSerializer(ResolweBaseSerializer):
                 position=partition.get("position", None),
             )
 
+    def _make_category_lower_case(self, validated_data: dict):
+        """Return the category name in lower case.
+
+        This avoids creating duplicate categories with different case.
+        """
+        if "category" in validated_data:
+            validated_data["category"] = validated_data["category"].lower()
+
     def create(self, validated_data):
         """Create ``Relation`` object and add partitions of ``Entities``."""
         # `partitions` field is renamed to `relationpartition_set` based on source of nested serializer
         partitions = validated_data.pop("relationpartition_set")
 
         with transaction.atomic():
+            self._make_category_lower_case(validated_data)
             instance = Relation.objects.create(**validated_data)
             self._create_partitions(instance, partitions)
 
@@ -107,6 +116,7 @@ class RelationSerializer(ResolweBaseSerializer):
         partitions = validated_data.pop("relationpartition_set", None)
 
         with transaction.atomic():
+            self._make_category_lower_case(validated_data)
             instance = super().update(instance, validated_data)
 
             if partitions is not None:

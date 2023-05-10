@@ -2,7 +2,6 @@
 from typing import Any, List, Optional, Union
 
 from django.contrib.contenttypes.models import ContentType
-from django.contrib.postgres.fields import CICharField
 from django.contrib.postgres.indexes import GinIndex
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
@@ -457,7 +456,7 @@ class Relation(BaseModel, PermissionObject):
     entities = models.ManyToManyField(Entity, through="RelationPartition")
 
     #: category of the relation
-    category = CICharField(max_length=100)
+    category = models.CharField(max_length=100)
 
     #: unit used in the partitions' positions (where applicable, e.g. for serieses)
     unit = models.CharField(max_length=3, choices=UNIT_CHOICES, null=True, blank=True)
