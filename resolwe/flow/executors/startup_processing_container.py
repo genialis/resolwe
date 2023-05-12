@@ -74,8 +74,8 @@ LOG_LEVEL = int(os.environ.get("LOG_LEVEL", logging.DEBUG))
 LOG_MAX_LENGTH = int(os.environ.get("LOG_MAX_LENGTH", 200))
 
 # How long to wait for the response from the communication container.
-# Do not set too low or script may fail to start. The default is 20 minutes.
-SCRIPT_START_TIMEOUT = int(os.environ.get("SCRIPT_START_TIMEOUT", 1200))
+# Do not set too low or script may fail to start. The default is 40 minutes.
+SCRIPT_START_TIMEOUT = int(os.environ.get("SCRIPT_START_TIMEOUT", 40 * 60))
 
 logging.basicConfig(
     stream=sys.stdout,
