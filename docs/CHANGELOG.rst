@@ -24,6 +24,7 @@ Changed
 - Bump ``Docker`` SDK version to fix requests/urllib incompatibility issue
   (<https://github.com/docker/docker-py/issues/3113>)
 - Always use ``Docker`` default seccomp profile
+- Increase resend timeout in processing container to 60 seconds
 
 
 ===================

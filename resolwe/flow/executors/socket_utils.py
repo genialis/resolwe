@@ -776,7 +776,7 @@ class BaseCommunicator:
         self,
         command: Message[MessageDataType],
         peer_identity: PeerIdentity = b"",
-        resend_timeout: Optional[int] = 30,
+        resend_timeout: Optional[int] = 60,
         timeout: Optional[int] = 1200,
     ) -> Response:
         """Send the command and return the response.
