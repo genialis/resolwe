@@ -26,6 +26,7 @@ Changed
 Fixed
 -----
 - Filtering annotation values by entity ids
+- Add ``PluginManager`` and ``Plugin`` classes to unify plugin management
 
 
 ===================
