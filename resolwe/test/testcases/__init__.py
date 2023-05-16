@@ -30,6 +30,7 @@ from django.test import SimpleTestCase as DjangoSimpleTestCase
 from django.test import TestCase as DjangoTestCase
 from django.test import TransactionTestCase as DjangoTransactionTestCase
 
+from resolwe.flow.managers.listener.redis_cache import redis_cache
 from resolwe.storage import settings as storage_settings
 from resolwe.storage.connectors import connectors
 
@@ -66,6 +67,8 @@ class TestCaseHelpers(DjangoSimpleTestCase):
     def setUp(self):
         """Prepare environment for test."""
         super().setUp()
+
+        redis_cache.clear()
 
         # Directories need to be recreated here in case a previous
         # TestCase deleted them. Moving this logic into the test runner

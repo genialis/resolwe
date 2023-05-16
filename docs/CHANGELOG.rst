@@ -27,6 +27,7 @@ Fixed
 -----
 - Filtering annotation values by entity ids
 - Add ``PluginManager`` and ``Plugin`` classes to unify plugin management
+- Add ``Redis`` cache management plugin manager and basic plugins
 
 
 ===================
