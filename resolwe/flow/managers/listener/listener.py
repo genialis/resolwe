@@ -13,15 +13,11 @@ socket for communication.
 """
 import asyncio
 import logging
-import pickle
 from contextlib import suppress
-from datetime import datetime
 from functools import lru_cache
-from os import getpid
 from time import time
 from typing import Any, ChainMap, Dict, Iterable, List, Optional, Set, Union
 
-import redis
 import zmq
 import zmq.asyncio
 from asgiref.sync import async_to_sync
@@ -56,121 +52,14 @@ from resolwe.utils import BraceMessage as __
 # Register plugins by importing them.
 from .basic_commands_plugin import BasicCommands  # noqa: F401
 from .bootstrap_plugin import BootstrapCommands  # noqa: F401
-from .plugin import plugin_manager
+from .plugin import listener_plugin_manager as plugin_manager
 from .python_process_plugin import PythonProcess  # noqa: F401
+from .redis_cache import cache_manager, redis_server
+
+# Unique redis object to use in listener.
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
-
-
-class RedisCache:
-    """The Redis cache."""
-
-    key_expiration = 24 * 3600
-    cached_fields_set = {"status", "started", "worker__status"}
-
-    def __init__(self, redis: redis.Redis, *args, **kwargs):
-        """Set the cached field set."""
-        # The set of fields on the data object that can be safely cached inside
-        # Redis to avoid hitting the database (we are assuming Redis is faster).
-        # The list contains a set of commonly used fields that do not change
-        # from the outside (or do no harm if they do).
-
-        self._redis = redis
-
-        super().__init__(*args, **kwargs)
-
-        # Erase the entire cache on start when testing.
-        if is_testing():
-            self.clear()
-
-    def get_redis_key(self, data_id: int, field_name: str) -> str:
-        """Get the redis key from the field name.
-
-        When testing every listener process must have its own redis shared
-        storage since data ids will repeat when tests are run in parallel.
-        """
-        if is_testing():
-            return (
-                f"resolwe-listener-{getpid()}-data-{data_id}-redis-cache-{field_name}"
-            )
-        else:
-            return f"resolwe-listener-data-{data_id}-redis-cache-{field_name}"
-
-    def get_cache(
-        self,
-        data_id: int,
-        field_names: Iterable[str],
-    ) -> Dict[str, Any]:
-        """Obtain the set of fields from the redis cache.
-
-        If field_name is requested that is not cached the request is silently
-        ignored.
-
-        The query is run in a transaction.
-        """
-
-        def get_redis_data(
-            pipeline: redis.client.Pipeline,
-        ) -> Dict[str, Optional[Union[str, datetime]]]:
-            def get_redis_field(
-                redis_key: str, field_name: str
-            ) -> Optional[Union[str, datetime]]:
-                """Get the redis data from the specific key."""
-                value: Optional[bytes] = pipeline.get(redis_key)  # type: ignore
-                return None if value is None else pickle.loads(value)
-
-            return {
-                field_name: get_redis_field(
-                    self.get_redis_key(data_id, field_name), field_name
-                )
-                for field_name in field_names
-                if field_name in self.cached_fields_set
-            }
-
-        watches = [
-            self.get_redis_key(data_id, field_name)
-            for field_name in field_names
-            if field_name in self.cached_fields_set
-        ]
-        return self._redis.transaction(
-            get_redis_data, *watches, value_from_callable=True
-        )
-
-    def clear(self, data_id: Optional[int] = None):
-        """Clear the entire Redis cache for the given data object.
-
-        When data_id is not given the entire cache is cleared.
-        """
-        if data_id is not None:
-            redis_keys = [
-                self.get_redis_key(data_id, field_name)
-                for field_name in self.cached_fields_set
-            ]
-        else:
-            redis_keys = list(self._redis.scan_iter(match="resolwe-listener-*"))
-        if redis_keys:
-            self._redis.delete(*redis_keys)
-
-    def set_cache(self, data_id: int, field_values: Dict[str, Any]):
-        """Set the redis cache in the transaction.
-
-        When field is not in the set of cached fields it is silentry ignored.
-        """
-
-        def update_cache(pipeline: redis.client.Pipeline):
-            """Update the cache using pipeline."""
-            for field_name, field_value in field_values.items():
-                if field_name not in self.cached_fields_set:
-                    continue
-                key = self.get_redis_key(data_id, field_name)
-                if field_value is None:
-                    pipeline.delete(key)
-                else:
-                    pipeline.set(key, pickle.dumps(field_value))
-                    pipeline.expire(key, RedisCache.key_expiration)
-
-        self._redis.transaction(update_cache)
 
 
 class Processor:
@@ -182,11 +71,10 @@ class Processor:
     `_update_data`  or `_save_data` method is used to save data.
     """
 
-    def __init__(self, listener: "ListenerProtocol", redis: redis.Redis):
+    def __init__(self, listener: "ListenerProtocol"):
         """Initialize variables."""
         self._listener = listener
         self._return_codes: Dict[PeerIdentity, int] = dict()
-        self._redis_cache = RedisCache(redis)
 
     def get_data_fields(self, data_id: int, field_names: Union[List[str], str]) -> Any:
         """Get the data fields for the data with the given id.
@@ -200,18 +88,13 @@ class Processor:
         :return: a single value when field_names is a string or a tuple of
             values when it is a sequence of strings.
         """
+        identifiers = (data_id,)
+
         fields = [field_names] if isinstance(field_names, str) else field_names
-        # Construct the set of fields to retrieve from the database/redis.
-        database_fields = set(fields) - RedisCache.cached_fields_set
-
-        # Get the redis cache.
-        redis_cache = self._redis_cache.get_cache(data_id, fields)
-
-        # When returned fields have value None we have to read them from the
-        # database.
-        database_fields.update(
-            name for name in redis_cache if redis_cache[name] is None
-        )
+        # Retrieve the cached data. If no data is cached the result is empty dict.
+        cached_data = cache_manager.get(Data, identifiers) or {}
+        # Retrieve the missing fields from the database.
+        database_fields = {field for field in fields if field not in cached_data}
 
         # Make sure to only read the data if database fields are not empty.
         # Django interprets empty dict as "read all fields".
@@ -220,11 +103,8 @@ class Processor:
             database_data = (
                 Data.objects.filter(pk=data_id).values(*database_fields).get()
             )
-        # Now update redis cache from the values read from the database. The
-        # values we can update are the ones that had None value in Redis.
-        self._redis_cache.set_cache(data_id, database_data)
-
-        combined = ChainMap(database_data, redis_cache)
+        # Return the combined results, with database data taking precedence.
+        combined = ChainMap(database_data, cached_data)
         result = [combined[field_name] for field_name in fields]
         return result[0] if isinstance(field_names, str) else result
 
@@ -378,12 +258,10 @@ class Processor:
 
         :raises: exception when data object cannot be saved.
         """
-        # Set the redis cache.
-        self._redis_cache.set_cache(
-            data.id, {change: getattr(data, change) for change in changes}
-        )
-        # Save the data object.
-        data.save(update_fields=changes)
+        # Before saving the object set the redis cache.
+        if changes:
+            cache_manager.cache(data)
+            data.save(update_fields=changes)
 
     def _update_data(self, data_id: int, changes: Dict[str, Any]):
         """Update the data object with the given id.
@@ -395,10 +273,10 @@ class Processor:
 
         :raises: exception when data object cannot be saved.
         """
-        # Update the redis cache.
-        self._redis_cache.set_cache(data_id, changes)
-        # Update the data object.
-        Data.objects.filter(pk=data_id).update(**changes)
+        if changes:
+            # Update the redis cache.
+            cache_manager.update_cache(Data, (data_id,), changes)
+            Data.objects.filter(pk=data_id).update(**changes)
 
     def _update_worker(self, data_id: int, changes: Dict[str, Any]):
         """Update the worker object for the given data.
@@ -641,9 +519,7 @@ class ListenerProtocol(BaseProtocol):
             logger,
         )
         self.communicator.heartbeat_handler = self.heartbeat_handler
-
-        self._redis = redis.from_url(settings.REDIS_CONNECTION_STRING)
-        self._message_processor = Processor(self, self._redis)
+        self._message_processor = Processor(self)
 
     async def heartbeat_handler(self, peer_identity: PeerIdentity):
         """Handle the heartbeat messages."""
@@ -654,8 +530,8 @@ class ListenerProtocol(BaseProtocol):
             one_day = 24 * 3600
             data_id = abs(int(peer_identity))
             redis_key = f"resolwe-worker-{data_id}"
-            self._redis.set(redis_key, int(time()))
-            self._redis.expire(redis_key, one_day)
+            redis_server.set(redis_key, int(time()))
+            redis_server.expire(redis_key, one_day)
         except Exception:
             logger.exception("Exception in heartbeat handler.")
 
@@ -700,10 +576,10 @@ class ListenerProtocol(BaseProtocol):
             get_data, thread_sensitive=False
         )():
             redis_key = f"resolwe-worker-{data_id}"
-            last_seen = self._redis.get(redis_key)
+            last_seen = redis_server.get(redis_key)
             if last_seen is None:
-                self._redis.set(redis_key, current_timestamp)
-                self._redis.expire(redis_key, one_day)
+                redis_server.set(redis_key, current_timestamp)
+                redis_server.expire(redis_key, one_day)
             else:
                 last_seen = int(last_seen)
             without_heartbeat = current_timestamp - (last_seen or current_timestamp)

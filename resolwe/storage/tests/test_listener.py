@@ -1,10 +1,6 @@
 # pylint: disable=missing-docstring
 from unittest.mock import patch
 
-import redis
-
-from django.conf import settings
-
 from resolwe.flow.executors import constants
 from resolwe.flow.executors.socket_utils import Message, Response, ResponseStatus
 from resolwe.flow.managers.listener.basic_commands_plugin import BasicCommands
@@ -23,8 +19,7 @@ class ListenerTest(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        redis_api = redis.from_url(settings.REDIS_CONNECTION_STRING)
-        cls.manager = Processor(None, redis_api)
+        cls.manager = Processor(None)
         cls.processor = BasicCommands()
         cls.file_storage = FileStorage.objects.get(id=1)
         cls.storage_location = StorageLocation.objects.create(

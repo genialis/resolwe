@@ -25,8 +25,8 @@ from resolwe.flow.executors.startup_processing_container import (
     initialize_connections,
 )
 from resolwe.flow.executors.zeromq_utils import ZMQCommunicator
-from resolwe.flow.managers import listener
 from resolwe.flow.managers.dispatcher import Manager
+from resolwe.flow.managers.listener.redis_cache import redis_cache
 from resolwe.flow.models import Data, DataDependency, Process, Worker
 from resolwe.flow.models.fields import ResolweSlugField
 from resolwe.storage import settings as storage_settings
@@ -526,7 +526,7 @@ class ManagerRunProcessTest(ProcessTestCase):
         data.worker.save()
         data.status = Data.STATUS_PROCESSING
         data.save()
-        listener.listener_protocol._message_processor._redis_cache.clear(data.pk)
+        redis_cache.clear(Data, (data.pk,))
 
         process = subprocess.run(
             [
@@ -544,7 +544,7 @@ class ManagerRunProcessTest(ProcessTestCase):
             stderr=subprocess.PIPE,
             timeout=30,
         )
-        self.assertEqual(process.returncode, 0)
+        self.assertEqual(process.returncode, 0, f"The stderr was: '{process.stderr}'.")
         data.refresh_from_db()
         self.assertEqual(data.output, {})
         self.assertEqual(data.status, Data.STATUS_PROCESSING)

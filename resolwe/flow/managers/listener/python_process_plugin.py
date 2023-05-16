@@ -1,440 +1,49 @@
 """Command handlers for python processes."""
-import abc
 import importlib
 import logging
 import os
 from base64 import b64encode
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Tuple, Type, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Tuple, Type, TypeVar, Union
 from zipfile import ZIP_STORED, ZipFile
 
 from django.apps import apps
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.postgres.fields.jsonb import JSONField as JSONFieldb
-from django.db.models import ForeignKey, JSONField, ManyToManyField, Model, QuerySet
+from django.db.models import ForeignKey, JSONField, ManyToManyField, Model
 
 from resolwe.flow.executors import constants
 from resolwe.flow.executors.socket_utils import Message, Response, retry
-from resolwe.flow.models import (
-    Collection,
-    Data,
-    DescriptorSchema,
-    Entity,
-    Process,
-    Storage,
-)
+from resolwe.flow.managers.listener.permission_plugin import permission_manager
+from resolwe.flow.models import Collection, Process
 from resolwe.flow.models.base import UniqueSlugError
 from resolwe.flow.models.utils import serialize_collection_relations
 from resolwe.flow.utils import dict_dot
-from resolwe.permissions.models import Permission
 from resolwe.storage.connectors import connectors
 from resolwe.storage.models import FileStorage
 from resolwe.test.utils import is_testing
-from resolwe.utils import BraceMessage as __
 
-from .plugin import ListenerPlugin
+from .plugin import ListenerPlugin, listener_plugin_manager
 
 if TYPE_CHECKING:
     from resolwe.flow.managers.listener.listener import Processor
 
 logger = logging.getLogger(__name__)
-UserClass = get_user_model()
+User = get_user_model()
 
 # How many times to retry creating new object on slug collision error.
 OBJECT_CREATE_RETRIES = 10
 
-
-class PermissionManager:
-    """Permission manager class."""
-
-    def __init__(self):
-        """Initialize."""
-        self._plugins: Dict[str, "ExposeObjectPlugin"] = dict()
-
-    def add_plugin(self, plugin_class: Type["ExposeObjectPlugin"]):
-        """Add new permission plugin.
-
-        :raises AssertionError: when plugin handling the same object is already
-            registered.
-        """
-        plugin_name = plugin_class.full_model_name
-        assert (
-            plugin_name not in self._plugins
-        ), "Plugin for model {plugin_name} already registered."
-        self._plugins[plugin_name] = plugin_class()
-        logger.debug(__("Registering permission plugin {}.", plugin_name))
-
-    def can_handle(self, full_model_name: str) -> bool:
-        """Query permission manager if it can handle given model."""
-        return full_model_name in self._plugins
-
-    def can_create(self, user, full_model_name: str, attributes, data_id: int):
-        """Query if user can create the given model.
-
-        :raises RuntimeError: if user does not have permissions to create the
-            given model.
-        :raises KeyError: if permission manager has no plugin registered for
-            the given model.
-        """
-        return self._plugins[full_model_name].can_create(user, attributes, data_id)
-
-    def can_update(
-        self,
-        user,
-        full_model_name: str,
-        model_instance: Model,
-        attributes,
-        data_id: int,
-    ):
-        """Query if user can update the given model.
-
-        :raises RuntimeError: if user does not have permissions to update the
-            given model.
-        :raises KeyError: if permission manager has no plugin registered for
-            the given model.
-        """
-        return self._plugins[full_model_name].can_update(
-            user, model_instance, attributes, data_id
-        )
-
-    def filter_objects(
-        self, user, full_model_name: str, queryset: QuerySet, data_id: int
-    ) -> QuerySet:
-        """Filter the objects for the given user.
-
-        :raises KeyError: if permission manager has no plugin registered for
-            the given model.
-        """
-        return self._plugins[full_model_name].filter_objects(user, queryset, data_id)
-
-    def can_read(self, user, full_model_name: str, data_id: int):
-        """Query if user can read the metadata of the given model.
-
-        :raises RuntimeError: if user does not have permissions to read the
-            given model.
-        :raises KeyError: if permission manager has no plugin registered for
-            the given model.
-        """
-        return self._plugins[full_model_name].can_read(user, data_id)
-
-
-permission_manager = PermissionManager()
-
-
-class ExposeObjectPlugin(metaclass=abc.ABCMeta):
-    """Plugin for exposing models in Python processes."""
-
-    full_model_name = "app_label.model_name"
-
-    def _has_permission(
-        self, user: UserClass, model: Type[Model], model_pk: int, permission_name: str
-    ):
-        """Check if contributor has requested permissions.
-
-        :raises RuntimeError: with detailed explanation when check fails.
-        """
-        object_ = model.objects.filter(pk=model_pk)
-        if not object_.exists():
-            raise RuntimeError(
-                f"Object {model._meta.model_name} with id {model_pk} not found."
-            )
-
-        if not object_.filter_for_user(
-            user, Permission.from_name(permission_name)
-        ).exists():
-            if object_:
-                raise RuntimeError(
-                    f"No edit permission for {model._meta.model_name} with id {model_pk}."
-                )
-            else:
-                raise RuntimeError(
-                    f"Object {model._meta.model_name} with id {model_pk} not found."
-                )
-
-    def can_create(self, user: UserClass, attributes: dict, data_id: int):
-        """Can user create the model with given attributes.
-
-        :raises RuntimeError: if user does not have permissions to create the
-            given model.
-        """
-        raise RuntimeError(
-            (
-                f"User {user} has no permission to create model"
-                f"{self.full_model_name} with attributes {attributes}."
-            )
-        )
-
-    def can_update(
-        self, user: UserClass, model_instance: Model, attributes: Dict, data_id: int
-    ):
-        """Can user update the given model instance.
-
-        :raises RuntimeError: when user does not have permissions to update
-            the given model.
-        """
-        raise RuntimeError(
-            (
-                f"User {user} has no permission to update model"
-                f"{self.full_model_name} with attributes {attributes}."
-            )
-        )
-
-    def filter_objects(
-        self, user: UserClass, queryset: QuerySet, data_id: int
-    ) -> QuerySet:
-        """Filter the objects for the given user."""
-        return queryset.filter_for_user(user)
-
-    def can_read(self, user: UserClass, data_id: int):
-        """Can read model structural info.
-
-        :raises RuntimeError: when user does not have permissions to access
-            the given model.
-        """
-
-    @classmethod
-    def __init_subclass__(cls: Type["ExposeObjectPlugin"], **kwargs):
-        """Register class with the permission manager on initialization."""
-        super().__init_subclass__(**kwargs)
-        permission_manager.add_plugin(cls)
-
-
-class ExposeData(ExposeObjectPlugin):
-    """Expose the Data model."""
-
-    full_model_name = "flow.Data"
-
-    def can_create(self, user: UserClass, model_data: Dict, data_id: int):
-        """Can user update the given model instance.
-
-        :raises RuntimeError: if user does not have permissions to create the
-            given model.
-        """
-        allowed_fields = {
-            "process_id",
-            "output",
-            "input",
-            "tags",
-            "entity",
-            "entity_id",
-            "collection",
-            "collection_id",
-            "name",
-        }
-        not_allowed_keys = set(model_data.keys()) - allowed_fields
-        if not_allowed_keys:
-            raise RuntimeError(f"Not allowed to set {','.join(not_allowed_keys)}.")
-
-        # Check process permissions.
-        self._has_permission(user, Process, model_data["process_id"], "view")
-
-        if "entity_id" in model_data:
-            # Check entity permissions.
-            self._has_permission(user, Entity, model_data["entity_id"], "edit")
-
-        if "collection_id" in model_data:
-            # Check collection permissions.
-            self._has_permission(user, Collection, model_data["collection_id"], "edit")
-
-    def can_update(
-        self, user: UserClass, model_instance: Data, model_data: Dict, data_id: int
-    ):
-        """Can user update the given model instance.
-
-        :raises RuntimeError: when user does not have permissions to update
-            the given model.
-        """
-        allowed_fields = {
-            "output",
-            "tags",
-            "entity_id",
-            "entity",
-            "collection_id",
-            "collection",
-            "name",
-            "descriptor_schema_id",
-            "descriptor_schema",
-            "descriptor",
-        }
-        not_allowed_keys = set(model_data.keys()) - allowed_fields
-        if not_allowed_keys:
-            raise RuntimeError(f"Not allowed to set {','.join(not_allowed_keys)}.")
-
-        # Check permission to modify the Data object. The current data object
-        # can always be modified.
-        if model_instance.id != data_id:
-            self._has_permission(user, Data, model_instance.id, "edit")
-
-        if "entity_id" in model_data:
-            # Check entity permissions.
-            self._has_permission(user, Entity, model_data["entity_id"], "edit")
-
-        if "collection_id" in model_data:
-            # Check collection permissions.
-            self._has_permission(user, Collection, model_data["collection_id"], "edit")
-        if "descriptor_schema_id" in model_data:
-            # Check DescriptorSchema permissions.
-            self._has_permission(
-                user, DescriptorSchema, model_data["descriptor_schema_id"], "view"
-            )
-
-    def filter_objects(
-        self, user: UserClass, queryset: QuerySet, data_id: int
-    ) -> QuerySet:
-        """Filter the objects for the given user."""
-        parent_ids = Data.objects.filter(pk=data_id).values_list("parents")
-        inputs = queryset.filter(id__in=parent_ids)
-        return queryset.filter_for_user(user).distinct().union(inputs)
-
-
-class ExposeDescriptorSchema(ExposeObjectPlugin):
-    """Expose the DescriptorSchema model."""
-
-    full_model_name = "flow.DescriptorSchema"
-
-
-class ExposeUser(ExposeObjectPlugin):
-    """Expose the User model.
-
-    Used to read contributor data.
-    """
-
-    full_model_name = UserClass._meta.label
-
-    def filter_objects(
-        self, user: UserClass, queryset: QuerySet, data_id: int
-    ) -> QuerySet:
-        """Filter the objects for the given user."""
-        return queryset.filter(pk=user.id)
-
-
-class ExposeEntity(ExposeObjectPlugin):
-    """Expose the Entity model."""
-
-    full_model_name = "flow.Entity"
-
-    def can_create(self, user: UserClass, attributes: dict, data_id: int):
-        """Can user update the given model instance.
-
-        :raises RuntimeError: if user does not have permissions to create the
-            given model.
-        """
-
-    def can_update(
-        self, user: UserClass, model_instance: Data, model_data: Dict, data_id: int
-    ):
-        """Can user update the given model instance.
-
-        :raises RuntimeError: when user does not have permissions to update
-            the given model.
-        """
-        allowed_fields = {
-            "description",
-            "tags",
-            "name",
-            "descriptor",
-        }
-        not_allowed_keys = set(model_data.keys()) - allowed_fields
-        if not_allowed_keys:
-            raise RuntimeError(f"Not allowed to set {','.join(not_allowed_keys)}.")
-
-        # Check permission to modify the Entity object.
-        self._has_permission(user, Entity, model_instance.id, "edit")
-
-
-class ExposeCollection(ExposeObjectPlugin):
-    """Expose the Collection model."""
-
-    full_model_name = "flow.Collection"
-
-    def can_create(self, user: UserClass, attributes: dict, data_id: int):
-        """Can user update the given model instance.
-
-        :raises RuntimeError: if user does not have permissions to create the
-            given model.
-        """
-
-
-class ExposeProcess(ExposeObjectPlugin):
-    """Expose the Process model."""
-
-    full_model_name = "flow.Process"
-
-    def filter_objects(
-        self, user: UserClass, queryset: QuerySet, data_id: int
-    ) -> QuerySet:
-        """Filter the objects for the given user."""
-        parent_ids = Data.objects.filter(pk=data_id).values_list("parents")
-        processes_of_inputs = queryset.filter(data__in=parent_ids).distinct()
-        return queryset.filter_for_user(user).distinct().union(processes_of_inputs)
-
-
-class ExposeStorage(ExposeObjectPlugin):
-    """Expose the Storage model."""
-
-    # TODO: permission based on permission on Data object.
-    full_model_name = "flow.Storage"
-
-    def can_create(self, user: UserClass, attributes: dict, data_id: int):
-        """Can user create the model with given attributes.
-
-        :raises RuntimeError: when user does not have permissions to create
-            the given model.
-        """
-
-    def can_update(
-        self, user: UserClass, model_instance: Storage, model_data: Dict, data_id: int
-    ):
-        """Can user update the given Storage object.
-
-        :raises RuntimeError: when user does not have permissions to update
-            the given model.
-        """
-        processed_data_ids = set()
-        # User must have permission to modify all the data objects this object belongs to.
-        for data in model_instance.data.all():
-            permission_manager.can_update(
-                user, "flow.Data", data, {"output": {}}, data_id
-            )
-            processed_data_ids.add(data_id)
-
-        # Only contributor can modify Storage object if it is orphaned.
-        if not processed_data_ids and model_instance.contributor != user:
-            raise RuntimeError(
-                "Only contributor can modify unassigned Storage object with "
-                f"id {model_instance.pk}, modification attempted as {user}."
-            )
-
-        # When adding storage to Data objects check permissions to modify the
-        # data objects. Since permission checks are slow only process the data
-        # objects that were not processed above.
-        for data_id in model_data.get("data", []):
-            if data_id not in processed_data_ids:
-                permission_manager.can_update(
-                    user,
-                    "flow.Data",
-                    Data.objects.get(pk=data_id),
-                    {"output": {}},
-                    data_id,
-                )
-
-    def filter_objects(
-        self, user: UserClass, queryset: QuerySet, data_id: int
-    ) -> QuerySet:
-        """Filter the objects for the given user."""
-        return (
-            queryset.filter_for_user(user)
-            .distinct()
-            .union(queryset.filter(contributor=user))
-        )
+PluginType = TypeVar("PluginType")
 
 
 class PythonProcess(ListenerPlugin):
     """Handler methods for Python processes."""
 
     name = "PythonProcess plugin"
+    plugin_manager = listener_plugin_manager
 
     ALLOWED_MODELS_C = ["Collection", "Entity", "Data"]
     ALLOWED_MODELS_RW = ["Data", "Process", "Entity", "Collection", "Storage"]
@@ -756,4 +365,4 @@ class PythonProcess(ListenerPlugin):
         It is used to connect the model in Python process runtime with the
         custom user model.
         """
-        return message.respond_ok(UserClass._meta.label)
+        return message.respond_ok(User._meta.label)

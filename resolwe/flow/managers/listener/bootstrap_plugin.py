@@ -23,7 +23,7 @@ from resolwe.storage import settings as storage_settings
 from resolwe.test.utils import is_testing
 from resolwe.utils import BraceMessage as __
 
-from .plugin import ListenerPlugin
+from .plugin import ListenerPlugin, listener_plugin_manager
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +33,8 @@ if TYPE_CHECKING:
 
 class BootstrapCommands(ListenerPlugin):
     """Basic listener handlers."""
+
+    plugin_manager = listener_plugin_manager
 
     def __init__(self) -> None:
         """Initialize."""

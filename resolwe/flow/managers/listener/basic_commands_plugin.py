@@ -22,7 +22,7 @@ from resolwe.storage.connectors.hasher import StreamHasher
 from resolwe.storage.models import ReferencedPath, StorageLocation
 from resolwe.utils import BraceMessage as __
 
-from .plugin import ListenerPlugin
+from .plugin import ListenerPlugin, listener_plugin_manager
 
 if TYPE_CHECKING:
     from resolwe.flow.managers.listener.listener import Processor
@@ -32,6 +32,8 @@ logger = logging.getLogger(__name__)
 
 class BasicCommands(ListenerPlugin):
     """Basic listener handlers."""
+
+    plugin_manager = listener_plugin_manager
 
     def handle_run(
         self, data_id: int, message: Message[dict], manager: "Processor"
