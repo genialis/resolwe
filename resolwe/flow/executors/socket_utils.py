@@ -40,6 +40,7 @@ class ResponseStatus(Enum):
 
     OK = "OK"
     ERROR = "ERR"
+    SKIP = "SKIP"
 
 
 class PeerStatus(Enum):
@@ -288,6 +289,12 @@ class Message(Generic[MessageDataType]):
             response_data,
             self.uuid,
         )
+
+    def respond_skip(
+        self, response_data: ResponseDataType
+    ) -> "Response[ResponseDataType]":
+        """Set the response status to skip."""
+        return self.respond(response_data, ResponseStatus.SKIP)
 
     def respond_ok(
         self, response_data: ResponseDataType
@@ -944,13 +951,15 @@ class BaseProtocol:
                     f"Exception while running command handler {handler_name}: {ex}"
                 )
 
-            try:
-                await self.communicator.send_response(response, peer_identity)
-            except RuntimeError:
-                self.logger.exception(
-                    "Protocol: error sending response to {received_message}."
-                )
-                await self._abort_with_error("Error sending response.")
+            # Do not send response when status is set to SKIP.
+            if response.status != ResponseStatus.SKIP:
+                try:
+                    await self.communicator.send_response(response, peer_identity)
+                except RuntimeError:
+                    self.logger.exception(
+                        "Protocol: error sending response to {received_message}."
+                    )
+                    await self._abort_with_error("Error sending response.")
 
     def post_processing_command(
         self,

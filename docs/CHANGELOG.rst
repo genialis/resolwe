@@ -28,6 +28,7 @@ Fixed
 - Filtering annotation values by entity ids
 - Add ``PluginManager`` and ``Plugin`` classes to unify plugin management
 - Add ``Redis`` cache management plugin manager and basic plugins
+- Add the option to skip the response to the already processed command
 
 
 ===================
