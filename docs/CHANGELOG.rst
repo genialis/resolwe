@@ -26,6 +26,10 @@ Changed
 - Always use ``Docker`` default seccomp profile
 - Increase resend timeout in processing container to 60 seconds
 
+Fixed
+-----
+- Close websocket requests without session id
+
 
 ===================
 34.1.0 - 2023-05-02

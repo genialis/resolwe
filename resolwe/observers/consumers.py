@@ -1,6 +1,7 @@
 """Consumers for Observers."""
 
 import asyncio
+import logging
 from enum import Enum
 from typing import Callable, Optional
 
@@ -19,6 +20,7 @@ from resolwe.flow.models.utils import bulk_duplicate
 from .models import BackgroundTask, Observer, Subscription
 from .protocol import GROUP_SESSIONS, ChangeType, ChannelsMessage, WebsocketMessage
 
+logger = logging.getLogger(__name__)
 # The channel used to listen for BackgrountTask events
 BACKGROUND_TASK_CHANNEL = "observers.background_task"
 
@@ -68,11 +70,18 @@ class ClientConsumer(JsonWebsocketConsumer):
 
     def websocket_connect(self, event: dict[str, str]):
         """Handle establishing a WebSocket connection."""
-        session_id: str = self.scope["url_route"]["kwargs"]["session_id"]
-        self.session_id = session_id
+        session_id: Optional[str] = self.scope["url_route"]["kwargs"].get(
+            "session_id", None
+        )
 
-        # Accept the connection.
-        super().websocket_connect(event)
+        # Close and log the requests without a session_id.
+        if session_id is None:
+            logger.warning("Closing websocket connection request without session_id.")
+            self.close()
+        else:
+            self.session_id = session_id
+            # Accept the connection.
+            super().websocket_connect(event)
 
     @property
     def groups(self) -> list[str]:
