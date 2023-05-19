@@ -177,14 +177,34 @@ class AnnotationViewSetsTest(TestCase):
         # Authenticated users should see all the fields.
         force_authenticate(request, self.contributor)
         response: HttpResponse = self.annotationfield_viewset(request)
+
         self.assertEqual(len(response.data), 2)
         self.assertEqual(response.data[0]["name"], "field2")
         self.assertEqual(response.data[0]["label"], "Annotation field 2")
+        self.assertEqual(
+            dict(response.data[0]["group"]),
+            {
+                "id": self.annotation_group2.id,
+                "name": "group2",
+                "label": "Annotation group 2",
+                "sort_order": 1,
+            },
+        )
+
         self.assertCountEqual(response.data[0]["collection"], [self.collection2.id])
 
         self.assertEqual(response.data[1]["name"], "field1")
         self.assertEqual(response.data[1]["label"], "Annotation field 1")
         self.assertCountEqual(response.data[1]["collection"], [self.collection1.id])
+        self.assertEqual(
+            dict(response.data[1]["group"]),
+            {
+                "id": self.annotation_group1.id,
+                "name": "group1",
+                "label": "Annotation group 1",
+                "sort_order": 2,
+            },
+        )
 
         # Filter by collection.
         request = factory.get(
@@ -602,10 +622,6 @@ class AnnotationViewSetsTest(TestCase):
         request = factory.post("/", annotations, format="json")
         force_authenticate(request, self.contributor)
         response: Response = viewset(request, pk=self.entity1.pk)
-
-        print("All onnatitons")
-        for av in AnnotationValue.objects.all():
-            print(av.__dict__)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(self.entity1.annotations.count(), 2)

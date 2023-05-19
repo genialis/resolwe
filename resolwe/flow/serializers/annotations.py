@@ -28,8 +28,21 @@ class AnnotationFieldListSerializer(serializers.ListSerializer):
         return super().to_representation(data)
 
 
+class AnnotationGroupSerializer(ResolweBaseSerializer):
+    """Serializer for AnnotationGroup objects."""
+
+    class Meta:
+        """AnnotationGroupSerializer Meta options."""
+
+        model = AnnotationGroup
+        read_only_fields = ("id", "label", "name", "sort_order")
+        fields = read_only_fields
+
+
 class AnnotationFieldSerializer(ResolweBaseSerializer):
     """Serializer for AnnotationField objects."""
+
+    group = AnnotationGroupSerializer()
 
     class Meta:
         """AnnotationFieldSerializer Meta options."""

@@ -6,6 +6,16 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Changed
+-------
+- Annotation fields endpoint serializer the annotation group instead of only
+  returning its id
+
+
 ===================
 35.0.0 - 2023-05-15
 ===================
