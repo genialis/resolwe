@@ -82,12 +82,17 @@ class TransactionResolweAPITestCase(TestCaseHelpers, APITransactionTestCase):
         self.admin = User.objects.create_superuser(
             username="admin2", email="admin@test.com", password="admin"
         )
-        self.contributor = User.objects.create_user(username="contributor")
-        self.user = User.objects.create_user(username="user")
+        self.contributor = User.objects.create_user(
+            username="contributor", email="contributor@genialis.com"
+        )
+        self.user = User.objects.create_user(username="user", email="user@genialis.com")
         # Create the anonymous user (if it does not exist).
         # The user is created during migrations, but deleted between tests.
         if not User.objects.filter(username=settings.ANONYMOUS_USER_NAME).exists():
-            User.objects.create_user(username=settings.ANONYMOUS_USER_NAME)
+            User.objects.create_user(
+                username=settings.ANONYMOUS_USER_NAME,
+                email=f"{settings.ANONYMOUS_USER_NAME}@genialis.com",
+            )
 
         if not hasattr(self, "viewset"):
             raise KeyError("`self.viewset` must be defined in child class")
