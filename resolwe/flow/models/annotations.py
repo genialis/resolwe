@@ -337,6 +337,10 @@ class AnnotationPreset(AuditModel, PermissionObject):
     class Meta:
         """Override parent meta."""
 
+    def __str__(self):
+        """Return the string representation."""
+        return self.name
+
 
 class AnnotationValue(AuditModel):
     """The value of the annotation."""
