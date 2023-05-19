@@ -260,6 +260,18 @@ class PermissionGroup(models.Model):
             filter |= models.Q(is_superuser=True)
         return list(get_user_model().objects.filter(filter).distinct())
 
+    def groups_with_permission(self, permission: Permission) -> List[Group]:
+        """Get a list of groups with at least this permission level.
+
+        Calling this with Permission.NONE will return groups for which an explicit
+        PermissionModel with Permission.NONE exists.
+
+        :attr permission: the permission level group must have.
+        """
+        filtered_permissions = self.permissions.filter(value__gte=permission)
+        filter = models.Q(pk__in=filtered_permissions.values_list("group", flat=True))
+        return list(Group.objects.filter(filter).distinct())
+
 
 class PermissionQuerySet(models.QuerySet):
     """Queryset with methods that simlify filtering by permissions."""
@@ -462,6 +474,16 @@ class PermissionObject(models.Model):
         :attr with_superusers: should superusers be included in the returned list.
         """
         return self.permission_group.users_with_permission(permission, with_superusers)
+
+    def groups_with_permission(self, permission: Permission) -> List[Group]:
+        """Get a list of groups with at least this permission level.
+
+        Calling this with Permission.NONE will return groups for which an explicit
+        PermissionModel with Permission.NONE exists.
+
+        :attr permission: the permission level group must have.
+        """
+        return self.permission_group.groups_with_permission(permission)
 
     @property
     def topmost_container(self) -> Optional[models.Model]:

@@ -10,6 +10,10 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Added
+-----
+- Method ``groups_with_permissions`` was added to the ``PermissionObject``
+
 Changed
 -------
 - Annotation fields endpoint serializer the annotation group instead of only
