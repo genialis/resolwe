@@ -21,6 +21,10 @@ Changed
 - Annotation fields endpoint serializer the annotation group instead of only
   returning its id
 
+Fixed
+-----
+- Filtering annotation values by entity ids
+
 
 ===================
 35.0.0 - 2023-05-15

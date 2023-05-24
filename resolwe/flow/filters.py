@@ -14,6 +14,7 @@ from versionfield import VersionField
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.contrib.postgres.search import SearchQuery, SearchRank
+from django.core.exceptions import ValidationError
 from django.db.models import Count, F, ForeignKey, Q, Subquery
 
 from rest_framework import exceptions
@@ -544,23 +545,44 @@ class AnnotationPresetFilter(BaseResolweFilter):
 class AnnotationValueFilter(BaseResolweFilter):
     """Filter the AnnotationValue endpoint."""
 
-    entity_ids = filters.CharFilter(method="filter_by_entities", required=True)
-    field_ids = filters.CharFilter(method="filter_by_fields")
+    entity = filters.CharFilter(method="filter_by_entities")
+    entity__in = filters.CharFilter(method="filter_by_entities")
+    entity__name = filters.CharFilter(method="filter_by_entities")
+    entity__slug = filters.CharFilter(method="filter_by_entities")
     value = filters.CharFilter(method="filter_by_value")
 
-    def filter_by_entities(self, queryset, name, entity_ids):
-        """Filter by the collection id.
+    require_one_of = ["entity", "entity__in", "entity__name", "entity__slug"]
+
+    def get_form_class(self):
+        """Override the form class to add custom clean method."""
+
+        def clean(self):
+            """Override the clean method."""
+            required_group = ["entity", "entity__in", "entity__name", "entity__slug"]
+            cleaned_data = self._original_clean()
+            if not any(cleaned_data[field] for field in required_group):
+                raise ValidationError(
+                    f"At least one of the fields {required_group} must be set."
+                )
+
+        form = super().get_form_class()
+        form._original_clean = form.clean
+        form.clean = clean
+        return form
+
+    def filter_by_entities(self, queryset, name, values):
+        """Filter by the entity ids.
 
         The filtering must also take permissions on the collections in account.
         """
-        entities = Entity.objects.filter(pk__in=entity_ids).filter_for_user(
-            self.request.user
+        name_mapping = {"entity__name": "name", "entity__slug": "slug", "entity": "id"}
+        for key, value in name_mapping.items():
+            if name.startswith(key):
+                name = name.replace(key, value)
+        entity_filter = EntityFilter(data={name: values}, request=self.request)
+        return queryset.filter(
+            entity__in=entity_filter.qs.filter_for_user(self.request.user)
         )
-        return queryset.filter(entity__in=entities)
-
-    def filter_by_fields(self, queryset, name, field_ids):
-        """Filter by field ids."""
-        return queryset.filter(field_id__in=field_ids)
 
     def filter_by_value(self, queryset, name, value):
         """Filter by value."""
@@ -571,6 +593,9 @@ class AnnotationValueFilter(BaseResolweFilter):
 
         model = AnnotationValue
         fields = {
-            **{"field__name": TEXT_LOOKUPS},
-            **{"field__label": TEXT_LOOKUPS},
+            **{
+                "field__id": NUMBER_LOOKUPS,
+                "field__name": TEXT_LOOKUPS,
+                "field__label": TEXT_LOOKUPS,
+            },
         }
