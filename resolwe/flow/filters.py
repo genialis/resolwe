@@ -368,10 +368,6 @@ class ProcessFilter(BaseResolweFilter):
         }
 
 
-class CharInFilter(filters.BaseInFilter, filters.CharFilter):
-    """Helper class for creation of CharFilter with "in" lookup."""
-
-
 class DataFilter(TextFilterMixin, UserFilterMixin, BaseResolweFilter):
     """Filter the Data endpoint."""
 
