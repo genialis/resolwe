@@ -538,14 +538,17 @@ class AnnotationViewSetsTest(TestCase):
         response: HttpResponse = self.annotationvalue_viewset(request)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-        # Authenticated request without permissions on entities.
+        # Authenticated request without entity filter.
         force_authenticate(request, self.contributor)
         response = self.annotationvalue_viewset(request)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.data["entity_ids"][0], "This field is required.")
+        self.assertEqual(
+            response.data["__all__"][0],
+            "At least one of the entity filters must be set.",
+        )
 
         # Authenticated request.
-        request = factory.get("/", {"entity_ids": [self.entity1.pk]}, format="json")
+        request = factory.get("/", {"entity": self.entity1.pk}, format="json")
         force_authenticate(request, self.contributor)
         response: Response = self.annotationvalue_viewset(request)
         self.assertTrue(response.status_code, status.HTTP_200_OK)
@@ -557,7 +560,7 @@ class AnnotationViewSetsTest(TestCase):
         # Another authenticated request.
         self.annotation_value2.entity = self.entity1
         self.annotation_value2.save()
-        request = factory.get("/", {"entity_ids": [self.entity1.pk]}, format="json")
+        request = factory.get("/", {"entity__in": [self.entity1.pk]}, format="json")
         force_authenticate(request, self.contributor)
         response: Response = self.annotationvalue_viewset(request)
         self.assertTrue(response.status_code, status.HTTP_200_OK)
@@ -566,7 +569,7 @@ class AnnotationViewSetsTest(TestCase):
         # Filter by field_name
         request = factory.get(
             "/",
-            {"entity_ids": [self.entity1.pk], "field__name": "field1"},
+            {"entity": self.entity1.pk, "field__name": "field1"},
             format="json",
         )
         force_authenticate(request, self.contributor)
@@ -578,7 +581,7 @@ class AnnotationViewSetsTest(TestCase):
         # Filter by field_label
         request = factory.get(
             "/",
-            {"entity_ids": [self.entity1.pk], "field__label__icontains": "FiEld 1"},
+            {"entity__in": [self.entity1.pk], "field__label__icontains": "FiEld 1"},
             format="json",
         )
         force_authenticate(request, self.contributor)

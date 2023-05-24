@@ -5,15 +5,19 @@ Flow Filters
 ============
 
 """
-from functools import partial
+import types
+from copy import deepcopy
+from functools import partial, partialmethod
 
 from django_filters import rest_framework as filters
+from django_filters.constants import EMPTY_VALUES
 from django_filters.filterset import FilterSetMetaclass
 from versionfield import VersionField
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.contrib.postgres.search import SearchQuery, SearchRank
+from django.core.exceptions import ValidationError
 from django.db.models import Count, F, ForeignKey, Q, Subquery
 
 from rest_framework import exceptions
@@ -541,26 +545,64 @@ class AnnotationPresetFilter(BaseResolweFilter):
         }
 
 
-class AnnotationValueFilter(BaseResolweFilter):
+class AnnotationValueMetaclass(ResolweFilterMetaclass):
+    """Add all entity filters prefixed with 'entity'."""
+
+    def __new__(mcs, name, bases, namespace):
+        """Inject extensions into the filter."""
+
+        def filter_permissions(self, qs, value, original_filter):
+            """Respect permissions on entities."""
+            # Do not filter when value is empty. At least one of the values must be
+            # non-empty since form in the AnnotationValueFilter class requires it.
+            if value in EMPTY_VALUES:
+                return qs
+            qs = original_filter(qs, value)
+            user = self.parent.request.user
+            entity_ids = qs.values_list("entity_id")
+            visible_entities = Entity.objects.filter(id__in=entity_ids).filter_for_user(
+                user
+            )
+            return qs.filter(entity__in=visible_entities)
+
+        # Add all filters from EntityFilter to namespaces before creating class.
+        for filter_name, filter in EntityFilter.get_filters().items():
+            new_filter_name = f"entity__{filter_name}"
+            if filter_name == "id" or filter_name.startswith("id__"):
+                new_filter_name = "entity" + filter_name[2:]
+            filter = deepcopy(filter)
+            filter.field_name = f"entity__{filter.field_name}"
+            new_filter = partial(filter_permissions, original_filter=filter.filter)
+            # Bind the new_filter to filter instance and set it as new filter.
+            filter.filter = types.MethodType(new_filter, filter)
+            namespace[new_filter_name] = filter
+
+        # Create class with added filters.
+        klass = ResolweFilterMetaclass.__new__(mcs, name, bases, namespace)
+        return klass
+
+
+class AnnotationValueFilter(BaseResolweFilter, metaclass=AnnotationValueMetaclass):
     """Filter the AnnotationValue endpoint."""
 
-    entity_ids = filters.CharFilter(method="filter_by_entities", required=True)
-    field_ids = filters.CharFilter(method="filter_by_fields")
     value = filters.CharFilter(method="filter_by_value")
 
-    def filter_by_entities(self, queryset, name, entity_ids):
-        """Filter by the collection id.
+    def get_form_class(self):
+        """Override the form class to add custom clean method."""
 
-        The filtering must also take permissions on the collections in account.
-        """
-        entities = Entity.objects.filter(pk__in=entity_ids).filter_for_user(
-            self.request.user
-        )
-        return queryset.filter(entity__in=entities)
+        def clean(self, original_clean):
+            """Override the clean method."""
+            cleaned_data = original_clean(self)
+            if not any(
+                cleaned_data[field]
+                for field in cleaned_data
+                if field.startswith("entity")
+            ):
+                raise ValidationError("At least one of the entity filters must be set.")
 
-    def filter_by_fields(self, queryset, name, field_ids):
-        """Filter by field ids."""
-        return queryset.filter(field_id__in=field_ids)
+        form = super().get_form_class()
+        form.clean = partialmethod(clean, original_clean=form.clean)
+        return form
 
     def filter_by_value(self, queryset, name, value):
         """Filter by value."""
@@ -571,6 +613,9 @@ class AnnotationValueFilter(BaseResolweFilter):
 
         model = AnnotationValue
         fields = {
-            **{"field__name": TEXT_LOOKUPS},
-            **{"field__label": TEXT_LOOKUPS},
+            **{
+                "field__id": NUMBER_LOOKUPS,
+                "field__name": TEXT_LOOKUPS,
+                "field__label": TEXT_LOOKUPS,
+            },
         }
