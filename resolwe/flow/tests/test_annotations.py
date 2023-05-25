@@ -76,10 +76,10 @@ class AnnotationViewSetsTest(TestCase):
         self.annotation_field2.collection.add(self.collection2)
 
         self.preset1: AnnotationPreset = AnnotationPreset.objects.create(
-            name="Preset 1"
+            name="Preset 1", contributor=self.contributor
         )
         self.preset2: AnnotationPreset = AnnotationPreset.objects.create(
-            name="Preset 2"
+            name="Preset 2", contributor=self.contributor
         )
 
         self.preset1.fields.add(self.annotation_field1, self.annotation_field2)

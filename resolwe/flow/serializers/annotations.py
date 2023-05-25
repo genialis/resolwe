@@ -89,7 +89,7 @@ class AnnotationPresetSerializer(ResolweBaseSerializer):
 
         model = AnnotationPreset
         read_only_fields = ("id",)
-        fields = read_only_fields + ("name", "fields")
+        fields = read_only_fields + ("name", "fields", "contributor")
 
 
 class AnnotationValueSerializer(ResolweBaseSerializer):

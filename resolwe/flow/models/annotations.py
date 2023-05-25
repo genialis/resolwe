@@ -20,6 +20,7 @@ from typing import (
 from django.core.exceptions import ValidationError
 from django.db import models
 
+from resolwe.flow.models.base import BaseModel
 from resolwe.permissions.models import PermissionObject
 
 if TYPE_CHECKING:
@@ -322,14 +323,11 @@ class AnnotationField(models.Model):
         ordering = ["group__sort_order", "sort_order"]
 
 
-class AnnotationPreset(AuditModel, PermissionObject):
+class AnnotationPreset(BaseModel, PermissionObject):
     """The named set of annotation fields.
 
     The presets have permissions.
     """
-
-    #: the name of the annotation fields
-    name = models.CharField(max_length=128)
 
     #: the fields belongint to this preset
     fields = models.ManyToManyField(AnnotationField, related_name="presets")

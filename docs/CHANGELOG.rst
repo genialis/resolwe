@@ -15,6 +15,7 @@ Added
 - Method ``groups_with_permissions`` was added to the ``PermissionObject``
 - Register annotation models with Django admin
 - Enable editing ``AnnotationPreset`` permissions in the Django admin
+- Extend ``AnnotationPreset`` from ``BaseModel``
 
 Changed
 -------
