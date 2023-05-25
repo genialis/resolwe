@@ -16,6 +16,7 @@ Added
 - Register annotation models with Django admin
 - Enable editing ``AnnotationPreset`` permissions in the Django admin
 - Extend ``AnnotationPreset`` from ``BaseModel``
+- Enable filtering ``Entity`` objects by annotation values
 
 Changed
 -------

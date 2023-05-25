@@ -1,4 +1,5 @@
 # pylint: disable=missing-docstring
+from typing import Sequence
 
 from django.http import HttpResponse
 
@@ -10,6 +11,7 @@ from resolwe.flow.models import AnnotationField, Collection, Entity
 from resolwe.flow.models.annotations import (
     AnnotationGroup,
     AnnotationPreset,
+    AnnotationType,
     AnnotationValue,
 )
 from resolwe.flow.views import (
@@ -23,6 +25,93 @@ from resolwe.permissions.models import Permission, get_anonymous_user
 from resolwe.test import TestCase
 
 factory = APIRequestFactory()
+
+
+class FilterAnnotations(TestCase):
+    """Test filtering Entities by annotation values."""
+
+    def setUp(self):
+        """Prepare the test entity and annotation values."""
+        super().setUp()
+
+        self.viewset = EntityViewSet.as_view(actions={"get": "list"})
+        entity1: Entity = Entity.objects.create(name="E1", contributor=self.contributor)
+        entity2: Entity = Entity.objects.create(name="E2", contributor=self.contributor)
+        entity1.set_permission(Permission.VIEW, self.contributor)
+        entity2.set_permission(Permission.VIEW, self.contributor)
+        annotation_group: AnnotationGroup = AnnotationGroup.objects.create(
+            name="group", label="Annotation group", sort_order=1
+        )
+        self.fields = {
+            annotation_type: AnnotationField.objects.create(
+                name=annotation_type.value,
+                label=annotation_type.value,
+                type=annotation_type.value,
+                sort_order=1,
+                group=annotation_group,
+            )
+            for annotation_type in AnnotationType
+        }
+        field_values = {
+            AnnotationType.STRING: [(entity1, "entIty_1"), (entity2, "entity_2")],
+            AnnotationType.INTEGER: [(entity1, 1), (entity2, 2)],
+            AnnotationType.DECIMAL: [(entity1, 1.1), (entity2, 2.2)],
+            AnnotationType.DATE: [(entity1, "1111-01-01"), (entity2, "2222-02-02")],
+        }
+        for annotation_type, values in field_values.items():
+            for entity, value in values:
+                field = self.fields[annotation_type]
+                AnnotationValue.objects.create(entity=entity, field=field, value=value)
+        self.first_id = [entity1.id]
+        self.second_id = [entity2.id]
+        self.both_ids = [entity1.id, entity2.id]
+
+    def _verify_response(self, query: str, expected_entity_ids: Sequence[int]):
+        """Validate the response."""
+        request = factory.get("/", {"annotations": query}, format="json")
+        force_authenticate(request, self.contributor)
+        response = self.viewset(request)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        received_entity_ids = [entry["id"] for entry in response.data]
+        self.assertCountEqual(received_entity_ids, expected_entity_ids)
+
+    def test_string(self):
+        """Test filtering by string annotation values."""
+        field_id = self.fields[AnnotationType.STRING].id
+        self._verify_response(f"{field_id}:entity_1", [])
+        self._verify_response(f"{field_id}:entIty_1", self.first_id)
+        self._verify_response(f"{field_id}__icontains:entity_1", self.first_id)
+        self._verify_response(f"{field_id}__icontains:ent", self.both_ids)
+
+    def test_integer(self):
+        """Test filtering by integer annotation values."""
+        field_id = self.fields[AnnotationType.INTEGER].id
+        self._verify_response(f"{field_id}:1", self.first_id)
+        self._verify_response(f"{field_id}__gt:1", self.second_id)
+        self._verify_response(f"{field_id}__in:1,2", self.both_ids)
+
+    def test_decimal(self):
+        """Test filtering by decimal annotation values."""
+        field_id = self.fields[AnnotationType.DECIMAL].id
+        self._verify_response(f"{field_id}:1.1", self.first_id)
+        self._verify_response(f"{field_id}__gt:1.1", self.second_id)
+        self._verify_response(f"{field_id}__in:1.1,2.2", self.both_ids)
+
+    def test_date(self):
+        """Test filtering by date annotation values."""
+        field_id = self.fields[AnnotationType.DATE].id
+        self._verify_response(f"{field_id}:1111-01-01", self.first_id)
+        self._verify_response(f"{field_id}__gt:1111-01-01", self.second_id)
+        self._verify_response(f"{field_id}__lt:3333-03-03", self.both_ids)
+
+    def test_all_fields_included(self):
+        """Check if all field types are tested.
+
+        Assumption: test for the field type TYPE is named test_TYPE.
+        """
+        for annotation_type in AnnotationType:
+            method_name = f"test_{annotation_type.value.lower()}"
+            self.assertIn(method_name, dir(self))
 
 
 class AnnotationViewSetsTest(TestCase):

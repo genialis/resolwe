@@ -5,6 +5,7 @@ Flow Filters
 ============
 
 """
+import re
 import types
 from copy import deepcopy
 from functools import partial, partialmethod
@@ -20,7 +21,7 @@ from django.contrib.postgres.search import SearchQuery, SearchRank
 from django.core.exceptions import ValidationError
 from django.db.models import Count, F, ForeignKey, Q, Subquery
 
-from rest_framework import exceptions
+from rest_framework import exceptions, fields
 from rest_framework.filters import OrderingFilter as DrfOrderingFilter
 
 from resolwe.composer import composer
@@ -37,6 +38,7 @@ from .models import (
     Process,
     Relation,
 )
+from .models.annotations import AnnotationType
 
 RELATED_LOOKUPS = [
     "exact",
@@ -337,6 +339,64 @@ class EntityFilter(BaseCollectionFilter):
     """Filter the Entity endpoint."""
 
     relation_id = filters.NumberFilter(field_name="relation__id")
+    annotations = filters.CharFilter(method="filter_annotations")
+
+    def filter_annotations(self, queryset, name, value):
+        """Filter entities by annotations.
+
+        The value must be in the following format: field_id__lookup_type:value
+        """
+        type_to_field = {
+            AnnotationType.DATE.value: fields.DateField(),
+            AnnotationType.STRING.value: fields.CharField(),
+            AnnotationType.INTEGER.value: fields.IntegerField(),
+            AnnotationType.DECIMAL.value: fields.FloatField(),
+        }
+        allowed_lookups = {
+            AnnotationType.DATE.value: DATE_LOOKUPS,
+            AnnotationType.STRING.value: TEXT_LOOKUPS,
+            AnnotationType.INTEGER.value: NUMBER_LOOKUPS,
+            AnnotationType.DECIMAL.value: NUMBER_LOOKUPS,
+        }
+        post_processing_map = {
+            AnnotationType.DATE.value: lambda value: value.isoformat()
+        }
+
+        match = re.match(
+            r"^(?P<field_id>\d+)(__(?P<lookup>\w+))?:(?P<value>.+)$", value
+        )
+        if not match:
+            raise ValidationError(f"Invalid annotation filter format '{value}'.")
+
+        field_id = match.group("field_id")
+        lookup_type = match.group("lookup") or "exact"
+        string_value = match.group("value")
+        field_type = (
+            AnnotationField.objects.filter(id=field_id)
+            .values_list("type", flat=True)
+            .get()
+        )
+        field = type_to_field[field_type]
+
+        if lookup_type not in allowed_lookups[field_type]:
+            raise ValueError(
+                f"Lookup '{lookup_type}' not supported for the field '{field_id}'."
+            )
+
+        processing = field.run_validation
+        if post_processing := post_processing_map.get(field_type, None):
+            processing = lambda value: post_processing(field.run_validation(value))
+
+        if lookup_type == "in":
+            validated_value = map(processing, string_value.split(","))
+        else:
+            validated_value = processing(string_value)
+
+        filters = {
+            "annotations__field_id": field_id,
+            f"annotations___value__value__{lookup_type}": validated_value,
+        }
+        return queryset.filter(**filters)
 
     class Meta(BaseCollectionFilter.Meta):
         """Filter configuration."""
