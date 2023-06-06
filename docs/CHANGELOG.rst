@@ -29,6 +29,8 @@ Fixed
 - Add ``PluginManager`` and ``Plugin`` classes to unify plugin management
 - Add ``Redis`` cache management plugin manager and basic plugins
 - Add the option to skip the response to the already processed command
+- Add the ability to add locks to ``Redis`` and wait for them
+- Lock the message in listener when processing it
 
 
 ===================

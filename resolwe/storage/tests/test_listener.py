@@ -314,5 +314,7 @@ class ListenerTest(TestCase):
         self.storage_location = StorageLocation.objects.create(
             file_storage=file_storage, connector_name="local", status="OK"
         )
+        # Generate new command uuid or the processing will be skipped.
+        message = Message.command("resolve_data_path", data.pk)
         response = self.manager.process_command(peer_identity, message)
         self.assertEqual(response.message_data, f"/data_{connector_name}")

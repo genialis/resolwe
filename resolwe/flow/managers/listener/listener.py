@@ -54,7 +54,7 @@ from .basic_commands_plugin import BasicCommands  # noqa: F401
 from .bootstrap_plugin import BootstrapCommands  # noqa: F401
 from .plugin import listener_plugin_manager as plugin_manager
 from .python_process_plugin import PythonProcess  # noqa: F401
-from .redis_cache import cache_manager, redis_server
+from .redis_cache import RedisLockStatus, cache_manager, redis_server
 
 # Unique redis object to use in listener.
 
@@ -373,6 +373,18 @@ class Processor:
         """
         data_id = abs(int(identity))
 
+        # Wait if there is another message with the same uuid being processed.
+        statuses = cache_manager.wait(Data, [(data_id, message.uuid)])
+        # When message was already processed return OK response.
+        if statuses == {RedisLockStatus.OK}:
+            logger.debug(
+                __("Message with uuid={} is already being processed.", message.uuid)
+            )
+            return message.respond_skip("Message already processed.")
+
+        # Lock the message so it is not processed by another worker.
+        cache_manager.lock(Data, [(data_id, message.uuid)])
+
         # Do not proccess messages from Workers that have already finish
         # processing data objects.
         worker_status, data_status, started = self.get_data_fields(
@@ -403,6 +415,7 @@ class Processor:
                 # Check if data status was changed by the handler.
                 if self.get_data_fields(data_id, "status") == Data.STATUS_ERROR:
                     response.status = ResponseStatus.ERROR
+                cache_manager.unlock(Data, [(data_id, message.uuid)])
                 return response
         except ValidationError as err:
             error = (
@@ -410,6 +423,7 @@ class Processor:
                 f"Data object with the id {data_id}: {err}."
             )
             self._log_exception(self.data(data_id), error)
+            cache_manager.unlock(Data, [(data_id, message.uuid)], RedisLockStatus.ERROR)
             return message.respond_error("Validation error")
         except Exception as err:
             error = (
@@ -417,6 +431,7 @@ class Processor:
                 f"object with the id {data_id}: {err}."
             )
             self._log_exception(self.data(data_id), error)
+            cache_manager.unlock(Data, [(data_id, message.uuid)], RedisLockStatus.ERROR)
             return message.respond_error(f"Error in command handler '{handler_name}'.")
 
     def notify_dispatcher_abort(self, data_id: int):
