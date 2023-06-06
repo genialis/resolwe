@@ -263,6 +263,9 @@ class AnnotationField(models.Model):
     #: optional map of valid values to labels
     vocabulary = models.JSONField(null=True)
 
+    #: is this field required
+    required = models.BooleanField(default=False)
+
     def label_by_value(self, label: str) -> str:
         """Get the value by label.
 
@@ -329,7 +332,7 @@ class AnnotationPreset(BaseModel, PermissionObject):
     The presets have permissions.
     """
 
-    #: the fields belongint to this preset
+    #: the fields belonging to this preset
     fields = models.ManyToManyField(AnnotationField, related_name="presets")
 
     class Meta:

@@ -17,6 +17,7 @@ Added
 - Enable editing ``AnnotationPreset`` permissions in the Django admin
 - Extend ``AnnotationPreset`` from ``BaseModel``
 - Enable filtering ``Entity`` objects by annotation values
+- Add ``required`` field to the ``AnnotationField`` model
 
 Changed
 -------
