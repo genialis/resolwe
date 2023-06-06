@@ -20,7 +20,9 @@ from resolwe.flow.managers.listener.plugin_interface import Plugin, PluginManage
 from resolwe.flow.models import Data
 from resolwe.utils import BraceMessage as __
 
-redis_server = redis.from_url(settings.REDIS_CONNECTION_STRING)
+redis_server = redis.from_url(
+    getattr(settings, "REDIS_CONNECTION_STRING", "redis://localhost")
+)
 logger = logging.getLogger(__name__)
 
 
