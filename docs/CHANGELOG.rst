@@ -25,6 +25,7 @@ Changed
   returning its id
 - Do not allow removing required ``AnnotationField`` objects from the
   collection
+- Add required annotation fields to collection when it is created
 
 Fixed
 -----

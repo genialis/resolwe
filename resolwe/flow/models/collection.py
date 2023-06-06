@@ -11,6 +11,7 @@ from resolwe.observers.models import BackgroundTask
 from resolwe.observers.utils import start_background_task
 from resolwe.permissions.models import PermissionObject, PermissionQuerySet
 
+from .annotations import AnnotationField
 from .base import BaseModel, BaseQuerySet
 from .utils import DirtyError, validate_schema
 
@@ -117,7 +118,7 @@ class Collection(BaseCollection, PermissionObject):
 
     #: annotation fields available to samples in this collection
     annotation_fields = models.ManyToManyField(
-        "AnnotationField", related_name="collection"
+        AnnotationField, related_name="collection"
     )
 
     def is_duplicate(self):
@@ -143,3 +144,12 @@ class Collection(BaseCollection, PermissionObject):
         return start_background_task(
             BackgroundTaskType.DELETE, "Delete collections", task_data, self.contributor
         )
+
+    def save(self, *args, **kwargs):
+        """Add required annotation fields to the collection."""
+        create = self.pk is None
+        super().save(*args, **kwargs)
+        if create:
+            required_fields = AnnotationField.objects.filter(required=True)
+            if required_fields.exists():
+                self.annotation_fields.add(*required_fields)

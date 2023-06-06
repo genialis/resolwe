@@ -652,6 +652,21 @@ class AnnotationViewSetsTest(TestCase):
             [self.annotation_field1.pk, self.annotation_field2.pk],
         )
 
+    def test_required_fields(self):
+        """Test required fields are added to the collection."""
+        collection = Collection.objects.create(
+            name="Test collection", contributor=self.contributor
+        )
+        self.assertCountEqual(collection.annotation_fields.all(), [])
+        self.annotation_field1.required = True
+        self.annotation_field1.save()
+        collection = Collection.objects.create(
+            name="Test collection", contributor=self.contributor
+        )
+        self.assertCountEqual(
+            collection.annotation_fields.all(), [self.annotation_field1]
+        )
+
     def test_list_filter_values(self):
         request = factory.get("/", {}, format="json")
 
