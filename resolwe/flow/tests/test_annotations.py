@@ -620,6 +620,38 @@ class AnnotationViewSetsTest(TestCase):
             [self.annotation_field1.pk],
         )
 
+        # Request with confirmation to remove a required field.
+        self.collection1.annotation_fields.add(self.annotation_field1)
+        self.collection1.annotation_fields.add(self.annotation_field2)
+        self.annotation_field1.required = True
+        self.annotation_field1.save()
+        request = factory.post(
+            "/",
+            {
+                "annotation_fields": [
+                    {"id": self.annotation_field1.id},
+                    {"id": self.annotation_field2.id},
+                ],
+                "confirm_action": True,
+            },
+            format="json",
+        )
+        force_authenticate(request, self.contributor)
+        self.assertCountEqual(
+            self.collection1.annotation_fields.values_list("pk", flat=True),
+            [self.annotation_field1.pk, self.annotation_field2.pk],
+        )
+        response: Response = viewset(request, pk=self.collection1.pk)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data[0],
+            "Cannot remove required annotation fields group1.field1 from collection.",
+        )
+        self.assertCountEqual(
+            self.collection1.annotation_fields.values_list("pk", flat=True),
+            [self.annotation_field1.pk, self.annotation_field2.pk],
+        )
+
     def test_list_filter_values(self):
         request = factory.get("/", {}, format="json")
 

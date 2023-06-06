@@ -23,6 +23,8 @@ Changed
 -------
 - Annotation fields endpoint serializer the annotation group instead of only
   returning its id
+- Do not allow removing required ``AnnotationField`` objects from the
+  collection
 
 Fixed
 -----

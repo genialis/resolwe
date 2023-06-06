@@ -171,6 +171,12 @@ class CollectionViewSet(ObservableMixin, BaseCollectionViewSet):
         annotation_fields = serializer.validated_data["annotation_fields"]
         # Delete annotation values from the samples in this collection and remove the
         # annotation fields from the collection.
+        required_fields = [field for field in annotation_fields if field.required]
+        if required_fields:
+            required_field_names = ", ".join(map(str, required_fields))
+            raise exceptions.ValidationError(
+                f"Cannot remove required annotation fields {required_field_names} from collection."
+            )
         with transaction.atomic():
             AnnotationValue.objects.filter(
                 entity__collection=collection, field__in=annotation_fields
