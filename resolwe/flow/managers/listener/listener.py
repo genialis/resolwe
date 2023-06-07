@@ -260,7 +260,8 @@ class Processor:
         """
         # Before saving the object set the redis cache.
         if changes:
-            cache_manager.cache(data)
+            changes = {field: getattr(data, field) for field in changes}
+            cache_manager.update_cache(Data, (data.id,), changes)
             data.save(update_fields=changes)
 
     def _update_data(self, data_id: int, changes: Dict[str, Any]):
