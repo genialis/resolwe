@@ -417,7 +417,7 @@ class CachedObjectManager(PluginManager["CachedObjectPlugin"]):
         """
         return self._plugins[self._get_plugin_identifier(model)]
 
-    def mcache(self, instances: models.QuerySet["CachedObjectPlugin"]) -> None:
+    def mcache(self, instances: models.QuerySet) -> None:
         """Cache the given queryset.
 
         Items with the same identifiers are overwritten.
@@ -428,7 +428,9 @@ class CachedObjectManager(PluginManager["CachedObjectPlugin"]):
 
     def cache(self, instance: models.Model) -> None:
         """Cache the given instance."""
-        self.mcache(type(instance).objects.filter(pk=instance.pk))
+        plugin = self.get_plugin(type(instance))
+        to_cache = plugin.serialize(instance)
+        redis_cache.mset(plugin.model, to_cache, plugin.expiration_time)
 
     def mget(
         self, model: models.Model, identifiers_list: Sequence[Identifier]
