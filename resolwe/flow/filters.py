@@ -579,11 +579,11 @@ class AnnotationFieldFilter(BaseResolweFilter):
         model = AnnotationField
         fields = {
             **{
-                "name": TEXT_LOOKUPS,
-                "label": TEXT_LOOKUPS,
-                "type": TEXT_LOOKUPS,
-                "description": TEXT_LOOKUPS,
-                "group__name": TEXT_LOOKUPS,
+                "name": TEXT_LOOKUPS[:],
+                "label": TEXT_LOOKUPS[:],
+                "type": TEXT_LOOKUPS[:],
+                "description": TEXT_LOOKUPS[:],
+                "group__name": TEXT_LOOKUPS[:],
                 "collection": ["exact"],
                 "collection__name": TEXT_LOOKUPS[:],
                 "collection__slug": SLUG_LOOKUPS[:],
@@ -675,8 +675,8 @@ class AnnotationValueFilter(BaseResolweFilter, metaclass=AnnotationValueMetaclas
         model = AnnotationValue
         fields = {
             **{
-                "field__id": NUMBER_LOOKUPS,
-                "field__name": TEXT_LOOKUPS,
-                "field__label": TEXT_LOOKUPS,
+                "field__id": NUMBER_LOOKUPS[:],
+                "field__name": TEXT_LOOKUPS[:],
+                "field__label": TEXT_LOOKUPS[:],
             },
         }

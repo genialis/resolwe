@@ -37,6 +37,7 @@ Fixed
 - Add the option to skip the response to the already processed command
 - Add the ability to add locks to ``Redis`` and wait for them
 - Lock the message in listener when processing it
+- Duplicate filter loopup lists
 
 
 ===================
