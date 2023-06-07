@@ -587,6 +587,7 @@ class AnnotationFieldFilter(BaseResolweFilter):
                 "collection": ["exact"],
                 "collection__name": TEXT_LOOKUPS[:],
                 "collection__slug": SLUG_LOOKUPS[:],
+                "required": ["exact"],
             },
         }
 

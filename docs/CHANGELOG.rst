@@ -18,6 +18,8 @@ Added
 - Extend ``AnnotationPreset`` from ``BaseModel``
 - Enable filtering ``Entity`` objects by annotation values
 - Add ``required`` field to the ``AnnotationField`` model
+- Add ``required`` field to the ``AnnotationFieldSerializer`` and
+  ``AnnotationFieldFilter``
 
 Changed
 -------

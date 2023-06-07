@@ -270,18 +270,30 @@ class AnnotationViewSetsTest(TestCase):
         self.assertEqual(len(response.data), 2)
         self.assertEqual(response.data[0]["name"], "field2")
         self.assertEqual(response.data[0]["label"], "Annotation field 2")
+        received = dict(response.data[0])
+        received["group"] = dict(received["group"])
         self.assertEqual(
-            dict(response.data[0]["group"]),
+            received,
             {
-                "id": self.annotation_group2.id,
-                "name": "group2",
-                "label": "Annotation group 2",
+                "id": self.annotation_field2.id,
+                "name": "field2",
+                "label": "Annotation field 2",
                 "sort_order": 1,
+                "type": "INTEGER",
+                "validator_regex": None,
+                "vocabulary": None,
+                "required": False,
+                "collection": [self.collection2.pk],
+                "description": "",
+                "group": {
+                    "id": self.annotation_group2.id,
+                    "name": "group2",
+                    "label": "Annotation group 2",
+                    "sort_order": 1,
+                },
             },
         )
-
         self.assertCountEqual(response.data[0]["collection"], [self.collection2.id])
-
         self.assertEqual(response.data[1]["name"], "field1")
         self.assertEqual(response.data[1]["label"], "Annotation field 1")
         self.assertCountEqual(response.data[1]["collection"], [self.collection1.id])
@@ -295,12 +307,25 @@ class AnnotationViewSetsTest(TestCase):
             },
         )
 
+        # Filter by required.
+        request = factory.get("/", {"required": False}, format="json")
+        force_authenticate(request, self.contributor)
+        response = self.annotationfield_viewset(request)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)
+
+        self.annotation_field1.required = True
+        self.annotation_field1.save()
+
+        request = factory.get("/", {"required": True}, format="json")
+        force_authenticate(request, self.contributor)
+        response = self.annotationfield_viewset(request)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["name"], "field1")
+
         # Filter by collection.
-        request = factory.get(
-            "/",
-            {"collection": self.collection1.pk},
-            format="json",
-        )
+        request = factory.get("/", {"collection": self.collection1.id}, format="json")
         force_authenticate(request, self.contributor)
         response = self.annotationfield_viewset(request)
         self.assertEqual(response.status_code, status.HTTP_200_OK)

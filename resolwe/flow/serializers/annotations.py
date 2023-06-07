@@ -59,6 +59,7 @@ class AnnotationFieldSerializer(ResolweBaseSerializer):
             "type",
             "validator_regex",
             "vocabulary",
+            "required",
         )
         list_serializer_class = AnnotationFieldListSerializer
 
