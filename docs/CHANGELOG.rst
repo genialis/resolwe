@@ -28,6 +28,8 @@ Changed
 - Do not allow removing required ``AnnotationField`` objects from the
   collection
 - Add required annotation fields to collection when it is created
+- Replace ``add_fields_to_collection`` and ``remove_fields_from_collection``
+  with ``set_annotation_fields``
 
 Fixed
 -----

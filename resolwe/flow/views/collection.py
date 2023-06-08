@@ -3,13 +3,12 @@ from django.db import transaction
 from django.db.models import F, Func, OuterRef, Prefetch, Subquery
 from django.db.models.functions import Coalesce
 
-from rest_framework import exceptions, mixins, viewsets
+from rest_framework import exceptions, mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from resolwe.flow.filters import CollectionFilter
 from resolwe.flow.models import Collection, Data, DescriptorSchema, Entity
-from resolwe.flow.models.annotations import AnnotationValue
 from resolwe.flow.serializers import CollectionSerializer
 from resolwe.flow.serializers.annotations import AnnotationFieldDictSerializer
 from resolwe.observers.mixins import ObservableMixin
@@ -139,47 +138,14 @@ class CollectionViewSet(ObservableMixin, BaseCollectionViewSet):
     serializer_class = CollectionSerializer
 
     @action(detail=True, methods=["post"])
-    def add_fields_to_collection(self, request, pk=None):
-        """Add the given list of AnnotaitonFields to the given collection."""
+    @transaction.atomic
+    def set_annotation_fields(self, request, pk=None):
+        """Set AnnotationFields on collection."""
         # No need to check for permissions, since post requires edit by default.
         collection = self.get_object()
         # Read and validate the request data.
         serializer = AnnotationFieldDictSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        # Add the fields to the collection.
-        collection.annotation_fields.add(
-            *serializer.validated_data["annotation_fields"]
-        )
-        return Response()
-
-    @action(detail=True, methods=["post"])
-    def remove_fields_from_collection(self, request, pk=None):
-        """Remove the given list of AnnotaitonFields from the given collection.
-
-        The required argument is annotation_fields and optional confirm_action.
-        """
-        # No need to check for permissions, since post requires edit by default.
-        collection = self.get_object()
-        serializer = AnnotationFieldDictSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        if not serializer.validated_data["confirm_action"]:
-            raise exceptions.ValidationError(
-                "Annotations for the given fields will be removed from the samples in "
-                "the collection. Set 'confirm_action' argument to 'True' to confirm."
-            )
-
-        annotation_fields = serializer.validated_data["annotation_fields"]
-        # Delete annotation values from the samples in this collection and remove the
-        # annotation fields from the collection.
-        required_fields = [field for field in annotation_fields if field.required]
-        if required_fields:
-            required_field_names = ", ".join(map(str, required_fields))
-            raise exceptions.ValidationError(
-                f"Cannot remove required annotation fields {required_field_names} from collection."
-            )
-        with transaction.atomic():
-            AnnotationValue.objects.filter(
-                entity__collection=collection, field__in=annotation_fields
-            ).delete()
-            collection.annotation_fields.remove(*annotation_fields)
-        return Response()
+        # Set the new annotation fields.
+        collection.annotation_fields.set(serializer.validated_data["annotation_fields"])
+        return Response(status=status.HTTP_204_NO_CONTENT)

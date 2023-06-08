@@ -489,14 +489,12 @@ class AnnotationViewSetsTest(TestCase):
         self.assertCountEqual(response.data[1]["collection"], [])
         self.assertCountEqual(response.data[0]["collection"], [self.collection2.id])
 
-    def test_add_to_collection(self):
-        """Add annotation fields to collection."""
+    def test_set_to_collection(self):
+        """Set annotation fields to collection."""
         self.collection1.annotation_fields.clear()
         self.collection2.annotation_fields.clear()
 
-        viewset = CollectionViewSet.as_view(
-            actions={"post": "add_fields_to_collection"}
-        )
+        viewset = CollectionViewSet.as_view(actions={"post": "set_annotation_fields"})
         request = factory.post(
             "/",
             {
@@ -509,10 +507,30 @@ class AnnotationViewSetsTest(TestCase):
         )
         force_authenticate(request, self.contributor)
         response: Response = viewset(request, pk=self.collection1.pk)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertCountEqual(
             self.collection1.annotation_fields.values_list("pk", flat=True),
             [self.annotation_field1.pk, self.annotation_field2.pk],
+        )
+        self.assertCountEqual(
+            self.collection2.annotation_fields.values_list("pk", flat=True), []
+        )
+
+        # Set only one.
+        viewset = CollectionViewSet.as_view(actions={"post": "set_annotation_fields"})
+        request = factory.post(
+            "/",
+            {
+                "annotation_fields": [{"id": self.annotation_field1.pk}],
+            },
+            format="json",
+        )
+        force_authenticate(request, self.contributor)
+        response: Response = viewset(request, pk=self.collection1.pk)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertCountEqual(
+            self.collection1.annotation_fields.values_list("pk", flat=True),
+            [self.annotation_field1.pk],
         )
         self.assertCountEqual(
             self.collection2.annotation_fields.values_list("pk", flat=True), []
@@ -532,150 +550,6 @@ class AnnotationViewSetsTest(TestCase):
         force_authenticate(request, self.contributor)
         response: Response = viewset(request, pk=self.collection2.pk)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-
-    def test_remove_from_collection(self):
-        """Add annotation fields to collection."""
-        self.collection1.annotation_fields.add(self.annotation_field2)
-        viewset = CollectionViewSet.as_view(
-            actions={"post": "remove_fields_from_collection"}
-        )
-
-        # Request without confirmation.
-        request = factory.post(
-            "/",
-            {
-                "annotation_fields": [
-                    {"id": self.annotation_field1.id},
-                    {"id": self.annotation_field2.id},
-                ],
-            },
-            format="json",
-        )
-        force_authenticate(request, self.contributor)
-        response: Response = viewset(request, pk=self.collection1.pk)
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(
-            response.data,
-            [
-                "Annotations for the given fields will be removed from the samples in "
-                "the collection. Set 'confirm_action' argument to 'True' to confirm."
-            ],
-        )
-        self.assertCountEqual(
-            self.collection1.annotation_fields.values_list("pk", flat=True),
-            [self.annotation_field1.pk, self.annotation_field2.pk],
-        )
-
-        request = factory.post(
-            "/",
-            {
-                "annotation_fields": [
-                    {"id": self.annotation_field1.id},
-                    {"id": self.annotation_field2.id},
-                ],
-                "confirm_action": False,
-            },
-            format="json",
-        )
-        force_authenticate(request, self.contributor)
-        response: Response = viewset(request, pk=self.collection1.pk)
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(
-            response.data,
-            [
-                "Annotations for the given fields will be removed from the samples in "
-                "the collection. Set 'confirm_action' argument to 'True' to confirm."
-            ],
-        )
-        self.assertCountEqual(
-            self.collection1.annotation_fields.values_list("pk", flat=True),
-            [self.annotation_field1.pk, self.annotation_field2.pk],
-        )
-
-        # Request with confirmation.
-        request = factory.post(
-            "/",
-            {
-                "annotation_fields": [
-                    {"id": self.annotation_field1.id},
-                    {"id": self.annotation_field2.id},
-                ],
-                "confirm_action": True,
-            },
-            format="json",
-        )
-        force_authenticate(request, self.contributor)
-        self.assertCountEqual(
-            self.collection1.annotation_fields.values_list("pk", flat=True),
-            [self.annotation_field1.pk, self.annotation_field2.pk],
-        )
-        response: Response = viewset(request, pk=self.collection1.pk)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertCountEqual(
-            self.collection1.annotation_fields.values_list("pk", flat=True), []
-        )
-
-        # Request with confirmation without permissions.
-        self.collection1.annotation_fields.add(self.annotation_field1)
-        self.assertCountEqual(
-            self.collection1.annotation_fields.values_list("pk", flat=True),
-            [self.annotation_field1.pk],
-        )
-        request = factory.post(
-            "/",
-            {
-                "annotation_fields": [
-                    {"id": self.annotation_field1.id},
-                    {"id": self.annotation_field2.id},
-                ],
-                "confirm_action": True,
-            },
-            format="json",
-        )
-        force_authenticate(request, self.contributor)
-        response: Response = viewset(request, pk=self.collection2.pk)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-
-        self.assertDictEqual(
-            response.data,
-            {"detail": "You do not have permission to perform this action."},
-        )
-        self.assertCountEqual(
-            self.collection1.annotation_fields.values_list("pk", flat=True),
-            [self.annotation_field1.pk],
-        )
-
-        # Request with confirmation to remove a required field.
-        self.collection1.annotation_fields.add(self.annotation_field1)
-        self.collection1.annotation_fields.add(self.annotation_field2)
-        self.annotation_field1.required = True
-        self.annotation_field1.save()
-        request = factory.post(
-            "/",
-            {
-                "annotation_fields": [
-                    {"id": self.annotation_field1.id},
-                    {"id": self.annotation_field2.id},
-                ],
-                "confirm_action": True,
-            },
-            format="json",
-        )
-        force_authenticate(request, self.contributor)
-        self.assertCountEqual(
-            self.collection1.annotation_fields.values_list("pk", flat=True),
-            [self.annotation_field1.pk, self.annotation_field2.pk],
-        )
-        response: Response = viewset(request, pk=self.collection1.pk)
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(
-            response.data[0],
-            "Cannot remove required annotation fields group1.field1 from collection.",
-        )
-        self.assertCountEqual(
-            self.collection1.annotation_fields.values_list("pk", flat=True),
-            [self.annotation_field1.pk, self.annotation_field2.pk],
-        )
 
     def test_required_fields(self):
         """Test required fields are added to the collection."""
