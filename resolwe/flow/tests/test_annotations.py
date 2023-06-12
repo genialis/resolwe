@@ -114,6 +114,122 @@ class FilterAnnotations(TestCase):
             self.assertIn(method_name, dir(self))
 
 
+class TestOrderEntityByAnnotations(TestCase):
+    """Test ordering Entities by annotation values."""
+
+    def setUp(self):
+        """Prepare the test entity and annotation values."""
+        super().setUp()
+
+        self.viewset = EntityViewSet.as_view(actions={"get": "list"})
+        entity1: Entity = Entity.objects.create(name="E1", contributor=self.contributor)
+        entity2: Entity = Entity.objects.create(name="E2", contributor=self.contributor)
+        entity1.set_permission(Permission.VIEW, self.contributor)
+        entity2.set_permission(Permission.VIEW, self.contributor)
+        annotation_group: AnnotationGroup = AnnotationGroup.objects.create(
+            name="group", label="Annotation group", sort_order=1
+        )
+        self.fields = {
+            annotation_type: AnnotationField.objects.create(
+                name=annotation_type.value,
+                label=annotation_type.value,
+                type=annotation_type.value,
+                sort_order=1,
+                group=annotation_group,
+            )
+            for annotation_type in AnnotationType
+        }
+        field_values = {
+            AnnotationType.STRING: [(entity1, "abc"), (entity2, "bc")],
+            AnnotationType.INTEGER: [(entity1, 2), (entity2, 10)],
+            AnnotationType.DECIMAL: [(entity1, 2.2), (entity2, 10.1)],
+            AnnotationType.DATE: [(entity1, "1111-01-01"), (entity2, "2222-02-02")],
+        }
+        for annotation_type, values in field_values.items():
+            for entity, value in values:
+                field = self.fields[annotation_type]
+                AnnotationValue.objects.create(entity=entity, field=field, value=value)
+        self.first_id = [entity1.id]
+        self.second_id = [entity2.id]
+        self.both_ids = [entity1.id, entity2.id]
+
+    def _verify_response(self, query: str, expected_entity_ids: Sequence[int]):
+        """Validate the response."""
+        request = factory.get("/", {"ordering": query}, format="json")
+        force_authenticate(request, self.contributor)
+        response = self.viewset(request)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        received_entity_ids = [entry["id"] for entry in response.data]
+        self.assertEqual(received_entity_ids, expected_entity_ids)
+
+    def test_string(self):
+        """Test ordering by string annotation values."""
+        field_id = self.fields[AnnotationType.STRING].id
+        self._verify_response(f"annotations__{field_id}", self.both_ids)
+        self._verify_response(
+            f"-annotations__{field_id}", list(reversed(self.both_ids))
+        )
+
+    def test_integer(self):
+        """Test filtering by integer annotation values."""
+        field_id = self.fields[AnnotationType.INTEGER].id
+        self._verify_response(f"annotations__{field_id}", self.both_ids)
+        self._verify_response(
+            f"-annotations__{field_id}", list(reversed(self.both_ids))
+        )
+
+    def test_decimal(self):
+        """Test filtering by decimal annotation values."""
+        field_id = self.fields[AnnotationType.DECIMAL].id
+        self._verify_response(f"annotations__{field_id}", self.both_ids)
+        self._verify_response(
+            f"-annotations__{field_id}", list(reversed(self.both_ids))
+        )
+
+    def test_date(self):
+        """Test filtering by date annotation values."""
+        field_id = self.fields[AnnotationType.DATE].id
+        self._verify_response(f"annotations__{field_id}", self.both_ids)
+        self._verify_response(
+            f"-annotations__{field_id}", list(reversed(self.both_ids))
+        )
+
+    def test_multi(self):
+        """Test filtering by multiple annotation field values."""
+        field1 = self.fields[AnnotationType.STRING]
+        field2 = self.fields[AnnotationType.INTEGER]
+        self._verify_response(
+            f"annotations__{field1.id},annotations__{field2.id}", self.both_ids
+        )
+        self._verify_response(
+            f"annotations__{field1.id},-annotations__{field2.id}", self.both_ids
+        )
+        self._verify_response(
+            f"-annotations__{field1.id},-annotations__{field2.id}",
+            list(reversed(self.both_ids)),
+        )
+        # Test ordering when first values are same.
+        value = AnnotationValue.objects.get(field=field1, _value={"value": "abc"})
+        value.value = "bc"
+        value.save()
+        self._verify_response(
+            f"annotations__{field1.id},annotations__{field2.id}", self.both_ids
+        )
+        self._verify_response(
+            f"annotations__{field1.id},-annotations__{field2.id}",
+            list(reversed(self.both_ids)),
+        )
+
+    def test_all_fields_included(self):
+        """Check if all field types are tested.
+
+        Assumption: test for the field type TYPE is named test_TYPE.
+        """
+        for annotation_type in AnnotationType:
+            method_name = f"test_{annotation_type.value.lower()}"
+            self.assertIn(method_name, dir(self))
+
+
 class AnnotationViewSetsTest(TestCase):
     def setUp(self):
         super().setUp()

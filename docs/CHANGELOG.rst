@@ -20,6 +20,7 @@ Added
 - Add ``required`` field to the ``AnnotationField`` model
 - Add ``required`` field to the ``AnnotationFieldSerializer`` and
   ``AnnotationFieldFilter``
+- Enable sorting ``Entity`` by annotation values
 
 Changed
 -------
