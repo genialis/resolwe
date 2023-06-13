@@ -41,6 +41,8 @@ Fixed
 - Add the ability to add locks to ``Redis`` and wait for them
 - Lock the message in listener when processing it
 - Duplicate filter loopup lists
+- Fix ``AnnotationPreset`` contributor to point to the user model specified in
+  the settings
 
 
 ===================
