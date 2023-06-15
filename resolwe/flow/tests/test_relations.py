@@ -165,7 +165,7 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
     def test_get(self):
         resp = self._get_detail(self.relation_group.pk, user=self.contributor)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-
+        self.assertEqual(resp.data["slug"], "relation")
         self.assertEqual(resp.data["collection"]["id"], self.collection.pk)
         self.assertEqual(resp.data["type"], "group")
         self.assertEqual(resp.data["category"], "replicates")

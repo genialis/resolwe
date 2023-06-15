@@ -52,6 +52,7 @@ class RelationSerializer(ResolweBaseSerializer):
         read_only_fields = (
             "created",
             "id",
+            "slug",
             "modified",
             "descriptor_dirty",
         )
