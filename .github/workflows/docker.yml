@@ -20,11 +20,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: [fedora-36, ubuntu-22.04, communication]
+        image: [fedora-37, ubuntu-22.04, communication]
         include:
-          - image: fedora-36
+          - image: fedora-37
             context: resolwe/toolkit/docker_images/base/
-            file: resolwe/toolkit/docker_images/base/Dockerfile.fedora-36
+            file: resolwe/toolkit/docker_images/base/Dockerfile.fedora-37
             repository: resolwe/base
             suffix: -fedora
           - image: ubuntu-22.04
