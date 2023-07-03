@@ -16,7 +16,6 @@ from importlib import import_module
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
-from asgiref.sync import async_to_sync
 from channels.db import database_sync_to_async
 from channels.exceptions import ChannelFull
 
@@ -150,9 +149,9 @@ class Manager:
             )
         )
 
-    def drain_messages(self):
+    async def drain_messages(self):
         """Drain Django Channel messages."""
-        async_to_sync(consumer.run_consumer)(timeout=1)
+        await consumer.run_consumer(timeout=1)
 
     def __init__(self, *args, **kwargs):
         """Initialize arguments."""

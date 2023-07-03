@@ -69,7 +69,7 @@ class TestingContext:
         return False
 
 
-def _manager_setup():
+async def _manager_setup():
     """Execute setup operations common to serial and parallel testing.
 
     This mostly means state cleanup, such as resetting database
@@ -80,8 +80,7 @@ def _manager_setup():
     TESTING_CONTEXT["manager_reset"] = True
     state.update_constants()
     update_observer_constants()
-
-    manager.drain_messages()
+    await manager.drain_messages()
 
 
 def _sequence_paths(paths):
@@ -274,7 +273,7 @@ async def _run_on_infrastructure(meth, *args, **kwargs):
                 FLOW_VOLUMES=resolwe_settings.FLOW_VOLUMES,
             ):
                 connectors.recreate_connectors()
-                await database_sync_to_async(_manager_setup)()
+                await _manager_setup()
                 hosts = settings.FLOW_EXECUTOR["LISTENER_CONNECTION"]["hosts"]
                 port = settings.FLOW_EXECUTOR["LISTENER_CONNECTION"]["port"]
                 protocol = settings.FLOW_EXECUTOR["LISTENER_CONNECTION"]["protocol"]
