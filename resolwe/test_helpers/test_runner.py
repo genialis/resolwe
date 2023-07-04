@@ -501,6 +501,9 @@ class ResolweRunner(DiscoverRunner):
 
                 # Then run with specific test labels.
                 if tests:
+                    # Reset manager before another run.
+                    TESTING_CONTEXT.pop("manager_reset", None)
+                    TESTING_CONTEXT.pop("test_paths", None)
                     self.parallel = parallel
                     self.tags = set()
                     # Exclude tests with the given tags as they ran in the previous step.
