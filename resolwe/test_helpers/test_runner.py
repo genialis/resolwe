@@ -135,6 +135,12 @@ def _create_test_dirs():
     """Create all the testing directories."""
     if "test_paths" in TESTING_CONTEXT:
         return TESTING_CONTEXT["test_paths"]
+
+    # Set the path values to the connectors and volumes. First recreate them from the
+    # settings to avoid nested testing folders.
+    resolwe_settings.prepare_storage_settings()
+
+    # Create the testing directories and set them to the connectors.
     items = [
         resolwe_settings.STORAGE_CONNECTORS[connector_name]
         for connector_name in resolwe_settings.STORAGE_CONNECTORS
