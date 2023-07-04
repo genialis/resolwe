@@ -397,10 +397,12 @@ class Manager:
                         AttributeError,
                     ):
                         data = await database_sync_to_async(
-                            purge_secrets_and_local_data
+                            purge_secrets_and_local_data, thread_sensitive=False
                         )(data_id)
                         # Run the cleanup.
-                        await database_sync_to_async(cleanup)(data)
+                        await database_sync_to_async(cleanup, thread_sensitive=False)(
+                            data
+                        )
         except Exception:
             logger.exception(
                 "Unknown error occured while processing communicate control command."
