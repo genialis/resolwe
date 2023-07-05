@@ -118,6 +118,153 @@ class ManagerRunProcessTest(ProcessTestCase):
     def test_minimal_process(self):
         self.run_process("test-min")
 
+    @tag_process("test-min")
+    @tag_process("test-workflow-simple")
+    def test_restart(self):
+        def restarted_object_sanity_check(
+            original_values, restarted_values, additional_skip_keys=[]
+        ):
+            self.assertEqual(restarted_values["status"], Data.STATUS_DONE)
+            self.assertEqual(original_values.keys(), restarted_values.keys())
+
+            # These values should be both None or modified greater than original.
+            for key in {"started", "finished", "modified", "scheduled"}:
+                if restarted_values[key] is not None:
+                    compare_value = original_values["finished"] or original_values[key]
+                    self.assertGreater(restarted_values[key], compare_value)
+                else:
+                    self.assertEqual(restarted_values[key], original_values[key])
+
+            skip_keys = {"started", "finished", "modified", "scheduled", "location_id"}
+            skip_keys.update(additional_skip_keys)
+            for key in original_values.keys():
+                if key not in skip_keys:
+                    self.assertEqual(
+                        original_values[key],
+                        restarted_values[key],
+                        f"Key '{key}' does not match.",
+                    )
+
+        original = self.run_process("test-min", contributor=self.contributor)
+        with self.assertRaises(
+            RuntimeError, msg="Only data in status ERROR can be restarted, not OK."
+        ):
+            original.restart()
+
+        original_values = Data.objects.filter(pk=original.pk).values()[0]
+
+        # No need to actually save the status, it is checked on the instance.
+        original.status = Data.STATUS_ERROR
+        original.restart()
+
+        restarted_values = Data.objects.filter(pk=original.pk).values()[0]
+        restarted_object_sanity_check(original_values, restarted_values)
+
+        # Now test the workflow duplication. The workflow creates two data objects
+        # and the second one depends on the first one.
+        workflow_data = self.run_process(
+            "test-workflow-simple",
+            {"param1": "world"},
+            tags=["test-tag"],
+            contributor=self.contributor,
+        )
+        workflow_data.refresh_from_db()
+        step1_data = Data.objects.get(process__slug="test-example-1-simple")
+        step2_data = Data.objects.get(process__slug="test-example-2-simple")
+
+        workflow_dict = Data.objects.filter(pk=workflow_data.pk).values()[0]
+        step1_dict = Data.objects.filter(pk=step1_data.pk).values()[0]
+        step2_dict = Data.objects.filter(pk=step2_data.pk).values()[0]
+
+        # First try to duplicate the entire workflow.
+        workflow_data.status = Data.STATUS_ERROR
+        workflow_data.restart()
+
+        # Subprocess dependencies must be deleted.
+        with self.assertRaises(Data.DoesNotExist):
+            step1_data.refresh_from_db()
+        with self.assertRaises(Data.DoesNotExist):
+            step2_data.refresh_from_db()
+
+        restarted_workflow_dict = Data.objects.filter(pk=workflow_data.pk).values()[0]
+        restarted_step1_dict = Data.objects.filter(
+            process__slug="test-example-1-simple"
+        ).values()[0]
+        restarted_step2_dict = Data.objects.filter(
+            process__slug="test-example-2-simple"
+        ).values()[0]
+        # Output also differs (different step ids).
+        restarted_object_sanity_check(
+            workflow_dict, restarted_workflow_dict, ["output"]
+        )
+        # Ids will not match, since object is restarted.
+        self.assertNotEqual(restarted_step1_dict["id"], step1_dict["id"])
+        self.assertNotEqual(restarted_step2_dict["id"], step2_dict["id"])
+        self.assertGreater(restarted_step1_dict["created"], step1_dict["created"])
+        self.assertGreater(restarted_step2_dict["created"], step2_dict["created"])
+        restarted_object_sanity_check(
+            step1_dict, restarted_step1_dict, ["id", "permission_group_id", "created"]
+        )
+        restarted_object_sanity_check(
+            step2_dict, restarted_step2_dict, ["id", "permission_group_id", "created"]
+        )
+
+        # Override resources on step1 and step2. Be careful: when restarting the entire
+        # workflow the workflow will spawn new objects and its children will be restarted.
+        Data.objects.all().delete()
+        workflow_data = self.run_process(
+            "test-workflow-simple",
+            {"param1": "world"},
+            tags=["test-tag"],
+            contributor=self.contributor,
+        )
+        workflow_data.refresh_from_db()
+
+        step1_data = Data.objects.get(process__slug="test-example-1-simple")
+        step2_data = Data.objects.get(process__slug="test-example-2-simple")
+
+        workflow_dict = Data.objects.filter(pk=workflow_data.pk).values()[0]
+        step1_dict = Data.objects.filter(pk=step1_data.pk).values()[0]
+        step2_dict = Data.objects.filter(pk=step2_data.pk).values()[0]
+
+        # Duplicate the entire workflow, override resources.
+        workflow_data.status = Data.STATUS_ERROR
+
+        resource_overrides = {}
+        resource_overrides[workflow_data.pk] = {"cores": 1}
+        workflow_data.restart(resource_overrides=resource_overrides)
+
+        # Subprocess dependencies must be deleted.
+        with self.assertRaises(Data.DoesNotExist):
+            step1_data.refresh_from_db()
+        with self.assertRaises(Data.DoesNotExist):
+            step2_data.refresh_from_db()
+
+        restarted_workflow_dict = Data.objects.filter(pk=workflow_data.pk).values()[0]
+        restarted_step1_dict = Data.objects.filter(
+            process__slug="test-example-1-simple"
+        ).values()[0]
+        restarted_step2_dict = Data.objects.filter(
+            process__slug="test-example-2-simple"
+        ).values()[0]
+        # Output also differs (different step ids).
+        restarted_object_sanity_check(
+            workflow_dict, restarted_workflow_dict, ["output", "process_resources"]
+        )
+        # Ids will not match, since object is restarted.
+        self.assertNotEqual(restarted_step1_dict["id"], step1_dict["id"])
+        self.assertNotEqual(restarted_step2_dict["id"], step2_dict["id"])
+        self.assertGreater(restarted_step1_dict["created"], step1_dict["created"])
+        self.assertGreater(restarted_step2_dict["created"], step2_dict["created"])
+        restarted_object_sanity_check(
+            step1_dict, restarted_step1_dict, ["id", "permission_group_id", "created"]
+        )
+        restarted_object_sanity_check(
+            step2_dict, restarted_step2_dict, ["id", "permission_group_id", "created"]
+        )
+        self.assertEqual(restarted_workflow_dict["process_resources"], {"cores": 1})
+        self.assertEqual(workflow_dict["process_resources"], {})
+
     @tag_process("test-annotate")
     def test_annotate(self):
         data = self.run_process("test-annotate")
@@ -491,13 +638,10 @@ class ManagerRunProcessTest(ProcessTestCase):
         "test-network-resource-policy",
     )
     def test_network_resource(self):
-        print("Enabled")
         self.run_process("test-network-resource-enabled")
-        print("Disabled")
         self.run_process(
             "test-network-resource-disabled", assert_status=Data.STATUS_ERROR
         )
-        print("Disabled 2")
         self.run_process(
             "test-network-resource-policy", assert_status=Data.STATUS_ERROR
         )

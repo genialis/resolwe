@@ -6,6 +6,15 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Added
+-----
+- Add ``restart`` method to the ``Data`` model
+
+
 ===================
 37.0.2 - 2023-10-26
 ===================

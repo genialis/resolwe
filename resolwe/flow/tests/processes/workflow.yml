@@ -83,6 +83,66 @@
             a: '{{ steps.step1 }}'
             b: hello
 
+- slug: test-workflow-simple
+  name: Workflow test
+  requirements:
+    expression-engine: jinja
+  version: 1.0.0
+  type: data:test:workflow
+  input:
+    - name: param1
+      label: Param 1
+      type: basic:string
+  run:
+    language: workflow
+    program:
+      - id: step1
+        run: test-example-1-simple
+        input:
+          param1: '{{ input.param1 }}'
+      - id: step2
+        run: test-example-2-simple
+        input:
+          param1: '{{ input.param1 }}'
+
+- slug: test-example-1-simple
+  name: Example 1 simple
+  requirements:
+    expression-engine: jinja
+  version: 1.0.0
+  type: data:test:example1
+  input:
+    - name: param1
+      label: Param 1
+      type: basic:string
+  output:
+    - name: out1
+      label: Out 1
+      type: basic:string
+  run:
+    language: bash
+    program: |
+      re-save out1 "hello1 "{{ param1 }}
+
+- slug: test-example-2-simple
+  name: Example 2 simple
+  requirements:
+    expression-engine: jinja
+  version: 1.0.0
+  type: data:test:example2
+  input:
+    - name: param1
+      label: Param 1
+      type: basic:string
+  output:
+    - name: out1
+      label: Out 1
+      type: basic:string
+  run:
+    language: bash
+    program: |
+      re-save out1 "hello2: "{{ param1 }}
+
 - slug: test-example-3
   name: Example process
   requirements:

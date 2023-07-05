@@ -3,7 +3,7 @@ import copy
 import enum
 import json
 import logging
-from typing import Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import jsonschema
 
@@ -42,6 +42,10 @@ from .utils import (
     render_template,
 )
 from .worker import Worker
+
+if TYPE_CHECKING:
+    from django.contrib.auth.models import User as UserModel
+
 
 # Compatibility for Python < 3.5.
 if not hasattr(json, "JSONDecodeError"):
@@ -671,6 +675,103 @@ class Data(BaseModel, PermissionObject):
     def get_resource_limits(self):
         """Return the resource limits for this data."""
         return self.process.get_resource_limits(self)
+
+    def restart(
+        self, contributor: Optional["UserModel"] = None, resource_overrides: dict = {}
+    ):
+        """Restart the data object and all its children.
+
+        The status of the data object must be ERROR and stasus of its dependencies must
+        be DONE.
+
+        :param contributor: user that is set as contributor to the restarted objects.
+            If it is not given the contributor of duplicated object is used.
+
+        :param resource_overrides: dictionary mapping ids of data objects to resource
+            overrides.
+
+        :raises RuntimeError: if the object is not in the right state.
+        :raises RuntimeError: when object dependencies are not in the status DONE.
+        """
+
+        def reset_data(data: Data):
+            """Prepare the data object for another processing."""
+            assert data.status == Data.STATUS_ERROR
+            reset_dict: dict[str, Any] = {
+                "started": None,
+                "finished": None,
+                "status": Data.STATUS_RESOLVING,
+                "process_info": [],
+                "process_warning": [],
+                "process_error": [],
+                "size": 0,
+                "process_progress": 0,
+                "process_rc": None,
+                "process_pid": None,
+                "descriptor": {},
+                "descriptor_dirty": False,
+                "duplicated": None,
+            }
+            for attribute, value in reset_dict.items():
+                setattr(data, attribute, value)
+            if hasattr(data, "worker"):
+                # The worker can be saved here as it is not observable.
+                data.worker.status = Worker.STATUS_PREPARING
+                data.worker.save()
+
+        # Avoid circular dependencies.
+        from resolwe.flow.signals import commit_signal
+
+        # Sanity check: only data in status ERROR can be restarted.
+        if self.status != Data.STATUS_ERROR:
+            raise RuntimeError(
+                f"Only data in status {Data.STATUS_ERROR} can be restarted, not {self.status}."
+            )
+
+        # Sanity check: all dependencies must be in status DONE.
+        if self.dependency_status() != Data.STATUS_DONE:
+            raise RuntimeError(
+                f"Data dependencies must have status '{Data.STATUS_DONE}'."
+            )
+
+        with transaction.atomic():
+            # When data object is restarted we also need to restart all its children.
+            # We have to clear them all and reset their statuses to be restarted.
+            dependencies = Data.objects.filter(
+                parents_dependency__parent=self,
+                parents_dependency__kind__in=[DataDependency.KIND_IO],
+            )
+
+            # Subprocess dependencies must be deleted, they will be recreated.
+            Data.objects.filter(
+                parents_dependency__parent=self,
+                parents_dependency__kind__in=[DataDependency.KIND_SUBPROCESS],
+            ).delete()
+
+            # Construct the map id -> data.
+            to_process = {data.id: data for data in dependencies}
+            to_process[self.pk] = self
+
+            # Prevent circular import.
+            from resolwe.flow.managers.listener.listener import cache_manager
+
+            # Clear the Redis cache for objects to be restarted.
+            cache_manager.clear(Data, to_process.keys())
+
+            # Evaluate lazy generator by listing it.
+            list(map(reset_data, to_process.values()))
+
+            # Set the overrides.
+            for data_pk, override in resource_overrides.items():
+                if int(data_pk) in to_process:
+                    to_process[int(data_pk)].process_resources = override
+
+            # Save the data objects. This will send out notifications.
+            for data in to_process.values():
+                data.save()
+
+        # Start processing the duplicate.
+        commit_signal(self, False, update_fields=None)
 
 
 class DataDependency(models.Model):

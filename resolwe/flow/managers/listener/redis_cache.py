@@ -474,6 +474,14 @@ class CachedObjectManager(PluginManager["CachedObjectPlugin"]):
         """Unlock locks for the given entries."""
         return redis_cache.unlock(model, identifiers_list, status)
 
+    def clear(
+        self,
+        model: models.Model,
+        identifiers_list: Sequence[Identifier],
+    ):
+        """Clear the cache for the given identifiers."""
+        return redis_cache.clear(model, identifiers_list)
+
     def wait(
         self,
         model: models.Model,
