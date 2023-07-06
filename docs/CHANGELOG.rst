@@ -27,6 +27,8 @@ Changed
 - Bump ``psycopg`` version to 3.1.9
 - Upgrade ``Fedora`` base image to version 37
 - Remove ``Django Priority Batch`` dependency
+- Set filename with `Content-Disposition` header when downloading data from S3
+  to avoid issues with some browsers renaming the file due to media type
 
 
 ===================

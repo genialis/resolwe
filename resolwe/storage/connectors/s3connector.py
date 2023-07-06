@@ -369,6 +369,7 @@ class AwsS3Connector(BaseStorageConnector):
         :returns: URL that can be used to access object or None.
         """
         content_disposition = "attachment" if force_download else "inline"
+        content_disposition += f';filename="{Path(url).name}"'
         response = None
         try:
             response = self.client.generate_presigned_url(
