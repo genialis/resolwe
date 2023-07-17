@@ -705,8 +705,8 @@ class BaseCommunicator:
         A response is first paired with the sent command and the Event object
         is set so that response is received in the send_command method.
         """
-        try:
-            while True:
+        while True:
+            try:
                 received = await self._receive_message()
 
                 if received is None:
@@ -753,8 +753,8 @@ class BaseCommunicator:
                     )
                 self._uuids_received[identity] = {message.uuid: now()}
 
-        except Exception:
-            self.logger.exception("Exception while listening for messages.")
+            except Exception:
+                self.logger.exception("Exception while listening for message.")
 
         self.logger.info(f"Communicator {self.name} stopped listening for commands.")
         await self.stop_listening()
