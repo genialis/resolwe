@@ -1,12 +1,16 @@
 """Utils for working with zeromq."""
 import json
-from logging import Logger
+import logging
 from typing import Any, Optional, Tuple
 
 import zmq
 import zmq.asyncio
 
+from resolwe.utils import BraceMessage as __
+
 from .socket_utils import BaseCommunicator, PeerIdentity
+
+logger = logging.getLogger(__name__)
 
 
 async def async_zmq_send_data(
@@ -49,7 +53,11 @@ async def async_zmq_receive_data(
         message = await reader.recv()
     else:
         identity, message = await reader.recv_multipart()
-    decoded = json.loads(message.decode())
+    try:
+        decoded = json.loads(message.decode())
+    except json.JSONDecodeError:
+        logger.debug(__("Message '{}' is not in JSON format.", message))
+        raise
     return (identity, decoded)
 
 
@@ -60,7 +68,7 @@ class ZMQCommunicator(BaseCommunicator):
         self,
         socket: zmq.asyncio.Socket,
         name: str,
-        logger: Logger,
+        logger: logging.Logger,
     ):
         """Initialize."""
         super().__init__(

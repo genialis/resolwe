@@ -23,8 +23,6 @@ from typing import (
     TypeVar,
 )
 
-logger = logging.getLogger(__name__)
-
 
 @unique
 class MessageType(Enum):
@@ -599,6 +597,10 @@ class BaseCommunicator:
                     "Communicator %s _receive_message: terminating flag is set, returning None",
                     self.name,
                 )
+        # When message can not be parsed raise error so that it is logged and listening
+        # does not stop.
+        except json.JSONDecodeError:
+            raise
         # Do not log cancelled errors.
         except asyncio.CancelledError:
             self.logger.debug(
@@ -707,7 +709,11 @@ class BaseCommunicator:
         """
         try:
             while True:
-                received = await self._receive_message()
+                try:
+                    received = await self._receive_message()
+                except json.JSONDecodeError:
+                    self.logger.warning("Message is not in JSON format, skipping it.")
+                    continue
 
                 if received is None:
                     self.logger.info(
@@ -718,7 +724,7 @@ class BaseCommunicator:
                 identity, message = received
 
                 if message.message_type is MessageType.HEARTBEAT:
-                    logger.debug("Got heartbeat from peer '%s'.", identity)
+                    self.logger.debug("Got heartbeat from peer '%s'.", identity)
                     if self.heartbeat_handler is not None:
                         asyncio.ensure_future(self.heartbeat_handler(identity))
 
