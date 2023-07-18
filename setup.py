@@ -77,6 +77,7 @@ setuptools.setup(
         "docs": [
             "sphinx_rtd_theme",
             "pyasn1>=0.4.8",
+            "daphne>=4.0.0",
         ],
         "package": [
             "twine",
