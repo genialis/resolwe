@@ -46,3 +46,6 @@ testing_credentials.tgz
 
 # Ignore VS Code files
 *.code-workspace
+
+# Ignore OpenApi schema file
+schema.yml

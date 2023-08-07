@@ -52,6 +52,7 @@ setuptools.setup(
         "django-filter~=23.1",
         "django-versionfield~=1.0.3",
         "django-fernet-fields-v2~=0.8",
+        "drf-spectacular~=0.26.4",
         "Jinja2~=3.1.2",
         "jsonschema~=4.17.3",
         "plumbum~=1.8.1",

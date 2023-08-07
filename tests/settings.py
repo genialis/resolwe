@@ -7,6 +7,8 @@ import sys
 from distutils.util import strtobool
 from pathlib import Path
 
+from resolwe.__about__ import __version__
+
 PROJECT_ROOT = Path(__file__).parent.resolve()
 
 SECRET_KEY = "secret"
@@ -28,6 +30,7 @@ INSTALLED_APPS = (
     "channels",
     # 'kombu.transport.django',  # required for Celery to work with Django DB.
     "rest_framework",
+    "drf_spectacular",
     "django_filters",
     "versionfield",
     "resolwe",
@@ -227,7 +230,19 @@ REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "resolwe.flow.utils.exceptions.resolwe_exception_handler",
     "DATETIME_FORMAT": "iso-8601",
     "DATE_FORMAT": "iso-8601",
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
+
+
+# Schema generation
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Resolwe",
+    "DESCRIPTION": "An open source dataflow package for Django.",
+    "VERSION": __version__,
+    "SERVE_INCLUDE_SCHEMA": False,
+}
+
 
 # Time
 USE_TZ = True
