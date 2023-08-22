@@ -489,6 +489,14 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
         # Make sure partitions were not deleted.
         self.assertEqual(self.relation_group.relationpartition_set.count(), 2)
 
+        # Change the relation slug.
+        new_slug = "my-unique-relation-slug"
+        data = {"slug": new_slug}
+        resp = self._patch(self.relation_group.pk, data, user=self.contributor)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.relation_group.refresh_from_db()
+        self.assertEqual(self.relation_group.slug, new_slug)
+
         # Relation type cannot be changed
         data = {"type": "series"}
         resp = self._patch(self.relation_group.pk, data, user=self.contributor)
