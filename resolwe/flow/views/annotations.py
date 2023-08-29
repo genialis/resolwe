@@ -51,7 +51,7 @@ class AnnotationFieldViewSet(
 ):
     """Annotation fields viewset."""
 
-    permission_classes = (permissions.IsAuthenticated,)
+    permission_classes = (permissions.AllowAny,)
     serializer_class = AnnotationFieldSerializer
     filterset_class = AnnotationFieldFilter
     # No need to specify default ordering: it is specified on the model.

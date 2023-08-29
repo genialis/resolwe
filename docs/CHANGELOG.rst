@@ -13,6 +13,7 @@ Unreleased
 Changed
 -------
 - Relation slug can be updated
+- Anonymous user can access the annotation field endpoint
 
 
 ===================

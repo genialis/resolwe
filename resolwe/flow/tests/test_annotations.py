@@ -374,15 +374,10 @@ class AnnotationViewSetsTest(TestCase):
 
     def test_annotation_field(self):
         """Test the annotation field endpoint."""
-        # Unauthenticated user should get 403 response.
+
+        # No authentication is necessary to access the annotation field endpoint.
         request = factory.get("/", {}, format="json")
         response: HttpResponse = self.annotationfield_viewset(request)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-
-        # Authenticated users should see all the fields.
-        force_authenticate(request, self.contributor)
-        response: HttpResponse = self.annotationfield_viewset(request)
-
         self.assertEqual(len(response.data), 2)
         self.assertEqual(response.data[0]["name"], "field2")
         self.assertEqual(response.data[0]["label"], "Annotation field 2")
@@ -425,7 +420,6 @@ class AnnotationViewSetsTest(TestCase):
 
         # Filter by required.
         request = factory.get("/", {"required": False}, format="json")
-        force_authenticate(request, self.contributor)
         response = self.annotationfield_viewset(request)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 2)
@@ -434,7 +428,6 @@ class AnnotationViewSetsTest(TestCase):
         self.annotation_field1.save()
 
         request = factory.get("/", {"required": True}, format="json")
-        force_authenticate(request, self.contributor)
         response = self.annotationfield_viewset(request)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
@@ -511,6 +504,7 @@ class AnnotationViewSetsTest(TestCase):
         self.assertEqual(len(response.data), 0)
 
         self.collection1.set_permission(Permission.NONE, self.contributor)
+        force_authenticate(request, self.contributor)
         response = self.annotationfield_viewset(request)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 0)
@@ -518,28 +512,24 @@ class AnnotationViewSetsTest(TestCase):
 
         # Filter by name and label.
         request = factory.get("/", {"name": "field1"}, format="json")
-        force_authenticate(request, self.contributor)
         response = self.annotationfield_viewset(request)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["name"], "field1")
 
         request = factory.get("/", {"name__icontains": "Ld1"}, format="json")
-        force_authenticate(request, self.contributor)
         response = self.annotationfield_viewset(request)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["name"], "field1")
 
         request = factory.get("/", {"label": "Annotation field 1"}, format="json")
-        force_authenticate(request, self.contributor)
         response = self.annotationfield_viewset(request)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["name"], "field1")
 
         request = factory.get("/", {"label__icontains": "fiELd 1"}, format="json")
-        force_authenticate(request, self.contributor)
         response = self.annotationfield_viewset(request)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
@@ -559,7 +549,6 @@ class AnnotationViewSetsTest(TestCase):
             type="INTEGER",
         )
         request = factory.get("/", {}, format="json")
-        force_authenticate(request, self.contributor)
         response: HttpResponse = self.annotationfield_viewset(request)
         self.assertEqual(len(response.data), 3)
         self.assertEqual(response.data[0]["name"], "field1")
@@ -575,7 +564,6 @@ class AnnotationViewSetsTest(TestCase):
         # Change the field sort order within the group.
         field.sort_order = self.annotation_field1.sort_order - 1
         field.save()
-        force_authenticate(request, self.contributor)
         response: HttpResponse = self.annotationfield_viewset(request)
         self.assertEqual(len(response.data), 3)
         self.assertEqual(response.data[1]["name"], "field1")
@@ -592,7 +580,6 @@ class AnnotationViewSetsTest(TestCase):
         self.annotation_group1.sort_order = self.annotation_group2.sort_order + 1
         self.annotation_group1.save()
         field.save()
-        force_authenticate(request, self.contributor)
         response: HttpResponse = self.annotationfield_viewset(request)
         self.assertEqual(len(response.data), 3)
         self.assertEqual(response.data[2]["name"], "field1")
