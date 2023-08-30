@@ -15,6 +15,10 @@ Changed
 - Relation slug can be updated
 - Anonymous user can access the annotation field endpoint
 
+Added
+-----
+- Add ``clean_observers`` management command to clean old subsciptions
+
 
 ===================
 36.0.0 - 2023-07-17
