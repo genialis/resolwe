@@ -258,7 +258,7 @@ class AnnotationField(models.Model):
     sort_order = models.PositiveSmallIntegerField()
 
     #: optional regular expression for validation
-    validator_regex = models.CharField(max_length=128, null=True)
+    validator_regex = models.CharField(max_length=128, null=True, blank=True)
 
     #: optional map of valid values to labels
     vocabulary = models.JSONField(null=True)
