@@ -35,13 +35,22 @@ class FilterAnnotations(TestCase):
         super().setUp()
 
         self.viewset = EntityViewSet.as_view(actions={"get": "list"})
-        entity1: Entity = Entity.objects.create(name="E1", contributor=self.contributor)
+        self.entity1: Entity = Entity.objects.create(
+            name="E1", contributor=self.contributor
+        )
         entity2: Entity = Entity.objects.create(name="E2", contributor=self.contributor)
-        entity1.set_permission(Permission.VIEW, self.contributor)
+        self.entity1.set_permission(Permission.VIEW, self.contributor)
         entity2.set_permission(Permission.VIEW, self.contributor)
         annotation_group: AnnotationGroup = AnnotationGroup.objects.create(
             name="group", label="Annotation group", sort_order=1
         )
+
+        self.fields_vocabulary = {
+            AnnotationType.STRING: {
+                "entIty_1": "label1 entIty_1",
+                "entity_2": "label2 entity_2",
+            }
+        }
         self.fields = {
             annotation_type: AnnotationField.objects.create(
                 name=annotation_type.value,
@@ -49,22 +58,26 @@ class FilterAnnotations(TestCase):
                 type=annotation_type.value,
                 sort_order=1,
                 group=annotation_group,
+                vocabulary=self.fields_vocabulary.get(annotation_type, None),
             )
             for annotation_type in AnnotationType
         }
         field_values = {
-            AnnotationType.STRING: [(entity1, "entIty_1"), (entity2, "entity_2")],
-            AnnotationType.INTEGER: [(entity1, 1), (entity2, 2)],
-            AnnotationType.DECIMAL: [(entity1, 1.1), (entity2, 2.2)],
-            AnnotationType.DATE: [(entity1, "1111-01-01"), (entity2, "2222-02-02")],
+            AnnotationType.STRING: [(self.entity1, "entIty_1"), (entity2, "entity_2")],
+            AnnotationType.INTEGER: [(self.entity1, 1), (entity2, 2)],
+            AnnotationType.DECIMAL: [(self.entity1, 1.1), (entity2, 2.2)],
+            AnnotationType.DATE: [
+                (self.entity1, "1111-01-01"),
+                (entity2, "2222-02-02"),
+            ],
         }
         for annotation_type, values in field_values.items():
             for entity, value in values:
                 field = self.fields[annotation_type]
                 AnnotationValue.objects.create(entity=entity, field=field, value=value)
-        self.first_id = [entity1.id]
+        self.first_id = [self.entity1.id]
         self.second_id = [entity2.id]
-        self.both_ids = [entity1.id, entity2.id]
+        self.both_ids = [self.entity1.id, entity2.id]
 
     def _verify_response(self, query: str, expected_entity_ids: Sequence[int]):
         """Validate the response."""
@@ -75,6 +88,32 @@ class FilterAnnotations(TestCase):
         received_entity_ids = [entry["id"] for entry in response.data]
         self.assertCountEqual(received_entity_ids, expected_entity_ids)
 
+    def test_label_created(self):
+        """Test label in annotation value was populated during setup."""
+        for value_field in self.fields[AnnotationType.STRING].values.all():
+            self.assertEqual(
+                value_field.label,
+                self.fields_vocabulary[AnnotationType.STRING][value_field.value],
+            )
+
+    def test_label_recomputed(self):
+        """Test label is recomputed when vocabulary changes."""
+        new_vocabulary = {
+            "entIty_1": "entity_1 new",
+            "entity_2": "label entity_2 new",
+        }
+        self.fields[AnnotationType.STRING].vocabulary = new_vocabulary
+        self.fields[AnnotationType.STRING].save()
+        for value_field in self.fields[AnnotationType.STRING].values.all():
+            self.assertEqual(value_field.label, new_vocabulary[value_field.value])
+
+    def test_permissions(self):
+        """Test filtering by string annotation values."""
+        field_id = self.fields[AnnotationType.STRING].id
+        self._verify_response(f"{field_id}__icontains:ent", self.both_ids)
+        self.entity1.set_permission(Permission.NONE, self.contributor)
+        self._verify_response(f"{field_id}__icontains:ent", self.second_id)
+
     def test_string(self):
         """Test filtering by string annotation values."""
         field_id = self.fields[AnnotationType.STRING].id
@@ -82,6 +121,10 @@ class FilterAnnotations(TestCase):
         self._verify_response(f"{field_id}:entIty_1", self.first_id)
         self._verify_response(f"{field_id}__icontains:entity_1", self.first_id)
         self._verify_response(f"{field_id}__icontains:ent", self.both_ids)
+        # Test filtering by labels.
+        self._verify_response(f"{field_id}__icontains:label", self.both_ids)
+        self._verify_response(f"{field_id}__icontains:label2", self.second_id)
+        self._verify_response(f"{field_id}__icontains:label1", self.first_id)
 
     def test_integer(self):
         """Test filtering by integer annotation values."""
@@ -169,6 +212,12 @@ class TestOrderEntityByAnnotations(TestCase):
         self._verify_response(
             f"-annotations__{field_id}", list(reversed(self.both_ids))
         )
+        # Test filtering respects labels.
+        field = self.fields[AnnotationType.STRING]
+        field.vocabulary = {"abc": "bc", "bc": "abc"}
+        field.save()
+        self._verify_response(f"-annotations__{field_id}", self.both_ids)
+        self._verify_response(f"annotations__{field_id}", list(reversed(self.both_ids)))
 
     def test_integer(self):
         """Test filtering by integer annotation values."""
@@ -209,7 +258,9 @@ class TestOrderEntityByAnnotations(TestCase):
             list(reversed(self.both_ids)),
         )
         # Test ordering when first values are same.
-        value = AnnotationValue.objects.get(field=field1, _value={"value": "abc"})
+        value = AnnotationValue.objects.get(
+            field=field1, _value={"value": "abc", "label": "abc"}
+        )
         value.value = "bc"
         value.save()
         self._verify_response(
@@ -269,6 +320,7 @@ class AnnotationViewSetsTest(TestCase):
             sort_order=2,
             group=self.annotation_group1,
             type="STRING",
+            vocabulary={"string": "label string"},
         )
         self.annotation_field2: AnnotationField = AnnotationField.objects.create(
             name="field2",
@@ -672,9 +724,13 @@ class AnnotationViewSetsTest(TestCase):
     def test_list_filter_values(self):
         request = factory.get("/", {}, format="json")
 
-        # Unauthenticated request, no permissions.
+        # Unauthenticated request without entity filter.
         response: HttpResponse = self.annotationvalue_viewset(request)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["__all__"][0],
+            "At least one of the entity filters must be set.",
+        )
 
         # Authenticated request without entity filter.
         force_authenticate(request, self.contributor)
@@ -685,6 +741,24 @@ class AnnotationViewSetsTest(TestCase):
             "At least one of the entity filters must be set.",
         )
 
+        # Unauthenticated request without permissions.
+        request = factory.get("/", {"entity": self.entity1.pk}, format="json")
+        response: Response = self.annotationvalue_viewset(request)
+        self.assertTrue(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 0)
+
+        # Unauthenticated request with permissions.
+        self.collection1.set_permission(Permission.VIEW, self.anonymous)
+        request = factory.get("/", {"entity": self.entity1.pk}, format="json")
+        response: Response = self.annotationvalue_viewset(request)
+        self.assertTrue(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(len(response.data), 1)
+        self.assertTrue(response.data[0]["id"], self.annotation_value1.pk)
+        self.assertTrue(response.data[0]["field"], self.annotation_field1.pk)
+        self.assertTrue(response.data[0]["value"], "string")
+        self.assertTrue(response.data[0]["label"], "label string")
+        self.collection1.set_permission(Permission.NONE, self.anonymous)
+
         # Authenticated request.
         request = factory.get("/", {"entity": self.entity1.pk}, format="json")
         force_authenticate(request, self.contributor)
@@ -694,6 +768,7 @@ class AnnotationViewSetsTest(TestCase):
         self.assertTrue(response.data[0]["id"], self.annotation_value1.pk)
         self.assertTrue(response.data[0]["field"], self.annotation_field1.pk)
         self.assertTrue(response.data[0]["value"], "string")
+        self.assertTrue(response.data[0]["label"], "label string")
 
         # Another authenticated request.
         self.annotation_value2.entity = self.entity1
@@ -716,6 +791,29 @@ class AnnotationViewSetsTest(TestCase):
         self.assertEqual(len(response.data), 1)
         self.assertTrue(response.data[0]["id"], self.annotation_value1.pk)
 
+        # Filter by value/label.
+        request = factory.get(
+            "/",
+            {"entity": self.entity1.pk, "label": "label"},
+            format="json",
+        )
+        force_authenticate(request, self.contributor)
+        response = self.annotationvalue_viewset(request)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertTrue(response.data[0]["id"], self.annotation_value1.pk)
+
+        request = factory.get(
+            "/",
+            {"entity": self.entity1.pk, "label": "string"},
+            format="json",
+        )
+        force_authenticate(request, self.contributor)
+        response = self.annotationvalue_viewset(request)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertTrue(response.data[0]["id"], self.annotation_value1.pk)
+
         # Filter by field_label
         request = factory.get(
             "/",
@@ -728,12 +826,45 @@ class AnnotationViewSetsTest(TestCase):
         self.assertEqual(len(response.data), 1)
         self.assertTrue(response.data[0]["id"], self.annotation_value1.pk)
 
+    def test_empty_vocabulary(self):
+        """Test empty vocabulary.
+
+        This is not strictly a viewset test but it fits best here.
+        """
+        # Setting vocabulary to empty on field with existing values must raise exception.
+        self.annotation_field1.vocabulary = {}
+        with self.assertRaises(KeyError):
+            self.annotation_field1.save()
+        self.annotation_field1.refresh_from_db()
+        self.assertIsNotNone(self.annotation_field1.vocabulary)
+
+        # Disable vocabulary by setting vocabulary to None.
+        # First check that incorrect entries are not allowed and disable the vocabulary.
+        # The labels must be recomputed and any entry must be allowed.
+        with self.assertRaises(KeyError):
+            AnnotationValue.objects.create(
+                entity=self.entity1, field=self.annotation_field1, value="non_existing"
+            )
+        self.annotation_value1.refresh_from_db()
+        self.assertEqual(self.annotation_value1._value["label"], "label string")
+        self.annotation_field1.vocabulary = None
+        self.annotation_field1.save()
+        self.annotation_value1.refresh_from_db()
+        # Labels must be recomputed to the original value.
+        self.assertEqual(self.annotation_value1._value["label"], "string")
+        AnnotationValue.objects.create(
+            entity=self.entity1, field=self.annotation_field1, value="non_existing"
+        )
+
     def test_set_values(self):
         def has_value(entity, field_id, value):
             self.assertEqual(
                 value, entity.annotations.filter(field_id=field_id).get().value
             )
 
+        # Remove vocabulary to simplify testing.
+        self.annotation_field1.vocabulary = None
+        self.annotation_field1.save()
         viewset = EntityViewSet.as_view(actions={"post": "set_annotations"})
         request = factory.post("/", {}, format="json")
 

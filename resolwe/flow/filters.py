@@ -392,11 +392,15 @@ class EntityFilter(BaseCollectionFilter):
         else:
             validated_value = processing(string_value)
 
-        filters = {
-            "annotations__field_id": field_id,
+        q_filter = {
             f"annotations___value__value__{lookup_type}": validated_value,
+            f"annotations___value__label__{lookup_type}": validated_value,
         }
-        return queryset.filter(**filters)
+        value_query = Q()
+        for key, value in q_filter.items():
+            value_query |= Q(**{key: value})
+        field_query = Q(annotations__field_id=field_id)
+        return queryset.filter().filter(field_query & value_query)
 
     class Meta(BaseCollectionFilter.Meta):
         """Filter configuration."""
@@ -646,7 +650,7 @@ class AnnotationValueMetaclass(ResolweFilterMetaclass):
 class AnnotationValueFilter(BaseResolweFilter, metaclass=AnnotationValueMetaclass):
     """Filter the AnnotationValue endpoint."""
 
-    value = filters.CharFilter(method="filter_by_value")
+    label = filters.CharFilter(method="filter_by_label")
 
     def get_form_class(self):
         """Override the form class to add custom clean method."""
@@ -665,9 +669,9 @@ class AnnotationValueFilter(BaseResolweFilter, metaclass=AnnotationValueMetaclas
         form.clean = partialmethod(clean, original_clean=form.clean)
         return form
 
-    def filter_by_value(self, queryset, name, value):
-        """Filter by value."""
-        return queryset.filter(_value__value__icontains=value)
+    def filter_by_label(self, queryset, name, value):
+        """Filter by label."""
+        return queryset.filter(_value__label__icontains=value)
 
     class Meta(BaseResolweFilter.Meta):
         """Filter configuration."""

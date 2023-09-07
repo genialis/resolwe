@@ -102,4 +102,4 @@ class AnnotationValueSerializer(ResolweBaseSerializer):
         model = AnnotationValue
         read_only_fields = ("id", "field")
         update_protected_fields = ("entity", "field")
-        fields = read_only_fields + update_protected_fields + ("value",)
+        fields = read_only_fields + update_protected_fields + ("value", "label")

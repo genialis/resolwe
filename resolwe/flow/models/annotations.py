@@ -7,7 +7,6 @@ from enum import Enum
 from typing import (
     TYPE_CHECKING,
     Any,
-    Dict,
     Iterable,
     List,
     Mapping,
@@ -64,12 +63,11 @@ class AnnotationValueValidator:
 
     def validate(
         self, annotation_value: "AnnotationValue", raise_exception: bool = False
-    ) -> Sequence[str]:
+    ) -> Sequence[ValidationError]:
         """Validate the given AnnotationValue object.
 
         All validation errors are grouped together.
 
-        :return: sequence of validation errors.
         :raises ValidationError: if annotation fails and raise_exception is True. The
             actual errors are nested inside outer ValidationError.
         """
@@ -206,7 +204,10 @@ class AnnotationFieldVocabularyValidator(AnnotationFieldBaseValidator):
 
     def validate(self, value: Any, annotation_field: "AnnotationField"):
         """Validate that the value matches vocabulary on the field."""
-        if annotation_field.vocabulary and value not in annotation_field.vocabulary:
+        if (
+            annotation_field.vocabulary is not None
+            and value not in annotation_field.vocabulary
+        ):
             raise ValidationError(
                 f"The value '{value}' is not valid for the field {annotation_field}."
             )
@@ -261,19 +262,15 @@ class AnnotationField(models.Model):
     validator_regex = models.CharField(max_length=128, null=True, blank=True)
 
     #: optional map of valid values to labels
-    vocabulary = models.JSONField(null=True)
+    vocabulary = models.JSONField(null=True, blank=True)
 
     #: is this field required
     required = models.BooleanField(default=False)
 
-    def label_by_value(self, label: str) -> str:
-        """Get the value by label.
-
-        When no value is found the label is returned.
-        """
-        return {label: value for value, label in self.vocabulary.items()}.get(
-            label, label
-        )
+    def __init__(self, *args, **kwargs):
+        """Store original vocabulary to private variable."""
+        super().__init__(*args, **kwargs)
+        self._original_vocabulary = self.vocabulary
 
     @staticmethod
     def add_to_collection(source: "Collection", destination: "Collection"):
@@ -305,6 +302,21 @@ class AnnotationField(models.Model):
         """Get the field id from the field path."""
         group_name, field_name = cls.group_field_from_path(path)
         return cls.objects.filter(group__name=group_name, name=field_name).first()
+
+    def save(self, *args, **kwargs):
+        """Recompute the labels for annotation values if vocabulary changes.
+
+        :raises KeyError: when vocabulary changes so that annotation values are no
+            longer valid.
+        """
+        super().save(*args, **kwargs)
+        if self.vocabulary != self._original_vocabulary:
+            updated_fields = []
+            for annotation_value_field in self.values.all():
+                annotation_value_field.recompute_label()
+                updated_fields.append(annotation_value_field)
+            AnnotationValue.objects.bulk_update(updated_fields, ["_value"])
+            self._original_vocabulary = self.vocabulary
 
     def __str__(self) -> str:
         """Return user-friendly string representation."""
@@ -366,9 +378,17 @@ class AnnotationValue(AuditModel):
         intercept the value when given as kwarg, since args are used by Django when
         constructing class from database value.
         """
+        recompute_label = False
         if "value" in kwargs:
-            kwargs["_value"] = {"value": kwargs.pop("value")}
+            value = kwargs.pop("value")
+            kwargs["_value"] = {
+                "value": value,
+            }
+            recompute_label = True
+
         super().__init__(*args, **kwargs)
+        if recompute_label:
+            self.recompute_label()
 
     @property
     def value(self):
@@ -379,9 +399,26 @@ class AnnotationValue(AuditModel):
     def value(self, value):
         """Set the value.
 
-        The object must be saved for the value to propagate to the database.
+        The label is recomputed when the value is set.
         """
         self._value["value"] = value
+        self.recompute_label()
+
+    @property
+    def _computed_label(self) -> Any:
+        """Return computed label from value.
+
+        :raises KeyError: when the value is not in the vocabulary.
+        """
+        if self.field.vocabulary is None:
+            return self.value
+        else:
+            return self.field.vocabulary[self.value]
+
+    @property
+    def label(self):
+        """Return the cached label."""
+        return self._value["label"]
 
     def validate(self):
         """Validate the given value.
@@ -393,24 +430,10 @@ class AnnotationValue(AuditModel):
         """
         annotation_value_validator.validate(self, raise_exception=True)
 
-    @property
-    def value_label_map(self) -> Dict[str, Any]:
-        """Compute the mapping from value to label.
-
-        Only applicable when vocabulary is given, otherwise empty dictionary is
-        returned.
-        """
-        return self.field.vocabulary or {}
-
-    @property
-    def label(self) -> Any:
-        """Get the value of the label from value.
-
-        This is only applicable if the vocabulary is set. When no vocabulary is
-        set it returns the value.
-        """
-        return self.field.vocabulary.get(self.value, self.value)
+    def recompute_label(self):
+        """Recompute label from value and set it to the model instance."""
+        self._value["label"] = self._computed_label
 
     def __str__(self) -> str:
         """Return user-friendly string representation."""
-        return f"{self.value}"
+        return f"{self.label}"

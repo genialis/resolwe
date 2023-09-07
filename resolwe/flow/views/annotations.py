@@ -68,7 +68,13 @@ class AnnotationValueViewSet(
 ):
     """Annotation value viewset."""
 
-    permission_classes = (permissions.IsAuthenticated,)
+    # Users can only see the annotation values on the entities they have permission to
+    # access. The actual permissions are checked in the AnnotationValueFilter. The
+    # filter assures at least one of the entity filters is applied and the permissions
+    # filters are applied inside filter_permissions method defined in
+    # AnnotationValueMetaclass.
+    # This behaviour is tested in test_list_filter_values.
+    permission_classes = (permissions.AllowAny,)
     serializer_class = AnnotationValueSerializer
     filterset_class = AnnotationValueFilter
     queryset = AnnotationValue.objects.all()

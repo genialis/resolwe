@@ -73,9 +73,10 @@ class EntityViewSet(ObservableMixin, BaseCollectionViewSet):
             fields = [field.strip() for field in ordering.split(",")]
             for match in filter(None, map(regex.match, fields)):
                 field_id = match.group("field_id")
+                # Always filter by user-visible attribute annotation_label.
                 annotation_value = AnnotationValue.objects.filter(
                     entity_id=OuterRef("pk"), field_id=field_id
-                ).values("_value__value")
+                ).values("_value__label")
                 annotate = {f"_order_{field_id}": Subquery(annotation_value)}
                 queryset = queryset.annotate(**annotate)
                 sign = "-" if match.string.startswith("-") else ""

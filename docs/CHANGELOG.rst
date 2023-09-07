@@ -14,10 +14,14 @@ Changed
 -------
 - Relation slug can be updated
 - Anonymous user can access the annotation field endpoint
+- Annotations contain the field ``label``
+- Filtering entities by annotations now filters by ``label`` and ``value``
+  fields
 
 Added
 -----
 - Add ``clean_observers`` management command to clean old subsciptions
+- Allow filtering annotation values endpoint by ``label``
 
 
 ===================
