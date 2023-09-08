@@ -96,6 +96,7 @@ setuptools.setup(
             "tblib>=1.7.0",
             "isort>=5.12.0",
             "daphne>=4.0.0",
+            "django-stubs>=4.2.4",
         ],
     },
     classifiers=[
