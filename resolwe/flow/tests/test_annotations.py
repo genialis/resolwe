@@ -1,8 +1,7 @@
 # pylint: disable=missing-docstring
-from typing import Sequence
+from typing import Any, Sequence
 
 from django.core.exceptions import ValidationError
-from django.http import HttpResponse
 from django.urls import reverse
 
 from rest_framework import status
@@ -64,14 +63,11 @@ class FilterAnnotations(TestCase):
             )
             for annotation_type in AnnotationType
         }
-        field_values = {
-            AnnotationType.STRING: [(self.entity1, "entIty_1"), (entity2, "entity_2")],
-            AnnotationType.INTEGER: [(self.entity1, 1), (entity2, 2)],
-            AnnotationType.DECIMAL: [(self.entity1, 1.1), (entity2, 2.2)],
-            AnnotationType.DATE: [
-                (self.entity1, "1111-01-01"),
-                (entity2, "2222-02-02"),
-            ],
+        field_values: dict[AnnotationType, list[tuple[Entity, Any]]] = {
+            AnnotationType.STRING: [(entity1, "entIty_1"), (entity2, "entity_2")],
+            AnnotationType.INTEGER: [(entity1, 1), (entity2, 2)],
+            AnnotationType.DECIMAL: [(entity1, 1.1), (entity2, 2.2)],
+            AnnotationType.DATE: [(entity1, "1111-01-01"), (entity2, "2222-02-02")],
         }
         for annotation_type, values in field_values.items():
             for entity, value in values:
@@ -184,7 +180,7 @@ class TestOrderEntityByAnnotations(TestCase):
             )
             for annotation_type in AnnotationType
         }
-        field_values = {
+        field_values: dict[AnnotationType, list[tuple[Entity, Any]]] = {
             AnnotationType.STRING: [(entity1, "abc"), (entity2, "bc")],
             AnnotationType.INTEGER: [(entity1, 2), (entity2, 10)],
             AnnotationType.DECIMAL: [(entity1, 2.2), (entity2, 10.1)],
@@ -545,7 +541,7 @@ class AnnotationViewSetsTest(TestCase):
 
     def test_list_filter_preset(self):
         request = factory.get("/", {}, format="json")
-        response: HttpResponse = self.preset_viewset(request)
+        response: Response = self.preset_viewset(request)
 
         # Unauthenticated request, no permissions.
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -607,7 +603,12 @@ class AnnotationViewSetsTest(TestCase):
 
         # No authentication is necessary to access the annotation field endpoint.
         request = factory.get("/", {}, format="json")
-        response: HttpResponse = self.annotationfield_viewset(request)
+        response: Response = self.annotationfield_viewset(request)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        # Authenticated users should see all the fields.
+        force_authenticate(request, self.contributor)
+        response = self.annotationfield_viewset(request)
         self.assertEqual(len(response.data), 2)
         self.assertEqual(response.data[0]["name"], "field2")
         self.assertEqual(response.data[0]["label"], "Annotation field 2")
@@ -797,7 +798,8 @@ class AnnotationViewSetsTest(TestCase):
             type="INTEGER",
         )
         request = factory.get("/", {}, format="json")
-        response: HttpResponse = self.annotationfield_viewset(request)
+        force_authenticate(request, self.contributor)
+        response = self.annotationfield_viewset(request)
         self.assertEqual(len(response.data), 3)
         self.assertEqual(response.data[0]["name"], "field1")
         self.assertEqual(response.data[0]["label"], "Annotation field 1")
@@ -809,7 +811,8 @@ class AnnotationViewSetsTest(TestCase):
         # Change the field sort order within the group.
         field.sort_order = self.annotation_field1.sort_order - 1
         field.save()
-        response: HttpResponse = self.annotationfield_viewset(request)
+        force_authenticate(request, self.contributor)
+        response = self.annotationfield_viewset(request)
         self.assertEqual(len(response.data), 3)
         self.assertEqual(response.data[1]["name"], "field1")
         self.assertEqual(response.data[1]["label"], "Annotation field 1")
@@ -822,7 +825,8 @@ class AnnotationViewSetsTest(TestCase):
         self.annotation_group1.sort_order = self.annotation_group2.sort_order + 1
         self.annotation_group1.save()
         field.save()
-        response: HttpResponse = self.annotationfield_viewset(request)
+        force_authenticate(request, self.contributor)
+        response = self.annotationfield_viewset(request)
         self.assertEqual(len(response.data), 3)
         self.assertEqual(response.data[2]["name"], "field1")
         self.assertEqual(response.data[2]["label"], "Annotation field 1")
@@ -868,7 +872,7 @@ class AnnotationViewSetsTest(TestCase):
             format="json",
         )
         force_authenticate(request, self.contributor)
-        response: Response = viewset(request, pk=self.collection1.pk)
+        response = viewset(request, pk=self.collection1.pk)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertCountEqual(
             self.collection1.annotation_fields.values_list("pk", flat=True),
@@ -890,7 +894,7 @@ class AnnotationViewSetsTest(TestCase):
             format="json",
         )
         force_authenticate(request, self.contributor)
-        response: Response = viewset(request, pk=self.collection2.pk)
+        response = viewset(request, pk=self.collection2.pk)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_required_fields(self):
@@ -911,13 +915,9 @@ class AnnotationViewSetsTest(TestCase):
     def test_list_filter_values(self):
         request = factory.get("/", {}, format="json")
 
-        # Unauthenticated request without entity filter.
-        response: HttpResponse = self.annotationvalue_viewset(request)
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(
-            response.data["__all__"][0],
-            "At least one of the entity filters must be set.",
-        )
+        # Unauthenticated request, no permissions.
+        response: Response = self.annotationvalue_viewset(request)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
         # Authenticated request without entity filter.
         force_authenticate(request, self.contributor)
@@ -949,7 +949,7 @@ class AnnotationViewSetsTest(TestCase):
         # Authenticated request.
         request = factory.get("/", {"entity": self.entity1.pk}, format="json")
         force_authenticate(request, self.contributor)
-        response: Response = self.annotationvalue_viewset(request)
+        response = self.annotationvalue_viewset(request)
         self.assertTrue(response.status_code, status.HTTP_200_OK)
         self.assertTrue(len(response.data), 1)
         self.assertTrue(response.data[0]["id"], self.annotation_value1.pk)
@@ -962,7 +962,7 @@ class AnnotationViewSetsTest(TestCase):
         self.annotation_value2.save()
         request = factory.get("/", {"entity__in": [self.entity1.pk]}, format="json")
         force_authenticate(request, self.contributor)
-        response: Response = self.annotationvalue_viewset(request)
+        response = self.annotationvalue_viewset(request)
         self.assertTrue(response.status_code, status.HTTP_200_OK)
         self.assertTrue(len(response.data), 2)
 
@@ -1063,13 +1063,13 @@ class AnnotationViewSetsTest(TestCase):
         request = factory.post("/", {}, format="json")
 
         # Unauthenticated request, no permissions.
-        response: HttpResponse = viewset(request, pk=self.entity1.pk)
+        response: Response = viewset(request, pk=self.entity1.pk)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
         # Request without required parameter.
         request = factory.post("/", [{}], format="json")
         force_authenticate(request, self.contributor)
-        response: Response = viewset(request, pk=self.entity1.pk)
+        response = viewset(request, pk=self.entity1.pk)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertDictEqual(
             response.data[0],
@@ -1087,7 +1087,7 @@ class AnnotationViewSetsTest(TestCase):
         # Valid request without regex validation.
         request = factory.post("/", annotations, format="json")
         force_authenticate(request, self.contributor)
-        response: Response = viewset(request, pk=self.entity1.pk)
+        response = viewset(request, pk=self.entity1.pk)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(self.entity1.annotations.count(), 2)
@@ -1098,7 +1098,7 @@ class AnnotationViewSetsTest(TestCase):
         annotations = [{"field": {"id": self.annotation_field1.pk}, "value": 10}]
         request = factory.post("/", annotations, format="json")
         force_authenticate(request, self.contributor)
-        response: Response = viewset(request, pk=self.entity1.pk)
+        response = viewset(request, pk=self.entity1.pk)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(
@@ -1115,7 +1115,7 @@ class AnnotationViewSetsTest(TestCase):
         annotations = [{"field": {"id": self.annotation_field1.pk}, "value": "aaa"}]
         request = factory.post("/", annotations, format="json")
         force_authenticate(request, self.contributor)
-        response: Response = viewset(request, pk=self.entity1.pk)
+        response = viewset(request, pk=self.entity1.pk)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(
@@ -1133,7 +1133,7 @@ class AnnotationViewSetsTest(TestCase):
         annotations = [{"field": {"id": self.annotation_field1.pk}, "value": 10}]
         request = factory.post("/", annotations, format="json")
         force_authenticate(request, self.contributor)
-        response: Response = viewset(request, pk=self.entity1.pk)
+        response = viewset(request, pk=self.entity1.pk)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertCountEqual(
             response.data["error"],
@@ -1152,7 +1152,7 @@ class AnnotationViewSetsTest(TestCase):
         ]
         request = factory.post("/", annotations, format="json")
         force_authenticate(request, self.contributor)
-        response: Response = viewset(request, pk=self.entity1.pk)
+        response = viewset(request, pk=self.entity1.pk)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertCountEqual(
             response.data["error"],
@@ -1169,7 +1169,7 @@ class AnnotationViewSetsTest(TestCase):
         annotations = [{"field": {"id": self.annotation_field1.pk}, "value": "bbb"}]
         request = factory.post("/", annotations, format="json")
         force_authenticate(request, self.contributor)
-        response: Response = viewset(request, pk=self.entity1.pk)
+        response = viewset(request, pk=self.entity1.pk)
         self.annotation_value1.refresh_from_db()
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(self.annotation_value1.value, "bbb")
