@@ -71,7 +71,7 @@ jobs:
             type=match,group=1,value=${{ github.ref }}stable,pattern=refs/tags/[0-9]+\.[0-9]+\.[0-9]+(stable)$
 
       - name: Build and push tagged image ${{ matrix.image }}
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v5
         if: tojson(steps.meta.outputs.tags) != '[]'
         with:
           context: ${{ matrix.context }}
