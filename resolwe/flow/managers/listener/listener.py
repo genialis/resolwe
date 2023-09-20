@@ -405,7 +405,7 @@ class Processor:
 
         # Set the data started on the first command.
         if started is None:
-            self._update_data(data_id, {"started": now()})
+            self._save_data(self.data(data_id), {"started": now()})
 
         try:
             logger.debug(__("Invoking handler {}.", handler_name))

@@ -33,6 +33,7 @@ from resolwe.permissions.utils import assign_contributor_permissions, copy_permi
 from .base import BaseModel, BaseQuerySet
 from .descriptor import DescriptorSchema
 from .entity import Entity, EntityQuerySet
+from .history_manager import HistoryMixin
 from .secret import Secret
 from .storage import Storage
 from .utils import (
@@ -259,7 +260,7 @@ class DataQuerySet(BaseQuerySet, PermissionQuerySet):
         return self.annotate(**annotation_data)
 
 
-class Data(BaseModel, PermissionObject):
+class Data(HistoryMixin, BaseModel, PermissionObject):
     """Postgres model for storing data."""
 
     class Meta(BaseModel.Meta):

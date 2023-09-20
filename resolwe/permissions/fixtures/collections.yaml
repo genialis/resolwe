@@ -12,6 +12,12 @@
     version: 0.0.0
     permission_group: 1
 
+- model: flow.collectionhistory
+  pk: 1
+  fields:
+    datum: 1
+    valid: '{"bounds": "[)", "lower": "2020-01-01T00:00:00+00:00"}'
+
 - model: flow.collection
   pk: 2
   fields:
@@ -23,6 +29,12 @@
     slug: test_collection2
     version: 0.0.0
     permission_group: 2
+    
+- model: flow.collectionhistory
+  pk: 2
+  fields:
+    datum: 2
+    valid: '{"bounds": "[)", "lower": "2020-01-01T00:00:00+00:00"}'
 
 - model: flow.collection
   pk: 3
@@ -35,3 +47,9 @@
     slug: test_collection3
     version: 0.0.0
     permission_group: 3
+
+- model: flow.collectionhistory
+  pk: 3
+  fields:
+    datum: 3
+    valid: '{"bounds": "[)", "lower": "2020-01-01T00:00:00+00:00"}'

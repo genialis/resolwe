@@ -64,10 +64,13 @@ class FilterAnnotations(TestCase):
             for annotation_type in AnnotationType
         }
         field_values: dict[AnnotationType, list[tuple[Entity, Any]]] = {
-            AnnotationType.STRING: [(entity1, "entIty_1"), (entity2, "entity_2")],
-            AnnotationType.INTEGER: [(entity1, 1), (entity2, 2)],
-            AnnotationType.DECIMAL: [(entity1, 1.1), (entity2, 2.2)],
-            AnnotationType.DATE: [(entity1, "1111-01-01"), (entity2, "2222-02-02")],
+            AnnotationType.STRING: [(self.entity1, "entIty_1"), (entity2, "entity_2")],
+            AnnotationType.INTEGER: [(self.entity1, 1), (entity2, 2)],
+            AnnotationType.DECIMAL: [(self.entity1, 1.1), (entity2, 2.2)],
+            AnnotationType.DATE: [
+                (self.entity1, "1111-01-01"),
+                (entity2, "2222-02-02"),
+            ],
         }
         for annotation_type, values in field_values.items():
             for entity, value in values:
@@ -604,11 +607,6 @@ class AnnotationViewSetsTest(TestCase):
         # No authentication is necessary to access the annotation field endpoint.
         request = factory.get("/", {}, format="json")
         response: Response = self.annotationfield_viewset(request)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-
-        # Authenticated users should see all the fields.
-        force_authenticate(request, self.contributor)
-        response = self.annotationfield_viewset(request)
         self.assertEqual(len(response.data), 2)
         self.assertEqual(response.data[0]["name"], "field2")
         self.assertEqual(response.data[0]["label"], "Annotation field 2")
@@ -915,9 +913,13 @@ class AnnotationViewSetsTest(TestCase):
     def test_list_filter_values(self):
         request = factory.get("/", {}, format="json")
 
-        # Unauthenticated request, no permissions.
+        # Unauthenticated request without entity filter.
         response: Response = self.annotationvalue_viewset(request)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["__all__"][0],
+            "At least one of the entity filters must be set.",
+        )
 
         # Authenticated request without entity filter.
         force_authenticate(request, self.contributor)
@@ -930,14 +932,14 @@ class AnnotationViewSetsTest(TestCase):
 
         # Unauthenticated request without permissions.
         request = factory.get("/", {"entity": self.entity1.pk}, format="json")
-        response: Response = self.annotationvalue_viewset(request)
+        response = self.annotationvalue_viewset(request)
         self.assertTrue(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 0)
 
         # Unauthenticated request with permissions.
         self.collection1.set_permission(Permission.VIEW, self.anonymous)
         request = factory.get("/", {"entity": self.entity1.pk}, format="json")
-        response: Response = self.annotationvalue_viewset(request)
+        response = self.annotationvalue_viewset(request)
         self.assertTrue(response.status_code, status.HTTP_200_OK)
         self.assertTrue(len(response.data), 1)
         self.assertTrue(response.data[0]["id"], self.annotation_value1.pk)

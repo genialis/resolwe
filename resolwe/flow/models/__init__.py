@@ -128,6 +128,97 @@ Postgres ORM model for storing annotation values.
 .. autoclass:: resolwe.flow.models.annotations.AnnotationValue
     :members:
 
+History model
+=============
+
+Basic model for history tracking.
+
+.. autoclass:: resolwe.flow.models.history.History
+    :members:
+
+DataHistory model
+=================
+
+Model for tracking changes in Data objects.
+
+.. autoclass:: resolwe.flow.models.history.DataHistory
+    :members:
+
+    
+CollectionHistory model
+=======================
+
+Model for tracking changes in Collection objects.
+
+.. autoclass:: resolwe.flow.models.history.CollectionHistory
+    :members:
+
+TrackChange model
+=================
+
+Basic model to track changes to particular model fields.
+
+.. autoclass:: resolwe.flow.models.history.TrackChange
+    :members:
+
+DataSlugChange model
+====================
+
+Track data slug changes.
+
+.. autoclass:: resolwe.flow.models.history.DataSlugChange
+    :members:
+
+CollectionSlugChange model
+==========================
+
+Track collection slug changes.
+
+.. autoclass:: resolwe.flow.models.history.CollectionSlugChange
+    :members:
+
+DataNameChange model
+====================
+
+Track data name changes.
+
+.. autoclass:: resolwe.flow.models.history.DataNameChange
+    :members:
+
+CollectionNameChange model
+==========================
+
+Track collection name changes.
+
+.. autoclass:: resolwe.flow.models.history.CollectionNameChange
+    :members:
+
+    
+CollectionChange model
+======================
+
+Track collection changes.
+
+.. autoclass:: resolwe.flow.models.history.CollectionChange
+    :members:
+
+SizeChange model
+================
+
+Track size changes.
+
+.. autoclass:: resolwe.flow.models.history.SizeChange
+    :members:
+
+ProcessingHistory model
+=======================
+
+Track processing data objects.
+
+.. autoclass:: resolwe.flow.models.history.ProcessingHistory
+    :members:
+
+
 Utility functions
 =================
 
@@ -147,6 +238,14 @@ from .collection import Collection
 from .data import Data, DataDependency
 from .descriptor import DescriptorSchema
 from .entity import Entity, Relation, RelationPartition, RelationType
+from .history import (
+    CollectionHistory,
+    CollectionNameChange,
+    CollectionSlugChange,
+    DataHistory,
+    DataNameChange,
+    DataSlugChange,
+)
 from .migrations import DataMigrationHistory, ProcessMigrationHistory
 from .process import Process
 from .secret import Secret
@@ -159,9 +258,15 @@ __all__ = (
     "AnnotationField",
     "AnnotationValue",
     "Collection",
+    "CollectionHistory",
+    "CollectionNameChange",
+    "CollectionSlugChange",
     "Data",
+    "DataHistory",
     "DataDependency",
     "DataMigrationHistory",
+    "DataNameChange",
+    "DataSlugChange",
     "DescriptorSchema",
     "Entity",
     "Process",

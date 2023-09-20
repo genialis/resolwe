@@ -13,6 +13,7 @@ from resolwe.permissions.models import PermissionObject, PermissionQuerySet
 
 from .annotations import AnnotationField
 from .base import BaseModel, BaseQuerySet
+from .history_manager import HistoryMixin
 from .utils import DirtyError, validate_schema
 
 
@@ -85,7 +86,7 @@ class CollectionQuerySet(BaseQuerySet, PermissionQuerySet):
         )
 
 
-class Collection(BaseCollection, PermissionObject):
+class Collection(HistoryMixin, BaseCollection, PermissionObject):
     """Postgres model for storing a collection."""
 
     class Meta(BaseCollection.Meta):

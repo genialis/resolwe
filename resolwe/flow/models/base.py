@@ -12,6 +12,8 @@ VERSION_NUMBER_BITS = (8, 10, 14)
 
 # Maximum number of slug-generation retries.
 MAX_SLUG_RETRIES = 10
+MAX_SLUG_LENGTH = 100
+MAX_NAME_LENGTH = 100
 
 
 class UniqueSlugError(IntegrityError):
@@ -69,13 +71,15 @@ class BaseModel(AuditModel):
         get_latest_by = "version"
 
     #: URL slug
-    slug = ResolweSlugField(populate_from="name", unique_with="version", max_length=100)
+    slug = ResolweSlugField(
+        populate_from="name", unique_with="version", max_length=MAX_SLUG_LENGTH
+    )
 
     #: process version
     version = VersionField(number_bits=VERSION_NUMBER_BITS, default="0.0.0")
 
     #: object name
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=MAX_NAME_LENGTH)
 
     #: creation date and time
     created = models.DateTimeField(auto_now_add=True, db_index=True)

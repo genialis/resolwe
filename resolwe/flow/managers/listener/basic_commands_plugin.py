@@ -528,5 +528,5 @@ class BasicCommands(ListenerPlugin):
 
         Do not trigger the signals when only progress changes.
         """
-        manager._update_data(data_id, {"process_progress": message.message_data})
+        manager._save_data(data_id, {"process_progress": message.message_data})
         return message.respond_ok("OK")

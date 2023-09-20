@@ -14,6 +14,7 @@ Added
 -----
 - Add ``restart`` method to the ``Data`` model
 - Add ``restart`` endpoint to ``DataViewSet``
+- Add history tracking for ``Data`` and ``Collection`` objects
 
 Changed
 -------
