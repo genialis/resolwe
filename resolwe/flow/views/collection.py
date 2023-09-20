@@ -86,6 +86,7 @@ class BaseCollectionViewSet(
         "contributor",
         "contributor__first_name",
         "contributor__last_name",
+        "collection__name",
         "created",
         "id",
         "modified",

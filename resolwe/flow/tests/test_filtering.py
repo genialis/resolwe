@@ -717,6 +717,26 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
         )
         self.assertEqual(result.data[0]["id"], self.entities[0].pk)
 
+    def test_order_by_collection_name(self):
+        """Check entities can be ordered by the collection name."""
+        request = factory.get("/", {"ordering": "collection__name"}, format="json")
+        force_authenticate(request, self.admin)
+        response = self.viewset(request)
+        received = [
+            (item["collection"] or {}).get("name", None) for item in response.data
+        ]
+        expected = ["My collection", "Other collection", None, None]
+        self.assertEqual(received, expected)
+
+        request = factory.get("/", {"ordering": "-collection__name"}, format="json")
+        force_authenticate(request, self.admin)
+        response = self.viewset(request)
+        received = [
+            (item["collection"] or {}).get("name", None) for item in response.data
+        ]
+        expected.reverse()
+        self.assertEqual(received, expected)
+
     def test_filter_by_relation(self):
         self._check_filter({"relation_id": self.relation1.id}, self.entities[:1])
         self._check_filter({"relation_id": self.relation2.id}, self.entities[1:])
