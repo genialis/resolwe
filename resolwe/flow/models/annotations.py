@@ -318,6 +318,17 @@ class AnnotationField(models.Model):
             AnnotationValue.objects.bulk_update(updated_fields, ["_value"])
             self._original_vocabulary = self.vocabulary
 
+    def label_by_value(self, label: str) -> str:
+        """Get the value by label.
+
+        When no value is found the label is returned.
+        """
+        if self.vocabulary is not None:
+            for vocabulary_value, vocabulary_label in self.vocabulary.items():
+                if label == vocabulary_label:
+                    return vocabulary_value
+        return label
+
     def __str__(self) -> str:
         """Return user-friendly string representation."""
         return f"{self.group.name}.{self.name}"
