@@ -318,6 +318,17 @@ class AnnotationField(models.Model):
             AnnotationValue.objects.bulk_update(updated_fields, ["_value"])
             self._original_vocabulary = self.vocabulary
 
+    def label_by_value(self, label: str) -> str:
+        """Get the value by label.
+
+        When no value is found the label is returned.
+        """
+        if self.vocabulary is not None:
+            for vocabulary_value, vocabulary_label in self.vocabulary.items():
+                if label == vocabulary_label:
+                    return vocabulary_value
+        return label
+
     def __str__(self) -> str:
         """Return user-friendly string representation."""
         return f"{self.group.name}.{self.name}"
@@ -413,7 +424,9 @@ class AnnotationValue(AuditModel):
         if self.field.vocabulary is None:
             return self.value
         else:
-            return self.field.vocabulary[self.value]
+            # Always return a value even if it is not in the vocabulary. The validation
+            # step will take care of the wrong values.
+            return self.field.vocabulary.get(self.value, self.value)
 
     @property
     def label(self) -> Any:
