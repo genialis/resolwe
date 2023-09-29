@@ -1,5 +1,6 @@
 """Resolwe collection serializer."""
 import logging
+from typing import Optional
 
 from rest_framework import serializers
 
@@ -27,7 +28,7 @@ class BaseCollectionSerializer(ResolweBaseSerializer):
     data_count = serializers.SerializerMethodField(required=False)
     status = serializers.SerializerMethodField(required=False)
 
-    def get_data_count(self, collection):
+    def get_data_count(self, collection: Collection) -> int:
         """Return number of data objects on the collection."""
         # Use 'data_count' attribute when available. It is created in the
         # BaseCollectionViewSet class.
@@ -37,7 +38,7 @@ class BaseCollectionSerializer(ResolweBaseSerializer):
             else collection.data.count()
         )
 
-    def get_status(self, collection):
+    def get_status(self, collection: Collection) -> Optional[str]:
         """Return status of the collection based on the status of data objects.
 
         When collection contains no data objects None is returned.
@@ -109,7 +110,7 @@ class CollectionSerializer(BaseCollectionSerializer):
 
     entity_count = serializers.SerializerMethodField(required=False)
 
-    def get_entity_count(self, collection):
+    def get_entity_count(self, collection: Collection) -> int:
         """Return number of entities on the collection."""
         # Use 'entity_count' attribute when available. It is created in the
         # BaseCollectionViewSet class.

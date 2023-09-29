@@ -391,12 +391,12 @@ class AnnotationValue(AuditModel):
             self.recompute_label()
 
     @property
-    def value(self):
+    def value(self) -> str | int | float | datetime.date:
         """Get the actual value."""
         return self._value["value"]
 
     @value.setter
-    def value(self, value):
+    def value(self, value: str | int | float | datetime.date):
         """Set the value.
 
         The label is recomputed when the value is set.
@@ -416,7 +416,7 @@ class AnnotationValue(AuditModel):
             return self.field.vocabulary[self.value]
 
     @property
-    def label(self):
+    def label(self) -> Any:
         """Return the cached label."""
         return self._value["label"]
 

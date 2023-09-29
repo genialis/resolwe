@@ -124,7 +124,7 @@ class CheckQueryParamsMixin:
 class TextFilterMixin:
     """Mixin for full-text filtering."""
 
-    def filter_text(self, queryset, name, value):
+    def filter_text(self, queryset: QuerySet, name: str, value: str):
         """Full-text search."""
         query = SearchQuery(value, config="simple")
         return (
@@ -140,7 +140,7 @@ class UserFilterMixin:
     """Mixin for filtering by contributors and owners."""
 
     @staticmethod
-    def _get_user_subquery(value):
+    def _get_user_subquery(value: str):
         user_subquery = user_model.objects.all()
         for key in value.split():
             user_subquery = user_subquery.extra(
@@ -150,7 +150,7 @@ class UserFilterMixin:
 
         return user_subquery
 
-    def filter_owners(self, queryset, name, value):
+    def filter_owners(self, queryset: QuerySet, name: str, value: int):
         """Filter queryset by owner's id."""
         try:
             user = user_model.objects.get(pk=value)
@@ -161,7 +161,7 @@ class UserFilterMixin:
             user, self.owner_permission, with_superuser=False
         )
 
-    def filter_owners_name(self, queryset, name, value):
+    def filter_owners_name(self, queryset: QuerySet, name: str, value: str):
         """Filter queryset by owner's name."""
         result = queryset.model.objects.none()
         user_subquery = self._get_user_subquery(value)
@@ -176,20 +176,20 @@ class UserFilterMixin:
         # for following filters.
         return result.model.objects.filter(pk__in=Subquery(result.values("pk")))
 
-    def filter_contributor_name(self, queryset, name, value):
+    def filter_contributor_name(self, queryset: QuerySet, name: str, value: str):
         """Filter queryset by owner's name."""
         return queryset.filter(contributor__in=self._get_user_subquery(value))
 
-    def filter_for_user(self, queryset, name, value):
+    def filter_for_user(self, queryset: QuerySet, name: str, value: str):
         """Filter queryset by permissions."""
         user = self.request.user
         return queryset.filter_for_user(user, Permission.from_name(value))
 
-    def filter_for_group(self, queryset, name, value):
+    def filter_for_group(self, queryset: QuerySet, name: str, value: Group):
         """Filter queryset by group."""
         return queryset.filter(permission_group__permissions__group=value)
 
-    def filter_private(self, queryset, name, value):
+    def filter_private(self, queryset: QuerySet, name: str, value: bool):
         """Return only elements that are not public (explicitly shared with me)."""
 
         public_filter = Q(permission_group__permissions__user=get_anonymous_user())
@@ -331,7 +331,7 @@ class CollectionFilter(BaseCollectionFilter):
 
         model = Collection
 
-    def count_entities(self, queryset, name, value):
+    def count_entities(self, queryset: QuerySet, name: str, value: str):
         """Filter by the number of associated entities."""
 
         return queryset.annotate(Count("entity")).filter(**{name: value})
@@ -343,7 +343,7 @@ class EntityFilter(BaseCollectionFilter):
     relation_id = filters.NumberFilter(field_name="relation__id")
     annotations = filters.CharFilter(method="filter_annotations")
 
-    def filter_annotations(self, queryset, name, value):
+    def filter_annotations(self, queryset: QuerySet, name: str, value: str):
         """Filter entities by annotations.
 
         The value must be in the following format: field_id__lookup_type:value
@@ -681,7 +681,7 @@ class AnnotationValueFilter(BaseResolweFilter, metaclass=AnnotationValueMetaclas
         form.clean = partialmethod(clean, original_clean=form.clean)
         return form
 
-    def filter_by_label(self, queryset, name, value):
+    def filter_by_label(self, queryset: QuerySet, name: str, value: str):
         """Filter by label."""
         return queryset.filter(_value__label__icontains=value)
 
