@@ -1,13 +1,16 @@
 """Entity viewset."""
 import re
 
+from drf_spectacular.utils import extend_schema
+
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.db.models import F, Func, OuterRef, Prefetch, Subquery
 from django.db.models.functions import Coalesce
 
-from rest_framework import exceptions
-from rest_framework.decorators import action
+from rest_framework import exceptions, serializers, status
+from rest_framework.decorators import action, authentication_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from resolwe.flow.filters import EntityFilter
@@ -24,6 +27,25 @@ from resolwe.process.descriptor import ValidationError
 
 from .collection import BaseCollectionViewSet
 from .utils import get_collection_for_user
+
+
+class MoveEntityToCollectionSerializer(serializers.Serializer):
+    """Serializer for moving entities to a collection."""
+
+    ids = serializers.ListField(child=serializers.IntegerField())
+    destination_collection = serializers.IntegerField()
+    handle_missing_annotations = serializers.ChoiceField(
+        choices=HandleMissingAnnotations._member_names_,
+        default=HandleMissingAnnotations.ADD.name,
+    )
+    confirm_annotations_remove = serializers.BooleanField(default=False)
+
+
+class DuplicateEntitySerializer(serializers.Serializer):
+    """Serializer for duplicating entities."""
+
+    ids = serializers.ListField(child=serializers.IntegerField())
+    inherit_collection = serializers.BooleanField(default=False)
 
 
 class EntityViewSet(ObservableMixin, BaseCollectionViewSet):
@@ -106,6 +128,9 @@ class EntityViewSet(ObservableMixin, BaseCollectionViewSet):
 
         return queryset
 
+    @extend_schema(
+        request=MoveEntityToCollectionSerializer(), responses={status.HTTP_200_OK: None}
+    )
     @action(detail=False, methods=["post"])
     def move_to_collection(self, request, *args, **kwargs):
         """Move samples from source to destination collection.
@@ -121,8 +146,10 @@ class EntityViewSet(ObservableMixin, BaseCollectionViewSet):
             'REMOVE' and 'confirm_annotations_delete' is set.
         """
 
-        ids = self.get_ids(request.data)
-        dst_collection_id = self.get_id(request.data, "destination_collection")
+        serializer = MoveEntityToCollectionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        ids = serializer.validated_data["ids"]
+        dst_collection_id = serializer.validated_data["destination_collection"]
         dst_collection = get_collection_for_user(dst_collection_id, request.user)
         entity_qs = self._get_entities(request.user, ids)
 
@@ -141,21 +168,12 @@ class EntityViewSet(ObservableMixin, BaseCollectionViewSet):
             # - delete: remove the missing annotation values from the samples.
             #   This option requires explicit confirmation by 'confirm_remove'
             #   argument or exception with explanation is raised.
-            try:
-                handle_missing_annotations = HandleMissingAnnotations(
-                    request.data.get(
-                        "handle_missing_annotations", HandleMissingAnnotations.ADD.name
-                    )
-                )
-            except ValueError:
-                possible_values = HandleMissingAnnotations._member_names_
-                raise ValidationError(
-                    "Attribute 'handle_missing_annotations' must be one of "
-                    f"{possible_values}."
-                )
+            handle_missing_annotations = serializer.validated_data.get(
+                "handle_missing_annotations"
+            )
 
             if handle_missing_annotations == HandleMissingAnnotations.REMOVE:
-                if request.data.get("confirm_annotations_remove", False) is not True:
+                if not serializer.validated_data["confirm_annotations_remove"]:
                     raise ValidationError(
                         "All annotations not present in the target collection will be "
                         "removed. Set 'confirm_action' argument to 'True' to confirm."
@@ -189,18 +207,23 @@ class EntityViewSet(ObservableMixin, BaseCollectionViewSet):
         self.get_queryset = orig_get_queryset
         return resp
 
+    @extend_schema(
+        request=DuplicateEntitySerializer(),
+        responses={status.HTTP_200_OK: None},
+    )
     @action(detail=False, methods=["post"])
+    @authentication_classes([IsAuthenticated])
     def duplicate(self, request, *args, **kwargs):
         """Duplicate (make copy of) ``Entity`` models.
 
         The objects are duplicated in the background and the details of the background
         task handling the duplication are returned.
         """
-        if not request.user.is_authenticated:
-            raise exceptions.NotFound
+        serializer = DuplicateEntitySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        inherit_collection = serializer.validated_data["inherit_collection"]
+        ids = serializer.validated_data["ids"]
 
-        inherit_collection = request.data.get("inherit_collection", False)
-        ids = self.get_ids(request.data)
         queryset = Entity.objects.filter(id__in=ids).filter_for_user(request.user)
         actual_ids = queryset.values_list("id", flat=True)
         missing_ids = list(set(ids) - set(actual_ids))
@@ -217,6 +240,9 @@ class EntityViewSet(ObservableMixin, BaseCollectionViewSet):
         serializer = BackgroundTaskSerializer(task)
         return Response(serializer.data)
 
+    @extend_schema(
+        request=AnnotationsSerializer(many=True), responses={status.HTTP_200_OK: None}
+    )
     @action(detail=True, methods=["post"])
     def set_annotations(self, request, pk=None):
         """Add the given list of AnnotaitonFields to the given collection."""
@@ -260,6 +286,10 @@ class EntityViewSet(ObservableMixin, BaseCollectionViewSet):
             AnnotationValue.objects.bulk_update(to_update, ["_value"])
         return Response()
 
+    @extend_schema(
+        filters=False,
+        responses={status.HTTP_200_OK: AnnotationValueSerializer(many=True)},
+    )
     @action(detail=True, methods=["get"])
     def get_annotations(self):
         """Get the annotations on this sample."""
