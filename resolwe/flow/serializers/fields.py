@@ -1,6 +1,8 @@
 """Resolwe custom serializer fields."""
 from collections import OrderedDict
 
+from drf_spectacular.utils import extend_schema_field
+
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils.encoding import smart_str
 
@@ -26,6 +28,14 @@ class PrimaryKeyDictRelatedField(serializers.PrimaryKeyRelatedField):
         return {"id": value.pk}
 
 
+class RelationshipDictSerializer(serializers.Serializer):
+    """Serializer for the DictRelatedField relation."""
+
+    id = serializers.IntegerField(required=False)
+    slug = serializers.CharField(required=False, allow_null=True)
+
+
+@extend_schema_field(RelationshipDictSerializer)
 class DictRelatedField(relations.RelatedField):
     """
     Field representing the target of the relationship by using dict.
