@@ -1,9 +1,10 @@
 """Mixins used in Resolwe Viewsets."""
+from drf_spectacular.utils import extend_schema
+
 from django.db import IntegrityError, transaction
 
-from rest_framework import mixins, status
+from rest_framework import mixins, serializers, status
 from rest_framework.decorators import action
-from rest_framework.exceptions import ParseError
 from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
 
@@ -144,9 +145,16 @@ class ResolweUpdateModelMixin(mixins.UpdateModelMixin):
         return obj
 
 
+class NameSerializer(serializers.Serializer):
+    """Serializer for the name field."""
+
+    name = serializers.CharField()
+
+
 class ResolweCheckSlugMixin:
     """Slug validation."""
 
+    @extend_schema(parameters=[NameSerializer()], responses={status.HTTP_200_OK: bool})
     @action(detail=False, methods=["get"])
     def slug_exists(self, request):
         """Check if given url slug exists.
@@ -158,12 +166,9 @@ class ResolweCheckSlugMixin:
         if not request.user.is_authenticated:
             return Response(status=status.HTTP_401_UNAUTHORIZED)
 
-        if "name" not in request.query_params:
-            return Response(
-                {"error": "Query parameter `name` must be given."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        serializer = NameSerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        slug_name = serializer.validated_data["name"]
 
         queryset = self.get_queryset()
-        slug_name = request.query_params["name"]
         return Response(queryset.filter(slug__iexact=slug_name).exists())
