@@ -241,6 +241,7 @@ SPECTACULAR_SETTINGS = {
     "DESCRIPTION": "An open source dataflow package for Django.",
     "VERSION": __version__,
     "SERVE_INCLUDE_SCHEMA": False,
+    "ENUM_NAME_OVERRIDES": {"DataStatus": "resolwe.flow.models.Data.STATUS_CHOICES"},
 }
 
 
