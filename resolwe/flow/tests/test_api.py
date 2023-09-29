@@ -1505,7 +1505,7 @@ class EntityViewSetTest(EntityViewSetTestCommonMixin, TestCase):
         request = factory.post(reverse("resolwe-api:entity-duplicate"), format="json")
         response = self.duplicate_viewset(request)
 
-        self.assertEqual(response.data["detail"], MESSAGES["NOT_FOUND"])
+        self.assertEqual(response.data["ids"], ["This field is required."])
 
 
 class EntityViewSetTestDelete(EntityViewSetTestCommonMixin, TransactionTestCase):

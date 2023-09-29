@@ -1,9 +1,11 @@
 """Collection viewset."""
+from drf_spectacular.utils import extend_schema
+
 from django.db import transaction
 from django.db.models import F, Func, OuterRef, Prefetch, Subquery
 from django.db.models.functions import Coalesce
 
-from rest_framework import exceptions, mixins, status, viewsets
+from rest_framework import exceptions, mixins, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
@@ -18,12 +20,17 @@ from resolwe.permissions.mixins import ResolwePermissionsMixin
 from resolwe.permissions.models import Permission, PermissionModel
 
 from .mixins import (
-    ParametersMixin,
     ResolweBackgroundDeleteMixin,
     ResolweCheckSlugMixin,
     ResolweCreateModelMixin,
     ResolweUpdateModelMixin,
 )
+
+
+class DuplicateCollectionSerializer(serializers.Serializer):
+    """Deserializer for collection duplicate endpoint."""
+
+    ids = serializers.ListField(child=serializers.IntegerField())
 
 
 class BaseCollectionViewSet(
@@ -34,7 +41,6 @@ class BaseCollectionViewSet(
     mixins.ListModelMixin,
     ResolwePermissionsMixin,
     ResolweCheckSlugMixin,
-    ParametersMixin,
     viewsets.GenericViewSet,
 ):
     """Base API view for :class:`Collection` objects."""
@@ -105,6 +111,10 @@ class BaseCollectionViewSet(
 
         return super().create(request, *args, **kwargs)
 
+    @extend_schema(
+        request=DuplicateCollectionSerializer(),
+        responses={status.HTTP_200_OK: BackgroundTaskSerializer()},
+    )
     @action(detail=False, methods=["post"])
     def duplicate(self, request, *args, **kwargs):
         """Duplicate (make copy of) ``Collection`` models.
@@ -115,7 +125,10 @@ class BaseCollectionViewSet(
         if not request.user.is_authenticated:
             raise exceptions.NotFound
 
-        ids = self.get_ids(request.data)
+        serializer = DuplicateCollectionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        ids = serializer.validated_data["ids"]
+
         queryset = Collection.objects.filter(id__in=ids).filter_for_user(
             request.user, Permission.VIEW
         )
@@ -138,6 +151,10 @@ class CollectionViewSet(ObservableMixin, BaseCollectionViewSet):
 
     serializer_class = CollectionSerializer
 
+    @extend_schema(
+        request=AnnotationFieldDictSerializer(),
+        responses={status.HTTP_204_NO_CONTENT: None},
+    )
     @action(detail=True, methods=["post"])
     @transaction.atomic
     def set_annotation_fields(self, request, pk=None):
