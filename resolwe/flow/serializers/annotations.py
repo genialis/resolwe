@@ -68,7 +68,7 @@ class AnnotationFieldDictSerializer(serializers.Serializer):
     """Serializer for actions that deal with annotation fields."""
 
     annotation_fields = PrimaryKeyDictRelatedField(
-        queryset=AnnotationField.objects.all(), required=True, many=True
+        queryset=AnnotationField.objects.all(), many=True
     )
     confirm_action = serializers.BooleanField(default=False)
 
@@ -76,9 +76,7 @@ class AnnotationFieldDictSerializer(serializers.Serializer):
 class AnnotationsSerializer(serializers.Serializer):
     """Serializer that reads annotation field and its value."""
 
-    field = PrimaryKeyDictRelatedField(
-        queryset=AnnotationField.objects.all(), required=True
-    )
+    field = PrimaryKeyDictRelatedField(queryset=AnnotationField.objects.all())
     value = serializers.JSONField()
 
 
