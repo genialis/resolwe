@@ -20,6 +20,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views import View
 
+from rest_framework import serializers
 from rest_framework.response import Response
 from rest_framework.viewsets import ViewSet
 
@@ -33,8 +34,17 @@ from resolwe.storage.models import FileStorage, ReferencedPath
 logger = logging.getLogger(__name__)
 
 
+class UploadConfigSerializer(serializers.Serializer):
+    """Serializer for upload configuration."""
+
+    type = serializers.CharField()
+    config = serializers.DictField()
+
+
 class UploadConfig(ViewSet):
     """Get the upload configuration."""
+
+    serializer_class = UploadConfigSerializer
 
     def list(self, request):
         """Return the JSON representing the upload configuration.
@@ -62,7 +72,8 @@ class UploadConfig(ViewSet):
             logger.exception(message)
             raise ImproperlyConfigured(message)
 
-        return Response(response)
+        serializer = self.serializer_class(response)
+        return Response(serializer.data)
 
 
 class DataBrowseView(View):
