@@ -167,37 +167,3 @@ class ResolweCheckSlugMixin:
         queryset = self.get_queryset()
         slug_name = request.query_params["name"]
         return Response(queryset.filter(slug__iexact=slug_name).exists())
-
-
-class ParametersMixin:
-    """Mixin for viewsets for handling various parameters."""
-
-    def get_ids(self, request_data, parameter_name="ids"):
-        """Extract a list of integers from request data."""
-        if parameter_name not in request_data:
-            raise ParseError("`{}` parameter is required".format(parameter_name))
-
-        ids = request_data.get(parameter_name)
-        if not isinstance(ids, list):
-            raise ParseError("`{}` parameter not a list".format(parameter_name))
-
-        if not ids:
-            raise ParseError("`{}` parameter is empty".format(parameter_name))
-
-        if any(map(lambda id: not isinstance(id, int), ids)):
-            raise ParseError(
-                "`{}` parameter contains non-integers".format(parameter_name)
-            )
-
-        return ids
-
-    def get_id(self, request_data, parameter_name="id"):
-        """Extract an integer from request data."""
-        if parameter_name not in request_data:
-            raise ParseError("`{}` parameter is required".format(parameter_name))
-
-        id_parameter = request_data.get(parameter_name, None)
-        if not isinstance(id_parameter, int):
-            raise ParseError("`{}` parameter not an integer".format(parameter_name))
-
-        return id_parameter
