@@ -1,7 +1,9 @@
 """Data viewset."""
+from drf_spectacular.utils import extend_schema
+
 from django.db.models import Prefetch
 
-from rest_framework import exceptions, mixins, viewsets
+from rest_framework import exceptions, mixins, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
@@ -19,13 +21,26 @@ from resolwe.permissions.models import Permission, PermissionModel
 from .collection import BaseCollectionViewSet
 from .entity import EntityViewSet
 from .mixins import (
-    ParametersMixin,
     ResolweBackgroundDeleteMixin,
     ResolweCheckSlugMixin,
     ResolweCreateModelMixin,
     ResolweUpdateModelMixin,
 )
 from .utils import get_collection_for_user
+
+
+class MoveDataToCollectionSerializer(serializers.Serializer):
+    """Deserializer for data move to collection endpoint."""
+
+    ids = serializers.ListField(child=serializers.IntegerField())
+    destination_collection = serializers.IntegerField()
+
+
+class DuplicateDataSerializer(serializers.Serializer):
+    """Deserializer for data duplicate endpoint."""
+
+    ids = serializers.ListField(child=serializers.IntegerField(), allow_empty=False)
+    inherit_collection = serializers.BooleanField(default=False)
 
 
 class DataViewSet(
@@ -37,7 +52,6 @@ class DataViewSet(
     ResolweBackgroundDeleteMixin,
     ResolwePermissionsMixin,
     ResolweCheckSlugMixin,
-    ParametersMixin,
     viewsets.GenericViewSet,
 ):
     """API view for :class:`Data` objects."""
@@ -76,6 +90,10 @@ class DataViewSet(
         """Prefetch permissions for current user."""
         return self.prefetch_current_user_permissions(self.queryset)
 
+    @extend_schema(
+        request=DuplicateDataSerializer(),
+        responses={status.HTTP_200_OK: BackgroundTaskSerializer()},
+    )
     @action(detail=False, methods=["post"])
     def duplicate(self, request, *args, **kwargs):
         """Duplicate (make copy of) ``Data`` objects.
@@ -86,8 +104,11 @@ class DataViewSet(
         if not request.user.is_authenticated:
             raise exceptions.NotFound
 
-        inherit_collection = request.data.get("inherit_collection", False)
-        ids = self.get_ids(request.data)
+        serializer = DuplicateDataSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        inherit_collection = serializer.validated_data["inherit_collection"]
+        ids = serializer.validated_data["ids"]
+
         queryset = Data.objects.filter(id__in=ids).filter_for_user(
             request.user, Permission.VIEW
         )
@@ -150,21 +171,33 @@ class DataViewSet(
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
+    @extend_schema(
+        filters=False, responses={status.HTTP_200_OK: DataSerializer(many=True)}
+    )
     @action(detail=True)
     def parents(self, request, pk=None):
         """Return parents of the current data object."""
         return self._parents_children(request, self.get_object().parents)
 
+    @extend_schema(
+        filters=False, responses={status.HTTP_200_OK: DataSerializer(many=True)}
+    )
     @action(detail=True)
     def children(self, request, pk=None):
         """Return children of the current data object."""
         return self._parents_children(request, self.get_object().children.all())
 
+    @extend_schema(
+        request=MoveDataToCollectionSerializer(),
+        responses={status.HTTP_200_OK: None},
+    )
     @action(detail=False, methods=["post"])
     def move_to_collection(self, request, *args, **kwargs):
         """Move data objects to destination collection."""
-        ids = self.get_ids(request.data)
-        dst_collection_id = self.get_id(request.data, "destination_collection")
+        serializer = MoveDataToCollectionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        ids = serializer.validated_data["ids"]
+        dst_collection_id = serializer.validated_data["destination_collection"]
 
         dst_collection = get_collection_for_user(dst_collection_id, request.user)
 

@@ -768,30 +768,30 @@ class TestDataViewSetCase(TestCase):
         request = factory.post(reverse("resolwe-api:data-duplicate"), format="json")
         force_authenticate(request, self.contributor)
         response = self.duplicate_viewset(request)
-        self.assertEqual(response.data["detail"], "`ids` parameter is required")
+        self.assertEqual(response.data["ids"], ["This field is required."])
 
         request = factory.post(
             reverse("resolwe-api:data-duplicate"), {"ids": 1}, format="json"
         )
         force_authenticate(request, self.contributor)
         response = self.duplicate_viewset(request)
-        self.assertEqual(response.data["detail"], "`ids` parameter not a list")
+        self.assertEqual(
+            response.data["ids"], ['Expected a list of items but got type "int".']
+        )
 
         request = factory.post(
             reverse("resolwe-api:data-duplicate"), {"ids": []}, format="json"
         )
         force_authenticate(request, self.contributor)
         response = self.duplicate_viewset(request)
-        self.assertEqual(response.data["detail"], "`ids` parameter is empty")
+        self.assertEqual(response.data["ids"], ["This list may not be empty."])
 
         request = factory.post(
             reverse("resolwe-api:data-duplicate"), {"ids": ["a"]}, format="json"
         )
         force_authenticate(request, self.contributor)
         response = self.duplicate_viewset(request)
-        self.assertEqual(
-            response.data["detail"], "`ids` parameter contains non-integers"
-        )
+        self.assertEqual(response.data["ids"], {0: ["A valid integer is required."]})
 
         request = factory.post(
             reverse("resolwe-api:data-duplicate"), {"ids": [0]}, format="json"
