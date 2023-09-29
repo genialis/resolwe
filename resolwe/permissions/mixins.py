@@ -1,5 +1,6 @@
 """Permissions functions used in Resolwe Viewsets."""
 import versionfield.fields
+from drf_spectacular.utils import extend_schema
 
 from django.conf import settings
 from django.db import models, transaction
@@ -28,6 +29,25 @@ class CurrentUserPermissionsSerializer(serializers.Serializer):
     type = serializers.CharField(max_length=50)
     name = serializers.CharField(max_length=100)
     permissions = serializers.ListField(child=serializers.CharField(max_length=30))
+
+
+class PermissionSerializer(serializers.Serializer):
+    """Permission serializer.
+
+    Dictionary keys for users and groups are either ids or usernames (emails) or group names.
+    """
+
+    permission_choices = [Permission(i).name for i in list(Permission.highest())]
+
+    users = serializers.DictField(
+        child=serializers.ChoiceField(choices=permission_choices),
+        required=False,
+    )
+    groups = serializers.DictField(
+        child=serializers.ChoiceField(choices=permission_choices),
+        required=False,
+    )
+    public = serializers.ChoiceField(choices=permission_choices, required=False)
 
 
 class ResolwePermissionsMixin:
@@ -83,12 +103,14 @@ class ResolwePermissionsMixin:
                 """Object serializer."""
                 data = super().to_representation(instance)
                 if (
-                    "fields" not in self.request.query_params
-                    or "current_user_permissions" in self.request.query_params["fields"]
+                    "fields" not in serializer_self.request.query_params
+                    or "current_user_permissions"
+                    in serializer_self.request.query_params["fields"]
                 ):
                     data["current_user_permissions"] = get_object_perms(
-                        instance, self.request.user, True
+                        instance, serializer_self.request.user, True
                     )
+
                 return data
 
         SerializerWithPermissions.__name__ = base_class.__name__ + "WithPermissions"
@@ -96,6 +118,11 @@ class ResolwePermissionsMixin:
 
         return SerializerWithPermissions
 
+    @extend_schema(
+        request=PermissionSerializer(),
+        responses={status.HTTP_200_OK: CurrentUserPermissionsSerializer()},
+        filters=False,
+    )
     @action(
         detail=True,
         methods=["get", "post"],
@@ -137,14 +164,3 @@ class ResolwePermissionsMixin:
             audit_manager.log_message("Permissions read: %s", request.data)
 
         return Response(get_object_perms(obj))
-
-    @action(
-        detail=False,
-        methods=["get", "post"],
-        url_path="permissions",
-        url_name="permissions",
-    )
-    def list_permissions(self, request: Request) -> Response:
-        """Batch get or set permissions API endpoint."""
-        # TODO: Implement batch get/set permissions
-        return Response(status=status.HTTP_501_NOT_IMPLEMENTED)
