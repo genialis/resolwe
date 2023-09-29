@@ -9,6 +9,7 @@ import re
 import types
 from copy import deepcopy
 from functools import partial, partialmethod
+from typing import Callable
 
 from django_filters import rest_framework as filters
 from django_filters.constants import EMPTY_VALUES
@@ -20,6 +21,7 @@ from django.contrib.auth.models import Group
 from django.contrib.postgres.search import SearchQuery, SearchRank
 from django.core.exceptions import ValidationError
 from django.db.models import Count, F, ForeignKey, Q, Subquery
+from django.db.models.query import QuerySet
 
 from rest_framework import exceptions, fields
 from rest_framework.filters import OrderingFilter as DrfOrderingFilter
@@ -544,7 +546,7 @@ class AnnotationFieldFilter(BaseResolweFilter):
         filter that checks the permissions on the collections.
         """
 
-        def collection_permission_filter(self, qs, value):
+        def collection_permission_filter(self, qs: QuerySet, value: str):
             """Check if user has access the collections.
 
             The collection filer is defined in the parent filter.
@@ -616,7 +618,12 @@ class AnnotationValueMetaclass(ResolweFilterMetaclass):
     def __new__(mcs, name, bases, namespace):
         """Inject extensions into the filter."""
 
-        def filter_permissions(self, qs, value, original_filter):
+        def filter_permissions(
+            self,
+            qs: QuerySet,
+            value: str,
+            original_filter: Callable[[QuerySet, str], QuerySet],
+        ):
             """Respect permissions on entities."""
             # Do not filter when value is empty. At least one of the values must be
             # non-empty since form in the AnnotationValueFilter class requires it.
@@ -641,6 +648,11 @@ class AnnotationValueMetaclass(ResolweFilterMetaclass):
             # Bind the new_filter to filter instance and set it as new filter.
             filter.filter = types.MethodType(new_filter, filter)
             namespace[new_filter_name] = filter
+            # If filter uses a method, add it to the namespace as well.
+            if filter.method is not None:
+                namespace[filter.method] = deepcopy(
+                    getattr(EntityFilter, filter.method)
+                )
 
         # Create class with added filters.
         klass = ResolweFilterMetaclass.__new__(mcs, name, bases, namespace)
