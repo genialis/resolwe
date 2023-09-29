@@ -306,7 +306,7 @@ class AnnotationField(models.Model):
     def save(self, *args, **kwargs):
         """Recompute the labels for annotation values if vocabulary changes.
 
-        :raises KeyError: when vocabulary changes so that annotation values are no
+        :raises ValidationError: when vocabulary changes so that annotation values are no
             longer valid.
         """
         super().save(*args, **kwargs)
@@ -314,6 +314,7 @@ class AnnotationField(models.Model):
             updated_fields = []
             for annotation_value_field in self.values.all():
                 annotation_value_field.recompute_label()
+                annotation_value_field.validate()
                 updated_fields.append(annotation_value_field)
             AnnotationValue.objects.bulk_update(updated_fields, ["_value"])
             self._original_vocabulary = self.vocabulary
@@ -442,6 +443,11 @@ class AnnotationValue(AuditModel):
         :raises ValidationError: when the validation fails.
         """
         annotation_value_validator.validate(self, raise_exception=True)
+
+    def save(self, *args, **kwargs):
+        """Save the annotation value after validation has passed."""
+        annotation_value_validator.validate(self, raise_exception=True)
+        super().save(*args, **kwargs)
 
     def recompute_label(self):
         """Recompute label from value and set it to the model instance."""

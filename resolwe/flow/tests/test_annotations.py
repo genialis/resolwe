@@ -1,6 +1,7 @@
 # pylint: disable=missing-docstring
 from typing import Sequence
 
+from django.core.exceptions import ValidationError
 from django.http import HttpResponse
 
 from rest_framework import status
@@ -833,7 +834,10 @@ class AnnotationViewSetsTest(TestCase):
         """
         # Setting vocabulary to empty on field with existing values must raise exception.
         self.annotation_field1.vocabulary = {}
-        with self.assertRaises(KeyError):
+        with self.assertRaisesMessage(
+            ValidationError,
+            str(["The value 'string' is not valid for the field group1.field1."]),
+        ):
             self.annotation_field1.save()
         self.annotation_field1.refresh_from_db()
         self.assertIsNotNone(self.annotation_field1.vocabulary)
@@ -841,7 +845,10 @@ class AnnotationViewSetsTest(TestCase):
         # Disable vocabulary by setting vocabulary to None.
         # First check that incorrect entries are not allowed and disable the vocabulary.
         # The labels must be recomputed and any entry must be allowed.
-        with self.assertRaises(KeyError):
+        with self.assertRaisesMessage(
+            ValidationError,
+            str(["The value 'non_existing' is not valid for the field group1.field1."]),
+        ):
             AnnotationValue.objects.create(
                 entity=self.entity1, field=self.annotation_field1, value="non_existing"
             )
