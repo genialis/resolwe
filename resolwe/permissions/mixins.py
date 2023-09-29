@@ -1,4 +1,6 @@
 """Permissions functions used in Resolwe Viewsets."""
+import versionfield.fields
+
 from django.conf import settings
 from django.db import models, transaction
 
@@ -51,10 +53,23 @@ class ResolwePermissionsMixin:
         Include permissions information with objects.
 
         """
+        if not hasattr(type(self), "_permission_augmented_serializer_class"):
+            augmented_serializer = self._augment_serializer_class()
+            type(self)._permission_augmented_serializer_class = augmented_serializer
+
+        return type(self)._permission_augmented_serializer_class
+
+    def _augment_serializer_class(self):
+        """Create an augmented serializer class."""
         base_class = super().get_serializer_class()
 
         class SerializerWithPermissions(base_class):
-            """Augment serializer class."""
+            """Augmented serializer."""
+
+            serializer_field_mapping = {
+                **base_class.serializer_field_mapping,
+                versionfield.fields.VersionField: serializers.CharField,
+            }
 
             def get_fields(serializer_self):
                 """Return serializer's fields."""
@@ -75,6 +90,9 @@ class ResolwePermissionsMixin:
                         instance, self.request.user, True
                     )
                 return data
+
+        SerializerWithPermissions.__name__ = base_class.__name__ + "WithPermissions"
+        SerializerWithPermissions.__doc__ = base_class.__doc__
 
         return SerializerWithPermissions
 
