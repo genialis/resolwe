@@ -453,6 +453,14 @@ class AnnotationValue(AuditModel):
         """Recompute label from value and set it to the model instance."""
         self._value["label"] = self._computed_label
 
+    @staticmethod
+    def from_path(entity_id: int, path: str) -> Optional["AnnotationValue"]:
+        """Get the annotation value from the path."""
+        field_id = AnnotationField.id_from_path(path)
+        return AnnotationValue.objects.filter(
+            entity_id=entity_id, field_id=field_id
+        ).first()
+
     def __str__(self) -> str:
         """Return user-friendly string representation."""
         return f"{self.label}"
