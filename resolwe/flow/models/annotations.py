@@ -370,6 +370,15 @@ class AnnotationPreset(BaseModel, PermissionObject):
 class AnnotationValue(AuditModel):
     """The value of the annotation."""
 
+    class Meta:
+        """Set the unique constraints."""
+
+        constraints = [
+            models.constraints.UniqueConstraint(
+                fields=["entity", "field"], name="uniquetogether_entity_field"
+            ),
+        ]
+
     #: the entity this field belongs to
     entity: "Entity" = models.ForeignKey(
         "Entity", related_name="annotations", on_delete=models.CASCADE
