@@ -31,6 +31,7 @@ from django.test import TestCase as DjangoTestCase
 from django.test import TransactionTestCase as DjangoTransactionTestCase
 
 from resolwe.flow.managers.listener.redis_cache import redis_cache
+from resolwe.flow.models.annotations import AnnotationValue
 from resolwe.storage import settings as storage_settings
 from resolwe.storage.connectors import connectors
 
@@ -120,6 +121,17 @@ class TestCaseHelpers(DjangoSimpleTestCase):
             self.assertAlmostEqual(actual, expected, msg=msg)
         else:
             self.assertEqual(actual, expected, msg=msg)
+
+    def assertAnnotation(self, entity, path, value):
+        """Compare the entity annotation with the given value."""
+        value_field = AnnotationValue.from_path(entity.id, path)
+        if value_field is None:
+            self.fail(f"Annotation '{path}' not found.")
+        self.assertEqual(
+            value_field.value,
+            value,
+            msg=f"Annotation '{path}' mismatch: {value_field.value} != {value}",
+        )
 
 
 class TransactionTestCase(TestCaseHelpers, DjangoTransactionTestCase):
