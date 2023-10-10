@@ -257,7 +257,8 @@ class ModelMetaclass(type):
             fields_details = communicator.get_model_fields_details(app_name, name)
             for field_name in fields_details:
                 field_type, required, related_model_name = fields_details[field_name]
-                if field_type in FIELDS_MAP:
+                # Do not overwrite explicitely defined class attributes.
+                if field_type in FIELDS_MAP and not field_name in model.__dict__:
                     kwargs = {"required": required}
                     if field_type == "ForeignKey":
                         id_field = IntegerField()
@@ -486,11 +487,97 @@ class Process(Model):
             return cls(pks[0][0])
 
 
+class EntityAnnotation(MutableMapping[str, Any]):
+    """Annotations on sample object."""
+
+    def __init__(self, entity: "Entity"):
+        """Initialize empty cache."""
+        self._entity = entity
+        self._cache: Dict[str, Any] = dict()
+        self._all_read = False
+
+    def __getitem__(self, key: str) -> Any:
+        """Get the value for the given key."""
+        if key not in self._cache:
+            annotations = communicator.get_entity_annotations(self._entity.id, [key])
+            if key in annotations:
+                self._cache[key] = annotations[key]
+        # Return None even if key is not known.
+        return self._cache.get(key)
+
+    def copy(self) -> dict:
+        """Return a dictionary with all annotation values."""
+        self._fetch_all()
+        return self._cache.copy()
+
+    def __setitem__(self, key: str, value: Any):
+        """Set the value for the given key."""
+        communicator.set_entity_annotations(self._entity.id, {key: value}, True)
+        self._cache[key] = value
+
+    def _set_annotations(self, data: Dict[str, Any]):
+        """Bulk set annotations (delete others)."""
+        communicator.set_entity_annotations(self._entity.id, data, False)
+        self._cache = data.copy()
+        self._all_read = True
+
+    def update(self, data: Dict[str, Any]):
+        """Bulk update annotations."""
+        communicator.set_entity_annotations(self._entity.id, data, True)
+        self._cache.update(data)
+
+    def __delitem__(self, name: str):
+        """Delete the annotation."""
+        raise NotImplementedError("Delete is not implemented")
+
+    def _fetch_all(self):
+        """Read all annotations from the server and cache them."""
+        if not self._all_read:
+            self._cache = communicator.get_entity_annotations(self._entity.id, None)
+            self._all_read = True
+
+    def __iter__(self):
+        """Return iterator.
+
+        Read all the annotations from the backend and iterate over them.
+        """
+        self._fetch_all()
+        return iter(self._cache)
+
+    def __len__(self) -> int:
+        """Return the number of annotations.
+
+        Beware: this method can read all the annotations from the backend.
+        """
+        self._fetch_all()
+        return len(self._cache)
+
+    def __str__(self) -> str:
+        """Return string representation."""
+        return f"EntityAnnotations({self._entity})"
+
+
 class Entity(Model):
     """Entity model."""
 
     _app_name = "flow"
     _model_name = "Entity"
+
+    @property
+    def annotations(self):
+        """Return entity annotations object."""
+        if not hasattr(self, "_annotations"):
+            self._annotations = EntityAnnotation(self)
+        return self._annotations
+
+    @annotations.setter
+    def annotations(self, value: dict):
+        """Set annotations on entity.
+
+        Annotations not present in the dictionary will be deleted.
+        """
+        assert isinstance(value, dict), "Annotations must be stored in a dictionary."
+        self.annotations._set_annotations(value)
 
 
 class Storage(Model):

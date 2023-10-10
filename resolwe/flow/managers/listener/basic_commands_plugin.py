@@ -14,7 +14,7 @@ from django.utils.timezone import now
 
 from resolwe.flow.executors.socket_utils import Message, Response
 from resolwe.flow.managers.protocol import ExecutorProtocol
-from resolwe.flow.models import Data, DataDependency, Entity, Process, Worker
+from resolwe.flow.models import Data, DataDependency, Process, Worker
 from resolwe.flow.models.utils import validate_data_object
 from resolwe.flow.utils import dict_dot, iterate_fields, iterate_schema
 from resolwe.storage.connectors import connectors
@@ -490,14 +490,11 @@ class BasicCommands(ListenerPlugin):
         if entity_id is None:
             raise RuntimeError(f"No entity to annotate for object '{data_id}'")
 
-        # The entity must be retrieved and saved or schema validation on the
-        # entity must be done manually.
-        entity = Entity.objects.get(pk=entity_id)
-        for key, val in message.message_data.items():
-            dict_dot(entity.descriptor, key, val)
-        entity.save()
+        handler = self.plugin_manager.get_handler("set_entity_annotations")
+        assert handler is not None, "Handler for 'set_entity_annotations' not found"
 
-        return message.respond_ok("OK")
+        message.message_data = [entity_id, message.message_data, True]
+        return handler(data_id, message, manager)
 
     def handle_process_log(
         self, data_id, message: Message[dict], manager: "Processor"

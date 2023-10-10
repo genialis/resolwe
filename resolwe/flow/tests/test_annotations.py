@@ -859,6 +859,7 @@ class AnnotationViewSetsTest(TestCase):
         self.annotation_value1.refresh_from_db()
         # Labels must be recomputed to the original value.
         self.assertEqual(self.annotation_value1._value["label"], "string")
+        self.entity1.annotations.all().delete()
         AnnotationValue.objects.create(
             entity=self.entity1, field=self.annotation_field1, value="non_existing"
         )

@@ -17,6 +17,12 @@ from resolwe.flow.models import (
     RelationType,
     Storage,
 )
+from resolwe.flow.models.annotations import (
+    AnnotationField,
+    AnnotationGroup,
+    AnnotationType,
+    AnnotationValue,
+)
 from resolwe.permissions.models import Permission, get_anonymous_user
 from resolwe.test import (
     ProcessTestCase,
@@ -119,16 +125,53 @@ class PythonProcessTest(ProcessTestCase):
         process = Process.objects.get(slug="test-python-process-2")
 
     @with_docker_executor
-    @tag_process("test-python-process-annotate-entity")
-    def test_annotation(self):
-        data = self.run_process("test-python-process-annotate-entity")
+    @tag_process("test-python-process-annotate-entity-v2")
+    @tag_process("test-python-process-annotate-entity-v2-bulk-update")
+    @tag_process("test-python-process-annotate-entity-v2-bulk-set")
+    @tag_process("test-python-process-update-entity-annotations-v2")
+    def test_annotation_v2(self):
+        group = AnnotationGroup.objects.create(name="general", sort_order=1)
+        AnnotationField.objects.create(
+            name="species", sort_order=1, group=group, type=AnnotationType.STRING.value
+        )
+        age_field = AnnotationField.objects.create(
+            name="age", sort_order=1, group=group, type=AnnotationType.INTEGER.value
+        )
+        data = self.run_process("test-python-process-annotate-entity-v2")
         self.assertIsNotNone(data.entity)
-        dsc = data.entity.descriptor
-        self.assertIn("general", dsc)
-        self.assertIn("species", dsc["general"])
-        self.assertEqual(dsc["general"]["species"], "Valid")
-        self.assertIn("description", dsc["general"])
-        self.assertEqual(dsc["general"]["description"], "desc")
+        self.assertEqual(data.entity.annotations.count(), 2)
+        self.assertAnnotation(data.entity, "general.species", "Human")
+        self.assertAnnotation(data.entity, "general.age", 42)
+
+        # Try bulk updating.
+        data = self.run_process("test-python-process-annotate-entity-v2-bulk-update")
+        self.assertIsNotNone(data.entity)
+        self.assertEqual(data.entity.annotations.count(), 2)
+        self.assertAnnotation(data.entity, "general.species", "Human Bulk")
+        self.assertAnnotation(data.entity, "general.age", 42 * 2)
+
+        # Try bulk setting.
+        data = self.run_process("test-python-process-annotate-entity-v2-bulk-set")
+        self.assertIsNotNone(data.entity)
+        self.assertEqual(data.entity.annotations.count(), 1)
+        self.assertAnnotation(data.entity, "general.species", "Human Bulk Set")
+
+        # Now try reading and updating existing annotations.
+        entity = Entity.objects.create(name="Entity", contributor=self.contributor)
+        entity.set_permission(Permission.EDIT, self.contributor)
+        AnnotationValue.objects.create(entity=entity, field=age_field, value=42)
+        process = Process.objects.get(
+            slug="test-python-process-update-entity-annotations-v2"
+        )
+        process.set_permission(Permission.VIEW, self.contributor)
+        data = self.run_process(
+            "test-python-process-update-entity-annotations-v2",
+            {"entity_id": entity.pk},
+            contributor=self.contributor,
+        )
+        self.assertEqual(data.output["existing_annotations"], "{'general.age': 42}")
+        self.assertAnnotation(entity, "general.species", "Human")
+        self.assertAnnotation(entity, "general.age", 21)
 
     @with_docker_executor
     @tag_process("test-python-process", "test-save-file", "entity-process")

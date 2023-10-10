@@ -248,9 +248,9 @@ class ErrorProcess(Process):
         raise ValueError("Value error in ErrorProcess")
 
 
-class AnnotateProcess(Process):
-    slug = "test-python-process-annotate-entity"
-    name = "Test Python Process Annotate Entity"
+class AnnotateProcessV2(Process):
+    slug = "test-python-process-annotate-entity-v2"
+    name = "Test Python Process Annotate Entity V2"
     version = "0.0.1"
     process_type = "data:python:annotate"
     entity = {
@@ -258,8 +258,69 @@ class AnnotateProcess(Process):
     }
 
     def run(self, inputs, outputs):
-        annotations = {"general.description": "desc", "general.species": "Valid"}
-        self.update_entity_descriptor(annotations)
+        self.data.entity.annotations["general.species"] = "Human"
+        self.data.entity.annotations["general.age"] = 42
+
+
+class AnnotateProcessV2BulkSet(Process):
+    slug = "test-python-process-annotate-entity-v2-bulk-set"
+    name = "Test Python Process Annotate Entity V2 bulk-set"
+    version = "0.0.1"
+    process_type = "data:python:annotate"
+    entity = {
+        "type": "sample",
+    }
+
+    def run(self, inputs, outputs):
+        self.data.entity.annotations.update(
+            {
+                "general.species": "Human Bulk",
+                "general.age": 2 * 42,
+            }
+        )
+        self.data.entity.annotations = {"general.species": "Human Bulk Set"}
+
+
+class AnnotateProcessV2BulkUpdate(Process):
+    slug = "test-python-process-annotate-entity-v2-bulk-update"
+    name = "Test Python Process Annotate Entity V2 bulk-update"
+    version = "0.0.1"
+    process_type = "data:python:annotate"
+    entity = {
+        "type": "sample",
+    }
+
+    def run(self, inputs, outputs):
+        self.data.entity.annotations.update(
+            {
+                "general.species": "Human Bulk",
+                "general.age": 2 * 42,
+            }
+        )
+
+
+class AnnotateProcessUpdateV2(Process):
+    slug = "test-python-process-update-entity-annotations-v2"
+    name = "Test Python Process Update Annotations Entity V2"
+    version = "0.0.1"
+    process_type = "data:python:annotate"
+    entity = {
+        "type": "sample",
+    }
+
+    class Input:
+        entity_id = IntegerField(label="Entity id")
+
+    class Output:
+        """Output fields."""
+
+        existing_annotations = StringField(label="Existing annotations")
+
+    def run(self, inputs, outputs):
+        entity = Entity.get(pk=inputs.entity_id)
+        outputs.existing_annotations = str(entity.annotations.copy())
+        entity.annotations["general.species"] = "Human"
+        entity.annotations["general.age"] = entity.annotations["general.age"] // 2
 
 
 class FileProcess(Process):

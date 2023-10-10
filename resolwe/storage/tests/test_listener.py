@@ -1,13 +1,22 @@
 # pylint: disable=missing-docstring
 from unittest.mock import patch
 
+from django.contrib.auth import get_user_model
+
 from resolwe.flow.executors import constants
 from resolwe.flow.executors.socket_utils import Message, Response, ResponseStatus
 from resolwe.flow.managers.listener.basic_commands_plugin import BasicCommands
 from resolwe.flow.managers.listener.listener import Processor
 from resolwe.flow.managers.protocol import ExecutorProtocol
-from resolwe.flow.models import Data, DataDependency, Worker
+from resolwe.flow.models import Data, DataDependency, Entity, Worker
+from resolwe.flow.models.annotations import (
+    AnnotationField,
+    AnnotationGroup,
+    AnnotationType,
+    AnnotationValue,
+)
 from resolwe.flow.models.process import Process
+from resolwe.permissions.models import Permission
 from resolwe.storage.connectors.baseconnector import BaseStorageConnector
 from resolwe.storage.connectors.s3connector import AwsS3Connector
 from resolwe.storage.models import FileStorage, ReferencedPath, StorageLocation
@@ -319,3 +328,168 @@ class ListenerTest(TestCase):
         message = Message.command("resolve_data_path", data.pk)
         response = self.manager.process_command(peer_identity, message)
         self.assertEqual(response.message_data, f"/data_{connector_name}")
+
+    def test_get_entity_annotations(self):
+        """Test entity annotations retrieval."""
+        user_model = get_user_model()
+        user_model.objects.create_user(
+            username="public",
+            email="public@test.com",
+            password="public",
+            first_name="James",
+            last_name="Smith",
+        )
+        entity = Entity.objects.create(name="Entity", contributor=self.contributor)
+
+        group = AnnotationGroup.objects.create(name="group", sort_order=1)
+        field = AnnotationField.objects.create(
+            name="field",
+            type=AnnotationType.STRING.value,
+            group=group,
+            required=False,
+            sort_order=1,
+        )
+        field2 = AnnotationField.objects.create(
+            name="another field",
+            type=AnnotationType.STRING.value,
+            group=group,
+            required=False,
+            sort_order=2,
+        )
+        AnnotationValue.objects.create(entity=entity, field=field, value="value")
+        AnnotationValue.objects.create(entity=entity, field=field2, value="value2")
+
+        process = Process.objects.create(contributor=self.contributor)
+        data = Data.objects.create(
+            name="Test min", process=process, contributor=self.contributor
+        )
+        data.status = Data.STATUS_PROCESSING
+        data.save()
+        peer_identity = str(data.pk).encode()
+        Worker.objects.update_or_create(
+            data_id=data.pk, status=Worker.STATUS_PROCESSING
+        )
+
+        # Request without permisions should fail.
+        message = Message.command(
+            "get_entity_annotations",
+            [entity.pk, ["group.field", "group.another field", "nonexisting.field"]],
+        )
+        expected = Response(
+            ResponseStatus.ERROR.value,
+            "Error in command handler 'handle_get_entity_annotations'.",
+        )
+        response = self.manager.process_command(peer_identity, message)
+        self.assertEqual(response, expected)
+
+        data = Data.objects.create(
+            name="Test min", process=process, contributor=self.contributor
+        )
+
+        # Request with permissions should succeed and return only existing annotations.
+        data.status = Data.STATUS_PROCESSING
+        data.save()
+        peer_identity = str(data.pk).encode()
+        Worker.objects.update_or_create(
+            data_id=data.pk, status=Worker.STATUS_PROCESSING
+        )
+        entity.set_permission(Permission.VIEW, self.contributor)
+        response = self.manager.process_command(peer_identity, message)
+        expected = Response(
+            ResponseStatus.OK.value,
+            {"group.field": "value", "group.another field": "value2"},
+        )
+        self.assertEqual(response, expected)
+
+        # Request without annotation names should return all annotations.
+        message = Message.command("get_entity_annotations", [entity.pk, None])
+        response = self.manager.process_command(peer_identity, message)
+        expected = Response(
+            ResponseStatus.OK.value,
+            {"group.field": "value", "group.another field": "value2"},
+        )
+        self.assertEqual(response, expected)
+
+    def test_set_entity_annotations(self):
+        """Test entity annotations creation / update."""
+
+        user_model = get_user_model()
+        user_model.objects.create_user(
+            username="public",
+            email="public@test.com",
+            password="public",
+            first_name="James",
+            last_name="Smith",
+        )
+        entity = Entity.objects.create(name="Entity", contributor=self.contributor)
+
+        group = AnnotationGroup.objects.create(name="group", sort_order=1)
+        AnnotationField.objects.create(
+            name="field",
+            type=AnnotationType.STRING.value,
+            group=group,
+            required=False,
+            sort_order=1,
+        )
+        AnnotationField.objects.create(
+            name="another field",
+            type=AnnotationType.STRING.value,
+            group=group,
+            required=False,
+            sort_order=2,
+        )
+
+        process = Process.objects.create(contributor=self.contributor)
+        data = Data.objects.create(
+            name="Test min", process=process, contributor=self.contributor
+        )
+        data.status = Data.STATUS_PROCESSING
+        data.save()
+        peer_identity = str(data.pk).encode()
+        Worker.objects.update_or_create(
+            data_id=data.pk, status=Worker.STATUS_PROCESSING
+        )
+
+        # Request without permisions should fail.
+        message = Message.command(
+            "set_entity_annotations", [entity.pk, {"group.field": "value"}, True]
+        )
+        expected = Response(
+            ResponseStatus.ERROR.value,
+            "Error in command handler 'handle_set_entity_annotations'.",
+        )
+        response = self.manager.process_command(peer_identity, message)
+        self.assertEqual(response, expected)
+
+        # Request with permissions should succeed.
+        data = Data.objects.create(
+            name="Test min", process=process, contributor=self.contributor
+        )
+        data.status = Data.STATUS_PROCESSING
+        data.save()
+        peer_identity = str(data.pk).encode()
+        Worker.objects.update_or_create(
+            data_id=data.pk, status=Worker.STATUS_PROCESSING
+        )
+        entity.set_permission(Permission.EDIT, self.contributor)
+        self.assertEqual(entity.annotations.count(), 0)
+
+        response = self.manager.process_command(peer_identity, message)
+        expected = Response(ResponseStatus.OK.value, "OK")
+        self.assertEqual(entity.annotations.count(), 1)
+        self.assertAnnotation(entity, "group.field", "value")
+
+        # Annotations should be updated or created
+        message = Message.command(
+            "set_entity_annotations",
+            [
+                entity.pk,
+                {"group.field": "updated value", "group.another field": "value2"},
+                True,
+            ],
+        )
+        response = self.manager.process_command(peer_identity, message)
+        expected = Response(ResponseStatus.OK.value, "OK")
+        self.assertEqual(entity.annotations.count(), 2)
+        self.assertAnnotation(entity, "group.field", "updated value")
+        self.assertAnnotation(entity, "group.another field", "value2")

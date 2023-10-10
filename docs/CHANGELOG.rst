@@ -14,6 +14,15 @@ Added
 -----
 - Allow sorting entities by collection name
 
+Changed
+-------
+- **BACKWARD INCOMPATIBLE:** Command ``re-annotate-entity`` creates annotation
+  objects instead of updating entity descriptor
+- **BACKWARD INCOMPATIBLE:** Method ``update_entity_descriptor`` in Python
+  processes creates annotation objects instead of updating the entity
+  descriptor
+- Add ``annotations`` property to the ``Entity`` object in Python processes
+
 
 ===================
 36.1.0 - 2023-09-14

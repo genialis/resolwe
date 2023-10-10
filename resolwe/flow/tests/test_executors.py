@@ -28,6 +28,11 @@ from resolwe.flow.executors.zeromq_utils import ZMQCommunicator
 from resolwe.flow.managers.dispatcher import Manager
 from resolwe.flow.managers.listener.redis_cache import redis_cache
 from resolwe.flow.models import Data, DataDependency, Process, Worker
+from resolwe.flow.models.annotations import (
+    AnnotationField,
+    AnnotationGroup,
+    AnnotationType,
+)
 from resolwe.flow.models.fields import ResolweSlugField
 from resolwe.storage import settings as storage_settings
 from resolwe.test import (
@@ -94,6 +99,20 @@ class ManagerRunProcessTest(ProcessTestCase):
         self._register_schemas(
             processes_paths=[PROCESSES_DIR], descriptors_paths=[DESCRIPTORS_DIR]
         )
+        group = AnnotationGroup.objects.create(name="general", sort_order=1)
+        self.species_field = AnnotationField.objects.create(
+            name="species",
+            group=group,
+            sort_order=1,
+            type=AnnotationType.STRING.value,
+            vocabulary={"Valid": "Valid"},
+        )
+        AnnotationField.objects.create(
+            name="description",
+            group=group,
+            sort_order=2,
+            type=AnnotationType.STRING.value,
+        )
 
     @tag_process("test-min")
     def test_minimal_process(self):
@@ -103,10 +122,8 @@ class ManagerRunProcessTest(ProcessTestCase):
     def test_annotate(self):
         data = self.run_process("test-annotate")
         self.assertIsNotNone(data.entity)
-        dsc = data.entity.descriptor
-        self.assertIn("general", dsc)
-        self.assertIn("species", dsc["general"])
-        self.assertEqual(dsc["general"]["species"], "Valid")
+        self.assertEqual(data.entity.annotations.count(), 1)
+        self.assertAnnotation(data.entity, "general.species", "Valid")
 
     def test_router_handover(self):
         """Test router socket handover.
@@ -157,7 +174,10 @@ class ManagerRunProcessTest(ProcessTestCase):
             "test-annotate-wrong-option", assert_status=Data.STATUS_ERROR
         )
         self.assertEqual(len(data.process_error), 1)
-        self.assertIn("must match one of predefined choices", data.process_error[0])
+        self.assertIn(
+            "The value 'Invalid' is not valid for the field general.species.",
+            data.process_error[0],
+        )
 
     @tag_process("test-annotate-wrong-type")
     def test_annotate_wrong_type(self):
@@ -166,7 +186,7 @@ class ManagerRunProcessTest(ProcessTestCase):
         )
         self.assertEqual(len(data.process_error), 1)
         self.assertIn(
-            "is not valid under any of the given schemas", data.process_error[0]
+            "The value '15' is not of the expected type 'str'.", data.process_error[0]
         )
 
     @tag_process("test-annotate-missing-field")
@@ -175,7 +195,7 @@ class ManagerRunProcessTest(ProcessTestCase):
             "test-annotate-missing-field", assert_status=Data.STATUS_ERROR
         )
         self.assertEqual(len(data.process_error), 1)
-        self.assertIn("definition (invalid) missing in schema", data.process_error[0])
+        self.assertIn("Invalid field path: 'general.invalid'", data.process_error[0])
 
     @tag_process("test-annotate-no-entity")
     def test_annotate_no_entity(self):

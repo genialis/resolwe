@@ -5,19 +5,26 @@ import os
 from base64 import b64encode
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Tuple, Type, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
 from zipfile import ZIP_STORED, ZipFile
 
 from django.apps import apps
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.postgres.fields.jsonb import JSONField as JSONFieldb
-from django.db.models import ForeignKey, JSONField, ManyToManyField, Model
+from django.db.models import ForeignKey, JSONField, ManyToManyField, Model, Q, Value
+from django.db.models.functions import Concat
 
 from resolwe.flow.executors import constants
 from resolwe.flow.executors.socket_utils import Message, Response, retry
 from resolwe.flow.managers.listener.permission_plugin import permission_manager
-from resolwe.flow.models import Collection, Process
+from resolwe.flow.models import (
+    AnnotationField,
+    AnnotationValue,
+    Collection,
+    Entity,
+    Process,
+)
 from resolwe.flow.models.base import UniqueSlugError
 from resolwe.flow.models.utils import serialize_collection_relations
 from resolwe.flow.utils import dict_dot
@@ -158,6 +165,88 @@ class PythonProcess(ListenerPlugin):
         return message.respond_ok(
             list(filtered_objects.order_by(*sorting).values_list(*attributes))
         )
+
+    def handle_set_entity_annotations(
+        self,
+        data_id: int,
+        message: Message[tuple[int, dict[str, Any], bool]],
+        manager: "Processor",
+    ):
+        """Handle update entity annotation request.
+
+        The first part of the message is the id of the entity and the second one the
+        mapping representing annotations. The keys in the are in the format
+        f"{group_name}.{field_name}".
+        """
+        entity_id, annotations, update = message.message_data
+        entity = Entity.objects.get(pk=entity_id)
+        # Check that the user has the permissions to update the entity.
+        self._permission_manager.can_update(
+            manager.contributor(data_id), "flow.Entity", entity, {}, data_id
+        )
+        # Delete all annotations except the ones that are in the request.
+        if not update:
+            entity.annotations.all().delete()
+
+        annotation_values: list[AnnotationValue] = []
+        for field_path, value in annotations.items():
+            field = AnnotationField.field_from_path(field_path)
+            if field is None:
+                raise ValueError(f"Invalid field path: '{field_path}'.")
+            value = AnnotationValue(entity_id=entity_id, field=field, value=value)
+            # The validation is necessary since values are bulk-created and validation
+            # is done inside the save method, which is not called.
+            value.validate()
+            annotation_values.append(value)
+        if annotation_values:
+            AnnotationValue.objects.bulk_create(
+                annotation_values,
+                update_conflicts=True,
+                update_fields=["_value"],
+                unique_fields=["entity", "field"],
+            )
+        return message.respond_ok("OK")
+
+    def handle_get_entity_annotations(
+        self,
+        data_id: int,
+        message: Message[tuple[int, Optional[list[str]]]],
+        manager: "Processor",
+    ) -> Response[dict[str, Any]]:
+        """Handle get annotations request.
+
+        The first part of the message is the id of the entity and the second one the
+        list representing annotations to retrieve. The annotations are in the format
+        f"{group_name}.{field_name}".
+        """
+        entity_id, annotations = message.message_data
+        # Check that the user has the permissions to read the entity.
+        entity = self._permission_manager.filter_objects(
+            manager.contributor(data_id),
+            "flow.Entity",
+            Entity.objects.filter(pk=entity_id),
+            data_id,
+        ).get()
+        entity_annotations = entity.annotations
+        if annotations is not None:
+            if len(annotations) == 0:
+                entity_annotations = entity_annotations.none()
+            else:
+                # Filter only requested annotations. Return only annotations matching group
+                # and field name.
+                annotation_filter = Q()
+                for annotation in annotations:
+                    group_name, field_name = annotation.split(".")
+                    annotation_filter |= Q(
+                        field__group__name=group_name, field__name=field_name
+                    )
+                entity_annotations.filter(annotation_filter)
+        to_return = dict(
+            entity_annotations.annotate(
+                full_path=Concat("field__group__name", Value("."), "field__name")
+            ).values_list("full_path", "_value__value")
+        )
+        return message.respond_ok(to_return)
 
     def handle_update_model_fields(
         self,
