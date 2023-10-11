@@ -773,6 +773,35 @@ class Data(BaseModel, PermissionObject):
         # Start processing the duplicate.
         commit_signal(self, False, update_fields=None)
 
+    def dependency_status(self) -> Optional[str]:
+        """Return abstracted status of instance IO dependencies.
+
+        :returns:
+            - ``STATUS_ERROR`` .. one dependency has error status or was deleted
+            - ``STATUS_DONE`` .. all dependencies have done status
+            - ``None`` .. other
+        """
+        parents_statuses = set(
+            DataDependency.objects.filter(child=self, kind=DataDependency.KIND_IO)
+            .distinct("parent__status")
+            .values_list("parent__status", flat=True)
+        )
+
+        if not parents_statuses:
+            return Data.STATUS_DONE
+
+        if None in parents_statuses:
+            # Some parents have been deleted.
+            return Data.STATUS_ERROR
+
+        if Data.STATUS_ERROR in parents_statuses:
+            return Data.STATUS_ERROR
+
+        if len(parents_statuses) == 1 and Data.STATUS_DONE in parents_statuses:
+            return Data.STATUS_DONE
+
+        return None
+
 
 class DataDependency(models.Model):
     """Dependency relation between data objects."""

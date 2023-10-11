@@ -63,36 +63,6 @@ class SettingsJSONifier(json.JSONEncoder):
             return str(o)
 
 
-def dependency_status(data):
-    """Return abstracted status of dependencies.
-
-    - ``STATUS_ERROR`` .. one dependency has error status or was deleted
-    - ``STATUS_DONE`` .. all dependencies have done status
-    - ``None`` .. other
-
-    """
-    parents_statuses = set(
-        DataDependency.objects.filter(child=data, kind=DataDependency.KIND_IO)
-        .distinct("parent__status")
-        .values_list("parent__status", flat=True)
-    )
-
-    if not parents_statuses:
-        return Data.STATUS_DONE
-
-    if None in parents_statuses:
-        # Some parents have been deleted.
-        return Data.STATUS_ERROR
-
-    if Data.STATUS_ERROR in parents_statuses:
-        return Data.STATUS_ERROR
-
-    if len(parents_statuses) == 1 and Data.STATUS_DONE in parents_statuses:
-        return Data.STATUS_DONE
-
-    return None
-
-
 class Manager:
     """The manager handles process job dispatching.
 
@@ -633,7 +603,7 @@ class Manager:
                 # obtained. In this case, skip the object.
                 return
 
-            dep_status = dependency_status(data)
+            dep_status = data.dependency_status()
 
             if dep_status == Data.STATUS_ERROR:
                 data.status = Data.STATUS_ERROR
