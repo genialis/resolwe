@@ -3,7 +3,14 @@ from drf_spectacular.utils import extend_schema
 
 from django.db.models import Prefetch
 
-from rest_framework import exceptions, mixins, serializers, status, viewsets
+from rest_framework import (
+    exceptions,
+    mixins,
+    permissions,
+    serializers,
+    status,
+    viewsets,
+)
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
@@ -29,6 +36,18 @@ from .mixins import (
 from .utils import get_collection_for_user
 
 
+class IsSuperuser(permissions.BasePermission):
+    """Allow access only to superusers."""
+
+    message = "Only superusers are allowed."
+
+    def has_permission(self, request, view):
+        """Return true when request is allowed."""
+        return bool(
+            request.user and request.user.is_authenticated and request.user.is_superuser
+        )
+
+
 class MoveDataToCollectionSerializer(serializers.Serializer):
     """Deserializer for data move to collection endpoint."""
 
@@ -41,6 +60,12 @@ class DuplicateDataSerializer(serializers.Serializer):
 
     ids = serializers.ListField(child=serializers.IntegerField(), allow_empty=False)
     inherit_collection = serializers.BooleanField(default=False)
+
+
+class RestartSerializer(serializers.Serializer):
+    """Serializer for restarting a Data object."""
+
+    resource_overrides = serializers.JSONField(required=False, default=dict)
 
 
 class DataViewSet(
@@ -180,8 +205,22 @@ class DataViewSet(
         return self._parents_children(request, self.get_object().parents)
 
     @extend_schema(
-        filters=False, responses={status.HTTP_200_OK: DataSerializer(many=True)}
+        filters=False,
+        request=DuplicateDataSerializer(),
+        responses={status.HTTP_200_OK: DataSerializer(many=True)},
     )
+    @action(detail=True, methods=["post"], permission_classes=[IsSuperuser])
+    def restart(self, request, pk=None):
+        """Restart the current data object."""
+        argument_validator = RestartSerializer(data=request.data)
+        argument_validator.is_valid(raise_exception=True)
+        data = self.get_object()
+        try:
+            data.restart(**argument_validator.validated_data)
+        except RuntimeError as e:
+            raise exceptions.ValidationError(str(e))
+        return Response(self.get_serializer(data).data)
+
     @action(detail=True)
     def children(self, request, pk=None):
         """Return children of the current data object."""

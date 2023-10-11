@@ -15,7 +15,11 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
-from resolwe.flow.models.utils import bulk_duplicate
+from resolwe.flow.models.utils.duplicate import (
+    bulk_duplicate_collection,
+    bulk_duplicate_data,
+    bulk_duplicate_entity,
+)
 
 from .models import BackgroundTask, Observer, Subscription
 from .protocol import GROUP_SESSIONS, ChangeType, ChannelsMessage, WebsocketMessage
@@ -174,13 +178,13 @@ class BackgroundTaskConsumer(AsyncConsumer):
         from resolwe.flow.models import Data
 
         def duplicate():
-            duplicates = bulk_duplicate(
+            duplicates = bulk_duplicate_data(
                 data=Data.objects.filter(pk__in=message["data_ids"]),
                 contributor=get_user_model().objects.get(pk=message["contributor_id"]),
                 inherit_entity=message["inherit_entity"],
                 inherit_collection=message["inherit_collection"],
             )
-            return list(duplicates.values_list("pk", flat=True))
+            return [duplicate.pk for duplicate in duplicates]
 
         await self.wrap_task(duplicate, message["task_id"])
 
@@ -190,12 +194,12 @@ class BackgroundTaskConsumer(AsyncConsumer):
         from resolwe.flow.models import Entity
 
         def duplicate():
-            duplicates = bulk_duplicate(
+            duplicates = bulk_duplicate_entity(
                 entities=Entity.objects.filter(pk__in=message["entity_ids"]),
                 contributor=get_user_model().objects.get(pk=message["contributor_id"]),
                 inherit_collection=message["inherit_collection"],
             )
-            return list(duplicates.values_list("pk", flat=True))
+            return [duplicate.pk for duplicate in duplicates]
 
         await self.wrap_task(duplicate, message["task_id"])
 
@@ -205,11 +209,11 @@ class BackgroundTaskConsumer(AsyncConsumer):
         from resolwe.flow.models import Collection
 
         def duplicate():
-            duplicates = bulk_duplicate(
-                collections=Collection.objects.filter(pk__in=message["collection_ids"]),
+            duplicates = bulk_duplicate_collection(
+                Collection.objects.filter(pk__in=message["collection_ids"]),
                 contributor=get_user_model().objects.get(pk=message["contributor_id"]),
             )
-            return list(duplicates.values_list("pk", flat=True))
+            return [duplicate.pk for duplicate in duplicates]
 
         await self.wrap_task(duplicate, message["task_id"])
 

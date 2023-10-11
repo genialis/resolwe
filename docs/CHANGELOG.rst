@@ -13,6 +13,7 @@ Unreleased
 Added
 -----
 - Add ``restart`` method to the ``Data`` model
+- Add ``restart`` endpoint to ``DataViewSet``
 
 
 ===================

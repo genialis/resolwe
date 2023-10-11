@@ -8,7 +8,7 @@ from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 from rest_framework import status
-from rest_framework.test import APIRequestFactory, force_authenticate
+from rest_framework.test import APIClient, APIRequestFactory, force_authenticate
 
 from resolwe.flow.models import (
     AnnotationField,
@@ -233,10 +233,13 @@ class TestDuplicate(TransactionTestCase):
         force_authenticate(request, self.contributor)
         response = self.entity_duplicate_viewset(request)
         task = BackgroundTask.objects.get(pk=response.data["id"])
+
         duplicate = Entity.objects.get(id__in=task.result())
+
         self.assertTrue(task.has_permission(Permission.VIEW, self.contributor))
         self.assertEqual(collection.entity_set.count(), 2)
         self.assertEqual(collection.data.count(), 2)
+
         handler.assert_called_once_with(
             signal=post_duplicate,
             instances=[duplicate],
@@ -332,6 +335,7 @@ class TestDuplicate(TransactionTestCase):
 class TestDataViewSetCase(TestCase):
     def setUp(self):
         super().setUp()
+        self.client = APIClient()
         self.data_viewset = DataViewSet.as_view(
             actions={
                 "get": "list",
@@ -392,6 +396,57 @@ class TestDataViewSetCase(TestCase):
         self.collection.set_permission(Permission.EDIT, self.contributor)
         self.proc.set_permission(Permission.VIEW, self.contributor)
         self.descriptor_schema.set_permission(Permission.VIEW, self.contributor)
+
+    def test_restart(self):
+        data = Data.objects.create(contributor=self.contributor, process=self.proc)
+        data.status = Data.STATUS_DONE
+        data.save()
+        # Unauthenticated request must fail.
+        path = reverse("resolwe-api:data-restart", args=[data.pk])
+        response = self.client.post(path, pk=data.pk, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(
+            response.data, {"detail": "Authentication credentials were not provided."}
+        )
+
+        # Restart fail no superuser.
+        self.client.force_authenticate(self.contributor)
+        request = self.client.post("/", {}, format="json")
+        force_authenticate(request, self.contributor)
+        response = self.client.post(path, pk=data.pk, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data, {"detail": "Only superusers are allowed."})
+
+        # Request fail wrong status.
+        self.contributor.is_superuser = True
+        self.contributor.save()
+        response = self.client.post(path, pk=data.pk, format="json")
+        self.assertEqual(
+            response.data[0], "Only data in status ER can be restarted, not OK."
+        )
+
+        # Restart with default arguments.
+        data.status = Data.STATUS_ERROR
+        data.save()
+        response = self.client.post(path, pk=data.pk, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["contributor"]["id"], self.contributor.pk)
+        self.assertEqual(data.pk, response.data["id"])
+        self.assertEqual(response.data["status"], Data.STATUS_RESOLVING)
+
+        # Override resources.
+        data = Data.objects.create(contributor=self.contributor, process=self.proc)
+        data.status = Data.STATUS_ERROR
+        data.save()
+        overrides = {"cores": 3}
+        post_data = {
+            "contributor": self.admin.pk,
+            "resource_overrides": {data.pk: overrides},
+        }
+        path = reverse("resolwe-api:data-restart", args=[data.pk])
+        response = self.client.post(path, pk=data.pk, data=post_data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["process_resources"], overrides)
 
     def test_prefetch(self):
         process_2 = Process.objects.create(contributor=self.user)
