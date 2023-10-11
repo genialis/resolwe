@@ -1073,9 +1073,17 @@ class DuplicateTestCase(TransactionTestCase):
         )
 
     def test_collection_duplicate(self):
+        process = Process.objects.create(contributor=self.user)
         collection = Collection.objects.create(name="Collection", contributor=self.user)
         entity = Entity.objects.create(
             name="Entity", contributor=self.user, collection=collection
+        )
+        data = Data.objects.create(
+            contributor=self.user,
+            process=process,
+            status=Data.STATUS_DONE,
+            entity=entity,
+            collection=collection,
         )
 
         collection.set_permission(Permission.OWNER, self.contributor)
@@ -1090,13 +1098,20 @@ class DuplicateTestCase(TransactionTestCase):
         duplicate_dict = Collection.objects.filter(id=duplicate.id).values()[0]
 
         entity_dict = Entity.objects.filter(id=entity.id).values()[0]
-        entity_duplicate = duplicate.entity_set.first()
+        entity_duplicate = duplicate.entity_set.get()
         entity_duplicate_dict = Entity.objects.filter(id=entity_duplicate.id).values()[
             0
         ]
 
+        data_dict = Data.objects.filter(id=data.id).values()[0]
+        data_duplicate = duplicate.data.get()
+        data_duplicate_dict = Data.objects.filter(id=data_duplicate.id).values()[0]
+
         self.assertTrue(duplicate.is_duplicate())
         self.assertTrue(entity_duplicate.is_duplicate())
+        self.assertTrue(data_duplicate.is_duplicate())
+
+        self.maxDiff = None
 
         # Pop fields that should differ and assert the remaining.
         fields_to_differ = (
@@ -1106,6 +1121,7 @@ class DuplicateTestCase(TransactionTestCase):
             "name",
             "duplicated",
             "modified",
+            "entity_id",
             "collection_id",
             "search",
             "permission_group_id",
@@ -1114,13 +1130,16 @@ class DuplicateTestCase(TransactionTestCase):
             collection_dict,
             duplicate_dict,
             entity_dict,
+            data_dict,
             entity_duplicate_dict,
+            data_duplicate_dict,
         ):
             for field in fields_to_differ:
                 model_dict.pop(field, "")
 
         self.assertDictEqual(collection_dict, duplicate_dict)
         self.assertDictEqual(entity_dict, entity_duplicate_dict)
+        self.assertDictEqual(data_dict, data_duplicate_dict)
 
         # Assert fields that differ.
         self.assertEqual(duplicate.slug, "copy-of-collection")
