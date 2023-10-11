@@ -140,7 +140,8 @@ class Process(metaclass=ProcessMeta):
     def run_process(self, slug: str, inputs: Dict):
         """Run a new process from a running process."""
         self.export_files(inputs)
-        communicator.run({"process": slug, "input": inputs})
+        data_id = communicator.run({"process": slug, "input": inputs})
+        return Data(data_id)
 
     def progress(self, progress: float):
         """Report process progress.

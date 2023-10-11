@@ -15,6 +15,11 @@ Added
 - Add ``restart`` method to the ``Data`` model
 - Add ``restart`` endpoint to ``DataViewSet``
 
+Changed
+-------
+- The method ``run_process`` in Python processes returns the created ``Data``
+  object
+
 
 ===================
 37.0.2 - 2023-10-26
