@@ -141,14 +141,14 @@ def post_duplicate_models(
     This is necessary since bulk_duplicate does not trigger post_save signals.
     """
     # Make sure all instances have the same permisions.
-    instance_groups = {instance.permission_group_id for instance in instances}
-    assert (
-        len(instance_groups) == 1
-    ), "Duplicated instances must have same security group."
-
-    first_instance = instances[0]
-    gains = set(
-        first_instance.users_with_permission(Permission.VIEW, with_superusers=True)
-    )
+    gains = dict()
     for instance in instances:
-        Observer.observe_permission_changes(instance, gains, set())
+        if instance.permission_group_id not in gains:
+            gains[instance.permission_group_id] = set(
+                instance.users_with_permission(Permission.VIEW, with_superusers=True)
+            )
+
+    for instance in instances:
+        Observer.observe_permission_changes(
+            instance, gains[instance.permission_group_id], set()
+        )
