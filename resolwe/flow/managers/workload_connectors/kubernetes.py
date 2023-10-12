@@ -9,7 +9,9 @@ import hashlib
 import json
 import logging
 import os
+import random
 import re
+import string
 import time
 from contextlib import suppress
 from enum import Enum
@@ -73,7 +75,9 @@ def get_upload_dir() -> str:
 
 def unique_volume_name(base_name: str, data_id: int) -> str:
     """Get unique persistent volume claim name."""
-    return f"{base_name}-{data_id}"
+    # Append random string to make it safe for restart.
+    postfix = "".join(random.choices(string.ascii_lowercase + string.digits, k=5))
+    return f"{base_name}-{data_id}-{postfix}"
 
 
 def sanitize_kubernetes_label(label: str, trim_end: bool = True) -> str:
@@ -836,7 +840,9 @@ class Connector(BaseConnector):
         Name of the kubernetes container should contain only lower case
         alpfanumeric characters and dashes. Underscores are not allowed.
         """
-        return "{}-{}".format(prefix, data_id)
+        # Append random string to make it safe for restart.
+        postfix = "".join(random.choices(string.ascii_lowercase + string.digits, k=5))
+        return f"{prefix}-{data_id}-{postfix}"
 
     def submit(self, data: Data, argv):
         """Run process.

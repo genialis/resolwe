@@ -21,6 +21,8 @@ Changed
   object
 - The docker container names have random postfix to support restarting data
   object
+- The kubernetes resources have random postfix to support restarting data
+  object
 
 
 ===================
