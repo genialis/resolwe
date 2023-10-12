@@ -10,8 +10,6 @@ import copy
 import functools
 import logging
 import os
-import random
-import string
 import tempfile
 import time
 from contextlib import suppress
@@ -34,11 +32,6 @@ DOCKER_MEMORY_SWAP_RATIO = 2
 DOCKER_MEMORY_SWAPPINESS = 1
 
 logger = logging.getLogger(__name__)
-
-
-def _random_string(size: int = 5, chars=string.ascii_lowercase + string.digits):
-    """Generate and return random string."""
-    return "".join(random.choice(chars) for x in range(size))
 
 
 def retry(
@@ -371,13 +364,7 @@ class FlowExecutor(LocalFlowExecutor):
 
         autoremove = SETTINGS.get("FLOW_DOCKER_AUTOREMOVE", False)
 
-        # Add random string between container name and init. Since check for
-        # existing stdout file has been moved inside init container we should
-        # use different containers name in case one init contaner is still
-        # running when another one is fired (or when containers are not purged
-        # automatically): otherwise executor will fail to start the init
-        # container due to name clash.
-        init_container_name = f"{self.container_name}-{_random_string()}-init"
+        init_container_name = f"{self.container_name}-init"
 
         init_arguments = {
             "auto_remove": autoremove,

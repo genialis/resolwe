@@ -19,6 +19,8 @@ Changed
 -------
 - The method ``run_process`` in Python processes returns the created ``Data``
   object
+- The docker container names have random postfix to support restarting data
+  object
 
 
 ===================

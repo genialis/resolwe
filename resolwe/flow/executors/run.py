@@ -10,6 +10,8 @@ Base Class
 """
 # pylint: disable=logging-format-interpolation
 import logging
+import random
+import string
 import sys
 from pathlib import Path
 from typing import Dict, Tuple
@@ -61,7 +63,8 @@ class BaseFlowExecutor:
 
     def _generate_container_name(self, prefix: str) -> str:
         """Generate unique container name."""
-        return "{}-{}".format(prefix, self.data_id)
+        postfix = "".join(random.choices(string.ascii_lowercase + string.digits, k=5))
+        return f"{prefix}-{self.data_id}-{postfix}"
 
     def get_tools_paths(self):
         """Get tools paths."""
