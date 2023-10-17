@@ -116,6 +116,7 @@ def get_object_perms(
            "type": "group"/"user"/"public",
            "id": <group_or_user_id>,
            "name": <group_or_user_name>,
+           "username": <username>,
            "permissions": [<first_permission>, <second_permission>,...]
        }
 

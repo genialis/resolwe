@@ -25,10 +25,13 @@ from .utils import (
 class CurrentUserPermissionsSerializer(serializers.Serializer):
     """Current user permissions serializer."""
 
-    id = serializers.IntegerField()
-    type = serializers.CharField(max_length=50)
-    name = serializers.CharField(max_length=100)
-    permissions = serializers.ListField(child=serializers.CharField(max_length=30))
+    id = serializers.IntegerField(required=False)
+    type = serializers.ChoiceField(choices=["user", "group", "public"])
+    name = serializers.CharField(max_length=100, required=False)
+    username = serializers.CharField(max_length=150, required=False)
+    permissions = serializers.ListField(
+        child=serializers.ChoiceField(choices=list(map(str, Permission)))
+    )
 
 
 class PermissionSerializer(serializers.Serializer):
@@ -95,7 +98,7 @@ class ResolwePermissionsMixin:
                 """Return serializer's fields."""
                 fields = super().get_fields()
                 fields["current_user_permissions"] = CurrentUserPermissionsSerializer(
-                    read_only=True
+                    read_only=True, many=True
                 )
                 return fields
 
@@ -107,9 +110,12 @@ class ResolwePermissionsMixin:
                     or "current_user_permissions"
                     in serializer_self.request.query_params["fields"]
                 ):
-                    data["current_user_permissions"] = get_object_perms(
+                    to_serialize = get_object_perms(
                         instance, serializer_self.request.user, True
                     )
+                    data["current_user_permissions"] = CurrentUserPermissionsSerializer(
+                        to_serialize, read_only=True, many=True
+                    ).data
 
                 return data
 
