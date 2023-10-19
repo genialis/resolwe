@@ -22,6 +22,7 @@ Changed
   processes creates annotation objects instead of updating the entity
   descriptor
 - Add ``annotations`` property to the ``Entity`` object in Python processes
+- Allow filtering ``AnnotationField`` by ids
 
 
 ===================
