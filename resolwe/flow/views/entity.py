@@ -17,10 +17,7 @@ from resolwe.flow.filters import EntityFilter
 from resolwe.flow.models import AnnotationValue, Data, DescriptorSchema, Entity
 from resolwe.flow.models.annotations import AnnotationField, HandleMissingAnnotations
 from resolwe.flow.serializers import EntitySerializer
-from resolwe.flow.serializers.annotations import (
-    AnnotationsSerializer,
-    AnnotationValueSerializer,
-)
+from resolwe.flow.serializers.annotations import AnnotationsSerializer
 from resolwe.observers.mixins import ObservableMixin
 from resolwe.observers.views import BackgroundTaskSerializer
 from resolwe.process.descriptor import ValidationError
@@ -285,14 +282,3 @@ class EntityViewSet(ObservableMixin, BaseCollectionViewSet):
             AnnotationValue.objects.bulk_create(to_create)
             AnnotationValue.objects.bulk_update(to_update, ["_value"])
         return Response()
-
-    @extend_schema(
-        filters=False,
-        responses={status.HTTP_200_OK: AnnotationValueSerializer(many=True)},
-    )
-    @action(detail=True, methods=["get"])
-    def get_annotations(self):
-        """Get the annotations on this sample."""
-        entity = self.get_object()
-        serializer = AnnotationValueSerializer(entity.annotations.all(), many=True)
-        return Response(serializer.data)
