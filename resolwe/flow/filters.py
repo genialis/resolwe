@@ -535,7 +535,58 @@ class OrderingFilter(DrfOrderingFilter):
         return self.get_default_ordering(view)
 
 
-class AnnotationFieldFilter(BaseResolweFilter):
+class AnnotationValueFieldMetaclass(ResolweFilterMetaclass):
+    """Add all entity filters prefixed with 'entity'."""
+
+    def __new__(mcs, name, bases, namespace):
+        """Inject extensions into the filter."""
+
+        def filter_permissions(
+            self,
+            qs: QuerySet,
+            value: str,
+            original_filter: Callable[[QuerySet, str], QuerySet],
+        ):
+            """Respect permissions on entities."""
+            # Do not filter when value is empty. At least one of the values must be
+            # non-empty since form in the AnnotationValueFilter class requires it.
+            if value in EMPTY_VALUES:
+                return qs
+            qs = original_filter(qs, value)
+            user = self.parent.request.user
+            entity_ids = qs.values_list(f"{entity_path}_id")
+            visible_entities = Entity.objects.filter(id__in=entity_ids).filter_for_user(
+                user
+            )
+            return qs.filter(**{f"{entity_path}__in": visible_entities})
+
+        entity_path = {
+            "AnnotationValueFilter": "entity",
+            "AnnotationFieldFilter": "values__entity",
+        }[name]
+        # Add all filters from EntityFilter to namespaces before creating class.
+        for filter_name, filter in EntityFilter.get_filters().items():
+            new_filter_name = f"entity__{filter_name}"
+            if filter_name == "id" or filter_name.startswith("id__"):
+                new_filter_name = "entity" + filter_name[2:]
+            filter = deepcopy(filter)
+            filter.field_name = f"{entity_path}__{filter.field_name}"
+            new_filter = partial(filter_permissions, original_filter=filter.filter)
+            # Bind the new_filter to filter instance and set it as new filter.
+            filter.filter = types.MethodType(new_filter, filter)
+            namespace[new_filter_name] = filter
+            # If filter uses a method, add it to the namespace as well.
+            if filter.method is not None:
+                namespace[filter.method] = deepcopy(
+                    getattr(EntityFilter, filter.method)
+                )
+
+        # Create class with added filters.
+        klass = ResolweFilterMetaclass.__new__(mcs, name, bases, namespace)
+        return klass
+
+
+class AnnotationFieldFilter(BaseResolweFilter, metaclass=AnnotationValueFieldMetaclass):
     """Filter the AnnotationField endpoint."""
 
     @classmethod
@@ -613,54 +664,7 @@ class AnnotationPresetFilter(BaseResolweFilter):
         }
 
 
-class AnnotationValueMetaclass(ResolweFilterMetaclass):
-    """Add all entity filters prefixed with 'entity'."""
-
-    def __new__(mcs, name, bases, namespace):
-        """Inject extensions into the filter."""
-
-        def filter_permissions(
-            self,
-            qs: QuerySet,
-            value: str,
-            original_filter: Callable[[QuerySet, str], QuerySet],
-        ):
-            """Respect permissions on entities."""
-            # Do not filter when value is empty. At least one of the values must be
-            # non-empty since form in the AnnotationValueFilter class requires it.
-            if value in EMPTY_VALUES:
-                return qs
-            qs = original_filter(qs, value)
-            user = self.parent.request.user
-            entity_ids = qs.values_list("entity_id")
-            visible_entities = Entity.objects.filter(id__in=entity_ids).filter_for_user(
-                user
-            )
-            return qs.filter(entity__in=visible_entities)
-
-        # Add all filters from EntityFilter to namespaces before creating class.
-        for filter_name, filter in EntityFilter.get_filters().items():
-            new_filter_name = f"entity__{filter_name}"
-            if filter_name == "id" or filter_name.startswith("id__"):
-                new_filter_name = "entity" + filter_name[2:]
-            filter = deepcopy(filter)
-            filter.field_name = f"entity__{filter.field_name}"
-            new_filter = partial(filter_permissions, original_filter=filter.filter)
-            # Bind the new_filter to filter instance and set it as new filter.
-            filter.filter = types.MethodType(new_filter, filter)
-            namespace[new_filter_name] = filter
-            # If filter uses a method, add it to the namespace as well.
-            if filter.method is not None:
-                namespace[filter.method] = deepcopy(
-                    getattr(EntityFilter, filter.method)
-                )
-
-        # Create class with added filters.
-        klass = ResolweFilterMetaclass.__new__(mcs, name, bases, namespace)
-        return klass
-
-
-class AnnotationValueFilter(BaseResolweFilter, metaclass=AnnotationValueMetaclass):
+class AnnotationValueFilter(BaseResolweFilter, metaclass=AnnotationValueFieldMetaclass):
     """Filter the AnnotationValue endpoint."""
 
     label = filters.CharFilter(method="filter_by_label")
