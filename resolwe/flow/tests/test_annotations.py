@@ -478,6 +478,31 @@ class AnnotationViewSetsTest(TestCase):
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["name"], self.annotation_field1.name)
 
+        # Filter by annotation values path.
+        field = self.annotation_value1.field
+        entity = self.annotation_value1.entity
+        request = factory.get(
+            "/", {"entity": entity.pk, "full_path": "non.existing"}, format="json"
+        )
+        force_authenticate(request, self.contributor)
+        response = self.annotationvalue_viewset(request)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 0)
+
+        request = factory.get(
+            "/",
+            {
+                "entity": entity.pk,
+                "full_path": f"{field.group.name}.{field.name}",
+            },
+            format="json",
+        )
+        force_authenticate(request, self.contributor)
+        response = self.annotationvalue_viewset(request)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["value"], self.annotation_value1.value)
+
         # Filter by required.
         request = factory.get("/", {"required": False}, format="json")
         response = self.annotationfield_viewset(request)

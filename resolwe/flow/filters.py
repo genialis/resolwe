@@ -664,6 +664,7 @@ class AnnotationValueFilter(BaseResolweFilter, metaclass=AnnotationValueMetaclas
     """Filter the AnnotationValue endpoint."""
 
     label = filters.CharFilter(method="filter_by_label")
+    full_path = filters.CharFilter(method="filter_by_full_path")
 
     def get_form_class(self):
         """Override the form class to add custom clean method."""
@@ -685,6 +686,11 @@ class AnnotationValueFilter(BaseResolweFilter, metaclass=AnnotationValueMetaclas
     def filter_by_label(self, queryset: QuerySet, name: str, value: str):
         """Filter by label."""
         return queryset.filter(_value__label__icontains=value)
+
+    def filter_by_full_path(self, queryset: QuerySet, name: str, value: str):
+        """Filter by full path of the annotation field."""
+        group_name, field_name = AnnotationField.group_field_from_path(value)
+        return queryset.filter(field__name=field_name, field__group__name=group_name)
 
     class Meta(BaseResolweFilter.Meta):
         """Filter configuration."""
