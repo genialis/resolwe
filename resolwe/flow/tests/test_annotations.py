@@ -366,6 +366,21 @@ class AnnotationViewSetsTest(TestCase):
         self.assertEqual(first.group1_field1, "string")
         self.assertIsNone(second.group1_field1)
 
+    def test_filter_field_by_entity(self):
+        """Filter fields by entity"""
+        # Unauthenticated request, no permissions to entity.
+        request = factory.get("/", {"entity": self.entity1.pk}, format="json")
+        response: Response = self.annotationfield_viewset(request)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 0)
+
+        # Authenticated request, permissions to entity.
+        force_authenticate(request, self.contributor)
+        response = self.annotationfield_viewset(request)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["name"], self.annotation_field1.name)
+
     def test_list_filter_preset(self):
         request = factory.get("/", {}, format="json")
         response: HttpResponse = self.preset_viewset(request)
