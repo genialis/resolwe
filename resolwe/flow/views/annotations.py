@@ -1,14 +1,14 @@
 """Annotations viewset."""
 
 
-from rest_framework import mixins, permissions, viewsets
+from rest_framework import exceptions, mixins, permissions, request, viewsets
 
 from resolwe.flow.filters import (
     AnnotationFieldFilter,
     AnnotationPresetFilter,
     AnnotationValueFilter,
 )
-from resolwe.flow.models import AnnotationPreset
+from resolwe.flow.models import AnnotationPreset, Entity
 from resolwe.flow.models.annotations import AnnotationField, AnnotationValue
 from resolwe.flow.serializers.annotations import (
     AnnotationFieldSerializer,
@@ -17,6 +17,7 @@ from resolwe.flow.serializers.annotations import (
 )
 from resolwe.permissions.loader import get_permissions_class
 from resolwe.permissions.mixins import ResolwePermissionsMixin
+from resolwe.permissions.models import Permission
 
 from .mixins import ResolweCreateModelMixin, ResolweUpdateModelMixin
 
@@ -64,6 +65,7 @@ class AnnotationValueViewSet(
     mixins.RetrieveModelMixin,
     ResolweUpdateModelMixin,
     mixins.ListModelMixin,
+    mixins.DestroyModelMixin,
     viewsets.GenericViewSet,
 ):
     """Annotation value viewset."""
@@ -78,3 +80,50 @@ class AnnotationValueViewSet(
     serializer_class = AnnotationValueSerializer
     filterset_class = AnnotationValueFilter
     queryset = AnnotationValue.objects.all()
+
+    def _has_permissions_on_entity(self, entity: Entity) -> bool:
+        """Has the authenticated user EDIT permission on the associated entity."""
+        return (
+            Entity.objects.filter(pk=entity.pk)
+            .filter_for_user(self.request.user, Permission.EDIT)
+            .exists()
+        )
+
+    def _get_entity(self, request: request.Request) -> AnnotationValue:
+        """Get annotation value from request.
+
+        :raises ValidationError: if the annotation value is not valid.
+        :raises NotFound: if the user is not authenticated.
+        """
+        if not request.user.is_authenticated:
+            raise exceptions.NotFound
+
+        serializer = self.get_serializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        return serializer.validated_data["entity"]
+
+    def create(self, request, *args, **kwargs):
+        """Create annotation value.
+
+        Authenticated users with edit permissions on the entity can create annotations.
+        """
+        if self._has_permissions_on_entity(self._get_entity(request)):
+            return super().create(request, *args, **kwargs)
+        raise exceptions.NotFound()
+
+    def update(self, request, *args, **kwargs):
+        """Update annotation values.
+
+        Authenticated users with edit permission on the entity can update annotations.
+        """
+        entity = AnnotationValue.objects.get(pk=kwargs["pk"]).entity
+        if self._has_permissions_on_entity(entity):
+            return super().update(request, *args, **kwargs)
+        raise exceptions.NotFound()
+
+    def destroy(self, request, *args, **kwargs):
+        """Destroy the annotation value."""
+        entity = AnnotationValue.objects.get(pk=kwargs["pk"]).entity
+        if self._has_permissions_on_entity(entity):
+            return super().destroy(request, *args, **kwargs)
+        raise exceptions.PermissionDenied()

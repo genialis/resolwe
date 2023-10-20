@@ -399,16 +399,10 @@ class AnnotationValue(AuditModel):
         intercept the value when given as kwarg, since args are used by Django when
         constructing class from database value.
         """
-        recompute_label = False
         if "value" in kwargs:
-            value = kwargs.pop("value")
-            kwargs["_value"] = {
-                "value": value,
-            }
-            recompute_label = True
-
+            kwargs["_value"] = {"value": kwargs.pop("value")}
         super().__init__(*args, **kwargs)
-        if recompute_label:
+        if "label" not in self._value:
             self.recompute_label()
 
     @property
