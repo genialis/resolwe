@@ -65,6 +65,7 @@ class AnnotationValueViewSet(
     mixins.RetrieveModelMixin,
     ResolweUpdateModelMixin,
     mixins.ListModelMixin,
+    mixins.DestroyModelMixin,
     viewsets.GenericViewSet,
 ):
     """Annotation value viewset."""
@@ -84,11 +85,11 @@ class AnnotationValueViewSet(
         """Has the authenticated user EDIT permission on the associated entity."""
         return (
             Entity.objects.filter(pk=entity.pk)
-            .filter_for_user(request.user, Permission.EDIT)
+            .filter_for_user(self.request.user, Permission.EDIT)
             .exists()
         )
 
-    def _get_annotation_value(self, request: request.Request) -> AnnotationValue:
+    def _get_entity(self, request: request.Request) -> AnnotationValue:
         """Get annotation value from request.
 
         :raises ValidationError: if the annotation value is not valid.
@@ -97,30 +98,32 @@ class AnnotationValueViewSet(
         if not request.user.is_authenticated:
             raise exceptions.NotFound
 
-        serializer = self.get_serializer(data=request.data)
+        serializer = self.get_serializer(data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        return serializer.validated_data
+        return serializer.validated_data["entity"]
 
     def create(self, request, *args, **kwargs):
         """Create annotation value.
 
         Authenticated users with edit permissions on the entity can create annotations.
         """
-        annotation_value = self._get_annotation_value(request)
-
-        if self._has_permissions_on_entity(annotation_value.entity):
+        if self._has_permissions_on_entity(self._get_entity(request)):
             return super().create(request, *args, **kwargs)
-
-        raise exceptions.PermissionDenied()
+        raise exceptions.NotFound()
 
     def update(self, request, *args, **kwargs):
         """Update annotation values.
 
         Authenticated users with edit permission on the entity can update annotations.
         """
-        annotation_value = self._get_annotation_value(request)
+        entity = AnnotationValue.objects.get(pk=kwargs["pk"]).entity
+        if self._has_permissions_on_entity(entity):
+            return super().update(request, *args, **kwargs)
+        raise exceptions.NotFound()
 
-        if self._has_permissions_on_entity(annotation_value.entity):
-            return super().create(request, *args, **kwargs)
-
+    def destroy(self, request, *args, **kwargs):
+        """Destroy the annotation value."""
+        entity = AnnotationValue.objects.get(pk=kwargs["pk"]).entity
+        if self._has_permissions_on_entity(entity):
+            return super().destroy(request, *args, **kwargs)
         raise exceptions.PermissionDenied()

@@ -683,7 +683,10 @@ class AnnotationValueFilter(BaseResolweFilter, metaclass=AnnotationValueFieldMet
                 raise ValidationError("At least one of the entity filters must be set.")
 
         form = super().get_form_class()
-        form.clean = partialmethod(clean, original_clean=form.clean)
+        # Allow patch/delete without the entity filter.
+        if self.request.method not in ["PATCH", "DELETE"]:
+            form.clean = partialmethod(clean, original_clean=form.clean)
+
         return form
 
     def filter_by_label(self, queryset: QuerySet, name: str, value: str):

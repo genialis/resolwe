@@ -3,10 +3,11 @@ from typing import Sequence
 
 from django.core.exceptions import ValidationError
 from django.http import HttpResponse
+from django.urls import reverse
 
 from rest_framework import status
 from rest_framework.response import Response
-from rest_framework.test import APIRequestFactory, force_authenticate
+from rest_framework.test import APIClient, APIRequestFactory, force_authenticate
 
 from resolwe.flow.models import AnnotationField, Collection, Entity
 from resolwe.flow.models.annotations import (
@@ -321,7 +322,7 @@ class AnnotationViewSetsTest(TestCase):
             sort_order=2,
             group=self.annotation_group1,
             type="STRING",
-            vocabulary={"string": "label string"},
+            vocabulary={"string": "label string", "another": "Another one"},
         )
         self.annotation_field2: AnnotationField = AnnotationField.objects.create(
             name="field2",
@@ -349,7 +350,12 @@ class AnnotationViewSetsTest(TestCase):
         )
 
         self.annotationvalue_viewset = AnnotationValueViewSet.as_view(
-            actions={"get": "list", "post": "create", "patch": "partial_update"}
+            actions={
+                "get": "list",
+                "post": "create",
+                "patch": "partial_update",
+                "delete": "destroy",
+            }
         )
         self.annotation_value1: AnnotationValue = AnnotationValue.objects.create(
             entity=self.entity1, field=self.annotation_field1, value="string"
@@ -358,8 +364,120 @@ class AnnotationViewSetsTest(TestCase):
             entity=self.entity2, field=self.annotation_field2, value=2
         )
 
-    def test_create(self):
+    def test_create_annotation_value(self):
         """Test creating new annotation value objects."""
+        field = AnnotationField.objects.create(
+            name="field3",
+            label="Annotation field 3",
+            sort_order=1,
+            group=self.annotation_group1,
+            type=AnnotationType.INTEGER.value,
+        )
+
+        self.client = APIClient()
+        path = reverse("resolwe-api:annotationvalue-list")
+        values = {"entity": self.entity1.pk, "field": field.pk, "value": -1}
+        values_count = AnnotationValue.objects.count()
+
+        # Unauthenticated request.
+        response = self.client.post(path, values, format="json")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.data, {"detail": "Not found."})
+        self.assertAlmostEqual(values_count, AnnotationValue.objects.count())
+
+        # Authenticated request.
+        self.client.force_authenticate(self.contributor)
+        response = self.client.post(path, values, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        created_value = AnnotationValue.objects.get(pk=response.data["id"])
+        self.assertEqual(created_value.entity, self.entity1)
+        self.assertEqual(created_value.field, field)
+        self.assertEqual(created_value.value, -1)
+        self.assertAlmostEqual(values_count + 1, AnnotationValue.objects.count())
+
+        # Authenticated request, no permission.
+        self.entity1.collection.set_permission(Permission.NONE, self.contributor)
+        self.client.force_authenticate(self.contributor)
+        response = self.client.post(path, values, format="json")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.data, {"detail": "Not found."})
+        self.assertAlmostEqual(values_count + 1, AnnotationValue.objects.count())
+
+    def test_update_annotation_value(self):
+        """Test updating new annotation value objects."""
+        client = APIClient()
+        path = reverse(
+            "resolwe-api:annotationvalue-detail", args=[self.annotation_value1.pk]
+        )
+        values = {"id": self.annotation_value1.pk, "value": "another"}
+
+        # Unauthenticated request.
+        response = client.patch(path, values, format="json")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.data, {"detail": "Not found."})
+
+        # Authenticated request.
+        client.force_authenticate(self.contributor)
+        response = client.patch(path, values, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["id"], self.annotation_value1.pk)
+        self.annotation_value1.refresh_from_db()
+        self.assertEqual(self.annotation_value1.value, "another")
+        self.assertEqual(self.annotation_value1.label, "Another one")
+        self.assertEqual(self.annotation_value1.entity, self.entity1)
+
+        # Authenticated request, entity should not be changed
+        values = {
+            "id": self.annotation_value1.pk,
+            "value": "string",
+            "entity": self.entity2.pk,
+        }
+        response = client.patch(path, values, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.annotation_value1.refresh_from_db()
+        self.assertEqual(self.annotation_value1.value, "string")
+        self.assertEqual(self.annotation_value1.entity, self.entity1)
+
+        # Authenticated request, no permission.
+        self.entity1.collection.set_permission(Permission.NONE, self.contributor)
+        response = client.patch(path, values, format="json")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.data, {"detail": "Not found."})
+
+    def test_delete_annotation_value(self):
+        """Test deleting annotation value objects."""
+        client = APIClient()
+        path = reverse(
+            "resolwe-api:annotationvalue-detail", args=[self.annotation_value1.pk]
+        )
+        # Unauthenticated request.
+        response = client.delete(path, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(
+            response.data,
+            {"detail": "You do not have permission to perform this action."},
+        )
+
+        # Authenticated request.
+        client.force_authenticate(self.contributor)
+        response = client.delete(path, format="json")
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        with self.assertRaises(AnnotationValue.DoesNotExist):
+            self.annotation_value1.refresh_from_db()
+
+        # Authenticated request, no permission.
+        path = reverse(
+            "resolwe-api:annotationvalue-detail", args=[self.annotation_value2.pk]
+        )
+        self.annotation_value2.entity.collection.set_permission(
+            Permission.NONE, self.contributor
+        )
+        response = client.delete(path, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(
+            response.data,
+            {"detail": "You do not have permission to perform this action."},
+        )
 
     def test_annotate_path(self):
         """Test annotate entity queryset."""

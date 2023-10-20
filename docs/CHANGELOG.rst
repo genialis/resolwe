@@ -25,6 +25,7 @@ Changed
 - Allow filtering ``AnnotationField`` by ids
 - Allow filtering ``AnnotationField`` by entity
 - Allow filtering ``AnnotationValue`` by group name
+- Allow create/update/delete REST API calls for ``AnnotationValue`` objects
 
 
 ===================

@@ -2,6 +2,7 @@
 from django.db import models
 
 from rest_framework import serializers
+from rest_framework.fields import empty
 
 from resolwe.flow.models.annotations import (
     AnnotationField,
@@ -94,10 +95,17 @@ class AnnotationPresetSerializer(ResolweBaseSerializer):
 class AnnotationValueSerializer(ResolweBaseSerializer):
     """Serializer for AnnotationValue objects."""
 
+    def __init__(self, instance=None, data=empty, **kwargs):
+        """Rewrite value -> _value."""
+        if data is not empty and "value" in data:
+            data["_value"] = {"value": data.pop("value", None)}
+        super().__init__(instance, data, **kwargs)
+
     class Meta:
         """AnnotationValueSerializer Meta options."""
 
         model = AnnotationValue
-        read_only_fields = ("id", "field", "label")
-        update_protected_fields = ("entity", "field")
-        fields = read_only_fields + update_protected_fields + ("value",)
+        read_only_fields = ("label",)
+        update_protected_fields = ("id", "entity", "field")
+        fields = read_only_fields + update_protected_fields + ("value", "_value")
+        extra_kwargs = {"_value": {"write_only": True}}
