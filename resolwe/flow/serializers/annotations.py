@@ -98,6 +98,6 @@ class AnnotationValueSerializer(ResolweBaseSerializer):
         """AnnotationValueSerializer Meta options."""
 
         model = AnnotationValue
-        read_only_fields = ("id", "field")
+        read_only_fields = ("id", "field", "label")
         update_protected_fields = ("entity", "field")
-        fields = read_only_fields + update_protected_fields + ("value", "label")
+        fields = read_only_fields + update_protected_fields + ("value",)

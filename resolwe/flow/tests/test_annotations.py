@@ -349,7 +349,7 @@ class AnnotationViewSetsTest(TestCase):
         )
 
         self.annotationvalue_viewset = AnnotationValueViewSet.as_view(
-            actions={"get": "list"}
+            actions={"get": "list", "post": "create", "patch": "partial_update"}
         )
         self.annotation_value1: AnnotationValue = AnnotationValue.objects.create(
             entity=self.entity1, field=self.annotation_field1, value="string"
@@ -357,6 +357,9 @@ class AnnotationViewSetsTest(TestCase):
         self.annotation_value2: AnnotationValue = AnnotationValue.objects.create(
             entity=self.entity2, field=self.annotation_field2, value=2
         )
+
+    def test_create(self):
+        """Test creating new annotation value objects."""
 
     def test_annotate_path(self):
         """Test annotate entity queryset."""
