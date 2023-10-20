@@ -9,7 +9,7 @@ import re
 import types
 from copy import deepcopy
 from functools import partial, partialmethod
-from typing import Callable
+from typing import Callable, Union
 
 from django_filters import rest_framework as filters
 from django_filters.constants import EMPTY_VALUES
@@ -23,7 +23,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import Count, F, ForeignKey, Q, Subquery
 from django.db.models.query import QuerySet
 
-from rest_framework import exceptions, fields
+from rest_framework import fields
 from rest_framework.filters import OrderingFilter as DrfOrderingFilter
 
 from resolwe.composer import composer
@@ -597,7 +597,9 @@ class AnnotationFieldFilter(BaseResolweFilter, metaclass=AnnotationValueFieldMet
         filter that checks the permissions on the collections.
         """
 
-        def collection_permission_filter(self, qs: QuerySet, value: str):
+        def collection_permission_filter(
+            self, qs: QuerySet, value: Union[str, list[Collection]]
+        ):
             """Check if user has access the collections.
 
             The collection filer is defined in the parent filter.
@@ -605,28 +607,30 @@ class AnnotationFieldFilter(BaseResolweFilter, metaclass=AnnotationValueFieldMet
             :raises PermissionDenied: if user does not have the permissions to access any
                 of the collections defined by the filter.
             """
+            qs = self._original_filter(qs, value)
+            if not value:
+                return qs
 
-            if value:
-                field_name, lookup_expression = self.field_name, self.lookup_expr
-                if field_name == "collection":
-                    field_name += "__id"
+            field_name = self.field_name
+            exact_filter = field_name == "collection"
+            if exact_filter:
+                field_name += "__id"
 
-                collection_field = field_name.split("__", maxsplit=1)[1]
-                collection_filter = f"{collection_field}__{lookup_expression}"
-                filtered_collections = Collection.objects.filter(
-                    **{collection_filter: value}
-                )
-                user_visible_collections = filtered_collections.filter_for_user(
-                    self.parent.request.user
-                )
-                if filtered_collections.count() != user_visible_collections.count():
-                    raise exceptions.PermissionDenied()
-            return self.original_filter(qs, value)
+            collection_field = field_name.split("__", maxsplit=1)[1]
+            collection_filter = f"{collection_field}__{self.lookup_expr}"
+            # Exact filter is special: value is a list of collections.
+            filter_value = value[0].pk if exact_filter else value
+            visible_collections = Collection.objects.filter(
+                **{collection_filter: filter_value}
+            ).filter_for_user(self.parent.request.user)
+            qs = qs.filter(collection__in=visible_collections)
+            return qs
 
         base_filter = filters.FilterSet.filter_for_field(field, field_name, lookup_expr)
-        # No need to overwrite the exact filter.
-        if field_name.startswith("collection__"):
-            base_filter.original_filter = base_filter.filter
+        # When collection filter is used replace it with the one that respects
+        # permissions on collections.
+        if field_name.startswith("collection"):
+            base_filter._original_filter = base_filter.filter
             base_filter.filter = partial(collection_permission_filter, base_filter)
         return base_filter
 
@@ -670,7 +674,7 @@ class AnnotationValueFilter(BaseResolweFilter, metaclass=AnnotationValueFieldMet
     label = filters.CharFilter(method="filter_by_label")
 
     def get_form_class(self):
-        """Override the form class to add custom clean method."""
+        """Require at least one of the entity filters to be set."""
 
         def clean(self, original_clean):
             """Override the clean method."""

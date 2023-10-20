@@ -704,7 +704,7 @@ class AnnotationViewSetsTest(TestCase):
         self.assertEqual(response.data[0]["name"], "field2")
         self.assertEqual(response.data[1]["name"], "field1")
 
-        # When no permissions are given the 403 must be returned.
+        # Only collection 1 has permissions.
         self.collection2.set_permission(Permission.NONE, self.contributor)
         request = factory.get(
             "/",
@@ -715,9 +715,23 @@ class AnnotationViewSetsTest(TestCase):
         )
         force_authenticate(request, self.contributor)
         response = self.annotationfield_viewset(request)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        self.collection2.set_permission(Permission.VIEW, self.contributor)
 
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["name"], "field1")
+
+        # No permission on collection 2.
+        request = factory.get(
+            "/",
+            {"collection": f"{self.collection2.pk}"},
+            format="json",
+        )
+        force_authenticate(request, self.contributor)
+        response = self.annotationfield_viewset(request)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 0)
+
+        self.collection2.set_permission(Permission.VIEW, self.contributor)
         request = factory.get(
             "/",
             {"collection__slug": self.collection1.slug},
