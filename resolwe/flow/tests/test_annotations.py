@@ -366,6 +366,47 @@ class AnnotationViewSetsTest(TestCase):
         self.assertEqual(first.group1_field1, "string")
         self.assertIsNone(second.group1_field1)
 
+    def test_filter_value_by_group_name(self):
+        # Unauthenticated request without entity filter.
+        request = factory.get(
+            "/", {"field__group__name": self.annotation_group1.name}, format="json"
+        )
+        response: Response = self.annotationvalue_viewset(request)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["__all__"][0],
+            "At least one of the entity filters must be set.",
+        )
+
+        # Authenticated request without entity filter.
+        force_authenticate(request, self.contributor)
+        response = self.annotationvalue_viewset(request)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["__all__"][0],
+            "At least one of the entity filters must be set.",
+        )
+
+        # Proper unauthenticated request.
+        request = factory.get(
+            "/",
+            {
+                "entity": self.entity1.pk,
+                "field__group__name": self.annotation_group1.name,
+            },
+            format="json",
+        )
+        response = self.annotationvalue_viewset(request)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, [])
+
+        # Proper authenticated request.
+        force_authenticate(request, self.contributor)
+        response = self.annotationvalue_viewset(request)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["id"], self.annotation_value1.id)
+
     def test_filter_field_by_entity(self):
         """Filter fields by entity"""
         # Unauthenticated request, no permissions to entity.

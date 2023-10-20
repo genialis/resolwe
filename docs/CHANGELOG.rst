@@ -24,6 +24,7 @@ Changed
 - Add ``annotations`` property to the ``Entity`` object in Python processes
 - Allow filtering ``AnnotationField`` by ids
 - Allow filtering ``AnnotationField`` by entity
+- Allow filtering ``AnnotationValue`` by group name
 
 
 ===================
