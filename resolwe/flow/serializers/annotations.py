@@ -51,7 +51,6 @@ class AnnotationFieldSerializer(ResolweBaseSerializer):
         model = AnnotationField
         read_only_fields = ("id",)
         fields = read_only_fields + (
-            "collection",
             "description",
             "group",
             "label",

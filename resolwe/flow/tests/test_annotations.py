@@ -624,7 +624,6 @@ class AnnotationViewSetsTest(TestCase):
                 "validator_regex": None,
                 "vocabulary": None,
                 "required": False,
-                "collection": [self.collection2.pk],
                 "description": "",
                 "group": {
                     "id": self.annotation_group2.id,
@@ -634,10 +633,8 @@ class AnnotationViewSetsTest(TestCase):
                 },
             },
         )
-        self.assertCountEqual(response.data[0]["collection"], [self.collection2.id])
         self.assertEqual(response.data[1]["name"], "field1")
         self.assertEqual(response.data[1]["label"], "Annotation field 1")
-        self.assertCountEqual(response.data[1]["collection"], [self.collection1.id])
         self.assertEqual(
             dict(response.data[1]["group"]),
             {
@@ -808,9 +805,6 @@ class AnnotationViewSetsTest(TestCase):
         self.assertEqual(response.data[1]["label"], "Annotation field 1_2")
         self.assertEqual(response.data[2]["name"], "field2")
         self.assertEqual(response.data[2]["label"], "Annotation field 2")
-        self.assertCountEqual(response.data[0]["collection"], [self.collection1.id])
-        self.assertCountEqual(response.data[1]["collection"], [])
-        self.assertCountEqual(response.data[2]["collection"], [self.collection2.id])
 
         # Change the field sort order within the group.
         field.sort_order = self.annotation_field1.sort_order - 1
@@ -823,9 +817,6 @@ class AnnotationViewSetsTest(TestCase):
         self.assertEqual(response.data[0]["label"], "Annotation field 1_2")
         self.assertEqual(response.data[2]["name"], "field2")
         self.assertEqual(response.data[2]["label"], "Annotation field 2")
-        self.assertCountEqual(response.data[1]["collection"], [self.collection1.id])
-        self.assertCountEqual(response.data[0]["collection"], [])
-        self.assertCountEqual(response.data[2]["collection"], [self.collection2.id])
 
         # Change the groups sort order.
         self.annotation_group1.sort_order = self.annotation_group2.sort_order + 1
@@ -839,9 +830,6 @@ class AnnotationViewSetsTest(TestCase):
         self.assertEqual(response.data[1]["label"], "Annotation field 1_2")
         self.assertEqual(response.data[0]["name"], "field2")
         self.assertEqual(response.data[0]["label"], "Annotation field 2")
-        self.assertCountEqual(response.data[2]["collection"], [self.collection1.id])
-        self.assertCountEqual(response.data[1]["collection"], [])
-        self.assertCountEqual(response.data[0]["collection"], [self.collection2.id])
 
     def test_set_to_collection(self):
         """Set annotation fields to collection."""

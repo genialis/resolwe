@@ -26,6 +26,7 @@ Changed
 - Allow filtering ``AnnotationField`` by entity
 - Allow filtering ``AnnotationValue`` by group name
 - Allow create/update/delete REST API calls for ``AnnotationValue`` objects
+- Remove ``collection`` field from ``AnnotationField`` serializer
 
 
 ===================
