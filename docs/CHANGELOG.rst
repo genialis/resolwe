@@ -6,6 +6,16 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Changed
+-------
+- Removed ``descriptor`` and ``DescriptorSchema`` fields from ``Entity``
+  endpoint
+
+
 ===================
 37.0.0 - 2023-10-23
 ===================

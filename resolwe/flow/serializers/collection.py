@@ -18,13 +18,6 @@ class BaseCollectionSerializer(ResolweBaseSerializer):
     """Base serializer for Collection objects."""
 
     settings = ProjectableJSONField(required=False)
-    descriptor = ProjectableJSONField(required=False)
-    descriptor_schema = DictRelatedField(
-        queryset=DescriptorSchema.objects.all(),
-        serializer=DescriptorSchemaSerializer,
-        allow_null=True,
-        required=False,
-    )
     data_count = serializers.SerializerMethodField(required=False)
     status = serializers.SerializerMethodField(required=False)
 
@@ -95,8 +88,6 @@ class BaseCollectionSerializer(ResolweBaseSerializer):
             + update_protected_fields
             + (
                 "description",
-                "descriptor",
-                "descriptor_schema",
                 "name",
                 "settings",
                 "slug",
@@ -108,6 +99,13 @@ class BaseCollectionSerializer(ResolweBaseSerializer):
 class CollectionSerializer(BaseCollectionSerializer):
     """Serializer for Collection objects."""
 
+    descriptor = ProjectableJSONField(required=False)
+    descriptor_schema = DictRelatedField(
+        queryset=DescriptorSchema.objects.all(),
+        serializer=DescriptorSchemaSerializer,
+        allow_null=True,
+        required=False,
+    )
     entity_count = serializers.SerializerMethodField(required=False)
 
     def get_entity_count(self, collection: Collection) -> int:
@@ -127,4 +125,8 @@ class CollectionSerializer(BaseCollectionSerializer):
             "entity_count",
         )
 
-        fields = BaseCollectionSerializer.Meta.fields + ("entity_count",)
+        fields = BaseCollectionSerializer.Meta.fields + (
+            "entity_count",
+            "descriptor",
+            "descriptor_schema",
+        )
