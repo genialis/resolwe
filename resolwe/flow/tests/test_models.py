@@ -830,11 +830,14 @@ class DuplicateTestCase(TransactionTestCase):
                 {"name": "data_list_field", "type": "list:data:test:first:"},
             ],
         )
+        entity = Entity.objects.create(contributor=self.user, name="entity")
+        entity.set_permission(Permission.EDIT, self.contributor)
 
         data1 = Data.objects.create(
             contributor=self.user,
             process=process1,
             status=Data.STATUS_DONE,
+            entity=entity,
         )
 
         task = data1.duplicate(self.user)
@@ -849,10 +852,11 @@ class DuplicateTestCase(TransactionTestCase):
                 "data_list_field": [data1.id, should_not_be_rewritten.id],
             },
             status=Data.STATUS_DONE,
+            entity=entity,
         )
 
         task = Data.objects.filter(id__in=[data1.id, data2.id]).duplicate(
-            self.contributor
+            self.contributor, inherit_entity=True
         )
         duplicate1, duplicate2 = Data.objects.filter(pk__in=task.result(timeout=10))
         self.assertEqual(duplicate2.input["data_field1"], duplicate1.id)

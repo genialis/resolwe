@@ -11,6 +11,9 @@ from rest_framework import status
 from rest_framework.test import APIRequestFactory, force_authenticate
 
 from resolwe.flow.models import (
+    AnnotationField,
+    AnnotationGroup,
+    AnnotationValue,
     Collection,
     Data,
     DataDependency,
@@ -240,6 +243,71 @@ class TestDuplicate(TransactionTestCase):
             old_instances=ANY,
             sender=Entity,
         )
+        handler.reset_mock()
+
+        # Test copy annotation values.
+        annotation_group1 = AnnotationGroup.objects.create(
+            name="group1", label="Annotation group 1", sort_order=1
+        )
+        annotation_field1 = AnnotationField.objects.create(
+            name="field1",
+            label="Annotation field 1",
+            sort_order=1,
+            group=annotation_group1,
+            type="STRING",
+        )
+        AnnotationValue.objects.create(
+            field=annotation_field1, entity=entity, value="test"
+        )
+
+        # No field on the destination collection.
+        request = factory.post(
+            reverse("resolwe-api:entity-duplicate"),
+            {"ids": [entity.id], "inherit_collection": True},
+            format="json",
+        )
+        force_authenticate(request, self.contributor)
+        response = self.entity_duplicate_viewset(request)
+        task = BackgroundTask.objects.get(pk=response.data["id"])
+        result = task.result(final_statuses=["ER"])
+        self.assertEqual(len(result), 1)
+        self.assertEqual(
+            result[0],
+            "The collection of entity 'Copy of Test entity' is missing annotation fields group1.field1.",
+        )
+        handler.assert_not_called()
+        handler.reset_mock()
+
+        # Add annotation field to destination entity.
+        entity.collection.annotation_fields.add(annotation_field1)
+        request = factory.post(
+            reverse("resolwe-api:entity-duplicate"),
+            {"ids": [entity.id], "inherit_collection": True},
+            format="json",
+        )
+        force_authenticate(request, self.contributor)
+        response = self.entity_duplicate_viewset(request)
+        task = BackgroundTask.objects.get(pk=response.data["id"])
+        duplicate = Entity.objects.get(id__in=task.result())
+
+        self.assertTrue(task.has_permission(Permission.VIEW, self.contributor))
+        self.assertEqual(collection.entity_set.count(), 3)
+        self.assertEqual(collection.data.count(), 3)
+        handler.assert_called_once_with(
+            signal=post_duplicate,
+            instances=[duplicate],
+            old_instances=ANY,
+            sender=Entity,
+        )
+        handler.assert_called_once_with(
+            signal=post_duplicate,
+            instances=[duplicate],
+            old_instances=ANY,
+            sender=Entity,
+        )
+        annotation = entity.annotations.get()
+        self.assertEqual(annotation.value, "test")
+        self.assertEqual(annotation.field.id, annotation_field1.pk)
         handler.reset_mock()
 
         # Assert collection membership.

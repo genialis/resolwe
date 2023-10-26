@@ -253,12 +253,6 @@ def copy_objects(objects, contributor, name_prefix, obj_processor=None):
         # Add another atomic block to avoid corupting the main one.
         with transaction.atomic():
             model.objects.bulk_create(new_objects)
-            # Send the bulk create custom signal, avoid circular import.
-            from resolwe.flow.signals import post_duplicate
-
-            post_duplicate.send(
-                sender=model, instances=new_objects, old_instances=objects
-            )
     except IntegrityError:
         # Probably a slug collision occured, try to create objects one by one.
         for obj in new_objects:
@@ -472,10 +466,25 @@ def bulk_duplicate(
         data_entities = Entity.objects.filter(data__in=new_data)
         _check_permissions(data_entities, Permission.EDIT, contributor)
 
+    # Send the bulk create custom signal, avoid circular import.
+    from resolwe.flow.signals import post_duplicate
+
+    if collections is not None and new_collections:
+        post_duplicate.send(
+            sender=Collection, instances=new_collections, old_instances=collections
+        )
+    if entities is not None and new_entities:
+        post_duplicate.send(
+            sender=Entity, instances=new_entities, old_instances=entities
+        )
+    if data is not None and new_data:
+        post_duplicate.send(sender=Data, instances=new_data, old_instances=data)
+
     if collections is not None:
         return Collection.objects.filter(
             id__in=[collection.id for collection in new_collections]
         )
     elif entities is not None:
         return Entity.objects.filter(id__in=[entity.id for entity in new_entities])
-    return Data.objects.filter(id__in=[data.id for data in new_data])
+    else:
+        return Data.objects.filter(id__in=[data.id for data in new_data])
