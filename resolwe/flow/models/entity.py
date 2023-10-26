@@ -327,9 +327,10 @@ class Entity(BaseCollection, PermissionObject):
         # destination entity, else exception is raised.
         for source_annotation in self.annotations.all():
             annotation_value = AnnotationValue(
-                entity=destination, field_id=source_annotation.field_id
+                entity=destination,
+                field_id=source_annotation.field_id,
+                value=source_annotation.value,
             )
-            annotation_value.value = source_annotation.value
             destination_annotations.append(annotation_value)
             annotation_field_ids.add(source_annotation.field_id)
 

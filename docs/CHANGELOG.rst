@@ -6,6 +6,15 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Fixed
+-----
+- Set ``value`` to ``AnnotationValue`` object on duplication when it is created
+
+
 ===================
 37.0.1 - 2023-10-23
 ===================
