@@ -18,6 +18,8 @@ Added
 
 Changed
 -------
+- **BACKWARD INCOMPATIBLE:** Remove arguments ``inherit_collection`` and
+  ``inherit_entity`` from ``duplicate`` endpoints
 - The method ``run_process`` in Python processes returns the created ``Data``
   object
 - The docker container names have random postfix to support restarting data

@@ -832,6 +832,7 @@ class DuplicateTestCase(TransactionTestCase):
         )
         entity = Entity.objects.create(contributor=self.user, name="entity")
         entity.set_permission(Permission.EDIT, self.contributor)
+        entity.set_permission(Permission.EDIT, self.user)
 
         data1 = Data.objects.create(
             contributor=self.user,
@@ -856,7 +857,7 @@ class DuplicateTestCase(TransactionTestCase):
         )
 
         task = Data.objects.filter(id__in=[data1.id, data2.id]).duplicate(
-            self.contributor, inherit_entity=True
+            self.contributor
         )
         duplicate1, duplicate2 = Data.objects.filter(pk__in=task.result(timeout=10))
         self.assertEqual(duplicate2.input["data_field1"], duplicate1.id)
@@ -923,11 +924,16 @@ class DuplicateTestCase(TransactionTestCase):
             entity=entity,
             collection=collection,
         )
+        collection.set_permission(Permission.EDIT, self.contributor)
 
         # Duplicate.
 
         task = Entity.objects.filter(id=entity.id).duplicate(self.contributor)
-        entities = Entity.objects.filter(pk__in=task.result())
+
+        entities = Entity.objects.filter(
+            pk__in=task.result(final_statuses=["OK", "ER"])
+        )
+
         self.assertEqual(len(entities), 1)
         duplicate = entities[0]
 
@@ -953,10 +959,8 @@ class DuplicateTestCase(TransactionTestCase):
             "name",
             "duplicated",
             "modified",
-            "collection_id",
             "entity_id",
             "search",
-            "permission_group_id",
         )
         for model_dict in (
             entity_dict,
@@ -979,19 +983,19 @@ class DuplicateTestCase(TransactionTestCase):
         self.assertEqual(duplicate.contributor.username, "contributor")
         self.assertAlmostEqual(duplicate.duplicated, now(), delta=timedelta(seconds=3))
         self.assertAlmostEqual(duplicate.modified, now(), delta=timedelta(seconds=3))
-        self.assertEqual(duplicate.collection, None)
 
-        # Assert collection is not altered.
+        # Assert collection is altered.
         self.assertEqual(Collection.objects.count(), 1)
-        self.assertEqual(collection.entity_set.count(), 1)
-        self.assertEqual(collection.entity_set.first().name, "Entity")
-        self.assertEqual(collection.data.count(), 2)
+        self.assertEqual(collection.entity_set.count(), 2)
+        self.assertEqual(collection.data.count(), 4)
         collection_data = collection.data.all().order_by("name")
-        self.assertEqual(collection_data[0].name, "Data 1")
-        self.assertEqual(collection_data[1].name, "Data 2")
+        self.assertEqual(collection_data[0].name, "Copy of Data 1")
+        self.assertEqual(collection_data[1].name, "Copy of Data 2")
+        self.assertEqual(collection_data[2].name, "Data 1")
+        self.assertEqual(collection_data[3].name, "Data 2")
 
         # Assert permissions.
-        self.assertEqual(len(duplicate.get_permissions(self.contributor)), 4)
+        self.assertEqual(len(duplicate.get_permissions(self.contributor)), 2)
 
     def test_entity_duplicate_inherit(self):
         process = Process.objects.create(contributor=self.user)
@@ -1009,44 +1013,11 @@ class DuplicateTestCase(TransactionTestCase):
         collection.set_permission(Permission.VIEW, self.contributor)
 
         # Duplicate.
-        task = Entity.objects.filter(id=entity.id).duplicate(
-            self.user, inherit_collection=False
-        )
-        duplicated_entity1 = Entity.objects.get(pk__in=task.result())
-        self.assertEqual(collection.entity_set.count(), 1)
-        self.assertEqual(collection.entity_set.first().id, entity.id)
-        self.assertEqual(collection.data.count(), 1)
-        self.assertEqual(collection.data.first().id, data.id)
-
-        # Assert permissions.
-        self.assertEqual(duplicated_entity1.data.count(), 1)
-        self.assertCountEqual(
-            collection.get_permissions(self.user), [Permission.VIEW, Permission.EDIT]
-        )
-        self.assertEqual(len(duplicated_entity1.get_permissions(self.user)), 4)
-        self.assertEqual(
-            len(duplicated_entity1.data.first().get_permissions(self.user)), 4
-        )
-        self.assertListEqual(
-            collection.get_permissions(self.contributor), [Permission.VIEW]
-        )
-        self.assertListEqual(
-            duplicated_entity1.get_permissions(self.contributor), [Permission.VIEW]
-        )
-        self.assertListEqual(
-            duplicated_entity1.data.first().get_permissions(self.contributor),
-            [Permission.VIEW],
-        )
-
-        task = Entity.objects.filter(id=entity.id).duplicate(
-            self.contributor, inherit_collection=True
-        )
+        task = Entity.objects.filter(id=entity.id).duplicate(self.contributor)
         task.wait(final_statuses=[BackgroundTask.STATUS_ERROR])
         self.assertCountEqual(task.output, ["User doesn't have 'edit' permission on ."])
 
-        task = Entity.objects.filter(id=entity.id).duplicate(
-            self.user, inherit_collection=True
-        )
+        task = Entity.objects.filter(id=entity.id).duplicate(self.user)
         duplicated_entity2 = Entity.objects.get(pk__in=task.result())
         self.assertEqual(collection.entity_set.count(), 2)
         self.assertEqual(collection.entity_set.first().id, entity.id)

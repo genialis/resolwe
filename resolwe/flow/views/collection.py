@@ -5,7 +5,7 @@ from django.db import transaction
 from django.db.models import F, Func, OuterRef, Prefetch, Subquery
 from django.db.models.functions import Coalesce
 
-from rest_framework import exceptions, mixins, serializers, status, viewsets
+from rest_framework import exceptions, mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
@@ -14,23 +14,17 @@ from resolwe.flow.models import Collection, Data, DescriptorSchema, Entity
 from resolwe.flow.serializers import CollectionSerializer
 from resolwe.flow.serializers.annotations import AnnotationFieldDictSerializer
 from resolwe.observers.mixins import ObservableMixin
-from resolwe.observers.views import BackgroundTaskSerializer
 from resolwe.permissions.loader import get_permissions_class
 from resolwe.permissions.mixins import ResolwePermissionsMixin
-from resolwe.permissions.models import Permission, PermissionModel
+from resolwe.permissions.models import PermissionModel
 
 from .mixins import (
     ResolweBackgroundDeleteMixin,
+    ResolweBackgroundDuplicateMixin,
     ResolweCheckSlugMixin,
     ResolweCreateModelMixin,
     ResolweUpdateModelMixin,
 )
-
-
-class DuplicateCollectionSerializer(serializers.Serializer):
-    """Deserializer for collection duplicate endpoint."""
-
-    ids = serializers.ListField(child=serializers.IntegerField())
 
 
 class BaseCollectionViewSet(
@@ -41,6 +35,7 @@ class BaseCollectionViewSet(
     mixins.ListModelMixin,
     ResolwePermissionsMixin,
     ResolweCheckSlugMixin,
+    ResolweBackgroundDuplicateMixin,
     viewsets.GenericViewSet,
 ):
     """Base API view for :class:`Collection` objects."""
@@ -110,40 +105,6 @@ class BaseCollectionViewSet(
             raise exceptions.NotFound
 
         return super().create(request, *args, **kwargs)
-
-    @extend_schema(
-        request=DuplicateCollectionSerializer(),
-        responses={status.HTTP_200_OK: BackgroundTaskSerializer()},
-    )
-    @action(detail=False, methods=["post"])
-    def duplicate(self, request, *args, **kwargs):
-        """Duplicate (make copy of) ``Collection`` models.
-
-        The objects are duplicated in the background and the details of the background
-        task handling the duplication are returned.
-        """
-        if not request.user.is_authenticated:
-            raise exceptions.NotFound
-
-        serializer = DuplicateCollectionSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        ids = serializer.validated_data["ids"]
-
-        queryset = Collection.objects.filter(id__in=ids).filter_for_user(
-            request.user, Permission.VIEW
-        )
-        actual_ids = queryset.values_list("id", flat=True)
-        missing_ids = list(set(ids) - set(actual_ids))
-        if missing_ids:
-            raise exceptions.ParseError(
-                "Collections with the following ids not found: {}".format(
-                    ", ".join(map(str, missing_ids))
-                )
-            )
-
-        task = queryset.duplicate(contributor=request.user)
-        serializer = BackgroundTaskSerializer(task)
-        return Response(serializer.data)
 
 
 class CollectionViewSet(ObservableMixin, BaseCollectionViewSet):

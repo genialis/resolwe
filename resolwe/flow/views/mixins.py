@@ -3,15 +3,22 @@ from drf_spectacular.utils import extend_schema
 
 from django.db import IntegrityError, transaction
 
-from rest_framework import mixins, serializers, status
+from rest_framework import exceptions, mixins, serializers, status
 from rest_framework.decorators import action
 from rest_framework.generics import get_object_or_404
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from resolwe.observers.models import BackgroundTask
 from resolwe.observers.views import BackgroundTaskSerializer
 from resolwe.permissions.models import get_anonymous_user
 from resolwe.permissions.utils import assign_contributor_permissions
+
+
+class DuplicateSerializer(serializers.Serializer):
+    """Deserializer for duplicate endpoint."""
+
+    ids = serializers.ListField(child=serializers.IntegerField(), allow_empty=False)
 
 
 class ResolweCreateModelMixin(mixins.CreateModelMixin):
@@ -53,6 +60,52 @@ class ResolweCreateModelMixin(mixins.CreateModelMixin):
                 # in container.
                 if not instance.in_container():
                     assign_contributor_permissions(instance)
+
+
+class ResolweBackgroundDuplicateMixin:
+    """Duplicate objects in the background."""
+
+    # The method background queryset must have.
+    BACKGROUND_DUPLICATE_METHOD = "duplicate"
+
+    @extend_schema(
+        filters=False,
+        request=DuplicateSerializer(),
+        responses={200: BackgroundTaskSerializer},
+    )
+    @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated])
+    def duplicate(self, request, *args, **kwargs):
+        """Bulk duplicate  objects in the background.
+
+        The background task is returned.
+        """
+        serializer = DuplicateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        Model = self.serializer_class.Meta.model
+
+        # First check if the queryset supports background duplication.
+        if not hasattr(Model.objects.none(), self.BACKGROUND_DUPLICATE_METHOD):
+            raise exceptions.ValidationError(
+                f"The model '{Model}' does not support background duplication."
+            )
+
+        ids = serializer.validated_data["ids"]
+        to_duplicate = Model.objects.filter(id__in=ids).filter_for_user(request.user)
+        actual_ids = to_duplicate.values_list("id", flat=True)
+        missing_ids = list(set(ids) - set(actual_ids))
+        if missing_ids:
+            id_string = ", ".join(map(str, missing_ids))
+            raise exceptions.PermissionDenied(
+                f"Objects with ids {id_string} not found."
+            )
+
+        duplicate_method = getattr(to_duplicate, self.BACKGROUND_DUPLICATE_METHOD)
+        task = duplicate_method(contributor=request.user)
+
+        return Response(
+            status=status.HTTP_200_OK,
+            data=BackgroundTaskSerializer(task).data,
+        )
 
 
 class ResolweBackgroundDeleteMixin(mixins.DestroyModelMixin):

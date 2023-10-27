@@ -20,7 +20,6 @@ from resolwe.flow.models.utils import fill_with_defaults
 from resolwe.flow.serializers import DataSerializer
 from resolwe.flow.utils import get_data_checksum
 from resolwe.observers.mixins import ObservableMixin
-from resolwe.observers.views import BackgroundTaskSerializer
 from resolwe.permissions.loader import get_permissions_class
 from resolwe.permissions.mixins import ResolwePermissionsMixin
 from resolwe.permissions.models import Permission, PermissionModel
@@ -28,7 +27,9 @@ from resolwe.permissions.models import Permission, PermissionModel
 from .collection import BaseCollectionViewSet
 from .entity import EntityViewSet
 from .mixins import (
+    DuplicateSerializer,
     ResolweBackgroundDeleteMixin,
+    ResolweBackgroundDuplicateMixin,
     ResolweCheckSlugMixin,
     ResolweCreateModelMixin,
     ResolweUpdateModelMixin,
@@ -55,13 +56,6 @@ class MoveDataToCollectionSerializer(serializers.Serializer):
     destination_collection = serializers.IntegerField()
 
 
-class DuplicateDataSerializer(serializers.Serializer):
-    """Deserializer for data duplicate endpoint."""
-
-    ids = serializers.ListField(child=serializers.IntegerField(), allow_empty=False)
-    inherit_collection = serializers.BooleanField(default=False)
-
-
 class RestartSerializer(serializers.Serializer):
     """Serializer for restarting a Data object."""
 
@@ -77,6 +71,7 @@ class DataViewSet(
     ResolweBackgroundDeleteMixin,
     ResolwePermissionsMixin,
     ResolweCheckSlugMixin,
+    ResolweBackgroundDuplicateMixin,
     viewsets.GenericViewSet,
 ):
     """API view for :class:`Data` objects."""
@@ -114,43 +109,6 @@ class DataViewSet(
     def get_queryset(self):
         """Prefetch permissions for current user."""
         return self.prefetch_current_user_permissions(self.queryset)
-
-    @extend_schema(
-        request=DuplicateDataSerializer(),
-        responses={status.HTTP_200_OK: BackgroundTaskSerializer()},
-    )
-    @action(detail=False, methods=["post"])
-    def duplicate(self, request, *args, **kwargs):
-        """Duplicate (make copy of) ``Data`` objects.
-
-        The objects are duplicated in the background and the details of the background
-        task handling the duplication are returned.
-        """
-        if not request.user.is_authenticated:
-            raise exceptions.NotFound
-
-        serializer = DuplicateDataSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        inherit_collection = serializer.validated_data["inherit_collection"]
-        ids = serializer.validated_data["ids"]
-
-        queryset = Data.objects.filter(id__in=ids).filter_for_user(
-            request.user, Permission.VIEW
-        )
-        actual_ids = queryset.values_list("id", flat=True)
-        missing_ids = list(set(ids) - set(actual_ids))
-        if missing_ids:
-            raise exceptions.ParseError(
-                "Data objects with the following ids not found: {}".format(
-                    ", ".join(map(str, missing_ids))
-                )
-            )
-
-        task = queryset.duplicate(
-            contributor=request.user, inherit_collection=inherit_collection
-        )
-        serializer = BackgroundTaskSerializer(task)
-        return Response(serializer.data)
 
     @action(detail=False, methods=["post"])
     def get_or_create(self, request, *args, **kwargs):

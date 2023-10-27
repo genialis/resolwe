@@ -213,28 +213,6 @@ class TestDuplicate(TransactionTestCase):
         response = self.entity_duplicate_viewset(request)
         task = BackgroundTask.objects.get(pk=response.data["id"])
         duplicate = Entity.objects.get(id__in=task.result())
-        self.assertTrue(task.has_permission(Permission.VIEW, self.contributor))
-        self.assertTrue(duplicate.is_duplicate())
-        self.assertEqual(collection.entity_set.count(), 1)
-        self.assertEqual(collection.data.count(), 1)
-        handler.assert_called_once_with(
-            signal=post_duplicate,
-            instances=[duplicate],
-            old_instances=ANY,
-            sender=Entity,
-        )
-        handler.reset_mock()
-
-        request = factory.post(
-            reverse("resolwe-api:entity-duplicate"),
-            {"ids": [entity.id], "inherit_collection": True},
-            format="json",
-        )
-        force_authenticate(request, self.contributor)
-        response = self.entity_duplicate_viewset(request)
-        task = BackgroundTask.objects.get(pk=response.data["id"])
-
-        duplicate = Entity.objects.get(id__in=task.result())
 
         self.assertTrue(task.has_permission(Permission.VIEW, self.contributor))
         self.assertEqual(collection.entity_set.count(), 2)
@@ -907,6 +885,7 @@ class TestDataViewSetCase(TestCase):
         )
         force_authenticate(request, self.contributor)
         response = self.duplicate_viewset(request)
+        print("Got response", response.data)
         self.assertEqual(response.data["ids"], ["This list may not be empty."])
 
         request = factory.post(

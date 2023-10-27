@@ -9,8 +9,7 @@ from django.db.models import F, Func, OuterRef, Prefetch, Subquery
 from django.db.models.functions import Coalesce
 
 from rest_framework import exceptions, serializers, status
-from rest_framework.decorators import action, authentication_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from resolwe.flow.filters import EntityFilter
@@ -19,7 +18,6 @@ from resolwe.flow.models.annotations import AnnotationField, HandleMissingAnnota
 from resolwe.flow.serializers import EntitySerializer
 from resolwe.flow.serializers.annotations import AnnotationsSerializer
 from resolwe.observers.mixins import ObservableMixin
-from resolwe.observers.views import BackgroundTaskSerializer
 from resolwe.process.descriptor import ValidationError
 
 from .collection import BaseCollectionViewSet
@@ -36,13 +34,6 @@ class MoveEntityToCollectionSerializer(serializers.Serializer):
         default=HandleMissingAnnotations.ADD.name,
     )
     confirm_annotations_remove = serializers.BooleanField(default=False)
-
-
-class DuplicateEntitySerializer(serializers.Serializer):
-    """Serializer for duplicating entities."""
-
-    ids = serializers.ListField(child=serializers.IntegerField())
-    inherit_collection = serializers.BooleanField(default=False)
 
 
 class EntityViewSet(ObservableMixin, BaseCollectionViewSet):
@@ -203,39 +194,6 @@ class EntityViewSet(ObservableMixin, BaseCollectionViewSet):
 
         self.get_queryset = orig_get_queryset
         return resp
-
-    @extend_schema(
-        request=DuplicateEntitySerializer(),
-        responses={status.HTTP_200_OK: None},
-    )
-    @action(detail=False, methods=["post"])
-    @authentication_classes([IsAuthenticated])
-    def duplicate(self, request, *args, **kwargs):
-        """Duplicate (make copy of) ``Entity`` models.
-
-        The objects are duplicated in the background and the details of the background
-        task handling the duplication are returned.
-        """
-        serializer = DuplicateEntitySerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        inherit_collection = serializer.validated_data["inherit_collection"]
-        ids = serializer.validated_data["ids"]
-
-        queryset = Entity.objects.filter(id__in=ids).filter_for_user(request.user)
-        actual_ids = queryset.values_list("id", flat=True)
-        missing_ids = list(set(ids) - set(actual_ids))
-        if missing_ids:
-            raise exceptions.ParseError(
-                "Entities with the following ids not found: {}".format(
-                    ", ".join(map(str, missing_ids))
-                )
-            )
-
-        task = queryset.duplicate(
-            contributor=request.user, inherit_collection=inherit_collection
-        )
-        serializer = BackgroundTaskSerializer(task)
-        return Response(serializer.data)
 
     @extend_schema(
         request=AnnotationsSerializer(many=True), responses={status.HTTP_200_OK: None}
