@@ -44,6 +44,9 @@ Fixed
 -----
 - Set ``value`` to ``AnnotationValue`` object on duplication when it is created
 - Send ``post_duplicate`` signal only on successful duplication
+Changed
+-------
+- Simplify permission checks on ``AnontationValue`` endpoint
 
 
 ===================

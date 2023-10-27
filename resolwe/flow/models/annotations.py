@@ -20,10 +20,10 @@ from django.core.exceptions import ValidationError
 from django.db import models
 
 from resolwe.flow.models.base import BaseModel
-from resolwe.permissions.models import PermissionObject
+from resolwe.permissions.models import Permission, PermissionObject
 
 if TYPE_CHECKING:
-    from resolwe.flow.models import Entity, Collection
+    from resolwe.flow.models import Collection, Entity
 
 from .base import AuditModel
 
@@ -367,6 +367,24 @@ class AnnotationPreset(BaseModel, PermissionObject):
         return self.name
 
 
+class AnnotationValueQuerySet(models.QuerySet):
+    """Custom queryset for AnnotationValue."""
+
+    def filter_for_user(self, user) -> "AnnotationValueQuerySet":
+        """Filter annotation values for user.
+
+        Return the annotation values on entities user has view permission for.
+        """
+        # Avoid circular import.
+        from resolwe.flow.models import Entity
+
+        return self.filter(
+            entity__in=Entity.objects.filter(
+                pk__in=self.values("entity")
+            ).filter_for_user(user)
+        )
+
+
 class AnnotationValue(AuditModel):
     """The value of the annotation."""
 
@@ -379,6 +397,8 @@ class AnnotationValue(AuditModel):
             ),
         ]
         ordering = ["field__group__sort_order", "field__sort_order"]
+
+    objects = AnnotationValueQuerySet.as_manager()
 
     #: the entity this field belongs to
     entity: "Entity" = models.ForeignKey(
@@ -464,6 +484,13 @@ class AnnotationValue(AuditModel):
         return AnnotationValue.objects.filter(
             entity_id=entity_id, field_id=field_id
         ).first()
+
+    def has_permission(self, permission: Permission, user) -> bool:
+        """Return if user permission on this object.
+
+        The permission is checked on the entity.
+        """
+        return self.entity.has_permission(permission, user)
 
     def __str__(self) -> str:
         """Return user-friendly string representation."""

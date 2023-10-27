@@ -8,7 +8,7 @@ Flow Filters
 import re
 import types
 from copy import deepcopy
-from functools import partial, partialmethod
+from functools import partial
 from typing import Callable, Union
 
 from django_filters import rest_framework as filters
@@ -672,26 +672,6 @@ class AnnotationValueFilter(BaseResolweFilter, metaclass=AnnotationValueFieldMet
     """Filter the AnnotationValue endpoint."""
 
     label = filters.CharFilter(method="filter_by_label")
-
-    def get_form_class(self):
-        """Require at least one of the entity filters to be set."""
-
-        def clean(self, original_clean):
-            """Override the clean method."""
-            cleaned_data = original_clean(self)
-            if not any(
-                cleaned_data[field]
-                for field in cleaned_data
-                if field.startswith("entity")
-            ):
-                raise ValidationError("At least one of the entity filters must be set.")
-
-        form = super().get_form_class()
-        # Allow patch/delete without the entity filter.
-        if self.request.method not in ["PATCH", "DELETE"]:
-            form.clean = partialmethod(clean, original_clean=form.clean)
-
-        return form
 
     def filter_by_label(self, queryset: QuerySet, name: str, value: str):
         """Filter by label."""

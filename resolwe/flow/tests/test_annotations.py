@@ -449,12 +449,35 @@ class AnnotationViewSetsTest(TestCase):
         path = reverse(
             "resolwe-api:annotationvalue-detail", args=[self.annotation_value1.pk]
         )
-        # Unauthenticated request.
+        # Unauthenticated request, no view permission.
+        response = client.delete(path, format="json")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.data, {"detail": "Not found."})
+
+        # Unauthenticated request, view permission.
+        self.annotation_value1.entity.collection.set_permission(
+            Permission.VIEW, get_anonymous_user()
+        )
         response = client.delete(path, format="json")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(
             response.data,
-            {"detail": "You do not have permission to perform this action."},
+            {"detail": "Authentication credentials were not provided."},
+        )
+
+        # Unauthenticated request, edit permission.
+        self.annotation_value1.entity.collection.set_permission(
+            Permission.EDIT, get_anonymous_user()
+        )
+        response = client.delete(path, format="json")
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        with self.assertRaises(AnnotationValue.DoesNotExist):
+            self.annotation_value1.refresh_from_db()
+        self.annotation_value1: AnnotationValue = AnnotationValue.objects.create(
+            entity=self.entity1, field=self.annotation_field1, value="string"
+        )
+        path = reverse(
+            "resolwe-api:annotationvalue-detail", args=[self.annotation_value1.pk]
         )
 
         # Authenticated request.
@@ -464,12 +487,12 @@ class AnnotationViewSetsTest(TestCase):
         with self.assertRaises(AnnotationValue.DoesNotExist):
             self.annotation_value1.refresh_from_db()
 
-        # Authenticated request, no permission.
+        # Authenticated request, view permission.
         path = reverse(
             "resolwe-api:annotationvalue-detail", args=[self.annotation_value2.pk]
         )
         self.annotation_value2.entity.collection.set_permission(
-            Permission.NONE, self.contributor
+            Permission.VIEW, self.contributor
         )
         response = client.delete(path, format="json")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
@@ -477,6 +500,14 @@ class AnnotationViewSetsTest(TestCase):
             response.data,
             {"detail": "You do not have permission to perform this action."},
         )
+
+        # Authenticated request, no permission.
+        self.annotation_value2.entity.collection.set_permission(
+            Permission.NONE, self.contributor
+        )
+        response = client.delete(path, format="json")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.data, {"detail": "Not found."})
 
     def test_annotate_path(self):
         """Test annotate entity queryset."""
@@ -487,27 +518,31 @@ class AnnotationViewSetsTest(TestCase):
         self.assertIsNone(second.group1_field1)
 
     def test_filter_value_by_group_name(self):
-        # Unauthenticated request without entity filter.
+        # Unauthenticated request, no permissions.
         request = factory.get(
             "/", {"field__group__name": self.annotation_group1.name}, format="json"
         )
-        response: Response = self.annotationvalue_viewset(request)
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(
-            response.data["__all__"][0],
-            "At least one of the entity filters must be set.",
+        response = self.annotationvalue_viewset(request)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 0)
+
+        self.annotation_value1.entity.collection.set_permission(
+            Permission.VIEW, get_anonymous_user()
         )
+        response = self.annotationvalue_viewset(request)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
 
         # Authenticated request without entity filter.
         force_authenticate(request, self.contributor)
         response = self.annotationvalue_viewset(request)
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(
-            response.data["__all__"][0],
-            "At least one of the entity filters must be set.",
-        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
 
-        # Proper unauthenticated request.
+        # Requests with entity filter.
+        self.annotation_value1.entity.collection.set_permission(
+            Permission.NONE, get_anonymous_user()
+        )
         request = factory.get(
             "/",
             {
@@ -544,7 +579,7 @@ class AnnotationViewSetsTest(TestCase):
 
     def test_list_filter_preset(self):
         request = factory.get("/", {}, format="json")
-        response: Response = self.preset_viewset(request)
+        response = self.preset_viewset(request)
 
         # Unauthenticated request, no permissions.
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -606,7 +641,7 @@ class AnnotationViewSetsTest(TestCase):
 
         # No authentication is necessary to access the annotation field endpoint.
         request = factory.get("/", {}, format="json")
-        response: Response = self.annotationfield_viewset(request)
+        response = self.annotationfield_viewset(request)
         self.assertEqual(len(response.data), 2)
         self.assertEqual(response.data[0]["name"], "field2")
         self.assertEqual(response.data[0]["label"], "Annotation field 2")
@@ -796,7 +831,6 @@ class AnnotationViewSetsTest(TestCase):
             type="INTEGER",
         )
         request = factory.get("/", {}, format="json")
-        force_authenticate(request, self.contributor)
         response = self.annotationfield_viewset(request)
         self.assertEqual(len(response.data), 3)
         self.assertEqual(response.data[0]["name"], "field1")
@@ -809,7 +843,6 @@ class AnnotationViewSetsTest(TestCase):
         # Change the field sort order within the group.
         field.sort_order = self.annotation_field1.sort_order - 1
         field.save()
-        force_authenticate(request, self.contributor)
         response = self.annotationfield_viewset(request)
         self.assertEqual(len(response.data), 3)
         self.assertEqual(response.data[1]["name"], "field1")
@@ -823,7 +856,6 @@ class AnnotationViewSetsTest(TestCase):
         self.annotation_group1.sort_order = self.annotation_group2.sort_order + 1
         self.annotation_group1.save()
         field.save()
-        force_authenticate(request, self.contributor)
         response = self.annotationfield_viewset(request)
         self.assertEqual(len(response.data), 3)
         self.assertEqual(response.data[2]["name"], "field1")
@@ -912,23 +944,6 @@ class AnnotationViewSetsTest(TestCase):
 
     def test_list_filter_values(self):
         request = factory.get("/", {}, format="json")
-
-        # Unauthenticated request without entity filter.
-        response: Response = self.annotationvalue_viewset(request)
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(
-            response.data["__all__"][0],
-            "At least one of the entity filters must be set.",
-        )
-
-        # Authenticated request without entity filter.
-        force_authenticate(request, self.contributor)
-        response = self.annotationvalue_viewset(request)
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(
-            response.data["__all__"][0],
-            "At least one of the entity filters must be set.",
-        )
 
         # Unauthenticated request without permissions.
         request = factory.get("/", {"entity": self.entity1.pk}, format="json")

@@ -62,7 +62,7 @@ def get_user(user: User) -> User:
 
 def model_has_permissions(obj: models.Model) -> bool:
     """Check whether model has object level permissions."""
-    additional_labels = ["flow.Storage"]
+    additional_labels = ["flow.Storage", "flow.AnnotationValue"]
     return hasattr(obj, "permission_group") or obj._meta.label in additional_labels
 
 
