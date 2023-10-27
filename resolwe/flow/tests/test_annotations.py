@@ -967,6 +967,46 @@ class AnnotationViewSetsTest(TestCase):
         response = self.annotationvalue_viewset(request)
         self.assertTrue(response.status_code, status.HTTP_200_OK)
         self.assertTrue(len(response.data), 2)
+        # Ordering should be first by group, then field.
+        self.assertEqual(response.data[0]["id"], self.annotation_value2.pk)
+        self.assertEqual(response.data[1]["id"], self.annotation_value1.pk)
+
+        # Change group ordering and test responses.
+        self.annotation_group2.sort_order = self.annotation_group1.sort_order + 1
+        self.annotation_group2.save()
+        request = factory.get("/", {"entity__in": [self.entity1.pk]}, format="json")
+        force_authenticate(request, self.contributor)
+        response = self.annotationvalue_viewset(request)
+        self.assertTrue(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(len(response.data), 2)
+        # Ordering should be first by group, then field.
+        self.assertEqual(response.data[0]["id"], self.annotation_value1.pk)
+        self.assertEqual(response.data[1]["id"], self.annotation_value2.pk)
+
+        # On equal group ordering field ordering must be used.
+        self.annotation_group2.sort_order = self.annotation_group1.sort_order
+        self.annotation_group2.save()
+        request = factory.get("/", {"entity__in": [self.entity1.pk]}, format="json")
+        force_authenticate(request, self.contributor)
+        response = self.annotationvalue_viewset(request)
+        self.assertTrue(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(len(response.data), 2)
+        # Ordering should be first by group, then field.
+        self.assertEqual(response.data[0]["id"], self.annotation_value2.pk)
+        self.assertEqual(response.data[1]["id"], self.annotation_value1.pk)
+
+        # Reverse field ordering.
+        self.annotation_field2.sort_order = self.annotation_field1.sort_order + 1
+        self.annotation_field2.save()
+
+        request = factory.get("/", {"entity__in": [self.entity1.pk]}, format="json")
+        force_authenticate(request, self.contributor)
+        response = self.annotationvalue_viewset(request)
+        self.assertTrue(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(len(response.data), 2)
+        # Ordering should be first by group, then field.
+        self.assertEqual(response.data[0]["id"], self.annotation_value1.pk)
+        self.assertEqual(response.data[1]["id"], self.annotation_value2.pk)
 
         # Filter by field_name
         request = factory.get(

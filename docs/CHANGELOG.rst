@@ -25,6 +25,10 @@ Changed
 - The kubernetes resources have random postfix to support restarting data
   object
 
+Fixed
+-----
+- Add default ordering on ``AnnotationValue`` model
+
 
 ===================
 37.0.2 - 2023-10-26

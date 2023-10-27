@@ -378,6 +378,7 @@ class AnnotationValue(AuditModel):
                 fields=["entity", "field"], name="uniquetogether_entity_field"
             ),
         ]
+        ordering = ["field__group__sort_order", "field__sort_order"]
 
     #: the entity this field belongs to
     entity: "Entity" = models.ForeignKey(
