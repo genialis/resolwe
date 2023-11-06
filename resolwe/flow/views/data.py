@@ -27,7 +27,6 @@ from resolwe.permissions.models import Permission, PermissionModel
 from .collection import BaseCollectionViewSet
 from .entity import EntityViewSet
 from .mixins import (
-    DuplicateSerializer,
     ResolweBackgroundDeleteMixin,
     ResolweBackgroundDuplicateMixin,
     ResolweCheckSlugMixin,
@@ -164,7 +163,7 @@ class DataViewSet(
 
     @extend_schema(
         filters=False,
-        request=DuplicateDataSerializer(),
+        request=RestartSerializer(),
         responses={status.HTTP_200_OK: DataSerializer(many=True)},
     )
     @action(detail=True, methods=["post"], permission_classes=[IsSuperuser])
