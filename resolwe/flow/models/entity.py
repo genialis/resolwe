@@ -25,11 +25,11 @@ from .utils import DirtyError, validate_schema
 class EntityQuerySet(BaseQuerySet, PermissionQuerySet):
     """Query set for ``Entity`` objects."""
 
-    def duplicate(self, contributor, inherit_collection=False) -> BackgroundTask:
+    def duplicate(self, contributor) -> BackgroundTask:
         """Duplicate (make a copy) ``Entity`` objects in the background."""
         task_data = {
             "entity_ids": list(self.values_list("pk", flat=True)),
-            "inherit_collection": inherit_collection,
+            "inherit_collection": True,
         }
         return start_background_task(
             BackgroundTaskType.DUPLICATE_ENTITY,
@@ -231,9 +231,9 @@ class Entity(BaseCollection, PermissionObject):
         """Return True if entity is a duplicate."""
         return bool(self.duplicated)
 
-    def duplicate(self, contributor, inherit_collection=False) -> BackgroundTask:
+    def duplicate(self, contributor) -> BackgroundTask:
         """Duplicate (make a copy) object in the background."""
-        task_data = {"entity_ids": [self.pk], "inherit_collection": inherit_collection}
+        task_data = {"entity_ids": [self.pk], "inherit_collection": True}
         return start_background_task(
             BackgroundTaskType.DUPLICATE_ENTITY,
             "Duplicate entity",

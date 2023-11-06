@@ -24,6 +24,9 @@ Changed
   object
 - The kubernetes resources have random postfix to support restarting data
   object
+- Remove ``inherit_collection`` and ``inherit_entity`` parameters from
+  ``duplicate`` methods on ``Entity`` and ``Data`` models and corresponding
+  query sets
 
 Fixed
 -----

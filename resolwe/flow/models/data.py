@@ -205,14 +205,12 @@ class DataQuerySet(BaseQuerySet, PermissionQuerySet):
 
         return obj
 
-    def duplicate(
-        self, contributor, inherit_entity=False, inherit_collection=False
-    ) -> BackgroundTask:
+    def duplicate(self, contributor) -> BackgroundTask:
         """Duplicate (make a copy) ``Data`` objects in the background."""
         task_data = {
             "data_ids": list(self.values_list("pk", flat=True)),
-            "inherit_entity": inherit_entity,
-            "inherit_collection": inherit_collection,
+            "inherit_entity": True,
+            "inherit_collection": True,
         }
         return start_background_task(
             BackgroundTaskType.DUPLICATE_DATA, "Duplicate data", task_data, contributor
@@ -604,14 +602,12 @@ class Data(HistoryMixin, BaseModel, PermissionObject):
         """Return True if data object is a duplicate."""
         return bool(self.duplicated)
 
-    def duplicate(
-        self, contributor, inherit_entity=False, inherit_collection=False
-    ) -> BackgroundTask:
+    def duplicate(self, contributor) -> BackgroundTask:
         """Duplicate (make a copy) object in the background."""
         task_data = {
             "data_ids": [self.pk],
-            "inherit_entity": inherit_entity,
-            "inherit_collection": inherit_collection,
+            "inherit_entity": True,
+            "inherit_collection": True,
         }
         return start_background_task(
             BackgroundTaskType.DUPLICATE_DATA, "Duplicate data", task_data, contributor
