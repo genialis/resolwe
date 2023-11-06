@@ -75,14 +75,14 @@ class CollectionQuerySet(BaseQuerySet, PermissionQuerySet):
             contributor,
         )
 
-    def delete_background(self):
+    def delete_background(self, contributor):
         """Delete the ``Collection`` objects in the background."""
         task_data = {
             "object_ids": list(self.values_list("pk", flat=True)),
-            "content_type_id": ContentType.objects.get_for_model(self).pk,
+            "content_type_id": ContentType.objects.get_for_model(self.model).pk,
         }
         return start_background_task(
-            BackgroundTaskType.DELETE, "Delete collections", task_data, self.contributor
+            BackgroundTaskType.DELETE, "Delete collections", task_data, contributor
         )
 
 

@@ -38,14 +38,14 @@ class EntityQuerySet(BaseQuerySet, PermissionQuerySet):
             contributor,
         )
 
-    def delete_background(self):
+    def delete_background(self, contributor):
         """Delete the ``Entity`` objects in the background."""
         task_data = {
             "object_ids": list(self.values_list("pk", flat=True)),
-            "content_type_id": ContentType.objects.get_for_model(self).pk,
+            "content_type_id": ContentType.objects.get_for_model(self.model).pk,
         }
         return start_background_task(
-            BackgroundTaskType.DELETE, "Delete entities", task_data, self.contributor
+            BackgroundTaskType.DELETE, "Delete entities", task_data, contributor
         )
 
     @transaction.atomic

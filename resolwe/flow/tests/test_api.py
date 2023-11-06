@@ -112,7 +112,9 @@ class TestDuplicate(TransactionTestCase):
         self.descriptor_schema.set_permission(Permission.VIEW, self.contributor)
 
     def test_duplicate_data(self):
-        data = Data.objects.create(contributor=self.contributor, process=self.proc)
+        data = Data.objects.create(
+            contributor=self.contributor, process=self.proc, name="Data"
+        )
         set_permission(
             Permission.VIEW,
             self.contributor,
@@ -124,14 +126,22 @@ class TestDuplicate(TransactionTestCase):
         data.status = Data.STATUS_DONE
         data.save()
 
+        # Unauthenticated request.
+        handler = MagicMock()
+        post_duplicate.connect(handler, sender=Data)
+        request_path = reverse("resolwe-api:data-duplicate")
+        client = APIClient()
+        response = client.post(request_path, data={"ids": [data.id]}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(
+            response.data, {"detail": "Authentication credentials were not provided."}
+        )
+
         # Handler is called when post_duplicate signal is triggered.
         handler = MagicMock()
         post_duplicate.connect(handler, sender=Data)
-        request = factory.post(
-            reverse("resolwe-api:data-duplicate"), {"ids": [data.id]}, format="json"
-        )
-        force_authenticate(request, self.contributor)
-        response = self.data_duplicate_viewset(request)
+        client.force_authenticate(user=self.contributor)
+        response = client.post(request_path, data={"ids": [data.id]}, format="json")
         task = BackgroundTask.objects.get(pk=response.data["id"])
         duplicate = Data.objects.get(pk__in=task.result())
         self.assertTrue(task.has_permission(Permission.VIEW, self.contributor))
@@ -165,6 +175,41 @@ class TestDuplicate(TransactionTestCase):
             signal=post_duplicate,
             instances=[duplicate],
             old_instances=ANY,
+            sender=Data,
+        )
+        handler.reset_mock()
+
+        # Multiple data objects, inherit collection
+        data1 = Data.objects.create(
+            contributor=self.contributor, process=self.proc, name="Data 1"
+        )
+        self.collection.data.add(data1)
+        data_location = create_data_location()
+        data_location.data.add(data1)
+
+        data1.status = Data.STATUS_DONE
+        data1.save()
+
+        request = factory.post(
+            reverse("resolwe-api:data-duplicate"),
+            {"ids": [data.id, data1.id], "inherit_collection": True},
+            format="json",
+        )
+        force_authenticate(request, self.contributor)
+        response = self.data_duplicate_viewset(request)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        task = BackgroundTask.objects.get(pk=response.data["id"])
+        duplicates = list(Data.objects.filter(pk__in=task.result()))
+        self.assertTrue(task.has_permission(Permission.VIEW, self.contributor))
+        for duplicate in duplicates:
+            self.assertTrue(duplicate.is_duplicate())
+            self.assertTrue(duplicate.collection.id, self.collection.id)
+
+        handler.assert_called_once_with(
+            signal=post_duplicate,
+            instances=duplicates,
+            old_instances=[data, data1],
             sender=Data,
         )
 
@@ -305,7 +350,9 @@ class TestDuplicate(TransactionTestCase):
         force_authenticate(request, self.contributor)
         response = self.entity_duplicate_viewset(request)
 
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertContains(
+            response, "not found", status_code=status.HTTP_403_FORBIDDEN
+        )
         self.assertEqual(collection_without_perm.entity_set.count(), 1)
         self.assertEqual(collection_without_perm.data.count(), 1)
 
@@ -860,10 +907,13 @@ class TestDataViewSetCase(TestCase):
         self.assertEqual(response.status_code, 400)
 
     def test_duplicate_not_auth(self):
-        request = factory.post(reverse("resolwe-api:data-duplicate"), format="json")
+        request = factory.post(
+            reverse("resolwe-api:data-duplicate"), data={"ids": [-42]}, format="json"
+        )
         response = self.duplicate_viewset(request)
-
-        self.assertEqual(response.data["detail"], MESSAGES["NOT_FOUND"])
+        self.assertContains(
+            response, "not found", status_code=status.HTTP_403_FORBIDDEN
+        )
 
     def test_duplicate_wrong_parameters(self):
         request = factory.post(reverse("resolwe-api:data-duplicate"), format="json")
@@ -900,9 +950,7 @@ class TestDataViewSetCase(TestCase):
         )
         force_authenticate(request, self.contributor)
         response = self.duplicate_viewset(request)
-        self.assertEqual(
-            response.data["detail"], "Data objects with the following ids not found: 0"
-        )
+        self.assertEqual(response.data["detail"], "Objects with ids 0 not found.")
 
     def test_parents_children(self):
         parent = Data.objects.create(contributor=self.contributor, process=self.proc)
@@ -1143,11 +1191,14 @@ class TestCollectionViewSetCase(TestCollectionViewSetCaseCommonMixin, TestCase):
 
     def test_duplicate_not_auth(self):
         request = factory.post(
-            reverse("resolwe-api:collection-duplicate"), format="json"
+            reverse("resolwe-api:collection-duplicate"),
+            data={"ids": [-42]},
+            format="json",
         )
         response = self.duplicate_viewset(request)
-
-        self.assertEqual(response.data["detail"], MESSAGES["NOT_FOUND"])
+        self.assertContains(
+            response, "not found", status_code=status.HTTP_403_FORBIDDEN
+        )
 
     def test_collection_data_count(self):
         data1 = self._create_data()
@@ -1329,6 +1380,75 @@ class TestCollectionViewSetCaseDelete(
         self.assertFalse(Data.objects.filter(pk=data_2.pk).exists())
         self.assertFalse(Entity.objects.filter(pk=entity_1.pk).exists())
         self.assertFalse(Entity.objects.filter(pk=entity_2.pk).exists())
+
+    def test_bulk_delete(self):
+        client = APIClient()
+        request_path = reverse("resolwe-api:collection-bulk-delete")
+        collection1 = Collection.objects.create(
+            name="Collection 1", contributor=self.contributor
+        )
+        collection2 = Collection.objects.create(
+            name="Collection 2", contributor=self.contributor
+        )
+
+        # Anonymous request, no permission.
+        response = client.post(
+            request_path, data={"ids": [collection1.pk]}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(
+            response.data["detail"],
+            f"No permission to delete objects with ids {collection1.pk}.",
+        )
+
+        # Anonymous request, view permission.
+        collection1.set_permission(Permission.VIEW, get_anonymous_user(False))
+        response = client.post(
+            request_path, data={"ids": [collection1.pk]}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(
+            response.data["detail"],
+            f"No permission to delete objects with ids {collection1.pk}.",
+        )
+
+        # All requests are authenticated as contributor from now on.
+        client.force_authenticate(self.contributor)
+
+        # No permission.
+        response = client.post(
+            request_path, data={"ids": [collection1.pk, collection2.pk]}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(
+            response.data["detail"],
+            f"No permission to delete objects with ids {collection1.pk}, {collection2.pk}.",
+        )
+        self.assertTrue(Collection.objects.filter(pk=collection1.pk).exists())
+        self.assertTrue(Collection.objects.filter(pk=collection2.pk).exists())
+
+        # Partial permission.
+        collection1.set_permission(Permission.EDIT, self.contributor)
+        response = client.post(
+            request_path, data={"ids": [collection1.pk, collection2.pk]}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(
+            response.data["detail"],
+            f"No permission to delete objects with ids {collection2.pk}.",
+        )
+        self.assertTrue(Collection.objects.filter(pk=collection1.pk).exists())
+        self.assertTrue(Collection.objects.filter(pk=collection2.pk).exists())
+
+        # All permissions.
+        collection2.set_permission(Permission.EDIT, self.contributor)
+        response = client.post(
+            request_path, data={"ids": [collection1.pk, collection2.pk]}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        BackgroundTask.objects.get(pk=response.data["id"]).wait()
+        self.assertFalse(Collection.objects.filter(pk=collection1.pk).exists())
+        self.assertFalse(Collection.objects.filter(pk=collection2.pk).exists())
 
 
 class ProcessTestCase(ResolweAPITestCase):
@@ -1631,3 +1751,64 @@ class EntityViewSetTestDelete(EntityViewSetTestCommonMixin, TransactionTestCase)
         # are deleted, regardless of their permission.
         self.assertFalse(Data.objects.filter(pk=data_1.pk).exists())
         self.assertFalse(Data.objects.filter(pk=data_2.pk).exists())
+
+    def test_bulk_delete(self):
+        client = APIClient()
+        request_path = reverse("resolwe-api:entity-bulk-delete")
+        entity1 = Entity.objects.create(name="Entity 1", contributor=self.contributor)
+        entity2 = Entity.objects.create(name="Entity 2", contributor=self.contributor)
+
+        # Anonymous request, no permission.
+        response = client.post(request_path, data={"ids": [entity1.pk]}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(
+            response.data["detail"],
+            f"No permission to delete objects with ids {entity1.pk}.",
+        )
+
+        # Anonymous request, view permission.
+        entity1.set_permission(Permission.VIEW, get_anonymous_user(False))
+        response = client.post(request_path, data={"ids": [entity1.pk]}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(
+            response.data["detail"],
+            f"No permission to delete objects with ids {entity1.pk}.",
+        )
+
+        # All requests are authenticated as contributor from now on.
+        client.force_authenticate(self.contributor)
+
+        # No permission.
+        response = client.post(
+            request_path, data={"ids": [entity1.pk, entity2.pk]}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(
+            response.data["detail"],
+            f"No permission to delete objects with ids {entity1.pk}, {entity2.pk}.",
+        )
+        self.assertTrue(Entity.objects.filter(pk=entity1.pk).exists())
+        self.assertTrue(Entity.objects.filter(pk=entity2.pk).exists())
+
+        # Partial permission.
+        entity1.set_permission(Permission.EDIT, self.contributor)
+        response = client.post(
+            request_path, data={"ids": [entity1.pk, entity2.pk]}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(
+            response.data["detail"],
+            f"No permission to delete objects with ids {entity2.pk}.",
+        )
+        self.assertTrue(Entity.objects.filter(pk=entity1.pk).exists())
+        self.assertTrue(Entity.objects.filter(pk=entity2.pk).exists())
+
+        # All permissions.
+        entity2.set_permission(Permission.EDIT, self.contributor)
+        response = client.post(
+            request_path, data={"ids": [entity1.pk, entity2.pk]}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        BackgroundTask.objects.get(pk=response.data["id"]).wait()
+        self.assertFalse(Entity.objects.filter(pk=entity1.pk).exists())
+        self.assertFalse(Entity.objects.filter(pk=entity2.pk).exists())

@@ -6,15 +6,17 @@ from datetime import timedelta
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
 from django.test import TransactionTestCase as DjangoTransactionTestCase
+from django.urls import reverse
 from django.utils.timezone import now
 
 from rest_framework import exceptions, status
+from rest_framework.test import APIClient
 
 from resolwe.flow.models import Collection, Data
 from resolwe.flow.serializers import ContributorSerializer
 from resolwe.flow.views import DataViewSet
 from resolwe.observers.models import BackgroundTask
-from resolwe.permissions.models import Permission
+from resolwe.permissions.models import Permission, get_anonymous_user
 from resolwe.test import ResolweAPITestCase, TransactionResolweAPITestCase
 
 DATE_FORMAT = r"%Y-%m-%dT%H:%M:%S.%f"
@@ -37,6 +39,7 @@ class DataTestCaseCommonMixin:
 
     def setUp(self):
         self.data1 = Data.objects.get(pk=1)
+        self.data2 = Data.objects.get(pk=2)
 
         self.resource_name = "data"
         self.viewset = DataViewSet
@@ -48,6 +51,7 @@ class DataTestCaseCommonMixin:
             "process": {"slug": "test_process"},
         }
 
+        self.client = APIClient()
         super().setUp()
 
     def tearDown(self):
@@ -629,8 +633,62 @@ class DataTestCaseDelete(
         response = self._delete(1, self.user1)
         BackgroundTask.objects.get(pk=response.data["id"]).wait()
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        query = Data.objects.filter(pk=1).exists()
-        self.assertFalse(query)
+        self.assertFalse(Data.objects.filter(pk=1).exists())
+
+    def test_bulk_delete(self):
+        request_path = reverse("resolwe-api:data-bulk-delete")
+        for data in Data.objects.all():
+            data.set_permission(Permission.NONE, get_anonymous_user(False))
+            data.set_permission(Permission.NONE, self.user1)
+
+        # Anonymous request, no permission.
+        response = self.client.post(
+            request_path, data={"ids": [self.data1.pk]}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(
+            response.data["detail"], "No permission to delete objects with ids 1."
+        )
+
+        # Anonymous request, view permission.
+        self.data1.set_permission(Permission.VIEW, get_anonymous_user(False))
+        response = self.client.post(
+            request_path, data={"ids": [self.data1.pk]}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(
+            response.data["detail"], "No permission to delete objects with ids 1."
+        )
+
+        # All requests are authenticated as user1 from now on.
+        self.client.force_authenticate(self.user1)
+
+        # No permission.
+        response = self.client.post(request_path, data={"ids": [1, 2]}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(
+            response.data["detail"], "No permission to delete objects with ids 1, 2."
+        )
+        self.assertTrue(Data.objects.filter(pk=1).exists())
+        self.assertTrue(Data.objects.filter(pk=2).exists())
+
+        # Partial permission.
+        self.data1.set_permission(Permission.EDIT, self.user1)
+        response = self.client.post(request_path, data={"ids": [1, 2]}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(
+            response.data["detail"], "No permission to delete objects with ids 2."
+        )
+        self.assertTrue(Data.objects.filter(pk=1).exists())
+        self.assertTrue(Data.objects.filter(pk=2).exists())
+
+        # All permissions.
+        self.data2.set_permission(Permission.EDIT, self.user1)
+        response = self.client.post(request_path, data={"ids": [1, 2]}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        BackgroundTask.objects.get(pk=response.data["id"]).wait()
+        self.assertFalse(Data.objects.filter(pk=1).exists())
+        self.assertFalse(Data.objects.filter(pk=2).exists())
 
     def test_delete_no_perms(self):
         response = self._delete(2, self.user2)

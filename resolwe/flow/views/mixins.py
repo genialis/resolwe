@@ -11,12 +11,18 @@ from rest_framework.response import Response
 
 from resolwe.observers.models import BackgroundTask
 from resolwe.observers.views import BackgroundTaskSerializer
-from resolwe.permissions.models import get_anonymous_user
+from resolwe.permissions.models import Permission, get_anonymous_user
 from resolwe.permissions.utils import assign_contributor_permissions
 
 
 class DuplicateSerializer(serializers.Serializer):
     """Deserializer for duplicate endpoint."""
+
+    ids = serializers.ListField(child=serializers.IntegerField(), allow_empty=False)
+
+
+class DeleteSerializer(serializers.Serializer):
+    """Bulk delete given objects."""
 
     ids = serializers.ListField(child=serializers.IntegerField(), allow_empty=False)
 
@@ -116,7 +122,7 @@ class ResolweBackgroundDeleteMixin(mixins.DestroyModelMixin):
     def perform_destroy(self, instance):
         """Perform the actual delete.
 
-        If possible, detele the object in the background.
+        If possible, delete the object in the background.
         """
         return getattr(instance, self.BACKGROUND_DELETE_METHOD, "delete")()
 
@@ -132,6 +138,48 @@ class ResolweBackgroundDeleteMixin(mixins.DestroyModelMixin):
             )
         else:
             return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @extend_schema(
+        filters=False,
+        request=DeleteSerializer(),
+        responses={200: BackgroundTaskSerializer},
+    )
+    @action(detail=False, methods=["post"])
+    def bulk_delete(self, request, *args, **kwargs):
+        """Bulk delete  objects in the background.
+
+        The background task is returned.
+        """
+        serializer = DeleteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        ids = set(serializer.validated_data["ids"])
+
+        to_delete = (
+            self.get_queryset()
+            .filter(id__in=ids)
+            .filter_for_user(request.user, Permission.EDIT)
+        )
+
+        if not hasattr(to_delete, self.BACKGROUND_DELETE_METHOD):
+            raise exceptions.ValidationError(
+                f"Model {to_delete.model} does not support background deletion."
+            )
+
+        permissions_to_delete = set(to_delete.values_list("pk", flat=True))
+        if no_permissions := ids - permissions_to_delete:
+            joined_ids = ", ".join(map(str, no_permissions))
+            raise exceptions.PermissionDenied(
+                f"No permission to delete objects with ids {joined_ids}."
+            )
+
+        delete_method = getattr(to_delete, self.BACKGROUND_DELETE_METHOD)
+        task = delete_method(request.user)
+
+        return Response(
+            status=status.HTTP_200_OK,
+            data=BackgroundTaskSerializer(task).data,
+        )
 
 
 class ResolweUpdateModelMixin(mixins.UpdateModelMixin):

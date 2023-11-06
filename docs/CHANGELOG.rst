@@ -15,6 +15,7 @@ Added
 - Add ``restart`` method to the ``Data`` model
 - Add ``restart`` endpoint to ``DataViewSet``
 - Add history tracking for ``Data`` and ``Collection`` objects
+- Add ``bulk_delete`` to ``data``, ``entity`` and ``collection`` endpoints
 
 Changed
 -------
