@@ -59,12 +59,19 @@ class AnnotationPresetForm(forms.ModelForm):
         return preset
 
 
-class AnnotationAdmin(admin.ModelAdmin):
+class AnnotationPresetAdmin(admin.ModelAdmin):
     """Admin page for AnnotationPreset."""
 
     form = AnnotationPresetForm
 
 
-admin.site.register(AnnotationField)
+class AnnotationFieldAdmin(admin.ModelAdmin):
+    """Admin page for AnnotationField."""
+
+    search_fields = ["name", "group__name"]
+    list_filter = ["group"]
+
+
+admin.site.register(AnnotationField, AnnotationFieldAdmin)
 admin.site.register(AnnotationGroup)
-admin.site.register(AnnotationPreset, AnnotationAdmin)
+admin.site.register(AnnotationPreset, AnnotationPresetAdmin)

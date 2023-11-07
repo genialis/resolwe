@@ -30,6 +30,7 @@ Changed
 - Remove ``inherit_collection`` and ``inherit_entity`` parameters from
   ``duplicate`` methods on ``Entity`` and ``Data`` models and corresponding
   query sets
+- Add filtering and searching to annotation field admin page
 
 Fixed
 -----
