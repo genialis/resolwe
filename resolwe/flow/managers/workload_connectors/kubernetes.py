@@ -899,9 +899,13 @@ class Connector(BaseConnector):
         ]
         for persistent_claim_name in claim_names:
             logger.debug("Kubernetes: removing claim %s.", persistent_claim_name)
-            with suppress(kubernetes.client.rest.ApiException):
+            try:
                 core_api.delete_namespaced_persistent_volume_claim(
                     name=persistent_claim_name,
                     namespace=self.kubernetes_namespace,
                     _request_timeout=KUBERNETES_TIMEOUT,
+                )
+            except kubernetes.client.rest.ApiException as e:
+                logger.warning(
+                    f"Exception removing claim {persistent_claim_name}: {e}."
                 )
