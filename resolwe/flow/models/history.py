@@ -174,7 +174,7 @@ class CollectionChange(TrackChange):
         """Preprocess the value before saving."""
         value = getattr(instance, field_name)
         if isinstance(value, Collection):
-            return value.history.get(valid__upper_inf=True)
+            return value.get_history_object()
         return value
 
 

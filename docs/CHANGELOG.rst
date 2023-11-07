@@ -34,6 +34,7 @@ Changed
 Fixed
 -----
 - Add default ordering on ``AnnotationValue`` model
+- Create history object for ``Collection`` if none exists
 
 
 ===================
