@@ -35,6 +35,7 @@ Fixed
 -----
 - Add default ordering on ``AnnotationValue`` model
 - Create history object for ``Collection`` if none exists
+- Use the same postfix for all kubernetes volumes for the given data object
 
 
 ===================

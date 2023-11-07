@@ -73,10 +73,8 @@ def get_upload_dir() -> str:
     raise RuntimeError("No mountable upload connector is defined.")
 
 
-def unique_volume_name(base_name: str, data_id: int) -> str:
+def unique_volume_name(base_name: str, data_id: int, postfix: str) -> str:
     """Get unique persistent volume claim name."""
-    # Append random string to make it safe for restart.
-    postfix = "".join(random.choices(string.ascii_lowercase + string.digits, k=5))
     return f"{base_name}-{data_id}-{postfix}"
 
 
@@ -124,6 +122,7 @@ class Connector(BaseConnector):
             "namespace", "default"
         )
         self.tools_path_prefix = Path("/usr/local/bin/resolwe")
+        self._random_postfixes = dict()
 
     def _prepare_environment(
         self,
@@ -243,6 +242,7 @@ class Connector(BaseConnector):
         location_subpath: Path,
         core_api: Any,
         tools_configmaps: Dict[str, str],
+        random_postfix: str,
     ) -> list:
         """Prepare all volumes."""
 
@@ -250,7 +250,7 @@ class Connector(BaseConnector):
             """Get configuration for kubernetes for given volume."""
             claim_name = volume_config["config"]["name"]
             if self._should_create_pvc(volume_config):
-                claim_name = unique_volume_name(claim_name, data_id)
+                claim_name = unique_volume_name(claim_name, data_id, random_postfix)
             if volume_config["type"] == "persistent_volume":
                 return {
                     "name": volume_name,
@@ -600,13 +600,23 @@ class Connector(BaseConnector):
         )
         location_subpath = Path(data.location.subpath)
 
+        # Set random postfix string for volume and pod names.
+        random_postfix = "".join(
+            random.choices(string.ascii_lowercase + string.digits, k=5)
+        )
+
         container_name_prefix = (
             getattr(settings, "FLOW_EXECUTOR", {})
             .get("CONTAINER_NAME_PREFIX", "resolwe")
             .replace("_", "-")
             .lower()
         )
-        container_name = self._generate_container_name(container_name_prefix, data.pk)
+
+        container_name = self._generate_container_name(
+            container_name_prefix, data.pk, random_postfix
+        )
+
+        self._random_postfixes[data.pk] = random_postfix
 
         # Set resource limits.
         requests = dict()
@@ -729,7 +739,11 @@ class Connector(BaseConnector):
                         "affinity": {},
                         "hostNetwork": use_host_network,
                         "volumes": self._volumes(
-                            data.id, location_subpath, core_api, tools_configmaps
+                            data.id,
+                            location_subpath,
+                            core_api,
+                            tools_configmaps,
+                            random_postfix,
                         ),
                         "initContainers": [
                             {
@@ -795,6 +809,7 @@ class Connector(BaseConnector):
             claim_name = unique_volume_name(
                 storage_settings.FLOW_VOLUMES[processing_name]["config"]["name"],
                 data.id,
+                random_postfix,
             )
             claim_size = limits.pop("storage", 200) * (2**30)  # Default 200 gibibytes
             core_api.create_namespaced_persistent_volume_claim(
@@ -812,6 +827,7 @@ class Connector(BaseConnector):
                 claim_name = unique_volume_name(
                     storage_settings.FLOW_VOLUMES[input_name]["config"]["name"],
                     data.id,
+                    random_postfix,
                 )
                 core_api.create_namespaced_persistent_volume_claim(
                     body=self._persistent_volume_claim(
@@ -834,14 +850,13 @@ class Connector(BaseConnector):
             "It took {:.2f}s to send config to kubernetes".format(end_time - start_time)
         )
 
-    def _generate_container_name(self, prefix: str, data_id: int):
+    def _generate_container_name(self, prefix: str, data_id: int, postfix: str):
         """Generate unique container name.
 
         Name of the kubernetes container should contain only lower case
         alpfanumeric characters and dashes. Underscores are not allowed.
         """
         # Append random string to make it safe for restart.
-        postfix = "".join(random.choices(string.ascii_lowercase + string.digits, k=5))
         return f"{prefix}-{data_id}-{postfix}"
 
     def submit(self, data: Data, argv):
@@ -871,9 +886,10 @@ class Connector(BaseConnector):
             logger.exception("Could not load the kubernetes configuration.")
             raise exception
 
+        random_postfix = self._random_postfixes.pop(data_id)
         core_api = kubernetes.client.CoreV1Api()
         claim_names = [
-            unique_volume_name(type_, data_id)
+            unique_volume_name(type_, data_id, random_postfix)
             for type_ in [
                 constants.PROCESSING_VOLUME_NAME,
                 constants.INPUTS_VOLUME_NAME,
