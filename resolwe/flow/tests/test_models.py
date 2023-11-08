@@ -138,6 +138,20 @@ class DataModelTest(TestCase):
         Data.objects.all().delete_chunked(chunk_size=10)
         self.assertFalse(Data.objects.exists())
 
+    def test_move_to_entity(self):
+        # Create data outside container and move it to the entity in the collection.
+        process = Process.objects.create(contributor=self.contributor)
+        data = Data.objects.create(contributor=self.contributor, process=process)
+        self.assertIsNone(data.entity)
+        self.assertIsNone(data.collection)
+        collection = Collection.objects.create(contributor=self.contributor)
+        entity = Entity.objects.create(
+            contributor=self.contributor, collection=collection
+        )
+        data.move_to_entity(entity)
+        self.assertEqual(data.entity, entity)
+        self.assertEqual(data.collection, collection)
+
     def test_trim_name(self):
         process = Process.objects.create(
             contributor=self.contributor, data_name="test" * 50

@@ -630,8 +630,11 @@ class Data(HistoryMixin, BaseModel, PermissionObject):
             raise ValidationError("Data object must not be removed from container.")
         self.entity = entity
         if entity:
-            self.permission_group = entity.permission_group
-        self.tags = entity.tags
+            if entity.collection:
+                self.move_to_collection(entity.collection)
+            else:
+                self.permission_group = entity.permission_group
+                self.tags = entity.tags
         self.save(update_fields=["permission_group", "entity", "tags"])
 
     def validate_change_collection(self, collection):

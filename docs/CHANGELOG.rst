@@ -38,6 +38,9 @@ Fixed
 - Create history object for ``Collection`` if none exists
 - Use the same postfix for all kubernetes volumes for the given data object
 - Fix ``handle_progress`` handler in the listener
+- Fix moving data to entity in collection also sets collection on the data
+  object
+
 
 
 ===================
