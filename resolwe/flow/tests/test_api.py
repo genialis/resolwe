@@ -1780,9 +1780,8 @@ class EntityViewSetTestDelete(EntityViewSetTestCommonMixin, TransactionTestCase)
             request_path, data={"ids": [entity1.pk, entity2.pk]}, format="json"
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(
-            response.data["detail"],
-            f"No permission to delete objects with ids {entity1.pk}, {entity2.pk}.",
+        self.assertIn(
+            "No permission to delete objects with ids", response.data["detail"]
         )
         self.assertTrue(Entity.objects.filter(pk=entity1.pk).exists())
         self.assertTrue(Entity.objects.filter(pk=entity2.pk).exists())

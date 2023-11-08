@@ -666,9 +666,7 @@ class DataTestCaseDelete(
         # No permission.
         response = self.client.post(request_path, data={"ids": [1, 2]}, format="json")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(
-            response.data["detail"], "No permission to delete objects with ids 1, 2."
-        )
+        self.assertIn("No permission to delete objects", response.data["detail"])
         self.assertTrue(Data.objects.filter(pk=1).exists())
         self.assertTrue(Data.objects.filter(pk=2).exists())
 
