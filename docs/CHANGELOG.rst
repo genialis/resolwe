@@ -31,6 +31,7 @@ Changed
   ``duplicate`` methods on ``Entity`` and ``Data`` models and corresponding
   query sets
 - Add filtering and searching to annotation field admin page
+- Annotation values are re-validated if annotation field type is changed
 
 Fixed
 -----

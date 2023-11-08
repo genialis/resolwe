@@ -271,6 +271,7 @@ class AnnotationField(models.Model):
         """Store original vocabulary to private variable."""
         super().__init__(*args, **kwargs)
         self._original_vocabulary = self.vocabulary
+        self._original_type = self.type
 
     @staticmethod
     def add_to_collection(source: "Collection", destination: "Collection"):
@@ -318,6 +319,17 @@ class AnnotationField(models.Model):
                 updated_fields.append(annotation_value_field)
             AnnotationValue.objects.bulk_update(updated_fields, ["_value"])
             self._original_vocabulary = self.vocabulary
+        if self.type != self._original_type:
+            self.revalidate_values()
+            self._original_type = self.type
+
+    def revalidate_values(self):
+        """Revalidate all annotation values.
+
+        :raises ValidationError: when validation fails.
+        """
+        for annotation_value in self.values.iterator():
+            annotation_value.validate()
 
     def label_by_value(self, label: str) -> str:
         """Get the value by label.

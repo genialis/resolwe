@@ -108,6 +108,11 @@ class FilterAnnotations(TestCase):
         for value_field in self.fields[AnnotationType.STRING].values.all():
             self.assertEqual(value_field.label, new_vocabulary[value_field.value])
 
+    def test_revalidate_on_type_change(self):
+        self.fields[AnnotationType.STRING].type = AnnotationType.INTEGER.value
+        with self.assertRaises(ValidationError):
+            self.fields[AnnotationType.STRING].save()
+
     def test_permissions(self):
         """Test filtering by string annotation values."""
         field_id = self.fields[AnnotationType.STRING].id
