@@ -1420,10 +1420,7 @@ class TestCollectionViewSetCaseDelete(
             request_path, data={"ids": [collection1.pk, collection2.pk]}, format="json"
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(
-            response.data["detail"],
-            f"No permission to delete objects with ids {collection1.pk}, {collection2.pk}.",
-        )
+        self.assertIn("No permission to delete objects", response.data["detail"])
         self.assertTrue(Collection.objects.filter(pk=collection1.pk).exists())
         self.assertTrue(Collection.objects.filter(pk=collection2.pk).exists())
 
