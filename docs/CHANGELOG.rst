@@ -41,7 +41,7 @@ Fixed
 - Fix ``handle_progress`` handler in the listener
 - Fix moving data to entity in collection also sets collection on the data
   object
-
+- Store random postfix to redis for use at cleaup time
 
 
 ===================

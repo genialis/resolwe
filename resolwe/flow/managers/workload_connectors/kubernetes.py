@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, Tuple
 
 import kubernetes
+import redis
 
 from django.conf import settings
 from django.db.models import Sum
@@ -34,6 +35,13 @@ from resolwe.storage.connectors.baseconnector import BaseStorageConnector
 from resolwe.utils import BraceMessage as __
 
 from .base import BaseConnector
+
+redis_server = redis.from_url(
+    getattr(settings, "REDIS_CONNECTION_STRING", "redis://localhost")
+)
+
+# Redis random postfix cache.
+REDIS_POSTFIX_KEY = "workload_kubernetes_random_postfix"
 
 # TODO: is this really needed?
 # Limits of containers' access to memory. We set the limit to ensure
@@ -122,7 +130,6 @@ class Connector(BaseConnector):
             "namespace", "default"
         )
         self.tools_path_prefix = Path("/usr/local/bin/resolwe")
-        self._random_postfixes = dict()
 
     def _prepare_environment(
         self,
@@ -605,6 +612,9 @@ class Connector(BaseConnector):
             random.choices(string.ascii_lowercase + string.digits, k=5)
         )
 
+        # Store the random postfix in redis for later use in the cleanup method.
+        redis_server.hset(REDIS_POSTFIX_KEY, data.id, random_postfix)
+
         container_name_prefix = (
             getattr(settings, "FLOW_EXECUTOR", {})
             .get("CONTAINER_NAME_PREFIX", "resolwe")
@@ -615,8 +625,6 @@ class Connector(BaseConnector):
         container_name = self._generate_container_name(
             container_name_prefix, data.pk, random_postfix
         )
-
-        self._random_postfixes[data.pk] = random_postfix
 
         # Set resource limits.
         requests = dict()
@@ -880,13 +888,18 @@ class Connector(BaseConnector):
 
     def cleanup(self, data_id: int):
         """Remove the persistent volume claims created by the executor."""
+
+        random_postfix = redis_server.hget(REDIS_POSTFIX_KEY, data_id).decode()
+        if random_postfix is None:
+            logger.warning(f"Postfix for data {data_id} not found during cleanup.")
+            return
+
         try:
             self._load_kubernetes_config()
         except kubernetes.config.config_exception.ConfigException as exception:
             logger.exception("Could not load the kubernetes configuration.")
             raise exception
 
-        random_postfix = self._random_postfixes.pop(data_id)
         core_api = kubernetes.client.CoreV1Api()
         claim_names = [
             unique_volume_name(type_, data_id, random_postfix)
