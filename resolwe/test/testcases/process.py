@@ -26,7 +26,6 @@ from django.core import management
 from django.core.exceptions import ValidationError
 from django.core.validators import URLValidator
 from django.db import transaction
-from django.utils.crypto import get_random_string
 from django.utils.text import slugify
 
 from resolwe.flow.models import Data, DescriptorSchema, Process, Storage
@@ -504,7 +503,6 @@ class ProcessTestCase(TransactionTestCase):
             input=input_,
             contributor=contributor or self.admin,
             process=process,
-            slug=get_random_string(length=6),
             tags=tags or [],
             descriptor_schema=descriptor_schema,
             descriptor=descriptor or {},

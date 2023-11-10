@@ -45,6 +45,10 @@ class FieldsTest(TestCase):
         with self.assertRaisesRegex(SlugError, "is already taken"):
             TestModel.objects.create(name="Test object", slug=obj.slug)
 
+        # Predefined slug must NOT be changed.
+        with self.assertRaisesRegex(SlugError, "not a valid slug"):
+            TestModel.objects.create(name="Test object", slug="Not a valid slug")
+
     def test_predefined_long_slugs(self):
         from .fields_test_app.models import TestModel
 

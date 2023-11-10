@@ -14,6 +14,7 @@ Fix
 ---
 - Add default value for ``FLOW_PROCESSES_ALLOW_LIST`` and
   ``FLOW_PROCESSES_IGNORE_LIST`` in case of missing settings.
+- User defined slug must not be changed
 
 
 ===================

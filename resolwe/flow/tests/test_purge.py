@@ -3,6 +3,7 @@ import os
 
 from django.test import override_settings
 from django.utils.crypto import get_random_string
+from django.utils.text import slugify
 
 from resolwe.flow.models import Process
 from resolwe.test import ProcessTestCase
@@ -86,7 +87,7 @@ touch and_not_this/a and_not_this/b and_not_this/c
 @override_settings(TEST_PROCESS_REQUIRE_TAGS=False)  # Test uses dynamic processes.
 class PurgeE2ETest(PurgeTestFieldsMixin, ProcessTestCase):
     def create_and_run_processor(self, processor, **kwargs):
-        processor_slug = get_random_string(6)
+        processor_slug = slugify(get_random_string(6))
         Process.objects.create(
             slug=processor_slug,
             name="Test Purge Process",

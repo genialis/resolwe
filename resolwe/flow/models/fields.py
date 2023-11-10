@@ -97,8 +97,10 @@ class ResolweSlugField(SlugField):
         if not slug and self.populate_from:
             slug = self._get_populate_from_value(instance)
 
-        if slug:
+        if original_slug := slug:
             slug = slugify(slug)
+            if predefined_slug and original_slug != slug:
+                raise SlugError(f"The value {original_slug} is not a valid slug.")
 
         if not slug:
             slug = None
