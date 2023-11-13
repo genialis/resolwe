@@ -6,9 +6,9 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+===================
+38.0.0 - 2023-11-13
+===================
 
 Added
 -----
@@ -41,7 +41,6 @@ Fixed
 - Fix ``handle_progress`` handler in the listener
 - Fix moving data to entity in collection also sets collection on the data
   object
-
 
 
 ===================
