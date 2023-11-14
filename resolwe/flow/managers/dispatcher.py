@@ -166,6 +166,10 @@ class Manager:
         else:
             connector_list = [flow_manager.get("NAME", DEFAULT_CONNECTOR)]
 
+        # Store the whitelist and blacklist for later use.
+        self._processes_allow = settings.FLOW_PROCESSES_ALLOW_LIST
+        self._processes_ignore = settings.FLOW_PROCESSES_IGNORE_LIST
+
         # Pre-load all needed connectors.
         self.connectors = {}
         for module_name in connector_list:
@@ -669,6 +673,13 @@ class Manager:
 
         try:
             queryset = Data.objects.filter(status=Data.STATUS_RESOLVING)
+            # Check if process is in the whitelist or blacklist. The blacklist has
+            # priority.
+            if self._processes_allow:
+                queryset = queryset.filter(process__slug__in=self._processes_allow)
+            if self._processes_ignore:
+                queryset = queryset.exclude(process__slug__in=self._processes_ignore)
+
             if data_id is not None:
                 # Scan only given data object and its children.
                 queryset = queryset.filter(

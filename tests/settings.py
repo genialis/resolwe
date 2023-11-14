@@ -2,10 +2,13 @@
 Django settings for running tests for Resolwe package.
 
 """
+import json
 import os
 import sys
 from distutils.util import strtobool
 from pathlib import Path
+
+from decouple import Csv, config
 
 from resolwe.__about__ import __version__
 
@@ -203,6 +206,16 @@ FLOW_PROCESSES_FINDERS = (
 )
 
 FLOW_PROCESSES_RUNTIMES = ("resolwe.process.runtime.Process",)
+
+# Which processes to schedule (if not set, all).
+FLOW_PROCESSES_ALLOW_LIST = config(
+    "FLOW_PROCESSES_ALLOW_LIST", default="null", cast=json.loads
+)
+
+# Which processes to ignore (by default, none).
+FLOW_PROCESSES_IGNORE_LIST = config(
+    "FLOW_PROCESSES_IGNORE_LIST", default="null", cast=json.loads
+)
 
 FLOW_EXECUTOR = {
     "NAME": "resolwe.flow.executors.docker",

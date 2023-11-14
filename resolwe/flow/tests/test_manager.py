@@ -23,8 +23,9 @@ class TestManager(ProcessTestCase):
         super().setUp()
 
         self.collection = Collection.objects.create(contributor=self.contributor)
-
         self._register_schemas(processes_paths=[PROCESSES_DIR])
+        manager._processes_ignore = None
+        manager._processes_allow = None
 
     def test_create_data(self):
         """Test that manager is run when new object is created."""
@@ -34,9 +35,43 @@ class TestManager(ProcessTestCase):
             contributor=self.contributor,
             process=process,
         )
-
         data.refresh_from_db()
         self.assertEqual(data.status, Data.STATUS_DONE)
+
+    def test_ignore_allow_list(self):
+        process = Process.objects.filter(slug="test-min").latest()
+
+        # Ignored processes should not trigger processing.
+        manager._processes_ignore = ["test-min"]
+        data = Data.objects.create(
+            name="Test data",
+            contributor=self.contributor,
+            process=process,
+        )
+        data.refresh_from_db()
+        self.assertEqual(data.status, Data.STATUS_RESOLVING)
+
+        # Ignore should have precedence.
+        manager._processes_ignore = ["test-min"]
+        manager._processes_allow = ["test-min"]
+        data = Data.objects.create(
+            name="Test data",
+            contributor=self.contributor,
+            process=process,
+        )
+        data.refresh_from_db()
+        self.assertEqual(data.status, Data.STATUS_RESOLVING)
+
+        # Allowing some processes shoud disable others.
+        manager._processes_ignore = None
+        manager._processes_allow = ["test-something-else"]
+        data = Data.objects.create(
+            name="Test data",
+            contributor=self.contributor,
+            process=process,
+        )
+        data.refresh_from_db()
+        self.assertEqual(data.status, Data.STATUS_RESOLVING)
 
     def test_spawned_process(self):
         """Test that manager is run for spawned processes and permissions are copied."""

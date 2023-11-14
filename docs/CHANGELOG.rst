@@ -14,6 +14,11 @@ Changed
 -------
 - Redis cache in listener is updated when data fields are retrieved from the
   database
+Added
+-----
+- Add processes allow and ignore list to dispatcher, controlled by
+  environmental variables ``FLOW_PROCESSES_ALLOW_LIST`` and
+  ``FLOW_PROCESSES_IGNORE_LIST```
 
 Fixed
 -----
