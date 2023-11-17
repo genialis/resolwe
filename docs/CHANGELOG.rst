@@ -18,6 +18,8 @@ Changed
 Fixed
 -----
 - Store random postfix to redis for use at cleaup time
+- Fix ``_save_data`` method in listener that caused changes to started 
+  and progress fields to be ignored
 
 
 ===================

@@ -248,21 +248,25 @@ class Processor:
             assert data is not None, "Can not save error to None object."
             self._save_error(data, error)
 
-    def _save_data(self, data: Data, changes: Iterable[str]):
+    def _save_data(self, data: Data, changes: Union[list[str], dict[str, Any]]):
         """Update the data object with the given id.
 
-        Changes are dictionary mapping from field names to field values.
-
-        :attr changes: dictionary with changes to be saved.
+        :attr changes: dictionary with changes to be saved or a list of fields that
+            were modified.
         :attr data_id: the given data id.
 
         :raises: exception when data object cannot be saved.
         """
-        # Before saving the object set the redis cache.
-        if changes:
-            changes = {field: getattr(data, field) for field in changes}
-            cache_manager.update_cache(Data, (data.id,), changes)
-            data.save(update_fields=changes)
+        if isinstance(changes, list):
+            changes_dict = {field: getattr(data, field) for field in changes}
+            update_fields = changes
+        else:
+            changes_dict = changes
+            update_fields = changes.keys()
+            for attribute, value in changes_dict.items():
+                setattr(data, attribute, value)
+        cache_manager.update_cache(Data, (data.id,), changes_dict)
+        data.save(update_fields=update_fields)
 
     def _update_data(self, data_id: int, changes: Dict[str, Any]):
         """Update the data object with the given id.
