@@ -10,6 +10,11 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Changed
+-------
+- Redis cache in listener is updated when data fields are retrieved from the
+  database
+
 Fixed
 -----
 - Store random postfix to redis for use at cleaup time

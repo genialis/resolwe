@@ -101,6 +101,8 @@ class Processor:
             database_data = (
                 Data.objects.filter(pk=data_id).values(*database_fields).get()
             )
+        if database_data:
+            cache_manager.update_cache(Data, (data_id,), database_data)
         # Return the combined results, with database data taking precedence.
         combined = ChainMap(database_data, cached_data)
         result = [combined[field_name] for field_name in fields]
@@ -283,6 +285,11 @@ class Processor:
         :raises: exception when data object cannot be saved.
         """
         Worker.objects.filter(data__pk=data_id).update(**changes)
+        cache_manager.update_cache(
+            Data,
+            (data_id,),
+            {f"worker__{key}": value for key, value in changes.items()},
+        )
 
     def _save_database_terminate(self, data_id: int):
         """Save error to the database."""
