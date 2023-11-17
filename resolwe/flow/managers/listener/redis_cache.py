@@ -9,7 +9,7 @@ from enum import Enum
 from functools import partial
 from itertools import islice
 from os import getpid
-from typing import Any, Iterable, Optional, Sequence, Union
+from typing import Any, Iterable, Optional, Sequence, Type, Union
 
 import redis
 
@@ -69,9 +69,9 @@ class RedisCache:
         self._redis = redis_server
         super().__init__(*args, **kwargs)
 
-    def _model_str(self, model: Optional[models.Model]) -> str:
+    def _model_str(self, Model: Optional[Type[models.Model]]) -> str:
         """Get string representation for the given content type."""
-        return model._meta.label_lower if model else ""
+        return Model._meta.label_lower if Model else ""
 
     def _identifiers_str(self, identifiers: Optional[Sequence]) -> str:
         """Get string representation for the given identifier."""
@@ -80,21 +80,21 @@ class RedisCache:
         else:
             return "-".join(map(str, identifiers))
 
-    def _cached_field_name(self, model: models.Model, field_name: str) -> str:
+    def _cached_field_name(self, Model: Type[models.Model], field_name: str) -> str:
         """Get the cached field name."""
-        return f"{self._model_str(model)}:{field_name}"
+        return f"{self._model_str(Model)}:{field_name}"
 
-    def get_redis_key(self, model: models.Model, identifiers: Identifier) -> str:
+    def get_redis_key(self, Model: type[models.Model], identifiers: Identifier) -> str:
         """Get the redis key from the field name.
 
         When testing every listener process must have its own redis shared
         storage since data ids will repeat when tests are run in parallel.
         """
-        return self._get_redis_key_prefix(model, identifiers)
+        return self._get_redis_key_prefix(Model, identifiers)
 
     def _get_redis_key_prefix(
         self,
-        model: Optional[models.Model] = None,
+        Model: Optional[Type[models.Model]] = None,
         identifiers: Optional[Identifier] = None,
         field_name: Optional[str] = None,
     ) -> str:
@@ -102,7 +102,7 @@ class RedisCache:
 
         :raises RuntimeError: when input parameters are not valid.
         """
-        if not model and (identifiers or field_name):
+        if not Model and (identifiers or field_name):
             raise RuntimeError(
                 "When model is None then identifiers and field name must be provided."
             )
@@ -115,7 +115,7 @@ class RedisCache:
 
         parts = [
             "listener" if not is_testing() else f"listener-{getpid()}",
-            self._model_str(model),
+            self._model_str(Model),
             self._identifiers_str(identifiers),
             field_name,
         ]
@@ -160,7 +160,7 @@ class RedisCache:
         return cached_data  # type: ignore
 
     def mget(
-        self, model: models.Model, identifiers_list: Sequence[Identifier]
+        self, Model: Type[models.Model], identifiers_list: Sequence[Identifier]
     ) -> list[Optional[FieldValues]]:
         """Obtain the set of fields from the redis cache.
 
@@ -171,20 +171,20 @@ class RedisCache:
         :raises pickle.PickleError: when data cannot be unpickled.
         :raises redis.exceptions.RedisError: when data cannot be retrieved from Redis.
         """
-        get_redis_key = partial(self.get_redis_key, model)
+        get_redis_key = partial(self.get_redis_key, Model)
         redis_keys = list(map(get_redis_key, identifiers_list))
         # Wait for all keys to be unlocked or timeout occurs.
         # The refresh interval is set to 5 seconds since list can be long.
-        self.wait(model, identifiers_list, timeout=60, refresh_interval=5)
+        self.wait(Model, identifiers_list, timeout=60, refresh_interval=5)
         return self._get_redis_data(redis_keys)
 
-    def _lock_key(self, model: models.Model, identifiers: Sequence) -> str:
+    def _lock_key(self, Model: Type[models.Model], identifiers: Sequence) -> str:
         """Get the key for the lock for the given entry."""
-        return self._get_redis_key_prefix(model, identifiers, "__lock__")
+        return self._get_redis_key_prefix(Model, identifiers, "__lock__")
 
     def _modify_redis_locks(
         self,
-        model: models.Model,
+        Model: Type[models.Model],
         identifiers_list: Sequence[Identifier],
         status: RedisLockStatus = RedisLockStatus.PROCESSING,
         valid_for: int = 60,
@@ -196,7 +196,7 @@ class RedisCache:
         """
         status_pickle = pickle.dumps(status)
         redis_map = {
-            self._lock_key(model, identifier): status_pickle
+            self._lock_key(Model, identifier): status_pickle
             for identifier in identifiers_list
         }
         self._redis.mset(redis_map)
@@ -205,7 +205,7 @@ class RedisCache:
 
     def lock(
         self,
-        model: models.Model,
+        Model: Type[models.Model],
         identifiers_list: Sequence[Identifier],
         valid_for: int = 300,
     ):
@@ -215,12 +215,12 @@ class RedisCache:
         auto-expire after timeout seconds.
         """
         self._modify_redis_locks(
-            model, identifiers_list, RedisLockStatus.PROCESSING, valid_for
+            Model, identifiers_list, RedisLockStatus.PROCESSING, valid_for
         )
 
     def unlock(
         self,
-        model: models.Model,
+        Model: Type[models.Model],
         identifiers_list: Sequence[Identifier],
         status: RedisLockStatus = RedisLockStatus.OK,
     ):
@@ -231,25 +231,25 @@ class RedisCache:
         # The status should persist for longer period, such as a day.
         assert status in (RedisLockStatus.OK, RedisLockStatus.ERROR)
         self._modify_redis_locks(
-            model, identifiers_list, status, valid_for=24 * 60 * 60
+            Model, identifiers_list, status, valid_for=24 * 60 * 60
         )
 
     def _get_redis_locks(
-        self, model: models.Model, identifiers_list: Sequence[Identifier]
+        self, Model: Type[models.Model], identifiers_list: Sequence[Identifier]
     ) -> list[Optional[RedisLockStatus]]:
         """Get the locks for the given entries.
 
         When no lock is given None is returned as its value.
         """
         redis_keys = [
-            self._lock_key(model, identifiers) for identifiers in identifiers_list
+            self._lock_key(Model, identifiers) for identifiers in identifiers_list
         ]
         # When there is no lock return error: ok could abort the processing.
         return self._get_redis_data(redis_keys)
 
     def wait(
         self,
-        model: models.Model,
+        Model: Type[models.Model],
         identifiers_list: Sequence[Sequence],
         timeout: int = 60,
         refresh_interval: int = 1,
@@ -259,7 +259,7 @@ class RedisCache:
         If the locks are not released within the given timeout proceed anyway.
         """
         redis_lock_keys = [
-            self._lock_key(model, identifiers) for identifiers in identifiers_list
+            self._lock_key(Model, identifiers) for identifiers in identifiers_list
         ]
         start_time = time.time()
         while time.time() - start_time < timeout:
@@ -271,7 +271,7 @@ class RedisCache:
 
     def get(
         self,
-        model: models.Model,
+        Model: Type[models.Model],
         identifiers: Identifier,
         field_names: Iterable[str],
     ) -> FieldValues:
@@ -314,17 +314,17 @@ class RedisCache:
                 field_name: cached_data.get(field_name) for field_name in field_names
             }
 
-        redis_key = self.get_redis_key(model, identifiers)
+        redis_key = self.get_redis_key(Model, identifiers)
         # If there is another command processing the same cache entry wait for it to
         # finish for up to timeout seconds.
-        self.wait(model, (identifiers,), timeout=60)
+        self.wait(Model, (identifiers,), timeout=60)
         return self._redis.transaction(
             get_redis_data, redis_key, value_from_callable=True
         )
 
     def clear(
         self,
-        model: Optional[models.Model] = None,
+        Model: Optional[Type[models.Model]] = None,
         identifiers: Optional[Identifier] = None,
     ):
         """Clear the entire Redis cache for the given data object.
@@ -333,14 +333,14 @@ class RedisCache:
 
         :raises RuntimeError: if identifiers are given without the content type.
         """
-        key_prefix = f"{self._get_redis_key_prefix(model, identifiers)}*"
+        key_prefix = f"{self._get_redis_key_prefix(Model, identifiers)}*"
         redis_keys = list(self._redis.scan_iter(key_prefix))
         if redis_keys:
             self._redis.unlink(*redis_keys)
 
     def mset(
         self,
-        model: models.Model,
+        Model: Type[models.Model],
         to_cache: Cache,
         expiration_time: Optional[int] = None,
     ):
@@ -357,7 +357,7 @@ class RedisCache:
         keys.
         """
         redis_data = {
-            self.get_redis_key(model, identifiers): pickle.dumps(item)
+            self.get_redis_key(Model, identifiers): pickle.dumps(item)
             for identifiers, item in to_cache.items()
         }
         # Write data in chunks. Do not abort if single chunk fails.
@@ -377,7 +377,7 @@ class RedisCache:
 
     def set(
         self,
-        model: models.Model,
+        Model: Type[models.Model],
         identifiers: Identifier,
         field_values: FieldValues,
         expiration_time: Optional[int] = None,
@@ -391,7 +391,7 @@ class RedisCache:
         def update_cache(pipeline: redis.client.Pipeline):
             """Update the cache using pipeline."""
             cached_fields = {key: value for key, value in field_values.items()}
-            redis_key = self.get_redis_key(model, identifiers)
+            redis_key = self.get_redis_key(Model, identifiers)
             existing_cache = {}
             with suppress(Exception):
                 existing_cache = pickle.loads(pipeline.get(redis_key))  # type: ignore
@@ -409,90 +409,90 @@ redis_cache = RedisCache()
 class CachedObjectManager(PluginManager["CachedObjectPlugin"]):
     """Redis cache plugin manager."""
 
-    def _get_plugin_identifier(self, model: models.Model) -> str:
+    def _get_plugin_identifier(self, Model: Type[models.Model]) -> str:
         """Get the plugin identifier."""
-        return model._meta.label_lower
+        return Model._meta.label_lower
 
-    def get_plugin(self, model: models.Model) -> "CachedObjectPlugin":
+    def get_plugin_for_model(self, Model: Type[models.Model]) -> "CachedObjectPlugin":
         """Get the plugin based on the content type.
 
         :raises KeyError: when no plugin is registered for the given content type.
         """
-        return self._plugins[self._get_plugin_identifier(model)]
+        return super().get_plugin(self._get_plugin_identifier(Model))
 
     def mcache(self, instances: models.QuerySet) -> None:
         """Cache the given queryset.
 
         Items with the same identifiers are overwritten.
         """
-        plugin = self.get_plugin(instances.model)
+        plugin = self.get_plugin_for_model(instances.model)
         to_cache = plugin.serialize(instances)
         redis_cache.mset(plugin.model, to_cache, plugin.expiration_time)
 
     def cache(self, instance: models.Model) -> None:
         """Cache the given instance."""
-        plugin = self.get_plugin(type(instance))
+        plugin = self.get_plugin_for_model(type(instance))
         to_cache = plugin.serialize(instance)
         redis_cache.mset(plugin.model, to_cache, plugin.expiration_time)
 
     def mget(
-        self, model: models.Model, identifiers_list: Sequence[Identifier]
+        self, Model: Type[models.Model], identifiers_list: Sequence[Identifier]
     ) -> list[Optional[FieldValues]]:
         """Get the cache values for the given identifiers."""
-        plugin = self.get_plugin(model)
+        plugin = self.get_plugin_for_model(Model)
         return redis_cache.mget(plugin.model, identifiers_list)
 
     def get(
-        self, model: models.Model, identifiers: Identifier
+        self, Model: Type[models.Model], identifiers: Identifier
     ) -> Optional[FieldValues]:
         """Get the cache values for the given instance."""
-        return self.mget(model, [identifiers])[0]
+        return self.mget(Model, [identifiers])[0]
 
     def update_cache(
-        self, model: models.Model, identifiers: Identifier, values: FieldValues
+        self, Model: Type[models.Model], identifiers: Identifier, values: FieldValues
     ):
         """Update the given cache with values."""
-        plugin = self.get_plugin(model)
-        current_cache = self.get(model, identifiers) or {}
+        plugin = self.get_plugin_for_model(Model)
+        current_cache = self.get(Model, identifiers) or {}
         for field in plugin.cached_fields:
             if cached_field_value := values.get(field):
                 current_cache[field] = cached_field_value
         to_cache = {identifiers: current_cache}
         redis_cache.mset(plugin.model, to_cache, plugin.expiration_time)
 
-    def is_cached(self, model: models.Model, field_name: str) -> bool:
+    def is_cached(self, Model: Type[models.Model], field_name: str) -> bool:
         """Check if the given field is cached."""
-        return field_name in self.get_plugin(model).cached_fields
+        return field_name in self.get_plugin_for_model(Model).cached_fields
 
-    def lock(self, model: models.Model, identifiers_list: Sequence[Identifier]):
+    def lock(self, Model: Type[models.Model], identifiers_list: Sequence[Identifier]):
         """Create locks for the given entries."""
-        return redis_cache.lock(model, identifiers_list)
+        return redis_cache.lock(Model, identifiers_list)
 
     def unlock(
         self,
-        model: models.Model,
+        Model: Type[models.Model],
         identifiers_list: Sequence[Identifier],
         status: RedisLockStatus = RedisLockStatus.OK,
     ):
         """Unlock locks for the given entries."""
-        return redis_cache.unlock(model, identifiers_list, status)
+        return redis_cache.unlock(Model, identifiers_list, status)
 
     def clear(
         self,
-        model: models.Model,
+        Model: Type[models.Model],
         identifiers_list: Sequence[Identifier],
     ):
         """Clear the cache for the given identifiers."""
-        return redis_cache.clear(model, identifiers_list)
+        return redis_cache.clear(Model, identifiers_list)
 
     def wait(
         self,
-        model: models.Model,
+        Model: Type[models.Model],
         identifiers_list: Sequence[Sequence],
         timeout: int = 60,
     ) -> set[Optional[RedisLockStatus]]:
         """Wait for locks to be released for up to 60 seconds."""
-        return redis_cache.wait(model, identifiers_list, timeout)
+        return redis_cache.wait(Model, identifiers_list, timeout)
 
 
 cache_manager = CachedObjectManager()
@@ -511,7 +511,7 @@ class CachedObjectPlugin(Plugin):
 
     abstract = True
     plugin_manager = cache_manager
-    model: models.Model
+    model: Type[models.Model]
     # The list of cached fields.
     cached_fields: FieldNames
     # The list of identifier fields: must be a subset of cached_fields.

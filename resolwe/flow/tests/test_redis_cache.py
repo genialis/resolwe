@@ -41,7 +41,7 @@ class RedisCache(TestCase):
     def test_register_data(self):
         """Test that Data plugin is registered."""
         self.assertIn("flow.data", cache_manager._plugins)
-        cache_manager.get_plugin(Data)
+        cache_manager.get_plugin_for_model(Data)
 
     def test_cache_single(self):
         """Test that object can be cached."""
