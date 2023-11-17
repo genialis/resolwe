@@ -335,8 +335,7 @@ class Processor:
                 data = self.data(data_id)
                 self._log_error(data, error_message)
                 self._save_data(data, ["process_error", "status"])
-                data.worker.status = Worker.STATUS_NONRESPONDING
-                data.worker.save()
+                self._update_worker(data_id, {"status": Worker.STATUS_NONRESPONDING})
 
         logger.debug(__("Peer with id={} is not responding.", data_id))
         await database_sync_to_async(update_database, thread_sensitive=False)()

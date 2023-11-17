@@ -145,8 +145,7 @@ class BasicCommands(ListenerPlugin):
         )
         with transaction.atomic():
             manager._save_data(data, changes)
-            data.worker.status = Worker.STATUS_COMPLETED
-            data.worker.save()
+            manager._update_worker(data_id, changes={"status": Worker.STATUS_COMPLETED})
             default_location = data.location.default_storage_location
             default_location.status = StorageLocation.STATUS_DONE
             default_location.save(update_fields=["status"])
@@ -349,11 +348,13 @@ class BasicCommands(ListenerPlugin):
             with transaction.atomic():
                 manager._save_data(data, ["status"])
                 if new_status == Data.STATUS_PREPARING:
-                    data.worker.status = Worker.STATUS_PREPARING
-                    data.worker.save()
+                    manager._update_worker(
+                        data_id, changes={"status": Worker.STATUS_PREPARING}
+                    )
                 elif new_status == Data.STATUS_PROCESSING:
-                    data.worker.status = Worker.STATUS_PROCESSING
-                    data.worker.save()
+                    manager._update_worker(
+                        data_id, changes={"status": Worker.STATUS_PROCESSING}
+                    )
 
             if new_status == Data.STATUS_ERROR:
                 logger.error(

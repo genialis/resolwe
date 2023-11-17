@@ -152,9 +152,9 @@ class BootstrapCommands(ListenerPlugin):
         self, data_id: int, message: Message[str], manager: "Processor"
     ) -> Response[str]:
         """Handle init completed request."""
-        worker = manager.worker(data_id)
-        worker.status = Worker.STATUS_FINISHED_PREPARING
-        worker.save(update_fields=["status"])
+        manager._update_worker(
+            data_id, changes={"status": Worker.STATUS_FINISHED_PREPARING}
+        )
         return message.respond_ok("")
 
     def handle_bootstrap(
