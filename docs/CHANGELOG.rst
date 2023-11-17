@@ -20,6 +20,8 @@ Fixed
 - Store random postfix to redis for use at cleaup time
 - Fix ``_save_data`` method in listener that caused changes to started 
   and progress fields to be ignored
+- Already processed messages in listener are ignored for one day so messages
+  are not processed twice
 
 
 ===================

@@ -228,8 +228,11 @@ class RedisCache:
 
         :raise AssertionError: when status in not OK or ERROR.
         """
+        # The status should persist for longer period, such as a day.
         assert status in (RedisLockStatus.OK, RedisLockStatus.ERROR)
-        self._modify_redis_locks(model, identifiers_list, status)
+        self._modify_redis_locks(
+            model, identifiers_list, status, valid_for=24 * 60 * 60
+        )
 
     def _get_redis_locks(
         self, model: models.Model, identifiers_list: Sequence[Identifier]

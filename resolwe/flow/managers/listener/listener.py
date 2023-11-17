@@ -16,7 +16,7 @@ import logging
 from contextlib import suppress
 from functools import lru_cache
 from time import time
-from typing import Any, ChainMap, Dict, Iterable, List, Optional, Set, Union
+from typing import Any, ChainMap, Dict, List, Optional, Set, Union
 
 import zmq
 import zmq.asyncio
@@ -381,15 +381,19 @@ class Processor:
 
         """
         data_id = abs(int(identity))
-
-        # Wait if there is another message with the same uuid being processed.
-        statuses = cache_manager.wait(Data, [(data_id, message.uuid)])
-        # When message was already processed return OK response.
-        if statuses == {RedisLockStatus.OK}:
-            logger.debug(
-                __("Message with uuid={} is already being processed.", message.uuid)
-            )
-            return message.respond_skip("Message already processed.")
+        match cache_manager.wait(Data, [(data_id, message.uuid)]).pop():
+            case RedisLockStatus.OK:
+                logger.debug(
+                    __("Message with uuid={} is already being processed.", message.uuid)
+                )
+                return message.respond_skip("Message already processed.")
+            case RedisLockStatus.ERROR:
+                logger.debug(
+                    __("Message with uuid={} is already being processed.", message.uuid)
+                )
+                return message.respond_error("Error processing message.")
+            case RedisLockStatus.PROCESSING:
+                return message.respond_skip("Message processing.")
 
         # Lock the message so it is not processed by another worker.
         cache_manager.lock(Data, [(data_id, message.uuid)])
@@ -402,6 +406,7 @@ class Processor:
         if not self._can_process_object(
             worker_status, data_status, message.command_name
         ):
+            cache_manager.unlock(Data, [(data_id, message.uuid)])
             return message.respond_error(
                 f"Unable to process the data object {data_id} with status {data_status}."
             )
@@ -411,6 +416,7 @@ class Processor:
         if not handler:
             error = f"Unknow command '{message.command_name}'."
             self._log_error(self.data(data_id), error, save_to_data_object=False)
+            cache_manager.unlock(Data, [(data_id, message.uuid)])
             return message.respond_error(error)
 
         # Set the data started on the first command.
