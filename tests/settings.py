@@ -112,6 +112,10 @@ LISTENER_CONNECTION = {
     "min_port": 50000,
     "max_port": 60000,
     "protocol": "tcp",
+    # Define the max number of commands listener can process simultaneously.
+    "max_concurrent_commands": config(
+        "RESOLWE_LISTENER_MAX_CONCURRENT_COMMANDS", cast=int, default=10
+    ),
 }
 
 # The IP address where listener is available from the communication container.

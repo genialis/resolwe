@@ -534,6 +534,7 @@ class ListenerProtocol(BaseProtocol):
         port: int,
         protocol: str,
         zmq_socket: Optional[zmq.asyncio.Socket] = None,
+        max_concurrent_commands: int = 10,
     ):
         """Initialize."""
         if zmq_socket is None:
@@ -546,6 +547,7 @@ class ListenerProtocol(BaseProtocol):
         super().__init__(
             ZMQCommunicator(zmq_socket, "listener <-> workers", logger),
             logger,
+            max_concurrent_commands,
         )
         self.communicator.heartbeat_handler = self.heartbeat_handler
         self._message_processor = Processor(self)
@@ -688,6 +690,13 @@ class ExecutorListener:
             getattr(settings, "LISTENER_CONNECTION", {}).get("protocol", "tcp"),
         )
 
+        self.max_concurrent_commands = kwargs.get(
+            "max_concurrent_commands",
+            getattr(settings, "LISTENER_CONNECTION", {}).get(
+                "max_concurrent_commands", 10
+            ),
+        )
+
         # When zmq_socket kwarg is not None, use this one instead of creating
         # a new one.
         self.zmq_socket = kwargs.get("zmq_socket")
@@ -729,7 +738,11 @@ class ExecutorListener:
         """
         if self._listener_protocol is None:
             self._listener_protocol = ListenerProtocol(
-                self.hosts, self.port, self.protocol, self.zmq_socket
+                self.hosts,
+                self.port,
+                self.protocol,
+                self.zmq_socket,
+                self.max_concurrent_commands,
             )
         return self._listener_protocol
 
