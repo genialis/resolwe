@@ -4,6 +4,7 @@ from django.db import models
 from rest_framework import serializers
 from rest_framework.fields import empty
 
+from resolwe.flow.models.annotations import NAME_LENGTH as ANNOTATION_NAME_LENGTH
 from resolwe.flow.models.annotations import (
     AnnotationField,
     AnnotationGroup,
@@ -73,11 +74,13 @@ class AnnotationFieldDictSerializer(serializers.Serializer):
     confirm_action = serializers.BooleanField(default=False)
 
 
-class AnnotationsSerializer(serializers.Serializer):
+class AnnotationsByPathSerializer(serializers.Serializer):
     """Serializer that reads annotation field and its value."""
 
-    field = PrimaryKeyDictRelatedField(queryset=AnnotationField.objects.all())
-    value = serializers.JSONField()
+    # The field path contains the annotation group name and the annotation field name
+    # separated by spaces.
+    field_path = serializers.CharField(max_length=2 * ANNOTATION_NAME_LENGTH + 1)
+    value = serializers.JSONField(allow_null=True)
 
 
 class AnnotationPresetSerializer(ResolweBaseSerializer):

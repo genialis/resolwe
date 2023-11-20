@@ -1112,7 +1112,7 @@ class AnnotationViewSetsTest(TestCase):
             entity=self.entity1, field=self.annotation_field1, value="non_existing"
         )
 
-    def test_set_values(self):
+    def test_set_values_by_path(self):
         def has_value(entity, field_id, value):
             self.assertEqual(
                 value, entity.annotations.filter(field_id=field_id).get().value
@@ -1136,14 +1136,14 @@ class AnnotationViewSetsTest(TestCase):
         self.assertDictEqual(
             response.data[0],
             {
-                "field": ["This field is required."],
+                "field_path": ["This field is required."],
                 "value": ["This field is required."],
             },
         )
 
         annotations = [
-            {"field": {"id": self.annotation_field1.pk}, "value": "new value"},
-            {"field": {"id": self.annotation_field2.pk}, "value": -1},
+            {"field_path": str(self.annotation_field1), "value": "new value"},
+            {"field_path": str(self.annotation_field2), "value": -1},
         ]
 
         # Valid request without regex validation.
@@ -1156,8 +1156,26 @@ class AnnotationViewSetsTest(TestCase):
         has_value(self.entity1, self.annotation_field1.pk, "new value")
         has_value(self.entity1, self.annotation_field2.pk, -1)
 
+        annotations = [
+            {"field_path": str(self.annotation_field1), "value": None},
+            {"field_path": str(self.annotation_field2), "value": 2},
+        ]
+
+        # Valid request without regex validation, delete annotation.
+        request = factory.post("/", annotations, format="json")
+        force_authenticate(request, self.contributor)
+        response = viewset(request, pk=self.entity1.pk)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(self.entity1.annotations.count(), 1)
+        has_value(self.entity1, self.annotation_field2.pk, 2)
+
+        # Re-create deleted annotation value.
+        self.annotation_value1 = AnnotationValue.objects.create(
+            entity=self.entity1, field=self.annotation_field1, value="new value"
+        )
+
         # Wrong type.
-        annotations = [{"field": {"id": self.annotation_field1.pk}, "value": 10}]
+        annotations = [{"field_path": str(self.annotation_field1), "value": 10}]
         request = factory.post("/", annotations, format="json")
         force_authenticate(request, self.contributor)
         response = viewset(request, pk=self.entity1.pk)
@@ -1169,12 +1187,12 @@ class AnnotationViewSetsTest(TestCase):
         )
 
         has_value(self.entity1, self.annotation_field1.pk, "new value")
-        has_value(self.entity1, self.annotation_field2.pk, -1)
+        has_value(self.entity1, self.annotation_field2.pk, 2)
 
         # Wrong regex.
         self.annotation_field1.validator_regex = "b+"
         self.annotation_field1.save()
-        annotations = [{"field": {"id": self.annotation_field1.pk}, "value": "aaa"}]
+        annotations = [{"field_path": str(self.annotation_field1), "value": "aaa"}]
         request = factory.post("/", annotations, format="json")
         force_authenticate(request, self.contributor)
         response = viewset(request, pk=self.entity1.pk)
@@ -1189,10 +1207,10 @@ class AnnotationViewSetsTest(TestCase):
             },
         )
         has_value(self.entity1, self.annotation_field1.pk, "new value")
-        has_value(self.entity1, self.annotation_field2.pk, -1)
+        has_value(self.entity1, self.annotation_field2.pk, 2)
 
         # Wrong regex and type.
-        annotations = [{"field": {"id": self.annotation_field1.pk}, "value": 10}]
+        annotations = [{"field_path": str(self.annotation_field1), "value": 10}]
         request = factory.post("/", annotations, format="json")
         force_authenticate(request, self.contributor)
         response = viewset(request, pk=self.entity1.pk)
@@ -1205,12 +1223,12 @@ class AnnotationViewSetsTest(TestCase):
             ],
         )
         has_value(self.entity1, self.annotation_field1.pk, "new value")
-        has_value(self.entity1, self.annotation_field2.pk, -1)
+        has_value(self.entity1, self.annotation_field2.pk, 2)
 
         # Multiple fields validation error.
         annotations = [
-            {"field": {"id": self.annotation_field1.pk}, "value": 10},
-            {"field": {"id": self.annotation_field2.pk}, "value": "string"},
+            {"field_path": str(self.annotation_field1), "value": 10},
+            {"field_path": str(self.annotation_field2), "value": "string"},
         ]
         request = factory.post("/", annotations, format="json")
         force_authenticate(request, self.contributor)
@@ -1225,10 +1243,10 @@ class AnnotationViewSetsTest(TestCase):
             ],
         )
         has_value(self.entity1, self.annotation_field1.pk, "new value")
-        has_value(self.entity1, self.annotation_field2.pk, -1)
+        has_value(self.entity1, self.annotation_field2.pk, 2)
 
         # Regular request with regex validation.
-        annotations = [{"field": {"id": self.annotation_field1.pk}, "value": "bbb"}]
+        annotations = [{"field_path": str(self.annotation_field1), "value": "bbb"}]
         request = factory.post("/", annotations, format="json")
         force_authenticate(request, self.contributor)
         response = viewset(request, pk=self.entity1.pk)
@@ -1236,4 +1254,4 @@ class AnnotationViewSetsTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(self.annotation_value1.value, "bbb")
         has_value(self.entity1, self.annotation_field1.pk, "bbb")
-        has_value(self.entity1, self.annotation_field2.pk, -1)
+        has_value(self.entity1, self.annotation_field2.pk, 2)

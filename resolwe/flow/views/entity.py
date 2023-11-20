@@ -1,5 +1,6 @@
 """Entity viewset."""
 import re
+from typing import Optional
 
 from drf_spectacular.utils import extend_schema
 
@@ -10,13 +11,14 @@ from django.db.models.functions import Coalesce
 
 from rest_framework import exceptions, serializers, status
 from rest_framework.decorators import action
+from rest_framework.request import Request
 from rest_framework.response import Response
 
 from resolwe.flow.filters import EntityFilter
 from resolwe.flow.models import AnnotationValue, Data, DescriptorSchema, Entity
 from resolwe.flow.models.annotations import AnnotationField, HandleMissingAnnotations
 from resolwe.flow.serializers import EntitySerializer
-from resolwe.flow.serializers.annotations import AnnotationsSerializer
+from resolwe.flow.serializers.annotations import AnnotationsByPathSerializer
 from resolwe.observers.mixins import ObservableMixin
 from resolwe.process.descriptor import ValidationError
 
@@ -196,47 +198,51 @@ class EntityViewSet(ObservableMixin, BaseCollectionViewSet):
         return resp
 
     @extend_schema(
-        request=AnnotationsSerializer(many=True), responses={status.HTTP_200_OK: None}
+        request=AnnotationsByPathSerializer(many=True),
+        responses={status.HTTP_200_OK: None},
     )
     @action(detail=True, methods=["post"])
-    def set_annotations(self, request, pk=None):
-        """Add the given list of AnnotaitonFields to the given collection."""
+    def set_annotations(self, request: Request, pk: Optional[int] = None):
+        """Add the given list of AnnotationFields to the given entity."""
         # No need to check for permissions, since post requires edit by default.
         entity = self.get_object()
         # Read and validate the request data.
-        serializer = AnnotationsSerializer(data=request.data, many=True)
+        serializer = AnnotationsByPathSerializer(data=request.data, many=True)
         serializer.is_valid(raise_exception=True)
-        annotations = [
-            (entry["field"], entry["value"]) for entry in serializer.validated_data
-        ]
-        annotation_fields = [e[0] for e in annotations]
-        # The following dict is a mapping from annotation field id to the annotation
-        # value id.
-        existing_annotations = dict(
-            entity.annotations.filter(field__in=annotation_fields).values_list(
-                "field_id", "id"
-            )
-        )
+        field_paths = {value["field_path"] for value in serializer.validated_data}
+        field_map = {
+            field_path: AnnotationField.field_from_path(field_path)
+            for field_path in field_paths
+        }
 
-        validation_errors = []
-        to_create = []
-        to_update = []
-        for field, value in annotations:
-            annotation_id = existing_annotations.get(field.id)
-            append_to = to_create if annotation_id is None else to_update
-            annotation = AnnotationValue(
-                entity_id=entity.id, field_id=field.id, value=value, id=annotation_id
-            )
-            try:
-                annotation.validate()
-            except DjangoValidationError as e:
-                validation_errors += e
-            append_to.append(annotation)
-
+        # Create annotation values and prepare list of fields which annotations should
+        # be deleted.
+        annotation_values: list[AnnotationValue] = []
+        validation_errors: list[DjangoValidationError] = []
+        fields_to_delete: list[int] = []
+        for value in serializer.validated_data:
+            if value["value"] is None:
+                fields_to_delete.append(field_map[value["field_path"]].pk)
+            else:
+                value["field"] = field_map[value.pop("field_path")]
+                value = AnnotationValue(**value, entity=entity)
+                annotation_values.append(value)
+                try:
+                    value.validate()
+                except DjangoValidationError as e:
+                    validation_errors += e
         if validation_errors:
             raise DjangoValidationError(validation_errors)
 
+        # Delete and update annotations in a transaction.
         with transaction.atomic():
-            AnnotationValue.objects.bulk_create(to_create)
-            AnnotationValue.objects.bulk_update(to_update, ["_value"])
+            AnnotationValue.objects.filter(
+                entity=entity, field_id__in=fields_to_delete
+            ).delete()
+            AnnotationValue.objects.bulk_create(
+                annotation_values,
+                update_conflicts=True,
+                update_fields=["_value"],
+                unique_fields=["entity", "field"],
+            )
         return Response()

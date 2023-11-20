@@ -31,6 +31,10 @@ Fixed
 - Already processed messages in listener are ignored for one day so messages
   are not processed twice
 
+Changed
+-------
+- Bulk annotations on entity endpoint now accept field path instead of id
+
 
 ===================
 38.0.0 - 2023-11-13

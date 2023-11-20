@@ -27,6 +27,11 @@ if TYPE_CHECKING:
 
 from .base import AuditModel
 
+VALIDATOR_LENGTH = 128
+NAME_LENGTH = 128
+LABEL_LENGTH = 128
+DESCRIPTION_LENGTH = 256
+
 
 class HandleMissingAnnotations(Enum):
     """How to handle missing annotations."""
@@ -217,10 +222,10 @@ class AnnotationGroup(models.Model):
     """Group of annotation fields."""
 
     #: the name of the annotation group
-    name = models.CharField(max_length=128)
+    name = models.CharField(max_length=NAME_LENGTH)
 
     #: the label of the annotation group
-    label = models.CharField(max_length=128)
+    label = models.CharField(max_length=LABEL_LENGTH)
 
     #: the sorting order among annotation groups
     sort_order = models.PositiveSmallIntegerField()
@@ -239,13 +244,13 @@ class AnnotationField(models.Model):
     """Annotation field."""
 
     #: the name of the annotation fields
-    name = models.CharField(max_length=128)
+    name = models.CharField(max_length=NAME_LENGTH)
 
     #: user visible field name
-    label = models.CharField(max_length=128)
+    label = models.CharField(max_length=LABEL_LENGTH)
 
     #: user visible field description
-    description = models.CharField(max_length=256)
+    description = models.CharField(max_length=DESCRIPTION_LENGTH)
 
     #: the type of the annotation field
     type = models.CharField(max_length=16)
@@ -259,7 +264,9 @@ class AnnotationField(models.Model):
     sort_order = models.PositiveSmallIntegerField()
 
     #: optional regular expression for validation
-    validator_regex = models.CharField(max_length=128, null=True, blank=True)
+    validator_regex = models.CharField(
+        max_length=VALIDATOR_LENGTH, null=True, blank=True
+    )
 
     #: optional map of valid values to labels
     vocabulary = models.JSONField(null=True, blank=True)
