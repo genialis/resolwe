@@ -2,6 +2,7 @@
 from typing import Any, Sequence
 
 from django.core.exceptions import ValidationError
+from django.db.models import F
 from django.urls import reverse
 
 from rest_framework import status
@@ -385,8 +386,7 @@ class AnnotationViewSetsTest(TestCase):
 
         # Unauthenticated request.
         response = self.client.post(path, values, format="json")
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertEqual(response.data, {"detail": "Not found."})
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertAlmostEqual(values_count, AnnotationValue.objects.count())
 
         # Authenticated request.
@@ -399,13 +399,58 @@ class AnnotationViewSetsTest(TestCase):
         self.assertEqual(created_value.value, -1)
         self.assertAlmostEqual(values_count + 1, AnnotationValue.objects.count())
 
-        # Authenticated request, no permission.
-        self.entity1.collection.set_permission(Permission.NONE, self.contributor)
+        # Bulk create, no permission on entity 2.
+        AnnotationValue.objects.all().delete()
+        values = [
+            {"entity": self.entity1.pk, "field": field.pk, "value": -1},
+            {"entity": self.entity2.pk, "field": field.pk, "value": -2},
+        ]
+        response = self.client.post(path, values, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertAlmostEqual(0, AnnotationValue.objects.count())
+
+        # Bulk create, edit permission on both entities.
+        self.collection2.set_permission(Permission.EDIT, self.contributor)
         self.client.force_authenticate(self.contributor)
         response = self.client.post(path, values, format="json")
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertEqual(response.data, {"detail": "Not found."})
-        self.assertAlmostEqual(values_count + 1, AnnotationValue.objects.count())
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        attributes = ("entity", "field", "value")
+        created = AnnotationValue.objects.annotate(value=F("_value__value")).values(
+            *attributes
+        )
+        received = [{key: entry[key] for key in attributes} for entry in response.data]
+        self.assertCountEqual(received, values)
+        self.assertCountEqual(created, values)
+
+        # Bulk create, request for same entity and field.
+        values = [
+            {"entity": self.entity1.pk, "field": field.pk, "value": -10},
+            {"entity": self.entity1.pk, "field": field.pk, "value": -20},
+        ]
+        response = self.client.post(path, values, format="json")
+        self.assertContains(
+            response,
+            "Duplicate annotation values for the same entity and field.",
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+        self.assertEqual(
+            AnnotationValue.objects.get(entity=self.entity1, field=field).value, -1
+        )
+        self.assertEqual(
+            AnnotationValue.objects.get(entity=self.entity2, field=field).value, -2
+        )
+        self.assertEqual(AnnotationValue.objects.count(), 2)
+
+        # Authenticated request, no permission.
+        values = [
+            {"entity": self.entity1.pk, "field": field.pk, "value": -10},
+            {"entity": self.entity2.pk, "field": field.pk, "value": -20},
+        ]
+        AnnotationValue.objects.all().delete()
+        self.entity1.collection.set_permission(Permission.NONE, self.contributor)
+        response = self.client.post(path, values, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertAlmostEqual(0, AnnotationValue.objects.count())
 
     def test_update_annotation_value(self):
         """Test updating new annotation value objects."""
@@ -432,7 +477,7 @@ class AnnotationViewSetsTest(TestCase):
 
         # Authenticated request, entity should not be changed
         values = {
-            "id": self.annotation_value1.pk,
+            "field": self.annotation_field1.pk,
             "value": "string",
             "entity": self.entity2.pk,
         }
@@ -447,6 +492,143 @@ class AnnotationViewSetsTest(TestCase):
         response = client.patch(path, values, format="json")
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertEqual(response.data, {"detail": "Not found."})
+
+        # Single / bulk update with put.
+        self.entity1.collection.set_permission(Permission.EDIT, self.contributor)
+        path = reverse("resolwe-api:annotationvalue-list")
+        client = APIClient()
+        values = [
+            {
+                "entity": self.entity1.pk,
+                "field": self.annotation_field1.pk,
+                "value": -1,
+            }
+        ]
+
+        # Unauthenticated request.
+        response = client.put(path, values, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(
+            response.data,
+            {"detail": "You do not have permission to perform this action."},
+        )
+
+        # Authenticated request with validation error.
+        client.force_authenticate(self.contributor)
+        response = client.put(path, values, format="json")
+        self.annotation_value1.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["error"],
+            [
+                "The value '-1' is not of the expected type 'str'.",
+                f"The value '-1' is not valid for the field {self.annotation_field1}.",
+            ],
+        )
+        self.assertEqual(self.annotation_value1.value, "string")
+        self.assertEqual(AnnotationValue.objects.count(), 2)
+
+        # Authenticated request with validation error.
+        values[0]["value"] = "another"
+        response = client.put(path, values, format="json")
+        self.annotation_value1.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response.data,
+            [
+                {
+                    "label": "Another one",
+                    "id": self.annotation_value1.pk,
+                    "entity": self.entity1.pk,
+                    "field": self.annotation_field1.pk,
+                    "value": "another",
+                }
+            ],
+        )
+        self.assertEqual(self.annotation_value1.value, "another")
+        self.assertEqual(self.annotation_value1.label, "Another one")
+        self.assertEqual(AnnotationValue.objects.count(), 2)
+
+        # Multi with validation error.
+        values = [
+            {"field": self.annotation_field2.pk, "value": 1, "entity": self.entity1.pk},
+            {
+                "field": self.annotation_field2.pk,
+                "value": "string",
+                "entity": self.entity1.pk,
+            },
+        ]
+        response = client.put(path, values, format="json")
+        self.assertContains(
+            response,
+            "Duplicate annotation values for the same entity and field.",
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+        # Multi.
+        values = [
+            {"field": self.annotation_field2.pk, "value": 1, "entity": self.entity1.pk},
+            {
+                "field": self.annotation_field1.pk,
+                "value": "string",
+                "entity": self.entity1.pk,
+            },
+        ]
+
+        response = client.put(path, values, format="json")
+        self.annotation_value1.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        created_value = AnnotationValue.objects.get(
+            entity=self.entity1, field=self.annotation_field2
+        )
+        expected = [
+            {
+                "label": "label string",
+                "id": self.annotation_value1.pk,
+                "entity": self.entity1.pk,
+                "field": self.annotation_field1.pk,
+                "value": "string",
+            },
+            {
+                "label": created_value.label,
+                "id": created_value.pk,
+                "entity": created_value.entity.pk,
+                "field": created_value.field.pk,
+                "value": created_value.value,
+            },
+        ]
+        self.assertCountEqual(response.data, expected)
+        self.assertEqual(self.annotation_value1.value, "string")
+        self.assertEqual(self.annotation_value1.label, "label string")
+        self.assertEqual(AnnotationValue.objects.count(), 3)
+
+        # Multi + delete.
+        values = [
+            {"field": self.annotation_field2.pk, "value": 2, "entity": self.entity1.pk},
+            {
+                "field": self.annotation_field1.pk,
+                "value": None,
+                "entity": self.entity1.pk,
+            },
+        ]
+        response = client.put(path, values, format="json")
+        created_value.refresh_from_db()
+        expected = [
+            {
+                "label": created_value.label,
+                "id": created_value.pk,
+                "entity": created_value.entity.pk,
+                "field": created_value.field.pk,
+                "value": created_value.label,
+            },
+        ]
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertCountEqual(response.data, expected)
+        with self.assertRaises(AnnotationValue.DoesNotExist):
+            self.annotation_value1.refresh_from_db()
+        created_value.refresh_from_db()
+        self.assertEqual(created_value.value, 2)
+        self.assertEqual(created_value.label, 2)
 
     def test_delete_annotation_value(self):
         """Test deleting annotation value objects."""
@@ -1254,4 +1436,5 @@ class AnnotationViewSetsTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(self.annotation_value1.value, "bbb")
         has_value(self.entity1, self.annotation_field1.pk, "bbb")
+        has_value(self.entity1, self.annotation_field2.pk, 2)
         has_value(self.entity1, self.annotation_field2.pk, 2)

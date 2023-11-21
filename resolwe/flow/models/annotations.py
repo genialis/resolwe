@@ -490,6 +490,9 @@ class AnnotationValue(AuditModel):
     def save(self, *args, **kwargs):
         """Save the annotation value after validation has passed."""
         annotation_value_validator.validate(self, raise_exception=True)
+        # Make sure the label is always set.
+        if "label" not in self._value:
+            self.recompute_label()
         super().save(*args, **kwargs)
 
     def recompute_label(self):

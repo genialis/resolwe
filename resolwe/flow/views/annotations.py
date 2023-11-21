@@ -1,7 +1,18 @@
 """Annotations viewset."""
 
 
-from rest_framework import exceptions, mixins, permissions, request, viewsets
+from typing import Any
+
+from rest_framework import (
+    exceptions,
+    generics,
+    mixins,
+    permissions,
+    response,
+    status,
+    viewsets,
+)
+from rest_framework.serializers import BaseSerializer
 
 from resolwe.flow.filters import (
     AnnotationFieldFilter,
@@ -63,9 +74,10 @@ class AnnotationFieldViewSet(
 class AnnotationValueViewSet(
     mixins.RetrieveModelMixin,
     ResolweUpdateModelMixin,
-    ResolweCreateModelMixin,
+    mixins.CreateModelMixin,
     mixins.ListModelMixin,
     mixins.DestroyModelMixin,
+    generics.UpdateAPIView,
     viewsets.GenericViewSet,
 ):
     """Annotation value viewset."""
@@ -75,25 +87,51 @@ class AnnotationValueViewSet(
     queryset = AnnotationValue.objects.all()
     permission_classes = (get_permissions_class(),)
 
-    def _get_entity(self, request: request.Request) -> AnnotationValue:
-        """Get annotation value from request.
+    def get_serializer(self, *args: Any, **kwargs: Any) -> BaseSerializer:
+        """Get serializer instance depending on the request type."""
+        kwargs_many = kwargs.get("many", False)
+        kwargs["many"] = isinstance(self.request.data, list) or kwargs_many
+        return super().get_serializer(*args, **kwargs)
 
-        :raises ValidationError: if the annotation value is not valid.
-        :raises NotFound: if the user is not authenticated.
+    def _check_permissions(self, serializer):
+        """Check if user has edit permission on entities."""
+        validated_data = (
+            serializer.validated_data
+            if isinstance(serializer.validated_data, list)
+            else [serializer.validated_data]
+        )
+        # Check permissions on entities.
+        if not all(
+            entity.has_permission(Permission.EDIT, self.request.user)
+            for entity in {value["entity"] for value in validated_data}
+        ):
+            raise exceptions.PermissionDenied()
+
+    def perform_create(self, serializer: BaseSerializer) -> None:
+        """Perform create annotation value(s).
+
+        The permission on entities must be checked.
         """
+        self._check_permissions(serializer)
+        return super().perform_create(serializer)
+
+    def update(self, request, *args, pk=None, **kwargs):
+        """Update annotation value(s).
+
+        When posting multiple values, the request is treated as a bulk update. The bulk
+        update can create, update or delete values. Values are deleted when the value
+        is set no None.
+        """
+        # Regular update on a detail view.
+        if pk is not None:
+            return super().update(request, *args, pk=pk, **kwargs)
+
+        # Bulk update / create / delete.
         serializer = self.get_serializer(data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        return serializer.validated_data["entity"]
-
-    def create(self, request, *args, **kwargs):
-        """Create annotation value.
-
-        Authenticated users with edit permissions on the entity can create annotations.
-        """
-        entity = self._get_entity(request)
-        if entity.has_permission(Permission.EDIT, request.user):
-            return super().create(request, *args, **kwargs)
-        elif entity.has_permission(Permission.VIEW, request.user):
-            raise exceptions.PermissionDenied()
-        else:
-            raise exceptions.NotFound()
+        self._check_permissions(serializer)
+        serializer.update(None, serializer.validated_data)
+        headers = self.get_success_headers(serializer.data)
+        return response.Response(
+            serializer.data, status=status.HTTP_200_OK, headers=headers
+        )

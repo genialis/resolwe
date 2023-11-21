@@ -22,6 +22,7 @@ Added
   ``FLOW_PROCESSES_IGNORE_LIST```
 - Allow ovirriding the maximal number of commands listener can process
   concurrently
+- Suport bulk create/update/delete on AnnotationValues endpoint
 
 Fixed
 -----
