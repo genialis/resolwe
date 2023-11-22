@@ -389,6 +389,28 @@ class RedisCache:
 
         self._redis.transaction(update_cache)
 
+    def extend_lock(
+        self,
+        Model: Type[models.Model],
+        identifier: Identifier,
+        valid_for: int = 300,
+    ) -> bool:
+        """Extend the lock for the given entry.
+
+        Make sure the lock exists and is set to PROCESSING before extending status.
+        """
+        key = self._lock_key(Model, identifier)
+        result = self._redis.get(key)
+        # If the lock does not exist return False.
+        if result is None:
+            return False
+        status = pickle.loads(result)
+        if status != RedisLockStatus.PROCESSING:
+            return False
+        # Extend the lock.
+        self._redis.set(key, pickle.dumps(RedisLockStatus.PROCESSING), ex=valid_for)
+        return True
+
 
 redis_cache = RedisCache()
 
@@ -456,6 +478,12 @@ class CachedObjectManager(PluginManager["CachedObjectPlugin"]):
     ) -> list[tuple[bool, RedisLockStatus]]:
         """Create lock for the given entry."""
         return redis_cache.lock(Model, identifiers_list)
+
+    def extend_lock(
+        self, Model: Type[models.Model], identifier: Identifier, valid_for: int = 300
+    ):
+        """Extend the lock for the given entry."""
+        return redis_cache.extend_lock(Model, identifier, valid_for=valid_for)
 
     def unlock(
         self,

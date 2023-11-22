@@ -16,6 +16,10 @@ Fix
   ``FLOW_PROCESSES_IGNORE_LIST`` in case of missing settings.
 - User defined slug must not be changed
 
+Added
+-----
+- Add ``extend_lock`` method to redis cache in listener
+
 
 ===================
 38.1.0 - 2023-11-21
