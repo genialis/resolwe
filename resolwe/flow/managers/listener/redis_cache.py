@@ -385,9 +385,7 @@ class RedisCache:
             with suppress(Exception):
                 existing_cache = pickle.loads(pipeline.get(redis_key))  # type: ignore
             cache_data = pickle.dumps({**existing_cache, **cached_fields})
-            pipeline.set(redis_key, cache_data)
-            if expiration_time:
-                pipeline.expire(redis_key, expiration_time)
+            pipeline.set(redis_key, cache_data, ex=expiration_time)
 
         self._redis.transaction(update_cache)
 
