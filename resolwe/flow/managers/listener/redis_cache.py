@@ -173,9 +173,6 @@ class RedisCache:
         """
         get_redis_key = partial(self.get_redis_key, Model)
         redis_keys = list(map(get_redis_key, identifiers_list))
-        # Wait for all keys to be unlocked or timeout occurs.
-        # The refresh interval is set to 5 seconds since list can be long.
-        self.wait(Model, identifiers_list, timeout=60, refresh_interval=5)
         return self._get_redis_data(redis_keys)
 
     def _lock_key(self, Model: Type[models.Model], identifiers: Sequence) -> str:
@@ -310,9 +307,6 @@ class RedisCache:
             }
 
         redis_key = self.get_redis_key(Model, identifiers)
-        # If there is another command processing the same cache entry wait for it to
-        # finish for up to timeout seconds.
-        self.wait(Model, (identifiers,), timeout=60)
         return self._redis.transaction(
             get_redis_data, redis_key, value_from_callable=True
         )
