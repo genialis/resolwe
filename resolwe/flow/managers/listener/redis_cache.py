@@ -182,41 +182,31 @@ class RedisCache:
         """Get the key for the lock for the given entry."""
         return self._get_redis_key_prefix(Model, identifiers, "__lock__")
 
-    def _modify_redis_locks(
-        self,
-        Model: Type[models.Model],
-        identifiers_list: Sequence[Identifier],
-        status: RedisLockStatus = RedisLockStatus.PROCESSING,
-        valid_for: int = 60,
-    ):
-        """Modify the lock for the given entries.
-
-        Create the lock indicating the given entry is processing. The lock will
-        auto-expire after timeout seconds.
-        """
-        status_pickle = pickle.dumps(status)
-        redis_map = {
-            self._lock_key(Model, identifier): status_pickle
-            for identifier in identifiers_list
-        }
-        self._redis.mset(redis_map)
-        for redis_key in redis_map:
-            self._redis.expire(redis_key, valid_for)
-
     def lock(
         self,
         Model: Type[models.Model],
         identifiers_list: Sequence[Identifier],
         valid_for: int = 300,
-    ):
+    ) -> list[tuple[bool, RedisLockStatus]]:
         """Set the lock for the given entry.
 
         Create the lock indicating the given entry is processing. The lock will
-        auto-expire after timeout seconds.
+        auto-expire after valid_for seconds.
+
+        :returns: the tuple (success, status). The first value indicates if obtaining
+        a lock was a success and the other the status of the lock.
         """
-        self._modify_redis_locks(
-            Model, identifiers_list, RedisLockStatus.PROCESSING, valid_for
-        )
+        data = pickle.dumps(RedisLockStatus.PROCESSING)
+        pipe = self._redis.pipeline()
+        to_return: list[tuple[bool, RedisLockStatus]] = []
+        for identifier in identifiers_list:
+            key = self._lock_key(Model, identifier)
+            pipe = pipe.set(key, data, ex=valid_for, nx=True).get(key)
+        results = pipe.execute()
+        for index in range(0, len(results), 2):
+            status, value = results[index : index + 2]
+            to_return.append((status == True, pickle.loads(value)))
+        return to_return
 
     def unlock(
         self,
@@ -230,9 +220,14 @@ class RedisCache:
         """
         # The status should persist for longer period, such as a day.
         assert status in (RedisLockStatus.OK, RedisLockStatus.ERROR)
-        self._modify_redis_locks(
-            Model, identifiers_list, status, valid_for=24 * 60 * 60
-        )
+        valid_for = 24 * 60 * 60  # One day.
+        status_pickle = pickle.dumps(status)
+        redis_map = {
+            self._lock_key(Model, identifier): status_pickle
+            for identifier in identifiers_list
+        }
+        for redis_key in redis_map:
+            self._redis.set(redis_key, status_pickle, ex=valid_for)
 
     def _get_redis_locks(
         self, Model: Type[models.Model], identifiers_list: Sequence[Identifier]
@@ -464,8 +459,10 @@ class CachedObjectManager(PluginManager["CachedObjectPlugin"]):
         """Check if the given field is cached."""
         return field_name in self.get_plugin_for_model(Model).cached_fields
 
-    def lock(self, Model: Type[models.Model], identifiers_list: Sequence[Identifier]):
-        """Create locks for the given entries."""
+    def lock(
+        self, Model: Type[models.Model], identifiers_list: Sequence[Identifier]
+    ) -> list[tuple[bool, RedisLockStatus]]:
+        """Create lock for the given entry."""
         return redis_cache.lock(Model, identifiers_list)
 
     def unlock(
