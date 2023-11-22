@@ -19,6 +19,7 @@ Fix
 Added
 -----
 - Add ``extend_lock`` method to redis cache in listener
+- Add extending processing lock task to the listener
 
 
 ===================
