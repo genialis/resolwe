@@ -20,5 +20,5 @@ class FlowExecutor(BaseFlowExecutor):
     name = "null"
 
     async def run(self):
-        """Do nothing :)."""
-        pass
+        """Notify listener run is completed."""
+        await self.communicator.finish({"rc": 0})

@@ -602,12 +602,11 @@ class ManagerRunProcessTest(ProcessTestCase):
         data = self.run_process("test-docker-uid-gid")
         self.assertEqual(data.output["result"], "OK")
 
-    @unittest.skip("Null executor test currently not working.")
     @with_null_executor
     @tag_process("test-save-number")
     def test_null_executor(self):
         data = self.run_process(
-            "test-save-number", {"number": 19}, assert_status=Data.STATUS_WAITING
+            "test-save-number", {"number": 19}, assert_status=Data.STATUS_DONE
         )
         self.assertEqual(data.input["number"], 19)
         self.assertEqual(data.output, {})
