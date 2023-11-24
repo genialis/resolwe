@@ -167,8 +167,8 @@ class Manager:
             connector_list = [flow_manager.get("NAME", DEFAULT_CONNECTOR)]
 
         # Store the whitelist and blacklist for later use.
-        self._processes_allow = settings.FLOW_PROCESSES_ALLOW_LIST
-        self._processes_ignore = settings.FLOW_PROCESSES_IGNORE_LIST
+        self._processes_allow = getattr(settings, "FLOW_PROCESSES_ALLOW_LIST", None)
+        self._processes_ignore = getattr(settings, "FLOW_PROCESSES_IGNORE_LIST", None)
 
         # Pre-load all needed connectors.
         self.connectors = {}

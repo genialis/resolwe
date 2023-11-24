@@ -6,6 +6,16 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Fix
+---
+- Add default value for ``FLOW_PROCESSES_ALLOW_LIST`` and
+  ``FLOW_PROCESSES_IGNORE_LIST`` in case of missing settings.
+
+
 ===================
 38.1.0 - 2023-11-21
 ===================
