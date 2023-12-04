@@ -35,7 +35,10 @@ class ResolwePermissionBackend:
         return None
 
     def has_perm(
-        self, user: User, permission: Permission, obj: Optional[models.Model] = None
+        self,
+        user: User,
+        permission: Permission | str,
+        obj: Optional[models.Model] = None,
     ) -> bool:
         """
         Check if user has the given permission on the given object.
@@ -48,10 +51,15 @@ class ResolwePermissionBackend:
         if not user.is_active:
             return False
 
+        # We do not handle model level permissions.
+        if obj is None:
+            return False
+
+        assert isinstance(permission, Permission)
         if not model_has_permissions(obj):
             return True
-
-        return obj.has_permission(permission, user)
+        else:
+            return obj.has_permission(permission, user)
 
     def get_all_permissions(
         self, user: User, obj: Optional[models.Model] = None

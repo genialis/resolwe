@@ -25,6 +25,9 @@ Added
 Changed
 -------
 - Wrap listener command processing in a transaction
+- Return ``False`` when ``has_perm`` is called with ``obj`` set no None, since
+  object level permissions are granted using Django ``ModelBackend``
+  authentication backend
 
 
 ===================
