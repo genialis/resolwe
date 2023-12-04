@@ -1,6 +1,7 @@
 # pylint: disable=missing-docstring,too-many-lines
 import os
 import shutil
+import time
 from datetime import timedelta
 from unittest.mock import MagicMock, PropertyMock, patch
 
@@ -310,6 +311,39 @@ class DataModelTest(TestCase):
             {d.kind for d in third.parents_dependency.all()}, {DataDependency.KIND_IO}
         )
 
+    def test_modified_propagated(self):
+        """Test modified field is propagated to the entity and collection."""
+        process = Process.objects.create(contributor=self.contributor)
+        data = Data.objects.create(contributor=self.contributor, process=process)
+        collection = Collection.objects.create(contributor=self.contributor)
+        entity = Entity.objects.create(
+            contributor=self.contributor, collection=collection
+        )
+        old_modified = data.modified
+        old_collection_modified = collection.modified
+        data.move_to_collection(collection)
+        time.sleep(0.1)
+        data.refresh_from_db()
+        collection.refresh_from_db()
+        self.assertGreater(data.modified, old_modified)
+        self.assertGreater(data.modified, old_collection_modified)
+        self.assertEqual(collection.modified, data.modified)
+
+        data = Data.objects.create(contributor=self.contributor, process=process)
+        old_modified = data.modified
+        old_entity_modified = entity.modified
+        old_collection_modified = collection.modified
+        time.sleep(0.1)
+        data.move_to_entity(entity)
+        data.refresh_from_db()
+        collection.refresh_from_db()
+        entity.refresh_from_db()
+        self.assertGreater(data.modified, old_modified)
+        self.assertGreater(data.modified, old_collection_modified)
+        self.assertGreater(data.modified, old_entity_modified)
+        self.assertEqual(collection.modified, data.modified)
+        self.assertEqual(entity.modified, data.modified)
+
 
 class EntityModelTest(TestCase):
     def setUp(self):
@@ -329,6 +363,21 @@ class EntityModelTest(TestCase):
         self.data = Data.objects.create(
             name="Test data", contributor=self.contributor, process=self.process
         )
+
+    def test_modified_propagated(self):
+        """Test modified field is propagated to the entity and collection."""
+        collection = Collection.objects.create(contributor=self.contributor)
+        entity = Entity.objects.create(
+            contributor=self.contributor, collection=collection
+        )
+        old_entity_modified = entity.modified
+        entity.name = "New name"
+        time.sleep(0.1)
+        entity.save()
+        entity.refresh_from_db()
+        collection.refresh_from_db()
+        self.assertGreater(entity.modified, old_entity_modified)
+        self.assertEqual(collection.modified, entity.modified)
 
     def test_delete_data(self):
         # Create another Data object and add it to the same Entity.
@@ -1727,4 +1776,6 @@ class UtilsTestCase(TestCase):
         refs = referenced_files(data_mock)
         refs.remove("jsonout.txt")
         refs.remove("stdout.txt")
+        self.assertSetEqual(set(refs), {"file1", "file2"})
+        self.assertSetEqual(set(refs), {"file1", "file2"})
         self.assertSetEqual(set(refs), {"file1", "file2"})

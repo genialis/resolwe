@@ -1,5 +1,6 @@
 # pylint: disable=missing-docstring
 import os
+import time
 
 from django.apps import apps
 from django.contrib.auth.models import AnonymousUser
@@ -121,6 +122,17 @@ class TestRelationsAPI(TransactionResolweAPITestCase):
             relation=self.relation_series, entity=self.entity_4, label="end", position=1
         )
         self.collection.set_permission(Permission.VIEW, AnonymousUser())
+
+    def test_modified_propagated(self):
+        """Test modified date propagetes to collection."""
+        old_modified = self.collection.modified
+        time.sleep(0.1)
+        self.relation_group.contributor = self.user
+        self.relation_group.save()
+        self.collection.refresh_from_db()
+        self.relation_group.refresh_from_db()
+        self.assertGreater(self.collection.modified, old_modified)
+        self.assertEqual(self.relation_group.modified, self.collection.modified)
 
     def test_prefetch(self):
         self.relation_group.delete()
