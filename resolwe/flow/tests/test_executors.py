@@ -342,7 +342,7 @@ class ManagerRunProcessTest(ProcessTestCase):
             "test-annotate-missing-field", assert_status=Data.STATUS_ERROR
         )
         self.assertEqual(len(data.process_error), 1)
-        self.assertIn("Invalid field path: 'general.invalid'", data.process_error[0])
+        self.assertIn("Field 'general.invalid' does not exist", data.process_error[0])
 
     @tag_process("test-annotate-no-entity")
     def test_annotate_no_entity(self):

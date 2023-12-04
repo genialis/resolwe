@@ -293,7 +293,12 @@ class AnnotationField(models.Model):
     @staticmethod
     def group_field_from_path(path: str) -> List[str]:
         """Return the group and field name from path."""
-        return path.split(".", maxsplit=1)
+        match = re.fullmatch(
+            r"(?P<group>[a-zA-Z][\w ]+)\.(?P<field>[a-zA-Z][\w ]+)", path, re.ASCII
+        )
+        if match is None:
+            raise ValidationError(f"Invalid path '{path}'.")
+        return [match["group"], match["field"]]
 
     @classmethod
     def id_from_path(cls, path: str) -> Optional[int]:
@@ -309,7 +314,10 @@ class AnnotationField(models.Model):
     def field_from_path(cls, path: str) -> Optional["AnnotationField"]:
         """Get the field id from the field path."""
         group_name, field_name = cls.group_field_from_path(path)
-        return cls.objects.filter(group__name=group_name, name=field_name).first()
+        field = cls.objects.filter(group__name=group_name, name=field_name).first()
+        if not field:
+            raise ValidationError(f"Field '{path}' does not exist.")
+        return field
 
     def save(self, *args, **kwargs):
         """Recompute the labels for annotation values if vocabulary changes.

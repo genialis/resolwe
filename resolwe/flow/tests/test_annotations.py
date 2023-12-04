@@ -1438,3 +1438,19 @@ class AnnotationViewSetsTest(TestCase):
         has_value(self.entity1, self.annotation_field1.pk, "bbb")
         has_value(self.entity1, self.annotation_field2.pk, 2)
         has_value(self.entity1, self.annotation_field2.pk, 2)
+
+        # Non-existing field.
+        annotations = [{"field_path": "non.existing", "value": "bbb"}]
+        request = factory.post("/", annotations, format="json")
+        force_authenticate(request, self.contributor)
+        response = viewset(request, pk=self.entity1.pk)
+        self.assertContains(
+            response, "Field 'non.existing' does not exist.", status_code=400
+        )
+
+        # Invalid field name.
+        annotations = [{"field_path": "wei.rd.field", "value": "bbb"}]
+        request = factory.post("/", annotations, format="json")
+        force_authenticate(request, self.contributor)
+        response = viewset(request, pk=self.entity1.pk)
+        self.assertContains(response, "Invalid path 'wei.rd.field'.", status_code=400)

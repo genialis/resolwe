@@ -478,8 +478,9 @@ class ListenerTest(TestCase):
         expected = Response(ResponseStatus.OK.value, "OK")
         self.assertEqual(entity.annotations.count(), 1)
         self.assertAnnotation(entity, "group.field", "value")
+        self.assertEqual(response.response_status, ResponseStatus.OK)
 
-        # Annotations should be updated or created
+        # Annotations should be updated or created.
         message = Message.command(
             "set_entity_annotations",
             [
@@ -493,3 +494,19 @@ class ListenerTest(TestCase):
         self.assertEqual(entity.annotations.count(), 2)
         self.assertAnnotation(entity, "group.field", "updated value")
         self.assertAnnotation(entity, "group.another field", "value2")
+        self.assertEqual(response.response_status, ResponseStatus.OK)
+
+        # Error should be raised if annotations are not found.
+        entity.annotations.all().delete()
+        message = Message.command(
+            "set_entity_annotations",
+            [
+                entity.pk,
+                {"nonexisting.field": "updated value", "group.field": "updated value"},
+                True,
+            ],
+        )
+        response = self.manager.process_command(peer_identity, message)
+        self.assertEqual(response.response_status, ResponseStatus.ERROR)
+        self.assertEqual(response.message_data, "Validation error")
+        self.assertEqual(entity.annotations.all().count(), 0)
