@@ -16,6 +16,7 @@ Fix
   ``FLOW_PROCESSES_IGNORE_LIST`` in case of missing settings.
 - User defined slug must not be changed
 - Raise ``ValidationError`` when trying to get non-existent ``AnnotationField``
+- Propagate arguments to parent save method in ``BaseCollection`` model
 
 Added
 -----

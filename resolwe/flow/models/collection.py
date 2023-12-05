@@ -59,7 +59,7 @@ class BaseCollection(BaseModel):
             raise ValueError(
                 "`descriptor_schema` must be defined if `descriptor` is given"
             )
-        super().save()
+        super().save(*args, **kwargs)
 
 
 class CollectionQuerySet(BaseQuerySet, PermissionQuerySet):
