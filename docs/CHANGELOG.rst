@@ -22,6 +22,10 @@ Added
 - Add ``extend_lock`` method to redis cache in listener
 - Add extending processing lock task to the listener
 
+Changed
+-------
+- Wrap listener command processing in a transaction
+
 
 ===================
 38.1.0 - 2023-11-21

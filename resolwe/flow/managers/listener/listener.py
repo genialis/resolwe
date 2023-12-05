@@ -407,7 +407,8 @@ class Processor:
 
         try:
             logger.debug(__("Invoking handler {}.", handler_name))
-            response = handler(data_id, message, self)
+            with transaction.atomic():
+                response = handler(data_id, message, self)
             # Check if data status was changed by the handler.
             if self.get_data_fields(data_id, "status") == Data.STATUS_ERROR:
                 response.status = ResponseStatus.ERROR
