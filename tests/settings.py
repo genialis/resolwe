@@ -135,6 +135,8 @@ FLOW_KUBERNETES_AFFINITY = None
 # The default overcommitment factor is 0.8.
 FLOW_KUBERNETES_OVERCOMMIT = None
 
+FLOW_KUBERNETES_PULL_POLICY = config("RESOLWE_KUBERNETES_PULL_POLICY", default="Always")
+
 # The  ``KUBERNETES_DISPATCHER_CONFIG_LOCATION`` specifies where the
 # kubernetes workload connector reads the config from. The possible choices
 # are 'incluster' and 'kubectl'. The default value is 'incluster'.

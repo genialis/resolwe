@@ -720,6 +720,7 @@ class Connector(BaseConnector):
             processing_container_image, mapper
         )
 
+        pull_policy = getattr(settings, "FLOW_KUBERNETES_PULL_POLICY", "Always")
         job_type = dict(Process.SCHEDULING_CLASS_CHOICES)[data.process.scheduling_class]
         job_description = {
             "apiVersion": "batch/v1",
@@ -759,7 +760,7 @@ class Connector(BaseConnector):
                                     f"{container_name}-init"
                                 ),
                                 "image": communicator_image,
-                                "imagePullPolicy": "Always",
+                                "imagePullPolicy": pull_policy,
                                 "workingDir": "/",
                                 "command": ["/usr/local/bin/python3"],
                                 "args": ["-m", "executors.init_container"],
@@ -776,7 +777,7 @@ class Connector(BaseConnector):
                                 "securityContext": security_context,
                                 "env": container_environment,
                                 "workingDir": os.fspath(constants.PROCESSING_VOLUME),
-                                "imagePullPolicy": "Always",
+                                "imagePullPolicy": pull_policy,
                                 "command": ["/usr/bin/python3"],
                                 "args": ["/processing.py"],
                                 "volumeMounts": self._processing_mountpoints(
@@ -788,7 +789,7 @@ class Connector(BaseConnector):
                                     f"{container_name}-communicator"
                                 ),
                                 "image": communicator_image,
-                                "imagePullPolicy": "Always",
+                                "imagePullPolicy": pull_policy,
                                 "resources": {
                                     "limits": communicator_limits,
                                     "requests": communicator_requests,

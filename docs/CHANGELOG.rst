@@ -21,6 +21,8 @@ Added
 -----
 - Add ``extend_lock`` method to redis cache in listener
 - Add extending processing lock task to the listener
+- Add ``FLOW_KUBERNETES_PULL_POLICY`` setting to set the image pull policy in
+  ``Kubernetes`` instead of using ``Always``
 
 Changed
 -------
