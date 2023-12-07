@@ -323,7 +323,7 @@ class RedisCache:
         :raises RuntimeError: if identifiers are given without the content type.
         """
         key_prefix = f"{self._get_redis_key_prefix(Model, identifiers)}*"
-        redis_keys = list(self._redis.scan_iter(key_prefix))
+        redis_keys = self._redis.keys(key_prefix)
         if redis_keys:
             self._redis.unlink(*redis_keys)
 

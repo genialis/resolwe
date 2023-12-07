@@ -28,6 +28,8 @@ Changed
 - Return ``False`` when ``has_perm`` is called with ``obj`` set no None, since
   object level permissions are granted using Django ``ModelBackend``
   authentication backend
+- Use ``keys`` instead of ``scan_iter`` in ``clear`` method of ``redis`` cache,
+  since ``scan_iter`` is much slower
 
 
 ===================
