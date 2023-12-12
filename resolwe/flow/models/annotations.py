@@ -312,8 +312,11 @@ class AnnotationField(models.Model):
         )
 
     @classmethod
-    def field_from_path(cls, path: str) -> Optional["AnnotationField"]:
-        """Get the field id from the field path."""
+    def field_from_path(cls, path: str) -> "AnnotationField":
+        """Get the field id from the field path.
+
+        :raises ValidationError: when field does not exist.
+        """
         group_name, field_name = cls.group_field_from_path(path)
         field = cls.objects.filter(group__name=group_name, name=field_name).first()
         if not field:
