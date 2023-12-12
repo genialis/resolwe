@@ -18,13 +18,7 @@ from django.db.models.functions import Concat
 from resolwe.flow.executors import constants
 from resolwe.flow.executors.socket_utils import Message, Response, retry
 from resolwe.flow.managers.listener.permission_plugin import permission_manager
-from resolwe.flow.models import (
-    AnnotationField,
-    AnnotationValue,
-    Collection,
-    Entity,
-    Process,
-)
+from resolwe.flow.models import Collection, Entity, Process
 from resolwe.flow.models.base import UniqueSlugError
 from resolwe.flow.models.utils import serialize_collection_relations
 from resolwe.flow.utils import dict_dot
@@ -184,27 +178,7 @@ class PythonProcess(ListenerPlugin):
         self._permission_manager.can_update(
             manager.contributor(data_id), "flow.Entity", entity, {}, data_id
         )
-        # Delete all annotations except the ones that are in the request.
-        if not update:
-            entity.annotations.all().delete()
-
-        annotation_values: list[AnnotationValue] = []
-        for field_path, value in annotations.items():
-            field = AnnotationField.field_from_path(field_path)
-            if field is None:
-                raise ValueError(f"Invalid field path: '{field_path}'.")
-            value = AnnotationValue(entity_id=entity_id, field=field, value=value)
-            # The validation is necessary since values are bulk-created and validation
-            # is done inside the save method, which is not called.
-            value.validate()
-            annotation_values.append(value)
-        if annotation_values:
-            AnnotationValue.objects.bulk_create(
-                annotation_values,
-                update_conflicts=True,
-                update_fields=["_value"],
-                unique_fields=["entity", "field"],
-            )
+        entity.update_annotations(annotations, update)
         return message.respond_ok("OK")
 
     def handle_get_entity_annotations(

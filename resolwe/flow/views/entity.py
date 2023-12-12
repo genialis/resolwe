@@ -4,8 +4,6 @@ from typing import Optional
 
 from drf_spectacular.utils import extend_schema
 
-from django.core.exceptions import ValidationError as DjangoValidationError
-from django.db import transaction
 from django.db.models import F, Func, OuterRef, Prefetch, Subquery
 from django.db.models.functions import Coalesce
 
@@ -209,40 +207,6 @@ class EntityViewSet(ObservableMixin, BaseCollectionViewSet):
         # Read and validate the request data.
         serializer = AnnotationsByPathSerializer(data=request.data, many=True)
         serializer.is_valid(raise_exception=True)
-        field_paths = {value["field_path"] for value in serializer.validated_data}
-        field_map = {
-            field_path: AnnotationField.field_from_path(field_path)
-            for field_path in field_paths
-        }
-
-        # Create annotation values and prepare list of fields which annotations should
-        # be deleted.
-        annotation_values: list[AnnotationValue] = []
-        validation_errors: list[DjangoValidationError] = []
-        fields_to_delete: list[int] = []
-        for value in serializer.validated_data:
-            if value["value"] is None:
-                fields_to_delete.append(field_map[value["field_path"]].pk)
-            else:
-                value["field"] = field_map[value.pop("field_path")]
-                value = AnnotationValue(**value, entity=entity)
-                annotation_values.append(value)
-                try:
-                    value.validate()
-                except DjangoValidationError as e:
-                    validation_errors += e
-        if validation_errors:
-            raise DjangoValidationError(validation_errors)
-
-        # Delete and update annotations in a transaction.
-        with transaction.atomic():
-            AnnotationValue.objects.filter(
-                entity=entity, field_id__in=fields_to_delete
-            ).delete()
-            AnnotationValue.objects.bulk_create(
-                annotation_values,
-                update_conflicts=True,
-                update_fields=["_value"],
-                unique_fields=["entity", "field"],
-            )
+        annotations = {value["field_path"]: value["value"] for value in serializer.data}
+        entity.update_annotations(annotations)
         return Response()

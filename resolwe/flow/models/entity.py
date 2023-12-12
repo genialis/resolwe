@@ -377,6 +377,53 @@ class Entity(BaseCollection, PermissionObject):
         if validation_errors:
             raise ValidationError(validation_errors)
 
+    def update_annotations(self, annotations: dict[str, Any], update=True):
+        """Update annotations with the given values.
+
+        When annotation value is set no None it is deleted.
+
+        :attr annotations: the dictionary with annotation values. Keys are annotation
+            paths.
+        """
+        field_paths = annotations.keys()
+        field_map = {
+            field_path: AnnotationField.field_from_path(field_path)
+            for field_path in field_paths
+        }
+
+        # Create annotation values and prepare list of fields which annotations should
+        # be deleted.
+        annotation_values: list[AnnotationValue] = []
+        validation_errors: list[ValidationError] = []
+        fields_to_delete: list[int] = []
+        for field_path, field_value in annotations.items():
+            if field_value is None:
+                fields_to_delete.append(field_map[field_path].pk)
+            else:
+                value = AnnotationValue(
+                    field=field_map[field_path], value=field_value, entity=self
+                )
+                annotation_values.append(value)
+                try:
+                    value.validate()
+                except ValidationError as e:
+                    validation_errors.append(e)
+        if validation_errors:
+            raise ValidationError(validation_errors)
+
+        # Delete and update annotations in a transaction.
+        with transaction.atomic():
+            to_delete = AnnotationValue.objects.filter(entity=self)
+            if update:
+                to_delete = to_delete.filter(field_id__in=fields_to_delete)
+            to_delete.delete()
+            AnnotationValue.objects.bulk_create(
+                annotation_values,
+                update_conflicts=True,
+                update_fields=["_value"],
+                unique_fields=["entity", "field"],
+            )
+
     def save(self, *args, **kwargs):
         """Propagate the modified time to the collection."""
         super().save(*args, **kwargs)
