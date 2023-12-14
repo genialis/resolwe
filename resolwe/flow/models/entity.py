@@ -424,15 +424,6 @@ class Entity(BaseCollection, PermissionObject):
                 unique_fields=["entity", "field"],
             )
 
-    def save(self, *args, **kwargs):
-        """Propagate the modified time to the collection."""
-        super().save(*args, **kwargs)
-        if self.collection:
-            self.collection.skip_auto_now = True  # type: ignore
-            self.collection.modified = self.modified
-            self.collection.save(update_fields=["modified"])
-            self.collection.skip_auto_now = False  # type: ignore
-
 
 class RelationType(models.Model):
     """Model for storing relation types."""
@@ -557,11 +548,6 @@ class Relation(BaseModel, PermissionObject):
                 "`descriptor_schema` must be defined if `descriptor` is given"
             )
         super().save()
-        if self.collection:
-            self.collection.skip_auto_now = True  # type: ignore
-            self.collection.modified = self.modified
-            self.collection.save(update_fields=["modified"])
-            self.collection.skip_auto_now = False  # type: ignore
 
 
 class RelationPartition(models.Model):

@@ -16,24 +16,6 @@ MAX_SLUG_LENGTH = 100
 MAX_NAME_LENGTH = 100
 
 
-class ModifiedField(models.DateTimeField):
-    """Custom datetime field.
-
-    When attribute 'skip_auto_now' is set to True, the field is not updated in the
-    pre_save method even if auto_now is set to True. The 'skip_auto_now' is reset
-    on every save to the default value 'False'.
-    """
-
-    def pre_save(self, model_instance, add):
-        """Prepare field for saving."""
-        # When skip_auto_now is set do not generate the new value even is auto_now is
-        # set to True.
-        if getattr(model_instance, "skip_auto_now", False) is True:
-            return getattr(model_instance, self.attname)
-        else:
-            return super().pre_save(model_instance, add)
-
-
 class UniqueSlugError(IntegrityError):
     """The error indicates slug collision."""
 
@@ -103,7 +85,7 @@ class BaseModel(AuditModel):
     created = models.DateTimeField(auto_now_add=True, db_index=True)
 
     #: modified date and time
-    modified = ModifiedField(auto_now=True, db_index=True)
+    modified = models.DateTimeField(auto_now=True, db_index=True)
 
     #: user that created the entry
     contributor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)

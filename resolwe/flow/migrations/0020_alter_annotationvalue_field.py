@@ -6,7 +6,7 @@ import django.db.models.deletion
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("flow", "0019_alter_annotationpreset_modified_and_more"),
+        ("flow", "0018_add_annotationvalue_default_order"),
     ]
 
     operations = [

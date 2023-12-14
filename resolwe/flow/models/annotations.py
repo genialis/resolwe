@@ -18,7 +18,6 @@ from typing import (
 
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.utils.timezone import now
 
 from resolwe.flow.models.base import BaseModel
 from resolwe.permissions.models import Permission, PermissionObject
@@ -506,8 +505,6 @@ class AnnotationValue(AuditModel):
         if "label" not in self._value:
             self.recompute_label()
         super().save(*args, **kwargs)
-        self.entity.modified = now()
-        self.entity.save(update_fields=["modified"])
 
     def recompute_label(self):
         """Recompute label from value and set it to the model instance."""
