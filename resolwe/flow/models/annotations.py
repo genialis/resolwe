@@ -438,7 +438,7 @@ class AnnotationValue(AuditModel):
 
     #: the field this field belongs to
     field: AnnotationField = models.ForeignKey(
-        AnnotationField, related_name="values", on_delete=models.CASCADE
+        AnnotationField, related_name="values", on_delete=models.PROTECT
     )
 
     #: value is stored under key 'value' in the json field to simplify lookups

@@ -36,6 +36,7 @@ Changed
 - Modified time propagates from ``Data`` object to ``Entity`` to ``Collection``
 - Modified time propagates from ``AnnotationValue`` to ``Entity``
 - Modified time propagates from ``Relation`` to ``Collection``
+- Do not allow deleting annotation field if annotation values are present
 
 
 ===================

@@ -3,7 +3,7 @@ import time
 from typing import Any, Sequence
 
 from django.core.exceptions import ValidationError
-from django.db.models import F
+from django.db.models import F, ProtectedError
 from django.urls import reverse
 
 from rest_framework import status
@@ -28,6 +28,37 @@ from resolwe.permissions.models import Permission, get_anonymous_user
 from resolwe.test import TestCase
 
 factory = APIRequestFactory()
+
+
+class AnnotationValueTest(TestCase):
+    """Test annotation value model."""
+
+    def setUp(self):
+        """Prepare the test entity and annotation values."""
+        super().setUp()
+        entity: Entity = Entity.objects.create(
+            name="Entity", contributor=self.contributor
+        )
+        annotation_group: AnnotationGroup = AnnotationGroup.objects.create(
+            name="group", label="Annotation group", sort_order=1
+        )
+        self.field = AnnotationField.objects.create(
+            name="Field 1",
+            label="Field 1 label",
+            type=AnnotationType.STRING.value,
+            sort_order=1,
+            group=annotation_group,
+        )
+        self.value = AnnotationValue.objects.create(
+            entity=entity, field=self.field, value="Test"
+        )
+
+    def test_protected(self):
+        """Assert field can not be removed while values exist."""
+        with self.assertRaises(ProtectedError):
+            self.field.delete()
+        self.value.delete()
+        self.field.delete()
 
 
 class FilterAnnotations(TestCase):
