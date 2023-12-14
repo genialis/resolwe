@@ -344,45 +344,27 @@ class ObserverTestCase(TransactionTestCase):
 
         await update_data()
 
-        updates = [json.loads(await client.receive_from()) for _ in range(6)]
+        updates = [json.loads(await client.receive_from()) for _ in range(3)]
         self.assertCountEqual(
             updates,
             [
                 {
                     "change_type": ChangeType.UPDATE.name,
-                    "object_id": data.collection.pk,
+                    "object_id": 40,
                     "subscription_id": self.subscription_id.hex,
-                    "source": ["data", data.pk],
+                    "source": ["data", 42],
                 },
                 {
                     "change_type": ChangeType.UPDATE.name,
-                    "object_id": data.entity.pk,
+                    "object_id": 41,
                     "subscription_id": self.subscription_id.hex,
-                    "source": ["data", data.pk],
+                    "source": ["data", 42],
                 },
                 {
                     "change_type": ChangeType.UPDATE.name,
-                    "object_id": data.pk,
+                    "object_id": 42,
                     "subscription_id": self.subscription_id.hex,
-                    "source": ["data", data.pk],
-                },
-                {
-                    "change_type": ChangeType.UPDATE.name,
-                    "object_id": data.entity.pk,
-                    "subscription_id": self.subscription_id.hex,
-                    "source": ["entity", data.entity.pk],
-                },
-                {
-                    "change_type": ChangeType.UPDATE.name,
-                    "object_id": data.collection.pk,
-                    "subscription_id": self.subscription_id.hex,
-                    "source": ["entity", data.entity.pk],
-                },
-                {
-                    "change_type": ChangeType.UPDATE.name,
-                    "object_id": data.collection.pk,
-                    "subscription_id": self.subscription_id.hex,
-                    "source": ["collection", data.collection.pk],
+                    "source": ["data", 42],
                 },
             ],
         )
@@ -394,27 +376,21 @@ class ObserverTestCase(TransactionTestCase):
             entity.save()
 
         await update_entity()
-        updates = [json.loads(await client.receive_from()) for _ in range(3)]
+        updates = [json.loads(await client.receive_from()) for _ in range(2)]
         self.assertCountEqual(
             updates,
             [
                 {
                     "change_type": ChangeType.UPDATE.name,
-                    "object_id": data.collection.pk,
+                    "object_id": 40,
                     "subscription_id": self.subscription_id.hex,
-                    "source": ["entity", data.entity.pk],
+                    "source": ["entity", 41],
                 },
                 {
                     "change_type": ChangeType.UPDATE.name,
-                    "object_id": data.entity.pk,
+                    "object_id": 41,
                     "subscription_id": self.subscription_id.hex,
-                    "source": ["entity", data.entity.pk],
-                },
-                {
-                    "change_type": ChangeType.UPDATE.name,
-                    "object_id": data.collection.pk,
-                    "subscription_id": self.subscription_id.hex,
-                    "source": ["collection", data.collection.pk],
+                    "source": ["entity", 41],
                 },
             ],
         )
@@ -1303,7 +1279,7 @@ class ObserverTestCase(TransactionTestCase):
             json.loads(await client_bob.receive_from()) for _ in range(2)
         ]
         notifications_alice = [
-            json.loads(await client_alice.receive_from()) for _ in range(4)
+            json.loads(await client_alice.receive_from()) for _ in range(3)
         ]
 
         # Assert that Bob sees this as a deletion.
@@ -1327,12 +1303,6 @@ class ObserverTestCase(TransactionTestCase):
         self.assertCountEqual(
             notifications_alice,
             [
-                {
-                    "object_id": self.collection2.pk,
-                    "change_type": ChangeType.UPDATE.name,
-                    "subscription_id": self.subscription_id2.hex,
-                    "source": ["collection", self.collection2.pk],
-                },
                 {
                     "object_id": data.pk,
                     "change_type": ChangeType.UPDATE.name,

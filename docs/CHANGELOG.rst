@@ -33,9 +33,6 @@ Changed
   authentication backend
 - Use ``keys`` instead of ``scan_iter`` in ``clear`` method of ``redis`` cache,
   since ``scan_iter`` is much slower
-- Modified time propagates from ``Data`` object to ``Entity`` to ``Collection``
-- Modified time propagates from ``AnnotationValue`` to ``Entity``
-- Modified time propagates from ``Relation`` to ``Collection``
 - Do not allow deleting annotation field if annotation values are present
 
 

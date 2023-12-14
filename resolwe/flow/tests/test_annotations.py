@@ -1,5 +1,4 @@
 # pylint: disable=missing-docstring
-import time
 from typing import Any, Sequence
 
 from django.core.exceptions import ValidationError
@@ -194,34 +193,6 @@ class FilterAnnotations(TestCase):
         for annotation_type in AnnotationType:
             method_name = f"test_{annotation_type.value.lower()}"
             self.assertIn(method_name, dir(self))
-
-
-class TestModifiedPropagated(TestCase):
-    def test_modified_propagated(self):
-        """Test modify propagates to entity."""
-        entity = Entity.objects.create(contributor=self.contributor)
-        annotation_group = AnnotationGroup.objects.create(
-            name="group", label="Annotation group", sort_order=1
-        )
-        field = AnnotationField.objects.create(
-            name="field name",
-            label="field label",
-            type=AnnotationType.STRING.value,
-            sort_order=1,
-            group=annotation_group,
-        )
-
-        old_modified = entity.modified
-        time.sleep(0.1)
-        value = AnnotationValue.objects.create(entity=entity, value="Test", field=field)
-        entity.refresh_from_db()
-        self.assertGreater(entity.modified, old_modified)
-        old_modified = entity.modified
-        time.sleep(0.1)
-        value.value = "New value"
-        value.save()
-        entity.refresh_from_db()
-        self.assertGreater(entity.modified, old_modified)
 
 
 class TestOrderEntityByAnnotations(TestCase):

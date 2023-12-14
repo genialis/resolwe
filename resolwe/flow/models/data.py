@@ -570,16 +570,6 @@ class Data(HistoryMixin, BaseModel, PermissionObject):
 
         with transaction.atomic():
             self._perform_save(*args, **kwargs)
-            if self.entity:
-                self.entity.skip_auto_now = True  # type: ignore
-                self.entity.modified = self.modified
-                self.entity.save(update_fields=["modified"])
-                self.entity.skip_auto_now = False  # type: ignore
-            elif self.collection:
-                self.collection.skip_auto_now = True  # type: ignore
-                self.collection.modified = self.modified
-                self.collection.save(update_fields=["modified"])
-                self.collection.skip_auto_now = False  # type: ignore
 
         self._original_output = self.output
 
@@ -631,7 +621,7 @@ class Data(HistoryMixin, BaseModel, PermissionObject):
         self.permission_group = collection.permission_group
         if collection:
             self.tags = collection.tags
-        self.save(update_fields=["tags", "permission_group", "collection", "modified"])
+        self.save(update_fields=["tags", "permission_group", "collection"])
 
     @move_to_container
     def move_to_entity(self, entity):
@@ -645,7 +635,7 @@ class Data(HistoryMixin, BaseModel, PermissionObject):
             else:
                 self.permission_group = entity.permission_group
                 self.tags = entity.tags
-        self.save(update_fields=["permission_group", "entity", "tags", "modified"])
+        self.save(update_fields=["permission_group", "entity", "tags"])
 
     def validate_change_collection(self, collection):
         """Raise validation error if data object cannot change collection."""
