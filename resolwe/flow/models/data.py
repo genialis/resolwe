@@ -747,7 +747,8 @@ class Data(HistoryMixin, BaseModel, PermissionObject):
             from resolwe.flow.managers.listener.listener import cache_manager
 
             # Clear the Redis cache for objects to be restarted.
-            cache_manager.clear(Data, to_process.keys())
+            for data_id in to_process.keys():
+                cache_manager.clear(Data, (data_id,))
 
             # Evaluate lazy generator by listing it.
             list(map(reset_data, to_process.values()))
