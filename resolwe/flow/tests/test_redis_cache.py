@@ -87,6 +87,7 @@ class RedisCache(TestCase):
 
         cache_manager.mcache(Data.objects.filter(pk__in=[self.data1.pk, self.data2.pk]))
         redis_cache.clear()
+        cache = cache_manager.mget(Data, ((self.data1.id,), (self.data2.id,)))
         self.assertEqual(cache, [None, None])
 
     def test_lock(self):
