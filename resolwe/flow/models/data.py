@@ -3,7 +3,7 @@ import copy
 import enum
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import Any, Optional, Union
 
 import jsonschema
 
@@ -43,10 +43,6 @@ from .utils import (
     render_template,
 )
 from .worker import Worker
-
-if TYPE_CHECKING:
-    from django.contrib.auth.models import User as UserModel
-
 
 # Compatibility for Python < 3.5.
 if not hasattr(json, "JSONDecodeError"):
@@ -676,16 +672,11 @@ class Data(HistoryMixin, BaseModel, PermissionObject):
         """Return the resource limits for this data."""
         return self.process.get_resource_limits(self)
 
-    def restart(
-        self, contributor: Optional["UserModel"] = None, resource_overrides: dict = {}
-    ):
+    def restart(self, resource_overrides: dict = {}):
         """Restart the data object and all its children.
 
         The status of the data object must be ERROR and stasus of its dependencies must
         be DONE.
-
-        :param contributor: user that is set as contributor to the restarted objects.
-            If it is not given the contributor of duplicated object is used.
 
         :param resource_overrides: dictionary mapping ids of data objects to resource
             overrides.
