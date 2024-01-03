@@ -14,6 +14,10 @@ Fix
 ---
 - Correctly clear ``Redis`` cache on data restart
 
+Add
+---
+- Add ``clear_redis_cache`` management command
+
 
 ===================
 38.2.0 - 2023-12-15
