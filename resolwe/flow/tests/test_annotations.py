@@ -1,9 +1,11 @@
 # pylint: disable=missing-docstring
+from datetime import datetime
 from typing import Any, Sequence
 
 from django.core.exceptions import ValidationError
 from django.db.models import F, ProtectedError
 from django.urls import reverse
+from django.utils.timezone import now
 
 from rest_framework import status
 from rest_framework.response import Response
@@ -573,6 +575,9 @@ class AnnotationViewSetsTest(TestCase):
                     "entity": self.entity1.pk,
                     "field": self.annotation_field1.pk,
                     "value": "another",
+                    "modified": self.annotation_value1.modified.strftime(
+                        "%Y-%m-%dT%H:%M:%S.%fZ"
+                    ),
                 }
             ],
         )
@@ -619,6 +624,9 @@ class AnnotationViewSetsTest(TestCase):
                 "entity": self.entity1.pk,
                 "field": self.annotation_field1.pk,
                 "value": "string",
+                "modified": self.annotation_value1.modified.strftime(
+                    "%Y-%m-%dT%H:%M:%S.%fZ"
+                ),
             },
             {
                 "label": created_value.label,
@@ -626,6 +634,7 @@ class AnnotationViewSetsTest(TestCase):
                 "entity": created_value.entity.pk,
                 "field": created_value.field.pk,
                 "value": created_value.value,
+                "modified": created_value.modified.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
             },
         ]
         self.assertCountEqual(response.data, expected)
@@ -651,6 +660,7 @@ class AnnotationViewSetsTest(TestCase):
                 "entity": created_value.entity.pk,
                 "field": created_value.field.pk,
                 "value": created_value.label,
+                "modified": created_value.modified.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
             },
         ]
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -794,6 +804,52 @@ class AnnotationViewSetsTest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["name"], self.annotation_field1.name)
+
+    def test_modified_field(self):
+        """Test modified field is present in the response."""
+        request = factory.get("/", {"entity": self.entity1.pk}, format="json")
+        force_authenticate(request, self.contributor)
+        response = self.annotationvalue_viewset(request)
+        self.assertTrue(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(len(response.data), 1)
+        self.assertEqual(
+            datetime.strptime(response.data[0]["modified"], "%Y-%m-%dT%H:%M:%S.%f%z"),
+            self.annotation_value1.modified,
+        )
+
+    def test_filter_modified_field(self):
+        """Test filtering by modified time."""
+        # Set the modified time to the first annotation value to the current time.
+        # Actually it is a little greater than this, since it is auto-refreshed on
+        # updates. There is no need to refresh the value from the database as modified
+        # is already updated
+        self.annotation_value1.modified = now()
+        self.annotation_value1.save()
+        request = factory.get(
+            "/", {"modified__gte": self.annotation_value1.modified}, format="json"
+        )
+        force_authenticate(request, self.contributor)
+        result1 = self.annotationvalue_viewset(request).data
+        request = factory.get(
+            "/", {"modified__lt": self.annotation_value1.modified}, format="json"
+        )
+        force_authenticate(request, self.contributor)
+        result2 = self.annotationvalue_viewset(request).data
+        self.assertEqual(len(result1), 1)
+        self.assertEqual(len(result2), 1)
+        self.assertEqual(result1[0]["id"], self.annotation_value1.pk)
+        self.assertEqual(result2[0]["id"], self.annotation_value2.pk)
+
+    def test_sort_values_modified(self):
+        """Test annotation values can be ordered by modified field."""
+        request = factory.get("/", {"ordering": "modified"}, format="json")
+        force_authenticate(request, self.contributor)
+        order1 = self.annotationvalue_viewset(request).data
+        request = factory.get("/", {"ordering": "-modified"}, format="json")
+        force_authenticate(request, self.contributor)
+        order2 = self.annotationvalue_viewset(request).data
+        self.assertEqual(len(order1), 2)
+        self.assertListEqual(order1, list(reversed(order2)))
 
     def test_list_filter_preset(self):
         request = factory.get("/", {}, format="json")
@@ -1171,6 +1227,7 @@ class AnnotationViewSetsTest(TestCase):
 
         # Unauthenticated request with permissions.
         self.collection1.set_permission(Permission.VIEW, self.anonymous)
+
         request = factory.get("/", {"entity": self.entity1.pk}, format="json")
         response = self.annotationvalue_viewset(request)
         self.assertTrue(response.status_code, status.HTTP_200_OK)

@@ -440,6 +440,9 @@ class AnnotationValue(AuditModel):
         AnnotationField, related_name="values", on_delete=models.PROTECT
     )
 
+    #: the date when field was last modified
+    modified = models.DateTimeField(auto_now=True)
+
     #: value is stored under key 'value' in the json field to simplify lookups
     _value: Any = models.JSONField(default=dict)
 

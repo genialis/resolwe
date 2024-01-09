@@ -168,7 +168,7 @@ class AnnotationValueSerializer(ResolweBaseSerializer):
         """AnnotationValueSerializer Meta options."""
 
         model = AnnotationValue
-        read_only_fields = ("label",)
+        read_only_fields = ("label", "modified")
         update_protected_fields = ("id", "entity", "field")
         fields = read_only_fields + update_protected_fields + ("value", "_value")
         extra_kwargs = {"_value": {"write_only": True}}

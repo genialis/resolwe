@@ -17,6 +17,7 @@ Fix
 Add
 ---
 - Add ``clear_redis_cache`` management command
+- Add modified field to the ``AnnotationValue`` model and expose it in API
 
 
 ===================
