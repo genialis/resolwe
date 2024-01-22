@@ -665,3 +665,26 @@ class TestStorage(Process):
         json_filename = "json_file.out"
         Path(json_filename).write_text(json.dumps(["valid", "json", "file"]))
         outputs.output_file = json_filename
+
+
+class NestedDirectories(Process):
+    slug = "test-python-nested-dir"
+    name = "Test Python Nested Directories"
+    version = "0.0.1"
+    process_type = "data:python:file"
+
+    class Output:
+        """Input fields."""
+
+        out1 = FileField(label="Output file 1")
+        out2 = FileField(label="Output file 2")
+
+    def run(self, inputs, outputs):
+        out1 = Path("a/b/c/file1.out")
+        out2 = Path("a/b/d/file2.out")
+        out1.parent.mkdir(parents=True, exist_ok=True)
+        out2.parent.mkdir(parents=True, exist_ok=True)
+        out1.touch()
+        out2.touch()
+        outputs.out1 = str(out1)
+        outputs.out2 = str(out2)

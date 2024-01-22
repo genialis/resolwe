@@ -320,6 +320,29 @@ class PythonProcessTest(ProcessTestCase):
         self.assertEqual(data.output["dst"]["size"], 15)
 
     @with_docker_executor
+    @tag_process("test-python-nested-dir")
+    def test_import_nested_dir(self):
+        """Test import file inside nested directories.
+
+        References to all directories must be created.
+        """
+        expected_paths = {
+            "a/",
+            "a/b/",
+            "a/b/c/",
+            "a/b/c/file1.out",
+            "a/b/d/",
+            "a/b/d/file2.out",
+            "jsonout.txt",
+            "stdout.txt",
+        }
+        data = self.run_process("test-python-nested-dir")
+        existing_paths = {
+            referenced_path.path for referenced_path in data.location.files.all()
+        }
+        self.assertSetEqual(existing_paths, expected_paths)
+
+    @with_docker_executor
     @tag_process("process-with-choices-input")
     def test_process_with_choices(self):
         """Test process that does not have a predefined choice as an input."""

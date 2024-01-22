@@ -4,6 +4,7 @@ import logging
 import re
 from collections import defaultdict
 from contextlib import suppress
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Union
 
 from django.conf import settings
@@ -269,6 +270,24 @@ class BasicCommands(ListenerPlugin):
             storage_location.files.add(*created_paths)
             logger.debug("Created %s.", [e.path for e in created_paths])
 
+        # Extract directories from paths and make sure they are also stored in the
+        # database.
+        directories: set[str] = set()
+        for path in paths:
+            directories.update(f"{directory}/" for directory in Path(path).parents)
+        directories.remove("./")
+        directories = directories - paths.keys()
+        if directories:
+            existing_directories = set(
+                ReferencedPath.objects.filter(
+                    storage_locations=storage_location, path__in=directories
+                ).values_list("path", flat=True)
+            )
+            created_directories = ReferencedPath.objects.bulk_create(
+                ReferencedPath(path=path, size=0)
+                for path in directories - existing_directories
+            )
+            storage_location.files.add(*created_directories)
         return message.respond_ok("OK")
 
     def handle_resolve_url(
