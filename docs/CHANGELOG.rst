@@ -13,6 +13,9 @@ Unreleased
 Fixed
 -----
 - Correctly enumerate dependencies when restarting a data object
+- Store references to all parent directories of the refenced files to the
+  database
+
 Changed
 -------
 - Add owner reference to PVC claims
