@@ -18,6 +18,7 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
@@ -274,6 +275,7 @@ class HTMLPreprocessorView(DataBrowseView):
         return response
 
 
+@method_decorator(csrf_exempt, name="dispatch")
 class UriResolverView(DataBrowseView):
     """Get resolved and signed URLs for a given list of URIs."""
 
@@ -288,7 +290,6 @@ class UriResolverView(DataBrowseView):
         """
         return HttpResponse("")
 
-    @csrf_exempt
     def post(
         self, request: HttpRequest, *args: Union[str, int], **kwargs: Union[str, int]
     ) -> HttpResponse:
