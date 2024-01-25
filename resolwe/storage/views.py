@@ -19,6 +19,7 @@ from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils import timezone
 from django.views import View
+from django.views.decorators.csrf import csrf_exempt
 
 from rest_framework import serializers
 from rest_framework.response import Response
@@ -287,6 +288,7 @@ class UriResolverView(DataBrowseView):
         """
         return HttpResponse("")
 
+    @csrf_exempt
     def post(
         self, request: HttpRequest, *args: Union[str, int], **kwargs: Union[str, int]
     ) -> HttpResponse:

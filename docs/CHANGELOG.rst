@@ -6,6 +6,15 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Changed
+-------
+- Do not require CSRF token to access uri resolver endpoint
+
+
 ===================
 38.3.0 - 2024-01-11
 ===================
