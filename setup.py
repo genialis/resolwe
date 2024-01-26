@@ -86,7 +86,7 @@ setuptools.setup(
             "wheel",
         ],
         "test": [
-            "black>=23.3.0",
+            "black==24.1.0",
             "check-manifest>=0.49",
             "coverage>=7.2.3",
             "flake8>=6.0.0",
