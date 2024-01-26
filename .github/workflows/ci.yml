@@ -73,7 +73,7 @@ jobs:
           RESOLWE_POSTGRESQL_PASS: resolwe
           RESOLWE_POSTGRESQL_PORT: ${{ job.services.postgres.ports[5432] }}
       - name: Upload coverage to Codecov
-        if: matrix.tox-env == 'py36' || matrix.tox-env == 'py37' || matrix.tox-env == 'py38' || matrix.tox-env == 'py39' || matrix.tox-env == 'py310'
+        if: matrix.tox-env == 'py310' || matrix.tox-env == 'py311'
         uses: codecov/codecov-action@v3
         with:
           file: .coverage
