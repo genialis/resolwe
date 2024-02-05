@@ -7,11 +7,7 @@ from django.contrib.postgres.indexes import GinIndex
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
 
-from resolwe.flow.models.annotations import (
-    AnnotationField,
-    AnnotationValue,
-    HandleMissingAnnotations,
-)
+from resolwe.flow.models.annotations import AnnotationField, AnnotationValue
 from resolwe.observers.consumers import BackgroundTaskType
 from resolwe.observers.decorators import move_to_container
 from resolwe.observers.models import BackgroundTask
@@ -50,14 +46,10 @@ class EntityQuerySet(BaseQuerySet, PermissionQuerySet):
         )
 
     @transaction.atomic
-    def move_to_collection(
-        self,
-        destination_collection: Collection,
-        missing_annotations: HandleMissingAnnotations = HandleMissingAnnotations.ADD,
-    ):
+    def move_to_collection(self, destination_collection: Collection):
         """Move entities to destination collection."""
         for entity in self:
-            entity.move_to_collection(destination_collection, missing_annotations)
+            entity.move_to_collection(destination_collection)
 
     def annotate_all(self, add_labels: bool = False):
         """Annotate with all metadata on the entities.
@@ -254,16 +246,10 @@ class Entity(BaseCollection, PermissionObject):
 
     @transaction.atomic
     @move_to_container
-    def move_to_collection(
-        self,
-        collection: Collection,
-        handle_missing_annotations: HandleMissingAnnotations = HandleMissingAnnotations.ADD,
-    ):
+    def move_to_collection(self, collection: Collection):
         """Move entity from the source to the destination collection.
 
         :args collection: the collection to move entity into.
-        :args handle_missing_annotations: how to handle missing annotations fields in
-            the new collection
 
         :raises ValidationError: when collection is set to None.
         """
@@ -275,17 +261,12 @@ class Entity(BaseCollection, PermissionObject):
                 f"Entity {self}({self.pk}) can only be moved to another container."
             )
 
-        missing_annotations = AnnotationField.objects.none()
-        if self.collection is not None:
-            missing_annotations = self.collection.annotation_fields.exclude(
+        if self.collection and (
+            missing_annotations := self.collection.annotation_fields.exclude(
                 pk__in=collection.annotation_fields.values_list("pk", flat=True)
             )
-
-        if missing_annotations:
-            if handle_missing_annotations == HandleMissingAnnotations.ADD:
-                collection.annotation_fields.add(*missing_annotations)
-            elif handle_missing_annotations == HandleMissingAnnotations.REMOVE:
-                self.annotations.filter(field__in=missing_annotations).delete()
+        ):
+            collection.annotation_fields.add(*missing_annotations)
 
         self.collection = collection
         self.tags = collection.tags
@@ -424,7 +405,7 @@ class Entity(BaseCollection, PermissionObject):
                 update_fields=["_value"],
                 unique_fields=["entity", "field"],
             )
-        
+
         # Add missing annotation fields to the collection.
         if self.collection is not None:
             self.collection.annotation_fields.add(*field_map.values())

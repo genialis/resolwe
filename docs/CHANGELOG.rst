@@ -22,6 +22,8 @@ Changed
 - Add owner reference to PVC claims
 - When process sets annotation to the entity the corresponding annotation field
   is added to collection annotation preset
+- When moving entities from one collection to another the annotation fields are
+  always added to the new collection annotation preset
 
 Added
 -----

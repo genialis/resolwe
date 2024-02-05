@@ -15,11 +15,9 @@ from rest_framework.response import Response
 
 from resolwe.flow.filters import EntityFilter
 from resolwe.flow.models import AnnotationValue, Data, DescriptorSchema, Entity
-from resolwe.flow.models.annotations import AnnotationField, HandleMissingAnnotations
 from resolwe.flow.serializers import EntitySerializer
 from resolwe.flow.serializers.annotations import AnnotationsByPathSerializer
 from resolwe.observers.mixins import ObservableMixin
-from resolwe.process.descriptor import ValidationError
 
 from .collection import BaseCollectionViewSet
 from .utils import get_collection_for_user
@@ -30,11 +28,6 @@ class MoveEntityToCollectionSerializer(serializers.Serializer):
 
     ids = serializers.ListField(child=serializers.IntegerField())
     destination_collection = serializers.IntegerField()
-    handle_missing_annotations = serializers.ChoiceField(
-        choices=HandleMissingAnnotations._member_names_,
-        default=HandleMissingAnnotations.ADD.name,
-    )
-    confirm_annotations_remove = serializers.BooleanField(default=False)
 
 
 class EntityViewSet(ObservableMixin, BaseCollectionViewSet):
@@ -122,18 +115,7 @@ class EntityViewSet(ObservableMixin, BaseCollectionViewSet):
     )
     @action(detail=False, methods=["post"])
     def move_to_collection(self, request, *args, **kwargs):
-        """Move samples from source to destination collection.
-
-        The request accepts argument 'handle_missing_annotations'.The possible
-        values for it are 'ADD' and 'REMOVE'. When 'REMOVE' is set without
-        arguments the 'confirm_annotations_delete' argument must be set to
-        True.
-
-        :raises ValidationError: when handle_missing_annotations has incorrect
-            value.
-        :raises ValidationError: when handle_missing_annotations is set to
-            'REMOVE' and 'confirm_annotations_delete' is set.
-        """
+        """Move samples from source to destination collection."""
 
         serializer = MoveEntityToCollectionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -141,34 +123,7 @@ class EntityViewSet(ObservableMixin, BaseCollectionViewSet):
         dst_collection_id = serializer.validated_data["destination_collection"]
         dst_collection = get_collection_for_user(dst_collection_id, request.user)
         entity_qs = self._get_entities(request.user, ids)
-
-        missing_annotations = {
-            entity: AnnotationField.objects.filter(collection=entity.collection)
-            .exclude(collection=dst_collection)
-            .distinct()
-            for entity in entity_qs
-        }
-
-        if missing_annotations:
-            # How to handle annotation fields present in the current collection
-            # but missing in new one. We have two options:
-            # - add (default): add the missing annotation fields to the new
-            #   collection and keep the values.
-            # - delete: remove the missing annotation values from the samples.
-            #   This option requires explicit confirmation by 'confirm_remove'
-            #   argument or exception with explanation is raised.
-            handle_missing_annotations = serializer.validated_data.get(
-                "handle_missing_annotations"
-            )
-
-            if handle_missing_annotations == HandleMissingAnnotations.REMOVE:
-                if not serializer.validated_data["confirm_annotations_remove"]:
-                    raise ValidationError(
-                        "All annotations not present in the target collection will be "
-                        "removed. Set 'confirm_action' argument to 'True' to confirm."
-                    )
-
-        entity_qs.move_to_collection(dst_collection, handle_missing_annotations)
+        entity_qs.move_to_collection(dst_collection)
         return Response()
 
     # NOTE: This can be deleted when DRF will support select_for_update

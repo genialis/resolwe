@@ -34,13 +34,6 @@ LABEL_LENGTH = 128
 DESCRIPTION_LENGTH = 256
 
 
-class HandleMissingAnnotations(Enum):
-    """How to handle missing annotations."""
-
-    ADD = "ADD"
-    REMOVE = "REMOVE"
-
-
 class AnnotationType(Enum):
     """Supported annotation types."""
 
