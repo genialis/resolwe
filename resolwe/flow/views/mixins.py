@@ -153,30 +153,26 @@ class ResolweBackgroundDeleteMixin(mixins.DestroyModelMixin):
         """
         serializer = DeleteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
         ids = set(serializer.validated_data["ids"])
-
-        to_delete = (
-            self.get_queryset()
-            .filter(id__in=ids)
-            .filter_for_user(request.user, Permission.EDIT)
-        )
-
-        if not hasattr(to_delete, self.BACKGROUND_DELETE_METHOD):
+        queryset = self.get_queryset()
+        if not getattr(queryset, self.BACKGROUND_DELETE_METHOD, None):
             raise exceptions.ValidationError(
-                f"Model {to_delete.model} does not support background deletion."
+                f"Model {queryset.model} does not support background deletion."
             )
 
-        permissions_to_delete = set(to_delete.values_list("pk", flat=True))
-        if no_permissions := ids - permissions_to_delete:
-            joined_ids = ", ".join(map(str, no_permissions))
+        can_view = queryset.filter(id__in=ids).filter_for_user(
+            request.user, Permission.VIEW
+        )
+        can_delete = can_view.filter_for_user(request.user, Permission.EDIT)
+        can_view_ids = set(can_view.values_list("id", flat=True))
+        can_delete_ids = set(can_delete.values_list("id", flat=True))
+
+        if missing_ids := can_view_ids - can_delete_ids:
+            joined_ids = ", ".join(map(str, missing_ids))
             raise exceptions.PermissionDenied(
                 f"No permission to delete objects with ids {joined_ids}."
             )
-
-        delete_method = getattr(to_delete, self.BACKGROUND_DELETE_METHOD)
-        task = delete_method(request.user)
-
+        task = getattr(can_delete, self.BACKGROUND_DELETE_METHOD, None)(request.user)
         return Response(
             status=status.HTTP_200_OK,
             data=BackgroundTaskSerializer(task).data,

@@ -645,39 +645,58 @@ class DataTestCaseDelete(
         response = self.client.post(
             request_path, data={"ids": [self.data1.pk]}, format="json"
         )
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(
-            response.data["detail"], "No permission to delete objects with ids 1."
-        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        BackgroundTask.objects.get(pk=response.data["id"]).wait()
+        self.assertTrue(Data.objects.filter(pk=1).exists())
+        self.assertTrue(Data.objects.filter(pk=2).exists())
 
         # Anonymous request, view permission.
         self.data1.set_permission(Permission.VIEW, get_anonymous_user(False))
         response = self.client.post(
             request_path, data={"ids": [self.data1.pk]}, format="json"
         )
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(
-            response.data["detail"], "No permission to delete objects with ids 1."
+        self.assertContains(
+            response,
+            f"No permission to delete objects with ids {self.data1.pk}.",
+            status_code=status.HTTP_403_FORBIDDEN,
         )
+        self.assertTrue(Data.objects.filter(pk=1).exists())
+        self.assertTrue(Data.objects.filter(pk=2).exists())
+        self.data1.set_permission(Permission.NONE, get_anonymous_user(False))
 
         # All requests are authenticated as user1 from now on.
         self.client.force_authenticate(self.user1)
 
         # No permission.
-        response = self.client.post(request_path, data={"ids": [1, 2]}, format="json")
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertIn("No permission to delete objects", response.data["detail"])
+        self.data1.set_permission(Permission.NONE, self.user1)
+        self.data2.set_permission(Permission.NONE, self.user1)
+        response = self.client.post(
+            request_path, data={"ids": [self.data1.pk, self.data2.pk]}, format="json"
+        )
+        BackgroundTask.objects.get(pk=response.data["id"]).wait()
+        self.assertTrue(Data.objects.filter(pk=1).exists())
+        self.assertTrue(Data.objects.filter(pk=2).exists())
+
+        # View permission.
+        self.data1.set_permission(Permission.VIEW, self.user1)
+        self.data2.set_permission(Permission.VIEW, self.user1)
+        response = self.client.post(
+            request_path, data={"ids": [self.data1.pk, self.data2.pk]}, format="json"
+        )
+        self.assertContains(
+            response,
+            f"No permission to delete objects with ids {self.data1.pk}, {self.data2.pk}.",
+            status_code=status.HTTP_403_FORBIDDEN,
+        )
         self.assertTrue(Data.objects.filter(pk=1).exists())
         self.assertTrue(Data.objects.filter(pk=2).exists())
 
         # Partial permission.
         self.data1.set_permission(Permission.EDIT, self.user1)
+        self.data2.set_permission(Permission.NONE, self.user1)
         response = self.client.post(request_path, data={"ids": [1, 2]}, format="json")
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(
-            response.data["detail"], "No permission to delete objects with ids 2."
-        )
-        self.assertTrue(Data.objects.filter(pk=1).exists())
+        BackgroundTask.objects.get(pk=response.data["id"]).wait()
+        self.assertFalse(Data.objects.filter(pk=1).exists())
         self.assertTrue(Data.objects.filter(pk=2).exists())
 
         # All permissions.
