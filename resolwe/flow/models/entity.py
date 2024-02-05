@@ -292,8 +292,7 @@ class Entity(BaseCollection, PermissionObject):
     def copy_annotations(self, destination: "Entity") -> List[AnnotationValue]:
         """Copy annotation from this entity to the destination.
 
-        :raises ValidationError: when some of the annotation fields are missing on the
-            destination entity.
+        The objects are not saved to the database.
         """
         # Entity without collection can not have annotations.
         if self.collection is None:
@@ -315,22 +314,6 @@ class Entity(BaseCollection, PermissionObject):
             )
             destination_annotations.append(annotation_value)
             annotation_field_ids.add(source_annotation.field_id)
-
-        destination_fields_qs = destination.collection.annotation_fields.filter(
-            pk__in=annotation_field_ids
-        )
-        if destination_fields_qs.count() < len(annotation_field_ids):
-            missing_annotation_field_ids = annotation_field_ids - set(
-                destination_fields_qs.values_list("pk", flat=True)
-            )
-            missing_fields_qs = AnnotationField.objects.filter(
-                pk__in=missing_annotation_field_ids
-            ).values_list("group__name", "name")
-            missing_field_paths = [".".join(entry) for entry in missing_fields_qs]
-            missing_fields = ", ".join(missing_field_paths)
-            raise ValidationError(
-                f"The collection of entity '{destination}' is missing annotation fields {missing_fields}."
-            )
         return destination_annotations
 
     def validate_annotations(self):
