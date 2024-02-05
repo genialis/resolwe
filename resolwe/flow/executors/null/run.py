@@ -3,6 +3,7 @@
 .. autoclass:: resolwe.flow.executors.null.run.FlowExecutor
 
 """
+
 import logging
 
 from ..run import BaseFlowExecutor

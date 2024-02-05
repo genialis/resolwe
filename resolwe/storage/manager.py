@@ -1,4 +1,5 @@
 """Storage manager."""
+
 import logging
 from typing import Optional
 

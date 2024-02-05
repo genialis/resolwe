@@ -1,6 +1,5 @@
 """Annotations viewset."""
 
-
 from typing import Any
 
 from rest_framework import (

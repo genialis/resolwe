@@ -1,4 +1,5 @@
 """Resolwe models duplicate utils."""
+
 from copy import deepcopy
 from typing import TYPE_CHECKING, Callable, Iterable, Optional, Sequence, Type, TypeVar
 

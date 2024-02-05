@@ -1,4 +1,5 @@
 """Resolwe entity model."""
+
 from typing import Any, List, Optional, Union
 
 from django.contrib.contenttypes.models import ContentType

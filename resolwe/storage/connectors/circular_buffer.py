@@ -1,4 +1,5 @@
 """Implementation of circular buffer."""
+
 from threading import Condition
 from typing import Optional
 

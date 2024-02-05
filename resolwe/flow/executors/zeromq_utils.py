@@ -1,4 +1,5 @@
 """Utils for working with zeromq."""
+
 import json
 from logging import Logger
 from typing import Any, Optional, Tuple

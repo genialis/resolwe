@@ -1,4 +1,5 @@
 """Resolwe migration history models."""
+
 from django.db import models
 
 

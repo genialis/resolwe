@@ -1,4 +1,5 @@
 """Custom database fields."""
+
 from django.db import connection
 from django.db.models import constants
 from django.db.models.fields import SlugField
@@ -129,11 +130,11 @@ class ResolweSlugField(SlugField):
                 "slug_column": connection.ops.quote_name(self.column),
                 "slug_len": len(slug),
                 "table_name": connection.ops.quote_name(self.model._meta.db_table),
-                "pk_neq_placeholder": "AND {} != %(instance_pk)s".format(
-                    instance_pk_name
-                )
-                if instance.pk
-                else "",
+                "pk_neq_placeholder": (
+                    "AND {} != %(instance_pk)s".format(instance_pk_name)
+                    if instance.pk
+                    else ""
+                ),
             }
 
             # SQL injection unsafe values - will be escaped.

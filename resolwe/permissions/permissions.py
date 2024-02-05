@@ -1,4 +1,5 @@
 """Custom permissions for Flow API."""
+
 from typing import Optional
 
 from django.contrib.auth.models import User

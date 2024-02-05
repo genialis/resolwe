@@ -1,4 +1,5 @@
 """Mixins used in Resolwe Viewsets."""
+
 from drf_spectacular.utils import extend_schema
 
 from django.db import IntegrityError, transaction

@@ -1,4 +1,5 @@
 """Storage viewset."""
+
 from rest_framework import mixins, viewsets
 
 from resolwe.flow.models import Storage

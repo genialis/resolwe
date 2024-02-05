@@ -12,6 +12,7 @@ objects in the collection belong to the same permission group.
 This command checks that for every container all objects it point to the same
 PermissionGroup object.
 """
+
 from django.core.management.base import BaseCommand
 
 from resolwe.flow.models import Collection, Entity

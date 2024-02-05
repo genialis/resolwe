@@ -7,6 +7,7 @@ at runtime, properly subclass
 :meth:`~resolwe.flow.executors.prepare.BaseFlowExecutorPreparer.extend_settings`
 method.
 """
+
 from resolwe.flow.models import Worker
 
 from ..prepare import BaseFlowExecutorPreparer  # noqa: F401

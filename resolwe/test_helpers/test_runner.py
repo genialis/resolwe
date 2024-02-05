@@ -5,6 +5,7 @@ Resolwe Test Runner
 ===================
 
 """
+
 import ast
 import asyncio
 import contextlib
@@ -171,14 +172,16 @@ def _prepare_settings():
     mountable_data_connectors = [
         connector for connector in connectors.for_storage("data") if connector.mountable
     ]
-    resolwe_settings.FLOW_EXECUTOR_SETTINGS[
-        "CONTAINER_NAME_PREFIX"
-    ] = "{}_{}_{}".format(
-        getattr(settings, "FLOW_EXECUTOR", {}).get("CONTAINER_NAME_PREFIX", "resolwe"),
-        # NOTE: This is necessary to avoid container name clashes when tests are run from
-        # different Resolwe code bases on the same system (e.g. on a CI server).
-        get_random_string(length=6),
-        os.path.basename(mountable_data_connectors[0].path),
+    resolwe_settings.FLOW_EXECUTOR_SETTINGS["CONTAINER_NAME_PREFIX"] = (
+        "{}_{}_{}".format(
+            getattr(settings, "FLOW_EXECUTOR", {}).get(
+                "CONTAINER_NAME_PREFIX", "resolwe"
+            ),
+            # NOTE: This is necessary to avoid container name clashes when tests are run from
+            # different Resolwe code bases on the same system (e.g. on a CI server).
+            get_random_string(length=6),
+            os.path.basename(mountable_data_connectors[0].path),
+        )
     )
 
     hosts = list(

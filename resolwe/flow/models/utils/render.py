@@ -1,4 +1,5 @@
 """Resolwe models render utils."""
+
 from resolwe.flow.utils import dict_dot, iterate_schema
 
 

@@ -1,4 +1,5 @@
 """Resolwe views utils."""
+
 from rest_framework import exceptions
 
 from resolwe.flow.models import Collection

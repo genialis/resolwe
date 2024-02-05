@@ -10,6 +10,7 @@ Resolwe Test Framework
    :members:
 
 """
+
 from resolwe.test.testcases import TestCase, TestCaseHelpers, TransactionTestCase
 from resolwe.test.testcases.api import ResolweAPITestCase, TransactionResolweAPITestCase
 from resolwe.test.testcases.process import ProcessTestCase

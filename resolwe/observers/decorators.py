@@ -1,6 +1,5 @@
 """Decorators for observers."""
 
-
 from contextlib import suppress
 
 from resolwe.observers.models import Observable

@@ -6,7 +6,6 @@ Base Class
 
 """
 
-
 from resolwe.flow.models import Data
 
 

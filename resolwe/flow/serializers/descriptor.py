@@ -1,4 +1,5 @@
 """Resolwe descriptor schema serializer."""
+
 from resolwe.flow.models import DescriptorSchema
 from resolwe.rest.fields import ProjectableJSONField
 

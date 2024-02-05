@@ -1,4 +1,5 @@
 """Resolwe model database functions."""
+
 from django.db.models.aggregates import Func
 
 from .utils import json_path_components

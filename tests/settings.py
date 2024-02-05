@@ -2,6 +2,7 @@
 Django settings for running tests for Resolwe package.
 
 """
+
 import json
 import os
 import sys

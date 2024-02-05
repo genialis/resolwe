@@ -1,4 +1,5 @@
 """Resolwe custom serializer fields."""
+
 from collections import OrderedDict
 
 from drf_spectacular.utils import extend_schema_field

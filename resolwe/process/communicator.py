@@ -1,4 +1,5 @@
 """Python process communicator."""
+
 import os
 import socket
 from pathlib import Path
@@ -32,9 +33,9 @@ class Singleton:
 class PythonProcessCommunicator:
     """Base communicator for communicating with communication container."""
 
-    __instance: Optional[
-        "PythonProcessCommunicator"
-    ] = None  #  A single instance of this class
+    __instance: Optional["PythonProcessCommunicator"] = (
+        None  #  A single instance of this class
+    )
 
     def __init__(self, _socket: socket.SocketType):
         """Initialize."""

@@ -2,6 +2,7 @@
 
 TODO: move it to a 1different namespace.
 """
+
 from collections import defaultdict
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional, Type
@@ -28,9 +29,9 @@ class HistoryManager:
 
     def __init__(self):
         """Initialize mapping between field name and tracker."""
-        self._trackers: dict[
-            tuple[Type[models.Model], str], Type["TrackChange"]
-        ] = dict()
+        self._trackers: dict[tuple[Type[models.Model], str], Type["TrackChange"]] = (
+            dict()
+        )
         self._tracked_fields: dict[Type[models.Model], list[str]] = defaultdict(list)
 
     def add_tracker(self, tracker: Type["TrackChange"]):

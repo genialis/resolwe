@@ -2,6 +2,7 @@
 
 Used to provide s simple default configuration.
 """
+
 from pathlib import Path
 
 from django.conf import settings

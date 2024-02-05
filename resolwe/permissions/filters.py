@@ -5,6 +5,7 @@ Permissions Filter
 ==================
 
 """
+
 from rest_framework.filters import BaseFilterBackend
 
 from resolwe.permissions.utils import model_has_permissions

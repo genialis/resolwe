@@ -1,4 +1,5 @@
 """Resolwe secrets model."""
+
 import uuid
 
 from fernet_fields import EncryptedTextField

@@ -7,6 +7,7 @@ Permissions utils
 .. autofunction:: copy_permissions
 
 """
+
 from typing import Optional, Tuple, Union
 
 from django.contrib.auth import get_user_model

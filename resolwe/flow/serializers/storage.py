@@ -1,4 +1,5 @@
 """Resolwe storage serializer."""
+
 from resolwe.flow.models import Storage
 from resolwe.rest.fields import ProjectableJSONField
 

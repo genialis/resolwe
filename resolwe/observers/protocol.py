@@ -1,4 +1,5 @@
 """Constants used for Observer communication."""
+
 from enum import IntEnum
 from typing import Optional, TypedDict
 

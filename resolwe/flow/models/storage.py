@@ -1,4 +1,5 @@
 """Resolwe storage model."""
+
 from django.db import models
 
 from resolwe.permissions.models import PermissionQuerySet

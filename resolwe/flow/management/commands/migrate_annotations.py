@@ -7,6 +7,7 @@ Migrate annotations
 Migrate annotations from old schema to the new one. All new annotations will be
 re-created from old ones.
 """
+
 import os
 from collections import defaultdict
 from pathlib import Path

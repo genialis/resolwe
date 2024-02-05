@@ -5,6 +5,7 @@ Resolwe Test Helpers and Decorators
 ===================================
 
 """
+
 import functools
 import json
 import os

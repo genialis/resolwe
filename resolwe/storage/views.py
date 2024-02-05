@@ -1,4 +1,5 @@
 """Storage application views."""
+
 import json
 import logging
 import re

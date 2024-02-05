@@ -1,4 +1,5 @@
 """Process descriptor."""
+
 import collections
 import re
 

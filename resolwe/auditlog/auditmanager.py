@@ -53,9 +53,9 @@ class AccessLogger:
     def __init__(self):
         """Initialize."""
         #        self._access =
-        self._access: Dict[
-            ContentType, Dict[ObjectId, Dict[AccessType, Fields]]
-        ] = defaultdict(lambda: defaultdict(lambda: defaultdict(set)))
+        self._access: Dict[ContentType, Dict[ObjectId, Dict[AccessType, Fields]]] = (
+            defaultdict(lambda: defaultdict(lambda: defaultdict(set)))
+        )
 
     def clear(self):
         """Clear all accesses."""

@@ -1,4 +1,5 @@
 """Resolwe annotations model."""
+
 import abc
 import datetime
 import re

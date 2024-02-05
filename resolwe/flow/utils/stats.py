@@ -6,6 +6,7 @@ Statistics
 
 Various statistical utilities, used mostly for manager load tracking.
 """
+
 import math
 import time
 from collections import deque, namedtuple

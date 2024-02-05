@@ -1,4 +1,5 @@
 """Entity viewset."""
+
 import re
 from typing import Optional
 

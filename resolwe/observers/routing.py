@@ -1,4 +1,5 @@
 """Routing rules for websocket connections."""
+
 from channels.routing import ChannelNameRouter, ProtocolTypeRouter, URLRouter
 
 from django.urls import path

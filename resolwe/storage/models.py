@@ -1,4 +1,5 @@
 """Resolwe storage model."""
+
 import copy
 import logging
 import os

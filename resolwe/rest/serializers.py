@@ -1,4 +1,5 @@
 """Support for selective field serialization."""
+
 import copy
 
 from .projection import apply_subfield_projection

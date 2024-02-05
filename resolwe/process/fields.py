@@ -1,4 +1,5 @@
 """Process input or output fields."""
+
 import collections
 import glob
 import gzip

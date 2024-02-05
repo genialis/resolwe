@@ -1,4 +1,5 @@
 """Resolwe entity serializer."""
+
 from django.db import transaction
 
 from resolwe.flow.models import Collection, Entity

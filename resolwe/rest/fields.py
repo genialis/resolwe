@@ -1,4 +1,5 @@
 """Support for selective field serialization."""
+
 from rest_framework.fields import JSONField
 
 from .projection import apply_subfield_projection

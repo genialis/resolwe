@@ -1,4 +1,5 @@
 """Connector utils."""
+
 import asyncio
 import concurrent.futures
 import os

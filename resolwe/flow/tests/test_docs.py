@@ -8,6 +8,7 @@ Current implementation of tests only checks that:
     * no errors or warnings were raised during build process
 
 """
+
 # pylint: disable=missing-docstring
 
 import os

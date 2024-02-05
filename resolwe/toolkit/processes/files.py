@@ -1,4 +1,5 @@
 """Upload file process."""
+
 from pathlib import Path
 
 from resolwe.process import FileField, Process, SchedulingClass

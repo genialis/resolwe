@@ -9,6 +9,7 @@ Command to run:
     ./manage.py clean_observers
 
 """
+
 import logging
 
 from django.core.management.base import BaseCommand

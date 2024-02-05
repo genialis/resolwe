@@ -1,4 +1,5 @@
 """Worker data model representing the state of the executor."""
+
 import logging
 
 from asgiref.sync import async_to_sync

@@ -1,4 +1,5 @@
 """Reslowe process model."""
+
 import copy
 import enum
 import json

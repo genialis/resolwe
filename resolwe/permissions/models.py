@@ -1,4 +1,5 @@
 """Permission storage model."""
+
 import logging
 from enum import IntEnum
 from functools import reduce

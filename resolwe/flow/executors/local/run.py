@@ -3,6 +3,7 @@
 .. autoclass:: resolwe.flow.executors.local.run.FlowExecutor
 
 """
+
 import asyncio
 import contextlib
 import logging

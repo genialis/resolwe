@@ -5,6 +5,7 @@ Collect Processes' tools and store them in configmap object in Kubernetes
 =========================================================================
 
 """
+
 import hashlib
 import json
 import logging

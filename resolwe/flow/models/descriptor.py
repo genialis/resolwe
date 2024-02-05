@@ -1,4 +1,5 @@
 """Resolwe descriptor schema model."""
+
 from django.db import models
 
 from resolwe.permissions.models import PermissionObject

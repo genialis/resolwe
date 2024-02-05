@@ -1,4 +1,5 @@
 """Base model with methods for logging access."""
+
 from typing import List
 
 from django.db import models

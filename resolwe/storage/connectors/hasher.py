@@ -1,4 +1,5 @@
 """Compute hashes from stream."""
+
 import hashlib
 from io import RawIOBase
 from pathlib import Path

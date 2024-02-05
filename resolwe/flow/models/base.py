@@ -1,4 +1,5 @@
 """Base model for all Resolwe models."""
+
 from versionfield import VersionField
 
 from django.conf import settings

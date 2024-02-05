@@ -1,4 +1,5 @@
 """Mixins for Observable ViewSets."""
+
 from drf_spectacular.utils import extend_schema
 
 from django.contrib.auth.models import User

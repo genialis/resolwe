@@ -1,4 +1,5 @@
 """Resolwe process schema migration operations."""
+
 import inspect
 
 import jsonschema

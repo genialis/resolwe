@@ -1,4 +1,5 @@
 """Resolwe models utils."""
+
 from resolwe.flow.utils import iterate_fields
 
 from .duplicate import (  # noqa: F401

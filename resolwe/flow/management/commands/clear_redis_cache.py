@@ -7,7 +7,6 @@ Clear Redis Cache
 Clear all the Redis Cache.
 """
 
-
 from django.core.management.base import BaseCommand
 
 from resolwe.flow.managers.listener.redis_cache import redis_cache

@@ -1,4 +1,5 @@
 """Resolwe Python process support."""
+
 import logging
 import sys
 

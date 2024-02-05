@@ -1,4 +1,5 @@
 """Storage connector."""
+
 import abc
 import copy
 from enum import Enum, auto

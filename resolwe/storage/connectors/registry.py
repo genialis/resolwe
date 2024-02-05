@@ -1,4 +1,5 @@
 """Registry class for storage connectors."""
+
 import logging
 from typing import Dict, MutableMapping, Sequence, Type
 

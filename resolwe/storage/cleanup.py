@@ -1,4 +1,5 @@
 """Storage cleanup."""
+
 import logging
 from typing import Optional
 

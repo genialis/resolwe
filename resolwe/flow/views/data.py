@@ -1,4 +1,5 @@
 """Data viewset."""
+
 from drf_spectacular.utils import extend_schema
 
 from django.db.models import Prefetch

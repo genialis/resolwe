@@ -9,6 +9,7 @@ Usage: ./manage.py compare_models_and_csv <path_to_csv>
 Check if all file references in django models (ReferencedPaths) correspond 1:1
 to existing files in the remote database (using a CSV inventory file).
 """
+
 import csv
 import os
 from pathlib import Path

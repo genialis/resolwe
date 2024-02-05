@@ -9,6 +9,7 @@ Command to run on local machine::
     ./manage.py cleantestdir
 
 """
+
 import re
 import shutil
 from itertools import chain

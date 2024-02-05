@@ -1,4 +1,5 @@
 """Permissions functions used in Resolwe Viewsets."""
+
 import versionfield.fields
 from drf_spectacular.utils import extend_schema
 

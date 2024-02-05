@@ -1,4 +1,5 @@
 """Processing container startup script."""
+
 import array
 import asyncio
 import concurrent

@@ -1,4 +1,5 @@
 """Descriptor schema viewset."""
+
 from rest_framework import mixins, viewsets
 
 from resolwe.flow.filters import DescriptorSchemaFilter

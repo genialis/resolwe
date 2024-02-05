@@ -1,4 +1,5 @@
 """Resolwe models hydrate utils."""
+
 import copy
 import os
 import re

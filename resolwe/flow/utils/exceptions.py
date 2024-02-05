@@ -7,6 +7,7 @@ Resolwe Exceptions Utils
 Utils functions for working with exceptions.
 
 """
+
 from django.core.exceptions import ValidationError
 
 from rest_framework.response import Response

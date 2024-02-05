@@ -1,4 +1,5 @@
 """The model Observer model."""
+
 import uuid
 from time import sleep, time
 from typing import Any, Iterable, List, Optional, Set, Tuple

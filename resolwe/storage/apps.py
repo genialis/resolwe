@@ -1,4 +1,5 @@
 """Application configuration."""
+
 import logging
 from contextlib import suppress
 from importlib import import_module

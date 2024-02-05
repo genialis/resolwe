@@ -11,7 +11,7 @@ from django.conf import settings
 
 app = None
 if Celery:
-    app = Celery('resolwe')
+    app = Celery("resolwe")
 
-    app.config_from_object('django.conf:settings')
+    app.config_from_object("django.conf:settings")
     app.autodiscover_tasks(lambda: settings.INSTALLED_APPS)

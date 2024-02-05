@@ -5,6 +5,7 @@ Celery Connector
 ================
 
 """
+
 import logging
 import os
 import sys

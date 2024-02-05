@@ -8,6 +8,7 @@ Permissions shortcuts
 .. autofunction:: get_object_perms
 
 """
+
 from typing import Dict, List, Optional, Tuple
 
 from django.contrib.auth.models import Group, User

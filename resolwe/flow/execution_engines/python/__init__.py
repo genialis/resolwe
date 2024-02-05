@@ -1,4 +1,5 @@
 """An execution engine for Python processes."""
+
 from pathlib import Path
 
 from resolwe.flow.execution_engines.base import BaseExecutionEngine

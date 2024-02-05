@@ -1,4 +1,5 @@
 """Constants for the executors."""
+
 from pathlib import Path
 
 SECRETS_VOLUME = Path("/secrets")

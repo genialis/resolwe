@@ -1,4 +1,5 @@
 """Reslowe process model."""
+
 from collections import ChainMap
 from typing import Optional
 

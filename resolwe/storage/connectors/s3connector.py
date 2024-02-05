@@ -1,4 +1,5 @@
 """Amazon S3 storage connector."""
+
 import json
 import logging
 import mimetypes

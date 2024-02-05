@@ -1,4 +1,5 @@
 """Data transfer between connectors."""
+
 import concurrent.futures
 import logging
 from contextlib import suppress

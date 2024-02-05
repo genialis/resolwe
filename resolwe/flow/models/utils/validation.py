@@ -1,4 +1,5 @@
 """Resolwe models validation utils."""
+
 import json
 import re
 from pathlib import Path

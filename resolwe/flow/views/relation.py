@@ -1,4 +1,5 @@
 """Relation viewset."""
+
 from itertools import zip_longest
 
 from django.db.models import Prefetch

@@ -1,4 +1,5 @@
 """Test resolwe.storage.views."""
+
 import json
 from unittest.mock import MagicMock, patch
 

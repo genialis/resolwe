@@ -8,6 +8,7 @@ Base Class
     :members:
 
 """
+
 # pylint: disable=logging-format-interpolation
 import logging
 import random

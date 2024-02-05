@@ -8,6 +8,7 @@ Preparation
     :members:
 
 """
+
 import os
 
 from django.conf import settings

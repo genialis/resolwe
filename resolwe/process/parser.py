@@ -1,4 +1,5 @@
 """Safe Resolwe process parser."""
+
 import ast
 import collections
 import json

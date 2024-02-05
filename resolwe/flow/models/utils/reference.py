@@ -1,4 +1,5 @@
 """Resolwe models reference utils."""
+
 from resolwe.flow.utils import iterate_fields
 
 

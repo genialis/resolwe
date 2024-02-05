@@ -1,4 +1,5 @@
 """Support for easier dynamic composition of type extensions."""
+
 import inspect
 from importlib import import_module
 

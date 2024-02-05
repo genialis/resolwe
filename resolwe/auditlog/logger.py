@@ -40,9 +40,9 @@ class AuditLogger:
         return {
             "url": request.get_full_path(),
             "server_name": getattr(request.META, "HTTP_HOST", "unknown"),
-            "session_id": request.session.session_key
-            if hasattr(request, "session")
-            else None,
+            "session_id": (
+                request.session.session_key if hasattr(request, "session") else None
+            ),
             "request_id": request.META["RESOLWE_AUDIT_MANAGER_REQUEST_ID"],
         }
 

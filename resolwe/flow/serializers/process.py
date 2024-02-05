@@ -1,4 +1,5 @@
 """Resolwe process serializer."""
+
 from resolwe.flow.models import Process
 
 from .base import ResolweBaseSerializer

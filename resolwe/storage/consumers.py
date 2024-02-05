@@ -1,4 +1,5 @@
 """Channels consumers for Storage application."""
+
 import logging
 
 from channels.consumer import SyncConsumer

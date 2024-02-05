@@ -11,6 +11,7 @@ the same index as ``LIKE``.
 Some background for Django's design is available at:
 https://code.djangoproject.com/ticket/3575
 """
+
 from django.db.backends.postgresql import base, operations
 
 
