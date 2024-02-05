@@ -20,6 +20,8 @@ Fixed
 Changed
 -------
 - Add owner reference to PVC claims
+- When process sets annotation to the entity the corresponding annotation field
+  is added to collection annotation preset
 
 Added
 -----

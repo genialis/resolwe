@@ -424,6 +424,10 @@ class Entity(BaseCollection, PermissionObject):
                 update_fields=["_value"],
                 unique_fields=["entity", "field"],
             )
+        
+        # Add missing annotation fields to the collection.
+        if self.collection is not None:
+            self.collection.annotation_fields.add(*field_map.values())
 
 
 class RelationType(models.Model):
