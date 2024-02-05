@@ -935,7 +935,6 @@ class TestDataViewSetCase(TestCase):
         )
         force_authenticate(request, self.contributor)
         response = self.duplicate_viewset(request)
-        print("Got response", response.data)
         self.assertEqual(response.data["ids"], ["This list may not be empty."])
 
         request = factory.post(
