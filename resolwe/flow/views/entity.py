@@ -18,6 +18,7 @@ from resolwe.flow.models import AnnotationValue, Data, DescriptorSchema, Entity
 from resolwe.flow.serializers import EntitySerializer
 from resolwe.flow.serializers.annotations import AnnotationsByPathSerializer
 from resolwe.observers.mixins import ObservableMixin
+from resolwe.observers.views import BackgroundTaskSerializer
 
 from .collection import BaseCollectionViewSet
 from .utils import get_collection_for_user
@@ -123,8 +124,11 @@ class EntityViewSet(ObservableMixin, BaseCollectionViewSet):
         dst_collection_id = serializer.validated_data["destination_collection"]
         dst_collection = get_collection_for_user(dst_collection_id, request.user)
         entity_qs = self._get_entities(request.user, ids)
-        entity_qs.move_to_collection(dst_collection)
-        return Response()
+        task = entity_qs.move_to_collection(dst_collection, request.user)
+        return Response(
+            status=status.HTTP_200_OK,
+            data=BackgroundTaskSerializer(task).data,
+        )
 
     # NOTE: This can be deleted when DRF will support select_for_update
     #       on updates and ResolweUpdateModelMixin will use it.
