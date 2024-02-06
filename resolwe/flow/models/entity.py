@@ -45,11 +45,16 @@ class EntityQuerySet(BaseQuerySet, PermissionQuerySet):
             BackgroundTaskType.DELETE, "Delete entities", task_data, contributor
         )
 
-    @transaction.atomic
     def move_to_collection(self, destination_collection: Collection):
         """Move entities to destination collection."""
-        for entity in self:
-            entity.move_to_collection(destination_collection)
+        task_data = {
+            "target_id": destination_collection.pk,
+            "data_ids": [],
+            "entity_ids": list(self.values_list("pk", flat=True)),
+        }
+        return start_background_task(
+            BackgroundTaskType.MOVE, "Move entities", task_data
+        )
 
     def annotate_all(self, add_labels: bool = False):
         """Annotate with all metadata on the entities.
