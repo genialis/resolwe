@@ -27,6 +27,7 @@ Changed
 -------
 - Bulk delete method silently ignores non-existent objects and objects without
   edit permissions instead of raising an exception
+- Add owner reference to PVC claims
 
 
 ===================

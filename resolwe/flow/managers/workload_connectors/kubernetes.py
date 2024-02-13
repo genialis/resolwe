@@ -815,6 +815,7 @@ class Connector(BaseConnector):
 
         processing_name = constants.PROCESSING_VOLUME_NAME
         input_name = constants.INPUTS_VOLUME_NAME
+        created_claim_names = []
         if self._should_create_pvc(storage_settings.FLOW_VOLUMES[processing_name]):
             claim_name = unique_volume_name(
                 storage_settings.FLOW_VOLUMES[processing_name]["config"]["name"],
@@ -831,6 +832,7 @@ class Connector(BaseConnector):
                 namespace=self.kubernetes_namespace,
                 _request_timeout=KUBERNETES_TIMEOUT,
             )
+            created_claim_names.append(claim_name)
         if input_name in storage_settings.FLOW_VOLUMES:
             if self._should_create_pvc(storage_settings.FLOW_VOLUMES[input_name]):
                 claim_size = self._data_inputs_size(data)
@@ -848,9 +850,10 @@ class Connector(BaseConnector):
                     namespace=self.kubernetes_namespace,
                     _request_timeout=KUBERNETES_TIMEOUT,
                 )
+                created_claim_names.append(claim_name)
 
         logger.debug(f"Creating namespaced job: {job_description}")
-        batch_api.create_namespaced_job(
+        job = batch_api.create_namespaced_job(
             body=job_description,
             namespace=self.kubernetes_namespace,
             _request_timeout=KUBERNETES_TIMEOUT,
@@ -859,6 +862,29 @@ class Connector(BaseConnector):
         logger.info(
             "It took {:.2f}s to send config to kubernetes".format(end_time - start_time)
         )
+
+        # Patch the PVC-s with owner references to the job.
+        patch = [
+            {
+                "op": "add",
+                "path": "/metadata/ownerReferences",
+                "value": [
+                    {
+                        "apiVersion": "batch/v1",
+                        "kind": "Job",
+                        "name": job.metadata.name,
+                        "uid": job.metadata.uid,
+                    }
+                ],
+            }
+        ]
+        for claim_name in created_claim_names:
+            # Patch the PVC with ownerReference. This ensures the PVC claim gets deleted
+            # when the job has completed or failed. The PVCs are deleted after
+            # ttlSecondsAfterFinished seconds, declared in Job spec.
+            core_api.patch_namespaced_persistent_volume_claim(
+                name=claim_name, namespace=self.kubernetes_namespace, body=patch
+            )
 
     def _generate_container_name(self, prefix: str, data_id: int, postfix: str):
         """Generate unique container name.
