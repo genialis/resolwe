@@ -127,7 +127,7 @@ class TextFilterMixin:
 
     def filter_text(self, queryset: QuerySet, name: str, value: str):
         """Full-text search."""
-        query = SearchQuery(value, config="simple")
+        query = SearchQuery(value, config="simple_unaccent")
         return (
             queryset.filter(**{name: query})
             # This assumes that field is already a TextSearch vector and thus
