@@ -11,7 +11,12 @@ import django.contrib.postgres.search
 import django.core.validators
 import django.db.models.deletion
 from django.conf import settings
-from django.contrib.postgres.operations import CITextExtension, TrigramExtension
+from django.contrib.postgres.operations import (
+    CITextExtension,
+    TrigramExtension,
+    UnaccentExtension,
+)
+
 from django.db import migrations, models
 
 import resolwe.flow.models.fields
@@ -27,6 +32,7 @@ class Migration(migrations.Migration):
     operations = [
         CITextExtension(),
         TrigramExtension(),
+        UnaccentExtension(),
         migrations.CreateModel(
             name="Collection",
             fields=[
