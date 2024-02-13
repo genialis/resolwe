@@ -30,9 +30,3 @@ class BaseConnector:
         raise NotImplementedError(
             "Subclasses of BaseConnector must implement a submit() method."
         )
-
-    def cleanup(self, data_id: int):
-        """Perform final cleanup after data object is finished processing."""
-        raise NotImplementedError(
-            "Subclasses of BaseConnector must implement a cleanup() method."
-        )

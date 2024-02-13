@@ -59,6 +59,3 @@ class Connector(BaseConnector):
         )
         runtime_dir = storage_settings.FLOW_VOLUMES["runtime"]["config"]["path"]
         celery_run.apply_async((data.id, os.fspath(runtime_dir), argv), queue=queue)
-
-    def cleanup(self, data_id: int):
-        """Cleanup."""

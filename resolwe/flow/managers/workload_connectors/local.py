@@ -37,6 +37,3 @@ class Connector(BaseConnector):
         )
         runtime_dir = storage_settings.FLOW_VOLUMES["runtime"]["config"]["path"]
         subprocess.Popen(argv, cwd=runtime_dir, stdin=subprocess.DEVNULL).wait()
-
-    def cleanup(self, data_id: int):
-        """Cleanup."""
