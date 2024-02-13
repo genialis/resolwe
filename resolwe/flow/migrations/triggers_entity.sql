@@ -53,10 +53,6 @@ CREATE OR REPLACE FUNCTION generate_resolwe_entity_search(entity flow_entity)
             setweight(to_tsvector('simple', COALESCE(owners.last_names, '')), 'B') ||
             -- Entity tags.
             setweight(to_tsvector('simple', array_to_string(entity.tags, ' ')), 'B') ||
-            -- Entity descriptor.
-            setweight(to_tsvector('simple', flat_descriptor), 'C') ||
-            setweight(to_tsvector('simple', get_characters(flat_descriptor)), 'D') ||
-            setweight(to_tsvector('simple', get_numbers(flat_descriptor)), 'D')
 
         INTO search;
 
