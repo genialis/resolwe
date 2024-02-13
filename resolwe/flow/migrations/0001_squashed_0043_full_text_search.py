@@ -33,6 +33,22 @@ class Migration(migrations.Migration):
         CITextExtension(),
         TrigramExtension(),
         UnaccentExtension(),
+        migrations.RunSQL(
+            """
+            DO
+            $$BEGIN
+                CREATE TEXT SEARCH CONFIGURATION simple_unaccent( COPY = simple );
+            EXCEPTION
+                WHEN unique_violation THEN
+                    NULL;  -- ignore error
+            END;$$;
+            """
+        ),
+        migrations.RunSQL(
+            "ALTER TEXT SEARCH CONFIGURATION simple_unaccent "
+            + "ALTER MAPPING FOR hword, hword_part, word "
+            + "WITH unaccent, simple;"
+        ),
         migrations.CreateModel(
             name="Collection",
             fields=[

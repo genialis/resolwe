@@ -15,6 +15,10 @@ Changed
 - Bulk delete method silently ignores non-existent objects and objects without
   edit permissions instead of raising an exception
 
+Added
+-----
+- Add unaccented full text search configuration ``simple_unaccent``
+
 
 ===================
 38.3.2 - 2024-01-25
