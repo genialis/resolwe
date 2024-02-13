@@ -33,7 +33,7 @@ CREATE OR REPLACE FUNCTION generate_resolwe_entity_search(entity flow_entity)
             setweight(to_tsvector('simple', entity.name), 'A') ||
             setweight(to_tsvector('simple', get_characters(entity.name)), 'B') ||
             setweight(to_tsvector('simple', get_numbers(entity.name)), 'B') ||
-            -- Collection description.
+            -- Entity description.
             setweight(to_tsvector('simple', entity.description), 'B') ||
             -- Contributor username.
             setweight(to_tsvector('simple', contributor.usernames), 'B') ||
