@@ -11,7 +11,15 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.RunSQL(
-            "CREATE TEXT SEARCH CONFIGURATION simple_unaccent( COPY = simple );"
+            """
+            DO
+            $$BEGIN
+                CREATE TEXT SEARCH CONFIGURATION simple_unaccent( COPY = simple );
+            EXCEPTION
+                WHEN unique_violation THEN
+                    NULL;  -- ignore error
+            END;$$;
+            """
         ),
         migrations.RunSQL(
             "ALTER TEXT SEARCH CONFIGURATION simple_unaccent "

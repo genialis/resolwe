@@ -20,6 +20,12 @@ Added
 -----
 - Add unaccented full text search configuration ``simple_unaccent``
 
+Changed
+-------
+- Use ``simple_unaccent`` full text search configuration instead of ``simple``
+- Use ``simple_unaccent`` full text search configuration instead of ``simple``
+- Create ``simple_unaccent`` full text search index in ``PostgreSQL``
+
 
 ===================
 38.3.2 - 2024-01-25

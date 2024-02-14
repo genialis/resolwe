@@ -4,6 +4,7 @@ CREATE OR REPLACE FUNCTION generate_resolwe_entity_search(entity flow_entity)
     LANGUAGE plpgsql
     AS $$
     DECLARE
+        annotation_values annotations_result;
         owners users_result;
         contributor users_result;
         flat_descriptor text;
@@ -26,33 +27,41 @@ CREATE OR REPLACE FUNCTION generate_resolwe_entity_search(entity flow_entity)
         FROM auth_user
         WHERE id = entity.contributor_id;
 
+        SELECT
+            _value -> 'label' as values
+        INTO annotation_values
+        FROM flow_annotationvalue
+        WHERE entity_id = entity.id;
+
         SELECT COALESCE(flatten_descriptor_values(entity.descriptor), '') INTO flat_descriptor;
 
         SELECT
             -- Entity name.
-            setweight(to_tsvector('simple', entity.name), 'A') ||
-            setweight(to_tsvector('simple', get_characters(entity.name)), 'B') ||
-            setweight(to_tsvector('simple', get_numbers(entity.name)), 'B') ||
+            setweight(to_tsvector('simple_unaccent', entity.name), 'A') ||
+            setweight(to_tsvector('simple_unaccent', get_characters(entity.name)), 'B') ||
+            setweight(to_tsvector('simple_unaccent', get_numbers(entity.name)), 'B') ||
             -- Entity description.
-            setweight(to_tsvector('simple', entity.description), 'B') ||
+            setweight(to_tsvector('simple_unaccent', entity.description), 'B') ||
             -- Contributor username.
-            setweight(to_tsvector('simple', contributor.usernames), 'B') ||
-            setweight(to_tsvector('simple', get_characters(contributor.usernames)), 'C') ||
-            setweight(to_tsvector('simple', get_numbers(contributor.usernames)), 'C') ||
+            setweight(to_tsvector('simple_unaccent', contributor.usernames), 'B') ||
+            setweight(to_tsvector('simple_unaccent', get_characters(contributor.usernames)), 'C') ||
+            setweight(to_tsvector('simple_unaccent', get_numbers(contributor.usernames)), 'C') ||
             -- Contributor first name.
-            setweight(to_tsvector('simple', contributor.first_names), 'B') ||
+            setweight(to_tsvector('simple_unaccent', contributor.first_names), 'B') ||
             -- Contributor last name.
-            setweight(to_tsvector('simple', contributor.last_names), 'B') ||
+            setweight(to_tsvector('simple_unaccent', contributor.last_names), 'B') ||
             -- Owners usernames. There is no guarantee that it is not NULL.
-            setweight(to_tsvector('simple', COALESCE(owners.usernames, '')), 'B') ||
-            setweight(to_tsvector('simple', get_characters(owners.usernames)), 'C') ||
-            setweight(to_tsvector('simple', get_numbers(owners.usernames)), 'C') ||
+            setweight(to_tsvector('simple_unaccent', COALESCE(owners.usernames, '')), 'B') ||
+            setweight(to_tsvector('simple_unaccent', get_characters(owners.usernames)), 'C') ||
+            setweight(to_tsvector('simple_unaccent', get_numbers(owners.usernames)), 'C') ||
             -- Owners first names. There is no guarantee that it is not NULL.
-            setweight(to_tsvector('simple', COALESCE(owners.first_names, '')), 'B') ||
+            setweight(to_tsvector('simple_unaccent', COALESCE(owners.first_names, '')), 'B') ||
             -- Owners last names. There is no guarantee that it is not NULL.
-            setweight(to_tsvector('simple', COALESCE(owners.last_names, '')), 'B') ||
+            setweight(to_tsvector('simple_unaccent', COALESCE(owners.last_names, '')), 'B') ||
             -- Entity tags.
-            setweight(to_tsvector('simple', array_to_string(entity.tags, ' ')), 'B') ||
+            setweight(to_tsvector('simple_unaccent', array_to_string(entity.tags, ' ')), 'B') ||
+            -- Entity annotations.
+            setweight(to_tsvector('simple_unaccent', COALESCE(annotation_values.values, '')), 'C')
 
         INTO search;
 
@@ -75,11 +84,14 @@ CREATE OR REPLACE FUNCTION entity_biut()
     END;
     $$;
 
-CREATE TRIGGER entity_biut
-    BEFORE INSERT OR UPDATE
-    ON flow_entity
-    FOR EACH ROW EXECUTE PROCEDURE entity_biut();
-
+DO $$ BEGIN
+    CREATE TRIGGER entity_biut
+        BEFORE INSERT OR UPDATE
+        ON flow_entity
+        FOR EACH ROW EXECUTE PROCEDURE entity_biut();
+EXCEPTION
+  WHEN others THEN null;
+END $$;
 
 -- Trigger after update/insert/delete user permission object.
 CREATE OR REPLACE FUNCTION handle_userpermission_entity(user_permission permissions_permissionmodel)
@@ -110,10 +122,14 @@ CREATE OR REPLACE FUNCTION userpermission_entity_aiut()
     END;
     $$;
 
-CREATE TRIGGER userpermission_entity_aiut
-    AFTER INSERT OR UPDATE
-    ON permissions_permissionmodel
-    FOR EACH ROW EXECUTE PROCEDURE userpermission_entity_aiut();
+DO $$ BEGIN
+    CREATE TRIGGER userpermission_entity_aiut
+        AFTER INSERT OR UPDATE
+        ON permissions_permissionmodel
+        FOR EACH ROW EXECUTE PROCEDURE userpermission_entity_aiut();
+EXCEPTION
+  WHEN others THEN null;
+END $$;
 
 CREATE OR REPLACE FUNCTION userpermission_entity_adt()
     RETURNS TRIGGER
@@ -125,11 +141,14 @@ CREATE OR REPLACE FUNCTION userpermission_entity_adt()
     END;
     $$;
 
-CREATE TRIGGER userpermission_entity_adt
-    AFTER DELETE
-    ON permissions_permissionmodel
-    FOR EACH ROW EXECUTE PROCEDURE userpermission_entity_adt();
-
+DO $$ BEGIN
+    CREATE TRIGGER userpermission_entity_adt
+        AFTER DELETE
+        ON permissions_permissionmodel
+        FOR EACH ROW EXECUTE PROCEDURE userpermission_entity_adt();
+EXCEPTION
+  WHEN others THEN null;
+END $$;
 
 -- Trigger after update contributor.
 CREATE OR REPLACE FUNCTION entity_contributor_aut()
@@ -144,11 +163,14 @@ CREATE OR REPLACE FUNCTION entity_contributor_aut()
     END;
     $$;
 
-CREATE TRIGGER entity_contributor_aut
-    AFTER UPDATE
-    ON auth_user
-    FOR EACH ROW EXECUTE PROCEDURE entity_contributor_aut();
-
+DO $$ BEGIN
+    CREATE TRIGGER entity_contributor_aut
+        AFTER UPDATE
+        ON auth_user
+        FOR EACH ROW EXECUTE PROCEDURE entity_contributor_aut();
+EXCEPTION
+    WHEN others THEN null;
+END $$;
 
 -- Trigger after update owner.
 CREATE OR REPLACE FUNCTION entity_owner_aut()
@@ -174,7 +196,11 @@ CREATE OR REPLACE FUNCTION entity_owner_aut()
     END;
     $$;
 
-CREATE TRIGGER entity_owner_aut
-    AFTER UPDATE
-    ON auth_user
-    FOR EACH ROW EXECUTE PROCEDURE entity_owner_aut();
+DO $$ BEGIN
+    CREATE TRIGGER entity_owner_aut
+        AFTER UPDATE
+        ON auth_user
+        FOR EACH ROW EXECUTE PROCEDURE entity_owner_aut();
+EXCEPTION
+    WHEN others THEN null;
+END $$;
