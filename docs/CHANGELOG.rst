@@ -10,10 +10,6 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
-Fix
----
-- Store refeneces to all subdirectories of the refenced files to the database
-
 Changed
 -------
 - Bulk delete method silently ignores non-existent objects and objects without
