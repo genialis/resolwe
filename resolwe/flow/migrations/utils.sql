@@ -1,8 +1,20 @@
-CREATE TYPE users_result AS (
-    usernames text,
-    first_names text,
-    last_names text
-);
+DO $$ BEGIN
+    CREATE TYPE users_result AS (
+        usernames text,
+        first_names text,
+        last_names text
+    );
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+    CREATE TYPE annotations_result AS (
+        values text
+    );
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
 CREATE OR REPLACE FUNCTION edge_ngrams(text text)
     RETURNS tsvector
@@ -11,7 +23,7 @@ CREATE OR REPLACE FUNCTION edge_ngrams(text text)
         SELECT COALESCE(
             array_to_tsvector((
                 SELECT array_agg(DISTINCT substring(lexeme for len))
-                FROM unnest(to_tsvector('simple', text)), generate_series(1,length(lexeme)) len
+                FROM unnest(to_tsvector('simple_unaccent', text)), generate_series(1,length(lexeme)) len
             )),
             ''::tsvector
         )

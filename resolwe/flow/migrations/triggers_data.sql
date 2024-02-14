@@ -1,8 +1,12 @@
 -- Trigger after insert/update Data object.
-CREATE TYPE process_result AS (
-    name text,
-    type text
-);
+DO $$ BEGIN
+    CREATE TYPE process_result AS (
+        name text,
+        type text
+    );
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
 CREATE OR REPLACE FUNCTION generate_resolwe_data_search(data flow_data)
     RETURNS tsvector
@@ -38,37 +42,37 @@ CREATE OR REPLACE FUNCTION generate_resolwe_data_search(data flow_data)
 
         SELECT
             -- Data name.
-            setweight(to_tsvector('simple', data.name), 'A') ||
-            setweight(to_tsvector('simple', get_characters(data.name)), 'B') ||
-            setweight(to_tsvector('simple', get_numbers(data.name)), 'B') ||
+            setweight(to_tsvector('simple_unaccent', data.name), 'A') ||
+            setweight(to_tsvector('simple_unaccent', get_characters(data.name)), 'B') ||
+            setweight(to_tsvector('simple_unaccent', get_numbers(data.name)), 'B') ||
             -- Contributor username.
-            setweight(to_tsvector('simple', contributor.usernames), 'B') ||
-            setweight(to_tsvector('simple', get_characters(contributor.usernames)), 'C') ||
-            setweight(to_tsvector('simple', get_numbers(contributor.usernames)), 'C') ||
+            setweight(to_tsvector('simple_unaccent', contributor.usernames), 'B') ||
+            setweight(to_tsvector('simple_unaccent', get_characters(contributor.usernames)), 'C') ||
+            setweight(to_tsvector('simple_unaccent', get_numbers(contributor.usernames)), 'C') ||
             -- Contributor first name.
-            setweight(to_tsvector('simple', contributor.first_names), 'B') ||
+            setweight(to_tsvector('simple_unaccent', contributor.first_names), 'B') ||
             -- Contributor last name.
-            setweight(to_tsvector('simple', contributor.last_names), 'B') ||
+            setweight(to_tsvector('simple_unaccent', contributor.last_names), 'B') ||
             -- Owners usernames. There is no guarantee that it is not NULL.
-            setweight(to_tsvector('simple', COALESCE(owners.usernames, '')), 'B') ||
-            setweight(to_tsvector('simple', get_characters(owners.usernames)), 'C') ||
-            setweight(to_tsvector('simple', get_numbers(owners.usernames)), 'C') ||
+            setweight(to_tsvector('simple_unaccent', COALESCE(owners.usernames, '')), 'B') ||
+            setweight(to_tsvector('simple_unaccent', get_characters(owners.usernames)), 'C') ||
+            setweight(to_tsvector('simple_unaccent', get_numbers(owners.usernames)), 'C') ||
             -- Owners first names. There is no guarantee that it is not NULL.
-            setweight(to_tsvector('simple', COALESCE(owners.first_names, '')), 'B') ||
+            setweight(to_tsvector('simple_unaccent', COALESCE(owners.first_names, '')), 'B') ||
             -- Owners last names. There is no guarantee that it is not NULL.
-            setweight(to_tsvector('simple', COALESCE(owners.last_names, '')), 'B') ||
+            setweight(to_tsvector('simple_unaccent', COALESCE(owners.last_names, '')), 'B') ||
             -- Process name.
-            setweight(to_tsvector('simple', process.name), 'B') ||
-            setweight(to_tsvector('simple', get_characters(process.name)), 'C') ||
-            setweight(to_tsvector('simple', get_numbers(process.name)), 'C') ||
+            setweight(to_tsvector('simple_unaccent', process.name), 'B') ||
+            setweight(to_tsvector('simple_unaccent', get_characters(process.name)), 'C') ||
+            setweight(to_tsvector('simple_unaccent', get_numbers(process.name)), 'C') ||
             -- Process type.
-            setweight(to_tsvector('simple', process.type), 'D') ||
+            setweight(to_tsvector('simple_unaccent', process.type), 'D') ||
             -- Data tags.
-            setweight(to_tsvector('simple', array_to_string(data.tags, ' ')), 'B') ||
+            setweight(to_tsvector('simple_unaccent', array_to_string(data.tags, ' ')), 'B') ||
             -- Data descriptor.
-            setweight(to_tsvector('simple', flat_descriptor), 'C') ||
-            setweight(to_tsvector('simple', get_characters(flat_descriptor)), 'D') ||
-            setweight(to_tsvector('simple', get_numbers(flat_descriptor)), 'D')
+            setweight(to_tsvector('simple_unaccent', flat_descriptor), 'C') ||
+            setweight(to_tsvector('simple_unaccent', get_characters(flat_descriptor)), 'D') ||
+            setweight(to_tsvector('simple_unaccent', get_numbers(flat_descriptor)), 'D')
         INTO search;
 
         RETURN search;
@@ -90,11 +94,14 @@ CREATE OR REPLACE FUNCTION data_biut()
     END;
     $$;
 
-CREATE TRIGGER data_biut
-    BEFORE INSERT OR UPDATE
-    ON flow_data
-    FOR EACH ROW EXECUTE PROCEDURE data_biut();
-
+DO $$ BEGIN
+    CREATE TRIGGER data_biut
+        BEFORE INSERT OR UPDATE
+        ON flow_data
+        FOR EACH ROW EXECUTE PROCEDURE data_biut();
+EXCEPTION
+  WHEN others THEN null;
+END $$;
 
 -- Trigger after update/insert/delete user permission object.
 CREATE OR REPLACE FUNCTION handle_userpermission_data(user_permission permissions_permissionmodel)
@@ -125,10 +132,14 @@ CREATE OR REPLACE FUNCTION userpermission_data_aiut()
     END;
     $$;
 
-CREATE TRIGGER userpermission_data_aiut
-    AFTER INSERT OR UPDATE
-    ON permissions_permissionmodel
-    FOR EACH ROW EXECUTE PROCEDURE userpermission_data_aiut();
+DO $$ BEGIN
+    CREATE TRIGGER userpermission_data_aiut
+        AFTER INSERT OR UPDATE
+        ON permissions_permissionmodel
+        FOR EACH ROW EXECUTE PROCEDURE userpermission_data_aiut();
+EXCEPTION
+  WHEN others THEN null;
+END $$;
 
 CREATE OR REPLACE FUNCTION userpermission_data_adt()
     RETURNS TRIGGER
@@ -140,10 +151,14 @@ CREATE OR REPLACE FUNCTION userpermission_data_adt()
     END;
     $$;
 
-CREATE TRIGGER userpermission_data_adt
-    AFTER DELETE
-    ON permissions_permissionmodel
-    FOR EACH ROW EXECUTE PROCEDURE userpermission_data_adt();
+DO $$ BEGIN
+    CREATE TRIGGER userpermission_data_adt
+        AFTER DELETE
+        ON permissions_permissionmodel
+        FOR EACH ROW EXECUTE PROCEDURE userpermission_data_adt();
+EXCEPTION
+  WHEN others THEN null;
+END $$;
 
 
 -- Trigger after update contributor.
@@ -159,11 +174,14 @@ CREATE OR REPLACE FUNCTION data_contributor_aut()
     END;
     $$;
 
-CREATE TRIGGER data_contributor_aut
-    AFTER UPDATE
-    ON auth_user
-    FOR EACH ROW EXECUTE PROCEDURE data_contributor_aut();
-
+DO $$ BEGIN
+    CREATE TRIGGER data_contributor_aut
+        AFTER UPDATE
+        ON auth_user
+        FOR EACH ROW EXECUTE PROCEDURE data_contributor_aut();
+EXCEPTION
+  WHEN others THEN null;
+END $$;
 
 -- Trigger after update owner.
 CREATE OR REPLACE FUNCTION data_owner_aut()
@@ -188,7 +206,11 @@ CREATE OR REPLACE FUNCTION data_owner_aut()
     END;
     $$;
 
-CREATE TRIGGER data_owner_aut
-    AFTER UPDATE
-    ON auth_user
-    FOR EACH ROW EXECUTE PROCEDURE data_owner_aut();
+DO $$ BEGIN
+    CREATE TRIGGER data_owner_aut
+        AFTER UPDATE
+        ON auth_user
+        FOR EACH ROW EXECUTE PROCEDURE data_owner_aut();
+EXCEPTION
+  WHEN others THEN null;
+END $$;
