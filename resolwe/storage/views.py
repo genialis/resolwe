@@ -33,6 +33,7 @@ from resolwe.permissions.utils import get_user
 from resolwe.storage.connectors import connectors
 from resolwe.storage.connectors.baseconnector import BaseStorageConnector
 from resolwe.storage.models import FileStorage, ReferencedPath
+from resolwe.test.utils import ignore_in_tests
 
 logger = logging.getLogger(__name__)
 
@@ -327,9 +328,10 @@ class UriResolverView(DataBrowseView):
         check. However, if they are from the same collection it is easy
         to check, just confirm that the user has view permission on
         collection. That can be checked only once and than cached.
+        Except in tests, where colletion ids may be reused.
         """
 
-        @lru_cache(maxsize=1)
+        @ignore_in_tests(lru_cache(maxsize=1))
         def has_view_permission(collection_id: int) -> bool:
             collection = Collection.objects.filter(pk=collection_id).filter_for_user(
                 self.request.user

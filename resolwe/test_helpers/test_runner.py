@@ -44,15 +44,13 @@ from resolwe.process.parser import ProcessVisitor
 from resolwe.storage.connectors import connectors
 from resolwe.test.utils import generate_process_tag
 
+from . import TESTING_CONTEXT
+
 logger = logging.getLogger(__name__)
 
 SPAWN_PROCESS_REGEX = re.compile(
     r'run\s+\{.*?["\']process["\']\s*:\s*["\'](.+?)["\'].*?\}'
 )
-
-TESTING_CONTEXT = {
-    "is_testing": False,
-}
 
 
 class TestingContext:
@@ -770,8 +768,3 @@ class ResolweRunner(DiscoverRunner):
             tags.add(generate_process_tag(process))
 
         return tags
-
-
-def is_testing():
-    """Return current testing status."""
-    return TESTING_CONTEXT["is_testing"]

@@ -274,11 +274,27 @@ def get_processes_from_tags(test):
     return slugs
 
 
+def ignore_in_tests(decorator):
+    """Skip a decorator when running tests.
+
+    This is useful for decorators like caching by id, which should not be
+    applied during testing, since ids are reused between tests.
+    """
+
+    def wrapper(wrapped):
+        if is_testing():
+            return wrapped
+        else:
+            return decorator(wrapped)
+
+    return wrapper
+
+
 def is_testing():
     """Return current testing status.
 
     This assumes that the Resolwe test runner is being used.
     """
-    from resolwe.test_helpers.test_runner import is_testing
+    from resolwe.test_helpers import is_testing
 
     return is_testing()
