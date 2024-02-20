@@ -686,6 +686,22 @@ class Data(HistoryMixin, BaseModel, PermissionObject):
         :raises RuntimeError: when object dependencies are not in the status DONE.
         """
 
+        def get_dependencies(data: Data) -> set[Data]:
+            """Get the dependencies of the data object.
+
+            Also include the data object itself.
+            """
+            dependencies = set()
+            stack = [data]
+            while stack:
+                if (processing := stack.pop()) not in dependencies:
+                    stack += Data.objects.filter(
+                        parents_dependency__parent=processing,
+                        parents_dependency__kind__in=[DataDependency.KIND_IO],
+                    )
+                    dependencies.add(processing)
+            return dependencies
+
         def reset_data(data: Data):
             """Prepare the data object for another processing."""
             assert data.status == Data.STATUS_ERROR
@@ -729,10 +745,7 @@ class Data(HistoryMixin, BaseModel, PermissionObject):
         with transaction.atomic():
             # When data object is restarted we also need to restart all its children.
             # We have to clear them all and reset their statuses to be restarted.
-            dependencies = Data.objects.filter(
-                parents_dependency__parent=self,
-                parents_dependency__kind__in=[DataDependency.KIND_IO],
-            )
+            dependencies = get_dependencies(self)
 
             # Subprocess dependencies must be deleted, they will be recreated.
             Data.objects.filter(
@@ -742,7 +755,6 @@ class Data(HistoryMixin, BaseModel, PermissionObject):
 
             # Construct the map id -> data.
             to_process = {data.id: data for data in dependencies}
-            to_process[self.pk] = self
 
             # Prevent circular import.
             from resolwe.flow.managers.listener.listener import cache_manager
