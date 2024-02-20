@@ -680,7 +680,7 @@ class ManagerRunProcessTest(ProcessTestCase):
             "LISTENER_CONNECTION", {}
         )
         port = listener_settings.get("port", 53893)
-        hosts = listener_settings.get("hosts", {"local": "127.0.0.1"})
+        hosts = settings.COMMUNICATION_CONTAINER_LISTENER_CONNECTION
         host = hosts.get("local", next(iter(hosts.values())))
         protocol = settings.FLOW_EXECUTOR.get("LISTENER_CONNECTION", {}).get(
             "protocol", "tcp"
