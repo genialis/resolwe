@@ -98,7 +98,7 @@ DATABASES = {
 
 # The Redis database used by Django Channels.
 REDIS_CONNECTION = {
-    "host": "localhost",
+    "host": os.environ.get("RESOLWE_REDIS_HOST", "localhost"),
     "port": int(os.environ.get("RESOLWE_REDIS_PORT", 56379)),
     "db": int(os.environ.get("RESOLWE_REDIS_DATABASE", 1)),
     "protocol": (os.environ.get("RESOLWE_REDIS_PROTOCOL", "redis")),
@@ -108,7 +108,11 @@ REDIS_CONNECTION_STRING = "{protocol}://{host}:{port}/{db}".format(**REDIS_CONNE
 LISTENER_CONNECTION = {
     # Keys in the hosts dictionary are workload connector names. Currently
     # supported are 'local', 'kubertenes', 'celery' and 'slurm'.
-    "hosts": {"local": "172.17.0.1"},
+    "hosts": config(
+        "RESOLWE_LISTENER_SERVICE_HOST",
+        default='{"local": "172.17.0.1"}',
+        cast=json.loads,
+    ),
     "port": int(os.environ.get("RESOLWE_LISTENER_SERVICE_PORT", 53893)),
     "min_port": 50000,
     "max_port": 60000,
@@ -121,7 +125,11 @@ LISTENER_CONNECTION = {
 
 # The IP address where listener is available from the communication container.
 # The setting is a dictionary where key is the name of the workload connector.
-COMMUNICATION_CONTAINER_LISTENER_CONNECTION = {"local": "172.17.0.1"}
+COMMUNICATION_CONTAINER_LISTENER_CONNECTION = config(
+    "RESOLWE_COMMUNICATION_CONTAINER_LISTENER_CONNECTION",
+    default=json.dumps(LISTENER_CONNECTION["hosts"]),
+    cast=json.loads,
+)
 
 #: Add affinity to the Kubernetes jobs. Example:
 #: {"scheduling_class":
@@ -224,10 +232,12 @@ FLOW_PROCESSES_IGNORE_LIST = config(
     "FLOW_PROCESSES_IGNORE_LIST", default="null", cast=json.loads
 )
 
+FLOW_DOCKER_NETWORK = config("RESOLWE_DOCKER_NETWORK", default="bridge")
+
 FLOW_EXECUTOR = {
     "NAME": "resolwe.flow.executors.docker",
     "LISTENER_CONNECTION": LISTENER_CONNECTION,
-    "NETWORK": "bridge",
+    "NETWORK": FLOW_DOCKER_NETWORK,
 }
 
 FLOW_DOCKER_AUTOREMOVE = False
