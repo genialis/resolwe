@@ -13,21 +13,19 @@ Unreleased
 Fixed
 -----
 - Correctly enumerate dependencies when restarting a data object
+Changed
+-------
+- Add owner reference to PVC claims
 
 
 ===================
 38.4.0 - 2024-02-19
 ===================
 
-Fix
----
-- Store refeneces to all subdirectories of the refenced files to the database
-
 Changed
 -------
 - Bulk delete method silently ignores non-existent objects and objects without
   edit permissions instead of raising an exception
-- Add owner reference to PVC claims
 
 
 ===================
