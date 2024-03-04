@@ -27,12 +27,15 @@ jobs:
             toxenv: "py310"
           - python: "3.11"
             toxenv: "py311"
-          - python: "3.11"
+          - python: "3.12"
+            toxenv: "py312"
+          - python: "3.12"
             toxenv: "linters"
-          - python: "3.11"
+          - python: "3.12"
             toxenv: "packaging"
-          - python: "3.11"
+          - python: "3.12"
             toxenv: "migrations"
+
     services:
       postgres: 
         image: public.ecr.aws/docker/library/postgres:14

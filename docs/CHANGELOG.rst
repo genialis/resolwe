@@ -16,9 +16,14 @@ Fixed
 - Store references to all parent directories of the refenced files to the
   database
 
+
 Changed
 -------
 - Add owner reference to PVC claims
+
+Added
+-----
+- Add support for ``Python 3.12``
 
 
 ===================

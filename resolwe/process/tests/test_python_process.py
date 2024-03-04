@@ -437,7 +437,7 @@ class PythonProcessTest(ProcessTestCase):
     def test_storage_objects(self):
         """Test storage access from python process."""
         data = self.run_process("storage-objects-test")
-        self.assertEquals(data.storages.count(), 2)
+        self.assertEqual(data.storages.count(), 2)
         storage_string = Storage.objects.get(pk=data.output["output_string"])
         self.assertEqual(storage_string.json, ["valid", "json"])
         storage_file = Storage.objects.get(pk=data.output["output_file"])

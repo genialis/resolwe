@@ -468,15 +468,15 @@ class CompareModelsTestCase(TestCase):
             "100": {"start": 0, "end": 582, "linecount": 6},
             "123": {"start": 582, "end": 1027, "linecount": 5},
         }
-        self.assertEquals(received, expected)
-        self.assertEquals(fi.length, 11)
+        self.assertEqual(received, expected)
+        self.assertEqual(fi.length, 11)
 
     def test_map_subpath_locations_empty_csv(self):
         fi = FileIterator(os.devnull)
         received = map_subpath_locations(fi)
         expected = {}
-        self.assertEquals(received, expected)
-        self.assertEquals(fi.length, 0)
+        self.assertEqual(received, expected)
+        self.assertEqual(fi.length, 0)
 
     def test_fileiterator_tell_seek(self):
         fi = FileIterator(self.csv_filename)
@@ -500,12 +500,12 @@ class CompareModelsTestCase(TestCase):
 
     def test_file_iterator_next(self):
         fi = FileIterator(self.csv_filename)
-        self.assertEquals(fi.next(), ("names/000.json", "hashhashhash"))
+        self.assertEqual(fi.next(), ("names/000.json", "hashhashhash"))
 
     def test_file_iterator_next_at_eof(self):
         fi = FileIterator(self.csv_filename)
         fi.seek(fi.size)
-        self.assertEquals(fi.next(), ("", ""))
+        self.assertEqual(fi.next(), ("", ""))
 
     def test_file_iterator_restrict(self):
         fi = FileIterator(self.csv_filename)
@@ -518,32 +518,32 @@ class CompareModelsTestCase(TestCase):
         fi = FileIterator(self.csv_filename)
         fi.restrict(20, 40)
         fi.seek_relative(10)
-        self.assertEquals(fi.tell(), 30)
+        self.assertEqual(fi.tell(), 30)
 
     def test_model_iterator_next(self):
         urls = self.d123.location.files
         urls = urls.exclude(Q(path__endswith="/"))  # exclude directories
         urls = ModelIterator(urls.order_by("path"))
-        self.assertEquals(urls.next(), ("d.json", "hashhashhash"))
-        self.assertEquals(urls.next(), ("f.json", "hashhashhash"))
-        self.assertEquals(urls.next(), ("j.json", "hashhashhash"))
-        self.assertEquals(urls.next(), ("k.json", "hashhashhash"))
-        self.assertEquals(urls.next(), ("l.json", "hashhashhash"))
-        self.assertEquals(urls.next(), ("", ""))
-        self.assertEquals(urls.next(), ("", ""))
+        self.assertEqual(urls.next(), ("d.json", "hashhashhash"))
+        self.assertEqual(urls.next(), ("f.json", "hashhashhash"))
+        self.assertEqual(urls.next(), ("j.json", "hashhashhash"))
+        self.assertEqual(urls.next(), ("k.json", "hashhashhash"))
+        self.assertEqual(urls.next(), ("l.json", "hashhashhash"))
+        self.assertEqual(urls.next(), ("", ""))
+        self.assertEqual(urls.next(), ("", ""))
 
     def test_model_iterator_has_next(self):
         urls = self.d123.location.files
         urls = urls.exclude(Q(path__endswith="/"))  # exclude directories
         urls = ModelIterator(urls.order_by("path"))
         self.assertTrue(urls.has_next())
-        self.assertEquals(urls.next(), ("d.json", "hashhashhash"))
+        self.assertEqual(urls.next(), ("d.json", "hashhashhash"))
         self.assertTrue(urls.has_next())
-        self.assertEquals(urls.next(), ("f.json", "hashhashhash"))
+        self.assertEqual(urls.next(), ("f.json", "hashhashhash"))
         self.assertTrue(urls.has_next())
-        self.assertEquals(urls.next(), ("j.json", "hashhashhash"))
+        self.assertEqual(urls.next(), ("j.json", "hashhashhash"))
         self.assertTrue(urls.has_next())
-        self.assertEquals(urls.next(), ("k.json", "hashhashhash"))
+        self.assertEqual(urls.next(), ("k.json", "hashhashhash"))
         self.assertTrue(urls.has_next())
-        self.assertEquals(urls.next(), ("l.json", "hashhashhash"))
+        self.assertEqual(urls.next(), ("l.json", "hashhashhash"))
         self.assertFalse(urls.has_next())

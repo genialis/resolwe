@@ -36,7 +36,7 @@ setuptools.setup(
             "toolkit/tools/**.py",
         ]
     },
-    python_requires=">=3.10, <3.12",
+    python_requires=">=3.10, <3.13",
     install_requires=[
         "asgiref~=3.6.0",
         "asteval==0.9.29",
@@ -64,8 +64,8 @@ setuptools.setup(
         "beautifulsoup4~=4.12.2",
         "Sphinx~=6.1.3",
         "wrapt~=1.15.0",
-        "pyzmq~=25.0.2",
-        "uvloop~=0.17.0",
+        "pyzmq~=25.1.2",
+        "uvloop~=0.19.0",
     ],
     extras_require={
         "storage_s3": [
@@ -117,6 +117,7 @@ setuptools.setup(
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
     ],
     keywords="resolwe dataflow django",
 )
