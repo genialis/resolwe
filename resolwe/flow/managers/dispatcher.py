@@ -689,6 +689,9 @@ class Manager:
                     # on next _data_scan run. We must perform this operation without
                     # using the Django ORM as using the ORM may be the reason the error
                     # occurred in the first place.
+                    # Note that this has a side effect: since signals are not emitted,
+                    # the data object is not processed and its children are not
+                    # transitioned into the error state.
                     error_msg = "Internal error: {}".format(error)
                     process_error_field = Data._meta.get_field("process_error")
                     max_length = process_error_field.base_field.max_length
@@ -713,6 +716,7 @@ class Manager:
                                     "id": data.pk,
                                 },
                             )
+                        self.communicate(data_id=data.pk)
                     except Exception:
                         # If object's state cannot be changed due to some database-related
                         # issue, at least skip the object for this run.

@@ -925,7 +925,16 @@ class Connector(BaseConnector):
         """
         (host, port, protocol) = argv[-1].rsplit(" ", maxsplit=3)[-3:]
         self._initialize_variables()
-        self.start(data, (host, port, protocol))
+        try:
+            self.start(data, (host, port, protocol))
+        except Exception as error:
+            error_message = (
+                f"Kubernetes job submission for data id {data.id} with args {argv} "
+                f" failed: '{error}'."
+            )
+            logger.exception(error_message)
+            data.process_error.append(error_message)
+            data.save()
 
         logger.debug(
             __(
