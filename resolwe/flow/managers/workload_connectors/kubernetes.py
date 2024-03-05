@@ -892,9 +892,21 @@ class Connector(BaseConnector):
             # Patch the PVC with ownerReference. This ensures the PVC claim gets deleted
             # when the job has completed or failed. The PVCs are deleted after
             # ttlSecondsAfterFinished seconds, declared in Job spec.
-            core_api.patch_namespaced_persistent_volume_claim(
-                name=claim_name, namespace=self.kubernetes_namespace, body=patch
-            )
+            try:
+                core_api.patch_namespaced_persistent_volume_claim(
+                    name=claim_name, namespace=self.kubernetes_namespace, body=patch
+                )
+            except Exception as error:
+                # This operation is not critical for the job to run, so we log the
+                # error and continue. The job will still run, but the PVC will not be
+                # deleted automatically after the job has finished.
+                logger.exception(
+                    __(
+                        "Kubernetes owner patch for pvc {} failed: '{}'.",
+                        claim_name,
+                        error,
+                    )
+                )
 
     def _generate_container_name(self, prefix: str, data_id: int, postfix: str):
         """Generate unique container name.
