@@ -468,14 +468,26 @@ class Connector(BaseConnector):
             )
         return mount_points
 
+    def _create_labels(self, data: Data, job_type: str) -> dict[str, str]:
+        """Create labels for kubernetes objects."""
+        return {
+            "application": "resolwe",
+            "data_id": str(data.pk),
+            "process": sanitize_kubernetes_label(data.process.slug),
+            "job_type": sanitize_kubernetes_label(job_type),
+        }
+
     def _persistent_volume_claim(
-        self, claim_name: str, size: int, volume_config: Dict
+        self, claim_name: str, size: int, volume_config: Dict, labels: dict[str, str]
     ) -> Dict[str, Any]:
         """Prepare claim for persistent volume."""
         return {
             "apiVersion": "v1",
             "kind": "PersistentVolumeClaim",
-            "metadata": {"name": claim_name},
+            "metadata": {
+                "name": claim_name,
+                "labels": labels,
+            },
             "spec": {
                 "accessModes": ["ReadWriteOnce"],
                 "storageClassName": volume_config.get("storageClassName", "gp2"),
@@ -723,6 +735,7 @@ class Connector(BaseConnector):
 
         pull_policy = getattr(settings, "FLOW_KUBERNETES_PULL_POLICY", "Always")
         job_type = dict(Process.SCHEDULING_CLASS_CHOICES)[data.process.scheduling_class]
+        labels = self._create_labels(data, job_type)
         job_description = {
             "apiVersion": "batch/v1",
             "kind": "Job",
@@ -737,12 +750,7 @@ class Connector(BaseConnector):
                 "template": {
                     "metadata": {
                         "name": sanitize_kubernetes_label(container_name),
-                        "labels": {
-                            "app": "resolwe",
-                            "data_id": str(data.pk),
-                            "process": sanitize_kubernetes_label(data.process.slug),
-                            "job_type": sanitize_kubernetes_label(job_type),
-                        },
+                        "labels": labels,
                         "annotations": annotations,
                     },
                     "spec": {
@@ -828,6 +836,7 @@ class Connector(BaseConnector):
                     claim_name,
                     claim_size,
                     storage_settings.FLOW_VOLUMES[processing_name]["config"],
+                    labels,
                 ),
                 namespace=self.kubernetes_namespace,
                 _request_timeout=KUBERNETES_TIMEOUT,
@@ -846,6 +855,7 @@ class Connector(BaseConnector):
                         claim_name,
                         claim_size,
                         storage_settings.FLOW_VOLUMES[input_name]["config"],
+                        labels,
                     ),
                     namespace=self.kubernetes_namespace,
                     _request_timeout=KUBERNETES_TIMEOUT,
