@@ -684,6 +684,7 @@ class AnnotationValueFilter(BaseResolweFilter, metaclass=AnnotationValueFieldMet
         model = AnnotationValue
         fields = {
             **{
+                "id": NUMBER_LOOKUPS[:],
                 "field__id": NUMBER_LOOKUPS[:],
                 "field__name": TEXT_LOOKUPS[:],
                 "field__label": TEXT_LOOKUPS[:],

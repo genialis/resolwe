@@ -24,6 +24,7 @@ Changed
 Added
 -----
 - Add support for ``Python 3.12``
+- Add filter for ``AnnotationValue`` by ``id`` field
 
 
 ===================
