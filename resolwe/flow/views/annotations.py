@@ -85,7 +85,7 @@ class AnnotationValueViewSet(
     filterset_class = AnnotationValueFilter
     queryset = AnnotationValue.objects.all()
     permission_classes = (get_permissions_class(),)
-    ordering_fields = ("modified",)
+    ordering_fields = ("modified", "id")
 
     def get_serializer(self, *args: Any, **kwargs: Any) -> BaseSerializer:
         """Get serializer instance depending on the request type."""

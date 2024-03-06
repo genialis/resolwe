@@ -25,6 +25,7 @@ Added
 -----
 - Add support for ``Python 3.12``
 - Add filter for ``AnnotationValue`` by ``id`` field
+- Allow ordering ``AnnotationValue`` by ``id`` field
 
 
 ===================
