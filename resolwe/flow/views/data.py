@@ -37,15 +37,15 @@ from .mixins import (
 from .utils import get_collection_for_user
 
 
-class IsSuperuser(permissions.BasePermission):
-    """Allow access only to superusers."""
+class IsStaffuser(permissions.BasePermission):
+    """Allow access only to staff users."""
 
-    message = "Only superusers are allowed."
+    message = "Only staff users are allowed."
 
     def has_permission(self, request, view):
         """Return true when request is allowed."""
         return bool(
-            request.user and request.user.is_authenticated and request.user.is_superuser
+            request.user and request.user.is_authenticated and request.user.is_staff
         )
 
 
@@ -167,7 +167,7 @@ class DataViewSet(
         request=RestartSerializer(),
         responses={status.HTTP_200_OK: DataSerializer(many=True)},
     )
-    @action(detail=True, methods=["post"], permission_classes=[IsSuperuser])
+    @action(detail=True, methods=["post"], permission_classes=[IsStaffuser])
     def restart(self, request, pk=None):
         """Restart the current data object."""
         argument_validator = RestartSerializer(data=request.data)

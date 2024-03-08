@@ -26,6 +26,7 @@ Changed
   always added to the new collection annotation preset
 - When copying entities always add annotation fields to the target collection
   annotation preset
+- Data objects can be restated by staff users
 
 Added
 -----

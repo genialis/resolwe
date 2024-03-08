@@ -415,16 +415,16 @@ class TestDataViewSetCase(TestCase):
             response.data, {"detail": "Authentication credentials were not provided."}
         )
 
-        # Restart fail no superuser.
+        # Restart fail no staff user.
         self.client.force_authenticate(self.contributor)
         request = self.client.post("/", {}, format="json")
         force_authenticate(request, self.contributor)
         response = self.client.post(path, pk=data.pk, format="json")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(response.data, {"detail": "Only superusers are allowed."})
+        self.assertEqual(response.data, {"detail": "Only staff users are allowed."})
 
         # Request fail wrong status.
-        self.contributor.is_superuser = True
+        self.contributor.is_staff = True
         self.contributor.save()
         response = self.client.post(path, pk=data.pk, format="json")
         self.assertEqual(
