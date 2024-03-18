@@ -14,7 +14,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 
 from resolwe.flow.filters import EntityFilter
-from resolwe.flow.models import AnnotationValue, Data, DescriptorSchema, Entity
+from resolwe.flow.models import AnnotationValue, Data, Entity
 from resolwe.flow.serializers import EntitySerializer
 from resolwe.flow.serializers.annotations import AnnotationsByPathSerializer
 from resolwe.observers.mixins import ObservableMixin
@@ -35,7 +35,6 @@ class EntityViewSet(ObservableMixin, BaseCollectionViewSet):
 
     serializer_class = EntitySerializer
     filterset_class = EntityFilter
-    qs_descriptor_schema = DescriptorSchema.objects.select_related("contributor")
 
     data_count_subquery = (
         Data.objects.filter(entity_id=OuterRef("pk"))
@@ -57,7 +56,7 @@ class EntityViewSet(ObservableMixin, BaseCollectionViewSet):
         .values("count")
     )
     queryset = (
-        Entity.objects.select_related("contributor", "descriptor_schema__contributor")
+        Entity.objects.select_related("contributor")
         .prefetch_related(
             Prefetch("collection", queryset=BaseCollectionViewSet.queryset)
         )
