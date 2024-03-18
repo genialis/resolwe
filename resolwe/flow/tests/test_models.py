@@ -323,7 +323,6 @@ class EntityModelTest(TestCase):
             type="data:test:",
             contributor=self.contributor,
             entity_type="sample",
-            entity_descriptor_schema="sample",
         )
         # Entity is created automatically when Data object is created
         self.data = Data.objects.create(
@@ -373,7 +372,6 @@ class EntityModelTest(TestCase):
         test_process = Process.objects.create(
             contributor=self.contributor,
             entity_type="sample",
-            entity_descriptor_schema="sample",
             input_schema=[
                 {"name": "data_list", "type": "list:data:test:", "required": False},
                 {"name": "data", "type": "data:test:", "required": False},
@@ -1396,7 +1394,6 @@ class UtilsTestCase(TestCase):
                 },
             ],
             entity_type="sample",
-            entity_descriptor_schema="sample",
         )
 
         data = Data.objects.create(

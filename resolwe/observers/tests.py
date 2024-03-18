@@ -59,7 +59,6 @@ class ObserverTestCase(TransactionTestCase):
             name="Dummy process",
             contributor=self.user_alice,
             entity_type="sample",
-            entity_descriptor_schema="sample",
         )
 
         self.client_consumer = URLRouter(
