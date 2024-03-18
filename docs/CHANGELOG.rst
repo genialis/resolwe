@@ -16,7 +16,6 @@ Fixed
 - Store references to all parent directories of the refenced files to the
   database
 
-
 Changed
 -------
 - Add owner reference to PVC claims
@@ -27,6 +26,7 @@ Changed
 - When copying entities always add annotation fields to the target collection
   annotation preset
 - Data objects can be restated by staff users
+- Do not add ``descriptor_schema`` to automatically created entities
 
 Added
 -----
