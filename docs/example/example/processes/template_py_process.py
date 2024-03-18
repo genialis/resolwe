@@ -62,11 +62,9 @@ class YourProcessName(Process):
     # type sample. See
     # https://resolwe.readthedocs.io/en/latest/proc.html#entity for
     # more details.
-    # Fields descriptor_schema, input and always_create are optional.
+    # Field always_create is optional.
     entity = {
         "type": "sample",  # name of your entity
-        # Use a descriptor schema slug if it differs from "type".
-        "descriptor_schema": "descriptor-schema-of-entity",
         "input": "name of input that has the entity",
         # If you want to create entity in all cases
         "always_create": True,

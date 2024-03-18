@@ -9,7 +9,6 @@ import resolwe.permissions.models
 from resolwe.flow.models import (
     Collection,
     Data,
-    DescriptorSchema,
     Entity,
     Process,
     Relation,
@@ -62,7 +61,6 @@ class PythonProcessTest(ProcessTestCase):
         self.assertEqual(process.description, "This is a process description.")
         self.assertEqual(process.data_name, "Foo: {{input_data | name}}")
         self.assertEqual(process.entity_type, "sample")
-        self.assertEqual(process.entity_descriptor_schema, "sample")
         self.assertEqual(process.entity_input, "input_data")
         self.assertEqual(
             process.requirements,
@@ -596,39 +594,6 @@ class PythonProcessTest(ProcessTestCase):
         self.assertEqual(len(data.process_error), 0)
         entity.refresh_from_db()
         self.assertEqual(entity.name, "New entity name")
-
-    @with_docker_executor
-    @tag_process("change-entity-descriptor")
-    def test_change_descriptor(self):
-        """Assign descriptor to entity."""
-
-        descriptor_schema = DescriptorSchema.objects.create(
-            name="Descriptor schema",
-            contributor=self.contributor,
-            schema=[
-                {
-                    "name": "Description",
-                    "type": "basic:string:",
-                    "default": "default value",
-                }
-            ],
-        )
-        entity = Entity.objects.create(
-            name="Entity", contributor=self.user, descriptor_schema=descriptor_schema
-        )
-
-        self.run_process(
-            "change-entity-descriptor",
-            {
-                "entity_id": entity.pk,
-                "description": "New description",
-            },
-        )
-        entity.refresh_from_db()
-        self.assertEqual(
-            entity.descriptor,
-            {"Description": "New description"},
-        )
 
 
 class PythonProcessRequirementsTest(ProcessTestCase):

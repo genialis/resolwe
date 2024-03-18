@@ -32,7 +32,6 @@ from resolwe.permissions.models import PermissionObject, PermissionQuerySet
 from resolwe.permissions.utils import assign_contributor_permissions, copy_permissions
 
 from .base import BaseModel, BaseQuerySet
-from .descriptor import DescriptorSchema
 from .entity import Entity, EntityQuerySet
 from .history_manager import HistoryMixin
 from .secret import Secret

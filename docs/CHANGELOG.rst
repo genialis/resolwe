@@ -15,7 +15,8 @@ Changed
 - Require ``Jinja >= 3.1.3`` to address security vulnerability
   https://deps.dev/advisory/osv/GHSA-h5c8-rqwp-cp95
 - Do not add ``descriptor_schema`` to automatically created entities
-
+- Remove ``descriptor_schema`` and ``descriptor`` field from the ``Entity``
+  model
 
 ===================
 38.5.0 - 2024-03-25

@@ -156,12 +156,6 @@ class Process(BaseModel, PermissionObject):
     create a new one.
     """
 
-    entity_descriptor_schema = models.CharField(max_length=100, null=True, blank=True)
-    """
-    Slug of the descriptor schema assigned to the Entity created with
-    :attr:`~resolwe.flow.models.Process.entity_type`.
-    """
-
     entity_input = models.CharField(max_length=100, null=True, blank=True)
     """
     Limit the entity selection in
@@ -170,8 +164,7 @@ class Process(BaseModel, PermissionObject):
 
     entity_always_create = models.BooleanField(default=False)
     """
-    Create new entity, regardless of ``entity_input`` or
-    ``entity_descriptor_schema`` fields.
+    Create new entity, regardless of ``entity_input`` field.
     """
 
     run = models.JSONField(default=dict)

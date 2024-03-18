@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 
-from resolwe.flow.models import Collection, Data, DescriptorSchema, Entity, Process
+from resolwe.flow.models import Collection, Data, DescriptorSchema, Process
 from resolwe.flow.models.utils import validate_data_object, validate_schema
 from resolwe.test import TestCase
 from resolwe.test.utils import create_data_location
@@ -110,34 +110,6 @@ class ValidationTest(TestCase):
             ValidationError, "is not valid under any of the given schemas"
         ):
             collection.save()
-
-    def test_validate_entity_descriptor(self):
-        descriptor_schema = DescriptorSchema.objects.create(
-            name="Test descriptor schema",
-            contributor=self.user,
-            schema=[{"name": "description", "type": "basic:string:", "required": True}],
-        )
-
-        entity = Entity.objects.create(
-            name="Test descriptor",
-            contributor=self.user,
-            descriptor_schema=descriptor_schema,
-        )
-        self.assertEqual(entity.descriptor_dirty, True)
-
-        entity.descriptor = {"description": "some value"}
-        entity.save()
-        self.assertEqual(entity.descriptor_dirty, False)
-
-        entity.descriptor = {}
-        entity.save()
-        self.assertEqual(entity.descriptor_dirty, True)
-
-        entity.descriptor = {"description": 42}
-        with self.assertRaisesRegex(
-            ValidationError, "is not valid under any of the given schemas"
-        ):
-            entity.save()
 
     def test_referenced_storage(self):
         proc = Process.objects.create(
