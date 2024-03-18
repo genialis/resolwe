@@ -53,7 +53,7 @@ setuptools.setup(
         "django-versionfield~=1.0.3",
         "django-fernet-fields-v2~=0.8",
         "drf-spectacular~=0.26.4",
-        "Jinja2~=3.1.2",
+        "Jinja2~=3.1.3",
         "jsonschema~=4.17.3",
         "plumbum~=1.8.1",
         "psycopg[binary]~=3.1.9",

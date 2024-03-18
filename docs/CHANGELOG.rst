@@ -13,6 +13,8 @@ Unreleased
 Changed
 -------
 - **BACKWARD INCOMPATIBLE:** Make move between collections a background job
+- Require ``Jinja >= 3.1.3`` to address security vulnerability
+  https://deps.dev/advisory/osv/GHSA-h5c8-rqwp-cp95
 
 
 ===================
@@ -45,6 +47,7 @@ Changed
 - When copying entities always add annotation fields to the target collection
   annotation preset
 - Data objects can be restated by staff users
+- Do not add ``descriptor_schema`` to automatically created entities
 
 Added
 -----
