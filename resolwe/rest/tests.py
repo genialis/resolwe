@@ -91,7 +91,6 @@ class ProjectionTest(TestCase):
             data["entity"].keys(),
             [
                 "created",
-                "descriptor_dirty",
                 "duplicated",
                 "id",
                 "modified",

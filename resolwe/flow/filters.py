@@ -303,7 +303,6 @@ class BaseCollectionFilter(TextFilterMixin, UserFilterMixin, BaseResolweFilter):
             **BaseResolweFilter.Meta.fields,
             **{
                 "description": TEXT_LOOKUPS[:],
-                "descriptor_schema": ["exact"],
             },
         }
 
@@ -331,6 +330,12 @@ class CollectionFilter(BaseCollectionFilter):
         """Filter configuration."""
 
         model = Collection
+        fields = {
+            **BaseCollectionFilter.Meta.fields,
+            **{
+                "descriptor_schema": ["exact"],
+            },
+        }
 
     def count_entities(self, queryset: QuerySet, name: str, value: str):
         """Filter by the number of associated entities."""

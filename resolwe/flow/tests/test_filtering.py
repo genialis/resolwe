@@ -70,6 +70,9 @@ class BaseViewSetFiltersTest(TestCase):
         request = factory.get("/", query_args, format="json")
         force_authenticate(request, user or self.admin)
         response = self.viewset(request)
+        print("Got response")
+        print(response)
+        print(response.data)
 
         if status.is_success(response.status_code):
             self.assertEqual(len(response.data), len(expected))
@@ -451,13 +454,6 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
                 contributor=cls.contributor,
                 collection=cls.collection1,
                 description="My description!",
-                descriptor_schema=cls.descriptor_schema,
-                descriptor={
-                    "company": {
-                        "name": "Genialis",
-                        "departments": ["engineering", "operations"],
-                    }
-                },
                 tags=["first-tag"],
             ),
             Entity.objects.create(
@@ -465,9 +461,8 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
                 slug="test-entity-1",
                 contributor=cls.contributor,
                 collection=cls.collection2,
-                description="My favourite test entity",
-                descriptor_schema=cls.descriptor_schema,
                 tags=["first-tag", "second-tag"],
+                description="My favourite test entity",
             ),
             Entity.objects.create(
                 name="User test entity",
@@ -544,12 +539,6 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter({"description__icontains": "Favourite"}, [self.entities[1]])
         self._check_filter({"description__contains": "Favourite"}, [])
         self._check_filter({"description__contains": "420"}, [])
-
-    def test_filter_descriptor_schema(self):
-        self._check_filter(
-            {"descriptor_schema": str(self.descriptor_schema.pk)}, self.entities[:2]
-        )
-        self._check_filter({"descriptor_schema": "999999"}, [])
 
     def test_filter_tags(self):
         self._check_filter({"tags": "first-tag"}, self.entities[:2])
@@ -676,10 +665,6 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter({"text": "my"}, self.entities[:2])
         self._check_filter({"text": "my description"}, [self.entities[0]])
         self._check_filter({"text": "user"}, self.entities[2:])
-
-        # By descriptor.
-        self._check_filter({"text": "genialis"}, [self.entities[0]])
-        self._check_filter({"text": "engineering"}, [self.entities[0]])
 
         # By mixed fields.
         self._check_filter({"text": "test joe"}, self.entities[:2])

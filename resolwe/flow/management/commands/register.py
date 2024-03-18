@@ -184,21 +184,9 @@ class Command(BaseCommand):
                     continue
 
                 p["entity_type"] = p["entity"]["type"]
-                p["entity_descriptor_schema"] = p["entity"].get(
-                    "descriptor_schema", p["entity_type"]
-                )
                 p["entity_input"] = p["entity"].get("input", None)
                 p["entity_always_create"] = p["entity"].get("always_create", False)
                 p.pop("entity")
-
-                if not DescriptorSchema.objects.filter(
-                    slug=p["entity_descriptor_schema"]
-                ).exists():
-                    self.stderr.write(
-                        "Skip processor {}: Unknown descriptor schema '{}' used in 'entity' "
-                        "field.".format(p["slug"], p["entity_descriptor_schema"])
-                    )
-                    continue
 
             if "persistence" in p:
                 persistence_mapping = {
@@ -452,8 +440,6 @@ class Command(BaseCommand):
         self.register_descriptors(
             descriptor_schemas, user_admin, force, verbosity=verbosity
         )
-        # NOTE: Descriptor schemas must be registered first, so
-        #       processes can validate 'entity_descriptor_schema' field.
         self.register_processes(process_schemas, user_admin, force, verbosity=verbosity)
 
         if retire:

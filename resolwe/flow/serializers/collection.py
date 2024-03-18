@@ -76,7 +76,6 @@ class BaseCollectionSerializer(ResolweBaseSerializer):
         model = Collection
         read_only_fields = (
             "created",
-            "descriptor_dirty",
             "duplicated",
             "id",
             "modified",
@@ -130,4 +129,5 @@ class CollectionSerializer(BaseCollectionSerializer):
             "entity_count",
             "descriptor",
             "descriptor_schema",
+            "descriptor_dirty",
         )

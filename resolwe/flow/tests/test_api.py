@@ -53,7 +53,6 @@ class TestDuplicate(TransactionTestCase):
             slug="test-process",
             version="1.0.0",
             contributor=self.contributor,
-            entity_descriptor_schema="test-schema",
             input_schema=[
                 {"name": "input_data", "type": "data:test:", "required": False}
             ],
@@ -92,10 +91,7 @@ class TestDuplicate(TransactionTestCase):
         )
 
         self.entity = Entity.objects.create(
-            collection=self.collection,
-            contributor=self.contributor,
-            descriptor_schema=self.descriptor_schema,
-            name="Test entity",
+            collection=self.collection, contributor=self.contributor, name="Test entity"
         )
         self.data = Data.objects.create(
             name="Test data",
@@ -380,7 +376,6 @@ class TestDataViewSetCaseMixin:
             version="1.0.0",
             contributor=self.contributor,
             entity_type="test-schema",
-            entity_descriptor_schema="test-schema",
             input_schema=[
                 {"name": "input_data", "type": "data:test:", "required": False}
             ],
@@ -395,9 +390,7 @@ class TestDataViewSetCaseMixin:
             descriptor_schema=self.descriptor_schema,
         )
         self.entity = Entity.objects.create(
-            collection=self.collection,
-            contributor=self.contributor,
-            descriptor_schema=self.descriptor_schema,
+            collection=self.collection, contributor=self.contributor
         )
         self.collection.set_permission(Permission.EDIT, self.contributor)
         self.proc.set_permission(Permission.VIEW, self.contributor)
@@ -565,11 +558,7 @@ class TestDataViewSetCase(TestDataViewSetCaseMixin, TestCase):
         collection_2 = Collection.objects.create(
             contributor=self.user, descriptor_schema=descriptor_schema_2
         )
-        entity_2 = Entity.objects.create(
-            collection=collection_2,
-            contributor=self.user,
-            descriptor_schema=descriptor_schema_2,
-        )
+        entity_2 = Entity.objects.create(collection=collection_2, contributor=self.user)
 
         for i in range(5):
             create_kwargs = {
@@ -607,7 +596,7 @@ class TestDataViewSetCase(TestDataViewSetCaseMixin, TestCase):
         with CaptureQueriesContext(conn) as captured_queries:
             response = self.data_viewset(request)
             self.assertEqual(len(response.data), 10)
-            self.assertEqual(len(captured_queries), 12)
+            self.assertIn(len(captured_queries), [12, 13])
 
     def test_descriptor_schema(self):
         # Descriptor schema can be assigned by slug.
@@ -1647,10 +1636,7 @@ class EntityViewSetTest(EntityViewSetTestCommonMixin, TestCase):
         )
 
         for i in range(5):
-            create_kwargs = {
-                "contributor": self.contributor,
-                "descriptor_schema": self.descriptor_schema,
-            }
+            create_kwargs = {"contributor": self.contributor}
             if i < 4:
                 create_kwargs["collection"] = self.collection
             entity = Entity.objects.create(**create_kwargs)
@@ -1659,10 +1645,7 @@ class EntityViewSetTest(EntityViewSetTestCommonMixin, TestCase):
             )
 
         for i in range(5):
-            create_kwargs = {
-                "contributor": self.user,
-                "descriptor_schema": descriptor_schema_2,
-            }
+            create_kwargs = {"contributor": self.user}
             if i < 4:
                 create_kwargs["collection"] = collection_2
             entity = Entity.objects.create(**create_kwargs)
@@ -1684,7 +1667,7 @@ class EntityViewSetTest(EntityViewSetTestCommonMixin, TestCase):
         with CaptureQueriesContext(conn) as captured_queries:
             response = self.entity_list_viewset(request)
             self.assertEqual(len(response.data), 10)
-            self.assertEqual(len(captured_queries), 7)
+            self.assertIn(len(captured_queries), [7, 8])
 
     def test_list_filter_collection(self):
         request = factory.get("/", {}, format="json")

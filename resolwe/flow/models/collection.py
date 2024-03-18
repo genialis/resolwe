@@ -30,36 +30,11 @@ class BaseCollection(BaseModel):
 
     settings = models.JSONField(default=dict)
 
-    #: collection descriptor schema
-    descriptor_schema = models.ForeignKey(
-        "flow.DescriptorSchema", blank=True, null=True, on_delete=models.PROTECT
-    )
-
-    #: collection descriptor
-    descriptor = models.JSONField(default=dict)
-
-    #: indicate whether `descriptor` doesn't match `descriptor_schema` (is dirty)
-    descriptor_dirty = models.BooleanField(default=False)
-
     #: tags for categorizing objects
     tags = ArrayField(models.CharField(max_length=255), default=list)
 
     #: field used for full-text search
     search = SearchVectorField(null=True)
-
-    def save(self, *args, **kwargs):
-        """Perform descriptor validation and save object."""
-        if self.descriptor_schema:
-            try:
-                validate_schema(self.descriptor, self.descriptor_schema.schema)
-                self.descriptor_dirty = False
-            except DirtyError:
-                self.descriptor_dirty = True
-        elif self.descriptor and self.descriptor != {}:
-            raise ValueError(
-                "`descriptor_schema` must be defined if `descriptor` is given"
-            )
-        super().save(*args, **kwargs)
 
 
 class CollectionQuerySet(BaseQuerySet, PermissionQuerySet):
@@ -122,6 +97,17 @@ class Collection(HistoryMixin, BaseCollection, PermissionObject):
         AnnotationField, related_name="collection"
     )
 
+    #: collection descriptor schema
+    descriptor_schema = models.ForeignKey(
+        "flow.DescriptorSchema", blank=True, null=True, on_delete=models.PROTECT
+    )
+
+    #: collection descriptor
+    descriptor = models.JSONField(default=dict)
+
+    #: indicate whether `descriptor` doesn't match `descriptor_schema` (is dirty)
+    descriptor_dirty = models.BooleanField(default=False)
+
     def is_duplicate(self):
         """Return True if collection is a duplicate."""
         return bool(self.duplicated)
@@ -147,8 +133,18 @@ class Collection(HistoryMixin, BaseCollection, PermissionObject):
         )
 
     def save(self, *args, **kwargs):
-        """Add required annotation fields to the collection."""
+        """Perform descriptor validation and save object."""
         create = self.pk is None
+        if self.descriptor_schema:
+            try:
+                validate_schema(self.descriptor, self.descriptor_schema.schema)
+                self.descriptor_dirty = False
+            except DirtyError:
+                self.descriptor_dirty = True
+        elif self.descriptor and self.descriptor != {}:
+            raise ValueError(
+                "`descriptor_schema` must be defined if `descriptor` is given"
+            )
         super().save(*args, **kwargs)
         if create:
             required_fields = AnnotationField.objects.filter(required=True)
