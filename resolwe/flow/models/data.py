@@ -79,7 +79,6 @@ class DataQuerySet(BaseQuerySet, PermissionQuerySet):
 
         """
         entity_type = obj.process.entity_type
-        entity_descriptor_schema = obj.process.entity_descriptor_schema
         entity_input = obj.process.entity_input
         entity_always_create = obj.process.entity_always_create
         operation = HandleEntityOperation.PASS
@@ -110,12 +109,8 @@ class DataQuerySet(BaseQuerySet, PermissionQuerySet):
             entity_count = entity_query.count()
 
             if entity_count == 0 or entity_always_create:
-                descriptor_schema = DescriptorSchema.objects.filter(
-                    slug=entity_descriptor_schema
-                ).latest()
                 entity = Entity.objects.create(
                     contributor=obj.contributor,
-                    descriptor_schema=descriptor_schema,
                     type=entity_type,
                     name=obj.name,
                     tags=obj.tags,
