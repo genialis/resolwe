@@ -27,6 +27,8 @@ Changed
   annotation preset
 - Data objects can be restated by staff users
 - Do not add ``descriptor_schema`` to automatically created entities
+- Require ``Jinja >= 3.1.3`` to address security vulnerability
+  https://deps.dev/advisory/osv/GHSA-h5c8-rqwp-cp95
 
 Added
 -----
