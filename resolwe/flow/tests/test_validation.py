@@ -111,34 +111,6 @@ class ValidationTest(TestCase):
         ):
             collection.save()
 
-    def test_validate_entity_descriptor(self):
-        descriptor_schema = DescriptorSchema.objects.create(
-            name="Test descriptor schema",
-            contributor=self.user,
-            schema=[{"name": "description", "type": "basic:string:", "required": True}],
-        )
-
-        entity = Entity.objects.create(
-            name="Test descriptor",
-            contributor=self.user,
-            descriptor_schema=descriptor_schema,
-        )
-        self.assertEqual(entity.descriptor_dirty, True)
-
-        entity.descriptor = {"description": "some value"}
-        entity.save()
-        self.assertEqual(entity.descriptor_dirty, False)
-
-        entity.descriptor = {}
-        entity.save()
-        self.assertEqual(entity.descriptor_dirty, True)
-
-        entity.descriptor = {"description": 42}
-        with self.assertRaisesRegex(
-            ValidationError, "is not valid under any of the given schemas"
-        ):
-            entity.save()
-
     def test_referenced_storage(self):
         proc = Process.objects.create(
             name="Test process",

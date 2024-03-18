@@ -331,7 +331,7 @@ class CollectionFilter(BaseCollectionFilter):
 
         model = Collection
         fields = {
-            **BaseResolweFilter.Meta.fields,
+            **BaseCollectionFilter.Meta.fields,
             **{
                 "descriptor_schema": ["exact"],
             },

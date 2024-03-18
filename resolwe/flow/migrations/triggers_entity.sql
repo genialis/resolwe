@@ -50,9 +50,7 @@ CREATE OR REPLACE FUNCTION generate_resolwe_entity_search(entity flow_entity)
             -- Owners last names. There is no guarantee that it is not NULL.
             setweight(to_tsvector('simple', COALESCE(owners.last_names, '')), 'B') ||
             -- Entity tags.
-            setweight(to_tsvector('simple', array_to_string(entity.tags, ' ')), 'B') ||
-            -- Entity descriptor.
-            setweight(to_tsvector('simple', flat_descriptor), 'C')
+            setweight(to_tsvector('simple', array_to_string(entity.tags, ' ')), 'B')
         INTO search;
 
         RETURN search;

@@ -81,7 +81,6 @@ class TestManager(ProcessTestCase):
         spawned_process = Process.objects.filter(slug="test-save-file").latest()
         # Patch the process to create Entity, so its bahaviour can be tested.
         spawned_process.entity_type = "test-schema"
-        spawned_process.entity_descriptor_schema = "test-schema"
         spawned_process.save()
 
         # Make sure user can spawn the process.
