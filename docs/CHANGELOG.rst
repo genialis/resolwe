@@ -67,12 +67,12 @@ Changed
 38.3.0 - 2024-01-11
 ===================
 
-Fix
----
+Fixed
+-----
 - Correctly clear ``Redis`` cache on data restart
 
-Add
----
+Added
+-----
 - Add ``clear_redis_cache`` management command
 - Add modified field to the ``AnnotationValue`` model and expose it in API
 
@@ -81,8 +81,8 @@ Add
 38.2.0 - 2023-12-15
 ===================
 
-Fix
----
+Fixed
+-----
 - Add default value for ``FLOW_PROCESSES_ALLOW_LIST`` and
   ``FLOW_PROCESSES_IGNORE_LIST`` in case of missing settings.
 - User defined slug must not be changed
@@ -115,6 +115,7 @@ Changed
 -------
 - Redis cache in listener is updated when data fields are retrieved from the
   database
+- Bulk annotations on entity endpoint now accept field path instead of id
 
 Added
 -----
@@ -132,10 +133,6 @@ Fixed
   and progress fields to be ignored
 - Already processed messages in listener are ignored for one day so messages
   are not processed twice
-
-Changed
--------
-- Bulk annotations on entity endpoint now accept field path instead of id
 
 
 ===================
@@ -183,6 +180,7 @@ Fixed
 -----
 - Set ``value`` to ``AnnotationValue`` object on duplication when it is created
 - Send ``post_duplicate`` signal only on successful duplication
+
 Changed
 -------
 - Simplify permission checks on ``AnontationValue`` endpoint
