@@ -1,8 +1,12 @@
-CREATE TYPE users_result AS (
-    usernames text,
-    first_names text,
-    last_names text
-);
+DO $$ BEGIN
+    CREATE TYPE users_result AS (
+        usernames text,
+        first_names text,
+        last_names text
+    );
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
 CREATE OR REPLACE FUNCTION edge_ngrams(text text)
     RETURNS tsvector
@@ -67,5 +71,4 @@ CREATE OR REPLACE FUNCTION flatten_descriptor_values(value jsonb)
         SELECT string_agg(nullif((value #>> '{}')::text, ''), ' ')
         FROM tree
         WHERE typeof = 'string' OR typeof = 'number'
-        GROUP BY true
     $$;
