@@ -7,6 +7,15 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
 ===================
+38.6.0 - 2024-04-15
+===================
+
+Fixed
+-----
+- Modify migrations to support ``PostgreSQL 15+``
+
+
+===================
 38.5.0 - 2024-03-25
 ===================
 
