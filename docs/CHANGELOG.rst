@@ -19,6 +19,10 @@ Changed
   https://deps.dev/advisory/osv/GHSA-h5c8-rqwp-cp95
 - Do not add ``descriptor_schema`` to automatically created entities
 
+Fix
+---
+- Refresh the entity related SQL stored procedures
+
 
 ===================
 38.6.0 - 2024-04-15
