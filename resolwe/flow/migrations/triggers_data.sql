@@ -90,7 +90,7 @@ CREATE OR REPLACE FUNCTION data_biut()
     END;
     $$;
 
-CREATE TRIGGER data_biut
+CREATE OR REPLACE TRIGGER data_biut
     BEFORE INSERT OR UPDATE
     ON flow_data
     FOR EACH ROW EXECUTE PROCEDURE data_biut();
@@ -125,7 +125,7 @@ CREATE OR REPLACE FUNCTION userpermission_data_aiut()
     END;
     $$;
 
-CREATE TRIGGER userpermission_data_aiut
+CREATE OR REPLACE TRIGGER userpermission_data_aiut
     AFTER INSERT OR UPDATE
     ON permissions_permissionmodel
     FOR EACH ROW EXECUTE PROCEDURE userpermission_data_aiut();
@@ -140,7 +140,7 @@ CREATE OR REPLACE FUNCTION userpermission_data_adt()
     END;
     $$;
 
-CREATE TRIGGER userpermission_data_adt
+CREATE OR REPLACE TRIGGER userpermission_data_adt
     AFTER DELETE
     ON permissions_permissionmodel
     FOR EACH ROW EXECUTE PROCEDURE userpermission_data_adt();
@@ -159,7 +159,7 @@ CREATE OR REPLACE FUNCTION data_contributor_aut()
     END;
     $$;
 
-CREATE TRIGGER data_contributor_aut
+CREATE OR REPLACE TRIGGER data_contributor_aut
     AFTER UPDATE
     ON auth_user
     FOR EACH ROW EXECUTE PROCEDURE data_contributor_aut();
@@ -188,7 +188,7 @@ CREATE OR REPLACE FUNCTION data_owner_aut()
     END;
     $$;
 
-CREATE TRIGGER data_owner_aut
+CREATE OR REPLACE TRIGGER data_owner_aut
     AFTER UPDATE
     ON auth_user
     FOR EACH ROW EXECUTE PROCEDURE data_owner_aut();

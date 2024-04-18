@@ -72,7 +72,7 @@ CREATE OR REPLACE FUNCTION entity_biut()
     END;
     $$;
 
-CREATE TRIGGER entity_biut
+CREATE OR REPLACE TRIGGER entity_biut
     BEFORE INSERT OR UPDATE
     ON flow_entity
     FOR EACH ROW EXECUTE PROCEDURE entity_biut();
@@ -107,7 +107,7 @@ CREATE OR REPLACE FUNCTION userpermission_entity_aiut()
     END;
     $$;
 
-CREATE TRIGGER userpermission_entity_aiut
+CREATE OR REPLACE TRIGGER userpermission_entity_aiut
     AFTER INSERT OR UPDATE
     ON permissions_permissionmodel
     FOR EACH ROW EXECUTE PROCEDURE userpermission_entity_aiut();
@@ -122,7 +122,7 @@ CREATE OR REPLACE FUNCTION userpermission_entity_adt()
     END;
     $$;
 
-CREATE TRIGGER userpermission_entity_adt
+CREATE OR REPLACE TRIGGER userpermission_entity_adt
     AFTER DELETE
     ON permissions_permissionmodel
     FOR EACH ROW EXECUTE PROCEDURE userpermission_entity_adt();
@@ -141,7 +141,7 @@ CREATE OR REPLACE FUNCTION entity_contributor_aut()
     END;
     $$;
 
-CREATE TRIGGER entity_contributor_aut
+CREATE OR REPLACE TRIGGER entity_contributor_aut
     AFTER UPDATE
     ON auth_user
     FOR EACH ROW EXECUTE PROCEDURE entity_contributor_aut();
@@ -171,7 +171,7 @@ CREATE OR REPLACE FUNCTION entity_owner_aut()
     END;
     $$;
 
-CREATE TRIGGER entity_owner_aut
+CREATE OR REPLACE TRIGGER entity_owner_aut
     AFTER UPDATE
     ON auth_user
     FOR EACH ROW EXECUTE PROCEDURE entity_owner_aut();

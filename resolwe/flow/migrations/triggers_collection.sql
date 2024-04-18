@@ -79,7 +79,7 @@ CREATE OR REPLACE FUNCTION collection_biut()
     END;
     $$;
 
-CREATE TRIGGER collection_biut
+CREATE OR REPLACE TRIGGER collection_biut
     BEFORE INSERT OR UPDATE
     ON flow_collection
     FOR EACH ROW EXECUTE PROCEDURE collection_biut();
@@ -114,7 +114,7 @@ CREATE OR REPLACE FUNCTION userpermission_collection_aiut()
     END;
     $$;
 
-CREATE TRIGGER userpermission_collection_aiut
+CREATE OR REPLACE TRIGGER userpermission_collection_aiut
     AFTER INSERT OR UPDATE
     ON permissions_permissionmodel
     FOR EACH ROW EXECUTE PROCEDURE userpermission_collection_aiut();
@@ -129,7 +129,7 @@ CREATE OR REPLACE FUNCTION userpermission_collection_adt()
     END;
     $$;
 
-CREATE TRIGGER userpermission_collection_adt
+CREATE OR REPLACE TRIGGER userpermission_collection_adt
     AFTER DELETE
     -- ON guardian_userobjectpermission
     ON permissions_permissionmodel
@@ -149,7 +149,7 @@ CREATE OR REPLACE FUNCTION collection_contributor_aut()
     END;
     $$;
 
-CREATE TRIGGER collection_contributor_aut
+CREATE OR REPLACE TRIGGER collection_contributor_aut
     AFTER UPDATE
     ON auth_user
     FOR EACH ROW EXECUTE PROCEDURE collection_contributor_aut();
@@ -178,7 +178,7 @@ CREATE OR REPLACE FUNCTION collection_owner_aut()
     END;
     $$;
 
-CREATE TRIGGER collection_owner_aut
+CREATE OR REPLACE TRIGGER collection_owner_aut
     AFTER UPDATE
     ON auth_user
     FOR EACH ROW EXECUTE PROCEDURE collection_owner_aut();
