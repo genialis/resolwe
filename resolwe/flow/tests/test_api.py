@@ -334,7 +334,7 @@ class TestDuplicate(TransactionTestCase):
         self.assertEqual(collection_without_perm.data.count(), 1)
 
 
-class TestDataViewSetCaseMixin:
+class TestDataViewSetCase(TestCase):
     def setUp(self):
         super().setUp()
         self.client = APIClient()
@@ -396,109 +396,6 @@ class TestDataViewSetCaseMixin:
         self.proc.set_permission(Permission.VIEW, self.contributor)
         self.descriptor_schema.set_permission(Permission.VIEW, self.contributor)
 
-
-class TestDataViewSetCaseTransaction(TestDataViewSetCaseMixin, TransactionTestCase):
-    """Test background jobs."""
-
-    def test_move_to_collection(self):
-        data_in_entity = Data.objects.create(
-            contributor=self.contributor, process=self.proc
-        )
-        data_orphan = Data.objects.create(
-            contributor=self.contributor, process=self.proc
-        )
-        data_orphan.entity.data.remove(data_orphan)
-
-        collection_1 = Collection.objects.create(contributor=self.contributor)
-        collection_1.data.add(data_orphan)
-        collection_1.set_permission(Permission.EDIT, self.contributor)
-
-        collection_2 = Collection.objects.create(contributor=self.contributor)
-        collection_2.set_permission(Permission.EDIT, self.contributor)
-
-        # Assert preventing moving data in entity.
-        request = factory.post(
-            reverse("resolwe-api:data-move-to-collection"),
-            {
-                "ids": [data_in_entity.id],
-                "destination_collection": collection_2.id,
-            },
-            format="json",
-        )
-        force_authenticate(request, self.contributor)
-        response = self.move_to_collection_viewset(request)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        # Wait for the task to finish.
-        task = BackgroundTask.objects.get(pk=response.data["id"])
-        task.wait(final_statuses=["ER"])
-        task.refresh_from_db()
-        self.assertEqual(
-            task.output[0],
-            "If Data is in entity, you can only move it to another collection by moving entire entity.",
-        )
-
-        # Assert moving data not in entity.
-        request = factory.post(
-            reverse("resolwe-api:data-move-to-collection"),
-            {
-                "ids": [data_orphan.id],
-                "destination_collection": collection_2.id,
-            },
-            format="json",
-        )
-        self.assertEqual(collection_1.data.count(), 1)
-        self.assertEqual(collection_2.data.count(), 0)
-
-        force_authenticate(request, self.contributor)
-        response = self.move_to_collection_viewset(request)
-        task = BackgroundTask.objects.get(pk=response.data["id"])
-        task.wait()
-        self.assertEqual(collection_1.data.count(), 0)
-        self.assertEqual(collection_2.data.count(), 1)
-
-        # Assert preventing moving data if destination collection
-        # lacks permissions.
-        collection_1.set_permission(Permission.VIEW, self.contributor)
-        request = factory.post(
-            reverse("resolwe-api:data-move-to-collection"),
-            {
-                "ids": [data_orphan.id],
-                "destination_collection": collection_1.id,
-            },
-            format="json",
-        )
-        force_authenticate(request, self.contributor)
-        response = self.move_to_collection_viewset(request)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(
-            response.data["detail"],
-            "You do not have permission to perform this action.",
-        )
-
-        # It shouldn't be possible to move the data if you don't
-        # have edit permission on both collections.
-        collection_1.set_permission(Permission.EDIT, self.contributor)
-        collection_2.set_permission(Permission.VIEW, self.contributor)
-        request = factory.post(
-            reverse("resolwe-api:data-move-to-collection"),
-            {
-                "ids": [data_orphan.id],
-                "destination_collection": collection_1.id,
-            },
-            format="json",
-        )
-        force_authenticate(request, self.contributor)
-        response = self.move_to_collection_viewset(request)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(
-            response.data["detail"],
-            "You do not have permission to perform this action.",
-        )
-        self.assertEqual(collection_1.data.count(), 0)
-        self.assertEqual(collection_2.data.count(), 1)
-
-
-class TestDataViewSetCase(TestDataViewSetCaseMixin, TestCase):
     def test_restart(self):
         data = Data.objects.create(contributor=self.contributor, process=self.proc)
         data.status = Data.STATUS_DONE
@@ -876,6 +773,99 @@ class TestDataViewSetCase(TestDataViewSetCaseMixin, TestCase):
 
         data.refresh_from_db()
         self.assertEqual(data.tags, collection.tags)
+
+    def test_move_to_collection(self):
+        data_in_entity = Data.objects.create(
+            contributor=self.contributor, process=self.proc
+        )
+        data_orphan = Data.objects.create(
+            contributor=self.contributor, process=self.proc
+        )
+        data_orphan.entity.data.remove(data_orphan)
+
+        collection_1 = Collection.objects.create(contributor=self.contributor)
+        collection_1.data.add(data_orphan)
+        collection_1.set_permission(Permission.EDIT, self.contributor)
+
+        collection_2 = Collection.objects.create(contributor=self.contributor)
+        collection_2.set_permission(Permission.EDIT, self.contributor)
+
+        # Assert preventing moving data in entity.
+        request = factory.post(
+            reverse("resolwe-api:data-move-to-collection"),
+            {
+                "ids": [data_in_entity.id],
+                "destination_collection": collection_2.id,
+            },
+            format="json",
+        )
+        force_authenticate(request, self.contributor)
+        response = self.move_to_collection_viewset(request)
+
+        self.assertEqual(
+            response.data["error"],
+            "If Data is in entity, you can only move it to another collection by moving entire entity.",
+        )
+
+        # Assert moving data not in entity.
+        request = factory.post(
+            reverse("resolwe-api:data-move-to-collection"),
+            {
+                "ids": [data_orphan.id],
+                "destination_collection": collection_2.id,
+            },
+            format="json",
+        )
+
+        self.assertEqual(collection_1.data.count(), 1)
+        self.assertEqual(collection_2.data.count(), 0)
+
+        force_authenticate(request, self.contributor)
+        response = self.move_to_collection_viewset(request)
+
+        self.assertEqual(collection_1.data.count(), 0)
+        self.assertEqual(collection_2.data.count(), 1)
+
+        # Assert preventing moving data if destination collection
+        # lacks permissions.
+        collection_1.set_permission(Permission.VIEW, self.contributor)
+        request = factory.post(
+            reverse("resolwe-api:data-move-to-collection"),
+            {
+                "ids": [data_orphan.id],
+                "destination_collection": collection_1.id,
+            },
+            format="json",
+        )
+        force_authenticate(request, self.contributor)
+        response = self.move_to_collection_viewset(request)
+
+        self.assertEqual(
+            response.data["detail"],
+            "You do not have permission to perform this action.",
+        )
+
+        # It shouldn't be possible to move the data if you don't
+        # have edit permission on both collections.
+        collection_1.set_permission(Permission.EDIT, self.contributor)
+        collection_2.set_permission(Permission.VIEW, self.contributor)
+        request = factory.post(
+            reverse("resolwe-api:data-move-to-collection"),
+            {
+                "ids": [data_orphan.id],
+                "destination_collection": collection_1.id,
+            },
+            format="json",
+        )
+        force_authenticate(request, self.contributor)
+        response = self.move_to_collection_viewset(request)
+
+        self.assertEqual(
+            response.data["detail"],
+            "You do not have permission to perform this action.",
+        )
+        self.assertEqual(collection_1.data.count(), 0)
+        self.assertEqual(collection_2.data.count(), 1)
 
     def test_process_is_active(self):
         # Do not allow creating data of inactive processes
@@ -1371,7 +1361,6 @@ class TestCollectionViewSetCaseDelete(
         )
 
         # Anonymous request, no permission.
-        get_anonymous_user(False)
         response = client.post(
             request_path, data={"ids": [collection1.pk]}, format="json"
         )
@@ -1583,49 +1572,6 @@ class EntityViewSetTestCommonMixin:
         )
 
 
-class EntityViewSetTestTransaction(EntityViewSetTestCommonMixin, TransactionTestCase):
-    """Test background task."""
-
-    def test_move_to_collection(self):
-        source_collection = Collection.objects.create(contributor=self.contributor)
-        source_collection.set_permission(Permission.EDIT, self.contributor)
-        entity = Entity.objects.create(
-            contributor=self.contributor, collection=source_collection
-        )
-        data = self._create_data()
-        data.entity = entity
-        data.collection = source_collection
-        data.save()
-
-        destination_collection = Collection.objects.create(contributor=self.contributor)
-        destination_collection.set_permission(Permission.EDIT, self.contributor)
-
-        request = factory.post(
-            reverse("resolwe-api:entity-move-to-collection"),
-            {
-                "ids": [entity.id],
-                "source_collection": source_collection.id,
-                "destination_collection": destination_collection.id,
-            },
-            format="json",
-        )
-        self.assertEqual(source_collection.entity_set.count(), 1)
-        self.assertEqual(source_collection.data.count(), 1)
-        self.assertEqual(destination_collection.entity_set.count(), 0)
-        self.assertEqual(destination_collection.data.count(), 0)
-
-        force_authenticate(request, self.contributor)
-        response = self.move_to_collection_viewset(request)
-        task = BackgroundTask.objects.get(pk=response.data["id"])
-        task.wait()
-
-        self.assertEqual(source_collection.entity_set.count(), 0)
-        self.assertEqual(source_collection.data.count(), 0)
-        self.assertEqual(destination_collection.entity_set.count(), 1)
-        self.assertEqual(destination_collection.entity_set.first().id, entity.id)
-        self.assertEqual(destination_collection.data.first().id, data.id)
-
-
 class EntityViewSetTest(EntityViewSetTestCommonMixin, TestCase):
     def test_prefetch(self):
         self.entity.delete()
@@ -1716,6 +1662,44 @@ class EntityViewSetTest(EntityViewSetTestCommonMixin, TestCase):
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
 
         self.assertIn("can only be moved to another container.", resp.data["error"])
+
+    def test_move_to_collection(self):
+        source_collection = Collection.objects.create(contributor=self.contributor)
+        source_collection.set_permission(Permission.EDIT, self.contributor)
+        entity = Entity.objects.create(
+            contributor=self.contributor, collection=source_collection
+        )
+        data = self._create_data()
+        data.entity = entity
+        data.collection = source_collection
+        data.save()
+
+        destination_collection = Collection.objects.create(contributor=self.contributor)
+        destination_collection.set_permission(Permission.EDIT, self.contributor)
+
+        request = factory.post(
+            reverse("resolwe-api:entity-move-to-collection"),
+            {
+                "ids": [entity.id],
+                "source_collection": source_collection.id,
+                "destination_collection": destination_collection.id,
+            },
+            format="json",
+        )
+        force_authenticate(request, self.contributor)
+
+        self.assertEqual(source_collection.entity_set.count(), 1)
+        self.assertEqual(source_collection.data.count(), 1)
+        self.assertEqual(destination_collection.entity_set.count(), 0)
+        self.assertEqual(destination_collection.data.count(), 0)
+
+        self.move_to_collection_viewset(request)
+
+        self.assertEqual(source_collection.entity_set.count(), 0)
+        self.assertEqual(source_collection.data.count(), 0)
+        self.assertEqual(destination_collection.entity_set.count(), 1)
+        self.assertEqual(destination_collection.entity_set.first().id, entity.id)
+        self.assertEqual(destination_collection.data.first().id, data.id)
 
     def test_duplicate_not_auth(self):
         request = factory.post(reverse("resolwe-api:entity-duplicate"), format="json")

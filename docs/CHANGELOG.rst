@@ -12,7 +12,6 @@ Unreleased
 
 Changed
 -------
-- **BACKWARD INCOMPATIBLE:** Make move between collections a background job
 - **BACKWARD INCOMPATIBLE:** Remove ``descriptor_schema`` and ``descriptor``
   field from the ``Entity`` model
 - Require ``Jinja >= 3.1.3`` to address security vulnerability

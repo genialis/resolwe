@@ -21,7 +21,6 @@ from resolwe.flow.models.utils import fill_with_defaults
 from resolwe.flow.serializers import DataSerializer
 from resolwe.flow.utils import get_data_checksum
 from resolwe.observers.mixins import ObservableMixin
-from resolwe.observers.views import BackgroundTaskSerializer
 from resolwe.permissions.loader import get_permissions_class
 from resolwe.permissions.mixins import ResolwePermissionsMixin
 from resolwe.permissions.models import Permission, PermissionModel
@@ -200,11 +199,9 @@ class DataViewSet(
         dst_collection = get_collection_for_user(dst_collection_id, request.user)
 
         queryset = self._get_data(request.user, ids)
-        task = queryset.move_to_collection(dst_collection, request.user)
-        return Response(
-            status=status.HTTP_200_OK,
-            data=BackgroundTaskSerializer(task).data,
-        )
+        queryset.move_to_collection(dst_collection)
+
+        return Response()
 
     def _get_data(self, user, ids):
         """Return data objects queryset based on provided ids."""
