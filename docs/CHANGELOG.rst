@@ -13,6 +13,7 @@ Unreleased
 Changed
 -------
 - **BACKWARD INCOMPATIBLE:** Make move between collections a background job
+- Use ``simple_unaccent`` full text search configuration instead of ``simple``
 
 
 ===================
