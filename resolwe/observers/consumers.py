@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from enum import Enum
-from typing import Callable, Optional
+from typing import Callable, Optional, TypedDict
 
 from channels.consumer import AsyncConsumer
 from channels.db import database_sync_to_async
@@ -13,6 +13,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.utils import timezone
 
 from resolwe.flow.models.utils.duplicate import (
@@ -29,6 +30,15 @@ logger = logging.getLogger(__name__)
 BACKGROUND_TASK_CHANNEL = "observers.background_task"
 
 
+class MoveMessage(TypedDict):
+    """The message used when moving objects between collections."""
+
+    task_id: int
+    target_id: int
+    data_ids: list[int]
+    entity_ids: list[int]
+
+
 class BackgroundTaskType(Enum):
     """Background task types."""
 
@@ -36,6 +46,7 @@ class BackgroundTaskType(Enum):
     DUPLICATE_ENTITY = "duplicate_entity"
     DUPLICATE_COLLECTION = "duplicate_collection"
     DELETE = "delete"
+    MOVE = "move_between_collections"
 
 
 def update_constants():
@@ -216,6 +227,32 @@ class BackgroundTaskConsumer(AsyncConsumer):
             return [duplicate.pk for duplicate in duplicates]
 
         await self.wrap_task(duplicate, message["task_id"])
+
+    async def move_between_collections(self, message: MoveMessage):
+        """Move data objects and entities between two collections.
+
+        Only one type of objects can be moved at the same time.
+        """
+
+        # Break circular import.
+        from resolwe.flow.models import Collection, Data, Entity
+
+        @transaction.atomic
+        def move():
+            target = Collection.objects.get(pk=message["target_id"])
+            entities = [
+                Entity.objects.get(pk=entity_id) for entity_id in message["entity_ids"]
+            ]
+            data_objects = [
+                Data.objects.get(pk=data_id) for data_id in message["data_ids"]
+            ]
+            assert (
+                not entities or not data_objects
+            ), "Can not move entities and data objects at the same time."
+            for datum in data_objects or entities:
+                datum.move_to_collection(target)
+
+        await self.wrap_task(move, message["task_id"])
 
     async def delete(self, message: dict):
         """Delete the objects and update task status.

@@ -217,15 +217,20 @@ class DataQuerySet(BaseQuerySet, PermissionQuerySet):
             BackgroundTaskType.DELETE, "Delete data", task_data, contributor
         )
 
-    @transaction.atomic
-    def move_to_collection(self, destination_collection):
-        """Move data objects to destination collection.
+    def move_to_collection(self, destination_collection, contributor):
+        """Move data objects to destination collection in the background.
 
         Note that this method will also copy tags and permissions
         of the destination collection to the data objects.
         """
-        for data in self:
-            data.move_to_collection(destination_collection)
+        task_data = {
+            "target_id": destination_collection.pk,
+            "data_ids": list(self.values_list("pk", flat=True)),
+            "entity_ids": [],
+        }
+        return start_background_task(
+            BackgroundTaskType.MOVE, "Delete data", task_data, contributor
+        )
 
     def annotate_sample_path(self, path, annotation_name, value_to_label=False):
         """Add annotation to the Entity QuerySet.

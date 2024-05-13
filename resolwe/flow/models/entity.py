@@ -45,11 +45,16 @@ class EntityQuerySet(BaseQuerySet, PermissionQuerySet):
             BackgroundTaskType.DELETE, "Delete entities", task_data, contributor
         )
 
-    @transaction.atomic
-    def move_to_collection(self, destination_collection: Collection):
+    def move_to_collection(self, destination_collection: Collection, contributor):
         """Move entities to destination collection."""
-        for entity in self:
-            entity.move_to_collection(destination_collection)
+        task_data = {
+            "target_id": destination_collection.pk,
+            "data_ids": [],
+            "entity_ids": list(self.values_list("pk", flat=True)),
+        }
+        return start_background_task(
+            BackgroundTaskType.MOVE, "Move entities", task_data, contributor
+        )
 
     def annotate_all(self, add_labels: bool = False):
         """Annotate with all metadata on the entities.
@@ -272,7 +277,8 @@ class Entity(BaseCollection, PermissionObject):
         self.tags = collection.tags
         self.permission_group = collection.permission_group
         self.save(update_fields=["collection", "tags", "permission_group"])
-        self.data.move_to_collection(collection)
+        for data in self.data.all():
+            data.move_to_collection(collection)
 
     def invalid_annotation_fields(self, annotation_fields=None):
         """Get the Queryset of invalid annotation fields.
