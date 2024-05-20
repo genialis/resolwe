@@ -21,7 +21,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 
 from resolwe.flow.models.base import BaseModel
-from resolwe.permissions.models import Permission, PermissionObject
+from resolwe.permissions.models import PermissionInterface, PermissionObject
 
 if TYPE_CHECKING:
     from resolwe.flow.models import Collection, Entity
@@ -383,33 +383,19 @@ class AnnotationPreset(BaseModel, PermissionObject):
     #: the fields belonging to this preset
     fields = models.ManyToManyField(AnnotationField, related_name="presets")
 
-    class Meta:
-        """Override parent meta."""
-
     def __str__(self):
         """Return the string representation."""
         return self.name
 
+    def can_set_permission(self) -> bool:
+        """Return whether permissions can be set."""
+        return True
 
-class AnnotationValueQuerySet(models.QuerySet):
-    """Custom queryset for AnnotationValue."""
-
-    def filter_for_user(self, user) -> "AnnotationValueQuerySet":
-        """Filter annotation values for user.
-
-        Return the annotation values on entities user has view permission for.
-        """
-        # Avoid circular import.
-        from resolwe.flow.models import Entity
-
-        return self.filter(
-            entity__in=Entity.objects.filter(
-                pk__in=self.values("entity")
-            ).filter_for_user(user)
-        )
+    class Meta:
+        """Override parent meta."""
 
 
-class AnnotationValue(AuditModel):
+class AnnotationValue(PermissionInterface, AuditModel):
     """The value of the annotation."""
 
     class Meta:
@@ -421,8 +407,6 @@ class AnnotationValue(AuditModel):
             ),
         ]
         ordering = ["field__group__sort_order", "field__sort_order"]
-
-    objects = AnnotationValueQuerySet.as_manager()
 
     #: the entity this field belongs to
     entity: "Entity" = models.ForeignKey(
@@ -515,12 +499,10 @@ class AnnotationValue(AuditModel):
             entity_id=entity_id, field_id=field_id
         ).first()
 
-    def has_permission(self, permission: Permission, user) -> bool:
-        """Return if user permission on this object.
-
-        The permission is checked on the entity.
-        """
-        return self.entity.has_permission(permission, user)
+    @classmethod
+    def permission_proxy(cls) -> str:
+        """Return the permission group path."""
+        return "entity"
 
     def __str__(self) -> str:
         """Return user-friendly string representation."""

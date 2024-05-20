@@ -2,7 +2,7 @@
 
 from django.db import models
 
-from resolwe.permissions.models import PermissionQuerySet
+from resolwe.permissions.models import PermissionInterface, PermissionQuerySet
 
 from .base import BaseModel
 from .functions import JsonGetPath
@@ -38,7 +38,7 @@ class StorageManager(models.Manager):
         )
 
 
-class Storage(BaseModel):
+class Storage(BaseModel, PermissionInterface):
     """Postgres model for storing storages."""
 
     #: corresponding data objects
@@ -49,6 +49,11 @@ class Storage(BaseModel):
 
     #: storage manager
     objects = StorageManager.from_queryset(PermissionQuerySet)()
+
+    @classmethod
+    def permission_proxy(cls) -> str:
+        """Return the permission group path."""
+        return "data"
 
 
 class LazyStorageJSON:

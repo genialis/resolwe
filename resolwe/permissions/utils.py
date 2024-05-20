@@ -8,7 +8,7 @@ Permissions utils
 
 """
 
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple, Type, Union
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser, Group, User
@@ -18,6 +18,7 @@ from rest_framework import exceptions
 
 from resolwe.permissions.models import (
     Permission,
+    PermissionInterface,
     PermissionModel,
     UserOrGroup,
     get_anonymous_user,
@@ -61,10 +62,15 @@ def get_user(user: User) -> User:
         return get_anonymous_user()
 
 
-def model_has_permissions(obj: models.Model) -> bool:
+def model_has_permissions(obj: Union[models.Model, Type[models.Model]]) -> bool:
     """Check whether model has object level permissions."""
-    additional_labels = ["flow.Storage", "flow.AnnotationValue"]
-    return hasattr(obj, "permission_group") or obj._meta.label in additional_labels
+
+    try:
+        return isinstance(obj, PermissionInterface) or issubclass(
+            obj, PermissionInterface
+        )
+    except TypeError:
+        return False
 
 
 def get_identity(user_group: Union[Group, User]) -> Tuple[UserOrGroup, str]:

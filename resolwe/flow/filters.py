@@ -28,7 +28,11 @@ from rest_framework import fields
 from rest_framework.filters import OrderingFilter as DrfOrderingFilter
 
 from resolwe.composer import composer
-from resolwe.permissions.models import Permission, get_anonymous_user
+from resolwe.permissions.models import (
+    Permission,
+    PermissionInterface,
+    get_anonymous_user,
+)
 
 from .models import (
     AnnotationField,
@@ -181,7 +185,9 @@ class UserFilterMixin:
         """Filter queryset by owner's name."""
         return queryset.filter(contributor__in=self._get_user_subquery(value))
 
-    def filter_for_user(self, queryset: QuerySet, name: str, value: str):
+    def filter_for_user(
+        self, queryset: QuerySet[PermissionInterface], name: str, value: str
+    ) -> QuerySet[PermissionInterface]:
         """Filter queryset by permissions."""
         user = self.request.user
         return queryset.filter_for_user(user, Permission.from_name(value))

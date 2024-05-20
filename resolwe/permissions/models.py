@@ -132,11 +132,6 @@ class PermissionModel(models.Model):
     Exactly one of fields user/group must be non-null.
     """
 
-    # Access all permissions, including the ones with 0 permission.
-    all_objects = models.Manager()
-    # By default return only positive permissions.
-    objects = PositivePermissionsManager()
-
     #: permission value
     value = models.PositiveSmallIntegerField()
 
@@ -157,6 +152,12 @@ class PermissionModel(models.Model):
     permission_group = models.ForeignKey(
         "PermissionGroup", on_delete=models.CASCADE, related_name="permissions"
     )
+
+    # Access all permissions, including the ones with 0 permission.
+    all_objects = models.Manager()
+
+    # By default return only positive permissions.
+    objects = PositivePermissionsManager()
 
     class Meta:
         """Define constraints enforced on the model.
@@ -274,7 +275,7 @@ class PermissionGroup(models.Model):
         return list(Group.objects.filter(filter).distinct())
 
 
-class PermissionQuerySet(models.QuerySet):
+class PermissionQuerySet(models.QuerySet["PermissionInterface"]):
     """Queryset with methods that simlify filtering by permissions."""
 
     def _filter_by_permission(
@@ -304,34 +305,31 @@ class PermissionQuerySet(models.QuerySet):
         if user is not None and user.is_superuser and with_superuser:
             return self
 
-        # Handle special case of Storage and Relation.
-        filters_prefix = ""
-        if self.model._meta.label == "flow.Storage":
-            filters_prefix = "data__"
-
         filters = dict()
+        permission_group_path = self.model.permission_group_path()
+
         if user:
             filters["user"] = models.Q(
                 **{
-                    f"{filters_prefix}permission_group__permissions__user": user,
-                    f"{filters_prefix}permission_group__permissions__value__gte": permission,
+                    f"{permission_group_path}__permissions__user": user,
+                    f"{permission_group_path}__permissions__value__gte": permission,
                 }
             )
 
         if public:
             filters["public"] = models.Q(
                 **{
-                    f"{filters_prefix}permission_group__permissions__user": get_anonymous_user(),
-                    f"{filters_prefix}permission_group__permissions__value__gte": permission,
+                    f"{permission_group_path}__permissions__user": get_anonymous_user(),
+                    f"{permission_group_path}__permissions__value__gte": permission,
                 }
             )
         if groups:
             filters["groups"] = models.Q(
                 **{
-                    f"{filters_prefix}permission_group__permissions__group__in": groups.values_list(
+                    f"{permission_group_path}__permissions__group__in": groups.values_list(
                         "pk", flat=True
                     ),
-                    f"{filters_prefix}permission_group__permissions__value__gte": permission,
+                    f"{permission_group_path}__permissions__value__gte": permission,
                 }
             )
 
@@ -343,7 +341,7 @@ class PermissionQuerySet(models.QuerySet):
                 reduce(lambda filters, filter: filters | filter, filters.values())
             )
             .distinct()
-            .values_list("id", flat=True)
+            .values_list("pk", flat=True)
         )
         return self.filter(id__in=ids)
 
@@ -381,10 +379,14 @@ class PermissionQuerySet(models.QuerySet):
         """Set the permission on the objects in the queryset."""
         from resolwe.permissions.utils import get_identity  # Circular import
 
+        if any(datum for datum in self if not datum.can_set_permission()):
+            ids = self.values_list("pk", flat=True)
+            raise RuntimeError(
+                f"The permissions can not be set on objects with ids {ids} of type {self.model}."
+            )
         entity, entity_type = get_identity(user_or_group)
-
         for permission_group_id in self.values_list(
-            "permission_group", flat=True
+            self.model.permission_group_path(), flat=True
         ).distinct():
             PermissionModel.all_objects.update_or_create(
                 **{"permission_group_id": permission_group_id, entity_type: entity},
@@ -392,30 +394,45 @@ class PermissionQuerySet(models.QuerySet):
             )
 
 
-class PermissionObject(models.Model):
-    """Base permission object.
+class PermissionInterface(models.Model):
+    """The abstract model that defines permission interface.
 
-    Every object that has permissions must inherit from this one.
+    When a model level permissions are needed, the model mus inherit from this class.
     """
-
-    class Meta:
-        """Make this class abstract so no new table is created for it."""
-
-        abstract = True
-
-    #: permission group for the object
-    permission_group = models.ForeignKey(
-        PermissionGroup, on_delete=models.CASCADE, related_name="%(class)s", null=True
-    )
 
     #: custom manager with permission filtering methods.
     objects = PermissionQuerySet.as_manager()
 
-    def __init__(self, *args, **kwargs):
-        """Initialize."""
-        # The properties used to determine if object is in container.
-        self._container_properties = ("collection", "entity")
-        super().__init__(*args, **kwargs)
+    class Meta:
+        """Make a class abstract."""
+
+        abstract = True
+
+    @property
+    def permission_group(self) -> PermissionGroup:
+        """Return a permission group object."""
+        raise NotImplementedError("The method permission_group must be implemented.")
+
+    @classmethod
+    def permission_proxy(cls) -> Optional[str]:
+        """Return the path to the permission permission proxy.
+
+        When None, the model has no permission proxy.
+        """
+        raise NotImplementedError(
+            "The method permission_group_path must be implemented."
+        )
+
+    @classmethod
+    def permission_group_path(cls) -> str:
+        """Return the path to the permission group."""
+        base_path = "permission_group"
+        proxy = cls.permission_proxy()
+        return base_path if proxy is None else f"{proxy}__{base_path}"
+
+    def can_set_permission(self) -> bool:
+        """Can permission be set on this object."""
+        return self.permission_proxy is None
 
     def is_owner(self, user: User) -> bool:
         """Return if user is the owner of this instance."""
@@ -437,15 +454,13 @@ class PermissionObject(models.Model):
         :raises RuntimeError: when given object has no permission_group or is
             contained in a container.
         """
-        if self.in_container():
+        if not self.can_set_permission():
             raise RuntimeError(
-                f"The permissions can not be set on object {self} ({self._meta.label}) in container."
+                f"The permissions can not be set on object {self} with id {self.pk} ({self._meta.label})."
             )
 
         pre_permission_changed.send(sender=type(self), instance=self)
-
         self.permission_group.set_permission(permission, user_or_group)
-
         post_permission_changed.send(sender=type(self), instance=self)
 
     def get_permission(self, user_or_group: UserOrGroup) -> Permission:
@@ -486,6 +501,34 @@ class PermissionObject(models.Model):
         """
         return self.permission_group.groups_with_permission(permission)
 
+
+class PermissionObject(PermissionInterface):
+    """Base permission object.
+
+    Every object that has permissions must inherit from this one.
+    """
+
+    #: permission group for the object
+    permission_group = models.ForeignKey(
+        PermissionGroup, on_delete=models.CASCADE, related_name="%(class)s", null=True
+    )
+
+    class Meta:
+        """Make this class abstract so no new table is created for it."""
+
+        abstract = True
+
+    def __init__(self, *args, **kwargs):
+        """Initialize."""
+        # The properties used to determine if object is in container.
+        self._container_properties = ("collection", "entity")
+        super().__init__(*args, **kwargs)
+
+    @classmethod
+    def permission_proxy(cls) -> Optional[str]:
+        """Return the path where permission_group model is accessible."""
+        return None
+
     @property
     def topmost_container(self) -> Optional[models.Model]:
         """Get the top-most container of the object.
@@ -510,6 +553,10 @@ class PermissionObject(models.Model):
     def in_container(self) -> bool:
         """Return if object lies in a container."""
         return self.topmost_container is not None
+
+    def can_set_permission(self) -> bool:
+        """Can permissions be set on this object."""
+        return not self.in_container()
 
     def save(self, *args, **kwargs):
         """Set the permission_group property of the object.
