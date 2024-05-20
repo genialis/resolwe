@@ -50,7 +50,7 @@ def set_permission(
     obj.set_permission(permission, user_or_group)
 
 
-def get_user(user: User) -> User:
+def get_user(user: User | AnonymousUser) -> User:
     """Get the same user or anonymous one when user is not authenticated.
 
     :raises django.core.exceptions.ObjectDoesNotExist: when user is not

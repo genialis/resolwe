@@ -7,7 +7,7 @@ from typing import Iterable, List, Optional, Union
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Group, User
+from django.contrib.auth.models import AnonymousUser, Group, User
 from django.db import models, transaction
 
 from resolwe.observers.protocol import post_permission_changed, pre_permission_changed
@@ -347,7 +347,7 @@ class PermissionQuerySet(models.QuerySet["PermissionInterface"]):
 
     def filter_for_user(
         self,
-        user: User,
+        user: User | AnonymousUser,
         permission: Permission = Permission.VIEW,
         use_groups: bool = True,
         public: bool = True,

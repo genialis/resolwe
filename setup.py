@@ -99,6 +99,7 @@ setuptools.setup(
             "daphne>=4.0.0",
             "django-stubs>=4.2.4",
             "djangorestframework-stubs[compatible-mypy]>=3.14.0",
+            "types-setuptools",
         ],
     },
     classifiers=[
