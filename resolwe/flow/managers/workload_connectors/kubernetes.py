@@ -95,7 +95,7 @@ def sanitize_kubernetes_label(label: str, trim_end: bool = True) -> str:
     https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
     """
     max_length = 63
-    sanitized_label = re.sub("[^0-9a-zA-Z\-]+", "-", label).strip("-_.")
+    sanitized_label = re.sub(r"[^0-9a-zA-Z\-]+", "-", label).strip("-_.")
     if len(sanitized_label) > max_length:
         logger.warning(__("Label '%s' is too long and was truncated.", label))
         if trim_end:
