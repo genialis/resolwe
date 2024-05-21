@@ -66,6 +66,10 @@ setuptools.setup(
         "wrapt~=1.15.0",
         "pyzmq~=25.1.2",
         "uvloop~=0.19.0",
+        # The requests library version 2.32 is incompatible with the docker-py.
+        # See https://github.com/psf/requests/issues/6707 for details.
+        # Remove the version pin when the issue is resolved.
+        "requests==2.31.0",
     ],
     extras_require={
         "storage_s3": [
