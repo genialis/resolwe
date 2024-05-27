@@ -64,7 +64,7 @@ setuptools.setup(
         "beautifulsoup4~=4.12.2",
         "Sphinx~=6.1.3",
         "wrapt~=1.15.0",
-        "pyzmq~=25.1.2",
+        "pyzmq~=26.0.3",
         "uvloop~=0.19.0",
         # The requests library version 2.32 is incompatible with the docker-py.
         # See https://github.com/psf/requests/issues/6707 for details.
