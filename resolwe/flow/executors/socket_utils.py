@@ -211,7 +211,7 @@ async def async_send_data(
 
 async def async_receive_data(
     reader: asyncio.StreamReader, size_bytes: int = 8
-) -> Optional[Tuple[PeerIdentity, Any]]:
+) -> Tuple[PeerIdentity, Any, Optional[bytes]]:
     """Receive data from the reader.
 
     The data is expected to be bytes-encoded JSON representation of a Python
@@ -227,7 +227,7 @@ async def async_receive_data(
     message_size = int.from_bytes(received, byteorder="big")
     received = await reader.readexactly(message_size)
     assert len(received) == message_size
-    return (b"", json.loads(received.decode("utf-8")))
+    return (b"", json.loads(received.decode("utf-8")), None)
 
 
 class Message(Generic[MessageDataType]):
@@ -240,6 +240,7 @@ class Message(Generic[MessageDataType]):
         message_data: MessageDataType,
         message_uuid: Optional[str] = None,
         sent_timestamp: Optional[float] = None,
+        client_id: Optional[bytes] = None,
     ):
         """Initialize.
 
@@ -250,6 +251,7 @@ class Message(Generic[MessageDataType]):
         self.type_data = type_data
         self.uuid = message_uuid or self._get_random_message_identifier()
         self.sent_timestamp = sent_timestamp
+        self.client_id = client_id
 
     def _get_random_message_identifier(self) -> str:
         """Get a random message identifier.
@@ -314,6 +316,7 @@ class Message(Generic[MessageDataType]):
         command_name: str,
         message_data: MessageDataType,
         message_uuid: Optional[str] = None,
+        client_id: Optional[bytes] = None,
     ) -> "Message[MessageDataType]":
         """Construct and return a command."""
         return Message(
@@ -321,6 +324,7 @@ class Message(Generic[MessageDataType]):
             command_name,
             message_data,
             message_uuid,
+            client_id=client_id,
         )
 
     @staticmethod
@@ -370,6 +374,7 @@ class Message(Generic[MessageDataType]):
             message_dict["data"],
             message_dict.get("uuid"),
             message_dict.get("timestamp"),
+            message_dict.get("client_id"),
         )
 
     def to_dict(self) -> dict:
@@ -591,8 +596,9 @@ class BaseCommunicator:
                     received = None
                 if received is not None:
                     assert isinstance(received, tuple)
-                    assert len(received) == 2
+                    assert len(received) == 3
                     assert isinstance(received[0], bytes)
+                    received[1]["client_id"] = received[2]
                     assert Message.is_valid(received[1])
                     result = received[0], Message.from_dict(received[1])
             else:

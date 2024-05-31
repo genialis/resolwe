@@ -33,12 +33,25 @@ class Worker(models.Model):
         (STATUS_COMPLETED, "Finished"),
     )
 
+    #: worker started date and time
     started = models.DateTimeField(auto_now=True)
+
+    #: worker finioshed date and time
     finished = models.DateTimeField(null=True)
+
+    #: reference to the data object
     data = models.OneToOneField(
         "flow.Data", on_delete=models.CASCADE, related_name="worker"
     )
+
+    #: status of the worker object
     status = models.CharField(max_length=2, choices=STATUS_CHOICES)
+
+    #: client private key to communicate with the listener
+    private_key = models.BinaryField(max_length=40)
+
+    # cliend public key to communicate with the listener
+    public_key = models.BinaryField(max_length=40)
 
     def terminate(self):
         """Terminate the running worker."""

@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from resolwe.flow.executors import constants
 from resolwe.flow.executors.socket_utils import Message, Response, ResponseStatus
 from resolwe.flow.managers.listener.basic_commands_plugin import BasicCommands
-from resolwe.flow.managers.listener.listener import Processor
+from resolwe.flow.managers.listener.listener import CurveCallback, Processor
 from resolwe.flow.managers.protocol import ExecutorProtocol
 from resolwe.flow.models import Data, DataDependency, Entity, Worker
 from resolwe.flow.models.annotations import (
@@ -39,6 +39,11 @@ class ListenerTest(TestCase):
             path="test.me", md5="md5", crc32c="crc", awss3etag="aws"
         )
         cls.storage_location.files.add(cls.path)
+
+    def setUp(self):
+        """Set the security provider before tests."""
+        super().setUp()
+        self.security_provider = CurveCallback.instance()
 
     def test_handle_download_finished_missing_storage_location(self):
         obj = Message.command(ExecutorProtocol.DOWNLOAD_FINISHED, -2)
@@ -317,7 +322,8 @@ class ListenerTest(TestCase):
         Worker.objects.get_or_create(data_id=data.pk, status=Worker.STATUS_PROCESSING)
 
         peer_identity = str(data.pk).encode()
-        message = Message.command("resolve_data_path", data.pk)
+        self.security_provider.key_to_data[b"0"] = data.pk
+        message = Message.command("resolve_data_path", data.pk, client_id=b"0")
         response = self.manager.process_command(peer_identity, message)
         self.assertEqual(response.message_data, str(constants.INPUTS_VOLUME))
         connector_name = "local"
@@ -325,7 +331,7 @@ class ListenerTest(TestCase):
             file_storage=file_storage, connector_name="local", status="OK"
         )
         # Generate new command uuid or the processing will be skipped.
-        message = Message.command("resolve_data_path", data.pk)
+        message = Message.command("resolve_data_path", data.pk, client_id=b"0")
         response = self.manager.process_command(peer_identity, message)
         self.assertEqual(response.message_data, f"/data_{connector_name}")
 
@@ -367,13 +373,18 @@ class ListenerTest(TestCase):
         data.save()
         peer_identity = str(data.pk).encode()
         Worker.objects.update_or_create(
-            data_id=data.pk, status=Worker.STATUS_PROCESSING
+            data_id=data.pk,
+            status=Worker.STATUS_PROCESSING,
+            private_key=b"0",
+            public_key=b"0",
         )
+        self.security_provider.key_to_data[b"0"] = data.pk
 
         # Request without permisions should fail.
         message = Message.command(
             "get_entity_annotations",
             [entity.pk, ["group.field", "group.another field", "nonexisting.field"]],
+            client_id=b"0",
         )
         expected = Response(
             ResponseStatus.ERROR.value,
@@ -394,6 +405,8 @@ class ListenerTest(TestCase):
             data_id=data.pk, status=Worker.STATUS_PROCESSING
         )
         entity.set_permission(Permission.VIEW, self.contributor)
+        self.security_provider.key_to_data[b"0"] = data.pk
+
         response = self.manager.process_command(peer_identity, message)
         expected = Response(
             ResponseStatus.OK.value,
@@ -402,7 +415,9 @@ class ListenerTest(TestCase):
         self.assertEqual(response, expected)
 
         # Request without annotation names should return all annotations.
-        message = Message.command("get_entity_annotations", [entity.pk, None])
+        message = Message.command(
+            "get_entity_annotations", [entity.pk, None], client_id=b"0"
+        )
         response = self.manager.process_command(peer_identity, message)
         expected = Response(
             ResponseStatus.OK.value,
@@ -452,12 +467,15 @@ class ListenerTest(TestCase):
 
         # Request without permisions should fail.
         message = Message.command(
-            "set_entity_annotations", [entity.pk, {"group.field": "value"}, True]
+            "set_entity_annotations",
+            [entity.pk, {"group.field": "value"}, True],
+            client_id=b"0",
         )
         expected = Response(
             ResponseStatus.ERROR.value,
             "Error in command handler 'handle_set_entity_annotations'.",
         )
+        self.security_provider.key_to_data[b"0"] = data.pk
         response = self.manager.process_command(peer_identity, message)
         self.assertEqual(response, expected)
 
@@ -474,6 +492,7 @@ class ListenerTest(TestCase):
         entity.set_permission(Permission.EDIT, self.contributor)
         self.assertEqual(entity.annotations.count(), 0)
 
+        self.security_provider.key_to_data[b"0"] = data.pk
         response = self.manager.process_command(peer_identity, message)
         expected = Response(ResponseStatus.OK.value, "OK")
         self.assertEqual(entity.annotations.count(), 1)
@@ -488,6 +507,7 @@ class ListenerTest(TestCase):
                 {"group.field": "updated value", "group.another field": "value2"},
                 True,
             ],
+            client_id=b"0",
         )
         response = self.manager.process_command(peer_identity, message)
         expected = Response(ResponseStatus.OK.value, "OK")
@@ -505,6 +525,7 @@ class ListenerTest(TestCase):
                 {"nonexisting.field": "updated value", "group.field": "updated value"},
                 True,
             ],
+            client_id=b"0",
         )
         response = self.manager.process_command(peer_identity, message)
         self.assertEqual(response.response_status, ResponseStatus.ERROR)

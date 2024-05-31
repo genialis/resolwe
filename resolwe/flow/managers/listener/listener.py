@@ -14,8 +14,10 @@ socket for communication.
 
 import asyncio
 import logging
+import os
 from contextlib import suppress
 from functools import lru_cache
+from threading import Lock
 from time import time
 from typing import Any, ChainMap, Dict, List, Optional, Set, Union
 
@@ -38,7 +40,7 @@ from resolwe.flow.executors.socket_utils import (
     Response,
     ResponseStatus,
 )
-from resolwe.flow.executors.zeromq_utils import ZMQCommunicator
+from resolwe.flow.executors.zeromq_utils import ZMQAuthenticator, ZMQCommunicator
 from resolwe.flow.managers import consumer
 from resolwe.flow.managers.protocol import WorkerProtocol
 from resolwe.flow.managers.state import LISTENER_CONTROL_CHANNEL  # noqa: F401
@@ -59,6 +61,73 @@ from .redis_cache import RedisLockStatus, cache_manager, redis_server
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
+
+# Public and private key read from the environment. When the environment does not
+# exist (for instance when running tests), default key is used.
+# The default key can only be used when the DEBUG setting is set to True.
+DEFAULT_LISTENER_PUBLIC_KEY = b"*%z%0!H7z84uT^]Gwz89:YQr#@Wm=qB(9Ao+qQ^K"
+DEFAULT_LISTENER_PRIVATE_KEY = b":M-RdvbLHztG+FaaYdp}RKV-fajY}$QT[+XgWD{="
+LISTENER_PUBLIC_KEY = os.getenv("LISTENER_PUBLIC_KEY", DEFAULT_LISTENER_PUBLIC_KEY)
+LISTENER_PRIVATE_KEY = os.getenv("LISTENER_PRIVATE_KEY", DEFAULT_LISTENER_PRIVATE_KEY)
+
+if not settings.DEBUG:
+    assert (
+        LISTENER_PRIVATE_KEY != DEFAULT_LISTENER_PRIVATE_KEY
+        and LISTENER_PUBLIC_KEY != DEFAULT_LISTENER_PUBLIC_KEY
+    ), "Must set private and public listener key when not running in debug mode"
+
+
+class CurveCallback:
+    """Class containing the callback for zmq authentication."""
+
+    _instance = None
+    _instance_lock = Lock()
+    _instance_pid: int | None = None
+
+    def __init__(self):
+        """Initialize the mapping between key and the data object."""
+        self.key_to_data: dict[bytes, int] = {}
+
+    async def callback(self, domain, key):
+        """Authenticate the client.
+
+        The client is valid if its key is in the database.
+        """
+        try:
+            assert domain == "*", "Only domain '*' is supported."
+            status, data_id = await database_sync_to_async(
+                Worker.objects.filter(public_key=key)
+                .values_list("status", "data_id")
+                .first,
+                thread_sensitive=False,
+            )()
+            acceptable_statuses = [
+                Worker.STATUS_PREPARING,
+                Worker.STATUS_PROCESSING,
+                Worker.STATUS_FINISHED_PREPARING,
+            ]
+            if status in acceptable_statuses:
+                return self.key_to_data.setdefault(key, data_id) == data_id
+
+        except Exception:
+            logger.exception("Exception in curve auth callback.")
+
+        return False
+
+    @classmethod
+    def has_instance(cls):
+        """Check if the instance exists."""
+        return not (cls._instance is None or cls._instance_pid != os.getpid())
+
+    @classmethod
+    def instance(cls):
+        """Return a global CurveCallback instance."""
+        if not cls.has_instance():
+            with cls._instance_lock:
+                if not cls.has_instance():
+                    cls._instance = cls()
+                    cls._instance_pid = os.getpid()
+        return cls._instance
 
 
 class Processor:
@@ -384,7 +453,6 @@ class Processor:
 
         """
         data_id = abs(int(identity))
-
         # Do not proccess messages from Workers that have already finish
         # processing data objects.
         worker_status, data_status, started = self.get_data_fields(
@@ -521,7 +589,16 @@ class ListenerProtocol(BaseProtocol):
         """Initialize."""
         if zmq_socket is None:
             zmq_context: zmq.asyncio.Context = zmq.asyncio.Context.instance()
+            auth = ZMQAuthenticator.instance(zmq_context)
+            auth.configure_curve_callback(
+                domain="*", credentials_provider=CurveCallback.instance()
+            )
+            auth.start()
             zmq_socket = zmq_context.socket(zmq.ROUTER)
+            # Configure keys and start the server.
+            zmq_socket.curve_secretkey = LISTENER_PRIVATE_KEY
+            zmq_socket.curve_publickey = LISTENER_PUBLIC_KEY
+            zmq_socket.curve_server = True
             zmq_socket.setsockopt(zmq.ROUTER_HANDOVER, 1)
             for host in hosts:
                 zmq_socket.bind(f"{protocol}://{host}:{port}")
@@ -660,6 +737,36 @@ class ListenerProtocol(BaseProtocol):
         """
         response: Optional[Response] = None
         extend_lock_task: Optional[asyncio.Task] = None
+
+        try:
+            data_id = abs(int(peer_identity))
+        except Exception:
+            error = f"Unable to parse the identity {peer_identity!r}."
+            self.logger.error(error)
+            return received_message.respond_error(error)
+
+        try:
+            # Check that the client is valid and can process the data object.
+            # Before any processing make sure the client is valid and has the permission to
+            # process the data object.
+            security_provider = CurveCallback.instance()
+            mapping = security_provider.key_to_data
+            key = received_message.client_id
+            if key not in mapping:
+                error_message = f"Unknown client key {key!r}."
+                self.logger.error(error_message)
+                return received_message.respond_error(error_message)
+            if mapping[key] != data_id:
+                error_message = (
+                    f"Client with key {key!r} is not allowed to process the data object "
+                    f"with id {data_id}."
+                )
+                self.logger.error(error_message)
+                return received_message.respond_error(error_message)
+        except Exception:
+            error = f"Client {received_message.client_id!r} is not valid."
+            return received_message.respond_error(error)
+
         try:
             # Try to lock the specific message for the data object. If locked it means
             # the message was/is being processed by some other listener.

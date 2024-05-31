@@ -19,13 +19,14 @@ from django.db import IntegrityError, connection
 from django.test import override_settings
 
 from resolwe.flow.executors.prepare import BaseFlowExecutorPreparer
-from resolwe.flow.executors.socket_utils import Message
+from resolwe.flow.executors.socket_utils import Message, Response, ResponseStatus
 from resolwe.flow.executors.startup_processing_container import (
     connect_to_communication_container,
     initialize_connections,
 )
 from resolwe.flow.executors.zeromq_utils import ZMQCommunicator
 from resolwe.flow.managers.dispatcher import Manager
+from resolwe.flow.managers.listener.listener import LISTENER_PUBLIC_KEY
 from resolwe.flow.managers.listener.redis_cache import redis_cache
 from resolwe.flow.models import Data, DataDependency, Process, Worker
 from resolwe.flow.models.annotations import (
@@ -288,12 +289,24 @@ class ManagerRunProcessTest(ProcessTestCase):
         )
         logger = logging.getLogger(__name__)
         logger.handlers = []
+        process = Process.objects.create(contributor=self.contributor)
+        data = Data.objects.create(process=process, contributor=self.contributor)
+        public_key, private_key = zmq.curve_keypair()
+        Worker.objects.create(
+            data=data,
+            status=Worker.STATUS_PROCESSING,
+            private_key=private_key,
+            public_key=public_key,
+        )
 
         async def send_single_message():
             """Open connection to listener and send single message."""
             connection_string = f"{protocol}://{host}:{port}"
             zmq_context = zmq.asyncio.Context.instance()
             zmq_socket = zmq_context.socket(zmq.DEALER)
+            zmq_socket.curve_secretkey = private_key
+            zmq_socket.curve_publickey = public_key
+            zmq_socket.curve_serverkey = LISTENER_PUBLIC_KEY
             zmq_socket.setsockopt(zmq.IDENTITY, b"1")
             zmq_socket.connect(connection_string)
             communicator = ZMQCommunicator(
@@ -314,6 +327,137 @@ class ManagerRunProcessTest(ProcessTestCase):
                 await send_single_message()
 
         return asyncio.new_event_loop().run_until_complete(send_two_messages())
+
+    # @mock.patch("resolwe.flow.managers.workload_connectors.local.LISTENER_PUBLIC_KEY", b"0")
+    def test_encryption(self):
+        """Test encryption between the listener and the process.
+
+        Verify that:
+        - invalid listener key in the process results in the failure to communicate.
+        - invalid process key results in the error in the listener.
+        - the process with valid key can only process its data object.
+        """
+        listener_settings = getattr(settings, "FLOW_EXECUTOR", {}).get(
+            "LISTENER_CONNECTION", {}
+        )
+        port = listener_settings.get("port", 53893)
+        host = listener_settings.get("hosts", {}).get("local", "127.0.0.1")
+        protocol = settings.FLOW_EXECUTOR.get("LISTENER_CONNECTION", {}).get(
+            "protocol", "tcp"
+        )
+        process = Process.objects.create(contributor=self.contributor)
+        data = Data.objects.create(process=process, contributor=self.contributor)
+        another_data = Data.objects.create(
+            process=process, contributor=self.contributor
+        )
+        public_key, private_key = zmq.curve_keypair()
+        Worker.objects.create(
+            data=data,
+            status=Worker.STATUS_PROCESSING,
+            private_key=private_key,
+            public_key=public_key,
+        )
+        Worker.objects.create(
+            data=another_data,
+            status=Worker.STATUS_PROCESSING,
+            private_key=private_key,
+            public_key=public_key,
+        )
+
+        fake_public_key, fake_private_key = zmq.curve_keypair()
+
+        async def send_single_message(
+            identity, public_key, private_key, listener_public_key
+        ) -> Response:
+            """Open connection to listener and send single message."""
+            connection_string = f"{protocol}://{host}:{port}"
+            zmq_context = zmq.asyncio.Context.instance()
+            zmq_socket = zmq_context.socket(zmq.DEALER)
+            zmq_socket.curve_secretkey = private_key
+            zmq_socket.curve_publickey = public_key
+            zmq_socket.curve_serverkey = listener_public_key
+            zmq_socket.setsockopt(zmq.IDENTITY, identity)
+            zmq_socket.connect(connection_string)
+            communicator = ZMQCommunicator(
+                zmq_socket, "init_container <-> listener", logger
+            )
+            async with communicator:
+                print("Sending message")
+                future = asyncio.ensure_future(
+                    communicator.send_command(Message.command("update_status", "PP"))
+                )
+                return await asyncio.wait_for(future, 1)
+
+        # Correct identity and keys.
+        response = asyncio.new_event_loop().run_until_complete(
+            send_single_message(
+                f"{data.pk}".encode(), public_key, private_key, LISTENER_PUBLIC_KEY
+            )
+        )
+        self.assertEqual(response.status, ResponseStatus.OK)
+
+        # Fake listener identity.
+        with self.assertRaises(asyncio.exceptions.TimeoutError):
+            asyncio.new_event_loop().run_until_complete(
+                send_single_message(
+                    f"{data.pk}".encode(), public_key, private_key, fake_public_key
+                )
+            )
+
+        # Non-matching key pair should not be able to establish a connection.
+        with self.assertRaises(asyncio.exceptions.TimeoutError):
+            asyncio.new_event_loop().run_until_complete(
+                send_single_message(
+                    f"{data.pk}".encode(),
+                    fake_public_key,
+                    private_key,
+                    LISTENER_PUBLIC_KEY,
+                )
+            )
+        with self.assertRaises(asyncio.exceptions.TimeoutError):
+            asyncio.new_event_loop().run_until_complete(
+                send_single_message(
+                    f"{data.pk}".encode(),
+                    public_key,
+                    fake_private_key,
+                    LISTENER_PUBLIC_KEY,
+                )
+            )
+
+        # Fake client keys should be rejected.
+        with self.assertRaises(asyncio.exceptions.TimeoutError):
+            asyncio.new_event_loop().run_until_complete(
+                send_single_message(
+                    f"{data.pk}".encode(),
+                    fake_public_key,
+                    fake_private_key,
+                    LISTENER_PUBLIC_KEY,
+                )
+            )
+
+        # Non-matching keys and data id message must be rejected.
+        response = asyncio.new_event_loop().run_until_complete(
+            send_single_message(
+                f"{another_data.pk}".encode(),
+                public_key,
+                private_key,
+                LISTENER_PUBLIC_KEY,
+            )
+        )
+        expected_error = (
+            f"Client with key {public_key!r} is not allowed to process the data "
+            f"object with id {another_data.pk}."
+        )
+        self.assertEqual(response.status, ResponseStatus.ERROR)
+        self.assertEqual(response.message_data, expected_error)
+
+        # Correct identity and keys.
+        response = asyncio.new_event_loop().run_until_complete(
+            send_single_message(
+                f"{data.pk}".encode(), public_key, private_key, LISTENER_PUBLIC_KEY
+            )
+        )
+        self.assertEqual(response.status, ResponseStatus.OK)
 
     @tag_process("test-annotate-wrong-option")
     def test_annotate_wrong_option(self):
@@ -694,6 +838,11 @@ class ManagerRunProcessTest(ProcessTestCase):
         data.save()
         redis_cache.clear(Data, (data.pk,))
 
+        process_environment = os.environ.copy()
+        process_environment["LISTENER_PUBLIC_KEY"] = LISTENER_PUBLIC_KEY
+        process_environment["CURVE_PRIVATE_KEY"] = data.worker.private_key
+        process_environment["CURVE_PUBLIC_KEY"] = data.worker.public_key
+
         process = subprocess.run(
             [
                 "python",
@@ -709,6 +858,7 @@ class ManagerRunProcessTest(ProcessTestCase):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             timeout=30,
+            env=process_environment,
         )
         self.assertEqual(process.returncode, 0, f"The stderr was: '{process.stderr}'.")
         data.refresh_from_db()
