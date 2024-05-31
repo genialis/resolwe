@@ -26,6 +26,7 @@ from resolwe.flow.executors.startup_processing_container import (
 )
 from resolwe.flow.executors.zeromq_utils import ZMQCommunicator
 from resolwe.flow.managers.dispatcher import Manager
+from resolwe.flow.managers.listener.listener import LISTENER_PUBLIC_KEY
 from resolwe.flow.managers.listener.redis_cache import redis_cache
 from resolwe.flow.models import Data, DataDependency, Process, Worker
 from resolwe.flow.models.annotations import (
@@ -288,12 +289,24 @@ class ManagerRunProcessTest(ProcessTestCase):
         )
         logger = logging.getLogger(__name__)
         logger.handlers = []
+        process = Process.objects.create(contributor=self.contributor)
+        data = Data.objects.create(process=process, contributor=self.contributor)
+        public_key, private_key = zmq.curve_keypair()
+        Worker.objects.create(
+            data=data,
+            status=Worker.STATUS_PROCESSING,
+            private_key=private_key,
+            public_key=public_key,
+        )
 
         async def send_single_message():
             """Open connection to listener and send single message."""
             connection_string = f"{protocol}://{host}:{port}"
             zmq_context = zmq.asyncio.Context.instance()
             zmq_socket = zmq_context.socket(zmq.DEALER)
+            zmq_socket.curve_secretkey = private_key
+            zmq_socket.curve_publickey = public_key
+            zmq_socket.curve_serverkey = LISTENER_PUBLIC_KEY
             zmq_socket.setsockopt(zmq.IDENTITY, b"1")
             zmq_socket.connect(connection_string)
             communicator = ZMQCommunicator(
@@ -694,6 +707,11 @@ class ManagerRunProcessTest(ProcessTestCase):
         data.save()
         redis_cache.clear(Data, (data.pk,))
 
+        process_environment = os.environ.copy()
+        process_environment["LISTENER_PUBLIC_KEY"] = LISTENER_PUBLIC_KEY
+        process_environment["CURVE_PRIVATE_KEY"] = data.worker.private_key
+        process_environment["CURVE_PUBLIC_KEY"] = data.worker.public_key
+
         process = subprocess.run(
             [
                 "python",
@@ -709,6 +727,7 @@ class ManagerRunProcessTest(ProcessTestCase):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             timeout=30,
+            env=process_environment,
         )
         self.assertEqual(process.returncode, 0, f"The stderr was: '{process.stderr}'.")
         data.refresh_from_db()

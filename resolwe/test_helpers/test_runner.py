@@ -18,6 +18,7 @@ import subprocess
 import sys
 from functools import partial
 from pathlib import Path
+from typing import NamedTuple
 from unittest.mock import patch
 
 import yaml
@@ -35,9 +36,15 @@ from django.utils.crypto import get_random_string
 # resolwe.test.testcases.TransactionTestCase will override them with the module above,
 # negating anything we do here with Django's override_settings.
 import resolwe.test.testcases.setting_overrides as resolwe_settings
+from resolwe.flow.executors.zeromq_utils import ZMQAuthenticator
 from resolwe.flow.finders import get_finders
 from resolwe.flow.management.commands.prepare_runtime import Command as PrepareRuntime
 from resolwe.flow.managers import listener, manager, state
+from resolwe.flow.managers.listener.listener import (
+    LISTENER_PRIVATE_KEY,
+    LISTENER_PUBLIC_KEY,
+    CurveCallback,
+)
 from resolwe.observers.consumers import update_constants as update_observer_constants
 from resolwe.observers.utils import background_task_manager
 from resolwe.process.parser import ProcessVisitor
@@ -46,11 +53,19 @@ from resolwe.test.utils import generate_process_tag
 
 from . import TESTING_CONTEXT
 
+auth = None
+
 logger = logging.getLogger(__name__)
 
 SPAWN_PROCESS_REGEX = re.compile(
     r'run\s+\{.*?["\']process["\']\s*:\s*["\'](.+?)["\'].*?\}'
 )
+
+
+class ZMQInfo(NamedTuple):
+    context: zmq.asyncio.Context
+    socket: zmq.asyncio.Socket
+    authenticator: ZMQAuthenticator
 
 
 class TestingContext:
@@ -200,7 +215,13 @@ def _prepare_settings():
     zmq_context: zmq.asyncio.Context = zmq.asyncio.Context.instance()
     zmq_socket: zmq.asyncio.Socket = zmq_context.socket(zmq.ROUTER)
     zmq_socket.setsockopt(zmq.ROUTER_HANDOVER, 1)
-
+    auth = ZMQAuthenticator.instance(zmq_context)
+    auth.configure_curve_callback(
+        domain="*", credentials_provider=CurveCallback.instance()
+    )
+    zmq_socket.curve_secretkey = LISTENER_PRIVATE_KEY
+    zmq_socket.curve_publickey = LISTENER_PUBLIC_KEY
+    zmq_socket.curve_server = True
     host = hosts[0]
     port = zmq_socket.bind_to_random_port(
         f"{protocol}://{host}", min_port=min_port, max_port=max_port
@@ -216,7 +237,8 @@ def _prepare_settings():
         FLOW_EXECUTOR=resolwe_settings.FLOW_EXECUTOR_SETTINGS,
         FLOW_MANAGER=resolwe_settings.FLOW_MANAGER_SETTINGS,
     )
-    return (overrides, zmq_socket)
+    zmq_info = ZMQInfo(zmq_context, zmq_socket, auth)
+    return (overrides, zmq_info)
 
 
 def _custom_worker_init(django_init_worker):
@@ -272,7 +294,7 @@ async def _run_on_infrastructure(meth, *args, **kwargs):
     """
     with TestingContext():
         _create_test_dirs()
-        overrides, zmq_socket = _prepare_settings()
+        overrides, zmq_info = _prepare_settings()
         with overrides:
             with patch.multiple(
                 "resolwe.storage.settings",
@@ -287,10 +309,11 @@ async def _run_on_infrastructure(meth, *args, **kwargs):
                 listener.hosts = hosts
                 listener.port = port
                 listener.protocol = protocol
-                listener.zmq_socket = zmq_socket
+                listener.zmq_socket = zmq_info.socket
                 background_task_manager.set_loop(asyncio.get_running_loop())
                 async with listener, background_task_manager:
                     try:
+                        zmq_info.authenticator.start()
                         with override_settings(FLOW_MANAGER_SYNC_AUTO_CALLS=True):
                             # Run the test in the new thread instead on the
                             # main thread (default). If test is started on the
@@ -305,6 +328,7 @@ async def _run_on_infrastructure(meth, *args, **kwargs):
                     except Exception:
                         logger.exception("Exception while running test")
                     finally:
+                        zmq_info.authenticator.stop()
                         logger.debug("test_runner: Terminating listener")
 
 

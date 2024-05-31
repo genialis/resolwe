@@ -39,6 +39,11 @@ LISTENER_IP = os.getenv("LISTENER_SERVICE_HOST", "127.0.0.1")
 LISTENER_PORT = os.getenv("LISTENER_SERVICE_PORT", "53893")
 LISTENER_PROTOCOL = os.getenv("LISTENER_PROTOCOL", "tcp")
 
+# Secrets necessary to connect to the listener service.
+LISTENER_PUBLIC_KEY = os.getenv("LISTENER_PUBLIC_KEY").encode()
+PUBLIC_KEY = os.getenv("CURVE_PUBLIC_KEY").encode()
+PRIVATE_KEY = os.getenv("CURVE_PRIVATE_KEY").encode()
+
 DATA_ID = int(os.getenv("DATA_ID", "-1"))
 
 
@@ -206,6 +211,9 @@ def _get_communicator() -> ZMQCommunicator:
     """Connect to the listener."""
     zmq_context = zmq.asyncio.Context.instance()
     zmq_socket = zmq_context.socket(zmq.DEALER)
+    zmq_socket.curve_secretkey = PRIVATE_KEY
+    zmq_socket.curve_publickey = PUBLIC_KEY
+    zmq_socket.curve_serverkey = LISTENER_PUBLIC_KEY
     zmq_socket.setsockopt(zmq.IDENTITY, str(DATA_ID).encode())
     connect_string = f"{LISTENER_PROTOCOL}://{LISTENER_IP}:{LISTENER_PORT}"
     logger.debug("Opening connection to %s", connect_string)

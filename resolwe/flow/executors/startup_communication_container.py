@@ -50,6 +50,11 @@ RUNNING_IN_KUBERNETES = bool(
     strtobool(os.environ.get("RUNNING_IN_KUBERNETES", "False"))
 )
 
+# Secrets necessary to connect to the listener service.
+LISTNER_PUBLIC_KEY = os.getenv("LISTENER_PUBLIC_KEY").encode()
+PUBLIC_KEY = os.getenv("CURVE_PUBLIC_KEY").encode()
+PRIVATE_KEY = os.getenv("CURVE_PRIVATE_KEY").encode()
+
 # How many file descriptors to receive over socket in a single message.
 DESCRIPTOR_CHUNK_SIZE = int(os.environ.get("DESCRIPTOR_CHUNK_SIZE", 100))
 
@@ -578,6 +583,9 @@ class Manager:
         """
         zmq_context = zmq.asyncio.Context.instance()
         zmq_socket = zmq_context.socket(zmq.DEALER)
+        zmq_socket.curve_secretkey = PRIVATE_KEY
+        zmq_socket.curve_publickey = PUBLIC_KEY
+        zmq_socket.curve_serverkey = LISTNER_PUBLIC_KEY
         zmq_socket.setsockopt(zmq.IDENTITY, str(DATA_ID).encode())
         connect_string = f"{LISTENER_PROTOCOL}://{LISTENER_IP}:{LISTENER_PORT}"
         logger.debug("Opening listener connection to '%s'.", connect_string)

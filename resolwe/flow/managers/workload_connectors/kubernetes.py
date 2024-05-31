@@ -14,6 +14,7 @@ import random
 import re
 import string
 import time
+from base64 import b64encode
 from contextlib import suppress
 from enum import Enum
 from importlib.util import find_spec
@@ -28,6 +29,7 @@ from django.db.models import Sum
 from django.db.models.functions import Coalesce
 
 from resolwe.flow.executors import constants
+from resolwe.flow.managers.listener.listener import LISTENER_PUBLIC_KEY
 from resolwe.flow.models import Data, DataDependency, Process
 from resolwe.flow.utils.decorators import retry
 from resolwe.storage import settings as storage_settings
@@ -477,6 +479,28 @@ class Connector(BaseConnector):
             "job_type": sanitize_kubernetes_label(job_type),
         }
 
+    def _secrets(self, data: Data, secrets_name: str) -> dict[str, Any]:
+        """Prepare the secrets for the process.
+
+        Every process needs at least:
+        - LISTENER_PUBLIC_KEY
+        - CURVE_PUBLIC_KEY
+        - CURVE_PRIVATE_KEY
+
+        They are necessary in order to communicate with the backend (listener service).
+        """
+        return {
+            "apiVersion": "v1",
+            "kind": "Secret",
+            "metadata": {"name": secrets_name},
+            "immutable": True,
+            "data": {
+                "LISTENER_PUBLIC_KEY": b64encode(LISTENER_PUBLIC_KEY),
+                "CURVE_PUBLIC_KEY": b64encode(data.worker.public_key),
+                "CURVE_PRIVATE_KEY": b64encode(data.worker.private_key),
+            },
+        }
+
     def _persistent_volume_claim(
         self, claim_name: str, size: int, volume_config: Dict, labels: dict[str, str]
     ) -> Dict[str, Any]:
@@ -733,6 +757,14 @@ class Connector(BaseConnector):
             processing_container_image, mapper
         )
 
+        # Create secrets.
+        secrets_name = f"secrets-{data.pk}-{random_postfix}"
+        core_api.create_namespaced_secret(
+            body=self._secrets(data, secrets_name),
+            namespace=self.kubernetes_namespace,
+            _request_timeout=KUBERNETES_TIMEOUT,
+        )
+
         pull_policy = getattr(settings, "FLOW_KUBERNETES_PULL_POLICY", "Always")
         job_type = dict(Process.SCHEDULING_CLASS_CHOICES)[data.process.scheduling_class]
         labels = self._create_labels(data, job_type)
@@ -776,6 +808,14 @@ class Connector(BaseConnector):
                                 "securityContext": {"privileged": True},
                                 "volumeMounts": self._init_container_mountpoints(),
                                 "env": container_environment,
+                                "env_from": [
+                                    {
+                                        "secret_ref": {
+                                            "name": secrets_name,
+                                            "optional": False,
+                                        }
+                                    }
+                                ],
                             },
                         ],
                         "containers": [
@@ -805,6 +845,14 @@ class Connector(BaseConnector):
                                 },
                                 "securityContext": security_context,
                                 "env": container_environment,
+                                "env_from": [
+                                    {
+                                        "secret_ref": {
+                                            "name": secrets_name,
+                                            "optional": False,
+                                        }
+                                    }
+                                ],
                                 "command": ["/usr/local/bin/python3"],
                                 "args": ["/startup.py"],
                                 "volumeMounts": self._communicator_mountpoints(
@@ -873,6 +921,41 @@ class Connector(BaseConnector):
             "It took {:.2f}s to send config to kubernetes".format(end_time - start_time)
         )
 
+        # Patch the secrets with owner references to the job.
+        patch = [
+            {
+                "op": "add",
+                "path": "/metadata/ownerReferences",
+                "value": [
+                    {
+                        "apiVersion": "batch/v1",
+                        "kind": "Job",
+                        "name": job.metadata.name,
+                        "uid": job.metadata.uid,
+                    }
+                ],
+            }
+        ]
+
+        # Patch the secret with ownerReference. This ensures the secret gets deleted
+        # when the job has completed or failed. The secrets are deleted after
+        # ttlSecondsAfterFinished seconds, declared in the Job spec.
+        try:
+            core_api.patch_namespaced_secret(
+                name=secrets_name, namespace=self.kubernetes_namespace, body=patch
+            )
+        except Exception as error:
+            # This operation is not critical for the job to run, so we log the
+            # error and continue. The job will still run, but the PVC will not be
+            # deleted automatically after the job has finished.
+            logger.exception(
+                __(
+                    "Kubernetes owner patch for secret {} failed: '{}'.",
+                    secrets_name,
+                    error,
+                )
+            )
+
         # Patch the PVC-s with owner references to the job.
         patch = [
             {
@@ -891,7 +974,7 @@ class Connector(BaseConnector):
         for claim_name in created_claim_names:
             # Patch the PVC with ownerReference. This ensures the PVC claim gets deleted
             # when the job has completed or failed. The PVCs are deleted after
-            # ttlSecondsAfterFinished seconds, declared in Job spec.
+            # ttlSecondsAfterFinished seconds, declared in the Job spec.
             try:
                 core_api.patch_namespaced_persistent_volume_claim(
                     name=claim_name, namespace=self.kubernetes_namespace, body=patch

@@ -14,8 +14,10 @@ socket for communication.
 
 import asyncio
 import logging
+import os
 from contextlib import suppress
 from functools import lru_cache
+from threading import Lock
 from time import time
 from typing import Any, ChainMap, Dict, List, Optional, Set, Union
 
@@ -38,7 +40,7 @@ from resolwe.flow.executors.socket_utils import (
     Response,
     ResponseStatus,
 )
-from resolwe.flow.executors.zeromq_utils import ZMQCommunicator
+from resolwe.flow.executors.zeromq_utils import ZMQAuthenticator, ZMQCommunicator
 from resolwe.flow.managers import consumer
 from resolwe.flow.managers.protocol import WorkerProtocol
 from resolwe.flow.managers.state import LISTENER_CONTROL_CHANNEL  # noqa: F401
@@ -59,6 +61,64 @@ from .redis_cache import RedisLockStatus, cache_manager, redis_server
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
+
+# Public and private key read from the environment. When the environment does not
+# exist (for instance when running tests), default key is used.
+# The default key can only be used when the DEBUG setting is set to True.
+DEFAULT_LISTENER_PUBLIC_KEY = b"*%z%0!H7z84uT^]Gwz89:YQr#@Wm=qB(9Ao+qQ^K"
+DEFAULT_LISTENER_PRIVATE_KEY = b":M-RdvbLHztG+FaaYdp}RKV-fajY}$QT[+XgWD{="
+LISTENER_PUBLIC_KEY = os.getenv("LISTENER_PUBLIC_KEY", DEFAULT_LISTENER_PUBLIC_KEY)
+LISTENER_PRIVATE_KEY = os.getenv("LISTENER_PRIVATE_KEY", DEFAULT_LISTENER_PRIVATE_KEY)
+
+if not settings.DEBUG:
+    assert (
+        LISTENER_PRIVATE_KEY != DEFAULT_LISTENER_PRIVATE_KEY
+        and LISTENER_PUBLIC_KEY != DEFAULT_LISTENER_PUBLIC_KEY
+    ), "Must set private and public listener key when not running in debug mode"
+
+
+class CurveCallback:
+    """Class containing the callback for zmq authentication."""
+
+    _instance = None
+    _instance_lock = Lock()
+    _instance_pid: int | None = None
+
+    def __init__(self):
+        """Initialize the mapping between key and the data object."""
+        self.key_to_data: dict[bytes, int] = {}
+
+    async def callback(self, domain, key):
+        """Authenticate the client.
+
+        The client is valid if its key is in the database.
+        """
+        assert domain == "*", "Only domain '*' is supported."
+        status, data_id = await database_sync_to_async(
+            Worker.objects.filter(public_key=key)
+            .values_list("status", "data_id")
+            .first,
+            thread_sensitive=False,
+        )()
+        acceptable_statuses = [
+            Worker.STATUS_PREPARING,
+            Worker.STATUS_PROCESSING,
+            Worker.STATUS_FINISHED_PREPARING,
+        ]
+        if status in acceptable_statuses:
+            return self.key_to_data.setdefault(key, data_id) == data_id
+
+        return False
+
+    @classmethod
+    def instance(cls):
+        """Return a global CurveCallback instance."""
+        if cls._instance is None or cls._instance_pid != os.getpid():
+            with cls._instance_lock:
+                if cls._instance is None or cls._instance_pid != os.getpid():
+                    cls._instance = cls()
+                    cls._instance_pid = os.getpid()
+        return cls._instance
 
 
 class Processor:
@@ -409,6 +469,14 @@ class Processor:
             self._save_data(self.data(data_id), {"started": now()})
 
         try:
+            security_provider = CurveCallback.instance()
+            mapping = security_provider.key_to_data
+            key = message.client_id
+            assert key in mapping, "Unknown client key"
+            assert mapping[key] == abs(int(identity)), (
+                f"Client with key {key!r} is not allowed to process the data object "
+                f"with id {data_id}."
+            )
             logger.debug(__("Invoking handler {}.", handler_name))
             response = handler(data_id, message, self)
             # Check if data status was changed by the handler.
@@ -521,7 +589,16 @@ class ListenerProtocol(BaseProtocol):
         """Initialize."""
         if zmq_socket is None:
             zmq_context: zmq.asyncio.Context = zmq.asyncio.Context.instance()
+            auth = ZMQAuthenticator.instance(zmq_context)
+            auth.configure_curve_callback(
+                domain="*", credentials_provider=CurveCallback.instance()
+            )
+            auth.start()
             zmq_socket = zmq_context.socket(zmq.ROUTER)
+            # Configure keys and start the server.
+            zmq_socket.curve_secretkey = LISTENER_PRIVATE_KEY
+            zmq_socket.curve_publickey = LISTENER_PUBLIC_KEY
+            zmq_socket.curve_server = True
             zmq_socket.setsockopt(zmq.ROUTER_HANDOVER, 1)
             for host in hosts:
                 zmq_socket.bind(f"{protocol}://{host}:{port}")

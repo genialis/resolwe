@@ -32,6 +32,11 @@ DOCKER_MEMORY_HARD_LIMIT_BUFFER = 100
 DOCKER_MEMORY_SWAP_RATIO = 2
 DOCKER_MEMORY_SWAPPINESS = 1
 
+# Secrets necessary to connect to the listener service.
+LISTENER_PUBLIC_KEY = os.getenv("LISTENER_PUBLIC_KEY")
+PUBLIC_KEY = os.getenv("CURVE_PUBLIC_KEY")
+PRIVATE_KEY = os.getenv("CURVE_PRIVATE_KEY")
+
 logger = logging.getLogger(__name__)
 
 
@@ -340,6 +345,9 @@ class FlowExecutor(LocalFlowExecutor):
             )
 
         environment = {
+            "LISTENER_PUBLIC_KEY": LISTENER_PUBLIC_KEY,
+            "CURVE_PUBLIC_KEY": PUBLIC_KEY,
+            "CURVE_PRIVATE_KEY": PRIVATE_KEY,
             "LISTENER_SERVICE_HOST": self.listener_connection[0],
             "LISTENER_SERVICE_PORT": self.listener_connection[1],
             "LISTENER_PROTOCOL": self.listener_connection[2],

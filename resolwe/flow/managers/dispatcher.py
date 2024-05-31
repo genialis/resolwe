@@ -19,6 +19,7 @@ from typing import List, Optional, Tuple, Union
 
 from channels.db import database_sync_to_async
 from channels.exceptions import ChannelFull
+from zmq import curve_keypair
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured, PermissionDenied
@@ -249,7 +250,13 @@ class Manager:
         with transaction.atomic():
             # Create Worker object and set its status to preparing if needed.
             if not Worker.objects.filter(data=data).exists():
-                Worker.objects.get_or_create(data=data, status=Worker.STATUS_PREPARING)
+                public_key, private_key = curve_keypair()
+                Worker.objects.get_or_create(
+                    data=data,
+                    status=Worker.STATUS_PREPARING,
+                    public_key=public_key,
+                    private_key=private_key,
+                )
 
             file_storage = FileStorage.objects.create()
             # Data produced by the processing container will be uploaded to the

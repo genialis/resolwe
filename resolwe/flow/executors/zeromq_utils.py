@@ -1,11 +1,14 @@
 """Utils for working with zeromq."""
 
 import json
+import os
 from logging import Logger
+from threading import Lock
 from typing import Any, Optional, Tuple
 
 import zmq
 import zmq.asyncio
+from zmq.auth.asyncio import AsyncioAuthenticator
 
 from .socket_utils import BaseCommunicator, PeerIdentity
 
@@ -34,7 +37,7 @@ async def async_zmq_send_data(
 
 async def async_zmq_receive_data(
     reader: zmq.asyncio.Socket,
-) -> Optional[Tuple[PeerIdentity, Any]]:
+) -> Tuple[PeerIdentity, Any, Optional[bytes]]:
     """Receive data from the reader.
 
     The data is expected to be bytes-encoded JSON representation of a Python object.
@@ -45,13 +48,16 @@ async def async_zmq_receive_data(
 
     :raises zmq.ZMQError: on receive error.
     """
+    user_id = None
     if reader.socket_type == zmq.DEALER:
-        identity = reader.getsockopt(zmq.IDENTITY)
-        message = await reader.recv()
+        identity = str(reader.getsockopt(zmq.IDENTITY)).encode()
+        message = await reader.recv(copy=False)
     else:
-        identity, message = await reader.recv_multipart()
-    decoded = json.loads(message.decode())
-    return (identity, decoded)
+        received_identity, message = await reader.recv_multipart(copy=False)
+        identity = received_identity.bytes
+        user_id = str(message["User-Id"]).encode()
+    decoded = json.loads(message.bytes.decode())
+    return (identity, decoded, user_id)
 
 
 class ZMQCommunicator(BaseCommunicator):
@@ -72,3 +78,26 @@ class ZMQCommunicator(BaseCommunicator):
             async_zmq_send_data,
             async_zmq_receive_data,
         )
+
+
+class ZMQAuthenticator(AsyncioAuthenticator):
+    """The singleton authenticator."""
+
+    _instance = None
+    _instance_lock = Lock()
+    _instance_pid: int | None = None
+
+    @classmethod
+    def has_instance(cls):
+        """Check if the instance exists."""
+        return not (cls._instance is None or cls._instance_pid != os.getpid())
+
+    @classmethod
+    def instance(cls, context=None):
+        """Return a global ZMQAuthenticator instance."""
+        if cls._instance is None or cls._instance_pid != os.getpid():
+            with cls._instance_lock:
+                if cls._instance is None or cls._instance_pid != os.getpid():
+                    cls._instance = cls(context=context)
+                    cls._instance_pid = os.getpid()
+        return cls._instance
