@@ -594,6 +594,7 @@ class ListenerProtocol(BaseProtocol):
                 domain="*", credentials_provider=CurveCallback.instance()
             )
             auth.start()
+            print("Starting"*1000)
             zmq_socket = zmq_context.socket(zmq.ROUTER)
             # Configure keys and start the server.
             zmq_socket.curve_secretkey = LISTENER_PRIVATE_KEY
