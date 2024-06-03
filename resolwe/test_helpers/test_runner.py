@@ -313,7 +313,10 @@ async def _run_on_infrastructure(meth, *args, **kwargs):
                 background_task_manager.set_loop(asyncio.get_running_loop())
                 async with listener, background_task_manager:
                     try:
-                        zmq_info.authenticator.start()
+                        try:
+                            zmq_info.authenticator.start()
+                        except zmq.error.ZMQError:
+                            print("AUTH FAILED TO START")
                         with override_settings(FLOW_MANAGER_SYNC_AUTO_CALLS=True):
                             # Run the test in the new thread instead on the
                             # main thread (default). If test is started on the
