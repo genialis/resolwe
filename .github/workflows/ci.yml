@@ -27,8 +27,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - python: "3.10"
-            toxenv: "py310"
           - python: "3.11"
             toxenv: "py311"
           - python: "3.12"

@@ -36,7 +36,7 @@ setuptools.setup(
             "toolkit/tools/**.py",
         ]
     },
-    python_requires=">=3.10, <3.13",
+    python_requires=">=3.11, <3.13",
     install_requires=[
         "asgiref~=3.6.0",
         "asteval==0.9.29",
@@ -120,7 +120,6 @@ setuptools.setup(
         "Operating System :: OS Independent",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
     ],

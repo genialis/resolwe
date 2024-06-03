@@ -13,6 +13,7 @@ Unreleased
 Changed
 -------
 - **BACKWARD INCOMPATIBLE:** Make move between collections a background job
+- **BACKWARD INCOMPATIBLE:** Remove support for ``Python 3.10``
 - Use ``simple_unaccent`` full text search configuration instead of ``simple``
 
 
