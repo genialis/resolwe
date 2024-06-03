@@ -1,4 +1,4 @@
-FROM docker.io/python:3.12-alpine as common
+FROM public.ecr.aws/docker/library/python:3.12-alpine as common
 LABEL MAINTAINER Resolwe authors https://github.com/genialis/resolwe
 
 FROM common as builder
