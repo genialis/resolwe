@@ -69,7 +69,7 @@ setuptools.setup(
         # The requests library version 2.32 is incompatible with the docker-py.
         # See https://github.com/psf/requests/issues/6707 for details.
         # Remove the version pin when the issue is resolved.
-        "requests==2.31.0",
+        "requests==2.32.2",
     ],
     extras_require={
         "storage_s3": [
