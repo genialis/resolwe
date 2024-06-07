@@ -6,6 +6,7 @@ Celery Tasks
 
 """
 
+import os
 import subprocess
 import sys
 
@@ -21,7 +22,14 @@ else:
 
 
 @shared_task
-def celery_run(data_id, runtime_dir, argv):
+def celery_run(
+    data_id,
+    runtime_dir,
+    argv,
+    listener_public_key: bytes,
+    curve_public_key: bytes,
+    curve_private_key: bytes,
+):
     """Run process executor.
 
     :param data_id: The id of the :class:`~resolwe.flow.models.Data`
@@ -30,4 +38,11 @@ def celery_run(data_id, runtime_dir, argv):
     :param argv: The argument vector used to run the executor.
     :param verbosity: The logging verbosity level.
     """
-    subprocess.Popen(argv, cwd=runtime_dir, stdin=subprocess.DEVNULL).wait()
+    process_environment = os.environ.copy()
+    process_environment["LISTENER_PUBLIC_KEY"] = listener_public_key.decode()
+    process_environment["CURVE_PUBLIC_KEY"] = curve_public_key.decode()
+    process_environment["CURVE_PRIVATE_KEY"] = curve_private_key.decode()
+
+    subprocess.Popen(
+        argv, env=process_environment, cwd=runtime_dir, stdin=subprocess.DEVNULL
+    ).wait()

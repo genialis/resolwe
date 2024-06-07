@@ -12,6 +12,7 @@ import sys
 
 from django.conf import settings
 
+from resolwe.flow.managers.listener.listener import LISTENER_PUBLIC_KEY
 from resolwe.flow.models import Data, Process
 from resolwe.flow.tasks import celery_run
 from resolwe.storage import settings as storage_settings
@@ -58,4 +59,12 @@ class Connector(BaseConnector):
             )
         )
         runtime_dir = storage_settings.FLOW_VOLUMES["runtime"]["config"]["path"]
-        celery_run.apply_async((data.id, os.fspath(runtime_dir), argv), queue=queue)
+
+        kwargs = {
+            "listener_public_key": LISTENER_PUBLIC_KEY,
+            "curve_public_key": data.worker.public_key,
+            "curve_private_key": data.worker.private_key,
+        }
+        celery_run.apply_async(
+            (data.id, os.fspath(runtime_dir), argv), kwargs, queue=queue
+        )
