@@ -65,10 +65,20 @@ User = get_user_model()
 # Public and private key read from the environment. When the environment does not
 # exist (for instance when running tests), default key is used.
 # The default key can only be used when the DEBUG setting is set to True.
-DEFAULT_LISTENER_PUBLIC_KEY = b"*%z%0!H7z84uT^]Gwz89:YQr#@Wm=qB(9Ao+qQ^K"
-DEFAULT_LISTENER_PRIVATE_KEY = b":M-RdvbLHztG+FaaYdp}RKV-fajY}$QT[+XgWD{="
-LISTENER_PUBLIC_KEY = os.getenv("LISTENER_PUBLIC_KEY", DEFAULT_LISTENER_PUBLIC_KEY)
-LISTENER_PRIVATE_KEY = os.getenv("LISTENER_PRIVATE_KEY", DEFAULT_LISTENER_PRIVATE_KEY)
+DEFAULT_LISTENER_PUBLIC_KEY = "*%z%0!H7z84uT^]Gwz89:YQr#@Wm=qB(9Ao+qQ^K"
+DEFAULT_LISTENER_PRIVATE_KEY = ":M-RdvbLHztG+FaaYdp}RKV-fajY}$QT[+XgWD{="
+env_public_key = os.getenv("LISTENER_PUBLIC_KEY", DEFAULT_LISTENER_PUBLIC_KEY)
+env_private_key = os.getenv("LISTENER_PRIVATE_KEY", DEFAULT_LISTENER_PRIVATE_KEY)
+
+if not settings.DEBUG:
+    assert (
+        env_private_key != DEFAULT_LISTENER_PRIVATE_KEY
+        and env_public_key != DEFAULT_LISTENER_PUBLIC_KEY
+    ), "Must set private and public listener key when not running in debug mode"
+
+# Make sure listener private and public keys are encoded.
+LISTENER_PUBLIC_KEY = env_public_key.encode()
+LISTENER_PRIVATE_KEY = env_private_key.encode()
 
 if not settings.DEBUG:
     assert (
