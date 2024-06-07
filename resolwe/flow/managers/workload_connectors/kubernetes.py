@@ -495,9 +495,9 @@ class Connector(BaseConnector):
             "metadata": {"name": secrets_name},
             "immutable": True,
             "data": {
-                "LISTENER_PUBLIC_KEY": b64encode(LISTENER_PUBLIC_KEY),
-                "CURVE_PUBLIC_KEY": b64encode(data.worker.public_key),
-                "CURVE_PRIVATE_KEY": b64encode(data.worker.private_key),
+                "LISTENER_PUBLIC_KEY": b64encode(LISTENER_PUBLIC_KEY).decode(),
+                "CURVE_PUBLIC_KEY": b64encode(data.worker.public_key).decode(),
+                "CURVE_PRIVATE_KEY": b64encode(data.worker.private_key).decode(),
             },
         }
 
