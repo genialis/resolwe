@@ -768,6 +768,24 @@ class Connector(BaseConnector):
         pull_policy = getattr(settings, "FLOW_KUBERNETES_PULL_POLICY", "Always")
         job_type = dict(Process.SCHEDULING_CLASS_CHOICES)[data.process.scheduling_class]
         labels = self._create_labels(data, job_type)
+
+        secret_env = [
+            {
+                "name": secret_key,
+                "value_from": {
+                    "secret_key_ref": {
+                        "name": secrets_name,
+                        "key": secret_key,
+                    }
+                },
+            }
+            for secret_key in [
+                "LISTENER_PUBLIC_KEY",
+                "CURVE_PUBLIC_KEY",
+                "CURVE_PRIVATE_KEY",
+            ]
+        ]
+
         job_description = {
             "apiVersion": "batch/v1",
             "kind": "Job",
@@ -807,15 +825,7 @@ class Connector(BaseConnector):
                                 "args": ["-m", "executors.init_container"],
                                 "securityContext": {"privileged": True},
                                 "volumeMounts": self._init_container_mountpoints(),
-                                "env": container_environment,
-                                "env_from": [
-                                    {
-                                        "secret_ref": {
-                                            "name": secrets_name,
-                                            "optional": False,
-                                        }
-                                    }
-                                ],
+                                "env": container_environment + secret_env,
                             },
                         ],
                         "containers": [
@@ -844,15 +854,15 @@ class Connector(BaseConnector):
                                     "requests": communicator_requests,
                                 },
                                 "securityContext": security_context,
-                                "env": container_environment,
-                                "env_from": [
-                                    {
-                                        "secret_ref": {
-                                            "name": secrets_name,
-                                            "optional": False,
-                                        }
-                                    }
-                                ],
+                                "env": container_environment + secret_env,
+                                # "env_from": [
+                                #     {
+                                #         "secret_ref": {
+                                #             "name": secrets_name,
+                                #             "optional": False,
+                                #         }
+                                #     }
+                                # ],
                                 "command": ["/usr/local/bin/python3"],
                                 "args": ["/startup.py"],
                                 "volumeMounts": self._communicator_mountpoints(
