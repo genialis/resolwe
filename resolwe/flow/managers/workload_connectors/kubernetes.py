@@ -808,14 +808,7 @@ class Connector(BaseConnector):
                                 "securityContext": {"privileged": True},
                                 "volumeMounts": self._init_container_mountpoints(),
                                 "env": container_environment,
-                                "env_from": [
-                                    {
-                                        "secret_ref": {
-                                            "name": secrets_name,
-                                            "optional": False,
-                                        }
-                                    }
-                                ],
+                                "envFrom": [{"secretRef": {"name": secrets_name}}],
                             },
                         ],
                         "containers": [
@@ -845,14 +838,7 @@ class Connector(BaseConnector):
                                 },
                                 "securityContext": security_context,
                                 "env": container_environment,
-                                "env_from": [
-                                    {
-                                        "secret_ref": {
-                                            "name": secrets_name,
-                                            "optional": False,
-                                        }
-                                    }
-                                ],
+                                "envFrom": [{"secretRef": {"name": secrets_name}}],
                                 "command": ["/usr/local/bin/python3"],
                                 "args": ["/startup.py"],
                                 "volumeMounts": self._communicator_mountpoints(
