@@ -17,6 +17,7 @@ Changed
 - Use ``simple_unaccent`` full text search configuration instead of ``simple``
 - Authenticate worker with the listener (and vice versa) and encrypt the 
   communication between them using ``CurveZMQ`` protocol
+- Use ``simple_unaccent`` configuration when generating search vectors
 
 Added
 -----

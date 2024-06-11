@@ -28,29 +28,29 @@ CREATE OR REPLACE FUNCTION generate_resolwe_entity_search(entity flow_entity)
 
         SELECT
             -- Entity name.
-            setweight(to_tsvector('simple', entity.name), 'A') ||
-            setweight(to_tsvector('simple', get_characters(entity.name)), 'B') ||
-            setweight(to_tsvector('simple', get_numbers(entity.name)), 'B') ||
+            setweight(to_tsvector('simple_unaccent', entity.name), 'A') ||
+            setweight(to_tsvector('simple_unaccent', get_characters(entity.name)), 'B') ||
+            setweight(to_tsvector('simple_unaccent', get_numbers(entity.name)), 'B') ||
             -- Collection description.
-            setweight(to_tsvector('simple', entity.description), 'B') ||
+            setweight(to_tsvector('simple_unaccent', entity.description), 'B') ||
             -- Contributor username.
-            setweight(to_tsvector('simple', contributor.usernames), 'B') ||
-            setweight(to_tsvector('simple', get_characters(contributor.usernames)), 'C') ||
-            setweight(to_tsvector('simple', get_numbers(contributor.usernames)), 'C') ||
+            setweight(to_tsvector('simple_unaccent', contributor.usernames), 'B') ||
+            setweight(to_tsvector('simple_unaccent', get_characters(contributor.usernames)), 'C') ||
+            setweight(to_tsvector('simple_unaccent', get_numbers(contributor.usernames)), 'C') ||
             -- Contributor first name.
-            setweight(to_tsvector('simple', contributor.first_names), 'B') ||
+            setweight(to_tsvector('simple_unaccent', contributor.first_names), 'B') ||
             -- Contributor last name.
-            setweight(to_tsvector('simple', contributor.last_names), 'B') ||
+            setweight(to_tsvector('simple_unaccent', contributor.last_names), 'B') ||
             -- Owners usernames. There is no guarantee that it is not NULL.
-            setweight(to_tsvector('simple', COALESCE(owners.usernames, '')), 'B') ||
-            setweight(to_tsvector('simple', get_characters(owners.usernames)), 'C') ||
-            setweight(to_tsvector('simple', get_numbers(owners.usernames)), 'C') ||
+            setweight(to_tsvector('simple_unaccent', COALESCE(owners.usernames, '')), 'B') ||
+            setweight(to_tsvector('simple_unaccent', get_characters(owners.usernames)), 'C') ||
+            setweight(to_tsvector('simple_unaccent', get_numbers(owners.usernames)), 'C') ||
             -- Owners first names. There is no guarantee that it is not NULL.
-            setweight(to_tsvector('simple', COALESCE(owners.first_names, '')), 'B') ||
+            setweight(to_tsvector('simple_unaccent', COALESCE(owners.first_names, '')), 'B') ||
             -- Owners last names. There is no guarantee that it is not NULL.
-            setweight(to_tsvector('simple', COALESCE(owners.last_names, '')), 'B') ||
+            setweight(to_tsvector('simple_unaccent', COALESCE(owners.last_names, '')), 'B') ||
             -- Entity tags.
-            setweight(to_tsvector('simple', array_to_string(entity.tags, ' ')), 'B')
+            setweight(to_tsvector('simple_unaccent', array_to_string(entity.tags, ' ')), 'B')
         INTO search;
 
         RETURN search;

@@ -11,7 +11,11 @@ import django.contrib.postgres.search
 import django.core.validators
 import django.db.models.deletion
 from django.conf import settings
-from django.contrib.postgres.operations import CITextExtension, TrigramExtension
+from django.contrib.postgres.operations import (
+    CITextExtension,
+    TrigramExtension,
+    UnaccentExtension,
+)
 from django.db import migrations, models
 
 import resolwe.flow.models.fields
@@ -27,6 +31,23 @@ class Migration(migrations.Migration):
     operations = [
         CITextExtension(),
         TrigramExtension(),
+        UnaccentExtension(),
+        migrations.RunSQL(
+            """
+            DO
+            $$BEGIN
+                CREATE TEXT SEARCH CONFIGURATION simple_unaccent( COPY = simple );
+            EXCEPTION
+                WHEN unique_violation THEN
+                    NULL;  -- ignore error
+            END;$$;
+            """
+        ),
+        migrations.RunSQL(
+            "ALTER TEXT SEARCH CONFIGURATION simple_unaccent "
+            + "ALTER MAPPING FOR hword, hword_part, word "
+            + "WITH unaccent, simple;"
+        ),
         migrations.CreateModel(
             name="Collection",
             fields=[

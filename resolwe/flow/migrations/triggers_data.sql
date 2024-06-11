@@ -1,8 +1,13 @@
 -- Trigger after insert/update Data object.
-CREATE TYPE process_result AS (
-    name text,
-    type text
-);
+
+DO $$ BEGIN
+    CREATE TYPE process_result AS (
+        name text,
+        type text
+    );
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
 CREATE OR REPLACE FUNCTION generate_resolwe_data_search(data flow_data)
     RETURNS tsvector
@@ -38,37 +43,37 @@ CREATE OR REPLACE FUNCTION generate_resolwe_data_search(data flow_data)
 
         SELECT
             -- Data name.
-            setweight(to_tsvector('simple', data.name), 'A') ||
-            setweight(to_tsvector('simple', get_characters(data.name)), 'B') ||
-            setweight(to_tsvector('simple', get_numbers(data.name)), 'B') ||
+            setweight(to_tsvector('simple_unaccent', data.name), 'A') ||
+            setweight(to_tsvector('simple_unaccent', get_characters(data.name)), 'B') ||
+            setweight(to_tsvector('simple_unaccent', get_numbers(data.name)), 'B') ||
             -- Contributor username.
-            setweight(to_tsvector('simple', contributor.usernames), 'B') ||
-            setweight(to_tsvector('simple', get_characters(contributor.usernames)), 'C') ||
-            setweight(to_tsvector('simple', get_numbers(contributor.usernames)), 'C') ||
+            setweight(to_tsvector('simple_unaccent', contributor.usernames), 'B') ||
+            setweight(to_tsvector('simple_unaccent', get_characters(contributor.usernames)), 'C') ||
+            setweight(to_tsvector('simple_unaccent', get_numbers(contributor.usernames)), 'C') ||
             -- Contributor first name.
-            setweight(to_tsvector('simple', contributor.first_names), 'B') ||
+            setweight(to_tsvector('simple_unaccent', contributor.first_names), 'B') ||
             -- Contributor last name.
-            setweight(to_tsvector('simple', contributor.last_names), 'B') ||
+            setweight(to_tsvector('simple_unaccent', contributor.last_names), 'B') ||
             -- Owners usernames. There is no guarantee that it is not NULL.
-            setweight(to_tsvector('simple', COALESCE(owners.usernames, '')), 'B') ||
-            setweight(to_tsvector('simple', get_characters(owners.usernames)), 'C') ||
-            setweight(to_tsvector('simple', get_numbers(owners.usernames)), 'C') ||
+            setweight(to_tsvector('simple_unaccent', COALESCE(owners.usernames, '')), 'B') ||
+            setweight(to_tsvector('simple_unaccent', get_characters(owners.usernames)), 'C') ||
+            setweight(to_tsvector('simple_unaccent', get_numbers(owners.usernames)), 'C') ||
             -- Owners first names. There is no guarantee that it is not NULL.
-            setweight(to_tsvector('simple', COALESCE(owners.first_names, '')), 'B') ||
+            setweight(to_tsvector('simple_unaccent', COALESCE(owners.first_names, '')), 'B') ||
             -- Owners last names. There is no guarantee that it is not NULL.
-            setweight(to_tsvector('simple', COALESCE(owners.last_names, '')), 'B') ||
+            setweight(to_tsvector('simple_unaccent', COALESCE(owners.last_names, '')), 'B') ||
             -- Process name.
-            setweight(to_tsvector('simple', process.name), 'B') ||
-            setweight(to_tsvector('simple', get_characters(process.name)), 'C') ||
-            setweight(to_tsvector('simple', get_numbers(process.name)), 'C') ||
+            setweight(to_tsvector('simple_unaccent', process.name), 'B') ||
+            setweight(to_tsvector('simple_unaccent', get_characters(process.name)), 'C') ||
+            setweight(to_tsvector('simple_unaccent', get_numbers(process.name)), 'C') ||
             -- Process type.
-            setweight(to_tsvector('simple', process.type), 'D') ||
+            setweight(to_tsvector('simple_unaccent', process.type), 'D') ||
             -- Data tags.
-            setweight(to_tsvector('simple', array_to_string(data.tags, ' ')), 'B') ||
+            setweight(to_tsvector('simple_unaccent', array_to_string(data.tags, ' ')), 'B') ||
             -- Data descriptor.
-            setweight(to_tsvector('simple', flat_descriptor), 'C') ||
-            setweight(to_tsvector('simple', get_characters(flat_descriptor)), 'D') ||
-            setweight(to_tsvector('simple', get_numbers(flat_descriptor)), 'D')
+            setweight(to_tsvector('simple_unaccent', flat_descriptor), 'C') ||
+            setweight(to_tsvector('simple_unaccent', get_characters(flat_descriptor)), 'D') ||
+            setweight(to_tsvector('simple_unaccent', get_numbers(flat_descriptor)), 'D')
         INTO search;
 
         RETURN search;

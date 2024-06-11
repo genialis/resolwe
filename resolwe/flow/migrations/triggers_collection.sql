@@ -30,33 +30,33 @@ CREATE OR REPLACE FUNCTION generate_resolwe_collection_search(collection flow_co
 
         SELECT
             -- Collection name.
-            setweight(to_tsvector('simple', collection.name), 'A') ||
-            setweight(to_tsvector('simple', get_characters(collection.name)), 'B') ||
-            setweight(to_tsvector('simple', get_numbers(collection.name)), 'B') ||
+            setweight(to_tsvector('simple_unaccent', collection.name), 'A') ||
+            setweight(to_tsvector('simple_unaccent', get_characters(collection.name)), 'B') ||
+            setweight(to_tsvector('simple_unaccent', get_numbers(collection.name)), 'B') ||
             -- Collection description.
-            setweight(to_tsvector('simple', collection.description), 'B') ||
+            setweight(to_tsvector('simple_unaccent', collection.description), 'B') ||
             -- Contributor username.
-            setweight(to_tsvector('simple', contributor.usernames), 'B') ||
-            setweight(to_tsvector('simple', get_characters(contributor.usernames)), 'C') ||
-            setweight(to_tsvector('simple', get_numbers(contributor.usernames)), 'C') ||
+            setweight(to_tsvector('simple_unaccent', contributor.usernames), 'B') ||
+            setweight(to_tsvector('simple_unaccent', get_characters(contributor.usernames)), 'C') ||
+            setweight(to_tsvector('simple_unaccent', get_numbers(contributor.usernames)), 'C') ||
             -- Contributor first name.
-            setweight(to_tsvector('simple', contributor.first_names), 'B') ||
+            setweight(to_tsvector('simple_unaccent', contributor.first_names), 'B') ||
             -- Contributor last name.
-            setweight(to_tsvector('simple', contributor.last_names), 'B') ||
+            setweight(to_tsvector('simple_unaccent', contributor.last_names), 'B') ||
             -- Owners usernames. There is no guarantee that it is not NULL.
-            setweight(to_tsvector('simple', COALESCE(owners.usernames, '')), 'B') ||
-            setweight(to_tsvector('simple', get_characters(owners.usernames)), 'C') ||
-            setweight(to_tsvector('simple', get_numbers(owners.usernames)), 'C') ||
+            setweight(to_tsvector('simple_unaccent', COALESCE(owners.usernames, '')), 'B') ||
+            setweight(to_tsvector('simple_unaccent', get_characters(owners.usernames)), 'C') ||
+            setweight(to_tsvector('simple_unaccent', get_numbers(owners.usernames)), 'C') ||
             -- Owners first names. There is no guarantee that it is not NULL.
-            setweight(to_tsvector('simple', COALESCE(owners.first_names, '')), 'B') ||
+            setweight(to_tsvector('simple_unaccent', COALESCE(owners.first_names, '')), 'B') ||
             -- Owners last names. There is no guarantee that it is not NULL.
-            setweight(to_tsvector('simple', COALESCE(owners.last_names, '')), 'B') ||
+            setweight(to_tsvector('simple_unaccent', COALESCE(owners.last_names, '')), 'B') ||
             -- Collection tags.
-            setweight(to_tsvector('simple', array_to_string(collection.tags, ' ')), 'B') ||
+            setweight(to_tsvector('simple_unaccent', array_to_string(collection.tags, ' ')), 'B') ||
             -- Collection descriptor.
-            setweight(to_tsvector('simple', flat_descriptor), 'C') ||
-            setweight(to_tsvector('simple', get_characters(flat_descriptor)), 'D') ||
-            setweight(to_tsvector('simple', get_numbers(flat_descriptor)), 'D')
+            setweight(to_tsvector('simple_unaccent', flat_descriptor), 'C') ||
+            setweight(to_tsvector('simple_unaccent', get_characters(flat_descriptor)), 'D') ||
+            setweight(to_tsvector('simple_unaccent', get_numbers(flat_descriptor)), 'D')
 
         INTO search;
 

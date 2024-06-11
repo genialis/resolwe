@@ -319,6 +319,14 @@ class CollectionViewSetFiltersTest(BaseViewSetFiltersTest):
         # Test unaccented search.
         self._check_filter({"text": "Tešt čollećtion 1"}, [self.collections[1]])
 
+        accented_collection = Collection.objects.create(
+            name="Böhm", contributor=self.admin
+        )
+        accented_collection.set_permission(Permission.VIEW, self.user)
+        self._check_filter({"text": "Bohm"}, [accented_collection])
+        self._check_filter({"text": "Böhm"}, [accented_collection])
+        accented_collection.delete()
+
         # By contributor.
         self._check_filter({"text": "joe"}, self.collections[:2])
         self._check_filter({"text": "Miller"}, self.collections[:2])

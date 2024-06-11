@@ -15,7 +15,7 @@ CREATE OR REPLACE FUNCTION edge_ngrams(text text)
         SELECT COALESCE(
             array_to_tsvector((
                 SELECT array_agg(DISTINCT substring(lexeme for len))
-                FROM unnest(to_tsvector('simple', text)), generate_series(1,length(lexeme)) len
+                FROM unnest(to_tsvector('simple_unaccent', text)), generate_series(1,length(lexeme)) len
             )),
             ''::tsvector
         )
