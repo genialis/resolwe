@@ -26,7 +26,11 @@ from resolwe.flow.executors.startup_processing_container import (
 )
 from resolwe.flow.executors.zeromq_utils import ZMQCommunicator
 from resolwe.flow.managers.dispatcher import Manager
-from resolwe.flow.managers.listener.listener import LISTENER_PUBLIC_KEY
+from resolwe.flow.managers.listener.listener import (
+    LISTENER_PUBLIC_KEY,
+    LIVENESS_CHECK_PRIVATE_KEY,
+    LIVENESS_CHECK_PUBLIC_KEY,
+)
 from resolwe.flow.managers.listener.redis_cache import redis_cache
 from resolwe.flow.models import Data, DataDependency, Process, Worker
 from resolwe.flow.models.annotations import (
@@ -382,7 +386,6 @@ class ManagerRunProcessTest(ProcessTestCase):
                 zmq_socket, "init_container <-> listener", logger
             )
             async with communicator:
-                print("Sending message")
                 future = asyncio.ensure_future(
                     communicator.send_command(Message.command("update_status", "PP"))
                 )
@@ -434,6 +437,18 @@ class ManagerRunProcessTest(ProcessTestCase):
                     LISTENER_PUBLIC_KEY,
                 )
             )
+
+        # Peer with id 'liveness_probe' must be able to get a response even with fake
+        # keys.
+        response = asyncio.new_event_loop().run_until_complete(
+            send_single_message(
+                b"liveness_probe",
+                LIVENESS_CHECK_PUBLIC_KEY,
+                LIVENESS_CHECK_PRIVATE_KEY,
+                LISTENER_PUBLIC_KEY,
+            )
+        )
+        self.assertEqual(response.status, ResponseStatus.OK)
 
         # Non-matching keys and data id message must be rejected.
         response = asyncio.new_event_loop().run_until_complete(

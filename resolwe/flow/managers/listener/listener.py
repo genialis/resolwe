@@ -80,6 +80,10 @@ if not settings.DEBUG:
 LISTENER_PUBLIC_KEY = env_public_key.encode()
 LISTENER_PRIVATE_KEY = env_private_key.encode()
 
+# This is a special key that is used to check if listener is running.
+LIVENESS_CHECK_PUBLIC_KEY = b"pielqA({EHts^?MtURnndo0$)ocr46=?Xiv>-Sn5"
+LIVENESS_CHECK_PRIVATE_KEY = b"5>r36/f^OjoVNMMY[fxr=ep!UO#uL?JPg2ci(td4"
+
 if not settings.DEBUG:
     assert (
         LISTENER_PRIVATE_KEY != DEFAULT_LISTENER_PRIVATE_KEY
@@ -105,6 +109,12 @@ class CurveCallback:
         """
         try:
             assert domain == "*", "Only domain '*' is supported."
+
+            # Allow the message with liveness keys to proceed. Make sure to check later
+            #  that it does not have any permission.
+            if key == LIVENESS_CHECK_PUBLIC_KEY:
+                return True
+
             status, data_id = await database_sync_to_async(
                 Worker.objects.filter(public_key=key)
                 .values_list("status", "data_id")
@@ -693,12 +703,6 @@ class ListenerProtocol(BaseProtocol):
                         "Exception updating unresponsive peer status."
                     )
 
-    async def handle_liveness_probe(
-        self, message: Message, peer_identity: PeerIdentity
-    ) -> Response[bool]:
-        """Respond to the liveness probe."""
-        return message.respond_ok(True)
-
     def _handle_lock_message_error(
         self, lock_status: RedisLockStatus, received_message: Message
     ) -> Response:
@@ -747,6 +751,11 @@ class ListenerProtocol(BaseProtocol):
         """
         response: Optional[Response] = None
         extend_lock_task: Optional[asyncio.Task] = None
+
+        # Check if this is a health check and respond OK regardless the content of the
+        # message.
+        if received_message.client_id == LIVENESS_CHECK_PUBLIC_KEY:
+            return received_message.respond_ok("OK")
 
         try:
             data_id = abs(int(peer_identity))

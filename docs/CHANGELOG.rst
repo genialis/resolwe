@@ -18,6 +18,10 @@ Changed
 - Authenticate worker with the listener (and vice versa) and encrypt the 
   communication between them using ``CurveZMQ`` protocol
 
+Added
+-----
+- Add fixed pair of encryption keys for ``listener`` service health checks
+
 
 ===================
 39.0.0 - 2024-05-09
