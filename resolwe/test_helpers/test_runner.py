@@ -329,6 +329,8 @@ async def _run_on_infrastructure(meth, *args, **kwargs):
                         logger.exception("Exception while running test")
                     finally:
                         zmq_info.authenticator.stop()
+                        # Give authenticator task some time to finish.
+                        await asyncio.sleep(0.1)
                         logger.debug("test_runner: Terminating listener")
 
 
