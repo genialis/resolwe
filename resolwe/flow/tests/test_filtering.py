@@ -70,9 +70,6 @@ class BaseViewSetFiltersTest(TestCase):
         request = factory.get("/", query_args, format="json")
         force_authenticate(request, user or self.admin)
         response = self.viewset(request)
-        print("Got response")
-        print(response)
-        print(response.data)
 
         if status.is_success(response.status_code):
             self.assertEqual(len(response.data), len(expected))

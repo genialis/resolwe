@@ -2,7 +2,6 @@
 
 import json
 import os
-from contextlib import suppress
 from logging import Logger
 from threading import Lock
 from typing import Any, Optional, Tuple
@@ -102,14 +101,3 @@ class ZMQAuthenticator(AsyncioAuthenticator):
                     cls._instance = cls(context=context)
                     cls._instance_pid = os.getpid()
         return cls._instance
-
-    def start(self):
-        """Ignore possible exception when testing."""
-        # The is_testing is not available in the executor so it is imported here.
-        from resolwe.test.utils import is_testing
-
-        if is_testing():
-            with suppress(zmq.error.ZMQError):
-                super().start()
-        else:
-            super().start()
