@@ -717,13 +717,16 @@ class BaseCommunicator:
                 received = await self._receive_message()
 
                 if received is None:
-                    self.logger.info(
-                        f"Communicator {self.name}: received empty message, closing communicator."
-                    )
-                    break
+                    if self._terminating.is_set():
+                        self.logger.info(
+                            f"Communicator {self.name}: received empty message, closing communicator."
+                        )
+                        break
+                    # Invalid message received, resume listening.
+                    else:
+                        continue
 
                 identity, message = received
-
                 if message.message_type is MessageType.HEARTBEAT:
                     logger.debug("Got heartbeat from peer '%s'.", identity)
                     if self.heartbeat_handler is not None:
