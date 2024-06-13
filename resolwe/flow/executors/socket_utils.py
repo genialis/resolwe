@@ -52,6 +52,16 @@ class PeerStatus(Enum):
     UNRESPONSIVE = "unresponsive"
 
 
+class ReceiveStatus(Enum):
+    """Status of the received method."""
+
+    OK = "OK"
+    INVALID_MESSAGE = "invalid"
+    CANCELLED = "cancelled"
+    SOCKET_CLOSED = "socket_closed"
+    TERMINATED = "terminated"
+
+
 PeerIdentity = bytes
 MessageDataType = TypeVar("MessageDataType")
 ResponseDataType = TypeVar("ResponseDataType")
@@ -563,7 +573,9 @@ class BaseCommunicator:
         else:
             return call_command
 
-    async def _receive_message(self) -> Optional[Tuple[PeerIdentity, Message]]:
+    async def _receive_message(
+        self,
+    ) -> Tuple[ReceiveStatus, Optional[Tuple[PeerIdentity, Message]]]:
         """Receive a single message.
 
         This method is blocking: it waits for the message to arrive. The
@@ -581,6 +593,7 @@ class BaseCommunicator:
             the key "type".
         """
         result = None
+        received_status = ReceiveStatus.INVALID_MESSAGE
         try:
             self.logger.debug("Communicator %s waiting for message.", self.name)
             receive_task = asyncio.ensure_future(self.receive_method(self.reader))
@@ -592,6 +605,7 @@ class BaseCommunicator:
                 try:
                     received = receive_task.result()
                 except asyncio.IncompleteReadError:
+                    received_status = ReceiveStatus.SOCKET_CLOSED
                     self.logger.info("Socket closed by peer, stopping communication.")
                     received = None
                 if received is not None:
@@ -601,17 +615,20 @@ class BaseCommunicator:
                     received[1]["client_id"] = received[2]
                     assert Message.is_valid(received[1])
                     result = received[0], Message.from_dict(received[1])
+                    received_status = ReceiveStatus.OK
             else:
+                received_status = ReceiveStatus.TERMINATED
                 self.logger.debug(
                     "Communicator %s _receive_message: terminating flag is set, returning None",
                     self.name,
                 )
-        # Do not log cancelled errors.
         except asyncio.CancelledError:
+            received_status = ReceiveStatus.CANCELLED
             self.logger.debug(
                 "Communicator %s: CancelledError in _receive_message.", self.name
             )
         except:
+            received_status = ReceiveStatus.INVALID_MESSAGE
             self.logger.exception(
                 "Communicator %s: exception in _receive_message.", self.name
             )
@@ -619,7 +636,7 @@ class BaseCommunicator:
             # Always stop both tasks.
             receive_task.cancel()
             terminating_task.cancel()
-        return result
+        return received_status, result
 
     async def _send_message(
         self,
@@ -714,13 +731,17 @@ class BaseCommunicator:
         """
         try:
             while True:
-                received = await self._receive_message()
+                status, received = await self._receive_message()
 
                 if received is None:
-                    self.logger.info(
-                        f"Communicator {self.name}: received empty message, closing communicator."
-                    )
-                    break
+                    if status in [
+                        ReceiveStatus.SOCKET_CLOSED,
+                        ReceiveStatus.TERMINATED,
+                        ReceiveStatus.CANCELLED,
+                    ]:
+                        break
+                    elif ReceiveStatus.INVALID_MESSAGE:
+                        continue
 
                 identity, message = received
 
