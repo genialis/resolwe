@@ -58,6 +58,8 @@ class ReceiveStatus(Enum):
     OK = "OK"
     INVALID_MESSAGE = "invalid"
     CANCELLED = "cancelled"
+    SOCKET_CLOSED = "socket_closed"
+    TERMINATED = "terminated"
 
 
 PeerIdentity = bytes
@@ -605,6 +607,7 @@ class BaseCommunicator:
                     # print("Received message", received)
                 except asyncio.IncompleteReadError:
                     # print("Socket closed")
+                    received_status = ReceiveStatus.SOCKET_CLOSED
                     self.logger.info("Socket closed by peer, stopping communication.")
                     received = None
                 if received is not None:
@@ -617,7 +620,7 @@ class BaseCommunicator:
                     # print("Got result", result)
                     received_status = ReceiveStatus.OK
             else:
-                received_status = ReceiveStatus.CANCELLED
+                received_status = ReceiveStatus.TERMINATED
                 self.logger.debug(
                     "Communicator %s _receive_message: terminating flag is set, returning None",
                     self.name,
@@ -736,12 +739,15 @@ class BaseCommunicator:
                 status, received = await self._receive_message()
 
                 if received is None:
-                    if status == ReceiveStatus.INVALID_MESSAGE:
-                        # print("NO TERMINATING!")
-                        continue
-                    elif status == ReceiveStatus.CANCELLED:
-                        # print("TERMINATE")
+                    # break
+                    if status in [
+                        ReceiveStatus.SOCKET_CLOSED,
+                        ReceiveStatus.TERMINATED,
+                        ReceiveStatus.CANCELLED,
+                    ]:
                         break
+                    elif ReceiveStatus.INVALID_MESSAGE:
+                        continue
 
                 identity, message = received
                 if message.message_type is MessageType.HEARTBEAT:

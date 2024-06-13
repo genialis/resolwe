@@ -313,6 +313,7 @@ async def _run_on_infrastructure(meth, *args, **kwargs):
                 background_task_manager.set_loop(asyncio.get_running_loop())
                 async with listener, background_task_manager:
                     try:
+                        print("START AUTH", os.getpid())
                         zmq_info.authenticator.start()
                         with override_settings(FLOW_MANAGER_SYNC_AUTO_CALLS=True):
                             # Run the test in the new thread instead on the
@@ -328,7 +329,10 @@ async def _run_on_infrastructure(meth, *args, **kwargs):
                     except Exception:
                         logger.exception("Exception while running test")
                     finally:
+                        print("STOP AUTH", os.getpid())
                         zmq_info.authenticator.stop()
+                        # Make sure authenticator task is stopped.
+                        await asyncio.sleep(0.1)
                         logger.debug("test_runner: Terminating listener")
 
 

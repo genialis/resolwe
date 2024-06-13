@@ -2,7 +2,6 @@
 
 import json
 import os
-from contextlib import suppress
 from logging import Logger
 from threading import Lock
 from typing import Any, Optional, Tuple
@@ -109,7 +108,7 @@ class ZMQAuthenticator(AsyncioAuthenticator):
         from resolwe.test.utils import is_testing
 
         if is_testing():
-            with suppress(zmq.error.ZMQError):
-                super().start()
+            # with suppress(zmq.error.ZMQError):
+            super().start()
         else:
             super().start()
