@@ -1,0 +1,29 @@
+FROM docker.io/ubuntu:24.04
+
+LABEL MAINTAINER Resolwe authors https://github.com/genialis/resolwe
+
+# XXX: Remove this after Resolwe learns how to mount re-* tools into every container
+COPY re-import.sh /re-import.sh
+# XXX: Remove this after Resolwe learns how to mount re-* tools into every container
+COPY curlprogress.py /usr/local/bin/
+
+RUN apt-get update && \
+    # Install Python 3, curl and p7zip-full, the latter two needed by re-import.
+    apt-get install -y --no-install-recommends python3 python3-setuptools 
+
+RUN apt-get install -y --no-install-recommends python3-pip python3-plumbum curl p7zip-full
+
+    # Install Resolwe Runtime Utils
+RUN pip3 install resolwe-runtime-utils --break-system-packages
+RUN echo 're-checkrc() { _re-checkrc $? "$@"; }' >> /etc/profile.d/resolwe-base.sh && \
+    # XXX: Remove this hack after updating processes to no longer implicitly assume $NAME is set
+    # when calling re-import.sh
+    cat /re-import.sh >> /etc/profile.d/resolwe-base.sh && \
+    rm /re-import.sh && \
+    # XXX: Remove this after Resolwe learns how to mount re-* tools into every container
+    chmod +x /usr/local/bin/curlprogress.py && \
+    # Cleanup.
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    rm -rf /root/.cache/pip && \
+    rm -rf /tmp/*
