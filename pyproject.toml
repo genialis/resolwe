@@ -96,6 +96,8 @@ Repository = "https://github.com/genialis/resolwe/"
 
 [tool.black]
 target-version = ["py311", "py312"]
+# The process must be excluded: its syntax must remain Python 3.6 compatible.
+exclude = "resolwe/process"
 
 [tool.mypy]
 plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]
