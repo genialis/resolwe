@@ -29,14 +29,20 @@ jobs:
         include:
           - python: "3.11"
             toxenv: "py311"
+            description: "Unit tests (Python 3.11)"
           - python: "3.12"
             toxenv: "py312"
+            description: "Unit tests (Python 3.12)"
           - python: "3.12"
             toxenv: "linters"
+            description: "Linters (Python 3.12)"
           - python: "3.12"
             toxenv: "packaging"
+            description: "Packaging (Python 3.12)"
           - python: "3.12"
             toxenv: "migrations"
+            description: "Migrations (Python 3.12)"
+    name: ${{ matrix.description }}
 
     services:
       postgres: 
@@ -68,10 +74,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build communication container
+        if: matrix.toxenv == 'py311' || matrix.toxenv == 'py312'
         working-directory: ./resolwe/flow/docker_images
         run: docker build -f Dockerfile.communication -t ${{ env.RESOLWE_COMMUNICATOR_IMAGE }} ../../
 
-      - name: Test
+      - name: ${{ matrix.description }}
         run: |
           # Make sure `python` refers to the tox environment's Python
           export PATH=`pwd`/.tox/${{ matrix.toxenv }}/bin:$PATH
