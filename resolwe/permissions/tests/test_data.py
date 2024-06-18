@@ -22,8 +22,7 @@ from resolwe.test import ResolweAPITestCase, TransactionResolweAPITestCase
 DATE_FORMAT = r"%Y-%m-%dT%H:%M:%S.%f"
 
 MESSAGES = {
-    "NOT_FOUND": "Not found.",
-    # 'NO_PERMISSION': 'You do not have permission to perform this action.',
+    "NOT_FOUND": "No Data matches the given query.",
     "ONE_ID_REQUIRED": "Exactly one id required on create.",
 }
 

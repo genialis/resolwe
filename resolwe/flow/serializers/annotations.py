@@ -165,6 +165,14 @@ class AnnotationValueSerializer(ResolweBaseSerializer):
                     entry["_value"] = {"value": entry.pop("value")}
         super().__init__(instance, data, **kwargs)
 
+    def get_unique_together_validators(self) -> list:
+        """Return the list of validators for unique together model constraint.
+
+        Since we are using put to create or update existing values this must be empty
+        or updating existing values with put method will fail the validation.
+        """
+        return []
+
     class Meta:
         """AnnotationValueSerializer Meta options."""
 

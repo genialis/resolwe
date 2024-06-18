@@ -322,6 +322,9 @@ class TestOrderEntityByAnnotations(TestCase):
 
 
 class AnnotationViewSetsTest(TestCase):
+
+    NOT_FOUND = "No AnnotationValue matches the given query."
+
     def setUp(self):
         super().setUp()
 
@@ -495,8 +498,9 @@ class AnnotationViewSetsTest(TestCase):
 
         # Unauthenticated request.
         response = client.patch(path, values, format="json")
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertEqual(response.data, {"detail": "Not found."})
+        self.assertContains(
+            response, self.NOT_FOUND, status_code=status.HTTP_404_NOT_FOUND
+        )
 
         # Authenticated request.
         client.force_authenticate(self.contributor)
@@ -523,8 +527,9 @@ class AnnotationViewSetsTest(TestCase):
         # Authenticated request, no permission.
         self.entity1.collection.set_permission(Permission.NONE, self.contributor)
         response = client.patch(path, values, format="json")
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertEqual(response.data, {"detail": "Not found."})
+        self.assertContains(
+            response, self.NOT_FOUND, status_code=status.HTTP_404_NOT_FOUND
+        )
 
         # Single / bulk update with put.
         self.entity1.collection.set_permission(Permission.EDIT, self.contributor)
@@ -679,8 +684,9 @@ class AnnotationViewSetsTest(TestCase):
         )
         # Unauthenticated request, no view permission.
         response = client.delete(path, format="json")
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertEqual(response.data, {"detail": "Not found."})
+        self.assertContains(
+            response, self.NOT_FOUND, status_code=status.HTTP_404_NOT_FOUND
+        )
 
         # Unauthenticated request, view permission.
         self.annotation_value1.entity.collection.set_permission(
@@ -734,8 +740,9 @@ class AnnotationViewSetsTest(TestCase):
             Permission.NONE, self.contributor
         )
         response = client.delete(path, format="json")
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertEqual(response.data, {"detail": "Not found."})
+        self.assertContains(
+            response, self.NOT_FOUND, status_code=status.HTTP_404_NOT_FOUND
+        )
 
     def test_annotate_path(self):
         """Test annotate entity queryset."""
