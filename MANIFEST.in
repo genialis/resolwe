@@ -13,7 +13,6 @@ include .coveragerc
 include .pylintrc
 include tests/.env
 recursive-include tests *.py *.yaml *.rst
-recursive-include resolwe/elastic/tests *.py
 recursive-include resolwe/flow/tests *.py
 recursive-include resolwe/flow/tests/descriptors *.yml
 recursive-include resolwe/flow/tests/processes *.yml
@@ -36,11 +35,18 @@ recursive-include resolwe/toolkit/tests *.py
 recursive-include resolwe/toolkit/tests/files *
 recursive-include resolwe/storage/tests *.py
 include resolwe/storage/fixtures/*.yaml
+# Include schemas.
+include resolwe/flow/static/flow/*.json
+# Include sql files in migrations.
+include resolwe/flow/migrations/*.sql
+# Include executor requirements.
+include resolwe/flow/executors/requirements.txt
 # include Dockerfiles and files needed to build Docker images
-recursive-include resolwe/toolkit/docker_images Dockerfile Dockerfile.* README.md
+recursive-include resolwe/toolkit/docker_images Dockerfile.* README.md
+include resolwe/flow/docker_images/Dockerfile.communication
+# Include resolwe-runtime-utils related files
 include resolwe/toolkit/docker_images/base/curlprogress.py
 include resolwe/toolkit/docker_images/base/re-import.sh
-include resolwe/flow/docker_images/Dockerfile.communication
 include resolwe/flow/docker_images/Readme.md
 # Exclude encrypted credentials for test connectors.
 exclude tests/testing_credentials.tgz.enc
