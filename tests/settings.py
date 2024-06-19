@@ -7,11 +7,10 @@ import json
 import os
 import sys
 from distutils.util import strtobool
+from importlib import metadata
 from pathlib import Path
 
-from decouple import Csv, config
-
-from resolwe.__about__ import __version__
+from decouple import config
 
 PROJECT_ROOT = Path(__file__).parent.resolve()
 
@@ -269,7 +268,7 @@ REST_FRAMEWORK = {
 SPECTACULAR_SETTINGS = {
     "TITLE": "Resolwe",
     "DESCRIPTION": "An open source dataflow package for Django.",
-    "VERSION": __version__,
+    "VERSION": metadata.metadata("resolwe")["version"],
     "SERVE_INCLUDE_SCHEMA": False,
     "ENUM_NAME_OVERRIDES": {"DataStatus": "resolwe.flow.models.Data.STATUS_CHOICES"},
 }
