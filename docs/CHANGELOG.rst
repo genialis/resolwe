@@ -14,6 +14,7 @@ Changed
 -------
 - Bump requirements version
 - Upgrade base images to Fedora 40 and Ubuntu 24.04
+- Use ``pyproject.toml`` instead of ``setup.py``
 
 
 ===================
