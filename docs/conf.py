@@ -20,6 +20,7 @@ settings.configure(
         'resolwe.permissions',
         'resolwe.flow',
     ),
+    DEBUG=True,
 )
 django.setup()
 
