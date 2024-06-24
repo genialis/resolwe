@@ -15,6 +15,9 @@ Changed
 - Bump requirements version
 - Upgrade base images to Fedora 40 and Ubuntu 24.04
 - Use ``pyproject.toml`` instead of ``setup.py``
+- Merge ``Authenticator`` class with ``ZMQAuthenticator`` and allow any client
+  with the encryption key to connect to the listener service. The client is
+  rejected if it accesses the data object it does not have the permissions for.
 
 
 ===================

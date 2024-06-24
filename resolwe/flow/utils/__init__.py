@@ -26,6 +26,7 @@ from django.db import models
 
 from .decorators import retry
 from .iterators import iterate_dict, iterate_fields, iterate_schema
+from .singleton import Singleton
 
 __all__ = (
     "dict_dot",
@@ -35,6 +36,7 @@ __all__ = (
     "iterate_fields",
     "iterate_schema",
     "retry",
+    "Singleton",
 )
 
 

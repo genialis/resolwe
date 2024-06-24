@@ -36,15 +36,14 @@ from django.utils.crypto import get_random_string
 # resolwe.test.testcases.TransactionTestCase will override them with the module above,
 # negating anything we do here with Django's override_settings.
 import resolwe.test.testcases.setting_overrides as resolwe_settings
-from resolwe.flow.executors.zeromq_utils import ZMQAuthenticator
 from resolwe.flow.finders import get_finders
 from resolwe.flow.management.commands.prepare_runtime import Command as PrepareRuntime
 from resolwe.flow.managers import listener, manager, state
 from resolwe.flow.managers.listener.listener import (
     LISTENER_PRIVATE_KEY,
     LISTENER_PUBLIC_KEY,
-    CurveCallback,
 )
+from resolwe.flow.managers.listener.authenticator import ZMQAuthenticator
 from resolwe.observers.consumers import update_constants as update_observer_constants
 from resolwe.observers.utils import background_task_manager
 from resolwe.process.parser import ProcessVisitor
@@ -216,9 +215,6 @@ def _prepare_settings():
     zmq_socket: zmq.asyncio.Socket = zmq_context.socket(zmq.ROUTER)
     zmq_socket.setsockopt(zmq.ROUTER_HANDOVER, 1)
     auth = ZMQAuthenticator.instance(zmq_context)
-    auth.configure_curve_callback(
-        domain="*", credentials_provider=CurveCallback.instance()
-    )
     zmq_socket.curve_secretkey = LISTENER_PRIVATE_KEY
     zmq_socket.curve_publickey = LISTENER_PUBLIC_KEY
     zmq_socket.curve_server = True
@@ -314,6 +310,7 @@ async def _run_on_infrastructure(meth, *args, **kwargs):
                 async with listener, background_task_manager:
                     try:
                         zmq_info.authenticator.start()
+                        zmq_info.authenticator.clear_authorizations()
                         with override_settings(FLOW_MANAGER_SYNC_AUTO_CALLS=True):
                             # Run the test in the new thread instead on the
                             # main thread (default). If test is started on the

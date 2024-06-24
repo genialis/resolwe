@@ -26,11 +26,7 @@ from resolwe.flow.executors.startup_processing_container import (
 )
 from resolwe.flow.executors.zeromq_utils import ZMQCommunicator
 from resolwe.flow.managers.dispatcher import Manager
-from resolwe.flow.managers.listener.listener import (
-    LISTENER_PUBLIC_KEY,
-    LIVENESS_CHECK_PRIVATE_KEY,
-    LIVENESS_CHECK_PUBLIC_KEY,
-)
+from resolwe.flow.managers.listener.listener import LISTENER_PUBLIC_KEY
 from resolwe.flow.managers.listener.redis_cache import redis_cache
 from resolwe.flow.models import Data, DataDependency, Process, Worker
 from resolwe.flow.models.annotations import (
@@ -355,6 +351,8 @@ class ManagerRunProcessTest(ProcessTestCase):
             process=process, contributor=self.contributor
         )
         public_key, private_key = zmq.curve_keypair()
+        another_public_key, another_private_key = zmq.curve_keypair()
+        fake_public_key, fake_private_key = zmq.curve_keypair()
         Worker.objects.create(
             data=data,
             status=Worker.STATUS_PROCESSING,
@@ -364,14 +362,16 @@ class ManagerRunProcessTest(ProcessTestCase):
         Worker.objects.create(
             data=another_data,
             status=Worker.STATUS_PROCESSING,
-            private_key=private_key,
-            public_key=public_key,
+            private_key=another_private_key,
+            public_key=another_public_key,
         )
 
-        fake_public_key, fake_private_key = zmq.curve_keypair()
-
         async def send_single_message(
-            identity, public_key, private_key, listener_public_key
+            identity,
+            public_key,
+            private_key,
+            listener_public_key,
+            command=("update_status", "PP"),
         ) -> Response:
             """Open connection to listener and send single message."""
             connection_string = f"{protocol}://{host}:{port}"
@@ -387,7 +387,7 @@ class ManagerRunProcessTest(ProcessTestCase):
             )
             async with communicator:
                 future = asyncio.ensure_future(
-                    communicator.send_command(Message.command("update_status", "PP"))
+                    communicator.send_command(Message.command(*command))
                 )
                 return await asyncio.wait_for(future, 1)
 
@@ -428,24 +428,30 @@ class ManagerRunProcessTest(ProcessTestCase):
             )
 
         # Fake client keys should be rejected.
-        with self.assertRaises(asyncio.exceptions.TimeoutError):
-            asyncio.new_event_loop().run_until_complete(
-                send_single_message(
-                    f"{data.pk}".encode(),
-                    fake_public_key,
-                    fake_private_key,
-                    LISTENER_PUBLIC_KEY,
-                )
+        response = asyncio.new_event_loop().run_until_complete(
+            send_single_message(
+                f"{data.pk}".encode(),
+                fake_public_key,
+                fake_private_key,
+                LISTENER_PUBLIC_KEY,
             )
+        )
+        not_authorized_error = (
+            f"Client with key {fake_public_key!r} is not allowed to process the data "
+            f"object with id {data.pk}."
+        )
+        self.assertEqual(response.status, ResponseStatus.ERROR)
+        self.assertEqual(response.message_data, not_authorized_error)
 
-        # Peer with id 'liveness_probe' must be able to get a response even with fake
-        # keys.
+        # The command 'liveness_probe' must be able to get a response even with a set
+        # of keys with access to no data object.
         response = asyncio.new_event_loop().run_until_complete(
             send_single_message(
                 b"liveness_probe",
-                LIVENESS_CHECK_PUBLIC_KEY,
-                LIVENESS_CHECK_PRIVATE_KEY,
+                fake_public_key,
+                fake_private_key,
                 LISTENER_PUBLIC_KEY,
+                command=("liveness_probe", ""),
             )
         )
         self.assertEqual(response.status, ResponseStatus.OK)
@@ -459,17 +465,42 @@ class ManagerRunProcessTest(ProcessTestCase):
                 LISTENER_PUBLIC_KEY,
             )
         )
-        expected_error = (
+        not_authorized_error = (
             f"Client with key {public_key!r} is not allowed to process the data "
             f"object with id {another_data.pk}."
         )
         self.assertEqual(response.status, ResponseStatus.ERROR)
-        self.assertEqual(response.message_data, expected_error)
+        self.assertEqual(response.message_data, not_authorized_error)
+
+        response = asyncio.new_event_loop().run_until_complete(
+            send_single_message(
+                f"{data.pk}".encode(),
+                another_public_key,
+                another_private_key,
+                LISTENER_PUBLIC_KEY,
+            )
+        )
+        not_authorized_error = (
+            f"Client with key {another_public_key!r} is not allowed to process the "
+            f"data object with id {data.pk}."
+        )
+        self.assertEqual(response.status, ResponseStatus.ERROR)
+        self.assertEqual(response.message_data, not_authorized_error)
 
         # Correct identity and keys.
         response = asyncio.new_event_loop().run_until_complete(
             send_single_message(
                 f"{data.pk}".encode(), public_key, private_key, LISTENER_PUBLIC_KEY
+            )
+        )
+        self.assertEqual(response.status, ResponseStatus.OK)
+
+        response = asyncio.new_event_loop().run_until_complete(
+            send_single_message(
+                f"{another_data.pk}".encode(),
+                another_public_key,
+                another_private_key,
+                LISTENER_PUBLIC_KEY,
             )
         )
         self.assertEqual(response.status, ResponseStatus.OK)

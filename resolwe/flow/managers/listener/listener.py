@@ -17,7 +17,6 @@ import logging
 import os
 from contextlib import suppress
 from functools import lru_cache
-from threading import Lock
 from time import time
 from typing import Any, ChainMap, Dict, List, Optional, Set, Union
 
@@ -40,7 +39,7 @@ from resolwe.flow.executors.socket_utils import (
     Response,
     ResponseStatus,
 )
-from resolwe.flow.executors.zeromq_utils import ZMQAuthenticator, ZMQCommunicator
+from resolwe.flow.executors.zeromq_utils import ZMQCommunicator
 from resolwe.flow.managers import consumer
 from resolwe.flow.managers.protocol import WorkerProtocol
 from resolwe.flow.managers.state import LISTENER_CONTROL_CHANNEL  # noqa: F401
@@ -56,6 +55,8 @@ from .bootstrap_plugin import BootstrapCommands  # noqa: F401
 from .plugin import listener_plugin_manager as plugin_manager
 from .python_process_plugin import PythonProcess  # noqa: F401
 from .redis_cache import RedisLockStatus, cache_manager, redis_server
+
+from .authenticator import ZMQAuthenticator
 
 # Unique redis object to use in listener.
 
@@ -80,74 +81,11 @@ if not settings.DEBUG:
 LISTENER_PUBLIC_KEY = env_public_key.encode()
 LISTENER_PRIVATE_KEY = env_private_key.encode()
 
-# This is a special key that is used to check if listener is running.
-LIVENESS_CHECK_PUBLIC_KEY = b"pielqA({EHts^?MtURnndo0$)ocr46=?Xiv>-Sn5"
-LIVENESS_CHECK_PRIVATE_KEY = b"5>r36/f^OjoVNMMY[fxr=ep!UO#uL?JPg2ci(td4"
-
 if not settings.DEBUG:
     assert (
         LISTENER_PRIVATE_KEY != DEFAULT_LISTENER_PRIVATE_KEY
         and LISTENER_PUBLIC_KEY != DEFAULT_LISTENER_PUBLIC_KEY
     ), "Must set private and public listener key when not running in debug mode"
-
-
-class CurveCallback:
-    """Class containing the callback for zmq authentication."""
-
-    _instance = None
-    _instance_lock = Lock()
-    _instance_pid: int | None = None
-
-    def __init__(self):
-        """Initialize the mapping between key and the data object."""
-        self.key_to_data: dict[bytes, int] = {}
-
-    async def callback(self, domain, key):
-        """Authenticate the client.
-
-        The client is valid if its key is in the database.
-        """
-        try:
-            assert domain == "*", "Only domain '*' is supported."
-
-            # Allow the message with liveness keys to proceed. Make sure to check later
-            #  that it does not have any permission.
-            if key == LIVENESS_CHECK_PUBLIC_KEY:
-                return True
-
-            status, data_id = await database_sync_to_async(
-                Worker.objects.filter(public_key=key)
-                .values_list("status", "data_id")
-                .first,
-                thread_sensitive=False,
-            )()
-            acceptable_statuses = [
-                Worker.STATUS_PREPARING,
-                Worker.STATUS_PROCESSING,
-                Worker.STATUS_FINISHED_PREPARING,
-            ]
-            if status in acceptable_statuses:
-                return self.key_to_data.setdefault(key, data_id) == data_id
-
-        except Exception:
-            logger.exception("Exception in curve auth callback.")
-
-        return False
-
-    @classmethod
-    def has_instance(cls):
-        """Check if the instance exists."""
-        return not (cls._instance is None or cls._instance_pid != os.getpid())
-
-    @classmethod
-    def instance(cls):
-        """Return a global CurveCallback instance."""
-        if not cls.has_instance():
-            with cls._instance_lock:
-                if not cls.has_instance():
-                    cls._instance = cls()
-                    cls._instance_pid = os.getpid()
-        return cls._instance
 
 
 class Processor:
@@ -610,9 +548,6 @@ class ListenerProtocol(BaseProtocol):
         if zmq_socket is None:
             zmq_context: zmq.asyncio.Context = zmq.asyncio.Context.instance()
             auth = ZMQAuthenticator.instance(zmq_context)
-            auth.configure_curve_callback(
-                domain="*", credentials_provider=CurveCallback.instance()
-            )
             auth.start()
             zmq_socket = zmq_context.socket(zmq.ROUTER)
             # Configure keys and start the server.
@@ -752,10 +687,9 @@ class ListenerProtocol(BaseProtocol):
         response: Optional[Response] = None
         extend_lock_task: Optional[asyncio.Task] = None
 
-        # Check if this is a health check and respond OK regardless the content of the
-        # message.
-        if received_message.client_id == LIVENESS_CHECK_PUBLIC_KEY:
-            return received_message.respond_ok("OK")
+        # Handle the liveness probe in a special way (no access control is needed).
+        if received_message.command_name == "liveness_probe":
+            return received_message.respond("OK")
 
         try:
             data_id = abs(int(peer_identity))
@@ -768,14 +702,9 @@ class ListenerProtocol(BaseProtocol):
             # Check that the client is valid and can process the data object.
             # Before any processing make sure the client is valid and has the permission to
             # process the data object.
-            security_provider = CurveCallback.instance()
-            mapping = security_provider.key_to_data
             key = received_message.client_id
-            if key not in mapping:
-                error_message = f"Unknown client key {key!r}."
-                self.logger.error(error_message)
-                return received_message.respond_error(error_message)
-            if mapping[key] != data_id:
+            authenticator = ZMQAuthenticator.instance()
+            if not authenticator.can_access_data(key, data_id):
                 error_message = (
                     f"Client with key {key!r} is not allowed to process the data object "
                     f"with id {data_id}."
@@ -795,7 +724,6 @@ class ListenerProtocol(BaseProtocol):
             # message can be processed twice. We can avoid processing the message twice
             # but then all processes that have messages in the listener queue will fail
             # if the listener chashes.
-            data_id = abs(int(peer_identity))
             success, lock_status = cache_manager.lock(
                 Data, [(data_id, received_message.uuid)]
             )[0]

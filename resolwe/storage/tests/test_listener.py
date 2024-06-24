@@ -5,8 +5,9 @@ from django.contrib.auth import get_user_model
 
 from resolwe.flow.executors import constants
 from resolwe.flow.executors.socket_utils import Message, Response, ResponseStatus
+from resolwe.flow.managers.listener.authenticator import ZMQAuthenticator
 from resolwe.flow.managers.listener.basic_commands_plugin import BasicCommands
-from resolwe.flow.managers.listener.listener import CurveCallback, Processor
+from resolwe.flow.managers.listener.listener import Processor
 from resolwe.flow.managers.protocol import ExecutorProtocol
 from resolwe.flow.models import Data, DataDependency, Entity, Worker
 from resolwe.flow.models.annotations import (
@@ -43,7 +44,7 @@ class ListenerTest(TestCase):
     def setUp(self):
         """Set the security provider before tests."""
         super().setUp()
-        self.security_provider = CurveCallback.instance()
+        self.security_provider = ZMQAuthenticator.instance()
 
     def test_handle_download_finished_missing_storage_location(self):
         obj = Message.command(ExecutorProtocol.DOWNLOAD_FINISHED, -2)
@@ -322,7 +323,7 @@ class ListenerTest(TestCase):
         Worker.objects.get_or_create(data_id=data.pk, status=Worker.STATUS_PROCESSING)
 
         peer_identity = str(data.pk).encode()
-        self.security_provider.key_to_data[b"0"] = data.pk
+        self.security_provider.authorize_client(b"0", data.pk)
         message = Message.command("resolve_data_path", data.pk, client_id=b"0")
         response = self.manager.process_command(peer_identity, message)
         self.assertEqual(response.message_data, str(constants.INPUTS_VOLUME))
@@ -378,7 +379,7 @@ class ListenerTest(TestCase):
             private_key=b"0",
             public_key=b"0",
         )
-        self.security_provider.key_to_data[b"0"] = data.pk
+        self.security_provider.authorize_client(b"0", data.pk)
 
         # Request without permisions should fail.
         message = Message.command(
@@ -405,7 +406,7 @@ class ListenerTest(TestCase):
             data_id=data.pk, status=Worker.STATUS_PROCESSING
         )
         entity.set_permission(Permission.VIEW, self.contributor)
-        self.security_provider.key_to_data[b"0"] = data.pk
+        self.security_provider.authorize_client(b"0", data.pk)
 
         response = self.manager.process_command(peer_identity, message)
         expected = Response(
@@ -475,7 +476,7 @@ class ListenerTest(TestCase):
             ResponseStatus.ERROR.value,
             "Error in command handler 'handle_set_entity_annotations'.",
         )
-        self.security_provider.key_to_data[b"0"] = data.pk
+        self.security_provider.authorize_client(b"0", data.pk)
         response = self.manager.process_command(peer_identity, message)
         self.assertEqual(response, expected)
 
@@ -492,7 +493,7 @@ class ListenerTest(TestCase):
         entity.set_permission(Permission.EDIT, self.contributor)
         self.assertEqual(entity.annotations.count(), 0)
 
-        self.security_provider.key_to_data[b"0"] = data.pk
+        self.security_provider.authorize_client(b"0", data.pk)
         response = self.manager.process_command(peer_identity, message)
         expected = Response(ResponseStatus.OK.value, "OK")
         self.assertEqual(entity.annotations.count(), 1)
