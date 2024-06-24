@@ -105,3 +105,6 @@ check_untyped_defs = true
 
 [tool.django-stubs]
 django_settings_module = "tests.settings"
+
+[tool.isort]
+profile = "black"
