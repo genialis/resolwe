@@ -11,13 +11,12 @@ import re
 
 import jsonschema
 import yaml
-from versionfield.utils import convert_version_string_to_int
-
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.management.base import BaseCommand
 from django.db.models import Max, Q
+from versionfield.utils import convert_version_string_to_int
 
 from resolwe.flow.engine import InvalidEngineError
 from resolwe.flow.finders import get_finders

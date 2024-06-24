@@ -3,7 +3,6 @@
 import collections
 
 import yaml
-
 from django.db import transaction
 
 from resolwe.flow.execution_engines.base import BaseExecutionEngine

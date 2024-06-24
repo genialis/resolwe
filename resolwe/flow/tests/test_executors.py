@@ -13,7 +13,6 @@ from unittest.mock import patch
 
 import zmq
 import zmq.asyncio
-
 from django.conf import settings
 from django.db import IntegrityError, connection
 from django.test import override_settings

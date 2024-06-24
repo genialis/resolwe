@@ -3,7 +3,6 @@ from copy import deepcopy
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
-
 from rest_framework import exceptions, status
 
 from resolwe.flow.models import Collection, DescriptorSchema, Process

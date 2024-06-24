@@ -1,9 +1,8 @@
 """Base model for all Resolwe models."""
 
-from versionfield import VersionField
-
 from django.conf import settings
 from django.db import IntegrityError, models, transaction
+from versionfield import VersionField
 
 from resolwe.auditlog.models import AuditModel
 

@@ -4,7 +4,6 @@ from time import time
 from unittest.mock import MagicMock, patch
 
 from django.core.exceptions import ValidationError
-
 from rest_framework.response import Response
 
 from resolwe.flow.managers.workload_connectors.kubernetes import (

@@ -1,7 +1,6 @@
 # pylint: disable=missing-docstring
-from versionfield import VersionField
-
 from django.db import models
+from versionfield import VersionField
 
 from resolwe.flow.models.fields import ResolweSlugField
 

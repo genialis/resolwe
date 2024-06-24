@@ -8,7 +8,6 @@ from typing import Callable, Optional, TypedDict
 from channels.consumer import AsyncConsumer
 from channels.db import database_sync_to_async
 from channels.generic.websocket import JsonWebsocketConsumer
-
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType

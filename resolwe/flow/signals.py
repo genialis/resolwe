@@ -9,7 +9,6 @@ Signal Handlers
 from typing import List, Optional
 
 from asgiref.sync import async_to_sync
-
 from django.conf import settings
 from django.db import transaction
 from django.db.models.signals import post_delete, post_save

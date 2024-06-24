@@ -1,7 +1,6 @@
 """Resolwe data serializer."""
 
 from django.db import transaction
-
 from rest_framework import serializers
 
 from resolwe.flow.models import Collection, Data, DescriptorSchema, Entity, Process

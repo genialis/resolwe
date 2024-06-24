@@ -6,7 +6,6 @@ from django.contrib.auth.models import AnonymousUser
 from django.core.management import call_command
 from django.db import DEFAULT_DB_ALIAS, connections
 from django.test.utils import CaptureQueriesContext
-
 from rest_framework import status
 
 import resolwe.permissions.models

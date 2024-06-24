@@ -1,7 +1,6 @@
 """Background task viewset."""
 
 from django_filters import rest_framework as filters
-
 from rest_framework import mixins, serializers, viewsets
 
 from resolwe.observers.mixins import ObservableMixin

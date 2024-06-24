@@ -4,7 +4,6 @@ import datetime
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.utils.timezone import get_current_timezone
-
 from rest_framework import status
 from rest_framework.test import APIRequestFactory, force_authenticate
 

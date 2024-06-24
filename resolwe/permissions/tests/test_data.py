@@ -8,7 +8,6 @@ from django.contrib.auth.models import AnonymousUser
 from django.test import TransactionTestCase as DjangoTransactionTestCase
 from django.urls import reverse
 from django.utils.timezone import now
-
 from rest_framework import exceptions, status
 from rest_framework.test import APIClient
 

@@ -15,7 +15,6 @@ import threading
 import time
 
 import yaml
-
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 

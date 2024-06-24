@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import Any, Dict
 
 import kubernetes
-
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 

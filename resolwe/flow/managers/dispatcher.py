@@ -19,13 +19,12 @@ from typing import List, Optional, Tuple, Union
 
 from channels.db import database_sync_to_async
 from channels.exceptions import ChannelFull
-from zmq import curve_keypair
-
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured, PermissionDenied
 from django.db import IntegrityError, connection, models, transaction
 from django.db.models import OuterRef, Q, Subquery
 from django.utils.timezone import now
+from zmq import curve_keypair
 
 from resolwe.flow.engine import InvalidEngineError, load_engines
 from resolwe.flow.execution_engines import ExecutionError

@@ -7,7 +7,6 @@ Permissions Filter
 """
 
 from django.db.models import QuerySet
-
 from rest_framework.filters import BaseFilterBackend
 from rest_framework.request import Request
 

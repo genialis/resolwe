@@ -1,11 +1,9 @@
 """Permissions functions used in Resolwe Viewsets."""
 
 import versionfield.fields
-from drf_spectacular.utils import extend_schema
-
 from django.conf import settings
 from django.db import models, transaction
-
+from drf_spectacular.utils import extend_schema
 from rest_framework import exceptions, serializers, status
 from rest_framework.decorators import action
 from rest_framework.request import Request

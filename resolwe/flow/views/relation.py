@@ -3,7 +3,6 @@
 from itertools import zip_longest
 
 from django.db.models import Prefetch
-
 from rest_framework import exceptions, permissions, status, viewsets
 from rest_framework.response import Response
 

@@ -13,7 +13,6 @@ from typing import Optional, Tuple, Type, Union
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser, Group, User
 from django.db import models, transaction
-
 from rest_framework import exceptions
 
 from resolwe.permissions.models import (

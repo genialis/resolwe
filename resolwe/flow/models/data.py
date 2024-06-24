@@ -7,7 +7,6 @@ import logging
 from typing import Any, Optional, Union
 
 import jsonschema
-
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.indexes import GinIndex

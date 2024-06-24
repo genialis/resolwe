@@ -5,7 +5,6 @@ import shutil
 import tempfile
 
 import crcmod
-
 from django.conf import settings
 
 from resolwe.storage.connectors import (

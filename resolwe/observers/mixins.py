@@ -1,10 +1,8 @@
 """Mixins for Observable ViewSets."""
 
-from drf_spectacular.utils import extend_schema
-
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
-
+from drf_spectacular.utils import extend_schema
 from rest_framework import serializers
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound

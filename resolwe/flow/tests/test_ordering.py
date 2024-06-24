@@ -2,7 +2,6 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
 from django.urls import reverse
-
 from rest_framework.test import APITestCase
 
 from resolwe.flow.models import Collection, Data, Entity, Process

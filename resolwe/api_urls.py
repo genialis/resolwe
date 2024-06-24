@@ -1,7 +1,6 @@
 """Urls for Django Rest Framework."""
 
 from django.urls import include, path
-
 from rest_framework import routers
 
 from .flow.views import (

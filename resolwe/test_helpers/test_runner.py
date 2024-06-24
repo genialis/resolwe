@@ -25,7 +25,6 @@ import yaml
 import zmq
 import zmq.asyncio
 from channels.db import database_sync_to_async
-
 from django.conf import settings
 from django.core.management.base import CommandError
 from django.test import override_settings
@@ -39,11 +38,11 @@ import resolwe.test.testcases.setting_overrides as resolwe_settings
 from resolwe.flow.finders import get_finders
 from resolwe.flow.management.commands.prepare_runtime import Command as PrepareRuntime
 from resolwe.flow.managers import listener, manager, state
+from resolwe.flow.managers.listener.authenticator import ZMQAuthenticator
 from resolwe.flow.managers.listener.listener import (
     LISTENER_PRIVATE_KEY,
     LISTENER_PUBLIC_KEY,
 )
-from resolwe.flow.managers.listener.authenticator import ZMQAuthenticator
 from resolwe.observers.consumers import update_constants as update_observer_constants
 from resolwe.observers.utils import background_task_manager
 from resolwe.process.parser import ProcessVisitor

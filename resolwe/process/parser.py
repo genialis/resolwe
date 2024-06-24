@@ -9,7 +9,6 @@ from inspect import isclass
 from typing import Iterable, Mapping, Set
 
 import asteval
-
 from django.conf import settings
 
 from . import runtime

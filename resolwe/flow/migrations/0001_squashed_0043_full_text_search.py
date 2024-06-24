@@ -2,14 +2,13 @@
 
 import uuid
 
-import fernet_fields.fields
-import versionfield.fields
-
 import django.contrib.postgres.fields
 import django.contrib.postgres.fields.citext
 import django.contrib.postgres.search
 import django.core.validators
 import django.db.models.deletion
+import fernet_fields.fields
+import versionfield.fields
 from django.conf import settings
 from django.contrib.postgres.operations import (
     CITextExtension,

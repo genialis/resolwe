@@ -2,10 +2,9 @@
 
 import uuid
 
-from fernet_fields import EncryptedTextField
-
 from django.conf import settings
 from django.db import models
+from fernet_fields import EncryptedTextField
 
 
 class SecretManager(models.Manager):

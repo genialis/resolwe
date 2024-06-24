@@ -5,7 +5,6 @@ from typing import Optional
 from django.contrib.auth.models import User
 from django.db import models
 from django.http import Http404, HttpRequest
-
 from rest_framework import exceptions, permissions
 
 from resolwe.permissions.models import Permission, PermissionList, get_anonymous_user

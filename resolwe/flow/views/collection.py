@@ -1,11 +1,9 @@
 """Collection viewset."""
 
-from drf_spectacular.utils import extend_schema
-
 from django.db import transaction
 from django.db.models import F, Func, OuterRef, Prefetch, Subquery
 from django.db.models.functions import Coalesce
-
+from drf_spectacular.utils import extend_schema
 from rest_framework import exceptions, mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response

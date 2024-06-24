@@ -10,7 +10,6 @@ import logging
 
 from asgiref.sync import async_to_sync
 from channels.layers import ChannelFull, get_channel_layer
-
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 

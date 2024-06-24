@@ -8,7 +8,6 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils.timezone import now
-
 from rest_framework.test import APIRequestFactory, APITestCase, force_authenticate
 
 from resolwe.flow.expression_engines import EvaluationError

@@ -4,7 +4,6 @@ from typing import Any
 
 from django.db import models
 from django.db.models import Q
-
 from rest_framework import serializers
 from rest_framework.fields import empty
 

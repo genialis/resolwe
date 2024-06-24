@@ -3,7 +3,6 @@
 import inspect
 
 import jsonschema
-
 from django.db.migrations.operations import base
 
 from resolwe.flow.models.utils import validate_process_types, validation_schema

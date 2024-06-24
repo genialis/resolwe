@@ -4,10 +4,9 @@ from contextlib import contextmanager
 from importlib import import_module
 
 import jinja2
+from django.core.exceptions import ImproperlyConfigured
 from jinja2 import compiler
 from markupsafe import soft_str
-
-from django.core.exceptions import ImproperlyConfigured
 
 from resolwe.flow.expression_engines.base import BaseExpressionEngine
 from resolwe.flow.expression_engines.exceptions import EvaluationError

@@ -5,7 +5,6 @@ from unittest.mock import MagicMock, patch
 
 from django.core.exceptions import PermissionDenied
 from django.test import RequestFactory, TestCase
-
 from rest_framework import status
 
 from resolwe.storage.views import UriResolverView

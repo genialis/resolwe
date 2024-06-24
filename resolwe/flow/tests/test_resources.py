@@ -1,6 +1,5 @@
 # pylint: disable=missing-docstring
 from django.urls import reverse
-
 from rest_framework.test import APIRequestFactory
 
 from resolwe.test import TestCase

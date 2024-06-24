@@ -25,7 +25,6 @@ import zmq.asyncio
 from asgiref.sync import async_to_sync
 from channels.db import database_sync_to_async
 from channels.layers import get_channel_layer
-
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
@@ -49,14 +48,14 @@ from resolwe.storage.models import AccessLog
 from resolwe.test.utils import ignore_in_tests, is_testing
 from resolwe.utils import BraceMessage as __
 
+from .authenticator import ZMQAuthenticator
+
 # Register plugins by importing them.
 from .basic_commands_plugin import BasicCommands  # noqa: F401
 from .bootstrap_plugin import BootstrapCommands  # noqa: F401
 from .plugin import listener_plugin_manager as plugin_manager
 from .python_process_plugin import PythonProcess  # noqa: F401
 from .redis_cache import RedisLockStatus, cache_manager, redis_server
-
-from .authenticator import ZMQAuthenticator
 
 # Unique redis object to use in listener.
 

@@ -3,11 +3,9 @@
 import re
 from typing import Optional
 
-from drf_spectacular.utils import extend_schema
-
 from django.db.models import F, Func, OuterRef, Prefetch, Subquery
 from django.db.models.functions import Coalesce
-
+from drf_spectacular.utils import extend_schema
 from rest_framework import exceptions, serializers, status
 from rest_framework.decorators import action
 from rest_framework.request import Request

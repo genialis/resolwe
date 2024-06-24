@@ -1,7 +1,6 @@
 # pylint: disable=missing-docstring
 from django.contrib.auth import get_user_model
 from django.test import TransactionTestCase as DjangoTransactionTestCase
-
 from rest_framework import status
 
 from resolwe.flow.models import Collection

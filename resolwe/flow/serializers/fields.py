@@ -2,11 +2,9 @@
 
 from collections import OrderedDict
 
-from drf_spectacular.utils import extend_schema_field
-
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils.encoding import smart_str
-
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import exceptions, relations, serializers
 
 from resolwe.permissions.models import Permission

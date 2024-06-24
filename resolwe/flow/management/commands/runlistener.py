@@ -14,7 +14,6 @@ import asyncio
 from signal import SIGINT, SIGTERM
 
 import uvloop
-
 from django.core.management.base import BaseCommand
 
 from resolwe.flow.managers.listener import ExecutorListener

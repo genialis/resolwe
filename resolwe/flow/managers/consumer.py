@@ -18,7 +18,6 @@ from channels.consumer import AsyncConsumer
 from channels.db import database_sync_to_async
 from channels.layers import get_channel_layer
 from channels.testing import ApplicationCommunicator
-
 from django.db import connection
 
 from resolwe.utils import BraceMessage as __

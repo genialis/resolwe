@@ -13,7 +13,6 @@ from urllib.parse import urlencode, urlparse
 
 import pytz
 from bs4 import BeautifulSoup
-
 from django.core.exceptions import ImproperlyConfigured, PermissionDenied
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect
@@ -22,7 +21,6 @@ from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
-
 from rest_framework import serializers
 from rest_framework.response import Response
 from rest_framework.viewsets import ViewSet

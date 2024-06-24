@@ -12,7 +12,6 @@ from os import getpid
 from typing import Any, Iterable, Optional, Sequence, Type, Union
 
 import redis
-
 from django.conf import settings
 from django.db import models
 

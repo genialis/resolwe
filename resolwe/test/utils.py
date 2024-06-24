@@ -17,7 +17,6 @@ from contextlib import suppress
 from sys import platform
 
 import wrapt
-
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.test import override_settings, tag

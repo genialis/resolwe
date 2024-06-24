@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import Dict, Iterable, Set, Union
 
 import openpyxl
-
 from django.core.management.base import BaseCommand
 from django.db import models, transaction
 

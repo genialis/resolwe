@@ -6,7 +6,6 @@ from django.core.exceptions import ValidationError
 from django.db import DEFAULT_DB_ALIAS, connections
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
-
 from rest_framework import status
 from rest_framework.test import APIClient, APIRequestFactory, force_authenticate
 

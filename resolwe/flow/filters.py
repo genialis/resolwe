@@ -12,20 +12,18 @@ from copy import deepcopy
 from functools import partial
 from typing import Callable, Union
 
-from django_filters import rest_framework as filters
-from django_filters.constants import EMPTY_VALUES
-from django_filters.filterset import FilterSetMetaclass
-from versionfield import VersionField
-
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.contrib.postgres.search import SearchQuery, SearchRank
 from django.core.exceptions import ValidationError
 from django.db.models import Count, F, ForeignKey, Q, Subquery
 from django.db.models.query import QuerySet
-
+from django_filters import rest_framework as filters
+from django_filters.constants import EMPTY_VALUES
+from django_filters.filterset import FilterSetMetaclass
 from rest_framework import fields
 from rest_framework.filters import OrderingFilter as DrfOrderingFilter
+from versionfield import VersionField
 
 from resolwe.composer import composer
 from resolwe.permissions.models import (

@@ -1,9 +1,7 @@
 """Mixins used in Resolwe Viewsets."""
 
-from drf_spectacular.utils import extend_schema
-
 from django.db import IntegrityError, transaction
-
+from drf_spectacular.utils import extend_schema
 from rest_framework import exceptions, mixins, serializers, status
 from rest_framework.decorators import action
 from rest_framework.generics import get_object_or_404
