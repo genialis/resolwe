@@ -27,6 +27,13 @@ from typing import (
 logger = logging.getLogger(__name__)
 
 
+class QueueMetricsType(Enum):
+    """Type of the metric."""
+
+    QUEUED_MESSAGES = "QM"
+    PROCESSING_MESSAGES = "PM"
+
+
 @unique
 class MessageType(Enum):
     """Type of the message."""
@@ -262,6 +269,11 @@ class Message(Generic[MessageDataType]):
         self.uuid = message_uuid or self._get_random_message_identifier()
         self.sent_timestamp = sent_timestamp
         self.client_id = client_id
+        # Used for metrics to track the time when message was received, when
+        # it started processing and when it finished processing.
+        self.received: Optional[float] = None
+        self.processing_started: Optional[float] = None
+        self.processing_finished: Optional[float] = None
 
     def _get_random_message_identifier(self) -> str:
         """Get a random message identifier.
@@ -942,14 +954,64 @@ class BaseProtocol:
         communicator: BaseCommunicator,
         logger: logging.Logger,
         max_concurrent_commands: int = 10,
+        queue_metrics: Optional[
+            Callable[[QueueMetricsType, int, int, dict], None]
+        ] = None,
+        message_metrics: Optional[Callable[[Message, dict], None]] = None,
     ):
-        """Initialize."""
+        """Initialize.
+
+        :args queue_metrics: the callback to call when the metrics of the messages in
+            queue change.
+        :args message_metrics: the callback to call when the message finished
+            processing to extract the response time metrics.
+        """
         self.communicator = communicator
         self.logger = logger
         self._should_stop = asyncio.Event()
         self._max_concurrent_commands = max_concurrent_commands
         self._concurrent_semaphore = asyncio.Semaphore(self._max_concurrent_commands)
-        self._command_counter = 0
+        # Collect metrics data.
+        # The number of received (unprocessed) messages.
+        self.__received_messages = 0
+        # The number of messages currently being processed.
+        self.__processing_messages = 0
+
+        # Call when callback with the metrics value when the value is changed.
+        self._queue_metrics: Optional[
+            Callable[[QueueMetricsType, int, int, dict], None]
+        ] = queue_metrics
+        self._message_metrics: Optional[Callable[[Message, dict], None]] = (
+            message_metrics
+        )
+
+    @property
+    def _processing_messages(self) -> int:
+        """Get the number of messages currently being processed."""
+        return self.__processing_messages
+
+    @_processing_messages.setter
+    def _processing_messages(self, value: int) -> None:
+        """Get the number of messages currently being processed."""
+        if self._queue_metrics is not None:
+            self._queue_metrics(
+                QueueMetricsType.PROCESSING_MESSAGES, self.__processing_messages, value
+            )
+        self.__processing_messages = value
+
+    @property
+    def _received_messages(self) -> int:
+        """Get the number of unprocessed messages."""
+        return self.__received_messages
+
+    @_received_messages.setter
+    def _received_messages(self, value: int) -> None:
+        """Get the number of unprocessed messages."""
+        if self._queue_metrics is not None:
+            self._queue_metrics(
+                QueueMetricsType.QUEUED_MESSAGES, self.__received_messages, value
+            )
+        self.__received_messages = value
 
     async def process_command(
         self, peer_identity: PeerIdentity, received_message: Message
@@ -959,11 +1021,10 @@ class BaseProtocol:
         Use semaphore to make sure no more than max_concurrent_commands are
         processed at any given time.
         """
-        self.logger.debug(
-            "Concurrent semaphore count: %s.", self._concurrent_semaphore._value
-        )
-
         async with self._concurrent_semaphore:
+            # Increase the processing messages counter.
+            self._processing_messages += 1
+
             command_name = received_message.type_data
             handler_name = "handle_" + command_name
             handler = getattr(self, handler_name, None)
@@ -1002,6 +1063,16 @@ class BaseProtocol:
         if handler is not None:
             self.logger.debug("Running post processing handler '%s'.", handler_name)
             asyncio.ensure_future(handler(received_message, peer_identity))
+
+        # Mark the message was processed (not counting in the post-processing handler).
+        self._processing_messages -= 1
+        self._received_messages -= 1
+        if self._message_metrics is not None:
+            attributes = {
+                "data_id": peer_identity,
+                "command": received_message.command_name,
+            }
+            self._message_metrics(received_message, attributes)
 
     async def default_command_handler(
         self, message: Message, identity: PeerIdentity
@@ -1052,9 +1123,6 @@ class BaseProtocol:
                         ),
                         return_when=asyncio.FIRST_COMPLETED,
                     )
-                    self.logger.debug(
-                        "Communicate %s got nudged.", self.communicator.name
-                    )
 
                     if has_message_future in done:
                         self.logger.debug(
@@ -1065,6 +1133,12 @@ class BaseProtocol:
                                 peer_identity,
                                 received_command,
                             ) = await self.communicator.get_next_message()
+
+                            # Record the time when the message was received and
+                            # increase the received messages counter.
+                            received_command.received = now()
+                            received_command.command_name
+                            self._received_messages += 1
                         except IndexError:
                             # On the next iteration the while loop will stop.
                             self.logger.exception(
