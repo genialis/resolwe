@@ -30,11 +30,20 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils.timezone import now
+from opentelemetry import metrics
+from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import (
+    ConsoleMetricExporter,
+    PeriodicExportingMetricReader,
+)
+from opentelemetry.sdk.resources import Resource
 
 from resolwe.flow.executors.socket_utils import (
     BaseProtocol,
     Message,
     PeerIdentity,
+    QueueMetricsType,
     Response,
     ResponseStatus,
 )
@@ -561,9 +570,71 @@ class ListenerProtocol(BaseProtocol):
             ZMQCommunicator(zmq_socket, "listener <-> workers", logger),
             logger,
             max_concurrent_commands,
+            self._message_queue_metrics,
+            self._message_metrics,
         )
         self.communicator.heartbeat_handler = self.heartbeat_handler
         self._message_processor = Processor(self)
+
+        # Initialize the opentelemetry metrics.
+        metric_reader = PeriodicExportingMetricReader(ConsoleMetricExporter(), 1000)
+        provider = MeterProvider(
+            metric_readers=[metric_reader],
+            resource=Resource.create({"service.name": "genialis-base"}),
+        )
+
+        # Sets the global default meter provider
+        metrics.set_meter_provider(provider)
+
+        # Creates a meter from the global meter provider
+        meter = metrics.get_meter("listener")
+
+        self._messages_queued = meter.create_up_down_counter(
+            name="messages_in_queue",
+            unit="message",
+            description="Number of unprocessed messages in the queue.",
+        )
+        self._messages_processing = meter.create_up_down_counter(
+            name="messages_processing",
+            unit="message",
+            description="Number of currently processing messages.",
+        )
+        self._response_time_histogram = meter.create_histogram(
+            name="response_time",
+            unit="s",
+            description="Response time for messages.",
+        )
+        self._processing_time_histogram = meter.create_histogram(
+            name="processing_time",
+            unit="s",
+            description="Processing time for messages.",
+        )
+
+    def _message_queue_metrics(
+        self,
+        metrics_type: QueueMetricsType,
+        counter: int,
+        old_counter: int,
+        attributes: dict,
+    ):
+        """Called when counter for received or processing messages changes."""
+        counter = None
+        match metrics_type:
+            case QueueMetricsType.PROCESSING_MESSAGES:
+                counter = self._messages_processing
+            case QueueMetricsType.QUEUED_MESSAGES:
+                counter = self._messages_queued
+            case _:
+                self.logger.error("Unknown metrics type %s.", metrics_type)
+        counter.add(old_counter - counter, attributes)
+
+    def _message_metrics(self, message: Message, attributes: dict):
+        """Log message processing times."""
+        received = message.received
+        processing_time = message.processing_started - message.processing_finished
+        response_time = message.processing_finished - received
+        self._response_time_histogram.record(response_time, attributes)
+        self._processing_time_histogram.record(processing_time, attributes)
 
     async def heartbeat_handler(self, peer_identity: PeerIdentity):
         """Handle the heartbeat messages."""

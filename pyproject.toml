@@ -46,6 +46,8 @@ dependencies = [
     "drf-spectacular~=0.27.2",
     "Jinja2~=3.1.4",
     "jsonschema~=4.22.0",
+    "opentelemetry-api~=1.25.0",
+    "opentelemetry-sdk~=1.25.0",
     "plumbum~=1.8.3",
     "psycopg[binary]~=3.1.19",
     "python-decouple~=3.8",
@@ -86,6 +88,10 @@ test = [
     "twine~=5.1.1",
 ]
 
+[tool.setuptools]
+packages = ["resolwe", "tests"]
+
+
 [project.urls]
 Homepage = "https://github.com/genialis/resolwe/"
 Documentation = "https://resolwe.readthedocs.io/en/latest/"
@@ -102,6 +108,7 @@ exclude = "resolwe/process"
 [tool.mypy]
 plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]
 check_untyped_defs = true
+namespace_packages = true
 
 [tool.django-stubs]
 django_settings_module = "tests.settings"
