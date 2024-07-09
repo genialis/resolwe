@@ -16,7 +16,7 @@ from .flow.views import (
     StorageViewSet,
 )
 from .observers.views import BackgroundTaksViewSet
-from .storage.views import UploadConfig
+from .storage.views import UploadConfig, UploadCredentials
 
 api_router = routers.DefaultRouter(trailing_slash=False)
 api_router.register(r"collection", CollectionViewSet)
@@ -26,7 +26,9 @@ api_router.register(r"entity", EntityViewSet)
 api_router.register(r"relation", RelationViewSet)
 api_router.register(r"descriptorschema", DescriptorSchemaViewSet)
 api_router.register(r"storage", StorageViewSet)
-api_router.register(r"upload_config", UploadConfig, basename="upload_config")
+api_router.register(r"upload/config", UploadConfig, basename="upload_config")
+# TODO: The view below is deprecated and must be removed on 1. 1. 2025.
+api_router.register(r"upload_config", UploadConfig, basename="upload_config_deprecated")
 api_router.register(r"task", BackgroundTaksViewSet, basename="backgroundtask")
 api_router.register(r"annotation_field", AnnotationFieldViewSet)
 api_router.register(r"annotation_preset", AnnotationPresetViewSet)
@@ -35,4 +37,9 @@ api_router.register(r"annotation_value", AnnotationValueViewSet)
 
 urlpatterns = [
     path("api/", include((api_router.urls, "resolwe-api"), namespace="resolwe-api")),
+    path(
+        "api/upload/credentials",
+        UploadCredentials.as_view(),
+        name="upload_credentials",
+    ),
 ]

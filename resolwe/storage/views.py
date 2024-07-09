@@ -23,6 +23,7 @@ from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import serializers
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework.viewsets import ViewSet
 
 from resolwe.flow.models import Data
@@ -30,6 +31,7 @@ from resolwe.flow.models.collection import Collection
 from resolwe.permissions.utils import get_user
 from resolwe.storage.connectors import connectors
 from resolwe.storage.connectors.baseconnector import BaseStorageConnector
+from resolwe.storage.connectors.s3connector import AwsS3Connector
 from resolwe.storage.models import FileStorage, ReferencedPath
 from resolwe.test.utils import ignore_in_tests
 
@@ -41,6 +43,45 @@ class UploadConfigSerializer(serializers.Serializer):
 
     type = serializers.CharField()
     config = serializers.DictField()
+
+
+class UploadCredentialsSerializer(serializers.Serializer):
+    """Serializer for upload credentials."""
+
+    AccessKeyId = serializers.CharField()
+    SecretAccessKey = serializers.CharField()
+    Token = serializers.CharField()
+    Expiration = serializers.DateTimeField()
+
+
+class UploadCredentials(APIView):
+    """Get the upload credentials."""
+
+    # Used to generate the API schema.
+    serializer_class = UploadCredentialsSerializer
+
+    def get(self, request, *args, **kwargs):
+        """Return the upload credentials."""
+        try:
+            s3_upload_connector = connectors.for_storage("upload")[0]
+        except Exception:
+            message = "Upload connector could not be determined."
+            logger.exception(message)
+            raise ImproperlyConfigured(message)
+
+        if not isinstance(s3_upload_connector, AwsS3Connector):
+            raise ImproperlyConfigured(
+                "Credentials endpoint only supports S3 connector."
+            )
+        prefix = str(get_user(request.user).id)
+        credentials = s3_upload_connector.temporary_credentials(prefix)["credentials"]
+        response = {
+            "AccessKeyId": credentials["AccessKeyId"],
+            "SecretAccessKey": credentials["SecretAccessKey"],
+            "Token": credentials["SessionToken"],
+            "Expiration": credentials["Expiration"],
+        }
+        return Response(self.serializer_class(response).data)
 
 
 class UploadConfig(ViewSet):
