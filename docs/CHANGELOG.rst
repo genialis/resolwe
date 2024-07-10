@@ -6,6 +6,15 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Added
+-----
+- Register access to the ``BackgroundTask`` model 
+
+
 ===================
 40.1.0 - 2024-07-09
 ===================

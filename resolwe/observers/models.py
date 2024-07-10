@@ -12,6 +12,7 @@ from django.db import models, transaction
 from django.db.models import Count, Q
 from django.db.models.query import QuerySet
 
+from resolwe.auditlog.models import AuditModel
 from resolwe.permissions.models import Permission, PermissionObject
 
 from .protocol import GROUP_SESSIONS, TYPE_ITEM_UPDATE, ChangeType, ChannelsMessage
@@ -28,7 +29,7 @@ def _default_output_value():
     return ""
 
 
-class BackgroundTask(Observable):
+class BackgroundTask(Observable, AuditModel):
     """The observable model representing the background task.
 
     When a long running task is started, the instance of type BackgroundTask is created
