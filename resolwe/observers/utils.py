@@ -9,6 +9,7 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from channels.testing import ApplicationCommunicator
 
+from resolwe.auditlog.auditmanager import AuditManager
 from resolwe.observers import consumers
 from resolwe.observers.models import BackgroundTask
 from resolwe.permissions.utils import assign_contributor_permissions
@@ -29,6 +30,10 @@ def start_background_task(
         "contributor_id": contributor.id,
         **task_data,
     }
+    AuditManager.log_message(
+        f"Starting the background task {task_type.name} for user {contributor.id} "
+        "with data {task_data}."
+    )
     async_to_sync(get_channel_layer().send)(consumers.BACKGROUND_TASK_CHANNEL, packet)
     return task
 

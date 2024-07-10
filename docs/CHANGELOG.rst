@@ -13,6 +13,7 @@ Unreleased
 Added
 -----
 - Register access to the ``BackgroundTask`` model 
+- Log details about startion a  background task to auditlog
 
 
 ===================
