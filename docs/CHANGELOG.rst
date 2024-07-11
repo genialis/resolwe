@@ -15,6 +15,7 @@ Added
 - Add ``upload_credentials`` endpoint
 - Mark endpoint ``upload_config_deprecated`` as deprecated and to be removed
   after ``1. 1. 2025``
+- Add object iteration to the listener protocol
 
 Changed
 -------

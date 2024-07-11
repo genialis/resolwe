@@ -332,6 +332,38 @@ class Model(metaclass=ModelMetaclass):
         return models
 
     @classmethod
+    def iterate(
+        cls, sort: Optional[List[str]] = None, **filters: Dict[str, Any]
+    ) -> List["Model"]:
+        """Return a iterator over all objects that fit criteria."""
+        # Make sure attributes have 'id' in the first place.
+        attributes = filters.pop("__fields", None)
+        attributes = attributes or cls._filter_response_fields
+        attributes = ["id"] + [
+            attribute for attribute in attributes if attribute != "id"
+        ]
+        sort = sort or ["id"]
+        offset = 0
+        final_iteration = False
+        while not final_iteration:
+            results = communicator.iterate_objects(
+                cls._app_name, cls._model_name, filters, sort, attributes, offset
+            )
+            assert results["starting_offset"] == offset, (
+                f"Offset mismatch while iterating, got {results['starting_offset']} "
+                f"expected {offset}."
+            )
+            objects = results["objects"]
+            offset = results["starting_offset"] + len(objects)
+            final_iteration = offset == results["number_of_matched_objects"]
+            for entry in objects:
+                model = cls(entry[0])
+                for field_name, value in zip(attributes[1:], entry[1:]):
+                    field = model.fields[field_name]
+                    model._cache[field_name] = field.clean(value)
+                yield model
+
+    @classmethod
     def exists(cls, **filters: Dict[str, Any]) -> List[int]:
         """Check if objects that fit criteria exists.
 

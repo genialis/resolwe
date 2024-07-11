@@ -38,6 +38,9 @@ User = get_user_model()
 # How many times to retry creating new object on slug collision error.
 OBJECT_CREATE_RETRIES = 10
 
+# How many objects to return in one chunk when iterating.
+MAX_CHUNK_SIZE = 10000
+
 PluginType = TypeVar("PluginType")
 
 
@@ -118,6 +121,44 @@ class PythonProcess(ListenerPlugin):
         model = apps.get_model(app_name, model_name)
         model_data["contributor_id"] = manager.contributor(data_id).id
         return message.respond_ok(create_model(model, model_data).id)
+
+    def handle_iterate_objects(
+        self,
+        data_id: int,
+        message: Message[Tuple[str, str, dict, list[str], list[str], int]],
+        manager: "Processor",
+    ) -> Response[Dict]:
+        """Get a list of objects based on criteria.
+
+        The list has at most 1000 entries.
+        """
+        # Sorting was added later. For compatibility reasons handle both
+        # message types, remove the one without sorting ASAP.
+
+        sorting: List[str] = []
+        app_name, model_name, filters, sorting, attributes, offset = (
+            message.message_data
+        )
+        full_model_name = f"{app_name}.{model_name}"
+        model = apps.get_model(app_name, model_name)
+        filtered_objects = self._permission_manager.filter_objects(
+            manager.contributor(data_id),
+            full_model_name,
+            model.objects.filter(**filters),
+            data_id,
+        )
+        number_of_objects = filtered_objects.count()
+        to_return = {
+            "number_of_matched_objects": number_of_objects,
+            "chunk_size": MAX_CHUNK_SIZE,
+            "starting_offset": offset,
+            "objects": list(
+                filtered_objects.order_by(*sorting).values_list(*attributes)[
+                    offset : offset + MAX_CHUNK_SIZE
+                ]
+            ),
+        }
+        return message.respond_ok(to_return)
 
     def handle_filter_objects(
         self,

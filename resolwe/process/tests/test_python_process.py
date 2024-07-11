@@ -2,10 +2,16 @@
 import os
 import sys
 import unittest
+import unittest.mock
+from unittest.mock import patch
 
 from django.test import LiveServerTestCase, override_settings
 
 import resolwe.permissions.models
+from resolwe.flow.managers.listener.plugin import (
+    ListenerPlugins,
+    listener_plugin_manager,
+)
 from resolwe.flow.models import (
     Collection,
     Data,
@@ -652,6 +658,36 @@ class PythonProcessRequirementsTest(ProcessTestCase):
         self.assertEqual(data.output["cores"], 3)
         self.assertEqual(data.output["memory"], 50000)
         self.assertEqual(data.output["storage"], 500)
+
+    @with_docker_executor
+    @tag_process("test-python-process-iterate")
+    def test_python_process_iterate(self):
+        """Test iteration in python processes."""
+        chunk_size = 2
+        with (
+            patch(
+                "resolwe.flow.managers.listener.python_process_plugin.MAX_CHUNK_SIZE",
+                chunk_size,
+            ),
+            patch.object(
+                ListenerPlugins,
+                "get_handler",
+                wraps=listener_plugin_manager.get_handler,
+            ) as plugin_mock,
+        ):
+            data = self.run_process("test-python-process-iterate")
+            calls = len(
+                [
+                    call
+                    for call in plugin_mock.call_args_list
+                    if call.args[0] == "iterate_objects"
+                ]
+            )
+            # Assert iterate method was called the correct number of times.
+            self.assertEqual(calls, Process.objects.count() // chunk_size)
+            # Assert the result is correct.
+            process_slugs = Process.objects.all().values_list("slug", flat=True)
+            self.assertCountEqual(process_slugs, data.output["process_slugs"])
 
 
 class PythonProcessDataBySlugTest(ProcessTestCase, LiveServerTestCase):

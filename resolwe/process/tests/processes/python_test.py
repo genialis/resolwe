@@ -375,6 +375,24 @@ class RequirementsProcess(Process):
         print("Storage:", outputs.storage)
 
 
+class IterateProcess(Process):
+    slug = "test-python-process-iterate"
+    name = "Test iterating over filtered objects"
+    version = "0.0.1"
+    process_type = "data:python:iterate"
+
+    class Output:
+        """Input fields."""
+
+        process_slugs = ListField(
+            StringField(label="Slug of the process"),
+            label="Slugs of the processes.",
+        )
+
+    def run(self, inputs, outputs):
+        outputs.process_slugs = [process.slug for process in ProcessM.iterate()]
+
+
 class ProcessWithWorkflowInput(Process):
     slug = "process-with-workflow-input"
     name = "Process with workflow input"
