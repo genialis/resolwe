@@ -27,6 +27,23 @@ from typing import (
 logger = logging.getLogger(__name__)
 
 
+class MessageProcessingEventType(Enum):
+    """Type of the event in the message processing pipeline."""
+
+    MESSAGE_RECEIVED = "QM"
+    MESSAGE_PROCESSING_STARTED = "SP"
+    MESSAGE_PROCESSING_FINISHED = "SP"
+    PREPARATION_FINISHED = "PF"
+
+
+class MessageProcessingCallback:
+    """Event in the message processing pipeline."""
+
+    def event(self, event_type: MessageProcessingEventType, message: "Message"):
+        """Event handler."""
+        raise NotImplementedError("Method must be implemented in the subclass.")
+
+
 @unique
 class MessageType(Enum):
     """Type of the message."""
@@ -942,6 +959,7 @@ class BaseProtocol:
         communicator: BaseCommunicator,
         logger: logging.Logger,
         max_concurrent_commands: int = 10,
+        event_callback: Optional[MessageProcessingCallback] = None,
     ):
         """Initialize."""
         self.communicator = communicator
@@ -949,7 +967,12 @@ class BaseProtocol:
         self._should_stop = asyncio.Event()
         self._max_concurrent_commands = max_concurrent_commands
         self._concurrent_semaphore = asyncio.Semaphore(self._max_concurrent_commands)
-        self._command_counter = 0
+        self._event_callback = event_callback
+
+    def _call_event(self, event_type: MessageProcessingEventType, message: Message):
+        """Call the event callback."""
+        if self._event_callback is not None:
+            self._event_callback.event(event_type, message)
 
     async def process_command(
         self, peer_identity: PeerIdentity, received_message: Message
@@ -959,12 +982,11 @@ class BaseProtocol:
         Use semaphore to make sure no more than max_concurrent_commands are
         processed at any given time.
         """
-        self.logger.debug(
-            "Concurrent semaphore count: %s.", self._concurrent_semaphore._value
-        )
-
         async with self._concurrent_semaphore:
             command_name = received_message.type_data
+            self._call_event(
+                MessageProcessingEventType.MESSAGE_RECEIVED, received_message
+            )
             handler_name = "handle_" + command_name
             handler = getattr(self, handler_name, None)
             if handler is None:
@@ -1002,6 +1024,9 @@ class BaseProtocol:
         if handler is not None:
             self.logger.debug("Running post processing handler '%s'.", handler_name)
             asyncio.ensure_future(handler(received_message, peer_identity))
+        self._call_event(
+            MessageProcessingEventType.MESSAGE_PROCESSING_FINISHED, received_message
+        )
 
     async def default_command_handler(
         self, message: Message, identity: PeerIdentity
@@ -1052,9 +1077,6 @@ class BaseProtocol:
                         ),
                         return_when=asyncio.FIRST_COMPLETED,
                     )
-                    self.logger.debug(
-                        "Communicate %s got nudged.", self.communicator.name
-                    )
 
                     if has_message_future in done:
                         self.logger.debug(
@@ -1065,6 +1087,10 @@ class BaseProtocol:
                                 peer_identity,
                                 received_command,
                             ) = await self.communicator.get_next_message()
+                            self._call_event(
+                                MessageProcessingEventType.MESSAGE_PROCESSING_STARTED,
+                                received_command,
+                            )
                         except IndexError:
                             # On the next iteration the while loop will stop.
                             self.logger.exception(
