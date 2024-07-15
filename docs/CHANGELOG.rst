@@ -20,6 +20,9 @@ Changed
 -------
 - Change ``UploadConfig`` type to ``APIView``
 
+Changed
+-------
+- Use default value ``False`` for ``skip_missing_interpreters`` in tox.ini file
 
 ===================
 40.1.0 - 2024-07-09
