@@ -81,7 +81,7 @@ jobs:
         run: |
           # Make sure `python` refers to the tox environment's Python
           export PATH=`pwd`/.tox/${{ matrix.toxenv }}/bin:$PATH
-         tox -e ${{ matrix.toxenv }}
+          tox -e ${{ matrix.toxenv }}
 
   build:
     runs-on: arc-runner
