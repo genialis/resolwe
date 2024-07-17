@@ -16,6 +16,10 @@ Added
 - Mark endpoint ``upload_config_deprecated`` as deprecated and to be removed
   after ``1. 1. 2025``
 
+Changed
+-------
+- Change ``UploadConfig`` type to ``APIView``
+
 
 ===================
 40.1.0 - 2024-07-09

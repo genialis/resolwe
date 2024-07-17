@@ -24,7 +24,6 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework import serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.viewsets import ViewSet
 
 from resolwe.flow.models import Data
 from resolwe.flow.models.collection import Collection
@@ -84,12 +83,12 @@ class UploadCredentials(APIView):
         return Response(self.serializer_class(response).data)
 
 
-class UploadConfig(ViewSet):
+class UploadConfig(APIView):
     """Get the upload configuration."""
 
     serializer_class = UploadConfigSerializer
 
-    def list(self, request):
+    def get(self, request, *args, **kwargs):
         """Return the JSON representing the upload configuration.
 
         The returning object is JSON representation of the dictionary with the
