@@ -30,7 +30,6 @@ from resolwe.flow.models.collection import Collection
 from resolwe.permissions.utils import get_user
 from resolwe.storage.connectors import connectors
 from resolwe.storage.connectors.baseconnector import BaseStorageConnector
-from resolwe.storage.connectors.s3connector import AwsS3Connector
 from resolwe.storage.models import FileStorage, ReferencedPath
 from resolwe.test.utils import ignore_in_tests
 
@@ -61,6 +60,8 @@ class UploadCredentials(APIView):
 
     def get(self, request, *args, **kwargs):
         """Return the upload credentials."""
+        from resolwe.storage.connectors.s3connector import AwsS3Connector
+
         try:
             s3_upload_connector = connectors.for_storage("upload")[0]
         except Exception:
