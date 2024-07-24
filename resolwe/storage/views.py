@@ -31,6 +31,7 @@ from resolwe.permissions.utils import get_user
 from resolwe.storage.connectors import connectors
 from resolwe.storage.connectors.baseconnector import BaseStorageConnector
 from resolwe.storage.models import FileStorage, ReferencedPath
+from resolwe.storage.utils import iso8601_to_rfc3339
 from resolwe.test.utils import ignore_in_tests
 
 logger = logging.getLogger(__name__)
@@ -79,7 +80,7 @@ class UploadCredentials(APIView):
             "AccessKeyId": credentials["AccessKeyId"],
             "SecretAccessKey": credentials["SecretAccessKey"],
             "Token": credentials["SessionToken"],
-            "Expiration": credentials["Expiration"],
+            "Expiration": iso8601_to_rfc3339(credentials["Expiration"]),
         }
         return Response(self.serializer_class(response).data)
 
