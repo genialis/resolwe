@@ -31,7 +31,6 @@ from resolwe.permissions.utils import get_user
 from resolwe.storage.connectors import connectors
 from resolwe.storage.connectors.baseconnector import BaseStorageConnector
 from resolwe.storage.models import FileStorage, ReferencedPath
-from resolwe.storage.utils import iso8601_to_rfc3339
 from resolwe.test.utils import ignore_in_tests
 
 logger = logging.getLogger(__name__)
@@ -44,13 +43,19 @@ class UploadConfigSerializer(serializers.Serializer):
     config = serializers.DictField()
 
 
+class RFC3339DateTimeField(serializers.DateTimeField):
+    """DateTime field that serializes to RFC3339 format."""
+
+    format = "%Y-%m-%dT%H:%M:%SZ"
+
+
 class UploadCredentialsSerializer(serializers.Serializer):
     """Serializer for upload credentials."""
 
     AccessKeyId = serializers.CharField()
     SecretAccessKey = serializers.CharField()
     Token = serializers.CharField()
-    Expiration = serializers.DateTimeField()
+    Expiration = RFC3339DateTimeField()
 
 
 class UploadCredentials(APIView):
@@ -80,7 +85,7 @@ class UploadCredentials(APIView):
             "AccessKeyId": credentials["AccessKeyId"],
             "SecretAccessKey": credentials["SecretAccessKey"],
             "Token": credentials["SessionToken"],
-            "Expiration": iso8601_to_rfc3339(credentials["Expiration"]),
+            "Expiration": credentials["Expiration"],
         }
         return Response(self.serializer_class(response).data)
 
