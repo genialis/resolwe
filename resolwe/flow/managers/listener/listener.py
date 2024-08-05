@@ -571,11 +571,16 @@ class ListenerProtocol(BaseProtocol):
         # When the key does not exist in the redis database create one with the
         # current timestamp.
         try:
-            one_day = 24 * 3600
+            one_hour = 3600
+            one_day = 24 * one_hour
             data_id = abs(int(peer_identity))
             redis_key = f"resolwe-worker-{data_id}"
             redis_server.set(redis_key, int(time()))
-            redis_server.expire(redis_key, one_day)
+
+            # Make sure the expiration time is longer than the highest timeout
+            # (currently one week). Otherwise the entry will expire before the timeout
+            # is reached.
+            redis_server.expire(redis_key, 8 * one_day)
         except Exception:
             logger.exception("Exception in heartbeat handler.")
 
@@ -608,11 +613,12 @@ class ListenerProtocol(BaseProtocol):
             )
 
         default_timeout = 600
-        one_day = 24 * 3600
-        one_week = 7 * one_day
+        one_hour = 3600
+        one_day = 24 * one_hour
+
         non_responsive_timeout = {
-            Worker.STATUS_FINISHED_PREPARING: 7200,
-            Worker.STATUS_PREPARING: one_week,
+            Worker.STATUS_FINISHED_PREPARING: 2 * one_hour,
+            Worker.STATUS_PREPARING: 7 * one_day,
         }
 
         current_timestamp = int(time())
@@ -623,14 +629,32 @@ class ListenerProtocol(BaseProtocol):
             last_seen = redis_server.get(redis_key)
             if last_seen is None:
                 redis_server.set(redis_key, current_timestamp)
-                redis_server.expire(redis_key, one_day)
+                # Make sure the expiration time is longer than the highest timeout
+                # (currently one week). Otherwise the entry will expire before the
+                # timeout is reached.
+                redis_server.expire(redis_key, 8 * one_day)
             else:
                 last_seen = int(last_seen)
             without_heartbeat = current_timestamp - (last_seen or current_timestamp)
+            logger.debug(
+                __(
+                    "Worker {} with status {} not seen {} seconds.",
+                    data_id,
+                    worker_status,
+                    without_heartbeat,
+                )
+            )
             if without_heartbeat > non_responsive_timeout.get(
                 worker_status, default_timeout
             ):
                 try:
+                    logger.info(
+                        __(
+                            "Worker {} with status {} marked non-responsive.",
+                            data_id,
+                            worker_status,
+                        )
+                    )
                     await self._message_processor.peer_not_responding(data_id)
                 except Exception:
                     self.logger.exception(
