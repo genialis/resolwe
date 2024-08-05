@@ -73,6 +73,8 @@ jobs:
         run: docker build -f Dockerfile.communication -t ${{ env.RESOLWE_COMMUNICATOR_IMAGE }} ../../
 
       - name: ${{ matrix.description }}
+        env:  
+          GITHUB_ACTIONS_DEBUG: ${{ runner.debug || false }}
         run: |
           tox -e ${{ matrix.toxenv }}
 

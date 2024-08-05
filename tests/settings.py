@@ -311,11 +311,11 @@ TEST_PROCESS_PROFILE = False
 # logging debugging messages to to a file.
 debug_file_path = os.environ.get("RESOLWE_LOG_FILE", os.devnull)
 
-github_actions = os.environ.get("GITHUB_ACTIONS") == "true"
+github_actions_debug = strtobool(os.environ.get("GITHUB_ACTIONS_DEBUG", "0"))
 CONSOLE_LEVEL = "WARNING"
 default_logger_handlers = ["file"]
 
-if github_actions:
+if github_actions_debug:
     CONSOLE_LEVEL = "DEBUG"
     default_logger_handlers = ["console", "file"]
 
