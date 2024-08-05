@@ -28,7 +28,7 @@ from rest_framework.views import APIView
 from resolwe.flow.models import Data
 from resolwe.flow.models.collection import Collection
 from resolwe.permissions.utils import get_user
-from resolwe.storage.connectors import connectors
+from resolwe.storage.connectors import ConnectorType, connectors
 from resolwe.storage.connectors.baseconnector import BaseStorageConnector
 from resolwe.storage.models import FileStorage, ReferencedPath
 from resolwe.test.utils import ignore_in_tests
@@ -66,28 +66,23 @@ class UploadCredentials(APIView):
 
     def get(self, request, *args, **kwargs):
         """Return the upload credentials."""
-        from resolwe.storage.connectors.s3connector import AwsS3Connector
-
         try:
-            s3_upload_connector = connectors.for_storage("upload")[0]
+            upload_connector = connectors.for_storage("upload")[0]
         except Exception:
             message = "Upload connector could not be determined."
             logger.exception(message)
             raise ImproperlyConfigured(message)
 
-        if not isinstance(s3_upload_connector, AwsS3Connector):
+        if upload_connector.CONNECTOR_TYPE != ConnectorType.S3:
             raise ImproperlyConfigured(
                 "Credentials endpoint only supports S3 connector."
             )
         prefix = str(get_user(request.user).id)
-        credentials = s3_upload_connector.temporary_credentials(prefix)["credentials"]
-        response = {
-            "AccessKeyId": credentials["AccessKeyId"],
-            "SecretAccessKey": credentials["SecretAccessKey"],
-            "Token": credentials["SessionToken"],
-            "Expiration": credentials["Expiration"],
-        }
-        return Response(self.serializer_class(response).data)
+        credentials = upload_connector.temporary_credentials(prefix)["credentials"]
+        # The credentials are returned in the format expected by the AWS SDK, except
+        # the key "SessionToken", which must be transformed to "Token".
+        credentials["Token"] = credentials.pop("SessionToken")
+        return Response(self.serializer_class(credentials).data)
 
 
 class UploadConfig(APIView):
