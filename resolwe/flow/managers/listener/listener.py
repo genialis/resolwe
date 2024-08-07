@@ -13,6 +13,7 @@ socket for communication.
 """
 
 import asyncio
+import datetime
 import logging
 import os
 from contextlib import suppress
@@ -34,12 +35,14 @@ from django.utils.timezone import now
 from resolwe.flow.executors.socket_utils import (
     BaseProtocol,
     Message,
+    MessageProcessingEventType,
     PeerIdentity,
     Response,
     ResponseStatus,
 )
 from resolwe.flow.executors.zeromq_utils import ZMQCommunicator
 from resolwe.flow.managers import consumer
+from resolwe.flow.managers.listener.metrics import metrics_reporter
 from resolwe.flow.managers.protocol import WorkerProtocol
 from resolwe.flow.managers.state import LISTENER_CONTROL_CHANNEL  # noqa: F401
 from resolwe.flow.models import Data, Storage, Worker
@@ -561,6 +564,7 @@ class ListenerProtocol(BaseProtocol):
             ZMQCommunicator(zmq_socket, "listener <-> workers", logger),
             logger,
             max_concurrent_commands,
+            metrics_reporter,
         )
         self.communicator.heartbeat_handler = self.heartbeat_handler
         self._message_processor = Processor(self)
@@ -788,6 +792,26 @@ class ListenerProtocol(BaseProtocol):
                 await self._message_processor.notify_dispatcher_finish_async(data_id)
         except Exception:
             logger.exception("Error processing post finish command.")
+
+    async def post_init_completed(self, message: Message, peer_identity: PeerIdentity):
+        """Sent metrics about preparation phase duration."""
+        with suppress(Exception):
+            data_id = abs(int(peer_identity))
+            started: datetime.datetime = (
+                await database_sync_to_async(
+                    self._message_processor.get_data_fields,
+                    thread_sensitive=False,
+                )(data_id, ["started"])
+            )[0]
+            try:
+                metrics_reporter.event(
+                    MessageProcessingEventType.PREPARATION_FINISHED,
+                    message,
+                    peer_identity,
+                    started=started.timestamp(),
+                )
+            except:
+                logger.exception("Error processing post init_completed command.")
 
 
 def handle_exceptions(loop, context):

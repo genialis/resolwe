@@ -25,6 +25,15 @@ Changed
 -------
 - Use default value ``False`` for ``skip_missing_interpreters`` in tox.ini file
 
+==========
+Unreleased
+==========
+
+Added
+-----
+- Add metrics reporting to the listener service
+
+
 ===================
 40.1.0 - 2024-07-09
 ===================

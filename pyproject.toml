@@ -46,6 +46,9 @@ dependencies = [
     "drf-spectacular~=0.27.2",
     "Jinja2~=3.1.4",
     "jsonschema~=4.22.0",
+    "opentelemetry-api~=1.25.0",
+    "opentelemetry-exporter-otlp~=1.25.0",
+    "opentelemetry-sdk~=1.25.0",
     "plumbum~=1.8.3",
     "psycopg[binary]~=3.1.19",
     "python-decouple~=3.8",
@@ -102,6 +105,8 @@ exclude = "resolwe/process"
 [tool.mypy]
 plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]
 check_untyped_defs = true
+# Use of the option below is advised by open-telemetry.
+namespace_packages = true
 
 [tool.django-stubs]
 django_settings_module = "tests.settings"
