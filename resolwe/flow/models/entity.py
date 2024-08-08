@@ -51,6 +51,7 @@ class EntityQuerySet(BaseQuerySet, PermissionQuerySet):
             "target_id": destination_collection.pk,
             "data_ids": [],
             "entity_ids": list(self.values_list("pk", flat=True)),
+            "request_user_id": contributor.pk,
         }
         return start_background_task(
             BackgroundTaskType.MOVE, "Move entities", task_data, contributor

@@ -15,6 +15,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
+from resolwe.auditlog.logger import logger as audit_logger
 from resolwe.flow.models.utils.duplicate import (
     bulk_duplicate_collection,
     bulk_duplicate_data,
@@ -24,9 +25,10 @@ from resolwe.flow.models.utils.duplicate import (
 from .models import BackgroundTask, Observer, Subscription
 from .protocol import GROUP_SESSIONS, ChangeType, ChannelsMessage, WebsocketMessage
 
-logger = logging.getLogger(__name__)
 # The channel used to listen for BackgrountTask events
 BACKGROUND_TASK_CHANNEL = "observers.background_task"
+
+logger = logging.getLogger(__name__)
 
 
 class MoveMessage(TypedDict):
@@ -36,6 +38,7 @@ class MoveMessage(TypedDict):
     target_id: int
     data_ids: list[int]
     entity_ids: list[int]
+    request_user_id: int
 
 
 class BackgroundTaskType(Enum):
@@ -181,6 +184,7 @@ class BackgroundTaskConsumer(AsyncConsumer):
             if task:
                 task.finished = timezone.now()
                 task.save(update_fields=["status", "finished", "output"])
+                return task
 
     async def duplicate_data(self, message: dict):
         """Duplicate the data and update task status."""
@@ -190,13 +194,19 @@ class BackgroundTaskConsumer(AsyncConsumer):
         def duplicate():
             duplicates = bulk_duplicate_data(
                 data=Data.objects.filter(pk__in=message["data_ids"]),
-                contributor=get_user_model().objects.get(pk=message["contributor_id"]),
+                contributor=get_user_model().objects.get(pk=message["request_user_id"]),
                 inherit_entity=message["inherit_entity"],
                 inherit_collection=message["inherit_collection"],
             )
             return [duplicate.pk for duplicate in duplicates]
 
-        await self.wrap_task(duplicate, message["task_id"])
+        task = await self.wrap_task(duplicate, message["task_id"])
+        if task is not None and task.status == BackgroundTask.STATUS_DONE:
+            audit_logger.info(
+                "User %s duplicated data objects with ids %s.",
+                message["request_user_id"],
+                message["data_ids"],
+            )
 
     async def duplicate_entity(self, message: dict):
         """Duplicate the entities and update task status."""
@@ -206,12 +216,18 @@ class BackgroundTaskConsumer(AsyncConsumer):
         def duplicate():
             duplicates = bulk_duplicate_entity(
                 entities=Entity.objects.filter(pk__in=message["entity_ids"]),
-                contributor=get_user_model().objects.get(pk=message["contributor_id"]),
+                contributor=get_user_model().objects.get(pk=message["request_user_id"]),
                 inherit_collection=message["inherit_collection"],
             )
             return [duplicate.pk for duplicate in duplicates]
 
-        await self.wrap_task(duplicate, message["task_id"])
+        task = await self.wrap_task(duplicate, message["task_id"])
+        if task is not None and task.status == BackgroundTask.STATUS_DONE:
+            audit_logger.info(
+                "User %s duplicated entity objects with ids %s.",
+                message["request_user_id"],
+                message["entity_ids"],
+            )
 
     async def duplicate_collection(self, message: dict):
         """Duplicate the collections and update task status."""
@@ -221,11 +237,17 @@ class BackgroundTaskConsumer(AsyncConsumer):
         def duplicate():
             duplicates = bulk_duplicate_collection(
                 Collection.objects.filter(pk__in=message["collection_ids"]),
-                contributor=get_user_model().objects.get(pk=message["contributor_id"]),
+                contributor=get_user_model().objects.get(pk=message["request_user_id"]),
             )
             return [duplicate.pk for duplicate in duplicates]
 
-        await self.wrap_task(duplicate, message["task_id"])
+        task = await self.wrap_task(duplicate, message["task_id"])
+        if task is not None and task.status == BackgroundTask.STATUS_DONE:
+            audit_logger.info(
+                "User %s duplicated collection objects with ids %s.",
+                message["request_user_id"],
+                message["collection_ids"],
+            )
 
     async def move_between_collections(self, message: MoveMessage):
         """Move data objects and entities between two collections.
@@ -251,7 +273,17 @@ class BackgroundTaskConsumer(AsyncConsumer):
             for datum in data_objects or entities:
                 datum.move_to_collection(target)
 
-        await self.wrap_task(move, message["task_id"])
+        task = await self.wrap_task(move, message["task_id"])
+        if task is not None and task.status == BackgroundTask.STATUS_DONE:
+            objects_type = "entities" if message["entity_ids"] else "data objects"
+            object_ids = message["entity_ids"] or message["data_ids"]
+            audit_logger.info(
+                "User %s moved %s with ids %s to collection %s.",
+                message["request_user_id"],
+                objects_type,
+                object_ids,
+                message["target_id"],
+            )
 
     async def delete(self, message: dict):
         """Delete the objects and update task status.
@@ -263,13 +295,25 @@ class BackgroundTaskConsumer(AsyncConsumer):
         """
 
         def delete():
-            Model = ContentType.objects.get_for_id(
-                message["content_type_id"]
-            ).model_class()
             to_delete = Model.objects.filter(pk__in=message["object_ids"])
 
             # Use iterator and delete one object at a time to trigger the signals.
             for obj in to_delete.iterator():
                 obj.delete()
 
-        await self.wrap_task(delete, message["task_id"])
+        @database_sync_to_async_new_thread
+        def get_model():
+            """Get the model from the content type id."""
+            return ContentType.objects.get_for_id(
+                message["content_type_id"]
+            ).model_class()
+
+        Model = await get_model()
+        task = await self.wrap_task(delete, message["task_id"])
+        if task is not None and task.status == BackgroundTask.STATUS_DONE:
+            audit_logger.info(
+                "User %s deleted %s objects with ids %s.",
+                message["request_user_id"],
+                Model._meta.verbose_name,
+                message["object_ids"],
+            )
