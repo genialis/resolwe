@@ -327,7 +327,7 @@ LOGGING = {
             "format": "%(asctime)s - %(levelname)s - %(name)s[%(process)s]: %(message)s",
         },
         "auditlog": {
-            "format": "%(asctime)s - %(name)s[%(process)s]: %(message)s ; SID='%(session_id)s' RID='%(request_id)s'",
+            "format": "%(asctime)s - %(name)s[%(process)s]: %(message)s ; UID='%(user_id)s' SID='%(session_id)s' RID='%(request_id)s'",
         },
     },
     "handlers": {

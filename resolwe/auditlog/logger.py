@@ -7,12 +7,18 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 
 from resolwe.auditlog.auditmanager import AccessType, AuditManager, ContentType, Fields
+from resolwe.permissions.models import get_anonymous_user
 
 audit_log = logging.getLogger("auditlog")
 
 
 class AuditLogger:
     """Main audit log class."""
+
+    # The keys that must be present in the kwargs to the logger.
+    necessary_extra_keys = ["session_id", "request_id", "user_id"]
+    # The value used when the key is missing.
+    missing_key_value = "unknown"
 
     @property
     def manager(self):
@@ -35,7 +41,12 @@ class AuditLogger:
                 kwargs.pop("request", None), kwargs.pop("response", None)
             )
         )
+        self._add_missing_values(extra_data)
         audit_log.info(message, *args, **kwargs)
+
+    def _resolve_user(self, user):
+        """Resolve user instance from request."""
+        return get_anonymous_user() if user.is_anonymous else user
 
     def _extract_from_request(self, request: Request) -> dict:
         """Extract the information from the request."""
@@ -46,7 +57,14 @@ class AuditLogger:
                 request.session.session_key if hasattr(request, "session") else None
             ),
             "request_id": request.META["RESOLWE_AUDIT_MANAGER_REQUEST_ID"],
+            "user_id": self._resolve_user(request.user).id,
         }
+
+    def _add_missing_values(self, kwargs):
+        """Add the missing values to kwargs."""
+        for key in self.necessary_extra_keys:
+            if key not in kwargs:
+                kwargs[key] = self.missing_key_value
 
     def _extract_from_response(self, response: Response) -> dict:
         """Extract the information from the response."""
@@ -92,6 +110,7 @@ class AuditLogger:
                 **audit_log_extra_data
             )
         )
+        self._add_missing_values(audit_log_extra_data)
         audit_log.log(level, message, extra=audit_log_extra_data)
 
 
