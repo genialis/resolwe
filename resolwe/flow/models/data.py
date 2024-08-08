@@ -195,7 +195,7 @@ class DataQuerySet(BaseQuerySet, PermissionQuerySet):
 
         return obj
 
-    def duplicate(self, contributor) -> BackgroundTask:
+    def duplicate(self, request_user) -> BackgroundTask:
         """Duplicate (make a copy) ``Data`` objects in the background."""
         task_data = {
             "data_ids": list(self.values_list("pk", flat=True)),
@@ -203,20 +203,20 @@ class DataQuerySet(BaseQuerySet, PermissionQuerySet):
             "inherit_collection": True,
         }
         return start_background_task(
-            BackgroundTaskType.DUPLICATE_DATA, "Duplicate data", task_data, contributor
+            BackgroundTaskType.DUPLICATE_DATA, "Duplicate data", task_data, request_user
         )
 
-    def delete_background(self, contributor):
+    def delete_background(self, request_user):
         """Delete the ``Data`` objects in the background."""
         task_data = {
             "object_ids": list(self.values_list("pk", flat=True)),
             "content_type_id": ContentType.objects.get_for_model(self.model).pk,
         }
         return start_background_task(
-            BackgroundTaskType.DELETE, "Delete data", task_data, contributor
+            BackgroundTaskType.DELETE, "Delete data", task_data, request_user
         )
 
-    def move_to_collection(self, destination_collection, contributor):
+    def move_to_collection(self, destination_collection, request_user):
         """Move data objects to destination collection in the background.
 
         Note that this method will also copy tags and permissions
@@ -226,9 +226,10 @@ class DataQuerySet(BaseQuerySet, PermissionQuerySet):
             "target_id": destination_collection.pk,
             "data_ids": list(self.values_list("pk", flat=True)),
             "entity_ids": [],
+            "request_user_id": request_user.pk,
         }
         return start_background_task(
-            BackgroundTaskType.MOVE, "Delete data", task_data, contributor
+            BackgroundTaskType.MOVE, "Delete data", task_data, request_user
         )
 
     def annotate_sample_path(self, path, annotation_name, value_to_label=False):
@@ -597,7 +598,7 @@ class Data(HistoryMixin, BaseModel, PermissionObject):
         """Return True if data object is a duplicate."""
         return bool(self.duplicated)
 
-    def duplicate(self, contributor) -> BackgroundTask:
+    def duplicate(self, request_user) -> BackgroundTask:
         """Duplicate (make a copy) object in the background."""
         task_data = {
             "data_ids": [self.pk],
@@ -605,7 +606,7 @@ class Data(HistoryMixin, BaseModel, PermissionObject):
             "inherit_collection": True,
         }
         return start_background_task(
-            BackgroundTaskType.DUPLICATE_DATA, "Duplicate data", task_data, contributor
+            BackgroundTaskType.DUPLICATE_DATA, "Duplicate data", task_data, request_user
         )
 
     @move_to_container

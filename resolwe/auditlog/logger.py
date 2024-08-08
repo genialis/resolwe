@@ -31,7 +31,9 @@ class AuditLogger:
         """
         extra_data = kwargs.setdefault("extra", dict())
         extra_data.update(
-            self._extract_information(kwargs.pop("request"), kwargs.pop("response"))
+            self._extract_information(
+                kwargs.pop("request", None), kwargs.pop("response", None)
+            )
         )
         audit_log.info(message, *args, **kwargs)
 

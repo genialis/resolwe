@@ -40,24 +40,24 @@ class BaseCollection(BaseModel):
 class CollectionQuerySet(BaseQuerySet, PermissionQuerySet):
     """Query set for ``Collection`` objects."""
 
-    def duplicate(self, contributor) -> BackgroundTask:
+    def duplicate(self, request_user) -> BackgroundTask:
         """Duplicate (make a copy) ``Collection`` objects in the background."""
         task_data = {"collection_ids": list(self.values_list("pk", flat=True))}
         return start_background_task(
             BackgroundTaskType.DUPLICATE_COLLECTION,
             "Duplicate collections",
             task_data,
-            contributor,
+            request_user,
         )
 
-    def delete_background(self, contributor):
+    def delete_background(self, request_user):
         """Delete the ``Collection`` objects in the background."""
         task_data = {
             "object_ids": list(self.values_list("pk", flat=True)),
             "content_type_id": ContentType.objects.get_for_model(self.model).pk,
         }
         return start_background_task(
-            BackgroundTaskType.DELETE, "Delete collections", task_data, contributor
+            BackgroundTaskType.DELETE, "Delete collections", task_data, request_user
         )
 
 
@@ -112,14 +112,14 @@ class Collection(HistoryMixin, BaseCollection, PermissionObject):
         """Return True if collection is a duplicate."""
         return bool(self.duplicated)
 
-    def duplicate(self, contributor) -> BackgroundTask:
+    def duplicate(self, request_user) -> BackgroundTask:
         """Duplicate (make a copy) object in the background."""
         task_data = {"collection_ids": [self.pk]}
         return start_background_task(
             BackgroundTaskType.DUPLICATE_COLLECTION,
             "Duplicate collection",
             task_data,
-            contributor,
+            request_user,
         )
 
     def delete_background(self):

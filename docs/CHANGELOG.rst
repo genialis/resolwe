@@ -21,6 +21,7 @@ Added
 Changed
 -------
 - Change ``UploadConfig`` type to ``APIView``
+- Emit auditlog in background task
 
 Changed
 -------

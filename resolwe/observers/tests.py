@@ -982,7 +982,7 @@ class ObserverTestCase(TransactionTestCase):
 
         @database_sync_to_async
         def duplicate(collection):
-            result = collection.duplicate(contributor=self.user_alice).result()
+            result = collection.duplicate(request_user=self.user_alice).result()
             duplicated_collection = Collection.objects.get(pk__in=result)
             duplicated_entity = duplicated_collection.entity_set.get()
             duplicated_data = duplicated_collection.data.get()

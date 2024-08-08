@@ -105,7 +105,7 @@ class ResolweBackgroundDuplicateMixin:
             )
 
         duplicate_method = getattr(to_duplicate, self.BACKGROUND_DUPLICATE_METHOD)
-        task = duplicate_method(contributor=request.user)
+        task = duplicate_method(request_user=request.user)
 
         return Response(
             status=status.HTTP_200_OK,

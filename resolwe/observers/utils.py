@@ -18,15 +18,15 @@ def start_background_task(
     task_type: consumers.BackgroundTaskType,
     task_description: str,
     task_data: dict,
-    contributor,
+    request_user,
 ) -> BackgroundTask:
     """Create the BackgroundTask and start it."""
     task = BackgroundTask.objects.create(description=task_description)
-    assign_contributor_permissions(task, contributor)
+    assign_contributor_permissions(task, request_user)
     packet = {
         "type": task_type.value,
         "task_id": task.id,
-        "contributor_id": contributor.id,
+        "request_user_id": request_user.id,
         **task_data,
     }
     async_to_sync(get_channel_layer().send)(consumers.BACKGROUND_TASK_CHANNEL, packet)

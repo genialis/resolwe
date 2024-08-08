@@ -22,7 +22,7 @@ from .utils import DirtyError, validate_schema
 class EntityQuerySet(BaseQuerySet, PermissionQuerySet):
     """Query set for ``Entity`` objects."""
 
-    def duplicate(self, contributor) -> BackgroundTask:
+    def duplicate(self, request_user) -> BackgroundTask:
         """Duplicate (make a copy) ``Entity`` objects in the background."""
         task_data = {
             "entity_ids": list(self.values_list("pk", flat=True)),
@@ -32,28 +32,29 @@ class EntityQuerySet(BaseQuerySet, PermissionQuerySet):
             BackgroundTaskType.DUPLICATE_ENTITY,
             "Duplicate entity",
             task_data,
-            contributor,
+            request_user,
         )
 
-    def delete_background(self, contributor):
+    def delete_background(self, request_user):
         """Delete the ``Entity`` objects in the background."""
         task_data = {
             "object_ids": list(self.values_list("pk", flat=True)),
             "content_type_id": ContentType.objects.get_for_model(self.model).pk,
         }
         return start_background_task(
-            BackgroundTaskType.DELETE, "Delete entities", task_data, contributor
+            BackgroundTaskType.DELETE, "Delete entities", task_data, request_user
         )
 
-    def move_to_collection(self, destination_collection: Collection, contributor):
+    def move_to_collection(self, destination_collection: Collection, request_user):
         """Move entities to destination collection."""
         task_data = {
             "target_id": destination_collection.pk,
             "data_ids": [],
             "entity_ids": list(self.values_list("pk", flat=True)),
+            "request_user_id": request_user.pk,
         }
         return start_background_task(
-            BackgroundTaskType.MOVE, "Move entities", task_data, contributor
+            BackgroundTaskType.MOVE, "Move entities", task_data, request_user
         )
 
     def annotate_all(self, add_labels: bool = False):
@@ -229,14 +230,14 @@ class Entity(BaseCollection, PermissionObject):
         """Return True if entity is a duplicate."""
         return bool(self.duplicated)
 
-    def duplicate(self, contributor) -> BackgroundTask:
+    def duplicate(self, request_user) -> BackgroundTask:
         """Duplicate (make a copy) object in the background."""
         task_data = {"entity_ids": [self.pk], "inherit_collection": True}
         return start_background_task(
             BackgroundTaskType.DUPLICATE_ENTITY,
             "Duplicate entity",
             task_data,
-            contributor,
+            request_user,
         )
 
     def delete_background(self):
