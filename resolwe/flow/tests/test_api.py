@@ -1374,12 +1374,13 @@ class TestCollectionViewSetCaseDelete(
         response = client.post(
             request_path, data={"ids": [collection1.pk]}, format="json"
         )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        BackgroundTask.objects.get(pk=response.data["id"]).wait()
-        self.assertTrue(Collection.objects.filter(pk=collection1.pk).exists())
-        self.assertTrue(Collection.objects.filter(pk=collection2.pk).exists())
+        self.assertContains(
+            response,
+            f"No permission to delete objects with ids {set([collection1.pk])}",
+            status_code=response.status_code,
+        )
 
-        # Anonymous request, view permission.
+        # # Anonymous request, view permission.
         collection1.set_permission(Permission.VIEW, get_anonymous_user(False))
         response = client.post(
             request_path, data={"ids": [collection1.pk]}, format="json"
@@ -1393,7 +1394,7 @@ class TestCollectionViewSetCaseDelete(
         self.assertTrue(Collection.objects.filter(pk=collection2.pk).exists())
         collection1.set_permission(Permission.NONE, get_anonymous_user(False))
 
-        # All requests are authenticated as contributor from now on.
+        # # All requests are authenticated as contributor from now on.
         client.force_authenticate(self.contributor)
 
         # No permission.
@@ -1402,8 +1403,12 @@ class TestCollectionViewSetCaseDelete(
         response = client.post(
             request_path, data={"ids": [collection1.pk, collection2.pk]}, format="json"
         )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        BackgroundTask.objects.get(pk=response.data["id"]).wait()
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertContains(
+            response,
+            f"No permission to delete objects with ids {set([collection1.pk, collection2.pk])}",
+            status_code=response.status_code,
+        )
         self.assertTrue(Collection.objects.filter(pk=collection1.pk).exists())
         self.assertTrue(Collection.objects.filter(pk=collection2.pk).exists())
 
@@ -1753,8 +1758,11 @@ class EntityViewSetTestDelete(EntityViewSetTestCommonMixin, TransactionTestCase)
 
         # Anonymous request, no permission.
         response = client.post(request_path, data={"ids": [entity1.pk]}, format="json")
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        BackgroundTask.objects.get(pk=response.data["id"]).wait()
+        self.assertContains(
+            response,
+            f"No permission to delete objects with ids {set([entity1.pk])}",
+            status_code=response.status_code,
+        )
         self.assertTrue(Entity.objects.filter(pk=entity1.pk).exists())
         self.assertTrue(Entity.objects.filter(pk=entity2.pk).exists())
 
@@ -1779,8 +1787,11 @@ class EntityViewSetTestDelete(EntityViewSetTestCommonMixin, TransactionTestCase)
         response = client.post(
             request_path, data={"ids": [entity1.pk, entity2.pk]}, format="json"
         )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        BackgroundTask.objects.get(pk=response.data["id"]).wait()
+        self.assertContains(
+            response,
+            f"No permission to delete objects with ids {set([entity1.pk, entity2.pk])}",
+            status_code=response.status_code,
+        )
         self.assertTrue(Entity.objects.filter(pk=entity1.pk).exists())
         self.assertTrue(Entity.objects.filter(pk=entity2.pk).exists())
 

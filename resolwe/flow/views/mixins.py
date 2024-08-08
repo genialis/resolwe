@@ -152,6 +152,11 @@ class ResolweBackgroundDeleteMixin(mixins.DestroyModelMixin):
         serializer = DeleteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         ids = set(serializer.validated_data["ids"])
+
+        # The list of ids must not be empty.
+        if not ids:
+            raise exceptions.ValidationError("No ids provided.")
+
         queryset = self.get_queryset()
         if not getattr(queryset, self.BACKGROUND_DELETE_METHOD, None):
             raise exceptions.ValidationError(
@@ -170,6 +175,14 @@ class ResolweBackgroundDeleteMixin(mixins.DestroyModelMixin):
             raise exceptions.PermissionDenied(
                 f"No permission to delete objects with ids {joined_ids}."
             )
+
+        # User can not delete any object.
+        if not can_delete_ids:
+            raise exceptions.PermissionDenied(
+                f"No permission to delete objects with ids {ids}."
+            )
+
+        # Start the background task.
         task = getattr(can_delete, self.BACKGROUND_DELETE_METHOD, None)(request.user)
         return Response(
             status=status.HTTP_200_OK,

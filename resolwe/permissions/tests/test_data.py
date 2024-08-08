@@ -643,8 +643,11 @@ class DataTestCaseDelete(
         response = self.client.post(
             request_path, data={"ids": [self.data1.pk]}, format="json"
         )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        BackgroundTask.objects.get(pk=response.data["id"]).wait()
+        self.assertContains(
+            response,
+            f"No permission to delete objects with ids {set([self.data1.pk])}",
+            status_code=response.status_code,
+        )
         self.assertTrue(Data.objects.filter(pk=1).exists())
         self.assertTrue(Data.objects.filter(pk=2).exists())
 
@@ -671,7 +674,11 @@ class DataTestCaseDelete(
         response = self.client.post(
             request_path, data={"ids": [self.data1.pk, self.data2.pk]}, format="json"
         )
-        BackgroundTask.objects.get(pk=response.data["id"]).wait()
+        self.assertContains(
+            response,
+            "No permission to delete objects with ids",
+            status_code=response.status_code,
+        )
         self.assertTrue(Data.objects.filter(pk=1).exists())
         self.assertTrue(Data.objects.filter(pk=2).exists())
 
