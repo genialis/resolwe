@@ -79,6 +79,7 @@ FIELDS_MAP = {
     "ManyToManyField": ListField,
     "PositiveIntegerField": IntegerField,
     "PositiveSmallIntegerField": IntegerField,
+    "PositiveBigIntegerField": IntegerField,
     "ArrayField": Field,
     "JSONField": JsonField,
     "BigIntegerField": IntegerField,
