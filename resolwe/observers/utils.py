@@ -26,7 +26,7 @@ def start_background_task(
     packet = {
         "type": task_type.value,
         "task_id": task.id,
-        "contributor_id": contributor.id,
+        "request_user_id": contributor.id,
         **task_data,
     }
     async_to_sync(get_channel_layer().send)(consumers.BACKGROUND_TASK_CHANNEL, packet)

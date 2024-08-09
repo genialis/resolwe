@@ -226,6 +226,7 @@ class DataQuerySet(BaseQuerySet, PermissionQuerySet):
             "target_id": destination_collection.pk,
             "data_ids": list(self.values_list("pk", flat=True)),
             "entity_ids": [],
+            "request_user_id": contributor.pk,
         }
         return start_background_task(
             BackgroundTaskType.MOVE, "Delete data", task_data, contributor
