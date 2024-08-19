@@ -6,9 +6,9 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+===================
+40.2.0 - 2024-08-19
+===================
 
 Added
 -----
@@ -17,23 +17,13 @@ Added
   after ``1. 1. 2025``
 - Add object iteration to the listener protocol
 - Add mapping for ``PositiveBigIntegerField`` to python processes
+- Add metrics reporting to the listener service
 
 Changed
 -------
 - Change ``UploadConfig`` type to ``APIView``
 - Emit auditlog in background task
-
-Changed
--------
 - Use default value ``False`` for ``skip_missing_interpreters`` in tox.ini file
-
-==========
-Unreleased
-==========
-
-Added
------
-- Add metrics reporting to the listener service
 
 
 ===================
