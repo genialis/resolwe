@@ -7,6 +7,7 @@ from contextlib import suppress
 from time import time
 from typing import Any
 
+from django.conf import settings
 from opentelemetry import metrics
 from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
 from opentelemetry.sdk.metrics import MeterProvider
@@ -60,7 +61,9 @@ class MetricsEventReporter(MessageProcessingCallback):
 
         # Initialize the opentelemetry metrics.
         metric_exporter = OTLPMetricExporter(
-            endpoint=metric_endpoint, insecure=METRICS_INSECURE_EXPORT
+            endpoint=metric_endpoint,
+            insecure=METRICS_INSECURE_EXPORT,
+            max_export_batch_size=settings.FLOW_METRICS_EXPORT_SIZE,
         )
         metric_reader = PeriodicExportingMetricReader(
             metric_exporter, METRICS_EXPORT_INTERVAL

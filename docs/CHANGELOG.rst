@@ -6,6 +6,17 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Added
+-----
+- Allow overriding the number of max metrics points that are exported in the
+  same batch via ``RESOLWE_METRICS_EXPORT_SIZE`` environmental
+  variable(defaults to 1000)
+
+
 ===================
 40.2.0 - 2024-08-19
 ===================

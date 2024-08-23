@@ -122,6 +122,16 @@ LISTENER_CONNECTION = {
     ),
 }
 
+# The number of data points to send in one request.
+# See
+# https://github.com/open-telemetry/opentelemetry-python/pull/2809
+# and
+# https://github.com/open-telemetry/opentelemetry-python/issues/2710
+# for details.
+FLOW_METRICS_EXPORT_SIZE = config(
+    "RESOLWE_METRICS_EXPORT_SIZE", cast=int, default=1000
+)
+
 # The IP address where listener is available from the communication container.
 # The setting is a dictionary where key is the name of the workload connector.
 COMMUNICATION_CONTAINER_LISTENER_CONNECTION = config(
