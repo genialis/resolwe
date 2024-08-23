@@ -26,6 +26,16 @@ logger = logging.getLogger(__name__)
 METRICS_EXPORT_INTERVAL = 30000
 # TODO: Remove this when metrics are properly implemented.
 METRICS_INSECURE_EXPORT = True
+# The number of data points to send in one request.
+# See
+# https://github.com/open-telemetry/opentelemetry-python/pull/2809
+# and
+# https://github.com/open-telemetry/opentelemetry-python/issues/2710
+# for details.
+try:
+    METRICS_EXPORT_SIZE = int(os.environ.get("METRICS_EXPORT_SIZE", 1000))
+except ValueError:
+    METRICS_EXPORT_SIZE = 1000
 
 
 class MetricsEventReporter(MessageProcessingCallback):
@@ -60,7 +70,9 @@ class MetricsEventReporter(MessageProcessingCallback):
 
         # Initialize the opentelemetry metrics.
         metric_exporter = OTLPMetricExporter(
-            endpoint=metric_endpoint, insecure=METRICS_INSECURE_EXPORT
+            endpoint=metric_endpoint,
+            insecure=METRICS_INSECURE_EXPORT,
+            max_export_batch_size=METRICS_EXPORT_SIZE,
         )
         metric_reader = PeriodicExportingMetricReader(
             metric_exporter, METRICS_EXPORT_INTERVAL
