@@ -132,6 +132,10 @@ FLOW_METRICS_EXPORT_SIZE = config(
     "RESOLWE_METRICS_EXPORT_SIZE", cast=int, default=1000
 )
 
+# The endpoint to use for listener metrics.
+FLOW_METRICS_ENDPOINT = config("RESOLWE_METRICS_ENDPOINT", default=None)
+
+
 # The IP address where listener is available from the communication container.
 # The setting is a dictionary where key is the name of the workload connector.
 COMMUNICATION_CONTAINER_LISTENER_CONNECTION = config(

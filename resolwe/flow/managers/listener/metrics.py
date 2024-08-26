@@ -1,7 +1,6 @@
 """Report the listener metrics to the monitoring system."""
 
 import logging
-import os
 import socket
 from contextlib import suppress
 from time import time
@@ -38,7 +37,7 @@ class MetricsEventReporter(MessageProcessingCallback):
 
     def __init__(self):
         """Initialize the metrics event reporter."""
-        if (endpoint := os.environ.get("METRICS_ENDPOINT")) is None:
+        if (endpoint := settings.FLOW_METRICS_ENDPOINT) is None:
             logger.info("Metrics endpoint is not set, reporting disabled.")
             self._enabled = False
             logger.warning(

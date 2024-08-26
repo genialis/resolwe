@@ -16,6 +16,11 @@ Added
   same batch via ``RESOLWE_METRICS_EXPORT_SIZE`` environmental
   variable(defaults to 1000)
 
+Changed
+-------
+- Move metrics endpoint configuration to Django settings and read it from
+  ``RESOLWE_METRICS_ENDPOINT`` environmental variable
+
 
 ===================
 40.2.0 - 2024-08-19
