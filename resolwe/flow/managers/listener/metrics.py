@@ -2,7 +2,6 @@
 
 import logging
 import socket
-from contextlib import suppress
 from time import time
 from typing import Any
 
@@ -136,8 +135,6 @@ class MetricsEventReporter(MessageProcessingCallback):
 
         attributes = self._attributes_from_message(message)
         attributes["pod"] = self._hostname
-        with suppress(Exception):
-            attributes["data_id"] = abs(int(peer_identity))
 
         match event_type:
             case MessageProcessingEventType.MESSAGE_RECEIVED:

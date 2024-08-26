@@ -20,6 +20,8 @@ Changed
 -------
 - Move metrics endpoint configuration to Django settings and read it from
   ``RESOLWE_METRICS_ENDPOINT`` environmental variable
+  ``RESOLWE_LISTENER_METRICS_ENDPOINT`` environmental variable
+- Remove attribute ``data_id`` from listener metrics
 
 
 ===================
