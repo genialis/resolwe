@@ -36,7 +36,7 @@ class MetricsEventReporter(MessageProcessingCallback):
 
     def __init__(self):
         """Initialize the metrics event reporter."""
-        if (endpoint := settings.FLOW_METRICS_ENDPOINT) is None:
+        if endpoint := getattr(settings, "FLOW_METRICS_ENDPOINT", None):
             logger.info("Metrics endpoint is not set, reporting disabled.")
             self._enabled = False
             logger.warning(
@@ -61,7 +61,7 @@ class MetricsEventReporter(MessageProcessingCallback):
         metric_exporter = OTLPMetricExporter(
             endpoint=metric_endpoint,
             insecure=METRICS_INSECURE_EXPORT,
-            max_export_batch_size=settings.FLOW_METRICS_EXPORT_SIZE,
+            max_export_batch_size=getattr(settings, "FLOW_METRICS_EXPORT_SIZE", 1000),
         )
         metric_reader = PeriodicExportingMetricReader(
             metric_exporter, METRICS_EXPORT_INTERVAL
