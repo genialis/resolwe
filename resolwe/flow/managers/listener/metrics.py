@@ -36,7 +36,7 @@ class MetricsEventReporter(MessageProcessingCallback):
 
     def __init__(self):
         """Initialize the metrics event reporter."""
-        if endpoint := getattr(settings, "FLOW_METRICS_ENDPOINT", None):
+        if not (endpoint := getattr(settings, "FLOW_METRICS_ENDPOINT", None)):
             logger.info("Metrics endpoint is not set, reporting disabled.")
             self._enabled = False
             logger.warning(
