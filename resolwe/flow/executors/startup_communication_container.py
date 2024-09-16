@@ -13,7 +13,6 @@ import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
-from distutils.util import strtobool
 from pathlib import Path
 from typing import Any, Optional, Tuple
 
@@ -35,6 +34,24 @@ from executors.socket_utils import (
 )
 from executors.transfer import transfer_data
 from executors.zeromq_utils import ZMQCommunicator
+
+
+def strtobool(value: str) -> bool:
+    """Convert string to boolean.
+
+    Replacement for a method from deprecated distutils.util module.
+    """
+    _true_set = {"yes", "true", "t", "y", "1"}
+    _false_set = {"no", "false", "f", "n", "0"}
+
+    if isinstance(value, str):
+        value = value.lower()
+        if value in _true_set:
+            return True
+        if value in _false_set:
+            return False
+    raise ValueError('Expected "%s"' % '", "'.join(_true_set | _false_set))
+
 
 # Socket used to connect with the processing container.
 PROCESSING_SOCKET = constants.SOCKETS_VOLUME / constants.COMMUNICATION_PROCESSING_SOCKET
