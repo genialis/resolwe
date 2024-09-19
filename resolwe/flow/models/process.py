@@ -208,7 +208,7 @@ class Process(BaseModel, PermissionObject):
         # Known resources.
         resources = ["cores", "memory", "storage"]
         # When no resources are defined, use fallback.
-        fallback = {"cores": 1, "memory": 4096, "storage": 200}
+        fallback = {"cores": 1, "memory": 4096, "storage": 10}
 
         # Prepare requirements from environment.
         environment_settings = getattr(settings, "FLOW_PROCESS_RESOURCE_OVERRIDES", {})

@@ -6,6 +6,15 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Changed
+-------
+- Change fallback for storage resource from 200GB to 10GB
+
+
 ===================
 40.3.0 - 2024-09-16
 ===================
