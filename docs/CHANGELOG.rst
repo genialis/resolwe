@@ -10,6 +10,11 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Added
+-----
+- Add node affinity for instance-category using the ratio between instance to
+  process resource requirements.
+
 Changed
 -------
 - Change fallback for storage resource from 200GB to 10GB
