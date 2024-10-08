@@ -662,6 +662,7 @@ class Connector(BaseConnector):
             container_name_prefix, data.pk, random_postfix
         )
 
+        annotations = dict()
         # Set resource limits.
         requests = dict()
         limits = data.get_resource_limits()
@@ -705,6 +706,22 @@ class Connector(BaseConnector):
             network = getattr(settings, "FLOW_EXECUTOR", {}).get("NETWORK", "")
             use_host_network = network == "host"
 
+        service_account_name = getattr(
+            settings, "FLOW_KUBERNETES_COMMUNICATOR_SERVICE_ACCOUNT", "default"
+        )
+
+        init_container_name = sanitize_kubernetes_label(f"{container_name}-init")
+        processing_container_name = sanitize_kubernetes_label(f"{container_name}")
+        communicator_container_name = sanitize_kubernetes_label(
+            f"{container_name}-communicator"
+        )
+        # Prevents processing and init containers from assuming IAM role credentials
+        annotations["eks.amazonaws.com/skip-containers"] = ",".join(
+            [
+                processing_container_name,
+            ]
+        )
+
         # Generate and set seccomp policy to limit syscalls.
         processing_uid, processing_gid = self._get_processing_uid_gid()
         security_context = {
@@ -714,8 +731,6 @@ class Connector(BaseConnector):
             "privileged": False,
             "capabilities": {"drop": ["ALL"]},
         }
-
-        annotations = dict()
 
         # Do not evict job from node.
         annotations["cluster-autoscaler.kubernetes.io/safe-to-evict"] = "false"
@@ -767,6 +782,7 @@ class Connector(BaseConnector):
         pull_policy = getattr(settings, "FLOW_KUBERNETES_PULL_POLICY", "Always")
         job_type = dict(Process.SCHEDULING_CLASS_CHOICES)[data.process.scheduling_class]
         labels = self._create_labels(data, job_type)
+
         job_description = {
             "apiVersion": "batch/v1",
             "kind": "Job",
@@ -787,6 +803,7 @@ class Connector(BaseConnector):
                     "spec": {
                         "affinity": {},
                         "hostNetwork": use_host_network,
+                        "serviceAccountName": service_account_name,
                         "volumes": self._volumes(
                             data.id,
                             location_subpath,
@@ -796,9 +813,7 @@ class Connector(BaseConnector):
                         ),
                         "initContainers": [
                             {
-                                "name": sanitize_kubernetes_label(
-                                    f"{container_name}-init"
-                                ),
+                                "name": init_container_name,
                                 "image": communicator_image,
                                 "imagePullPolicy": pull_policy,
                                 "workingDir": "/",
@@ -812,7 +827,7 @@ class Connector(BaseConnector):
                         ],
                         "containers": [
                             {
-                                "name": sanitize_kubernetes_label(container_name),
+                                "name": processing_container_name,
                                 "image": processing_container_image,
                                 "resources": {"limits": limits, "requests": requests},
                                 "securityContext": security_context,
@@ -826,9 +841,7 @@ class Connector(BaseConnector):
                                 ),
                             },
                             {
-                                "name": sanitize_kubernetes_label(
-                                    f"{container_name}-communicator"
-                                ),
+                                "name": communicator_container_name,
                                 "image": communicator_image,
                                 "imagePullPolicy": pull_policy,
                                 "resources": {
