@@ -19,6 +19,7 @@ from typing import (
 
 from django.core.exceptions import ValidationError
 from django.db import models
+from versionfield import VersionField
 
 from resolwe.flow.models.base import BaseModel
 from resolwe.permissions.models import PermissionInterface, PermissionObject
@@ -26,7 +27,7 @@ from resolwe.permissions.models import PermissionInterface, PermissionObject
 if TYPE_CHECKING:
     from resolwe.flow.models import Collection, Entity
 
-from .base import AuditModel
+from .base import VERSION_NUMBER_BITS, AuditModel
 
 VALIDATOR_LENGTH = 128
 NAME_LENGTH = 128
@@ -234,6 +235,28 @@ class AnnotationGroup(models.Model):
         ordering = ["sort_order"]
 
 
+class AnnotationFieldManager(models.Manager):
+    """Annotation field manager.
+
+    Return only the latest version of each field.
+    """
+
+    def get_queryset(self) -> models.QuerySet:
+        """Return only the latest version for every field."""
+        return (
+            super()
+            .get_queryset()
+            .annotate(
+                rank=models.Window(
+                    expression=models.functions.DenseRank(),
+                    partition_by=[models.F("name"), models.F("group")],
+                    order_by=models.F("version").desc(),
+                ),
+            )
+            .filter(rank=1)
+        )
+
+
 class AnnotationField(models.Model):
     """Annotation field."""
 
@@ -267,6 +290,11 @@ class AnnotationField(models.Model):
 
     #: is this field required
     required = models.BooleanField(default=False)
+
+    #: field version
+    version = VersionField(number_bits=VERSION_NUMBER_BITS, default="0.0.0")
+
+    objects = AnnotationFieldManager()
 
     def __init__(self, *args, **kwargs):
         """Store original vocabulary to private variable."""
@@ -368,7 +396,8 @@ class AnnotationField(models.Model):
                 name="annotation_type",
             ),
             models.constraints.UniqueConstraint(
-                fields=["name", "group"], name="uniquetogether_name_group"
+                fields=["name", "group", "version"],
+                name="uniquetogether_name_group_version",
             ),
         ]
         ordering = ["group__sort_order", "sort_order"]

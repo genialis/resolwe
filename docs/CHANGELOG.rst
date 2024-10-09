@@ -15,6 +15,10 @@ Changed
 - Change fallback for storage resource from 200GB to 10GB
 - Restrict processing container from using service account permissions
 
+Added
+-----
+- Add ``version`` field to the ``AnnotationField`` model
+
 
 ===================
 40.3.0 - 2024-09-16

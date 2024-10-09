@@ -17,6 +17,7 @@ from resolwe.flow.models.annotations import (
     AnnotationType,
     AnnotationValue,
 )
+from resolwe.flow.serializers.annotations import AnnotationFieldSerializer
 from resolwe.flow.views import (
     AnnotationFieldViewSet,
     AnnotationPresetViewSet,
@@ -356,7 +357,7 @@ class AnnotationViewSetsTest(TestCase):
             name="group2", label="Annotation group 2", sort_order=1
         )
 
-        self.annotation_field1: AnnotationField = AnnotationField.objects.create(
+        AnnotationField.objects.create(
             name="field1",
             label="Annotation field 1",
             sort_order=2,
@@ -364,6 +365,17 @@ class AnnotationViewSetsTest(TestCase):
             type="STRING",
             vocabulary={"string": "label string", "another": "Another one"},
         )
+
+        self.annotation_field1: AnnotationField = AnnotationField.objects.create(
+            name="field1",
+            label="Annotation field 1",
+            sort_order=2,
+            group=self.annotation_group1,
+            type="STRING",
+            vocabulary={"string": "label string", "another": "Another one"},
+            version="1.0.0",
+        )
+
         self.annotation_field2: AnnotationField = AnnotationField.objects.create(
             name="field2",
             label="Annotation field 2",
@@ -923,41 +935,10 @@ class AnnotationViewSetsTest(TestCase):
         request = factory.get("/", {}, format="json")
         response = self.annotationfield_viewset(request)
         self.assertEqual(len(response.data), 2)
-        self.assertEqual(response.data[0]["name"], "field2")
-        self.assertEqual(response.data[0]["label"], "Annotation field 2")
-        received = dict(response.data[0])
-        received["group"] = dict(received["group"])
-        self.assertEqual(
-            received,
-            {
-                "id": self.annotation_field2.id,
-                "name": "field2",
-                "label": "Annotation field 2",
-                "sort_order": 1,
-                "type": "INTEGER",
-                "validator_regex": None,
-                "vocabulary": None,
-                "required": False,
-                "description": "",
-                "group": {
-                    "id": self.annotation_group2.id,
-                    "name": "group2",
-                    "label": "Annotation group 2",
-                    "sort_order": 1,
-                },
-            },
-        )
-        self.assertEqual(response.data[1]["name"], "field1")
-        self.assertEqual(response.data[1]["label"], "Annotation field 1")
-        self.assertEqual(
-            dict(response.data[1]["group"]),
-            {
-                "id": self.annotation_group1.id,
-                "name": "group1",
-                "label": "Annotation group 1",
-                "sort_order": 2,
-            },
-        )
+        expected = AnnotationFieldSerializer(
+            [self.annotation_field2, self.annotation_field1], many=True
+        ).data
+        self.assertEqual(response.data, expected)
 
         # Filter by id.
         request = factory.get("/", {"id": self.annotation_field1.pk}, format="json")
