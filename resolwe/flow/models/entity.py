@@ -349,7 +349,7 @@ class Entity(BaseCollection, PermissionObject):
         if validation_errors:
             raise ValidationError(validation_errors)
 
-    def update_annotations(self, annotations: dict[str, Any], update=True):
+    def update_annotations(self, annotations: dict[str, Any], contributor, update=True):
         """Update annotations with the given values.
 
         When annotation value is set no None it is deleted.
@@ -373,7 +373,10 @@ class Entity(BaseCollection, PermissionObject):
                 fields_to_delete.append(field_map[field_path].pk)
             else:
                 value = AnnotationValue(
-                    field=field_map[field_path], value=field_value, entity=self
+                    field=field_map[field_path],
+                    value=field_value,
+                    entity=self,
+                    contributor=contributor,
                 )
                 annotation_values.append(value)
                 try:

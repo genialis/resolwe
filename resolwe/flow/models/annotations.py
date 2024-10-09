@@ -17,6 +17,7 @@ from typing import (
     Type,
 )
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from versionfield import VersionField
@@ -452,6 +453,9 @@ class AnnotationValue(PermissionInterface, AuditModel):
 
     #: value is stored under key 'value' in the json field to simplify lookups
     _value: Any = models.JSONField(default=dict)
+
+    #: user that created the entry
+    contributor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
 
     def __init__(self, *args, **kwargs):
         """Allow us to set the 'value' in the constructor.
