@@ -17,6 +17,7 @@ Changed
 Added
 -----
 - Add ``version`` field to the ``AnnotationField`` model
+- Add ``contributor`` field to the ``AnnotationValue`` model
 
 
 ===================
