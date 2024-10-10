@@ -72,7 +72,6 @@ class AnnotationFieldViewSet(
 
 class AnnotationValueViewSet(
     mixins.RetrieveModelMixin,
-    ResolweUpdateModelMixin,
     mixins.CreateModelMixin,
     mixins.ListModelMixin,
     mixins.DestroyModelMixin,
@@ -123,6 +122,8 @@ class AnnotationValueViewSet(
         is set no None.
         """
         # Regular update on a detail view.
+        print("Update", args, kwargs)
+        raise Exception("Test")
         if pk is not None:
             return super().update(request, *args, pk=pk, **kwargs)
 

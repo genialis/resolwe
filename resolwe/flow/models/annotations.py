@@ -23,7 +23,11 @@ from django.db import models
 from versionfield import VersionField
 
 from resolwe.flow.models.base import BaseModel
-from resolwe.permissions.models import PermissionInterface, PermissionObject
+from resolwe.permissions.models import (
+    PermissionInterface,
+    PermissionObject,
+    PermissionQuerySet,
+)
 
 if TYPE_CHECKING:
     from resolwe.flow.models import Collection, Entity
@@ -358,7 +362,7 @@ class AnnotationField(models.Model):
                 annotation_value_field.recompute_label()
                 annotation_value_field.validate()
                 updated_fields.append(annotation_value_field)
-            AnnotationValue.objects.bulk_update(updated_fields, ["_value"])
+            AnnotationValue.all_objects.bulk_update(updated_fields, ["_value"])
             self._original_vocabulary = self.vocabulary
         if self.type != self._original_type:
             self.revalidate_values()
@@ -425,6 +429,35 @@ class AnnotationPreset(BaseModel, PermissionObject):
         """Override parent meta."""
 
 
+class AnnotationValueManager(
+    models.manager.BaseManager.from_queryset(PermissionQuerySet)
+):
+    """Get the latest value by default."""
+
+    def get_queryset(self) -> models.QuerySet:
+        """Return the latest version for every value."""
+        print("Get av qset")
+        return self._only_latest(super().get_queryset()).exclude(
+            _value__value=models.Value(None, models.JSONField())
+        )
+
+    def _only_latest(
+        self, queryset: models.QuerySet["AnnotationValue"]
+    ) -> models.QuerySet["AnnotationValue"]:
+        """Return only latest values from the queryset."""
+        return queryset.annotate(
+            rank=models.Window(
+                expression=models.functions.DenseRank(),
+                partition_by=[models.F("field"), models.F("entity")],
+                order_by=models.F("created").desc(),
+            ),
+        ).filter(rank=1)
+
+    def history(self, timestamp: datetime.datetime):
+        """Get values at certain point in time"""
+        return self._only_latest(self.filter(created__le=timestamp))
+
+
 class AnnotationValue(PermissionInterface, AuditModel):
     """The value of the annotation."""
 
@@ -433,7 +466,8 @@ class AnnotationValue(PermissionInterface, AuditModel):
 
         constraints = [
             models.constraints.UniqueConstraint(
-                fields=["entity", "field"], name="uniquetogether_entity_field"
+                fields=["entity", "field", "created"],
+                name="uniquetogether_entity_field_created",
             ),
         ]
         ordering = ["field__group__sort_order", "field__sort_order"]
@@ -448,14 +482,18 @@ class AnnotationValue(PermissionInterface, AuditModel):
         AnnotationField, related_name="values", on_delete=models.PROTECT
     )
 
-    #: the date when field was last modified
-    modified = models.DateTimeField(auto_now=True)
+    #: the date when field was created
+    created = models.DateTimeField(auto_now_add=True)
 
     #: value is stored under key 'value' in the json field to simplify lookups
     _value: Any = models.JSONField(default=dict)
 
     #: user that created the entry
     contributor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+
+    objects = AnnotationValueManager()
+
+    all_objects = PermissionQuerySet.as_manager()
 
     def __init__(self, *args, **kwargs):
         """Allow us to set the 'value' in the constructor.
@@ -510,7 +548,9 @@ class AnnotationValue(PermissionInterface, AuditModel):
 
         :raises ValidationError: when the validation fails.
         """
-        annotation_value_validator.validate(self, raise_exception=True)
+        # The value `None` is used as delete marker.
+        if self.value is not None:
+            annotation_value_validator.validate(self, raise_exception=True)
 
     def save(self, *args, **kwargs):
         """Save the annotation value after validation has passed."""

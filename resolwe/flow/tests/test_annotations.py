@@ -498,6 +498,8 @@ class AnnotationViewSetsTest(TestCase):
         expected = AnnotationValueSerializer(
             AnnotationValue.objects.all(), many=True
         ).data
+        print("Got value", response.data)
+        print("Expected", expected)
         self.assertCountEqual(response.data, expected)
 
         # Bulk create, request for same entity and field.
@@ -842,16 +844,16 @@ class AnnotationViewSetsTest(TestCase):
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["name"], self.annotation_field1.name)
 
-    def test_modified_field(self):
-        """Test modified field is present in the response."""
+    def test_created_field(self):
+        """Test created field is present in the response."""
         request = factory.get("/", {"entity": self.entity1.pk}, format="json")
         force_authenticate(request, self.contributor)
         response = self.annotationvalue_viewset(request)
         self.assertTrue(response.status_code, status.HTTP_200_OK)
         self.assertTrue(len(response.data), 1)
         self.assertEqual(
-            datetime.strptime(response.data[0]["modified"], "%Y-%m-%dT%H:%M:%S.%f%z"),
-            self.annotation_value1.modified,
+            datetime.strptime(response.data[0]["created"], "%Y-%m-%dT%H:%M:%S.%f%z"),
+            self.annotation_value1.created,
         )
 
     def test_filter_modified_field(self):
@@ -860,15 +862,15 @@ class AnnotationViewSetsTest(TestCase):
         # Actually it is a little greater than this, since it is auto-refreshed on
         # updates. There is no need to refresh the value from the database as modified
         # is already updated
-        self.annotation_value1.modified = now()
+        self.annotation_value1.created = now()
         self.annotation_value1.save()
         request = factory.get(
-            "/", {"modified__gte": self.annotation_value1.modified}, format="json"
+            "/", {"created__gte": self.annotation_value1.created}, format="json"
         )
         force_authenticate(request, self.contributor)
         result1 = self.annotationvalue_viewset(request).data
         request = factory.get(
-            "/", {"modified__lt": self.annotation_value1.modified}, format="json"
+            "/", {"created__lt": self.annotation_value1.created}, format="json"
         )
         force_authenticate(request, self.contributor)
         result2 = self.annotationvalue_viewset(request).data
@@ -1452,7 +1454,16 @@ class AnnotationViewSetsTest(TestCase):
         request = factory.post("/", annotations, format="json")
         force_authenticate(request, self.contributor)
         response = viewset(request, pk=self.entity1.pk)
+        print("Got response", response, response.data)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        print("Before 1")
+        print("Got annotations", self.entity1.annotations.all())
+        print("Before 2")
+        print(AnnotationValue.all_objects.all())
+        for e in AnnotationValue.all_objects.all():
+            print("---")
+            print(e.__dict__)
         self.assertEqual(self.entity1.annotations.count(), 1)
         has_value(self.entity1, self.annotation_field2.pk, 2)
 
