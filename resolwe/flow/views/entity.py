@@ -165,5 +165,5 @@ class EntityViewSet(ObservableMixin, BaseCollectionViewSet):
         serializer = AnnotationsByPathSerializer(data=request.data, many=True)
         serializer.is_valid(raise_exception=True)
         annotations = {value["field_path"]: value["value"] for value in serializer.data}
-        entity.update_annotations(annotations)
+        entity.update_annotations(annotations, request.user)
         return Response()

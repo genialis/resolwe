@@ -64,6 +64,7 @@ class AnnotationFieldSerializer(ResolweBaseSerializer):
             "validator_regex",
             "vocabulary",
             "required",
+            "version",
         )
         list_serializer_class = AnnotationFieldListSerializer
 
@@ -176,8 +177,8 @@ class AnnotationValueSerializer(ResolweBaseSerializer):
         """AnnotationValueSerializer Meta options."""
 
         model = AnnotationValue
-        read_only_fields = ("label", "modified")
-        update_protected_fields = ("id", "entity", "field")
+        read_only_fields = ("label", "created")
+        update_protected_fields = ("id", "entity", "field", "contributor")
         fields = read_only_fields + update_protected_fields + ("value", "_value")
         extra_kwargs = {"_value": {"write_only": True}}
         list_serializer_class = AnnotationValueListSerializer

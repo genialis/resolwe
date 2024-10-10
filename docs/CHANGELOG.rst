@@ -14,6 +14,11 @@ Changed
 -------
 - Change fallback for storage resource from 200GB to 10GB
 
+Added
+-----
+- Add ``version`` field to the ``AnnotationField`` model
+- Add ``contributor`` field to the ``AnnotationValue`` model
+
 
 ===================
 40.3.0 - 2024-09-16
