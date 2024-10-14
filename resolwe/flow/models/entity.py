@@ -368,12 +368,16 @@ class Entity(BaseCollection, PermissionObject):
         annotation_values: list[AnnotationValue] = []
         validation_errors: list[ValidationError] = []
         for field_path, field_value in annotations.items():
-            value = AnnotationValue(
-                field=field_map[field_path],
-                value=field_value,
-                entity=self,
-                contributor=contributor,
-            )
+            values_dict = {
+                "field": field_map[field_path],
+                "entity": self,
+                "contributor": contributor,
+            }
+            if field_value is not None:
+                values_dict["value"] = field_value
+            else:
+                values_dict["_value"] = None
+            value = AnnotationValue(**values_dict)
             annotation_values.append(value)
             try:
                 value.validate()
@@ -381,7 +385,6 @@ class Entity(BaseCollection, PermissionObject):
                 validation_errors.append(e)
         if validation_errors:
             raise ValidationError(validation_errors)
-
 
         print("Creating", annotation_values)
         # Create new entries in a transaction.
