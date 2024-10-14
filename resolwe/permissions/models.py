@@ -275,7 +275,7 @@ class PermissionGroup(models.Model):
         return list(Group.objects.filter(filter).distinct())
 
 
-class PermissionQuerySet(models.QuerySet["PermissionInterface"]):
+class PermissionQuerySet[M: PermissionInterface](models.QuerySet[M]):
     """Queryset with methods that simlify filtering by permissions."""
 
     def _filter_by_permission(
@@ -401,7 +401,7 @@ class PermissionInterface(models.Model):
     """
 
     #: custom manager with permission filtering methods.
-    objects = PermissionQuerySet.as_manager()
+    objects: models.Manager["PermissionInterface"] = PermissionQuerySet.as_manager()
 
     class Meta:
         """Make a class abstract."""

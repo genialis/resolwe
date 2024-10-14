@@ -698,7 +698,7 @@ class AnnotationValueFilter(BaseResolweFilter, metaclass=AnnotationValueFieldMet
                 "field__name": TEXT_LOOKUPS[:],
                 "field__label": TEXT_LOOKUPS[:],
                 "field__group__name": TEXT_LOOKUPS[:],
-                "modified": DATE_LOOKUPS[:],
+                "created": DATE_LOOKUPS[:],
                 "contributor": ["exact", "in"],
             },
         }
