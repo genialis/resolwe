@@ -49,7 +49,7 @@ class BaseManager[M: models.Model, Q: models.QuerySet](models.Manager[M]):
 
     # The data is partitioned into groups with the same partition fields value. The
     # object with the greatest version inside the partition is considered the latest.
-    partition_fields: list[str] = ["slug", "version"]
+    partition_fields: list[str] = ["slug"]
 
     # The field to use as version. The latest version is determined by sorting the
     # data by version field in the ascending order and taking the first entry.
@@ -74,6 +74,10 @@ class BaseManager[M: models.Model, Q: models.QuerySet](models.Manager[M]):
                 order_by=models.F(self.version_field).desc(),
             ),
         ).filter(rank=1)
+        # print("Got latest entries", latest_entries)
+        # for e in latest_entries:
+        #     print(e.__dict__)
+        #     print()
         return queryset.filter(pk__in=latest_entries)
 
     def get_queryset(self) -> Q:
@@ -82,8 +86,14 @@ class BaseManager[M: models.Model, Q: models.QuerySet](models.Manager[M]):
         Make sure the queryset is lazily evaluated, since the get_queryset method can
         be called many times (for instance, when filtering the queryset).
         """
+        # print("here"*100)
         base_queryset = self.QuerySet(model=self.model, using=self._db)
-        return self._only_latest(base_queryset)
+        result = self._only_latest(base_queryset)
+        # print("Only latest, woot!!  ")
+        # print("Partition", self.partition_fields)
+        # print("Version", self.version_field)
+        # print(result)
+        return result
 
     def history(self, timestamp: datetime.datetime) -> Q:
         """Get values at certain point in time"""

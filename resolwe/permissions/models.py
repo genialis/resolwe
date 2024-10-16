@@ -399,9 +399,7 @@ class PermissionQuerySet[M: PermissionInterface](models.QuerySet[M]):
 class PermissionManager(BaseManager):
     """The manager used for permission objects."""
 
-    def get_queryset(self) -> PermissionQuerySet:
-        """Get the queryset."""
-        return PermissionQuerySet(self.model, using=self._db)
+    QuerySet = PermissionQuerySet
 
     def filter_for_user(
         self,
