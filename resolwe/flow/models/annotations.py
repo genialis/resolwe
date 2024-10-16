@@ -455,7 +455,7 @@ class AnnotationField(models.Model):
         ordering = ["group__sort_order", "sort_order"]
 
 
-class AnnotationPreset(BaseModel, PermissionObject):
+class AnnotationPreset(PermissionObject, BaseModel):
     """The named set of annotation fields.
 
     The presets have permissions.

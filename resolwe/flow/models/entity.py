@@ -163,7 +163,7 @@ class EntityQuerySet(BaseQuerySet, PermissionQuerySet):
         return queryset
 
 
-class Entity(BaseCollection, PermissionObject):
+class Entity(PermissionObject, BaseCollection):
     """Postgres model for storing entities."""
 
     class Meta(BaseCollection.Meta):

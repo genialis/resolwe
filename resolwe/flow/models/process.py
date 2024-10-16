@@ -14,7 +14,7 @@ from .base import BaseModel
 from .data import Data
 
 
-class Process(BaseModel, PermissionObject):
+class Process(PermissionObject, BaseModel):
     """Postgres model for storing processes."""
 
     class Meta(BaseModel.Meta):

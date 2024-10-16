@@ -83,7 +83,7 @@ class PythonProcess(ListenerPlugin):
     ) -> Response[str]:
         """Return the process source code for the given data object."""
         run_dict = (
-            Process.objects.filter(data__id=data_id)
+            Process.all_objects.filter(data__id=data_id)
             .values_list("run", flat=True)
             .last()
         ) or {}
@@ -411,7 +411,7 @@ class PythonProcess(ListenerPlugin):
     ) -> Response[dict]:
         """Return the requirements for the process with the given id."""
         process_id = message.message_data
-        filtered_process = Process.objects.filter(pk=process_id).filter_for_user(
+        filtered_process = Process.all_objects.filter(pk=process_id).filter_for_user(
             manager.contributor(data_id)
         )[0]
 

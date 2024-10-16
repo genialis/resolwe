@@ -254,7 +254,7 @@ class DataQuerySet(BaseQuerySet, PermissionQuerySet):
         return self.annotate(**annotation_data)
 
 
-class Data(HistoryMixin, BaseModel, PermissionObject):
+class Data(HistoryMixin, PermissionObject, BaseModel):
     """Postgres model for storing data."""
 
     class Meta(BaseModel.Meta):

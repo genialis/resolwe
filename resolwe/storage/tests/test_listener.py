@@ -363,8 +363,12 @@ class ListenerTest(TestCase):
             required=False,
             sort_order=2,
         )
-        AnnotationValue.objects.create(entity=entity, field=field, value="value")
-        AnnotationValue.objects.create(entity=entity, field=field2, value="value2")
+        AnnotationValue.objects.create(
+            entity=entity, field=field, value="value", contributor=self.contributor
+        )
+        AnnotationValue.objects.create(
+            entity=entity, field=field2, value="value2", contributor=self.contributor
+        )
 
         process = Process.objects.create(contributor=self.contributor)
         data = Data.objects.create(

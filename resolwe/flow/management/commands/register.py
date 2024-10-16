@@ -255,9 +255,7 @@ class Command(BaseCommand):
             int_version = convert_version_string_to_int(version, VERSION_NUMBER_BITS)
 
             # `latest version` is returned as `int` so it has to be compared to `int_version`
-            latest_version = Process.objects.filter(slug=slug).aggregate(
-                Max("version")
-            )["version__max"]
+            latest_version = Process.objects.get(slug=slug).version
             if latest_version is not None and latest_version > int_version:
                 self.stderr.write(
                     "Skip processor {}: newer version installed".format(slug)
@@ -270,7 +268,7 @@ class Command(BaseCommand):
             else:
                 previous_process = None
 
-            process_query = Process.objects.filter(slug=slug, version=version)
+            process_query = Process.all_objects.filter(slug=slug, version=version)
             if process_query.exists():
                 is_active = process_query.values_list("is_active", flat=True).get()
                 if not is_active:
@@ -384,7 +382,7 @@ class Command(BaseCommand):
         process_slugs = set(ps["slug"] for ps in process_schemas)
 
         # Processes that are in DB but not in the code
-        retired_processes = Process.objects.filter(~Q(slug__in=process_slugs))
+        retired_processes = Process.all_objects.filter(~Q(slug__in=process_slugs))
 
         # Remove retired processes which do not have data
         retired_processes.filter(data__exact=None).delete()
@@ -393,7 +391,7 @@ class Command(BaseCommand):
         latest_version_processes = Process.objects.order_by(
             "slug", "-version"
         ).distinct("slug")
-        Process.objects.filter(data__exact=None).exclude(
+        Process.all_objects.filter(data__exact=None).exclude(
             id__in=latest_version_processes
         ).delete()
 

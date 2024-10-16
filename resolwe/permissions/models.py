@@ -12,6 +12,8 @@ from django.db import models, transaction
 
 from resolwe.observers.protocol import post_permission_changed, pre_permission_changed
 
+from .managers import BaseManager
+
 logger = logging.getLogger(__name__)
 PermissionList = List["Permission"]
 UserOrGroup = Union[User, Group]
@@ -285,7 +287,7 @@ class PermissionQuerySet[M: PermissionInterface](models.QuerySet[M]):
         permission: Permission,
         public: bool = True,
         with_superuser: bool = True,
-    ) -> models.QuerySet:
+    ) -> "PermissionQuerySet":
         """Filter queryset by permissions.
 
         This is a generic method that is called in public methods.
@@ -352,7 +354,7 @@ class PermissionQuerySet[M: PermissionInterface](models.QuerySet[M]):
         use_groups: bool = True,
         public: bool = True,
         with_superuser: bool = True,
-    ) -> models.QuerySet:
+    ) -> "PermissionQuerySet":
         """Filter objects for user.
 
         :attr user: the user which permissions should be considered.
@@ -394,6 +396,27 @@ class PermissionQuerySet[M: PermissionInterface](models.QuerySet[M]):
             )
 
 
+class PermissionManager(BaseManager):
+    """The manager used for permission objects."""
+
+    def get_queryset(self) -> PermissionQuerySet:
+        """Get the queryset."""
+        return PermissionQuerySet(self.model, using=self._db)
+
+    def filter_for_user(
+        self,
+        user: User | AnonymousUser,
+        permission: Permission = Permission.VIEW,
+        use_groups: bool = True,
+        public: bool = True,
+        with_superuser: bool = True,
+    ) -> PermissionQuerySet:
+        """Filter the objects for user."""
+        return self.get_queryset().filter_for_user(
+            user, permission, use_groups, public, with_superuser
+        )
+
+
 class PermissionInterface(models.Model):
     """The abstract model that defines permission interface.
 
@@ -401,7 +424,7 @@ class PermissionInterface(models.Model):
     """
 
     #: custom manager with permission filtering methods.
-    objects: models.Manager["PermissionInterface"] = PermissionQuerySet.as_manager()
+    objects: PermissionManager = PermissionManager()
 
     class Meta:
         """Make a class abstract."""
