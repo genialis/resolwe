@@ -17,6 +17,10 @@ from resolwe.flow.models.annotations import (
     AnnotationType,
     AnnotationValue,
 )
+from resolwe.flow.serializers.annotations import (
+    AnnotationFieldSerializer,
+    AnnotationValueSerializer,
+)
 from resolwe.flow.views import (
     AnnotationFieldViewSet,
     AnnotationPresetViewSet,
@@ -50,7 +54,7 @@ class AnnotationValueTest(TestCase):
             group=annotation_group,
         )
         self.value = AnnotationValue.objects.create(
-            entity=entity, field=self.field, value="Test"
+            entity=entity, field=self.field, value="Test", contributor=self.contributor
         )
 
     def test_protected(self):
@@ -108,7 +112,12 @@ class FilterAnnotations(TestCase):
         for annotation_type, values in field_values.items():
             for entity, value in values:
                 field = self.fields[annotation_type]
-                AnnotationValue.objects.create(entity=entity, field=field, value=value)
+                AnnotationValue.objects.create(
+                    entity=entity,
+                    field=field,
+                    value=value,
+                    contributor=self.contributor,
+                )
         self.first_id = [self.entity1.id]
         self.second_id = [entity2.id]
         self.both_ids = [self.entity1.id, entity2.id]
@@ -230,7 +239,12 @@ class TestOrderEntityByAnnotations(TestCase):
         for annotation_type, values in field_values.items():
             for entity, value in values:
                 field = self.fields[annotation_type]
-                AnnotationValue.objects.create(entity=entity, field=field, value=value)
+                AnnotationValue.objects.create(
+                    entity=entity,
+                    field=field,
+                    value=value,
+                    contributor=self.contributor,
+                )
         self.first_id = [entity1.id]
         self.second_id = [entity2.id]
         self.both_ids = [entity1.id, entity2.id]
@@ -356,7 +370,7 @@ class AnnotationViewSetsTest(TestCase):
             name="group2", label="Annotation group 2", sort_order=1
         )
 
-        self.annotation_field1: AnnotationField = AnnotationField.objects.create(
+        AnnotationField.objects.create(
             name="field1",
             label="Annotation field 1",
             sort_order=2,
@@ -364,6 +378,17 @@ class AnnotationViewSetsTest(TestCase):
             type="STRING",
             vocabulary={"string": "label string", "another": "Another one"},
         )
+
+        self.annotation_field1: AnnotationField = AnnotationField.objects.create(
+            name="field1",
+            label="Annotation field 1",
+            sort_order=2,
+            group=self.annotation_group1,
+            type="STRING",
+            vocabulary={"string": "label string", "another": "Another one"},
+            version="1.0.0",
+        )
+
         self.annotation_field2: AnnotationField = AnnotationField.objects.create(
             name="field2",
             label="Annotation field 2",
@@ -398,10 +423,16 @@ class AnnotationViewSetsTest(TestCase):
             }
         )
         self.annotation_value1: AnnotationValue = AnnotationValue.objects.create(
-            entity=self.entity1, field=self.annotation_field1, value="string"
+            entity=self.entity1,
+            field=self.annotation_field1,
+            value="string",
+            contributor=self.contributor,
         )
         self.annotation_value2: AnnotationValue = AnnotationValue.objects.create(
-            entity=self.entity2, field=self.annotation_field2, value=2
+            entity=self.entity2,
+            field=self.annotation_field2,
+            value=2,
+            contributor=self.contributor,
         )
 
     def test_create_annotation_value(self):
@@ -416,7 +447,12 @@ class AnnotationViewSetsTest(TestCase):
 
         self.client = APIClient()
         path = reverse("resolwe-api:annotationvalue-list")
-        values = {"entity": self.entity1.pk, "field": field.pk, "value": -1}
+        values = {
+            "entity": self.entity1.pk,
+            "field": field.pk,
+            "value": -1,
+            "contributor": self.contributor.pk,
+        }
         values_count = AnnotationValue.objects.count()
 
         # Unauthenticated request.
@@ -437,8 +473,18 @@ class AnnotationViewSetsTest(TestCase):
         # Bulk create, no permission on entity 2.
         AnnotationValue.objects.all().delete()
         values = [
-            {"entity": self.entity1.pk, "field": field.pk, "value": -1},
-            {"entity": self.entity2.pk, "field": field.pk, "value": -2},
+            {
+                "entity": self.entity1.pk,
+                "field": field.pk,
+                "value": -1,
+                "contributor": self.contributor.pk,
+            },
+            {
+                "entity": self.entity2.pk,
+                "field": field.pk,
+                "value": -2,
+                "contributor": self.contributor.pk,
+            },
         ]
         response = self.client.post(path, values, format="json")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
@@ -449,18 +495,25 @@ class AnnotationViewSetsTest(TestCase):
         self.client.force_authenticate(self.contributor)
         response = self.client.post(path, values, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        attributes = ("entity", "field", "value")
-        created = AnnotationValue.objects.annotate(value=F("_value__value")).values(
-            *attributes
-        )
-        received = [{key: entry[key] for key in attributes} for entry in response.data]
-        self.assertCountEqual(received, values)
-        self.assertCountEqual(created, values)
+        expected = AnnotationValueSerializer(
+            AnnotationValue.objects.all(), many=True
+        ).data
+        self.assertCountEqual(response.data, expected)
 
         # Bulk create, request for same entity and field.
         values = [
-            {"entity": self.entity1.pk, "field": field.pk, "value": -10},
-            {"entity": self.entity1.pk, "field": field.pk, "value": -20},
+            {
+                "entity": self.entity1.pk,
+                "field": field.pk,
+                "value": -10,
+                "contributor": self.contributor.pk,
+            },
+            {
+                "entity": self.entity1.pk,
+                "field": field.pk,
+                "value": -20,
+                "contributor": self.contributor.pk,
+            },
         ]
         response = self.client.post(path, values, format="json")
         self.assertContains(
@@ -478,8 +531,18 @@ class AnnotationViewSetsTest(TestCase):
 
         # Authenticated request, no permission.
         values = [
-            {"entity": self.entity1.pk, "field": field.pk, "value": -10},
-            {"entity": self.entity2.pk, "field": field.pk, "value": -20},
+            {
+                "entity": self.entity1.pk,
+                "field": field.pk,
+                "value": -10,
+                "contributor": self.contributor.pk,
+            },
+            {
+                "entity": self.entity2.pk,
+                "field": field.pk,
+                "value": -20,
+                "contributor": self.contributor.pk,
+            },
         ]
         AnnotationValue.objects.all().delete()
         self.entity1.collection.set_permission(Permission.NONE, self.contributor)
@@ -498,36 +561,18 @@ class AnnotationViewSetsTest(TestCase):
         # Unauthenticated request.
         response = client.patch(path, values, format="json")
         self.assertContains(
-            response, self.NOT_FOUND, status_code=status.HTTP_404_NOT_FOUND
+            response,
+            "Partial updates are not supported.",
+            status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
         )
 
         # Authenticated request.
         client.force_authenticate(self.contributor)
         response = client.patch(path, values, format="json")
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["id"], self.annotation_value1.pk)
-        self.annotation_value1.refresh_from_db()
-        self.assertEqual(self.annotation_value1.value, "another")
-        self.assertEqual(self.annotation_value1.label, "Another one")
-        self.assertEqual(self.annotation_value1.entity, self.entity1)
-
-        # Authenticated request, entity should not be changed
-        values = {
-            "field": self.annotation_field1.pk,
-            "value": "string",
-            "entity": self.entity2.pk,
-        }
-        response = client.patch(path, values, format="json")
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.annotation_value1.refresh_from_db()
-        self.assertEqual(self.annotation_value1.value, "string")
-        self.assertEqual(self.annotation_value1.entity, self.entity1)
-
-        # Authenticated request, no permission.
-        self.entity1.collection.set_permission(Permission.NONE, self.contributor)
-        response = client.patch(path, values, format="json")
         self.assertContains(
-            response, self.NOT_FOUND, status_code=status.HTTP_404_NOT_FOUND
+            response,
+            "Partial updates are not supported.",
+            status_code=status.HTTP_405_METHOD_NOT_ALLOWED,
         )
 
         # Single / bulk update with put.
@@ -539,6 +584,7 @@ class AnnotationViewSetsTest(TestCase):
                 "entity": self.entity1.pk,
                 "field": self.annotation_field1.pk,
                 "value": -1,
+                "contributor": self.contributor.pk,
             }
         ]
 
@@ -565,37 +611,32 @@ class AnnotationViewSetsTest(TestCase):
         self.assertEqual(self.annotation_value1.value, "string")
         self.assertEqual(AnnotationValue.objects.count(), 2)
 
-        # Authenticated request with validation error.
+        # Authenticated request without validation error.
         values[0]["value"] = "another"
         response = client.put(path, values, format="json")
-        self.annotation_value1.refresh_from_db()
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(
-            response.data,
-            [
-                {
-                    "label": "Another one",
-                    "id": self.annotation_value1.pk,
-                    "entity": self.entity1.pk,
-                    "field": self.annotation_field1.pk,
-                    "value": "another",
-                    "modified": self.annotation_value1.modified.strftime(
-                        "%Y-%m-%dT%H:%M:%S.%fZ"
-                    ),
-                }
-            ],
+        new_value = AnnotationValue.objects.get(
+            entity=self.annotation_value1.entity, field=self.annotation_value1.field
         )
-        self.assertEqual(self.annotation_value1.value, "another")
-        self.assertEqual(self.annotation_value1.label, "Another one")
+        self.annotation_value1.refresh_from_db()
+        expected = AnnotationValueSerializer([new_value], many=True).data
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, expected)
         self.assertEqual(AnnotationValue.objects.count(), 2)
+        self.assertEqual(self.annotation_value1.value, "string")
 
         # Multi with validation error.
         values = [
-            {"field": self.annotation_field2.pk, "value": 1, "entity": self.entity1.pk},
+            {
+                "field": self.annotation_field2.pk,
+                "value": 1,
+                "entity": self.entity1.pk,
+                "contributor": self.contributor.pk,
+            },
             {
                 "field": self.annotation_field2.pk,
                 "value": "string",
                 "entity": self.entity1.pk,
+                "contributor": self.contributor.pk,
             },
         ]
         response = client.put(path, values, format="json")
@@ -607,11 +648,17 @@ class AnnotationViewSetsTest(TestCase):
 
         # Multi.
         values = [
-            {"field": self.annotation_field2.pk, "value": 1, "entity": self.entity1.pk},
+            {
+                "field": self.annotation_field2.pk,
+                "value": 1,
+                "entity": self.entity1.pk,
+                "contributor": self.contributor.pk,
+            },
             {
                 "field": self.annotation_field1.pk,
                 "value": "string",
                 "entity": self.entity1.pk,
+                "contributor": self.contributor.pk,
             },
         ]
 
@@ -621,57 +668,46 @@ class AnnotationViewSetsTest(TestCase):
         created_value = AnnotationValue.objects.get(
             entity=self.entity1, field=self.annotation_field2
         )
-        expected = [
-            {
-                "label": "label string",
-                "id": self.annotation_value1.pk,
-                "entity": self.entity1.pk,
-                "field": self.annotation_field1.pk,
-                "value": "string",
-                "modified": self.annotation_value1.modified.strftime(
-                    "%Y-%m-%dT%H:%M:%S.%fZ"
-                ),
-            },
-            {
-                "label": created_value.label,
-                "id": created_value.pk,
-                "entity": created_value.entity.pk,
-                "field": created_value.field.pk,
-                "value": created_value.value,
-                "modified": created_value.modified.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
-            },
-        ]
+        updated_value = AnnotationValue.objects.get(
+            entity=self.annotation_value1.entity, field=self.annotation_value1.field
+        )
+        expected = AnnotationValueSerializer(
+            [updated_value, created_value], many=True
+        ).data
         self.assertCountEqual(response.data, expected)
-        self.assertEqual(self.annotation_value1.value, "string")
-        self.assertEqual(self.annotation_value1.label, "label string")
+        self.assertEqual(updated_value.value, "string")
+        self.assertEqual(updated_value.label, "label string")
         self.assertEqual(AnnotationValue.objects.count(), 3)
 
         # Multi + delete.
         values = [
-            {"field": self.annotation_field2.pk, "value": 2, "entity": self.entity1.pk},
+            {
+                "field": self.annotation_field2.pk,
+                "value": 2,
+                "entity": self.entity1.pk,
+                "contributor": self.contributor.pk,
+            },
             {
                 "field": self.annotation_field1.pk,
                 "value": None,
                 "entity": self.entity1.pk,
+                "contributor": self.contributor.pk,
             },
         ]
         response = client.put(path, values, format="json")
-        created_value.refresh_from_db()
-        expected = [
-            {
-                "label": created_value.label,
-                "id": created_value.pk,
-                "entity": created_value.entity.pk,
-                "field": created_value.field.pk,
-                "value": created_value.label,
-                "modified": created_value.modified.strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
-            },
-        ]
+        updated_value = AnnotationValue.objects.get(
+            entity=created_value.entity, field=created_value.field
+        )
+        expected = AnnotationValueSerializer([updated_value], many=True).data
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertCountEqual(response.data, expected)
         with self.assertRaises(AnnotationValue.DoesNotExist):
-            self.annotation_value1.refresh_from_db()
-        created_value.refresh_from_db()
+            AnnotationValue.objects.get(
+                entity=self.annotation_value1.entity, field=self.annotation_value1.field
+            )
+        created_value = AnnotationValue.objects.get(
+            entity=created_value.entity, field=created_value.field
+        )
         self.assertEqual(created_value.value, 2)
         self.assertEqual(created_value.label, 2)
 
@@ -707,7 +743,10 @@ class AnnotationViewSetsTest(TestCase):
         with self.assertRaises(AnnotationValue.DoesNotExist):
             self.annotation_value1.refresh_from_db()
         self.annotation_value1: AnnotationValue = AnnotationValue.objects.create(
-            entity=self.entity1, field=self.annotation_field1, value="string"
+            entity=self.entity1,
+            field=self.annotation_field1,
+            value="string",
+            contributor=self.contributor,
         )
         path = reverse(
             "resolwe-api:annotationvalue-detail", args=[self.annotation_value1.pk]
@@ -811,33 +850,29 @@ class AnnotationViewSetsTest(TestCase):
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["name"], self.annotation_field1.name)
 
-    def test_modified_field(self):
-        """Test modified field is present in the response."""
+    def test_created_field(self):
+        """Test created field is present in the response."""
         request = factory.get("/", {"entity": self.entity1.pk}, format="json")
         force_authenticate(request, self.contributor)
         response = self.annotationvalue_viewset(request)
         self.assertTrue(response.status_code, status.HTTP_200_OK)
         self.assertTrue(len(response.data), 1)
         self.assertEqual(
-            datetime.strptime(response.data[0]["modified"], "%Y-%m-%dT%H:%M:%S.%f%z"),
-            self.annotation_value1.modified,
+            datetime.strptime(response.data[0]["created"], "%Y-%m-%dT%H:%M:%S.%f%z"),
+            self.annotation_value1.created,
         )
 
-    def test_filter_modified_field(self):
-        """Test filtering by modified time."""
-        # Set the modified time to the first annotation value to the current time.
-        # Actually it is a little greater than this, since it is auto-refreshed on
-        # updates. There is no need to refresh the value from the database as modified
-        # is already updated
-        self.annotation_value1.modified = now()
+    def test_filter_created_field(self):
+        """Test filtering by created time."""
+        self.annotation_value1.created = now()
         self.annotation_value1.save()
         request = factory.get(
-            "/", {"modified__gte": self.annotation_value1.modified}, format="json"
+            "/", {"created__gte": self.annotation_value1.created}, format="json"
         )
         force_authenticate(request, self.contributor)
         result1 = self.annotationvalue_viewset(request).data
         request = factory.get(
-            "/", {"modified__lt": self.annotation_value1.modified}, format="json"
+            "/", {"created__lt": self.annotation_value1.created}, format="json"
         )
         force_authenticate(request, self.contributor)
         result2 = self.annotationvalue_viewset(request).data
@@ -846,12 +881,12 @@ class AnnotationViewSetsTest(TestCase):
         self.assertEqual(result1[0]["id"], self.annotation_value1.pk)
         self.assertEqual(result2[0]["id"], self.annotation_value2.pk)
 
-    def test_sort_values_modified(self):
-        """Test annotation values can be ordered by modified field."""
-        request = factory.get("/", {"ordering": "modified"}, format="json")
+    def test_sort_values_created(self):
+        """Test annotation values can be ordered by created field."""
+        request = factory.get("/", {"ordering": "created"}, format="json")
         force_authenticate(request, self.contributor)
         order1 = self.annotationvalue_viewset(request).data
-        request = factory.get("/", {"ordering": "-modified"}, format="json")
+        request = factory.get("/", {"ordering": "-created"}, format="json")
         force_authenticate(request, self.contributor)
         order2 = self.annotationvalue_viewset(request).data
         self.assertEqual(len(order1), 2)
@@ -923,41 +958,10 @@ class AnnotationViewSetsTest(TestCase):
         request = factory.get("/", {}, format="json")
         response = self.annotationfield_viewset(request)
         self.assertEqual(len(response.data), 2)
-        self.assertEqual(response.data[0]["name"], "field2")
-        self.assertEqual(response.data[0]["label"], "Annotation field 2")
-        received = dict(response.data[0])
-        received["group"] = dict(received["group"])
-        self.assertEqual(
-            received,
-            {
-                "id": self.annotation_field2.id,
-                "name": "field2",
-                "label": "Annotation field 2",
-                "sort_order": 1,
-                "type": "INTEGER",
-                "validator_regex": None,
-                "vocabulary": None,
-                "required": False,
-                "description": "",
-                "group": {
-                    "id": self.annotation_group2.id,
-                    "name": "group2",
-                    "label": "Annotation group 2",
-                    "sort_order": 1,
-                },
-            },
-        )
-        self.assertEqual(response.data[1]["name"], "field1")
-        self.assertEqual(response.data[1]["label"], "Annotation field 1")
-        self.assertEqual(
-            dict(response.data[1]["group"]),
-            {
-                "id": self.annotation_group1.id,
-                "name": "group1",
-                "label": "Annotation group 1",
-                "sort_order": 2,
-            },
-        )
+        expected = AnnotationFieldSerializer(
+            [self.annotation_field2, self.annotation_field1], many=True
+        ).data
+        self.assertEqual(response.data, expected)
 
         # Filter by id.
         request = factory.get("/", {"id": self.annotation_field1.pk}, format="json")
@@ -1385,7 +1389,10 @@ class AnnotationViewSetsTest(TestCase):
         self.assertEqual(self.annotation_value1._value["label"], "string")
         self.entity1.annotations.all().delete()
         AnnotationValue.objects.create(
-            entity=self.entity1, field=self.annotation_field1, value="non_existing"
+            entity=self.entity1,
+            field=self.annotation_field1,
+            value="non_existing",
+            contributor=self.contributor,
         )
 
     def test_set_values_by_path(self):
@@ -1418,8 +1425,16 @@ class AnnotationViewSetsTest(TestCase):
         )
 
         annotations = [
-            {"field_path": str(self.annotation_field1), "value": "new value"},
-            {"field_path": str(self.annotation_field2), "value": -1},
+            {
+                "field_path": str(self.annotation_field1),
+                "value": "new value",
+                "contributor": self.contributor.pk,
+            },
+            {
+                "field_path": str(self.annotation_field2),
+                "value": -1,
+                "contributor": self.contributor.pk,
+            },
         ]
 
         # Valid request without regex validation.
@@ -1447,7 +1462,10 @@ class AnnotationViewSetsTest(TestCase):
 
         # Re-create deleted annotation value.
         self.annotation_value1 = AnnotationValue.objects.create(
-            entity=self.entity1, field=self.annotation_field1, value="new value"
+            entity=self.entity1,
+            field=self.annotation_field1,
+            value="new value",
+            contributor=self.contributor,
         )
 
         # Wrong type.
@@ -1526,9 +1544,9 @@ class AnnotationViewSetsTest(TestCase):
         request = factory.post("/", annotations, format="json")
         force_authenticate(request, self.contributor)
         response = viewset(request, pk=self.entity1.pk)
-        self.annotation_value1.refresh_from_db()
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(self.annotation_value1.value, "bbb")
+        self.annotation_value1.refresh_from_db()
+        self.assertEqual(self.annotation_value1.value, "new value")
         has_value(self.entity1, self.annotation_field1.pk, "bbb")
         has_value(self.entity1, self.annotation_field2.pk, 2)
         has_value(self.entity1, self.annotation_field2.pk, 2)
@@ -1548,3 +1566,22 @@ class AnnotationViewSetsTest(TestCase):
         force_authenticate(request, self.contributor)
         response = viewset(request, pk=self.entity1.pk)
         self.assertContains(response, "Invalid path 'wei.rd.field'.", status_code=400)
+
+        # Check the entire history of the annotation value1.
+        # "string" -> new value -> deleted -> new value -> bbb
+        expected = [
+            {"value": "string", "label": "string"},
+            {"value": "new value", "label": "new value"},
+            None,
+            {"value": "new value", "label": "new value"},
+            {"value": "bbb", "label": "bbb"},
+        ]
+        self.assertEqual(
+            expected,
+            list(
+                AnnotationValue.all_objects.filter(
+                    entity=self.annotation_value1.entity,
+                    field=self.annotation_value1.field,
+                ).values_list("_value", flat=True)
+            ),
+        )
