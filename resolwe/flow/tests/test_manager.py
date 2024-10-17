@@ -118,6 +118,12 @@ class TestManager(ProcessTestCase):
             input={"param1": "foobar"},
         )
 
+        print("Got data object 1", data1.__dict__)
+
+        print("Got data object 2", data2.__dict__)
+
+        
+
         # Created and spawned objects should be done.
         self.assertEqual(Data.objects.filter(status=Data.STATUS_DONE).count(), 6)
 

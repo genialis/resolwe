@@ -154,6 +154,7 @@ class Processor:
         This function is cached since contributor is immutable, except in tests,
         where ids may be reused.
         """
+        print("Getting contributor")
         return User.objects.get(data__id=data_id)
 
     def data(self, data_id: int) -> Data:

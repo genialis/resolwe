@@ -30,12 +30,14 @@ class FilesProcessTestCase(ProcessTestCase):
     @tag_process("upload-file")
     def test_upload_file_compressed(self):
         """Test that compressed files are processed correctly."""
+        print("Uploading compressed file")
         upload_file = self.run_process(
             "upload-file", {"src": "upload_file/input_file.txt.gz"}
         )
         self.assertFile(
             upload_file, "file", "upload_file/input_file.txt.gz", compression="gzip"
         )
+        # self.assertTrue(False)
 
     @with_docker_executor
     @tag_process("upload-file")

@@ -441,7 +441,9 @@ class Model(metaclass=ModelMetaclass):
 
         :raises RuntimeError: when no data is received.
         """
+        print("Getting model fields", self._app_name, self._model_name, self._pk)
         if field.name not in self._cache:
+            print("Getting model fields", self._app_name, self._model_name, self._pk)
             result = communicator.get_model_fields(
                 self._app_name, self._model_name, self._pk, [field.name]
             )

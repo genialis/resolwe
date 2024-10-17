@@ -190,7 +190,14 @@ class DataQuerySet(BaseQuerySet, PermissionQuerySet):
         self._handle_collection(obj, entity_operation=entity_operation)
 
         # Assign contributor permission only if Data is not in the container.
+        if obj.pk==13:
+            print("Creating data with id 13")
+            print("Assigning contributor permissions")
+
         if not obj.in_container():
+            print("Assigning!!")
+            print(obj.contributor.__dict__)
+            print()
             assign_contributor_permissions(obj)
 
         return obj

@@ -222,6 +222,7 @@ class PythonProcess(ListenerPlugin):
         )
         # print("Got entity", entity)
         # print("Can update")
+        print("Got update", update)
         entity.update_annotations(annotations, manager.contributor(data_id), update)
         return message.respond_ok("OK")
 
@@ -379,13 +380,31 @@ class PythonProcess(ListenerPlugin):
         app_name, model_name, model_pk, field_names = message.message_data
         full_model_name = f"{app_name}.{model_name}"
 
+        print("Got fields", app_name, model_name, model_pk, field_names)
+
         model = apps.get_model(app_name, model_name)
+
+        print("Got model", model)
+
+        print("Got contributor for data_id", data_id, manager.contributor(data_id))
+
         filtered_objects = self._permission_manager.filter_objects(
             manager.contributor(data_id),
             full_model_name,
             model.objects.filter(pk=model_pk),
             data_id,
         )
+        
+        print("Got filtered objects", filtered_objects)
+        if model_name == "Data" and model_pk == 13:
+            from resolwe.flow.models import Data
+
+            for d in Data.all_objects.all():
+                print("")
+                print(d.__dict__)
+        print()
+
+
         values = filtered_objects.values(*field_names)
         # NOTE: non JSON serializable fields are NOT supported. If such field
         # is requested the exception will be handled one level above and

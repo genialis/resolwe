@@ -400,6 +400,21 @@ class Entity(PermissionObject, BaseCollection):
             print("Errors", validation_errors)
             raise ValidationError(validation_errors)
 
+        # Delete other existing annotation values by setting delete markers.
+        if not update:
+            for field_id in (
+                AnnotationValue.objects.filter(entity=self)
+                .exclude(field__in=field_map.values())
+                .values_list("field_id", flat=True)
+            ):
+                values_dict = {
+                    "field_id": field_id,
+                    "entity": self,
+                    "contributor": contributor,
+                    "_value": None,
+                }
+                annotation_values.append(AnnotationValue(**values_dict))
+
         # Create new entries in a transaction.
         with transaction.atomic():
             print("Creating values", annotation_values)

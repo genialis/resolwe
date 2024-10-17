@@ -326,6 +326,7 @@ TEST_PROCESS_PROFILE = False
 debug_file_path = os.environ.get("RESOLWE_LOG_FILE", os.devnull)
 
 github_actions_debug = strtobool(os.environ.get("GITHUB_ACTIONS_DEBUG", "0"))
+# github_actions_debug = True
 CONSOLE_LEVEL = "WARNING"
 default_logger_handlers = ["file"]
 
