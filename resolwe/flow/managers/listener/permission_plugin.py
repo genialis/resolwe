@@ -253,7 +253,21 @@ class ExposeData(ExposeObjectPlugin):
     ) -> QuerySet:
         """Filter the objects for the given user."""
         parent_ids = Data.objects.filter(pk=data_id).values_list("parents")
+        print("Got parent ids", parent_ids)
         inputs = queryset.filter(id__in=parent_ids)
+        if data_id == 13 or True:
+            print("Data id 13")
+            print(queryset)
+            data = queryset.get()
+            print("Data", data)
+            print("Details", data.__dict__)
+            print("Permission group", data.permission_group)
+            print("User", user)
+            print("User details", user.__dict__)
+            print(queryset.filter_for_user(user))
+            print(inputs)
+            print()
+
         return queryset.filter_for_user(user).distinct().union(inputs)
 
 

@@ -17,16 +17,22 @@ from typing import (
     Type,
 )
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from versionfield import VersionField
 
 from resolwe.flow.models.base import BaseModel
-from resolwe.permissions.models import PermissionInterface, PermissionObject
+from resolwe.permissions.models import (
+    PermissionInterface,
+    PermissionObject,
+    PermissionQuerySet,
+)
 
 if TYPE_CHECKING:
     from resolwe.flow.models import Collection, Entity
 
-from .base import AuditModel
+from .base import VERSION_NUMBER_BITS, AuditModel
 
 VALIDATOR_LENGTH = 128
 NAME_LENGTH = 128
@@ -234,6 +240,71 @@ class AnnotationGroup(models.Model):
         ordering = ["sort_order"]
 
 
+class HistoryManager[M: models.Model, Q: models.QuerySet](models.Manager[M]):
+    """The model manager that supports history.
+
+    By default, only the latest version of the data is returned.
+    """
+
+    # The data is partitioned into groups with the same partition fields value. The
+    # object with the greatest version inside the partition is considered the latest.
+    partition_fields: list[str]
+
+    # The field to use as version. The latest version is determined by sorting the
+    # data by version field in the ascending order and taking the first entry.
+    version_field: str
+
+    # The created field is used to determine the version at certain point in time.
+    created_field: str
+
+    # The queryset to use.
+    QuerySet: type[Q]
+
+    def _only_latest(self, queryset: Q) -> Q:
+        """Return only latest values from the queryset.
+
+        The queryset is partitioned by the partition fields and the latest version from
+        each partition is returned.
+        """
+        latest_entries = queryset.annotate(
+            rank=models.Window(
+                expression=models.functions.DenseRank(),
+                partition_by=[models.F(field) for field in self.partition_fields],
+                order_by=models.F(self.version_field).desc(),
+            ),
+        ).filter(rank=1)
+        return queryset.filter(pk__in=latest_entries)
+
+    def get_queryset(self) -> Q:
+        """Return only the latest version for every field.
+
+        Make sure the queryset is lazily evaluated, since the get_queryset method can
+        be called many times (for instance, when filtering the queryset).
+        """
+        base_queryset = self.QuerySet(model=self.model, using=self._db)
+        return self._only_latest(base_queryset)
+
+    def history(self, timestamp: datetime.datetime) -> Q:
+        """Get values at certain point in time"""
+        created_filter = {f"{self.created_field}__le": timestamp}
+        filtered_queryset: Q = self.filter(**created_filter)  # type: ignore
+        return self._only_latest(filtered_queryset)
+
+
+class AnnotationFieldManager(
+    HistoryManager["AnnotationField", models.QuerySet["AnnotationField"]]
+):
+    """Annotation field manager.
+
+    Return only the latest version of each field.
+    """
+
+    partition_fields = ["name", "group"]
+    version_field = "version"
+    created_field = "created"
+    QuerySet = models.QuerySet
+
+
 class AnnotationField(models.Model):
     """Annotation field."""
 
@@ -267,6 +338,15 @@ class AnnotationField(models.Model):
 
     #: is this field required
     required = models.BooleanField(default=False)
+
+    #: field version
+    version = VersionField(number_bits=VERSION_NUMBER_BITS, default="0.0.0")
+
+    #: the latest version of the fields
+    objects = AnnotationFieldManager()
+
+    #: all fields
+    all_objects = models.Manager()
 
     def __init__(self, *args, **kwargs):
         """Store original vocabulary to private variable."""
@@ -329,7 +409,7 @@ class AnnotationField(models.Model):
                 annotation_value_field.recompute_label()
                 annotation_value_field.validate()
                 updated_fields.append(annotation_value_field)
-            AnnotationValue.objects.bulk_update(updated_fields, ["_value"])
+            AnnotationValue.all_objects.bulk_update(updated_fields, ["_value"])
             self._original_vocabulary = self.vocabulary
         if self.type != self._original_type:
             self.revalidate_values()
@@ -368,13 +448,14 @@ class AnnotationField(models.Model):
                 name="annotation_type",
             ),
             models.constraints.UniqueConstraint(
-                fields=["name", "group"], name="uniquetogether_name_group"
+                fields=["name", "group", "version"],
+                name="uniquetogether_name_group_version",
             ),
         ]
         ordering = ["group__sort_order", "sort_order"]
 
 
-class AnnotationPreset(BaseModel, PermissionObject):
+class AnnotationPreset(PermissionObject, BaseModel):
     """The named set of annotation fields.
 
     The presets have permissions.
@@ -395,6 +476,23 @@ class AnnotationPreset(BaseModel, PermissionObject):
         """Override parent meta."""
 
 
+class AnnotationValueManager(HistoryManager["AnnotationValue", PermissionQuerySet]):
+    """Annotation value manager.
+
+    Return only the latest version of each field.
+    """
+
+    partition_fields = ["field", "entity"]
+    version_field = "created"
+    created_field = "created"
+    QuerySet = PermissionQuerySet
+
+    def get_queryset(self) -> PermissionQuerySet:
+        """Return the latest version for every value."""
+        # Also exclude deleted values from the queryset.
+        return self._only_latest(super().get_queryset()).exclude(_value__isnull=True)
+
+
 class AnnotationValue(PermissionInterface, AuditModel):
     """The value of the annotation."""
 
@@ -403,7 +501,8 @@ class AnnotationValue(PermissionInterface, AuditModel):
 
         constraints = [
             models.constraints.UniqueConstraint(
-                fields=["entity", "field"], name="uniquetogether_entity_field"
+                fields=["entity", "field", "created"],
+                name="uniquetogether_entity_field_created",
             ),
         ]
         ordering = ["field__group__sort_order", "field__sort_order"]
@@ -411,18 +510,26 @@ class AnnotationValue(PermissionInterface, AuditModel):
     #: the entity this field belongs to
     entity: "Entity" = models.ForeignKey(
         "Entity", related_name="annotations", on_delete=models.CASCADE
-    )
+    )  # type: ignore
 
     #: the field this field belongs to
-    field: AnnotationField = models.ForeignKey(
+    field = models.ForeignKey(
         AnnotationField, related_name="values", on_delete=models.PROTECT
     )
 
-    #: the date when field was last modified
-    modified = models.DateTimeField(auto_now=True)
+    #: the date when field was created
+    created = models.DateTimeField(auto_now_add=True)
 
     #: value is stored under key 'value' in the json field to simplify lookups
-    _value: Any = models.JSONField(default=dict)
+    #: the value None is used as delete marker
+    _value: Any = models.JSONField(default=dict, null=True)
+
+    #: user that created the entry
+    contributor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+
+    objects = AnnotationValueManager()  # type: ignore
+
+    all_objects: models.Manager["AnnotationValue"] = PermissionQuerySet.as_manager()
 
     def __init__(self, *args, **kwargs):
         """Allow us to set the 'value' in the constructor.
@@ -434,8 +541,13 @@ class AnnotationValue(PermissionInterface, AuditModel):
         if "value" in kwargs:
             kwargs["_value"] = {"value": kwargs.pop("value")}
         super().__init__(*args, **kwargs)
-        if "label" not in self._value:
+        if not self.delete_marker and "label" not in self._value:
             self.recompute_label()
+
+    @property
+    def delete_marker(self) -> bool:
+        """Return True if this value represents a delete marker."""
+        return self._value is None
 
     @property
     def value(self) -> str | int | float | datetime.date:
@@ -477,14 +589,17 @@ class AnnotationValue(PermissionInterface, AuditModel):
 
         :raises ValidationError: when the validation fails.
         """
-        annotation_value_validator.validate(self, raise_exception=True)
+        if not self.delete_marker:
+            annotation_value_validator.validate(self, raise_exception=True)
 
     def save(self, *args, **kwargs):
         """Save the annotation value after validation has passed."""
-        annotation_value_validator.validate(self, raise_exception=True)
-        # Make sure the label is always set.
-        if "label" not in self._value:
-            self.recompute_label()
+        # The value `None` is used as delete marker.
+        if not self.delete_marker:
+            annotation_value_validator.validate(self, raise_exception=True)
+            # Make sure the label is always set.
+            if "label" not in self._value:
+                self.recompute_label()
         super().save(*args, **kwargs)
 
     def recompute_label(self):
@@ -506,4 +621,7 @@ class AnnotationValue(PermissionInterface, AuditModel):
 
     def __str__(self) -> str:
         """Return user-friendly string representation."""
-        return f"{self.label}"
+        if self.delete_marker:
+            return "Delete marker"
+        else:
+            return f"{self.label}"

@@ -163,7 +163,7 @@ class EntityQuerySet(BaseQuerySet, PermissionQuerySet):
         return queryset
 
 
-class Entity(BaseCollection, PermissionObject):
+class Entity(PermissionObject, BaseCollection):
     """Postgres model for storing entities."""
 
     class Meta(BaseCollection.Meta):
@@ -296,7 +296,9 @@ class Entity(BaseCollection, PermissionObject):
             collection=self.collection
         )
 
-    def copy_annotations(self, destination: "Entity") -> List[AnnotationValue]:
+    def copy_annotations(
+        self, destination: "Entity", contributor
+    ) -> List[AnnotationValue]:
         """Copy annotation from this entity to the destination.
 
         The objects are not saved to the database.
@@ -318,6 +320,7 @@ class Entity(BaseCollection, PermissionObject):
                 entity=destination,
                 field_id=source_annotation.field_id,
                 value=source_annotation.value,
+                contributor=contributor or source_annotation.contributor,
             )
             destination_annotations.append(annotation_value)
             annotation_field_ids.add(source_annotation.field_id)
@@ -349,7 +352,7 @@ class Entity(BaseCollection, PermissionObject):
         if validation_errors:
             raise ValidationError(validation_errors)
 
-    def update_annotations(self, annotations: dict[str, Any], update=True):
+    def update_annotations(self, annotations: dict[str, Any], contributor, update=True):
         """Update annotations with the given values.
 
         When annotation value is set no None it is deleted.
@@ -365,36 +368,57 @@ class Entity(BaseCollection, PermissionObject):
 
         # Create annotation values and prepare list of fields which annotations should
         # be deleted.
+        print("Updating annotations")
+        print(annotations)
+        print(self)
         annotation_values: list[AnnotationValue] = []
         validation_errors: list[ValidationError] = []
-        fields_to_delete: list[int] = []
         for field_path, field_value in annotations.items():
-            if field_value is None:
-                fields_to_delete.append(field_map[field_path].pk)
+            print("Field values", field_value, field_path)
+            values_dict = {
+                "field": field_map[field_path],
+                "entity": self,
+                "contributor": contributor,
+            }
+            if field_value is not None:
+                values_dict["value"] = field_value
             else:
-                value = AnnotationValue(
-                    field=field_map[field_path], value=field_value, entity=self
-                )
-                annotation_values.append(value)
-                try:
-                    value.validate()
-                except ValidationError as e:
-                    validation_errors.append(e)
+                values_dict["_value"] = None
+            print("Before creating", values_dict)
+            try:
+                value = AnnotationValue(**values_dict)
+            except Exception as e:
+                print("Error creating", e)
+            print("Created value", value)
+            annotation_values.append(value)
+            try:
+                value.validate()
+                print("Is valid")
+            except ValidationError as e:
+                validation_errors.append(e)
         if validation_errors:
+            print("Errors", validation_errors)
             raise ValidationError(validation_errors)
 
-        # Delete and update annotations in a transaction.
+        # Delete other existing annotation values by setting delete markers.
+        if not update:
+            for field_id in (
+                AnnotationValue.objects.filter(entity=self)
+                .exclude(field__in=field_map.values())
+                .values_list("field_id", flat=True)
+            ):
+                values_dict = {
+                    "field_id": field_id,
+                    "entity": self,
+                    "contributor": contributor,
+                    "_value": None,
+                }
+                annotation_values.append(AnnotationValue(**values_dict))
+
+        # Create new entries in a transaction.
         with transaction.atomic():
-            to_delete = AnnotationValue.objects.filter(entity=self)
-            if update:
-                to_delete = to_delete.filter(field_id__in=fields_to_delete)
-            to_delete.delete()
-            AnnotationValue.objects.bulk_create(
-                annotation_values,
-                update_conflicts=True,
-                update_fields=["_value"],
-                unique_fields=["entity", "field"],
-            )
+            print("Creating values", annotation_values)
+            AnnotationValue.objects.bulk_create(annotation_values)
 
         # Add missing annotation fields to the collection.
         if self.collection is not None:

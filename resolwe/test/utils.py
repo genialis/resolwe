@@ -280,13 +280,16 @@ def ignore_in_tests(decorator):
     applied during testing, since ids are reused between tests.
     """
 
-    def wrapper(wrapped):
-        if is_testing():
-            return wrapped
-        else:
-            return decorator(wrapped)
+    def inner_decorator(method):
+        """The inner decorator function."""
 
-    return wrapper
+        def wrapper(*args, **kwargs):
+            """The wrapper for inner decorator."""
+            return (decorator(method) if is_testing() else method)(*args, **kwargs)
+
+        return wrapper
+
+    return inner_decorator
 
 
 def is_testing():

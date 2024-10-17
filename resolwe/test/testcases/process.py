@@ -437,9 +437,9 @@ class ProcessTestCase(TransactionTestCase):
 
         self._executed_processes.add(process_slug)
 
-        process = Process.objects.filter(slug=process_slug).order_by("-version").first()
-
-        if process is None:
+        try:
+            process = Process.objects.get(slug=process_slug)
+        except Process.DoesNotExist:
             self.fail('No process with slug "{}"'.format(process_slug))
 
         def mock_upload(file_path):

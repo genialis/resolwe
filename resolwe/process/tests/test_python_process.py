@@ -157,13 +157,20 @@ class PythonProcessTest(ProcessTestCase):
         # Try bulk setting.
         data = self.run_process("test-python-process-annotate-entity-v2-bulk-set")
         self.assertIsNotNone(data.entity)
+
+        print("Test annotations")
+        print(data.entity.annotations.all())
+        print(AnnotationValue.all_objects.filter(entity=data.entity))
+
         self.assertEqual(data.entity.annotations.count(), 1)
         self.assertAnnotation(data.entity, "general.species", "Human Bulk Set")
 
         # Now try reading and updating existing annotations.
         entity = Entity.objects.create(name="Entity", contributor=self.contributor)
         entity.set_permission(Permission.EDIT, self.contributor)
-        AnnotationValue.objects.create(entity=entity, field=age_field, value=42)
+        AnnotationValue.objects.create(
+            entity=entity, field=age_field, value=42, contributor=self.contributor
+        )
         process = Process.objects.get(
             slug="test-python-process-update-entity-annotations-v2"
         )

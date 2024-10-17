@@ -61,7 +61,7 @@ class CollectionQuerySet(BaseQuerySet, PermissionQuerySet):
         )
 
 
-class Collection(HistoryMixin, BaseCollection, PermissionObject):
+class Collection(HistoryMixin, PermissionObject, BaseCollection):
     """Postgres model for storing a collection."""
 
     class Meta(BaseCollection.Meta):

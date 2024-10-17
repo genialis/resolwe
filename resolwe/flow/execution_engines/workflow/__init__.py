@@ -118,10 +118,9 @@ class ExecutionEngine(BaseExecutionEngine):
                 )
 
             # Fetch target process.
-            process = (
-                Process.objects.filter(slug=step_slug).order_by("-version").first()
-            )
-            if not process:
+            try:
+                process = Process.objects.get(slug=step_slug)
+            except Process.DoesNotExist:
                 raise ExecutionError(
                     'Incorrect definition of step "{}", invalid process "{}".'.format(
                         step_id, step_slug

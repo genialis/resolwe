@@ -51,10 +51,19 @@ class ResolweDictRelatedFieldTest(TestCase):
             "descriptor_schema": {"slug": "test-schema"},
         }
 
+        # print("Got descriptor schema", DescriptorSchema.objects.all())
+        # print(
+        #     "Got descriptor schema for user",
+        #     DescriptorSchema.objects.all().filter_for_user(self.user),
+        # )
+
         serializer = DataSerializer(data=data, context={"request": request})
         # is_valid() needs to be called before accessing ``validated_data``
-        serializer.is_valid()
+        serializer.is_valid(raise_exception=True)
+        # print("is valid", result)
         # Check that descriptor schmena with highest version & view permission is used:
+        # print("Got validated data")
+        # print(serializer.validated_data)
         self.assertEqual(
             serializer.validated_data["descriptor_schema"], self.descriptor_schema2
         )
