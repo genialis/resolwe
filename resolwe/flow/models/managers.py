@@ -74,7 +74,8 @@ class BaseManager[M: models.Model, Q: models.QuerySet](models.Manager[M]):
                 order_by=models.F(self.version_field).desc(),
             ),
         ).filter(rank=1)
-        return queryset.filter(pk__in=latest_entries)
+        return latest_entries
+        # return queryset.filter(pk__in=latest_entries)
 
     def get_queryset(self) -> Q:
         """Return only the latest version for every field.

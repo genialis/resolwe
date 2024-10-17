@@ -500,6 +500,9 @@ class ListenerTest(TestCase):
         self.security_provider.authorize_client(b"0", data.pk)
         response = self.manager.process_command(peer_identity, message)
         expected = Response(ResponseStatus.OK.value, "OK")
+
+        print("Annotations on entity", entity.annotations.all())
+
         self.assertEqual(entity.annotations.count(), 1)
         self.assertAnnotation(entity, "group.field", "value")
         self.assertEqual(response.response_status, ResponseStatus.OK)
@@ -522,7 +525,11 @@ class ListenerTest(TestCase):
         self.assertEqual(response.response_status, ResponseStatus.OK)
 
         # Error should be raised if annotations are not found.
-        entity.annotations.all().delete()
+        # print("All annotations", entity.annotations.all())
+        # print("Again annotations", AnnotationValue.all_objects.filter(entity=entity))
+        AnnotationValue.all_objects.filter(entity=entity).delete()
+        # entity.annotations.all().delete()
+
         message = Message.command(
             "set_entity_annotations",
             [
@@ -535,4 +542,5 @@ class ListenerTest(TestCase):
         response = self.manager.process_command(peer_identity, message)
         self.assertEqual(response.response_status, ResponseStatus.ERROR)
         self.assertEqual(response.message_data, "Validation error")
+        # print("Got annotations", entity.annotations.all())
         self.assertEqual(entity.annotations.all().count(), 0)

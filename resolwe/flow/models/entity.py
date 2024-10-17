@@ -296,7 +296,9 @@ class Entity(PermissionObject, BaseCollection):
             collection=self.collection
         )
 
-    def copy_annotations(self, destination: "Entity") -> List[AnnotationValue]:
+    def copy_annotations(
+        self, destination: "Entity", contributor
+    ) -> List[AnnotationValue]:
         """Copy annotation from this entity to the destination.
 
         The objects are not saved to the database.
@@ -318,6 +320,7 @@ class Entity(PermissionObject, BaseCollection):
                 entity=destination,
                 field_id=source_annotation.field_id,
                 value=source_annotation.value,
+                contributor=contributor or source_annotation.contributor,
             )
             destination_annotations.append(annotation_value)
             annotation_field_ids.add(source_annotation.field_id)
@@ -365,9 +368,13 @@ class Entity(PermissionObject, BaseCollection):
 
         # Create annotation values and prepare list of fields which annotations should
         # be deleted.
+        print("Updating annotations")
+        print(annotations)
+        print(self)
         annotation_values: list[AnnotationValue] = []
         validation_errors: list[ValidationError] = []
         for field_path, field_value in annotations.items():
+            print("Field values", field_value, field_path)
             values_dict = {
                 "field": field_map[field_path],
                 "entity": self,
@@ -377,17 +384,25 @@ class Entity(PermissionObject, BaseCollection):
                 values_dict["value"] = field_value
             else:
                 values_dict["_value"] = None
-            value = AnnotationValue(**values_dict)
+            print("Before creating", values_dict)
+            try:
+                value = AnnotationValue(**values_dict)
+            except Exception as e:
+                print("Error creating", e)
+            print("Created value", value)
             annotation_values.append(value)
             try:
                 value.validate()
+                print("Is valid")
             except ValidationError as e:
                 validation_errors.append(e)
         if validation_errors:
+            print("Errors", validation_errors)
             raise ValidationError(validation_errors)
 
         # Create new entries in a transaction.
         with transaction.atomic():
+            print("Creating values", annotation_values)
             AnnotationValue.objects.bulk_create(annotation_values)
 
         # Add missing annotation fields to the collection.

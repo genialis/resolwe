@@ -78,7 +78,8 @@ class BaseManager[M: models.Model, Q: models.QuerySet](models.Manager[M]):
         # for e in latest_entries:
         #     print(e.__dict__)
         #     print()
-        return queryset.filter(pk__in=latest_entries)
+        # return queryset.filter(pk__in=latest_entries)
+        return latest_entries
 
     def get_queryset(self) -> Q:
         """Return only the latest version for every field.

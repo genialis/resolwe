@@ -252,6 +252,8 @@ class TestDuplicate(TransactionTestCase):
         force_authenticate(request, self.contributor)
         response = self.entity_duplicate_viewset(request)
         task = BackgroundTask.objects.get(pk=response.data["id"])
+        result = task.result(final_statuses=["OK", "ER"])
+        print("Got task", task, task.__dict__)
         duplicate = Entity.objects.get(id__in=task.result())
 
         self.assertTrue(task.has_permission(Permission.VIEW, self.contributor))
@@ -278,7 +280,10 @@ class TestDuplicate(TransactionTestCase):
             type="STRING",
         )
         AnnotationValue.objects.create(
-            field=annotation_field1, entity=entity, value="test"
+            field=annotation_field1,
+            entity=entity,
+            value="test",
+            contributor=self.contributor,
         )
         entity.collection.annotation_fields.add(annotation_field1)
         request = factory.post(
@@ -289,7 +294,9 @@ class TestDuplicate(TransactionTestCase):
         force_authenticate(request, self.contributor)
         response = self.entity_duplicate_viewset(request)
         task = BackgroundTask.objects.get(pk=response.data["id"])
-        result = task.result(final_statuses=["OK"])
+        result = task.result(final_statuses=["OK", "ER"])
+        task.refresh_from_db()
+        print("Got result", result, task, task.__dict__)
         duplicate = Entity.objects.get(id__in=result)
         self.assertTrue(task.has_permission(Permission.VIEW, self.contributor))
         self.assertEqual(len(result), 1)
@@ -878,7 +885,7 @@ class TestDataViewSetCase(TestDataViewSetCaseMixin, TestCase):
 
     def test_process_is_active(self):
         # Do not allow creating data of inactive processes
-        Process.objects.filter(slug="test-process").update(is_active=False)
+        Process.all_objects.filter(slug="test-process").update(is_active=False)
         data = {"process": {"slug": "test-process"}}
         request = factory.post("/", data, format="json")
         force_authenticate(request, self.contributor)
