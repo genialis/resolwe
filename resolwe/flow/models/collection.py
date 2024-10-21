@@ -10,9 +10,10 @@ from resolwe.observers.consumers import BackgroundTaskType
 from resolwe.observers.models import BackgroundTask
 from resolwe.observers.utils import start_background_task
 from resolwe.permissions.models import PermissionObject, PermissionQuerySet
+from resolwe.permissions.managers import BaseQuerySet
 
 from .annotations import AnnotationField
-from .base import BaseModel, BaseQuerySet
+from .base import BaseModel
 from .history_manager import HistoryMixin
 from .utils import DirtyError, validate_schema
 
@@ -61,7 +62,7 @@ class CollectionQuerySet(BaseQuerySet, PermissionQuerySet):
         )
 
 
-class Collection(HistoryMixin, BaseCollection, PermissionObject):
+class Collection(HistoryMixin, PermissionObject, BaseCollection):
     """Postgres model for storing a collection."""
 
     class Meta(BaseCollection.Meta):

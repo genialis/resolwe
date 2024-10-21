@@ -54,7 +54,9 @@ class ProcessRegisterTest(TestCase):
             "Skip processor test-min: newer version installed", err.getvalue()
         )
         self.assertNotIn("setting is_active to True", out.getvalue())
-        Process.objects.filter(slug="test-min").update(is_active=False)
+        # The all_objects is important, since window function (used by the default
+        # manager) is not compatible with the update statement.
+        Process.all_objects.filter(slug="test-min").update(is_active=False)
         call_command("register", stdout=out, stderr=err)
         self.assertIn("Processor test-min: setting is_active to True", out.getvalue())
 

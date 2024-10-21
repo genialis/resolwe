@@ -10,7 +10,11 @@ from rest_framework.response import Response
 
 from resolwe.observers.models import BackgroundTask
 from resolwe.observers.views import BackgroundTaskSerializer
-from resolwe.permissions.models import Permission, get_anonymous_user
+from resolwe.permissions.models import (
+    Permission,
+    get_anonymous_user,
+    PermissionInterface,
+)
 from resolwe.permissions.utils import assign_contributor_permissions
 
 
@@ -44,12 +48,16 @@ class ResolweCreateModelMixin(mixins.CreateModelMixin):
 
     def define_contributor(self, request):
         """Define contributor by adding it to request.data."""
-        request.data["contributor"] = self.resolve_user(request.user).pk
+        contributor_pk = self.resolve_user(request.user).pk
+        if isinstance(request.data, list):
+            for entry in request.data:
+                entry["contributor"] = contributor_pk
+        else:
+            request.data["contributor"] = contributor_pk
 
     def create(self, request, *args, **kwargs):
         """Create a resource."""
         self.define_contributor(request)
-
         try:
             return super().create(request, *args, **kwargs)
 
@@ -60,7 +68,7 @@ class ResolweCreateModelMixin(mixins.CreateModelMixin):
         """Create a resource."""
         with transaction.atomic():
             instance = serializer.save()
-            if hasattr(instance, "permission_group"):
+            if isinstance(instance, PermissionInterface):
                 # Assign all permissions to the object contributor when object is not
                 # in container.
                 if not instance.in_container():

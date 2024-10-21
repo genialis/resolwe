@@ -12,7 +12,7 @@ from django.db import models, transaction
 from django.db.models import Count, Q
 from django.db.models.query import QuerySet
 
-from resolwe.permissions.models import Permission, PermissionObject
+from resolwe.permissions.models import Permission, PermissionObject, PermissionManager
 
 from .protocol import GROUP_SESSIONS, TYPE_ITEM_UPDATE, ChangeType, ChannelsMessage
 
@@ -26,6 +26,12 @@ def _default_output_value():
     Must be named method due to Django bug in migrations.
     """
     return ""
+
+
+class BackgroundTaskManager(PermissionManager):
+    """Background task manager."""
+
+    enable_versioning = False
 
 
 class BackgroundTask(Observable):
@@ -50,6 +56,8 @@ class BackgroundTask(Observable):
         (STATUS_DONE, "Done"),
         (STATUS_ERROR, "Error"),
     )
+
+    objects = BackgroundTaskManager()
 
     #: task start date and time
     started = models.DateTimeField(blank=True, null=True, db_index=True)

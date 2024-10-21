@@ -25,6 +25,7 @@ from resolwe.flow.serializers.annotations import (
     AnnotationPresetSerializer,
     AnnotationValueSerializer,
 )
+from resolwe.flow.views.mixins import ResolweCreateModelMixin
 from resolwe.permissions.loader import get_permissions_class
 from resolwe.permissions.mixins import ResolwePermissionsMixin
 from resolwe.permissions.models import Permission
@@ -72,7 +73,7 @@ class AnnotationFieldViewSet(
 
 class AnnotationValueViewSet(
     mixins.RetrieveModelMixin,
-    ResolweUpdateModelMixin,
+    ResolweCreateModelMixin,
     mixins.CreateModelMixin,
     mixins.ListModelMixin,
     mixins.DestroyModelMixin,
@@ -85,7 +86,7 @@ class AnnotationValueViewSet(
     filterset_class = AnnotationValueFilter
     queryset = AnnotationValue.objects.all()
     permission_classes = (get_permissions_class(),)
-    ordering_fields = ("modified", "id")
+    ordering_fields = ("created", "id")
 
     def get_serializer(self, *args: Any, **kwargs: Any) -> BaseSerializer:
         """Get serializer instance depending on the request type."""
@@ -115,23 +116,31 @@ class AnnotationValueViewSet(
         self._check_permissions(serializer)
         return super().perform_create(serializer)
 
+    def partial_update(self, request, *args: Any, **kwargs: Any):
+        """The patch and put request must do the same."""
+        raise exceptions.MethodNotAllowed("Partial updates are not supported.")
+
     def update(self, request, *args, pk=None, **kwargs):
         """Update annotation value(s).
 
         When posting multiple values, the request is treated as a bulk update. The bulk
-        update can create, update or delete values. Values are deleted when the value
-        is set no None.
+        update can create or delete values. Values are deleted when the value is set to
+        None.
         """
+        self.define_contributor(request)
+
         # Regular update on a detail view.
         if pk is not None:
             return super().update(request, *args, pk=pk, **kwargs)
 
         # Bulk update / create / delete.
-        serializer = self.get_serializer(data=request.data, partial=True)
+        serializer = self.get_serializer(data=request.data, partial=False)
         serializer.is_valid(raise_exception=True)
         self._check_permissions(serializer)
-        serializer.update(None, serializer.validated_data)
+        updated = serializer.update(None, serializer.validated_data)
         headers = self.get_success_headers(serializer.data)
         return response.Response(
-            serializer.data, status=status.HTTP_200_OK, headers=headers
+            self.get_serializer(updated).data,
+            status=status.HTTP_200_OK,
+            headers=headers,
         )

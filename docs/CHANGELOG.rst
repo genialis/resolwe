@@ -13,11 +13,15 @@ Unreleased
 Changed
 -------
 - Change fallback for storage resource from 200GB to 10GB
+- Rename ``modified`` field in the ``AnnotationValue`` model to ``created``
 
 Added
 -----
 - Add ``version`` field to the ``AnnotationField`` model
 - Add ``contributor`` field to the ``AnnotationValue`` model
+- Add ``BaseManager`` as default objects manager. The manager supports objects
+  versions by grouping them together by common fields and returning only the
+  one with the latest version from every group.
 
 
 ===================

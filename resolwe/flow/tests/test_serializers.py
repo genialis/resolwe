@@ -53,7 +53,8 @@ class ResolweDictRelatedFieldTest(TestCase):
 
         serializer = DataSerializer(data=data, context={"request": request})
         # is_valid() needs to be called before accessing ``validated_data``
-        serializer.is_valid()
+        # use raise_exception to output any errors.
+        serializer.is_valid(raise_exception=True)
         # Check that descriptor schmena with highest version & view permission is used:
         self.assertEqual(
             serializer.validated_data["descriptor_schema"], self.descriptor_schema2

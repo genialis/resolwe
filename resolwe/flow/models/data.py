@@ -27,10 +27,11 @@ from resolwe.observers.consumers import BackgroundTaskType
 from resolwe.observers.decorators import move_to_container
 from resolwe.observers.models import BackgroundTask
 from resolwe.observers.utils import start_background_task
+from resolwe.permissions.managers import BaseQuerySet
 from resolwe.permissions.models import PermissionObject, PermissionQuerySet
 from resolwe.permissions.utils import assign_contributor_permissions, copy_permissions
 
-from .base import BaseModel, BaseQuerySet
+from .base import BaseModel
 from .entity import Entity, EntityQuerySet
 from .history_manager import HistoryMixin
 from .secret import Secret
@@ -254,7 +255,7 @@ class DataQuerySet(BaseQuerySet, PermissionQuerySet):
         return self.annotate(**annotation_data)
 
 
-class Data(HistoryMixin, BaseModel, PermissionObject):
+class Data(HistoryMixin, PermissionObject, BaseModel):
     """Postgres model for storing data."""
 
     class Meta(BaseModel.Meta):

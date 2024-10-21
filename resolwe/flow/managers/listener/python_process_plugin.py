@@ -220,7 +220,7 @@ class PythonProcess(ListenerPlugin):
         self._permission_manager.can_update(
             manager.contributor(data_id), "flow.Entity", entity, {}, data_id
         )
-        entity.update_annotations(annotations, update)
+        entity.update_annotations(annotations, manager.contributor(data_id), update)
         return message.respond_ok("OK")
 
     def handle_get_entity_annotations(
