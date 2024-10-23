@@ -1,12 +1,15 @@
 """Base model for all Resolwe models."""
 
+import datetime
+from typing import TypeVar
+
 from django.conf import settings
 from django.db import IntegrityError, models, transaction
 from versionfield import VersionField
 
 from resolwe.auditlog.models import AuditModel
-
-from .fields import ResolweSlugField
+from resolwe.flow.models.fields import ResolweSlugField
+from resolwe.permissions.models import PermissionManager, PermissionQuerySet
 
 VERSION_NUMBER_BITS = (8, 10, 14)
 
@@ -15,27 +18,8 @@ MAX_SLUG_RETRIES = 10
 MAX_SLUG_LENGTH = 100
 MAX_NAME_LENGTH = 100
 
-
-class ModifiedField(models.DateTimeField):
-    """Custom datetime field.
-
-    When attribute 'skip_auto_now' is set to True, the field is not updated in the
-    pre_save method even if auto_now is set to True. The 'skip_auto_now' is reset
-    on every save to the default value 'False'.
-    """
-
-    def pre_save(self, model_instance, add):
-        """Prepare field for saving."""
-        # When skip_auto_now is set do not generate the new value even is auto_now is
-        # set to True.
-        if getattr(model_instance, "skip_auto_now", False) is True:
-            return getattr(model_instance, self.attname)
-        else:
-            return super().pre_save(model_instance, add)
-
-
-class UniqueSlugError(IntegrityError):
-    """The error indicates slug collision."""
+M = TypeVar("M", bound=models.Model)
+Q = TypeVar("Q", bound=models.QuerySet)
 
 
 # NOTE: This method is used in migrations.
@@ -62,7 +46,7 @@ def delete_chunked(queryset, chunk_size=500):
             queryset.filter(pk__lte=last_instance.pk).delete()
 
 
-class BaseQuerySet(models.QuerySet):
+class BaseQuerySet(PermissionQuerySet):
     """Base query set for Resolwe's ORM objects."""
 
     def delete_chunked(self, chunk_size=500):
@@ -75,6 +59,86 @@ class BaseQuerySet(models.QuerySet):
         :param chunk_size: Optional chunk size
         """
         return delete_chunked(self, chunk_size=chunk_size)
+
+
+class BaseManager(PermissionManager[M, Q]):
+    """Base manager set for Resolwe's ORM objects."""
+
+    # The data is partitioned into groups with the same partition fields value. The
+    # object with the greatest version inside the partition is considered the latest.
+    partition_fields: list[str] = ["slug"]
+
+    # The field to use as version. The latest version is determined by sorting the
+    # data by version field in the ascending order and taking the first entry.
+    version_field: str = "version"
+
+    # The created field is used to determine the version at certain point in time.
+    created_field: str = "created"
+
+    # Versioning is enabled by default.
+    enable_versioning: bool = True
+
+    # Use BaseQuerySet by default.
+    QuerySet = BaseQuerySet
+
+    def _only_latest(self, queryset: Q) -> Q:
+        """Return only latest values from the queryset.
+
+        The queryset is partitioned by the partition fields and the latest version from
+        each partition is returned.
+        """
+        latest_entries = queryset.annotate(
+            rank=models.Window(
+                expression=models.functions.DenseRank(),
+                partition_by=[models.F(field) for field in self.partition_fields],
+                order_by=models.F(self.version_field).desc(),
+            ),
+        ).filter(rank=1)
+        return latest_entries
+
+    def get_queryset(self) -> Q:
+        """Return only the latest version for every field.
+
+        Make sure the queryset is lazily evaluated, since the get_queryset method can
+        be called many times (for instance, when filtering the queryset).
+        """
+        queryset = super().get_queryset()
+        return self._only_latest(queryset) if self.enable_versioning else queryset
+
+    def history(self, timestamp: datetime.datetime) -> Q:
+        """Get values at certain point in time."""
+        created_filter = {f"{self.created_field}__le": timestamp}
+        filtered_queryset: Q = self.filter(**created_filter)  # type: ignore
+        return self._only_latest(filtered_queryset)
+
+
+class BaseManagerWithoutVersion(BaseManager[M, Q]):
+    """Base manager for Resolwe's ORM objects without versioning."""
+
+    # Disable object versioning.
+    enable_versioning: bool = False
+
+
+class ModifiedField(models.DateTimeField):
+    """Custom datetime field.
+
+    When attribute 'skip_auto_now' is set to True, the field is not updated in the
+    pre_save method even if auto_now is set to True. The 'skip_auto_now' is reset
+    on every save to the default value 'False'.
+    """
+
+    def pre_save(self, model_instance, add):
+        """Prepare field for saving."""
+        # When skip_auto_now is set do not generate the new value even is auto_now is
+        # set to True.
+        if getattr(model_instance, "skip_auto_now", False) is True:
+            return getattr(model_instance, self.attname)
+        else:
+            return super().pre_save(model_instance, add)
+
+
+class UniqueSlugError(IntegrityError):
+    """The error indicates slug collision."""
 
 
 class BaseModel(AuditModel):
@@ -107,6 +171,12 @@ class BaseModel(AuditModel):
 
     #: user that created the entry
     contributor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+
+    #: the latest version of the objects
+    objects = BaseManager()
+
+    #: all abjects
+    all_objects = models.Manager()
 
     def __str__(self):
         """Format model name."""

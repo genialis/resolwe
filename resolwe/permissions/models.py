@@ -3,7 +3,7 @@
 import logging
 from enum import IntEnum
 from functools import reduce
-from typing import Iterable, List, Optional, Union
+from typing import Generic, Iterable, List, Optional, TypeVar, Union
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -12,9 +12,14 @@ from django.db import models, transaction
 
 from resolwe.observers.protocol import post_permission_changed, pre_permission_changed
 
+UserOrGroup = Union[User, Group]
+M = TypeVar("M", bound=models.Model)
+MP = TypeVar("MP", bound="PermissionInterface")
+Q = TypeVar("Q", bound=models.QuerySet)
+
+
 logger = logging.getLogger(__name__)
 PermissionList = List["Permission"]
-UserOrGroup = Union[User, Group]
 
 
 # Get and store the anonymous user for later use to avoid hits to the database.
@@ -116,6 +121,160 @@ class Permission(IntEnum):
         'share' and 'owner'.
         """
         return self.name.lower()
+
+
+class PermissionQuerySet(models.QuerySet[MP]):
+    """Queryset with methods that simlify filtering by permissions."""
+
+    def _check_permissions(self):
+        """Raise exception if the model does not support permissions."""
+        if not issubclass(self.model, PermissionInterface):
+            raise TypeError(
+                f"Permissions are not supported on model `{self.model._meta.label}`."
+            )
+
+    def _filter_by_permission(
+        self,
+        user: Optional[User],
+        groups: models.QuerySet,
+        permission: "Permission",
+        public: bool = True,
+        with_superuser: bool = True,
+    ) -> "PermissionQuerySet":
+        """Filter queryset by permissions.
+
+        This is a generic method that is called in public methods.
+
+        :attr user: the user which permissions should be considered.
+
+        :attr groups: the groups which permissions should be considered.
+
+        :attr permission: the lowest permission entity must have.
+
+        :attr public: when True consider also public permission.
+
+        :attr with_superuser: when false treat superuser as reguar user.
+        """
+
+        # Skip filtering for superuser when with_superuser is set.
+        if user is not None and user.is_superuser and with_superuser:
+            return self
+
+        filters = dict()
+        permission_group_path = self.model.permission_group_path()
+
+        if user:
+            filters["user"] = models.Q(
+                **{
+                    f"{permission_group_path}__permissions__user": user,
+                    f"{permission_group_path}__permissions__value__gte": permission,
+                }
+            )
+
+        if public:
+            filters["public"] = models.Q(
+                **{
+                    f"{permission_group_path}__permissions__user": get_anonymous_user(),
+                    f"{permission_group_path}__permissions__value__gte": permission,
+                }
+            )
+        if groups:
+            filters["groups"] = models.Q(
+                **{
+                    f"{permission_group_path}__permissions__group__in": groups.values_list(
+                        "pk", flat=True
+                    ),
+                    f"{permission_group_path}__permissions__value__gte": permission,
+                }
+            )
+
+        # List here is needed otherwise more joins are performed on the query
+        # bellow. Some Django queries (for example ExpressionLateralJoin) do
+        # not like that and will fail without evaluating the ids query first.
+        ids = list(
+            self.filter(
+                reduce(lambda filters, filter: filters | filter, filters.values())
+            )
+            .distinct()
+            .values_list("pk", flat=True)
+        )
+        return self.filter(id__in=ids)
+
+    def filter_for_user(
+        self,
+        user: User | AnonymousUser,
+        permission: Permission = Permission.VIEW,
+        use_groups: bool = True,
+        public: bool = True,
+        with_superuser: bool = True,
+    ) -> "PermissionQuerySet":
+        """Filter objects for user.
+
+        :attr user: the user which permissions should be considered.
+
+        :attr permission: the lowest permission entity must have.
+
+        :attr use_groups: when True consider also permissions of the user groups.
+
+        :attr public: when True consider also public permission.
+
+        :attr with_superuser: when false treat superuser as reguar user.
+        """
+
+        self._check_permissions()
+
+        from resolwe.permissions.utils import get_user  # Circular import
+
+        user = get_user(user)
+        groups = user.groups.all() if use_groups else user.groups.none()
+
+        return self._filter_by_permission(
+            user, groups, permission, public, with_superuser
+        )
+
+    def set_permission(self, permission: Permission, user_or_group: UserOrGroup):
+        """Set the permission on the objects in the queryset."""
+        from resolwe.permissions.utils import get_identity  # Circular import
+
+        self._check_permissions()
+
+        if any(datum for datum in self if not datum.can_set_permission()):
+            ids = self.values_list("pk", flat=True)
+            raise RuntimeError(
+                f"The permissions can not be set on objects with ids {ids} of type {self.model}."
+            )
+        entity, entity_type = get_identity(user_or_group)
+        for permission_group_id in self.values_list(
+            self.model.permission_group_path(), flat=True
+        ).distinct():
+            PermissionModel.all_objects.update_or_create(
+                **{"permission_group_id": permission_group_id, entity_type: entity},
+                defaults={"value": permission.value},
+            )
+
+
+class PermissionManager(models.Manager[M], Generic[M, Q]):
+    """The manager used for permission objects."""
+
+    # The queryset to use.
+    QuerySet: type[Q] = PermissionQuerySet  # type: ignore
+
+    def get_queryset(self) -> Q:
+        """Return the queryset."""
+        return self.QuerySet(model=self.model, using=self._db)
+
+    def filter_for_user(
+        self,
+        user: User | AnonymousUser,
+        permission: Permission = Permission.VIEW,
+        use_groups: bool = True,
+        public: bool = True,
+        with_superuser: bool = True,
+    ) -> Q:
+        """Filter the objects for user."""
+        return self.get_queryset().filter_for_user(
+            user, permission, use_groups, public, with_superuser
+        )
 
 
 class PositivePermissionsManager(models.Manager):
@@ -234,7 +393,7 @@ class PermissionGroup(models.Model):
         entity, entity_name = get_identity(user_or_group)
 
         # Superuser has all the permissions.
-        if entity_name == "user" and entity.is_superuser:
+        if entity_name == "user" and entity.is_superuser:  # type: ignore
             return Permission.highest()
 
         permission_model = self.permissions.filter(**{entity_name: entity}).first()
@@ -275,125 +434,6 @@ class PermissionGroup(models.Model):
         return list(Group.objects.filter(filter).distinct())
 
 
-class PermissionQuerySet(models.QuerySet["PermissionInterface"]):
-    """Queryset with methods that simlify filtering by permissions."""
-
-    def _filter_by_permission(
-        self,
-        user: Optional[User],
-        groups: models.QuerySet,
-        permission: Permission,
-        public: bool = True,
-        with_superuser: bool = True,
-    ) -> models.QuerySet:
-        """Filter queryset by permissions.
-
-        This is a generic method that is called in public methods.
-
-        :attr user: the user which permissions should be considered.
-
-        :attr groups: the groups which permissions should be considered.
-
-        :attr permission: the lowest permission entity must have.
-
-        :attr public: when True consider also public permission.
-
-        :attr with_superuser: when false treat superuser as reguar user.
-        """
-
-        # Skip filtering for superuser when with_superuser is set.
-        if user is not None and user.is_superuser and with_superuser:
-            return self
-
-        filters = dict()
-        permission_group_path = self.model.permission_group_path()
-
-        if user:
-            filters["user"] = models.Q(
-                **{
-                    f"{permission_group_path}__permissions__user": user,
-                    f"{permission_group_path}__permissions__value__gte": permission,
-                }
-            )
-
-        if public:
-            filters["public"] = models.Q(
-                **{
-                    f"{permission_group_path}__permissions__user": get_anonymous_user(),
-                    f"{permission_group_path}__permissions__value__gte": permission,
-                }
-            )
-        if groups:
-            filters["groups"] = models.Q(
-                **{
-                    f"{permission_group_path}__permissions__group__in": groups.values_list(
-                        "pk", flat=True
-                    ),
-                    f"{permission_group_path}__permissions__value__gte": permission,
-                }
-            )
-
-        # List here is needed otherwise more joins are performed on the query
-        # bellow. Some Django queries (for example ExpressionLateralJoin) do
-        # not like that and will fail without evaluating the ids query first.
-        ids = list(
-            self.filter(
-                reduce(lambda filters, filter: filters | filter, filters.values())
-            )
-            .distinct()
-            .values_list("pk", flat=True)
-        )
-        return self.filter(id__in=ids)
-
-    def filter_for_user(
-        self,
-        user: User | AnonymousUser,
-        permission: Permission = Permission.VIEW,
-        use_groups: bool = True,
-        public: bool = True,
-        with_superuser: bool = True,
-    ) -> models.QuerySet:
-        """Filter objects for user.
-
-        :attr user: the user which permissions should be considered.
-
-        :attr permission: the lowest permission entity must have.
-
-        :attr use_groups: when True consider also permissions of the user groups.
-
-        :attr public: when True consider also public permission.
-
-        :attr with_superuser: when false treat superuser as reguar user.
-        """
-
-        from resolwe.permissions.utils import get_user  # Circular import
-
-        user = get_user(user)
-        groups = user.groups.all() if use_groups else user.groups.none()
-
-        return self._filter_by_permission(
-            user, groups, permission, public, with_superuser
-        )
-
-    def set_permission(self, permission: Permission, user_or_group: UserOrGroup):
-        """Set the permission on the objects in the queryset."""
-        from resolwe.permissions.utils import get_identity  # Circular import
-
-        if any(datum for datum in self if not datum.can_set_permission()):
-            ids = self.values_list("pk", flat=True)
-            raise RuntimeError(
-                f"The permissions can not be set on objects with ids {ids} of type {self.model}."
-            )
-        entity, entity_type = get_identity(user_or_group)
-        for permission_group_id in self.values_list(
-            self.model.permission_group_path(), flat=True
-        ).distinct():
-            PermissionModel.all_objects.update_or_create(
-                **{"permission_group_id": permission_group_id, entity_type: entity},
-                defaults={"value": permission.value},
-            )
-
-
 class PermissionInterface(models.Model):
     """The abstract model that defines permission interface.
 
@@ -401,7 +441,7 @@ class PermissionInterface(models.Model):
     """
 
     #: custom manager with permission filtering methods.
-    objects = PermissionQuerySet.as_manager()
+    objects: PermissionManager = PermissionManager()
 
     class Meta:
         """Make a class abstract."""

@@ -7,7 +7,7 @@ from resolwe.permissions.models import PermissionObject
 from .base import BaseModel
 
 
-class DescriptorSchema(BaseModel, PermissionObject):
+class DescriptorSchema(PermissionObject, BaseModel):
     """Postgres model for storing descriptors."""
 
     class Meta(BaseModel.Meta):

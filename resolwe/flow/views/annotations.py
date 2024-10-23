@@ -2,15 +2,7 @@
 
 from typing import Any
 
-from rest_framework import (
-    exceptions,
-    generics,
-    mixins,
-    permissions,
-    response,
-    status,
-    viewsets,
-)
+from rest_framework import exceptions, generics, mixins, permissions, response, viewsets
 from rest_framework.serializers import BaseSerializer
 
 from resolwe.flow.filters import (
@@ -72,8 +64,7 @@ class AnnotationFieldViewSet(
 
 class AnnotationValueViewSet(
     mixins.RetrieveModelMixin,
-    ResolweUpdateModelMixin,
-    mixins.CreateModelMixin,
+    ResolweCreateModelMixin,
     mixins.ListModelMixin,
     mixins.DestroyModelMixin,
     generics.UpdateAPIView,
@@ -85,7 +76,7 @@ class AnnotationValueViewSet(
     filterset_class = AnnotationValueFilter
     queryset = AnnotationValue.objects.all()
     permission_classes = (get_permissions_class(),)
-    ordering_fields = ("modified", "id")
+    ordering_fields = ("created", "id")
 
     def get_serializer(self, *args: Any, **kwargs: Any) -> BaseSerializer:
         """Get serializer instance depending on the request type."""
@@ -93,7 +84,7 @@ class AnnotationValueViewSet(
         kwargs["many"] = isinstance(self.request.data, list) or kwargs_many
         return super().get_serializer(*args, **kwargs)
 
-    def _check_permissions(self, serializer):
+    def _check_permissions(self, serializer: BaseSerializer):
         """Check if user has edit permission on entities."""
         validated_data = (
             serializer.validated_data
@@ -115,23 +106,27 @@ class AnnotationValueViewSet(
         self._check_permissions(serializer)
         return super().perform_create(serializer)
 
-    def update(self, request, *args, pk=None, **kwargs):
+    def perform_update(self, serializer: BaseSerializer) -> None:
+        """Perform update annotation value(s).
+
+        The permission on entities must be checked.
+        """
+        self._check_permissions(serializer)
+        return super().perform_update(serializer)
+
+    def partial_update(self, request, *args: Any, **kwargs: Any):
+        """Deny the partial updates of annotation values."""
+        raise exceptions.MethodNotAllowed("Partial updates are not supported.")
+
+    def update(self, request, *args, **kwargs):
         """Update annotation value(s).
 
         When posting multiple values, the request is treated as a bulk update. The bulk
-        update can create, update or delete values. Values are deleted when the value
-        is set no None.
+        update can create or delete values. Values are deleted when the value is set to
+        None.
         """
-        # Regular update on a detail view.
-        if pk is not None:
-            return super().update(request, *args, pk=pk, **kwargs)
-
-        # Bulk update / create / delete.
-        serializer = self.get_serializer(data=request.data, partial=True)
+        self.define_contributor(request)
+        serializer = self.get_serializer(data=request.data, partial=False)
         serializer.is_valid(raise_exception=True)
-        self._check_permissions(serializer)
-        serializer.update(None, serializer.validated_data)
-        headers = self.get_success_headers(serializer.data)
-        return response.Response(
-            serializer.data, status=status.HTTP_200_OK, headers=headers
-        )
+        self.perform_update(serializer)
+        return response.Response(serializer.data)

@@ -499,7 +499,7 @@ def bulk_duplicate_entity(
         entity_list, new_entities
     ):  # If collection is not set the annotations cannot be copied.
         if inherit_collection:
-            new_annotations += old_entity.copy_annotations(new_entity)
+            new_annotations += old_entity.copy_annotations(new_entity, contributor)
         if old_entity.collection and new_entity.collection:
             new_entity.collection.annotation_fields.add(
                 *old_entity.collection.annotation_fields.all()

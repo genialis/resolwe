@@ -8,18 +8,19 @@ from django.core.exceptions import ValidationError
 from django.db import models, transaction
 
 from resolwe.flow.models.annotations import AnnotationField, AnnotationValue
+from resolwe.flow.models.base import BaseQuerySet
 from resolwe.observers.consumers import BackgroundTaskType
 from resolwe.observers.decorators import move_to_container
 from resolwe.observers.models import BackgroundTask
 from resolwe.observers.utils import start_background_task
-from resolwe.permissions.models import PermissionObject, PermissionQuerySet
+from resolwe.permissions.models import PermissionObject
 
-from .base import BaseModel, BaseQuerySet
+from .base import BaseModel
 from .collection import BaseCollection, Collection
 from .utils import DirtyError, validate_schema
 
 
-class EntityQuerySet(BaseQuerySet, PermissionQuerySet):
+class EntityQuerySet(BaseQuerySet):
     """Query set for ``Entity`` objects."""
 
     def duplicate(self, request_user) -> BackgroundTask:
@@ -163,7 +164,7 @@ class EntityQuerySet(BaseQuerySet, PermissionQuerySet):
         return queryset
 
 
-class Entity(BaseCollection, PermissionObject):
+class Entity(PermissionObject, BaseCollection):
     """Postgres model for storing entities."""
 
     class Meta(BaseCollection.Meta):
@@ -296,7 +297,9 @@ class Entity(BaseCollection, PermissionObject):
             collection=self.collection
         )
 
-    def copy_annotations(self, destination: "Entity") -> List[AnnotationValue]:
+    def copy_annotations(
+        self, destination: "Entity", contributor
+    ) -> List[AnnotationValue]:
         """Copy annotation from this entity to the destination.
 
         The objects are not saved to the database.
@@ -318,6 +321,7 @@ class Entity(BaseCollection, PermissionObject):
                 entity=destination,
                 field_id=source_annotation.field_id,
                 value=source_annotation.value,
+                contributor=contributor or source_annotation.contributor,
             )
             destination_annotations.append(annotation_value)
             annotation_field_ids.add(source_annotation.field_id)
@@ -367,41 +371,47 @@ class Entity(BaseCollection, PermissionObject):
         # be deleted.
         annotation_values: list[AnnotationValue] = []
         validation_errors: list[ValidationError] = []
-        fields_to_delete: list[int] = []
         for field_path, field_value in annotations.items():
-            if field_value is None:
-                fields_to_delete.append(field_map[field_path].pk)
+            values_dict = {
+                "field": field_map[field_path],
+                "entity": self,
+                "contributor": contributor,
+            }
+            if field_value is not None:
+                values_dict["value"] = field_value
             else:
-                value = AnnotationValue(
-                    field=field_map[field_path],
-                    value=field_value,
-                    entity=self,
-                    contributor=contributor,
-                )
-                annotation_values.append(value)
-                try:
-                    value.validate()
-                except ValidationError as e:
-                    validation_errors.append(e)
+                values_dict["_value"] = None
+            value = AnnotationValue(**values_dict)
+            annotation_values.append(value)
+            try:
+                value.validate()
+            except ValidationError as e:
+                validation_errors.append(e)
         if validation_errors:
             raise ValidationError(validation_errors)
 
-        # Delete and update annotations in a transaction.
-        with transaction.atomic():
-            to_delete = AnnotationValue.objects.filter(entity=self)
-            if update:
-                to_delete = to_delete.filter(field_id__in=fields_to_delete)
-            to_delete.delete()
-            AnnotationValue.objects.bulk_create(
-                annotation_values,
-                update_conflicts=True,
-                update_fields=["_value"],
-                unique_fields=["entity", "field"],
-            )
+        # When this is bulk set also delete other annotation values by setting delete
+        # markers.
+        if not update:
+            for field_id in (
+                AnnotationValue.objects.filter(entity=self)
+                .exclude(field__in=field_map.values())
+                .values_list("field_id", flat=True)
+            ):
+                values_dict = {
+                    "field_id": field_id,
+                    "entity": self,
+                    "contributor": contributor,
+                    "_value": None,
+                }
+                annotation_values.append(AnnotationValue(**values_dict))
 
-        # Add missing annotation fields to the collection.
-        if self.collection is not None:
-            self.collection.annotation_fields.add(*field_map.values())
+        # Create new entries and set delete markers in a transaction.
+        with transaction.atomic():
+            AnnotationValue.objects.bulk_create(annotation_values)
+            # Add missing annotation fields to the collection.
+            if self.collection is not None:
+                self.collection.annotation_fields.add(*field_map.values())
 
 
 class RelationType(models.Model):
@@ -500,7 +510,7 @@ class Relation(BaseModel, PermissionObject):
     descriptor_dirty = models.BooleanField(default=False)
 
     #: custom manager with permission filtering methods
-    objects = PermissionQuerySet.as_manager()
+    objects = BaseQuerySet.as_manager()
 
     class Meta(BaseModel.Meta):
         """Relation Meta options."""

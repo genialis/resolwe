@@ -16,6 +16,7 @@ from django.core.validators import RegexValidator
 from django.db import models, transaction
 
 from resolwe.flow.expression_engines.exceptions import EvaluationError
+from resolwe.flow.models.base import BaseQuerySet
 from resolwe.flow.models.utils import (
     DirtyError,
     fill_with_defaults,
@@ -27,10 +28,10 @@ from resolwe.observers.consumers import BackgroundTaskType
 from resolwe.observers.decorators import move_to_container
 from resolwe.observers.models import BackgroundTask
 from resolwe.observers.utils import start_background_task
-from resolwe.permissions.models import PermissionObject, PermissionQuerySet
+from resolwe.permissions.models import PermissionObject
 from resolwe.permissions.utils import assign_contributor_permissions, copy_permissions
 
-from .base import BaseModel, BaseQuerySet
+from .base import BaseModel
 from .entity import Entity, EntityQuerySet
 from .history_manager import HistoryMixin
 from .secret import Secret
@@ -59,7 +60,7 @@ class HandleEntityOperation(enum.Enum):
     PASS = "PASS"
 
 
-class DataQuerySet(BaseQuerySet, PermissionQuerySet):
+class DataQuerySet(BaseQuerySet):
     """Query set for Data objects."""
 
     @staticmethod
@@ -254,7 +255,7 @@ class DataQuerySet(BaseQuerySet, PermissionQuerySet):
         return self.annotate(**annotation_data)
 
 
-class Data(HistoryMixin, BaseModel, PermissionObject):
+class Data(HistoryMixin, PermissionObject, BaseModel):
     """Postgres model for storing data."""
 
     class Meta(BaseModel.Meta):

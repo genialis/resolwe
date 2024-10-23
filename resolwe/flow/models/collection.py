@@ -6,13 +6,14 @@ from django.contrib.postgres.indexes import GinIndex
 from django.contrib.postgres.search import SearchVectorField
 from django.db import models
 
+from resolwe.flow.models.base import BaseQuerySet
 from resolwe.observers.consumers import BackgroundTaskType
 from resolwe.observers.models import BackgroundTask
 from resolwe.observers.utils import start_background_task
-from resolwe.permissions.models import PermissionObject, PermissionQuerySet
+from resolwe.permissions.models import PermissionObject
 
 from .annotations import AnnotationField
-from .base import BaseModel, BaseQuerySet
+from .base import BaseModel
 from .history_manager import HistoryMixin
 from .utils import DirtyError, validate_schema
 
@@ -37,7 +38,7 @@ class BaseCollection(BaseModel):
     search = SearchVectorField(null=True)
 
 
-class CollectionQuerySet(BaseQuerySet, PermissionQuerySet):
+class CollectionQuerySet(BaseQuerySet):
     """Query set for ``Collection`` objects."""
 
     def duplicate(self, request_user) -> BackgroundTask:
@@ -61,7 +62,7 @@ class CollectionQuerySet(BaseQuerySet, PermissionQuerySet):
         )
 
 
-class Collection(HistoryMixin, BaseCollection, PermissionObject):
+class Collection(HistoryMixin, PermissionObject, BaseCollection):
     """Postgres model for storing a collection."""
 
     class Meta(BaseCollection.Meta):

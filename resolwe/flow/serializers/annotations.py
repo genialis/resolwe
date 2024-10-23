@@ -3,7 +3,6 @@
 from typing import Any
 
 from django.db import models
-from django.db.models import Q
 from rest_framework import serializers
 from rest_framework.fields import empty
 
@@ -16,6 +15,7 @@ from resolwe.flow.models.annotations import (
 )
 
 from .base import ResolweBaseSerializer
+from .contributor import ContributorSerializer
 from .fields import PrimaryKeyDictRelatedField
 
 
@@ -103,46 +103,27 @@ class AnnotationValueListSerializer(serializers.ListSerializer):
 
     def create(self, validated_data: Any) -> Any:
         """Perform efficient bulk create."""
-        return AnnotationValue.objects.bulk_create(
-            AnnotationValue(**data)
-            for data in validated_data
-            if data["_value"]["value"] is not None
-        )
 
-    def update(self, instance, validated_data: Any):
-        """Perform efficient bulk create/update/delete."""
-        # Read existing annotations in a single query.
-        query = Q()
-        for data in validated_data:
-            query |= Q(field=data["field"], entity=data["entity"])
-        existing_annotations = AnnotationValue.objects.filter(query)
+        values_to_create = [AnnotationValue(**data) for data in validated_data]
+        # Perform a validation on all values to create. This is necessary as bulk
+        # create skips the validation.
+        for value in values_to_create:
+            value.validate()
+        return AnnotationValue.objects.bulk_create(values_to_create)
 
-        # Create a mapping between (field, entity) and the existing annotations.
-        annotation_map = {
-            (annotation.field, annotation.entity): annotation
-            for annotation in existing_annotations
-        }
-
+    def save(self, **kwargs: Any) -> Any:
+        """Perform efficient bulk create or delete."""
         self.instance = []
-        to_update = []
         to_create = []
-        to_delete = []
-        for data in validated_data:
-            if value := annotation_map.get((data["field"], data["entity"])):
-                if data["_value"]["value"] is None:
-                    to_delete.append(value.pk)
-                else:
-                    to_update.append((value, data))
-            else:
-                to_create.append(data)
+        for data in self.validated_data:
+            if data["_value"] is None or data["_value"]["value"] is None:
+                data["_value"] = None
+            to_create.append(data)
 
-        # Bulk create new annotations.
-        self.instance += self.create(to_create)
-        # Update annotations.
-        for value, data in to_update:
-            self.instance.append(self.child.update(value, data))
-        # Bulk delete annotations.
-        AnnotationValue.objects.filter(pk__in=to_delete).delete()
+        # Create new objects and delete markers.
+        created = self.create(to_create)
+        # Only return created objects.
+        self.instance = [entry for entry in created if entry._value is not None]
         return self.instance
 
     def validate(self, attrs: Any) -> Any:
@@ -156,6 +137,8 @@ class AnnotationValueListSerializer(serializers.ListSerializer):
 
 class AnnotationValueSerializer(ResolweBaseSerializer):
     """Serializer for AnnotationValue objects."""
+
+    contributor = ContributorSerializer()
 
     def __init__(self, instance=None, data=empty, **kwargs):
         """Rewrite value -> _value."""
@@ -177,7 +160,7 @@ class AnnotationValueSerializer(ResolweBaseSerializer):
         """AnnotationValueSerializer Meta options."""
 
         model = AnnotationValue
-        read_only_fields = ("label", "modified")
+        read_only_fields = ("label", "created")
         update_protected_fields = ("id", "entity", "field", "contributor")
         fields = read_only_fields + update_protected_fields + ("value", "_value")
         extra_kwargs = {"_value": {"write_only": True}}

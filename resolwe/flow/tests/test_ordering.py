@@ -27,15 +27,6 @@ class ProcessOrderingTest(APITestCase):
 
         self.url = reverse("resolwe-api:process-list")
 
-    def test_ordering_version(self):
-        response = self.client.get(self.url, {"ordering": "version"}, format="json")
-        self.assertEqual(response.data[0]["id"], self.proc_1.id)
-        self.assertEqual(response.data[1]["id"], self.proc_2.id)
-
-        response = self.client.get(self.url, {"ordering": "-version"}, format="json")
-        self.assertEqual(response.data[0]["id"], self.proc_2.id)
-        self.assertEqual(response.data[1]["id"], self.proc_1.id)
-
 
 class CollectionOrderingTest(APITestCase):
     def setUp(self):

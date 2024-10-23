@@ -12,6 +12,7 @@ from django.db import models, transaction
 from django.db.models import Count, Q
 from django.db.models.query import QuerySet
 
+from resolwe.flow.models.base import BaseManagerWithoutVersion
 from resolwe.permissions.models import Permission, PermissionObject
 
 from .protocol import GROUP_SESSIONS, TYPE_ITEM_UPDATE, ChangeType, ChannelsMessage
@@ -50,6 +51,8 @@ class BackgroundTask(Observable):
         (STATUS_DONE, "Done"),
         (STATUS_ERROR, "Error"),
     )
+
+    objects = BaseManagerWithoutVersion()
 
     #: task start date and time
     started = models.DateTimeField(blank=True, null=True, db_index=True)

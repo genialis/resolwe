@@ -56,7 +56,7 @@ class BasicCommands(ListenerPlugin):
             data["process"] = (
                 Process.objects.filter(slug=data["process"])
                 .filter_for_user(processing_data.contributor)
-                .latest()
+                .get()
             )
             data["tags"] = processing_data.tags
             data["collection"] = processing_data.collection

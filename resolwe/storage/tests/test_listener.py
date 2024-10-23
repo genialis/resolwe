@@ -363,8 +363,12 @@ class ListenerTest(TestCase):
             required=False,
             sort_order=2,
         )
-        AnnotationValue.objects.create(entity=entity, field=field, value="value")
-        AnnotationValue.objects.create(entity=entity, field=field2, value="value2")
+        AnnotationValue.objects.create(
+            entity=entity, field=field, value="value", contributor=self.contributor
+        )
+        AnnotationValue.objects.create(
+            entity=entity, field=field2, value="value2", contributor=self.contributor
+        )
 
         process = Process.objects.create(contributor=self.contributor)
         data = Data.objects.create(
@@ -518,7 +522,7 @@ class ListenerTest(TestCase):
         self.assertEqual(response.response_status, ResponseStatus.OK)
 
         # Error should be raised if annotations are not found.
-        entity.annotations.all().delete()
+        AnnotationValue.all_objects.filter(entity=entity).delete()
         message = Message.command(
             "set_entity_annotations",
             [
