@@ -60,7 +60,7 @@ class ResolweCreateModelMixin(mixins.CreateModelMixin):
         """Create a resource."""
         with transaction.atomic():
             instance = serializer.save()
-            if hasattr(instance, "permission_group"):
+            if isinstance(instance, PermissionInterface):
                 # Assign all permissions to the object contributor when object is not
                 # in container.
                 if not instance.in_container():
