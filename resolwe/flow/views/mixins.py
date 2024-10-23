@@ -10,7 +10,11 @@ from rest_framework.response import Response
 
 from resolwe.observers.models import BackgroundTask
 from resolwe.observers.views import BackgroundTaskSerializer
-from resolwe.permissions.models import Permission, get_anonymous_user
+from resolwe.permissions.models import (
+    Permission,
+    PermissionInterface,
+    get_anonymous_user,
+)
 from resolwe.permissions.utils import assign_contributor_permissions
 
 
@@ -43,16 +47,19 @@ class ResolweCreateModelMixin(mixins.CreateModelMixin):
         return get_anonymous_user() if user.is_anonymous else user
 
     def define_contributor(self, request):
-        """Define contributor by adding it to request.data."""
-        request.data["contributor"] = self.resolve_user(request.user).pk
+        """Define contributor by adding it to request.data.
+
+        When data is a list, iterate over it and add the contributor to each entry.
+        """
+        contributor_pk = self.resolve_user(request.user).pk
+        for entry in request.data if isinstance(request.data, list) else [request.data]:
+            entry["contributor"] = contributor_pk
 
     def create(self, request, *args, **kwargs):
         """Create a resource."""
         self.define_contributor(request)
-
         try:
             return super().create(request, *args, **kwargs)
-
         except IntegrityError as ex:
             return Response({"error": str(ex)}, status=status.HTTP_409_CONFLICT)
 

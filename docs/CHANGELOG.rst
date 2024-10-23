@@ -14,6 +14,7 @@ Changed
 -------
 - Change fallback for storage resource from 200GB to 10GB
 - Restrict processing container from using service account permissions
+- Support creating multiple entries at once in create mixin
 
 Added
 -----
