@@ -1,7 +1,7 @@
-FROM public.ecr.aws/docker/library/python:3.12-alpine as common
-LABEL MAINTAINER Resolwe authors https://github.com/genialis/resolwe
+FROM public.ecr.aws/docker/library/python:3.12-alpine AS common
+LABEL MAINTAINER="Resolwe authors https://github.com/genialis/resolwe"
 
-FROM common as builder
+FROM common AS builder
 WORKDIR /install
 RUN apk add --update --no-cache build-base libffi-dev zeromq-dev openssl-dev
 RUN pip install --upgrade pip
