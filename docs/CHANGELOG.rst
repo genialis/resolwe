@@ -26,6 +26,7 @@ Added
   one with the latest version from every group.
 - Add ``PermissionManager`` as default manager for objects with permissions
 - Add version of base managers without versioning support
+- Add abstract base classes for annotation fields
 
 
 ===================

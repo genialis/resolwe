@@ -222,8 +222,8 @@ class AnnotationFieldVocabularyValidator(AnnotationFieldBaseValidator):
             )
 
 
-class AnnotationGroup(models.Model):
-    """Group of annotation fields."""
+class AbstractAnnotationGroup(models.Model):
+    """Abstract base class for annotation groups."""
 
     #: the name of the annotation group
     name = models.CharField(max_length=NAME_LENGTH)
@@ -234,14 +234,23 @@ class AnnotationGroup(models.Model):
     #: the sorting order among annotation groups
     sort_order = models.PositiveSmallIntegerField()
 
-    def __str__(self) -> str:
-        """Return user-friendly string representation."""
-        return f"{self.name}"
+    class Meta:
+        """Make this class abstract."""
+
+        abstract = True
+
+
+class AnnotationGroup(AbstractAnnotationGroup):
+    """Group of annotation fields."""
 
     class Meta:
         """Set the default ordering."""
 
         ordering = ["sort_order"]
+
+    def __str__(self) -> str:
+        """Return user-friendly string representation."""
+        return f"{self.name}"
 
 
 class AnnotationFieldManager(
@@ -255,8 +264,8 @@ class AnnotationFieldManager(
     partition_fields = ["name", "group"]
 
 
-class AnnotationField(models.Model):
-    """Annotation field."""
+class AbstractAnnotationField(models.Model):
+    """Abstract base class for annotation fields."""
 
     #: the name of the annotation fields
     name = models.CharField(max_length=NAME_LENGTH)
@@ -291,6 +300,15 @@ class AnnotationField(models.Model):
 
     #: field version
     version = VersionField(number_bits=VERSION_NUMBER_BITS, default="0.0.0")
+
+    class Meta:
+        """Make this class abstract."""
+
+        abstract = True
+
+
+class AnnotationField(AbstractAnnotationField):
+    """Annotation field."""
 
     #: the latest version of the models
     objects = AnnotationFieldManager()
@@ -448,19 +466,8 @@ def _slug_for_annotation_value(instance: "AnnotationValue") -> str:
     return f"{instance.entity.slug}-{instance.field.group.name}-{instance.field.name}"
 
 
-class AnnotationValue(BaseModel, PermissionInterface, AuditModel):
-    """The value of the annotation."""
-
-    class Meta:
-        """Set the unique constraints."""
-
-        constraints = [
-            models.constraints.UniqueConstraint(
-                fields=["entity", "field", "created"],
-                name="uniquetogether_entity_field_created",
-            ),
-        ]
-        ordering = ["field__group__sort_order", "field__sort_order"]
+class AbstractAnnotationValue(BaseModel):
+    """Abstract base class for annotation values."""
 
     #: URL slug
     slug = ResolweSlugField(
@@ -482,6 +489,26 @@ class AnnotationValue(BaseModel, PermissionInterface, AuditModel):
     #: value is stored under key 'value' in the json field to simplify lookups
     #: the value None is used as delete marker
     _value: Any = models.JSONField(default=dict, null=True)
+
+    class Meta:
+        """Make this class abstract."""
+
+        abstract = True
+
+
+class AnnotationValue(AbstractAnnotationValue, PermissionInterface, AuditModel):
+    """The value of the annotation."""
+
+    class Meta:
+        """Set the unique constraints."""
+
+        constraints = [
+            models.constraints.UniqueConstraint(
+                fields=["entity", "field", "created"],
+                name="uniquetogether_entity_field_created",
+            ),
+        ]
+        ordering = ["field__group__sort_order", "field__sort_order"]
 
     objects = AnnotationValueManager()  # type: ignore
 
