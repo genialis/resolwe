@@ -215,15 +215,18 @@ class Entity(PermissionObject, BaseCollection):
         ).first()
         return annotation.value if annotation else default
 
-    def set_annotation(self, path: str, value: Any):
+    def set_annotation(self, path: str, value: Any, contributor=None):
         """Get the annotation for the given path.
 
         :attr path: the path to the annotation in the format 'group.field'.
         :attr value: the annotation value.
         """
         field_id = AnnotationField.id_from_path(path)
+        contributor = contributor or self.contributor
         if field_id is not None:
-            AnnotationValue.objects.create(field_id=field_id, entity=self, value=value)
+            AnnotationValue.objects.create(
+                field_id=field_id, entity=self, value=value, contributor=contributor
+            )
         else:
             raise RuntimeError(f"No annotation field for path {path}.")
 

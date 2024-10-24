@@ -222,8 +222,8 @@ class AnnotationFieldVocabularyValidator(AnnotationFieldBaseValidator):
             )
 
 
-class AnnotationGroup(models.Model):
-    """Group of annotation fields."""
+class AbstractAnnotationGroup(models.Model):
+    """Abstract base class for annotation groups."""
 
     #: the name of the annotation group
     name = models.CharField(max_length=NAME_LENGTH)
@@ -234,14 +234,23 @@ class AnnotationGroup(models.Model):
     #: the sorting order among annotation groups
     sort_order = models.PositiveSmallIntegerField()
 
-    def __str__(self) -> str:
-        """Return user-friendly string representation."""
-        return f"{self.name}"
+    class Meta:
+        """Make this class abstract."""
+
+        abstract = True
+
+
+class AnnotationGroup(AbstractAnnotationGroup):
+    """Group of annotation fields."""
 
     class Meta:
         """Set the default ordering."""
 
         ordering = ["sort_order"]
+
+    def __str__(self) -> str:
+        """Return user-friendly string representation."""
+        return f"{self.name}"
 
 
 class AnnotationFieldManager(
@@ -255,8 +264,8 @@ class AnnotationFieldManager(
     partition_fields = ["name", "group"]
 
 
-class AnnotationField(models.Model):
-    """Annotation field."""
+class AbstractAnnotationField(models.Model):
+    """Abstract base class for annotation fields."""
 
     #: the name of the annotation fields
     name = models.CharField(max_length=NAME_LENGTH)
@@ -292,11 +301,10 @@ class AnnotationField(models.Model):
     #: field version
     version = VersionField(number_bits=VERSION_NUMBER_BITS, default="0.0.0")
 
-    #: the latest version of the models
-    objects = AnnotationFieldManager()
+    class Meta:
+        """Make this class abstract."""
 
-    #: all models
-    all_objects = models.Manager()
+        abstract = True
 
     def __init__(self, *args, **kwargs):
         """Store original vocabulary to private variable."""
@@ -384,9 +392,15 @@ class AnnotationField(models.Model):
                     return vocabulary_value
         return label
 
-    def __str__(self) -> str:
-        """Return user-friendly string representation."""
-        return f"{self.group.name}.{self.name}"
+
+class AnnotationField(AbstractAnnotationField):
+    """Annotation field."""
+
+    #: the latest version of the models
+    objects = AnnotationFieldManager()
+
+    #: all models
+    all_objects = models.Manager()
 
     class Meta:
         """Set the constraints and the default ordering."""
@@ -403,6 +417,10 @@ class AnnotationField(models.Model):
             ),
         ]
         ordering = ["group__sort_order", "sort_order"]
+
+    def __str__(self) -> str:
+        """Return user-friendly string representation."""
+        return f"{self.group.name}.{self.name}"
 
 
 class AnnotationPreset(PermissionObject, BaseModel):
@@ -448,19 +466,8 @@ def _slug_for_annotation_value(instance: "AnnotationValue") -> str:
     return f"{instance.entity.slug}-{instance.field.group.name}-{instance.field.name}"
 
 
-class AnnotationValue(BaseModel, PermissionInterface, AuditModel):
-    """The value of the annotation."""
-
-    class Meta:
-        """Set the unique constraints."""
-
-        constraints = [
-            models.constraints.UniqueConstraint(
-                fields=["entity", "field", "created"],
-                name="uniquetogether_entity_field_created",
-            ),
-        ]
-        ordering = ["field__group__sort_order", "field__sort_order"]
+class AbstractAnnotationValue(BaseModel):
+    """Abstract base class for annotation values."""
 
     #: URL slug
     slug = ResolweSlugField(
@@ -483,9 +490,10 @@ class AnnotationValue(BaseModel, PermissionInterface, AuditModel):
     #: the value None is used as delete marker
     _value: Any = models.JSONField(default=dict, null=True)
 
-    objects = AnnotationValueManager()  # type: ignore
+    class Meta:
+        """Make this class abstract."""
 
-    all_objects: models.Manager["AnnotationValue"] = PermissionQuerySet.as_manager()
+        abstract = True
 
     def __init__(self, *args, **kwargs):
         """Allow us to set the 'value' in the constructor.
@@ -578,6 +586,27 @@ class AnnotationValue(BaseModel, PermissionInterface, AuditModel):
     def in_container(self) -> bool:
         """Return if object lies in a container."""
         return True
+
+
+class AnnotationValue(AbstractAnnotationValue, PermissionInterface, AuditModel):
+    """The value of the annotation."""
+
+    #: the latest version of the models
+    objects = AnnotationValueManager()  # type: ignore
+
+    #: all models
+    all_objects: models.Manager["AnnotationValue"] = PermissionQuerySet.as_manager()
+
+    class Meta:
+        """Set the unique constraints."""
+
+        constraints = [
+            models.constraints.UniqueConstraint(
+                fields=["entity", "field", "created"],
+                name="uniquetogether_entity_field_created",
+            ),
+        ]
+        ordering = ["field__group__sort_order", "field__sort_order"]
 
     def __str__(self) -> str:
         """Return user-friendly string representation."""

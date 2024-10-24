@@ -6,16 +6,16 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-===================
-40.4.0 - 2024-10-14
-===================
+==========
+Unreleased
+==========
 
 Changed
 -------
-- Change fallback for storage resource from 200GB to 10GB
 - Restrict processing container from using service account permissions
 - Support creating multiple entries at once in create mixin
 - Rename ``modified`` field in the ``AnnotationValue`` model to ``created``
+- Set annotation method on entity accepts optional contributor as argument
 
 Added
 -----
@@ -26,6 +26,16 @@ Added
   one with the latest version from every group.
 - Add ``PermissionManager`` as default manager for objects with permissions
 - Add version of base managers without versioning support
+- Add abstract base classes for annotation fields
+
+
+===================
+40.4.0 - 2024-10-14
+===================
+
+Changed
+-------
+- Change fallback for storage resource from 200GB to 10GB
 
 
 ===================

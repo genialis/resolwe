@@ -1,6 +1,6 @@
 FROM docker.io/fedora:40
 
-LABEL MAINTAINER Resolwe authors https://github.com/genialis/resolwe
+LABEL MAINTAINER="Resolwe authors https://github.com/genialis/resolwe"
 
 # XXX: Remove this after Resolwe learns how to mount re-* tools into every container
 COPY re-import.sh /re-import.sh
