@@ -15,6 +15,7 @@ Changed
 - Restrict processing container from using service account permissions
 - Support creating multiple entries at once in create mixin
 - Rename ``modified`` field in the ``AnnotationValue`` model to ``created``
+- Set annotation method on entity accepts optional contributor as argument
 
 Added
 -----
