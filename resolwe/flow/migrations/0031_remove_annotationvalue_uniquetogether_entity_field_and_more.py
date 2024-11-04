@@ -8,6 +8,15 @@ import resolwe.flow.models.base
 import resolwe.flow.models.fields
 
 
+def assign_modify_to_created(apps, schema_editor):
+    """Assign created date to annotation values."""
+
+    AnnotationValue = apps.get_model("flow", "AnnotationValue")
+    for annotation_value in AnnotationValue.objects.iterator():
+        annotation_value.created = annotation_value.modified
+        annotation_value.save(update_fields=["created"])
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -20,6 +29,13 @@ class Migration(migrations.Migration):
             name="uniquetogether_entity_field",
         ),
         migrations.AddField(
+            model_name="annotationvalue",
+            name="created",
+            field=models.DateTimeField(auto_now_add=True, db_index=True, null=None),
+            preserve_default=False,
+        ),
+        migrations.RunPython(assign_modify_to_created),
+        migrations.AlterField(
             model_name="annotationvalue",
             name="created",
             field=models.DateTimeField(auto_now_add=True, db_index=True, default=None),
