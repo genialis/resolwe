@@ -12,6 +12,11 @@ Unreleased
 
 Changed
 -------
+- **BACKWARD INCOMPATIBLE:** Set ``BaseManager`` as default objects manager.
+  The manager supports objects versions by grouping them together by common
+  fields and returning only the one with the latest version from every group.
+- **BACKWARD INCOMPATIBLE:** Set ``PermissionManager`` as default manager for
+  objects with permissions
 - Restrict processing container from using service account permissions
 - Support creating multiple entries at once in create mixin
 - Rename ``modified`` field in the ``AnnotationValue`` model to ``created``
@@ -21,10 +26,6 @@ Added
 -----
 - Add ``version`` field to the ``AnnotationField`` model
 - Add ``contributor`` field to the ``AnnotationValue`` model
-- Add ``BaseManager`` as default objects manager. The manager supports objects
-  versions by grouping them together by common fields and returning only the
-  one with the latest version from every group.
-- Add ``PermissionManager`` as default manager for objects with permissions
 - Add version of base managers without versioning support
 - Add abstract base classes for annotation fields
 
