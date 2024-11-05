@@ -555,18 +555,19 @@ class AnnotationValueFieldMetaclass(ResolweFilterMetaclass):
             self,
             qs: QuerySet,
             value: str,
-            original_filter: Callable[[QuerySet, str], QuerySet],
+            original_entity_filter: Callable[[QuerySet, str], QuerySet],
         ):
             """Respect permissions on entities."""
             # Do not filter when value is empty. At least one of the values must be
             # non-empty since form in the AnnotationValueFilter class requires it.
             if value in EMPTY_VALUES:
                 return qs
-            qs = original_filter(qs, value)
-            user = self.parent.request.user
-            entity_ids = qs.values_list(f"{entity_path}_id")
-            visible_entities = Entity.objects.filter(id__in=entity_ids).filter_for_user(
-                user
+
+            # Filter the entities using the original entity filter and permissions.
+            visible_entities = list(
+                original_entity_filter(Entity.objects.all(), value)
+                .filter_for_user(self.parent.request.user)
+                .values_list("pk", flat=True)
             )
             return qs.filter(**{f"{entity_path}__in": visible_entities})
 
@@ -576,19 +577,22 @@ class AnnotationValueFieldMetaclass(ResolweFilterMetaclass):
         }[name]
         # Add all filters from EntityFilter to namespaces before creating class.
         for filter_name, filter in EntityFilter.get_filters().items():
-            new_filter_name = f"entity__{filter_name}"
+            new_name = f"entity__{filter_name}"
             if filter_name == "id" or filter_name.startswith("id__"):
-                new_filter_name = "entity" + filter_name[2:]
-            filter = deepcopy(filter)
-            filter.field_name = f"{entity_path}__{filter.field_name}"
-            new_filter = partial(filter_permissions, original_filter=filter.filter)
+                new_name = "entity" + filter_name[2:]
+            filter_copy = deepcopy(filter)
+            filter_copy.field_name = f"{entity_path}__{filter_copy.field_name}"
+            filter_method = partial(
+                filter_permissions,
+                original_entity_filter=filter.filter,
+            )
             # Bind the new_filter to filter instance and set it as new filter.
-            filter.filter = types.MethodType(new_filter, filter)
-            namespace[new_filter_name] = filter
+            filter_copy.filter = types.MethodType(filter_method, filter_copy)
+            namespace[new_name] = filter_copy
             # If filter uses a method, add it to the namespace as well.
-            if filter.method is not None:
-                namespace[filter.method] = deepcopy(
-                    getattr(EntityFilter, filter.method)
+            if filter_copy.method is not None:
+                namespace[filter_copy.method] = deepcopy(
+                    getattr(EntityFilter, filter_copy.method)
                 )
 
         # Create class with added filters.
