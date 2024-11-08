@@ -31,7 +31,7 @@ from resolwe.observers.utils import start_background_task
 from resolwe.permissions.models import PermissionObject
 from resolwe.permissions.utils import assign_contributor_permissions, copy_permissions
 
-from .base import BaseModel
+from .base import BaseModel, DataStatus
 from .entity import Entity, EntityQuerySet
 from .history_manager import HistoryMixin
 from .secret import Secret
@@ -277,24 +277,33 @@ class Data(HistoryMixin, PermissionObject, BaseModel):
             models.Index(name="idx_data_status", fields=["status"]),
             GinIndex(name="idx_data_tags", fields=["tags"]),
             GinIndex(name="idx_data_search", fields=["search"]),
+            models.Index(
+                models.Case(
+                    *[
+                        models.When(status=status, then=models.Value(sort_order))
+                        for sort_order, status in enumerate(DataStatus.sort_order())
+                    ]
+                ),
+                name="idx_data_status_priority",
+            ),
         ]
 
     #: data object is uploading
-    STATUS_UPLOADING = "UP"
+    STATUS_UPLOADING = DataStatus.UPLOADING
     #: data object is being resolved
-    STATUS_RESOLVING = "RE"
+    STATUS_RESOLVING = DataStatus.RESOLVING
     #: data object is waiting
-    STATUS_WAITING = "WT"
+    STATUS_WAITING = DataStatus.WAITING
     #: data object is preparing
-    STATUS_PREPARING = "PP"
+    STATUS_PREPARING = DataStatus.PREPARING
     #: data object is processing
-    STATUS_PROCESSING = "PR"
+    STATUS_PROCESSING = DataStatus.PROCESSING
     #: data object is done
-    STATUS_DONE = "OK"
+    STATUS_DONE = DataStatus.DONE
     #: data object is in error state
-    STATUS_ERROR = "ER"
+    STATUS_ERROR = DataStatus.ERROR
     #: data object is in dirty state
-    STATUS_DIRTY = "DR"
+    STATUS_DIRTY = DataStatus.DIRTY
     # Assumption (in listener): ordered from least to most problematic.
     STATUS_CHOICES = (
         (STATUS_UPLOADING, "Uploading"),

@@ -1,6 +1,7 @@
 """Base model for all Resolwe models."""
 
 import datetime
+from enum import StrEnum
 from typing import TypeVar
 
 from django.conf import settings
@@ -17,6 +18,42 @@ VERSION_NUMBER_BITS = (8, 10, 14)
 MAX_SLUG_RETRIES = 10
 MAX_SLUG_LENGTH = 100
 MAX_NAME_LENGTH = 100
+
+# Data status enum.
+
+
+class DataStatus(StrEnum):
+    """Status of the data object."""
+
+    #: data object is uploading
+    UPLOADING = "UP"
+    #: data object is being resolved
+    RESOLVING = "RE"
+    #: data object is waiting
+    WAITING = "WT"
+    #: data object is preparing
+    PREPARING = "PP"
+    #: data object is processing
+    PROCESSING = "PR"
+    #: data object is done
+    DONE = "OK"
+    #: data object is in error state
+    ERROR = "ER"
+    #: data object is in dirty state
+    DIRTY = "DR"
+
+    @classmethod
+    def sort_order(cls):
+        """Return a priority for sorting data statuses in a collection."""
+        return [
+            cls.ERROR,
+            cls.UPLOADING,
+            cls.PREPARING,
+            cls.WAITING,
+            cls.RESOLVING,
+            cls.DONE,
+        ]
+
 
 M = TypeVar("M", bound=models.Model)
 Q = TypeVar("Q", bound=models.QuerySet)
