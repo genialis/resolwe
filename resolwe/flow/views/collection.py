@@ -6,6 +6,7 @@ from django.db.models.functions import Coalesce
 from drf_spectacular.utils import extend_schema
 from rest_framework import exceptions, mixins, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.permissions import SAFE_METHODS
 from rest_framework.response import Response
 
 from resolwe.flow.filters import CollectionFilter
@@ -91,11 +92,16 @@ class BaseCollectionViewSet(
         "id",
         "modified",
         "name",
+        "status",
     )
     ordering = "id"
 
     def get_queryset(self):
         """Prefetch permissions for current user."""
+        # Only annotate the queryset with status on safe methods. When updating
+        # the annotation interfers with update (as it adds group by statement).
+        if self.request.method in SAFE_METHODS:
+            self.queryset = self.queryset.annotate_status()
         return self.prefetch_current_user_permissions(self.queryset)
 
     def create(self, request, *args, **kwargs):

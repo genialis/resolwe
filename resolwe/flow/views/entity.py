@@ -61,6 +61,7 @@ class EntityViewSet(ObservableMixin, BaseCollectionViewSet):
         )
         .annotate(data_statuses=Subquery(data_status_subquery))
         .annotate(data_count=Subquery(data_count_subquery))
+        .annotate_status()
     )
 
     def order_queryset(self, queryset):

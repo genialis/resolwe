@@ -6,6 +6,16 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Added
+-----
+- Expose ``status`` on ``collection`` and ``entity`` viewset and allow
+  filtering and sorting by it
+
+
 ===================
 42.0.1 - 2024-11-21
 ===================

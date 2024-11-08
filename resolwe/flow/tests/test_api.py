@@ -1417,6 +1417,26 @@ class TestCollectionViewSetCase(TestCollectionViewSetCaseCommonMixin, TestCase):
         )
         self.assertEqual(get_collection(collections, "empty")["status"], None)
 
+        # Filter by status
+        response = self.client.get(self.list_url, {"status": "OK"})
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["name"], "done")
+
+        response = self.client.get(self.list_url, {"status": "ER"})
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["name"], "error")
+
+        response = self.client.get(
+            self.list_url,
+            {"status__in": f"{Data.STATUS_RESOLVING},{Data.STATUS_WAITING}"},
+            format="json",
+        )
+        self.assertEqual(len(response.data), 2)
+        self.assertCountEqual(
+            [response.data[0]["name"], response.data[1]["name"]],
+            ["resolving", "waiting"],
+        )
+
 
 class TestCollectionViewSetCaseDelete(
     TestCollectionViewSetCaseCommonMixin, TransactionTestCase
@@ -1666,17 +1686,21 @@ class EntityViewSetTestCommonMixin:
             "resolwe-api:entity-detail", kwargs={"pk": pk}
         )
 
-    def _create_data(self):
+    def _create_data(self, data_status=None):
         process = Process.objects.create(
             name="Test process",
             contributor=self.contributor,
         )
-
-        return Data.objects.create(
+        data = Data.objects.create(
             name="Test data",
             contributor=self.contributor,
             process=process,
         )
+        if data_status:
+            data.status = data_status
+            data.save()
+
+        return data
 
 
 class EntityViewSetTestTransaction(EntityViewSetTestCommonMixin, TransactionTestCase):
@@ -1764,6 +1788,121 @@ class EntityViewSetTest(EntityViewSetTestCommonMixin, TestCase):
             response = self.entity_list_viewset(request)
             self.assertEqual(len(response.data), 10)
             self.assertIn(len(captured_queries), [7, 8])
+
+    def test_entity_status(self):
+        data_error = self._create_data(Data.STATUS_ERROR)
+        data_uploading = self._create_data(Data.STATUS_UPLOADING)
+        data_processing = self._create_data(Data.STATUS_PROCESSING)
+        data_preparing = self._create_data(Data.STATUS_PREPARING)
+        data_waiting = self._create_data(Data.STATUS_WAITING)
+        data_resolving = self._create_data(Data.STATUS_RESOLVING)
+        data_done = self._create_data(Data.STATUS_DONE)
+
+        entity = Entity.objects.create(contributor=self.contributor, name="error")
+        entity.set_permission(Permission.VIEW, get_anonymous_user())
+        entity.data.add(
+            data_error,
+            data_uploading,
+            data_processing,
+            data_preparing,
+            data_waiting,
+            data_resolving,
+            data_done,
+        )
+
+        entity = Entity.objects.create(contributor=self.contributor, name="uploading")
+        entity.set_permission(Permission.VIEW, get_anonymous_user())
+        entity.data.add(
+            data_uploading,
+            data_processing,
+            data_preparing,
+            data_waiting,
+            data_resolving,
+            data_done,
+        )
+
+        entity = Entity.objects.create(contributor=self.contributor, name="processing")
+        entity.set_permission(Permission.VIEW, get_anonymous_user())
+        entity.data.add(
+            data_processing, data_preparing, data_waiting, data_resolving, data_done
+        )
+
+        entity = Entity.objects.create(contributor=self.contributor, name="preparing")
+        entity.set_permission(Permission.VIEW, get_anonymous_user())
+        entity.data.add(data_preparing, data_waiting, data_resolving, data_done)
+
+        entity = Entity.objects.create(contributor=self.contributor, name="waiting")
+        entity.set_permission(Permission.VIEW, get_anonymous_user())
+        entity.data.add(data_waiting, data_resolving, data_done)
+
+        entity = Entity.objects.create(contributor=self.contributor, name="resolving")
+        entity.set_permission(Permission.VIEW, get_anonymous_user())
+        entity.data.add(data_resolving, data_done)
+
+        entity = Entity.objects.create(contributor=self.contributor, name="done")
+        entity.set_permission(Permission.VIEW, get_anonymous_user())
+        entity.data.add(data_done)
+
+        entity = Entity.objects.create(contributor=self.contributor, name="empty")
+        entity.set_permission(Permission.VIEW, get_anonymous_user())
+        entity.data.add()
+
+        request = factory.get("/", {}, format="json")
+        force_authenticate(request, self.contributor)
+        entities = self.entity_list_viewset(request).data
+
+        # entities = self.client.get(self.list_url).data
+
+        get_entity = lambda collections, name: next(
+            x for x in collections if x["name"] == name
+        )
+        self.assertEqual(get_entity(entities, "error")["status"], Data.STATUS_ERROR)
+        self.assertEqual(
+            get_entity(entities, "uploading")["status"], Data.STATUS_UPLOADING
+        )
+        self.assertEqual(
+            get_entity(entities, "processing")["status"], Data.STATUS_PROCESSING
+        )
+        self.assertEqual(
+            get_entity(entities, "preparing")["status"], Data.STATUS_PREPARING
+        )
+        self.assertEqual(get_entity(entities, "waiting")["status"], Data.STATUS_WAITING)
+        self.assertEqual(
+            get_entity(entities, "resolving")["status"], Data.STATUS_RESOLVING
+        )
+        self.assertEqual(get_entity(entities, "done")["status"], Data.STATUS_DONE)
+        self.assertEqual(get_entity(entities, "empty")["status"], None)
+
+        # Filter by status
+        request = factory.get(
+            "/", {"status": "OK", "collection__isnull": True}, format="json"
+        )
+        force_authenticate(request, self.contributor)
+        response = self.entity_list_viewset(request)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["name"], "done")
+
+        request = factory.get(
+            "/", {"status": "ER", "collection__isnull": True}, format="json"
+        )
+        response = self.entity_list_viewset(request)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["name"], "error")
+
+        request = factory.get(
+            "/",
+            {
+                "status__in": f"{Data.STATUS_RESOLVING},{Data.STATUS_WAITING}",
+                "collection__isnull": True,
+            },
+            format="json",
+        )
+        response = self.entity_list_viewset(request)
+        self.assertEqual(len(response.data), 2)
+        self.assertCountEqual(
+            [response.data[0]["name"], response.data[1]["name"]],
+            ["resolving", "waiting"],
+        )
 
     def test_list_filter_collection(self):
         request = factory.get("/", {}, format="json")

@@ -286,6 +286,10 @@ class DescriptorSchemaFilter(BaseResolweFilter):
         model = DescriptorSchema
 
 
+class CharInFilter(filters.BaseInFilter, filters.CharFilter):
+    """Basic filter for CharField with 'in' lookup."""
+
+
 class BaseCollectionFilter(TextFilterMixin, UserFilterMixin, BaseResolweFilter):
     """Base filter for Collection and Entity endpoints."""
 
@@ -299,6 +303,8 @@ class BaseCollectionFilter(TextFilterMixin, UserFilterMixin, BaseResolweFilter):
     permission = filters.CharFilter(method="filter_for_user")
     tags = TagsFilter()
     text = filters.CharFilter(field_name="search", method="filter_text")
+    status = filters.CharFilter(field_name="status")
+    status__in = CharInFilter(field_name="status", lookup_expr="in")
 
     class Meta(BaseResolweFilter.Meta):
         """Filter configuration."""
