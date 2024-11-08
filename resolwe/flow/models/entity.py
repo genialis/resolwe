@@ -16,11 +16,11 @@ from resolwe.observers.utils import start_background_task
 from resolwe.permissions.models import PermissionObject
 
 from .base import BaseModel
-from .collection import BaseCollection, Collection
+from .collection import BaseCollection, BaseCollectionQuerySet, Collection
 from .utils import DirtyError, validate_schema
 
 
-class EntityQuerySet(BaseQuerySet):
+class EntityQuerySet(BaseCollectionQuerySet):
     """Query set for ``Entity`` objects."""
 
     def duplicate(self, request_user) -> BackgroundTask:

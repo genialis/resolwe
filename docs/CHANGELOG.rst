@@ -51,6 +51,7 @@ Added
 - Add ``contributor`` field to the ``AnnotationValue`` model
 - Add version of base managers without versioning support
 - Add abstract base classes for annotation fields
+- Add ``annotate_status`` to collection and entity queryset
 
 Fixed
 -----

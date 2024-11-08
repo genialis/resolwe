@@ -1,6 +1,7 @@
 """Resolwe collection model."""
 
 from django.contrib.contenttypes.models import ContentType
+from django.contrib.postgres.aggregates import ArrayAgg
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.postgres.indexes import GinIndex
 from django.contrib.postgres.search import SearchVectorField
@@ -13,7 +14,7 @@ from resolwe.observers.utils import start_background_task
 from resolwe.permissions.models import PermissionObject
 
 from .annotations import AnnotationField
-from .base import BaseModel
+from .base import BaseModel, DataStatus
 from .history_manager import HistoryMixin
 from .utils import DirtyError, validate_schema
 
@@ -38,7 +39,24 @@ class BaseCollection(BaseModel):
     search = SearchVectorField(null=True)
 
 
-class CollectionQuerySet(BaseQuerySet):
+class BaseCollectionQuerySet(BaseQuerySet):
+    """A base queryset used by both collection and entity."""
+
+    def annotate_status(self):
+        """Annotate the queryset with status of the collections."""
+
+        priority_order = models.Case(
+            *[
+                models.When(data__status=status, then=models.Value(sort_order))
+                for sort_order, status in enumerate(DataStatus.sort_order())
+            ]
+        )
+        return self.annotate(
+            statuses=ArrayAgg(models.F("data__status"), ordering=priority_order.asc())
+        ).annotate(status=models.F("statuses__0"))
+
+
+class CollectionQuerySet(BaseCollectionQuerySet):
     """Query set for ``Collection`` objects."""
 
     def duplicate(self, request_user) -> BackgroundTask:
