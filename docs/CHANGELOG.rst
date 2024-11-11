@@ -29,6 +29,10 @@ Added
 - Add version of base managers without versioning support
 - Add abstract base classes for annotation fields
 
+Fixed
+-----
+- Use ``all_objects`` manager in related lookups in viewsets
+
 
 ===================
 40.4.0 - 2024-10-14

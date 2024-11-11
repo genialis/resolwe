@@ -223,6 +223,49 @@ class CollectionViewSetFiltersTest(BaseViewSetFiltersTest):
         )
         self._check_filter({"descriptor_schema": "999999"}, [])
 
+    def test_mixed_descriptor_schema_version(self):
+        """Test processes with mixed descriptor schema versions are shown.
+
+        When multiple data objects with different versions of the descriptor schema
+        with same slug are in the filter result both process versions must be returned.
+        """
+        descriptor_schema = DescriptorSchema.objects.create(
+            slug="test-schema",
+            version="1.4.2",
+            contributor=self.contributor,
+            schema=[
+                {
+                    "name": "company",
+                    "group": [
+                        {
+                            "name": "name",
+                            "type": "basic:string:",
+                            "required": False,
+                        },
+                        {
+                            "name": "departments",
+                            "type": "list:basic:string:",
+                            "required": False,
+                        },
+                    ],
+                }
+            ],
+        )
+        Collection.objects.create(
+            contributor=self.contributor, descriptor_schema=descriptor_schema
+        ),
+        request = factory.get("/", {}, format="json")
+        force_authenticate(request, self.admin)
+        response = self.viewset(request)
+        self.assertSetEqual(
+            {"1.0.0", "1.4.2"},
+            {
+                entry["descriptor_schema"]["version"]
+                for entry in response.data
+                if entry["descriptor_schema"] is not None
+            },
+        )
+
     def test_filter_tags(self):
         self._check_filter({"tags": "first-tag"}, self.collections[:2])
         self._check_filter({"tags": "first-tag,second-tag"}, [self.collections[1]])
@@ -1031,6 +1074,71 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter(
             {"collection__isnull": True},
             self.data[2:],
+        )
+
+    def test_mixed_process_version(self):
+        """Test processes with mixed versions are shown.
+
+        When multiple data objects with different versions of the process with same
+        slug are in the filter result both process versions must be returned.
+        """
+        # Create data object with never version of the test-process-1 process.
+        process = Process.objects.create(
+            slug="test-process-1", version="2.0.0", contributor=self.contributor
+        )
+        Data.objects.create(
+            contributor=self.contributor, collection=self.collection1, process=process
+        ),
+        request = factory.get("/", {"collection": self.collection1.pk}, format="json")
+        force_authenticate(request, self.admin)
+        response = self.viewset(request)
+        self.assertEqual(len(response.data), 2)
+        self.assertCountEqual(
+            ["1.0.0", "2.0.0"],
+            [entry["process"]["version"] for entry in response.data],
+        )
+
+    def test_mixed_descriptor_schema_version(self):
+        """Test processes with mixed descriptor schema versions are shown.
+
+        When multiple data objects with different versions of the descriptor schema
+        with same slug are in the filter result both process versions must be returned.
+        """
+        descriptor_schema = DescriptorSchema.objects.create(
+            slug="test-schema",
+            version="2.0.0",
+            contributor=self.contributor,
+            schema=[
+                {
+                    "name": "company",
+                    "group": [
+                        {
+                            "name": "name",
+                            "type": "basic:string:",
+                            "required": False,
+                        },
+                        {
+                            "name": "departments",
+                            "type": "list:basic:string:",
+                            "required": False,
+                        },
+                    ],
+                }
+            ],
+        )
+        Data.objects.create(
+            contributor=self.contributor,
+            collection=self.collection1,
+            process=self.proc1,
+            descriptor_schema=descriptor_schema,
+        ),
+        request = factory.get("/", {"collection": self.collection1.pk}, format="json")
+        force_authenticate(request, self.admin)
+        response = self.viewset(request)
+        self.assertEqual(len(response.data), 2)
+        self.assertCountEqual(
+            ["1.0.0", "2.0.0"],
+            [entry["descriptor_schema"]["version"] for entry in response.data],
         )
 
     def test_filter_collection_name(self):

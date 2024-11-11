@@ -69,7 +69,7 @@ class BaseCollectionViewSet(
         .values("count")
     )
 
-    qs_descriptor_schema = DescriptorSchema.objects.select_related("contributor")
+    qs_descriptor_schema = DescriptorSchema.all_objects.select_related("contributor")
 
     queryset = (
         Collection.objects.select_related("contributor")

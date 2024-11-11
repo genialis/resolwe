@@ -76,8 +76,8 @@ class DataViewSet(
     """API view for :class:`Data` objects."""
 
     qs_permission_model = PermissionModel.objects.select_related("user", "group")
-    qs_descriptor_schema = DescriptorSchema.objects.select_related("contributor")
-    qs_process = Process.objects.select_related("contributor")
+    qs_descriptor_schema = DescriptorSchema.all_objects.select_related("contributor")
+    qs_process = Process.all_objects.select_related("contributor")
     queryset = Data.objects.select_related("contributor").prefetch_related(
         Prefetch("collection", queryset=BaseCollectionViewSet.queryset),
         Prefetch("descriptor_schema", queryset=qs_descriptor_schema),
