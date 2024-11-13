@@ -32,6 +32,7 @@ Added
 Fixed
 -----
 - Use ``all_objects`` manager in related lookups in viewsets
+- Veriy change when moving data to another ``entity``
 
 
 ===================

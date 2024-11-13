@@ -802,20 +802,22 @@ class TestDataViewSetCase(TestDataViewSetCaseMixin, TestCase):
         self.assertEqual(data.entity.id, entity.id)
         self.assertEqual(entity.collection.id, self.collection.id)
 
-        # Assign entity to None
-        data.entity = None
-        data.save()
-        request = factory.patch("/", {"collection": {"id": None}}, format="json")
+        # Assign to new entity without collection.
+        new_entity = Entity.objects.create(
+            contributor=self.contributor, name="My entity"
+        )
+        new_entity.set_permission(Permission.EDIT, self.contributor)
+        request = factory.patch("/", {"entity": {"id": new_entity.id}}, format="json")
         force_authenticate(request, self.contributor)
         response = self.data_detail_viewset(request, pk=data.pk)
-
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(
-            response.data["collection"][0],
-            "Data object can not be removed from the container.",
+        self.assertContains(
+            response,
+            "Entity must belong to the same collection as data object.",
+            status_code=status.HTTP_400_BAD_REQUEST,
         )
 
-    def test_change_collection(self):
+    def test_change_container(self):
         # Create data object. Note that an entity is created as well.
         data = Data.objects.create(
             name="Test data",
@@ -829,15 +831,15 @@ class TestDataViewSetCase(TestDataViewSetCaseMixin, TestCase):
         )
         force_authenticate(request, self.contributor)
         response = self.data_detail_viewset(request, pk=data.pk)
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(
-            response.data["collection"][0],
-            "If Data is in entity, you can only move it to another collection by moving entire entity.",
+        self.assertContains(
+            response,
+            "Entity must belong to the same collection as data object.",
+            status_code=status.HTTP_400_BAD_REQUEST,
         )
 
         entity = data.entity
 
-        # Data can not be moved from collection.
+        # Data can not be removed from container.
         with self.assertRaises(ValidationError):
             data.move_to_entity(None)
 
@@ -849,6 +851,7 @@ class TestDataViewSetCase(TestDataViewSetCaseMixin, TestCase):
         )
         force_authenticate(request, self.contributor)
         response = self.data_detail_viewset(request, pk=data.pk)
+
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data.refresh_from_db()
         self.assertEqual(data.collection, self.collection)
@@ -879,6 +882,89 @@ class TestDataViewSetCase(TestDataViewSetCaseMixin, TestCase):
 
         data.refresh_from_db()
         self.assertEqual(data.tags, collection.tags)
+        self.assertEqual(data.entity, None)
+
+        # Move it in the entity in the same collection.
+        entity = Entity.objects.create(
+            contributor=self.contributor, collection=collection
+        )
+        request = factory.patch("/", {"entity": {"id": entity.pk}}, format="json")
+        force_authenticate(request, self.contributor)
+        response = self.data_detail_viewset(request, pk=data.pk)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data.refresh_from_db()
+        self.assertEqual(data.tags, collection.tags)
+        self.assertEqual(data.entity, entity)
+
+        # Move it in another entity in the same collection.
+        another_entity = Entity.objects.create(
+            contributor=self.contributor, collection=collection
+        )
+        request = factory.patch(
+            "/", {"entity": {"id": another_entity.pk}}, format="json"
+        )
+        force_authenticate(request, self.contributor)
+        response = self.data_detail_viewset(request, pk=data.pk)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data.refresh_from_db()
+        self.assertEqual(data.tags, collection.tags)
+        self.assertEqual(data.entity, another_entity)
+
+        # Move it to entity in another collection.
+        another_collection = Collection.objects.create(contributor=self.contributor)
+        entity.move_to_collection(another_collection)
+        another_collection.set_permission(Permission.EDIT, self.contributor)
+        entity.save()
+        entity.collection.set_permission
+        request = factory.patch("/", {"entity": {"id": entity.pk}}, format="json")
+        force_authenticate(request, self.contributor)
+        response = self.data_detail_viewset(request, pk=data.pk)
+        self.assertContains(
+            response,
+            "Entity must belong to the same collection as data object.",
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+        # Try to remove it from the entity.
+        request = factory.patch("/", {"entity": None}, format="json")
+        force_authenticate(request, self.contributor)
+        response = self.data_detail_viewset(request, pk=data.pk)
+        self.assertContains(
+            response,
+            "Data object can not be removed from the container.",
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+        # Try to remove it from the collection.
+        request = factory.patch("/", {"collection": None}, format="json")
+        force_authenticate(request, self.contributor)
+        response = self.data_detail_viewset(request, pk=data.pk)
+        self.assertContains(
+            response,
+            "Data object can not be removed from the container.",
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+        # Move it to another collection and entity.
+        collection = Collection.objects.create(
+            contributor=self.contributor, tags=["test"]
+        )
+        entity = Entity.objects.create(
+            contributor=self.contributor, collection=collection
+        )
+        collection.set_permission(Permission.EDIT, self.contributor)
+        request = factory.patch(
+            "/",
+            {"entity": {"id": entity.pk}, "collection": {"id": collection.pk}},
+            format="json",
+        )
+        force_authenticate(request, self.contributor)
+        response = self.data_detail_viewset(request, pk=data.pk)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data.refresh_from_db()
+        self.assertEqual(data.tags, collection.tags)
+        self.assertEqual(data.entity, entity)
+        self.assertEqual(data.collection, collection)
 
     def test_process_is_active(self):
         # Do not allow creating data of inactive processes.

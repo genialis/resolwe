@@ -99,18 +99,28 @@ class DataSerializer(ResolweBaseSerializer):
             )
         return process
 
-    def validate_collection(self, collection):
-        """Verify that changing collection is done in the right place."""
-        if self.instance and self.instance.collection != collection:
-            self.instance.validate_change_collection(collection)
-        return collection
+    def validate(self, validated_data):
+        """Validate collection change."""
+        entity = validated_data.get("entity") or getattr(self.instance, "entity", None)
+        collection = validated_data.get("collection") or getattr(
+            self.instance, "collection", None
+        )
+        Data.validate_change_containers(self.instance, entity, collection)
+        return super().validate(validated_data)
 
     @transaction.atomic
     def update(self, instance, validated_data):
-        """Update."""
-        update_collection = "collection" in validated_data
-        new_collection = validated_data.pop("collection", None)
+        """Update the data object."""
+        container_change = False
+        entity = instance.entity
+        collection = instance.collection
+        if "collection" in validated_data:
+            container_change = True
+            collection = validated_data.pop("collection", None)
+        if "entity" in validated_data:
+            container_change = True
+            entity = validated_data.pop("entity", None)
         instance = super().update(instance, validated_data)
-        if update_collection and new_collection != instance.collection:
-            instance.move_to_collection(new_collection)
+        if container_change:
+            instance.move_to_containers(entity, collection)
         return instance
