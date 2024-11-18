@@ -485,8 +485,12 @@ class ProcessingManager:
         :raises RuntimeError: in case of failure.
         """
         try:
+            loop = asyncio.get_event_loop()
             await asyncio.wait(
-                [self.protocol_handler.script_started.wait(), self._terminating.wait()],
+                [
+                    loop.create_task(self.protocol_handler.script_started.wait()),
+                    loop.create_task(self._terminating.wait()),
+                ],
                 timeout=SCRIPT_START_TIMEOUT,
                 return_when=asyncio.FIRST_COMPLETED,
             )
@@ -499,10 +503,10 @@ class ProcessingManager:
                 )
             else:
                 monitored_tasks = (
-                    self.script_server.wait_closed(),
+                    loop.create_task(self.script_server.wait_closed()),
                     self.upload_handler.upload_task,
                     self.communicator_task,
-                    self._terminating.wait(),
+                    loop.create_task(self._terminating.wait()),
                 )
                 # Stop processing when any of the following tasks complete.
                 await asyncio.wait(monitored_tasks, return_when=asyncio.FIRST_COMPLETED)
