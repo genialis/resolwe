@@ -458,7 +458,9 @@ class AnnotationValueManager(BaseManager["AnnotationValue", PermissionQuerySet])
         """Return the latest version for every value."""
         queryset = super().get_queryset()
         # The old value is deleted so make sure it is never returned.
-        return queryset.filter(pk__in=queryset).exclude(_value__isnull=True)
+        return queryset.filter(
+            pk__in=list(queryset.values_list("pk", flat=True))
+        ).exclude(_value__isnull=True)
 
 
 def _slug_for_annotation_value(instance: "AnnotationValue") -> str:
