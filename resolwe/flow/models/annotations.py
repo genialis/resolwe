@@ -2,6 +2,7 @@
 
 import abc
 import datetime
+import logging
 import re
 from collections import defaultdict
 from enum import Enum
@@ -37,6 +38,8 @@ if TYPE_CHECKING:
     from resolwe.flow.models import Collection, Entity
 
 from .base import VERSION_NUMBER_BITS, AuditModel
+
+logger = logging.getLogger(__name__)
 
 VALIDATOR_LENGTH = 128
 NAME_LENGTH = 128
@@ -458,9 +461,15 @@ class AnnotationValueManager(BaseManager["AnnotationValue", PermissionQuerySet])
         """Return the latest version for every value."""
         queryset = super().get_queryset()
         # The old value is deleted so make sure it is never returned.
-        return queryset.filter(
-            pk__in=list(queryset.values_list("pk", flat=True))
-        ).exclude(_value__isnull=True)
+        ids = queryset.values_list("pk", flat=True)
+        # The evaluation of the queryset fails during migrations.
+        try:
+            ids = list(ids)
+        except Exception:
+            logger.error(
+                "Failed to evaluate annotation value subquery, using nested subquery."
+            )
+        return queryset.filter(pk__in=ids).exclude(_value__isnull=True)
 
 
 def _slug_for_annotation_value(instance: "AnnotationValue") -> str:
