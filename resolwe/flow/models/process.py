@@ -10,7 +10,7 @@ from django.db import models
 
 from resolwe.permissions.models import PermissionObject
 
-from .base import BaseModel
+from .base import BaseManagerWithoutVersion, BaseModel
 from .data import Data
 
 
@@ -55,6 +55,9 @@ class Process(BaseModel, PermissionObject):
         (SCHEDULING_CLASS_INTERACTIVE, "Interactive"),
         (SCHEDULING_CLASS_BATCH, "Batch"),
     )
+
+    #: unversioned object manager
+    unversioned_objects = BaseManagerWithoutVersion()
 
     #: data type
     type = models.CharField(

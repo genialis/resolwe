@@ -1426,6 +1426,16 @@ class ProcessViewSetFiltersTest(BaseViewSetFiltersTest):
         self._check_filter({"type": "data:alignment:bam"}, [self.proc_1])
         self._check_filter({"type": "data:expression"}, [self.proc_2])
 
+    def test_return_all_versions(self):
+        new_version = Process.objects.create(
+            contributor=self.contributor,
+            type="data:expression:",
+            category="analyses:",
+            scheduling_class="IN",
+            version="3.0.0",
+        )
+        self._check_filter({"type": "data:expression"}, [self.proc_2, new_version])
+
     def test_scheduling_class(self):
         self._check_filter({"scheduling_class": "BA"}, [self.proc_1])
         self._check_filter({"scheduling_class": "IN"}, [self.proc_2])

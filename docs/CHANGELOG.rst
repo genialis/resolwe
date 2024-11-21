@@ -6,6 +6,16 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Changed
+-------
+- **BACKWARD INCOMPATIBLE:** Return all version of processess on process
+  endpoint
+
+
 ===================
 41.0.0 - 2024-11-18
 ===================
