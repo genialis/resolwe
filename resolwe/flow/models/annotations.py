@@ -454,11 +454,14 @@ class AnnotationValueManager(BaseManager["AnnotationValue", PermissionQuerySet])
     version_field = "created"
     QuerySet = PermissionQuerySet
 
-    def get_queryset(self) -> PermissionQuerySet:
-        """Return the latest version for every value."""
-        queryset = super().get_queryset()
-        # The old value is deleted so make sure it is never returned.
-        return queryset.filter(pk__in=queryset).exclude(_value__isnull=True)
+    def remove_delete_markers(self) -> PermissionQuerySet:
+        """Remote delete markers from the queryset.
+
+        Due to the nature of the queryset use the method only on small querysets.
+        """
+        return self.filter(pk__in=list(self.values_list("pk", flat=True))).exclude(
+            _value__isnull=True
+        )
 
 
 def _slug_for_annotation_value(instance: "AnnotationValue") -> str:

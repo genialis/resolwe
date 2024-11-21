@@ -133,6 +133,15 @@ class PermissionQuerySet(models.QuerySet[MP]):
                 f"Permissions are not supported on model `{self.model._meta.label}`."
             )
 
+    def remove_delete_markers(self) -> "PermissionQuerySet":
+        """Remote delete markers from the queryset.
+
+        Due to the nature of the queryset use the method only on small querysets.
+        """
+        return self.filter(pk__in=list(self.values_list("pk", flat=True))).exclude(
+            _value__isnull=True
+        )
+
     def _filter_by_permission(
         self,
         user: Optional[User],

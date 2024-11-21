@@ -10,6 +10,10 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Fixed
+-----
+- Filter out deleted annotation values in viewset
+
 Changed
 -------
 - **BACKWARD INCOMPATIBLE:** Return all version of processess on process

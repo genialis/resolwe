@@ -78,6 +78,15 @@ class AnnotationValueViewSet(
     permission_classes = (get_permissions_class(),)
     ordering_fields = ("created", "id")
 
+    def list(self, request, *args, **kwargs):
+        """List objects."""
+        queryset = self.filter_queryset(self.get_queryset())
+        # Remove the delete markers from the result.
+        serializer = self.get_serializer(
+            (entry for entry in queryset if entry.value is not None), many=True
+        )
+        return response.Response(serializer.data)
+
     def get_serializer(self, *args: Any, **kwargs: Any) -> BaseSerializer:
         """Get serializer instance depending on the request type."""
         kwargs_many = kwargs.get("many", False)
