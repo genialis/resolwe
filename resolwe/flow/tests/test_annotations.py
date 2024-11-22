@@ -40,21 +40,38 @@ class AnnotationValueTest(TestCase):
     def setUp(self):
         """Prepare the test entity and annotation values."""
         super().setUp()
-        entity: Entity = Entity.objects.create(
+        self.entity: Entity = Entity.objects.create(
             name="Entity", contributor=self.contributor
         )
         annotation_group: AnnotationGroup = AnnotationGroup.objects.create(
             name="group", label="Annotation group", sort_order=1
         )
         self.field = AnnotationField.objects.create(
-            name="Field 1",
+            name="field_1",
             label="Field 1 label",
             type=AnnotationType.STRING.value,
             sort_order=1,
             group=annotation_group,
         )
         self.value = AnnotationValue.objects.create(
-            entity=entity, field=self.field, value="Test", contributor=self.contributor
+            entity=self.entity,
+            field=self.field,
+            value="Test",
+            contributor=self.contributor,
+        )
+
+    def test_get_annotation(self):
+        self.assertEqual(self.entity.get_annotation("group.field_1"), "Test")
+        # Create delete marker and test again.
+        AnnotationValue.objects.create(
+            entity=self.entity,
+            field=self.field,
+            _value=None,
+            contributor=self.contributor,
+        )
+        self.assertIsNone(self.entity.get_annotation("group.field_1"))
+        self.assertEqual(
+            self.entity.get_annotation("group.field_1", "default"), "default"
         )
 
     def test_protected(self):

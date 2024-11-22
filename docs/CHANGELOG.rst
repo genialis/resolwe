@@ -6,6 +6,15 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Fixed
+-----
+- Fix crash in ``get_annotation`` when delete marker is set
+
+
 ===================
 42.0.0 - 2024-11-21
 ===================
