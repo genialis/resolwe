@@ -98,7 +98,7 @@ jobs:
           password: ${{ secrets.pypi_password }}
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           file: .coverage
           token: ${{ secrets.CODECOV_TOKEN }}
