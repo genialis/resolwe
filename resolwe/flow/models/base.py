@@ -19,7 +19,12 @@ MAX_SLUG_RETRIES = 10
 MAX_SLUG_LENGTH = 100
 MAX_NAME_LENGTH = 100
 
-# Data status enum.
+
+class Tester:
+    """My new class."""
+
+    def __init__(self):
+        "Initialize the class."
 
 
 class DataStatus(StrEnum):
