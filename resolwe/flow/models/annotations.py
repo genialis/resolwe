@@ -517,9 +517,9 @@ class AbstractAnnotationValue(BaseModel):
         return self._value is None
 
     @property
-    def value(self) -> str | int | float | datetime.date:
-        """Get the actual value."""
-        return self._value["value"]
+    def value(self) -> Optional[str | int | float | datetime.date]:
+        """Get the actual value or None if object is delete marker."""
+        return None if self.delete_marker else self._value["value"]
 
     @value.setter
     def value(self, value: str | int | float | datetime.date):

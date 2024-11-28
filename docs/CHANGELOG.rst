@@ -14,9 +14,14 @@ Added
 -----
 - Expose ``status`` on ``collection`` and ``entity`` viewset and allow
   filtering and sorting by it
+
 Changed
 -------
 - Make processing container startup script ``Python`` 3.12 compatible
+
+Fixed
+-----
+- Fix ``AnnotationValueViewSet`` crash when removing the delete markers
 
 
 ===================
