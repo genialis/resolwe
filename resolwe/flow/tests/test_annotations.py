@@ -1270,6 +1270,20 @@ class AnnotationViewSetsTest(TestCase):
         self.assertTrue(response.data[0]["value"], "string")
         self.assertTrue(response.data[0]["label"], "label string")
 
+        # Test delete markers are handled properly.
+        delete_marker = AnnotationValue.objects.create(
+            entity=self.annotation_value1.entity,
+            field=self.annotation_value1.field,
+            _value=None,
+            contributor=self.annotation_value1.contributor,
+        )
+        request = factory.get("/", {"entity": self.entity1.pk}, format="json")
+        force_authenticate(request, self.contributor)
+        response = self.annotationvalue_viewset(request)
+        self.assertTrue(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 0)
+        delete_marker.delete()
+
         # Another authenticated request.
         self.annotation_value2.entity = self.entity1
         self.annotation_value2.save()

@@ -6,6 +6,15 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Fixed
+-----
+- Fix ``AnnotationValueViewSet`` crash when removing the delete markers
+
+
 ===================
 42.0.1 - 2024-11-21
 ===================
