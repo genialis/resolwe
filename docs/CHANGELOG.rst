@@ -6,9 +6,9 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+===================
+42.0.2 - 2024-12-02
+===================
 
 Fixed
 -----
