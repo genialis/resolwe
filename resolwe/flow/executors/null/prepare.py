@@ -8,7 +8,7 @@ at runtime, properly subclass
 method.
 """
 
-from resolwe.flow.models import Worker
+from resolwe.flow.models import Data, Worker
 
 from ..prepare import BaseFlowExecutorPreparer  # noqa: F401
 
@@ -19,7 +19,9 @@ class FlowExecutorPreparer(BaseFlowExecutorPreparer):
     def prepare_for_execution(self, data):
         """Prepare the data object for the execution.
 
-        Mark worker object as done.
+        Mark data and its worker object as completed.
         """
+        data.status = Data.STATUS_DONE
         data.worker.status = Worker.STATUS_COMPLETED
-        data.worker.save()
+        data.worker.save(update_fields=["status"])
+        data.save(update_fields=["status"])

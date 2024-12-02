@@ -18,6 +18,7 @@ Added
 Changed
 -------
 - Make processing container startup script ``Python`` 3.12 compatible
+- Fix stop null executor processing in the preparation phase
 
 Fixed
 -----
