@@ -21,6 +21,14 @@ Changed
 
 Fixed
 -----
+
+
+==================
+42.0.2 - 2024-12-02
+===================
+
+Fixed
+-----
 - Fix ``AnnotationValueViewSet`` crash when removing the delete markers
 
 
