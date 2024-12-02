@@ -14,6 +14,7 @@ Added
 -----
 - Expose ``status`` on ``collection`` and ``entity`` viewset and allow
   filtering and sorting by it
+- Add generic filtering by related objects which respects permissions
 
 Changed
 -------
