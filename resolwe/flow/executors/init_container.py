@@ -56,6 +56,9 @@ MOUNTED_CONNECTORS = [
 DOWNLOAD_WAITING_TIMEOUT = 60  # in seconds
 RETRIES = 5
 
+# Max threads to use for data download.
+MAX_DOWNLOAD_THREADS = int(os.environ.get("GENESIS_MAX_DOWNLOAD_THREADS", 3))
+
 # Configure container logger. All logs are output to stdout for further
 # processing.
 # The log level defaults to debug except for boto and google loggers, which
@@ -112,8 +115,8 @@ async def transfer_inputs(communicator: BaseCommunicator, missing_data: dict):
 
     try:
         for connector_name in objects_to_transfer:
-            min_threads = 5
-            max_threads = 20
+            min_threads = 1
+            max_threads = MAX_DOWNLOAD_THREADS
             # Use from min_threads to max_threads threads. Assume each thread
             # can handle at least 100 files in reasonable time.
             files_count = len(objects_to_transfer[connector_name])

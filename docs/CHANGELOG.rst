@@ -14,6 +14,7 @@ Changed
 -------
 - Catch ``EndpointConnectionError`` in retry decorator
 - Implement exponential backoff in retry decorator
+- Reduce the maximal number of threads for downolad data in the init container
 
 
 ===================
