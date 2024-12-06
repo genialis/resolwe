@@ -332,14 +332,14 @@ class FlowExecutor(LocalFlowExecutor):
                 "image",
                 SETTINGS.get(
                     "FLOW_DOCKER_DEFAULT_PROCESSING_CONTAINER_IMAGE",
-                    "public.ecr.aws/s4q6j6e8/resolwe/base:ubuntu-20.04",
+                    "public.ecr.aws/genialis/resolwe/base:ubuntu-20.04",
                 ),
             )
         )
         communicator_image = self._map_docker_image(
             SETTINGS.get(
                 "FLOW_DOCKER_COMMUNICATOR_IMAGE",
-                "public.ecr.aws/s4q6j6e8/resolwe/com:latest",
+                "public.ecr.aws/genialis/resolwe/com:latest",
             )
         )
         ulimits = []
