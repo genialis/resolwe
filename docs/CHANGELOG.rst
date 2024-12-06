@@ -22,6 +22,7 @@ Changed
 - Fix stop null executor processing in the preparation phase
 - Reduce the maximal number of threads for downolad data in the init container
 - Respect image mapper in ``list_docker_images`` management command
+- Use image mapper in docker executor
 
 Fixed
 -----
