@@ -60,7 +60,7 @@ class PythonProcess(Process):
         "expression-engine": "jinja",
         "executor": {
             "docker": {
-                "image": "public.ecr.aws/s4q6j6e8/resolwe/base:ubuntu-20.04",
+                "image": "public.ecr.aws/genialis/resolwe/base:ubuntu-20.04",
             }
         },
     }
