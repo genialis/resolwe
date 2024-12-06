@@ -300,6 +300,17 @@ class FlowExecutor(LocalFlowExecutor):
         ]
         return dict([self._new_volume(*mount_point) for mount_point in mount_points])
 
+    def _map_docker_image(self, docker_image: str) -> str:
+        """Transform the given Docker image according to the mapper.
+
+        If image starts with the prefix in the mapper keys, it is replaced with the
+        corresponding value. If no prefix matches, the image is returned unchanged.
+        """
+        for prefix, replacement in SETTINGS.get("FLOW_CONTAINER_IMAGE_MAP", {}).items():
+            if docker_image.startswith(prefix):
+                return replacement + docker_image[len(prefix) :]
+        return docker_image
+
     async def start(self):
         """Start process execution."""
         memory = (
@@ -316,16 +327,20 @@ class FlowExecutor(LocalFlowExecutor):
         else:
             network_mode = "none"
 
-        processing_image = self.requirements.get(
-            "image",
-            SETTINGS.get(
-                "FLOW_DOCKER_DEFAULT_PROCESSING_CONTAINER_IMAGE",
-                "public.ecr.aws/s4q6j6e8/resolwe/base:ubuntu-20.04",
-            ),
+        processing_image = self._map_docker_image(
+            self.requirements.get(
+                "image",
+                SETTINGS.get(
+                    "FLOW_DOCKER_DEFAULT_PROCESSING_CONTAINER_IMAGE",
+                    "public.ecr.aws/s4q6j6e8/resolwe/base:ubuntu-20.04",
+                ),
+            )
         )
-        communicator_image = SETTINGS.get(
-            "FLOW_DOCKER_COMMUNICATOR_IMAGE",
-            "public.ecr.aws/s4q6j6e8/resolwe/com:latest",
+        communicator_image = self._map_docker_image(
+            SETTINGS.get(
+                "FLOW_DOCKER_COMMUNICATOR_IMAGE",
+                "public.ecr.aws/s4q6j6e8/resolwe/com:latest",
+            )
         )
         ulimits = []
         if (
