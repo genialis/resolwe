@@ -255,10 +255,10 @@ FLOW_EXECUTOR = {
 
 FLOW_DOCKER_AUTOREMOVE = False
 FLOW_DOCKER_COMMUNICATOR_IMAGE = os.environ.get(
-    "RESOLWE_COMMUNICATOR_IMAGE", "public.ecr.aws/s4q6j6e8/resolwe/com:latest"
+    "RESOLWE_COMMUNICATOR_IMAGE", "public.ecr.aws/genialis/resolwe/com:latest"
 )
 FLOW_DOCKER_DEFAULT_PROCESSING_CONTAINER_IMAGE = (
-    "public.ecr.aws/s4q6j6e8/resolwe/base:ubuntu-20.04"
+    "public.ecr.aws/genialis/resolwe/base:ubuntu-20.04"
 )
 
 REST_FRAMEWORK = {

@@ -392,7 +392,7 @@
   requirements:
     executor:
       docker:
-        image: public.ecr.aws/s4q6j6e8/resolwe/test:requirements-docker
+        image: public.ecr.aws/genialis/resolwe/test:requirements-docker
   output:
     - name: result
       label: Result
