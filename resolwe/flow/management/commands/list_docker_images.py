@@ -56,6 +56,22 @@ class Command(BaseCommand):
             help="Don't fail whenever a Docker image can't be pulled",
         )
 
+    def _map_image(self, docker_image: str, maper: dict[str, str]) -> str:
+        """Transform the given Docker image according to the mapper.
+
+        If image starts with the prefix in the mapper keys, it is replaced with the
+        corresponding value. If no prefix matches, the image is returned unchanged.
+        """
+        for prefix, replacement in maper.items():
+            if docker_image.startswith(prefix):
+                return replacement + docker_image[len(prefix) :]
+        return docker_image
+
+    def _map_images(self, docker_images: set[str]) -> set[str]:
+        """Map the docker images in the given set according to the settings."""
+        mapper = getattr(settings, "FLOW_DOCKER_IMAGE_MAPPER", {})
+        return {self._map_image(image, mapper) for image in docker_images}
+
     def handle(self, *args, **options):
         """Handle command list_docker_images."""
         verbosity = int(options.get("verbosity"))
@@ -82,6 +98,9 @@ class Command(BaseCommand):
                 "public.ecr.aws/s4q6j6e8/resolwe/base:ubuntu-20.04",
             )
         )
+
+        # Map the Docker images according to the settings.
+        unique_docker_images = self._map_images(unique_docker_images)
 
         # Pull images if requested or just output the list in specified format
         if options["pull"]:
