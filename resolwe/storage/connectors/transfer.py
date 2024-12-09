@@ -30,9 +30,9 @@ except ModuleNotFoundError:
     gcs_exceptions = []
 
 try:
-    from botocore.exceptions import ClientError
+    from botocore.exceptions import ClientError, EndpointConnectionError
 
-    boto_exceptions = [ClientError]
+    boto_exceptions = [ClientError, EndpointConnectionError]
 except ModuleNotFoundError:
     boto_exceptions = []
 
