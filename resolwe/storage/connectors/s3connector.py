@@ -41,6 +41,7 @@ class AwsS3Connector(BaseStorageConnector):
         self.multipart_chunksize = self.config.get(
             "multipart_chunksize", self.CHUNK_SIZE
         )
+        self.max_pool_connections = self.config.get("max_pool_connections", 50)
         self.use_threads = True
 
         # Ensured by TLS protocol used for transport.
@@ -102,7 +103,7 @@ class AwsS3Connector(BaseStorageConnector):
             "s3",
             config=botocore.client.Config(
                 signature_version="s3v4",
-                max_pool_connections=50,
+                max_pool_connections=self.max_pool_connections,
                 s3={"us_east_1_regional_endpoint": True},
             ),
             region_name=self.config.get("region_name"),
