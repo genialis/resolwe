@@ -26,6 +26,7 @@ Changed
 - Use regional ``S3`` endpoint in ``us-east-1`` region
 - Make maximal number of pool connections in ``S3`` connector configurable
 - Catch ``EndpointConnectionError`` in retry decorator
+- Implement exponential backoff in retry decorator
 
 Fixed
 -----

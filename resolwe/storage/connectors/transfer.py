@@ -39,7 +39,8 @@ except ModuleNotFoundError:
 
 logger = logging.getLogger(__name__)
 ERROR_MAX_RETRIES = 3
-ERROR_TIMEOUT = 5  # In seconds.
+ERROR_INITIAL_TIMEOUT = 1  # In seconds.
+ERROR_MAX_TIMEOUT = 60  # In seconds.
 transfer_exceptions = tuple(
     boto_exceptions
     + gcs_exceptions
@@ -56,14 +57,17 @@ def retry_on_transfer_error(wrapped, instance, args, kwargs):
             return wrapped(*args, **kwargs)
         except transfer_exceptions:
             # Log the exception on retry for inspection.
-            if retry != ERROR_MAX_RETRIES:
+            if retry < ERROR_MAX_RETRIES:
+                timeout = min(
+                    ERROR_MAX_TIMEOUT, ERROR_INITIAL_TIMEOUT * (2 ** (retry - 1))
+                )
                 logger.exception(
                     "Retry %d/%d got exception, will retry in %d seconds.",
                     retry,
                     ERROR_MAX_RETRIES,
-                    ERROR_TIMEOUT,
+                    timeout,
                 )
-                sleep(ERROR_TIMEOUT)
+                sleep(timeout)
             # Raise exception when max retries are exceeded.
             else:
                 logger.exception("Final retry got exception, re-raising it.")
