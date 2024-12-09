@@ -103,6 +103,7 @@ class AwsS3Connector(BaseStorageConnector):
             config=botocore.client.Config(
                 signature_version="s3v4", max_pool_connections=50
             ),
+            region_name=self.config.get("region_name"),
         )
 
     def _refresh_credentials_metadata(self, duration: int = 3600):
