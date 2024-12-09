@@ -13,6 +13,7 @@ Unreleased
 Changed
 -------
 - Catch ``EndpointConnectionError`` in retry decorator
+- Implement exponential backoff in retry decorator
 
 
 ===================

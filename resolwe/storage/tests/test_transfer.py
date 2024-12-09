@@ -41,7 +41,8 @@ class TransferTest(TestCase):
             with self.assertRaises(DataTransferError):
                 t.transfer_objects("test_url", [{}, {}])
 
-    @patch("resolwe.storage.connectors.transfer.ERROR_TIMEOUT", 0.1)
+    @patch("resolwe.storage.connectors.transfer.ERROR_INITIAL_TIMEOUT", 0.1)
+    @patch("resolwe.storage.connectors.transfer.ERROR_MAX_TIMEOUT", 0.1)
     @patch("resolwe.storage.connectors.transfer.ERROR_MAX_RETRIES", 3)
     def test_retry_transfer(self):
         t = Transfer(self.local, self.local)
