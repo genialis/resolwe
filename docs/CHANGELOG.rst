@@ -24,6 +24,7 @@ Changed
 - Respect image mapper in ``list_docker_images`` management command
 - Use image mapper in docker executor
 - Use regional ``S3`` endpoint in ``us-east-1`` region
+- Make maximal number of pool connections in ``S3`` connector configurable
 
 Fixed
 -----
