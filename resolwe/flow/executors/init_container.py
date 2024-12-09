@@ -57,7 +57,7 @@ DOWNLOAD_WAITING_TIMEOUT = 60  # in seconds
 RETRIES = 5
 
 # Max threads to use for data download.
-MAX_DOWNLOAD_THREADS = int(os.environ.get("GENIALIS_MAX_DOWNLOAD_THREADS", 3))
+MAX_DOWNLOAD_THREADS = int(os.environ.get("GENESIS_MAX_DOWNLOAD_THREADS", 3))
 
 # Configure container logger. All logs are output to stdout for further
 # processing.
