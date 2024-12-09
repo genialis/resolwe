@@ -6,6 +6,15 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Changed
+-------
+- Catch ``EndpointConnectionError`` in retry decorator
+
+
 ===================
 42.0.3 - 2024-12-09
 ===================
