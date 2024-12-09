@@ -6,6 +6,21 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Added
+-----
+
+Changed
+-------
+- Use regional ``S3`` endpoint in ``us-east-1`` region
+
+Fixed
+-----
+
+
 ===================
 42.0.2 - 2024-12-02
 ===================
