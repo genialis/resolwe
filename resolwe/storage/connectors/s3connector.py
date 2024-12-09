@@ -101,7 +101,9 @@ class AwsS3Connector(BaseStorageConnector):
         self.client = self.session.client(
             "s3",
             config=botocore.client.Config(
-                signature_version="s3v4", max_pool_connections=50
+                signature_version="s3v4",
+                max_pool_connections=50,
+                s3={"us_east_1_regional_endpoint": "regional"},
             ),
             region_name=self.config.get("region_name"),
         )
