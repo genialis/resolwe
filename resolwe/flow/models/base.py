@@ -47,6 +47,7 @@ class DataStatus(StrEnum):
         """Return a priority for sorting data statuses in a collection."""
         return [
             cls.ERROR,
+            cls.PROCESSING,
             cls.UPLOADING,
             cls.PREPARING,
             cls.WAITING,

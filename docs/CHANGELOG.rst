@@ -27,6 +27,7 @@ Changed
 
 Fixed
 -----
+- Add status ``DataStatus.PROCESSING`` to the sort order
 
 
 ===================
