@@ -32,35 +32,35 @@ classifiers = [
 dependencies = [
     "asgiref~=3.8.1",
     "asteval==1.0.5",
+    "beautifulsoup4~=4.12.3",
     "channels~=4.2.0",
     "channels_redis~=4.2.1",
     # Storage requirement for computing hashes.
     "crcmod",
-    "kubernetes~=31.0.0",
-    "docker~=7.1.0",
     "Django~=5.1",
-    "djangorestframework~=3.15.2",
+    "django-fernet-fields-v2~=0.9",
     "django-filter~=24.3",
     "django-versionfield~=1.0.3",
-    "django-fernet-fields-v2~=0.9",
+    "djangorestframework~=3.15.2",
+    "docker~=7.1.0",
     "drf-spectacular~=0.28.0",
     "Jinja2~=3.1.5",
     "jsonschema~=4.23.0",
+    "kubernetes~=31.0.0",
     "opentelemetry-api~=1.29.0",
     "opentelemetry-exporter-otlp~=1.29.0",
     "opentelemetry-sdk~=1.29.0",
     "plumbum~=1.9.0",
     "psycopg[binary]~=3.2.3",
     "python-decouple~=3.8",
+    "pytz~=2024.2",
     "PyYAML~=6.0.2",
+    "pyzmq~=26.2.0",
     "redis~=5.2.1",
     "shellescape~=3.8.1",
-    "beautifulsoup4~=4.12.3",
     "Sphinx~=8.1.3",
-    "wrapt~=1.17.0",
-    "pyzmq~=26.2.0",
     "uvloop~=0.21.0",
-    "pytz~=2024.2",
+    "wrapt~=1.17.0",
 ]
 
 
@@ -85,8 +85,8 @@ test = [
     "setuptools_scm",
     "tblib>=3.0.0",
     "testfixtures>=8.3.0",
-    "types-setuptools",
     "twine~=6.0.1",
+    "types-setuptools",
 ]
 
 [project.urls]
