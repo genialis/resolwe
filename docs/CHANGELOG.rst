@@ -19,6 +19,10 @@ Fixed
 -----
 - Fix error when deleting observer subscription
 
+Added
+-----
+- Add support for ``Python 3.13``
+
 
 ===================
 42.2.0 - 2025-01-13
