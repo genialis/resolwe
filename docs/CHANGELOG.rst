@@ -10,6 +10,11 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Changed
+-------
+- **BACKWARD INCOMPATIBLE:** Require ``Django 5.1.x`` and bump version of
+  dependencies
+
 Fixed
 -----
 - Fix error when deleting observer subscription
