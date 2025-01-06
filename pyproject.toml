@@ -31,7 +31,6 @@ classifiers = [
 dependencies = [
     "asgiref~=3.8.1",
     "asteval==0.9.33",
-    "async-timeout~=4.0.3",
     "channels~=4.1.0",
     "channels_redis~=4.2.0",
     # Storage requirement for computing hashes.

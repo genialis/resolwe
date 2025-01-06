@@ -4,7 +4,6 @@ import asyncio
 import json
 import uuid
 
-import async_timeout
 from channels.db import database_sync_to_async
 from channels.routing import URLRouter
 from channels.testing import WebsocketCommunicator
@@ -68,7 +67,7 @@ class ObserverTestCase(TransactionTestCase):
     async def assert_no_more_messages(self, client):
         """Assert there are no messages queued by a websocket client."""
         with self.assertRaises(asyncio.TimeoutError):
-            async with async_timeout.timeout(0.01):
+            async with asyncio.timeout(0.01):
                 raise ValueError("Unexpected message:", await client.receive_from())
 
     async def await_subscription_observer_count(self, count):
@@ -83,7 +82,7 @@ class ObserverTestCase(TransactionTestCase):
             return total
 
         try:
-            async with async_timeout.timeout(1):
+            async with asyncio.timeout(1):
                 while await get_subscription_count() != count:
                     await asyncio.sleep(0.01)
         except asyncio.TimeoutError:
@@ -101,7 +100,7 @@ class ObserverTestCase(TransactionTestCase):
             return object.objects.count()
 
         try:
-            async with async_timeout.timeout(1):
+            async with asyncio.timeout(1):
                 while await get_count() != count:
                     await asyncio.sleep(0.01)
         except asyncio.TimeoutError:
