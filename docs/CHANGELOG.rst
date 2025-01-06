@@ -13,6 +13,9 @@ Unreleased
 Fixed
 -----
 - Fix error when deleting observer subscription
+Added
+-----
+- Add support for ``Python 3.13``
 
 
 ===================
