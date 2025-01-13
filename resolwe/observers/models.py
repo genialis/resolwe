@@ -309,16 +309,20 @@ class Subscription(models.Model):
                 )
                 self.observers.add(observer)
 
+    @transaction.atomic
     def delete(self):
         """Delete the given subscription.
 
         Delete all observers with no remaining subscriptions.
+
+        This method is marked atomic, so no new subsciptions are added to the observers
+        we are deleting in the meantime causing IntegrityError.
         """
-        # Find related observers with only one remaining subscription
-        # (it must be this one) and delete them first.
+        # First find observers with only this subscription and delete them.
         Observer.objects.annotate(subs=Count("subscriptions")).filter(
             subscriptions=self.pk, subs=1
         ).delete()
+        # Now delete the subscription itself.
         super().delete()
 
     @classmethod
