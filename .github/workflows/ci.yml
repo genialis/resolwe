@@ -30,12 +30,14 @@ jobs:
             description: "Unit tests (Python 3.11)"
           - toxenv: "py312"
             description: "Unit tests (Python 3.12)"
+          - toxenv: "py313"
+            description: "Unit tests (Python 3.13)"
           - toxenv: "linters"
-            description: "Linters (Python 3.12)"
+            description: "Linters (Python 3.13)"
           - toxenv: "packaging"
-            description: "Packaging (Python 3.12)"
+            description: "Packaging (Python 3.13)"
           - toxenv: "migrations"
-            description: "Migrations (Python 3.12)"
+            description: "Migrations (Python 3.13)"
     name: ${{ matrix.description }}
 
     services:
@@ -68,7 +70,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build communication container
-        if: matrix.toxenv == 'py311' || matrix.toxenv == 'py312'
+        if: matrix.toxenv == 'py311' || matrix.toxenv == 'py312' || matrix.toxenv == 'py313'
         working-directory: ./resolwe/flow/docker_images
         run: docker build -f Dockerfile.communication -t ${{ env.RESOLWE_COMMUNICATOR_IMAGE }} ../../
 
@@ -92,10 +94,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install build
-        run: python3.12 -m pip install --user build
+        run: python3.13 -m pip install --user build
 
       - name: Build a binary wheel and a source tarball
-        run: python3.12 -m build --sdist --wheel --outdir dist/ .
+        run: python3.13 -m build --sdist --wheel --outdir dist/ .
 
       - name: Publish distribution to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
