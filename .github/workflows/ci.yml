@@ -20,7 +20,7 @@ jobs:
     env:
       RESOLWE_COMMUNICATOR_IMAGE: "resolwe/com:testing"
 
-    runs-on: arc-runner
+    runs-on: public-docker-runner
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -79,7 +79,7 @@ jobs:
           tox -e ${{ matrix.toxenv }}
 
   build:
-    runs-on: arc-runner
+    runs-on: public-docker-runner
     needs: test
 
     permissions:
