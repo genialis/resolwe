@@ -25,7 +25,6 @@ import shutil
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
-from django.contrib.contenttypes.models import ContentType
 from django.test import SimpleTestCase as DjangoSimpleTestCase
 from django.test import TestCase as DjangoTestCase
 from django.test import TransactionTestCase as DjangoTransactionTestCase
@@ -38,13 +37,6 @@ from resolwe.storage.connectors import connectors
 
 class TestCaseHelpers(DjangoSimpleTestCase):
     """Mixin for test case helpers."""
-
-    def _pre_setup(self, *args, **kwargs):
-        # NOTE: This is a work-around for Django issue #10827
-        # (https://code.djangoproject.com/ticket/10827) that clears the
-        # ContentType cache before permissions are setup.
-        ContentType.objects.clear_cache()
-        super()._pre_setup(*args, **kwargs)
 
     def _get_testing_directories(self):
         """Get the testing directories."""
