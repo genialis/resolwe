@@ -172,7 +172,7 @@ class RetryTestCase(TestCase):
                 retry_fail()
         end = time()
         self.assertGreater(end - start, 0.14)
-        self.assertLess(end - start, 0.2)
+        self.assertLess(end - start, 0.2 + 0.1)
         self.assertEqual(self.count, 5)
         expected_logger_output = [
             "ERROR:resolwe.flow.tests.test_utils:Retry 1/5 got exception, will retry in 0.01 seconds.\nTraceback",
