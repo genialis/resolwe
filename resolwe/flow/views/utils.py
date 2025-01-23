@@ -22,6 +22,18 @@ def get_collection_for_user(collection_id, user):
     return collection
 
 
+class IsStaffuser(permissions.BasePermission):
+    """Allow access only to staff users."""
+
+    message = "Only staff users are allowed."
+
+    def has_permission(self, request, view):
+        """Return true when request is allowed."""
+        return bool(
+            request.user and request.user.is_authenticated and request.user.is_staff
+        )
+
+
 class IsStaffOrTargetUser(permissions.BasePermission):
     """Permission class for user endpoint."""
 

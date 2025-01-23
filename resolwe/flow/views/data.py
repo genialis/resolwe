@@ -2,14 +2,7 @@
 
 from django.db.models import Prefetch
 from drf_spectacular.utils import extend_schema
-from rest_framework import (
-    exceptions,
-    mixins,
-    permissions,
-    serializers,
-    status,
-    viewsets,
-)
+from rest_framework import exceptions, mixins, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
@@ -33,19 +26,7 @@ from .mixins import (
     ResolweCreateModelMixin,
     ResolweUpdateModelMixin,
 )
-from .utils import get_collection_for_user
-
-
-class IsStaffuser(permissions.BasePermission):
-    """Allow access only to staff users."""
-
-    message = "Only staff users are allowed."
-
-    def has_permission(self, request, view):
-        """Return true when request is allowed."""
-        return bool(
-            request.user and request.user.is_authenticated and request.user.is_staff
-        )
+from .utils import IsStaffuser, get_collection_for_user
 
 
 class MoveDataToCollectionSerializer(serializers.Serializer):
