@@ -7,7 +7,7 @@ from django.utils.encoding import smart_str
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import exceptions, relations, serializers
 
-from resolwe.permissions.models import Permission
+from resolwe.permissions.models import Permission, PermissionInterface
 
 
 class PrimaryKeyDictRelatedField(serializers.PrimaryKeyRelatedField):
@@ -88,28 +88,31 @@ class DictRelatedField(relations.RelatedField):
 
         user = getattr(self.context.get("request"), "user")
         queryset = self.get_queryset()
+        has_permissions = issubclass(queryset.model, PermissionInterface)
         permission = self.write_permission
         try:
-            return (
-                queryset.filter(**kwargs)
-                .filter_for_user(user, permission)
-                .latest("version")
-            )
+            queryset = queryset.filter(**kwargs)
+            # Filter queryset based on permissions (if model has them).
+            if has_permissions:
+                queryset = queryset.filter_for_user(user, permission)
+            return queryset.latest("version")
         except ObjectDoesNotExist:
-            # Differentiate between "user has no permission" and "object does not exist"
-            view_permission = Permission.VIEW
-            if permission != view_permission:
-                try:
-                    queryset.filter(**kwargs).filter_for_user(
-                        user, view_permission
-                    ).latest("version")
-                    raise exceptions.PermissionDenied(
-                        "You do not have {} permission for {}: {}.".format(
-                            self.write_permission, self.model_name, data
+            if has_permissions:
+                # Differentiate between "user has no permission" and "object does not exist"
+                view_permission = Permission.VIEW
+                if permission != view_permission:
+                    try:
+                        queryset = self.get_queryset()
+                        queryset.filter(**kwargs).filter_for_user(
+                            user, view_permission
+                        ).latest("version")
+                        raise exceptions.PermissionDenied(
+                            "You do not have {} permission for {}: {}.".format(
+                                self.write_permission, self.model_name, data
+                            )
                         )
-                    )
-                except ObjectDoesNotExist:
-                    pass
+                    except ObjectDoesNotExist:
+                        pass
 
             self.fail(
                 "does_not_exist", value=smart_str(data), model_name=self.model_name
