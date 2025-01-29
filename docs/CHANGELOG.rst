@@ -17,6 +17,7 @@ Changed
 - Add ``deleted`` field to ``AnnotationValues`` model
 - Remove not used method ``remove_delete_markers`` from the ``AnnotationValue``
   model
+- Allow using ``DictRelatedField`` on models without version
 
 
 ===================
