@@ -15,6 +15,7 @@ Changed
 - **BACKWARD INCOMPATIBLE:** Require ``Django 5.1.x`` and bump version of
   dependencies
 - Support objects without permissions in ``DictRelatedField``
+- Allow using ``DictRelatedField`` on models without version
 
 Fixed
 -----

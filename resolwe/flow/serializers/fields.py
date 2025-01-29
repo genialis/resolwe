@@ -2,7 +2,7 @@
 
 from collections import OrderedDict
 
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import FieldDoesNotExist, ObjectDoesNotExist
 from django.utils.encoding import smart_str
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import exceptions, relations, serializers
@@ -95,7 +95,15 @@ class DictRelatedField(relations.RelatedField):
             # Filter queryset based on permissions (if model has them).
             if has_permissions:
                 queryset = queryset.filter_for_user(user, permission)
-            return queryset.latest("version")
+            # Multiple objects with the same slug in different version can be present.
+            # In such case, return the object with the highest version and the single
+            # object otherwise.
+            try:
+                queryset.model._meta.get_field("version")
+                return queryset.latest("version")
+            except FieldDoesNotExist:
+                return queryset.get()
+
         except ObjectDoesNotExist:
             if has_permissions:
                 # Differentiate between "user has no permission" and "object does not exist"
