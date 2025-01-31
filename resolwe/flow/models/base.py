@@ -5,6 +5,7 @@ from enum import StrEnum
 from typing import TypeVar
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError, models, transaction
 from versionfield import VersionField
 
@@ -102,17 +103,6 @@ class BaseQuerySet(PermissionQuerySet):
 class BaseManager(PermissionManager[M, Q]):
     """Base manager set for Resolwe's ORM objects."""
 
-    # The data is partitioned into groups with the same partition fields value. The
-    # object with the greatest version inside the partition is considered the latest.
-    partition_fields: list[str] = ["slug"]
-
-    # The field to use as version. The latest version is determined by sorting the
-    # data by version field in the ascending order and taking the first entry.
-    version_field: str = "version"
-
-    # The created field is used to determine the version at certain point in time.
-    created_field: str = "created"
-
     # Versioning is enabled by default.
     enable_versioning: bool = True
 
@@ -128,8 +118,8 @@ class BaseManager(PermissionManager[M, Q]):
         latest_entries = queryset.annotate(
             rank=models.Window(
                 expression=models.functions.DenseRank(),
-                partition_by=[models.F(field) for field in self.partition_fields],
-                order_by=models.F(self.version_field).desc(),
+                partition_by=[models.F(field) for field in self.model.partition_fields],
+                order_by=models.F(self.model.version_field).desc(),
             ),
         ).filter(rank=1)
         return latest_entries
@@ -141,11 +131,16 @@ class BaseManager(PermissionManager[M, Q]):
         be called many times (for instance, when filtering the queryset).
         """
         queryset = super().get_queryset()
-        return self._only_latest(queryset) if self.enable_versioning else queryset
+        if self.enable_versioning:
+            queryset = queryset.filter(deleted=False)
+        return queryset
 
     def history(self, timestamp: datetime.datetime) -> Q:
-        """Get values at certain point in time."""
-        created_filter = {f"{self.created_field}__le": timestamp}
+        """Get values at certain point in time.
+
+        Beware: this could be slow.
+        """
+        created_filter = {f"{self.model.created_field}__le": timestamp}
         filtered_queryset: Q = self.filter(**created_filter)  # type: ignore
         return self._only_latest(filtered_queryset)
 
@@ -182,6 +177,17 @@ class UniqueSlugError(IntegrityError):
 class BaseModel(AuditModel):
     """Abstract model that includes common fields for other models."""
 
+    # The data is partitioned into groups with the same partition fields value. The
+    # object with the greatest version inside the partition is considered the latest.
+    partition_fields: list[str] = ["slug"]
+
+    # The field to use as version. The latest version is determined by sorting the
+    # data by version field in the ascending order and taking the first entry.
+    version_field: str = "version"
+
+    # The created field is used to determine the version at certain point in time.
+    created_field: str = "created"
+
     class Meta:
         """BaseModel Meta options."""
 
@@ -210,6 +216,9 @@ class BaseModel(AuditModel):
     #: user that created the entry
     contributor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
 
+    #: the delete marker on objects, used when versioning is enabled
+    deleted = models.BooleanField(default=False)
+
     #: the latest version of the objects
     objects = BaseManager()
 
@@ -220,6 +229,7 @@ class BaseModel(AuditModel):
         """Format model name."""
         return self.name
 
+    @transaction.atomic
     def save(self, *args, **kwargs):
         """Save the model."""
         name_max_len = self._meta.get_field("name").max_length
@@ -243,3 +253,20 @@ class BaseModel(AuditModel):
             raise UniqueSlugError(
                 f"Unable to generate unique slug after {MAX_SLUG_RETRIES} retries."
             )
+
+        # Make sure there are no instances with higher version and the same slug.
+        filters = {field: getattr(self, field) for field in self.partition_fields}
+        filters[f"{self.version_field}__gt"] = getattr(self, self.version_field)
+        Model = type(self)
+        if Model.all_objects.filter(**filters).exists():
+            raise ValidationError(
+                "Higher version of the object with the same slug already exists."
+            )
+
+        # Set deleted on instances with lower version.
+        filters = {field: getattr(self, field) for field in self.partition_fields}
+        filters[f"{self.version_field}__lte"] = getattr(self, self.version_field)
+        filters["deleted"] = False
+        queryset = Model.all_objects.filter(**filters).exclude(pk=self.pk)
+        if queryset.exists():
+            queryset.update(deleted=True)

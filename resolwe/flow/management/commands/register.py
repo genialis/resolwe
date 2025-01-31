@@ -256,14 +256,14 @@ class Command(BaseCommand):
             int_version = convert_version_string_to_int(version, VERSION_NUMBER_BITS)
             latest_version = None
             with suppress(Process.DoesNotExist):
-                latest_version = Process.objects.get(slug=slug).version
+                latest_version = Process.versioned_objects.get(slug=slug).version
             if latest_version is not None and latest_version > int_version:
                 self.stderr.write(
                     "Skip processor {}: newer version installed".format(slug)
                 )
                 continue
 
-            previous_process_qs = Process.objects.filter(slug=slug)
+            previous_process_qs = Process.versioned_objects.filter(slug=slug)
             if previous_process_qs.exists():
                 previous_process = previous_process_qs.latest()
             else:
@@ -289,7 +289,7 @@ class Command(BaseCommand):
                 process_query.update(**p)
                 log_processors.append("Updated {}".format(slug))
             else:
-                process = Process.objects.create(contributor=user, **p)
+                process = Process.versioned_objects.create(contributor=user, **p)
                 assign_contributor_permissions(process)
                 if previous_process:
                     copy_permissions(previous_process, process)
@@ -389,7 +389,7 @@ class Command(BaseCommand):
         retired_processes.filter(data__exact=None).delete()
 
         # Remove non-latest processes which do not have data
-        latest_version_processes = Process.objects.order_by(
+        latest_version_processes = Process.versioned_objects.order_by(
             "slug", "-version"
         ).distinct("slug")
         Process.all_objects.filter(data__exact=None).exclude(

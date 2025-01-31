@@ -23,7 +23,7 @@ class ProcessViewSet(
     """API view for :class:`Process` objects."""
 
     qs_permission_model = PermissionModel.objects.select_related("user", "group")
-    queryset = Process.unversioned_objects.all().select_related("contributor")
+    queryset = Process.objects.all().select_related("contributor")
     serializer_class = ProcessSerializer
     permission_classes = (get_permissions_class(),)
     filterset_class = ProcessFilter

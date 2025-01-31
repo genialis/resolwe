@@ -1,8 +1,10 @@
 """Resolwe annotations serializer."""
 
+from functools import reduce
+from itertools import batched
 from typing import Any
 
-from django.db import models
+from django.db import models, transaction
 from rest_framework import serializers
 from rest_framework.fields import empty
 
@@ -101,29 +103,78 @@ class AnnotationPresetSerializer(ResolweBaseSerializer):
 class AnnotationValueListSerializer(serializers.ListSerializer):
     """Perform bulk update of annotation values to speed up requests."""
 
+    @transaction.atomic
     def create(self, validated_data: Any) -> Any:
-        """Perform efficient bulk create."""
+        """Perform bulk create."""
+        # The save must be called for delete markers to be set correctly.
+        values = [AnnotationValue(**data) for data in validated_data]
+        for value in values:
+            value.save()
+        return values
 
-        values_to_create = [AnnotationValue(**data) for data in validated_data]
-        # Perform a validation on all values to create. This is necessary as bulk
-        # create skips the validation.
-        for value in values_to_create:
-            value.validate()
-        return AnnotationValue.objects.bulk_create(values_to_create)
-
+    @transaction.atomic
     def save(self, **kwargs: Any) -> Any:
-        """Perform efficient bulk create or delete."""
-        self.instance = []
-        to_create = []
-        for data in self.validated_data:
-            if data["_value"] is None or data["_value"]["value"] is None:
-                data["_value"] = None
-            to_create.append(data)
+        """Save the annotation values.
 
-        # Create new objects and delete markers.
-        created = self.create(to_create)
+        We have to consider the possibilities:
+        - the value is not a delete marker:
+          - the existing value exists:
+            - create a new entry and set deleted to true on the existing one if the value
+              has actually changed.
+          - the value does not exist yet or is deleted: create a new entry.
+        - the value is a delete marker:
+          - the existing value exists: set deleted to true.
+        """
+
+        def is_delete_marker(value):
+            """Is the value a delete marker."""
+            return (
+                value is None
+                or value["_value"] is None
+                or value["_value"]["value"] is None
+            )
+
+        def combine_query(query: models.Q, data: dict) -> models.Q:
+            """Combine the query with the data."""
+            return query | models.Q(field=data["field"], entity=data["entity"])
+
+        # The annotations are processed in batches to avoid creating too complex
+        # queries. The BATCH_SIZE determines the size of the batch.
+        BATCH_SIZE = 1000
+        created = []
+        for batch in batched(self.validated_data, BATCH_SIZE):
+            to_process = {(data["field"].pk, data["entity"].pk): data for data in batch}
+            # Create a mapping to easy access the existing values.
+            existing_values = {
+                (value.field_id, value.entity_id): value
+                for value in AnnotationValue.objects.filter(
+                    reduce(combine_query, batch, models.Q())
+                )
+            }
+            # We have to:
+            # - create new values
+            # - create new values and delete existing ones if the value has changed
+            # - delete values with None
+            to_delete = []
+            to_create = []
+            for key, data in to_process.items():
+                if existing_value := existing_values.get(key):
+                    if is_delete_marker(data):
+                        to_delete.append(existing_value.pk)
+                    elif existing_value.value != data["_value"]["value"]:
+                        to_create.append(data)
+                        to_delete.append(existing_value.pk)
+                elif not is_delete_marker(data):
+                    to_create.append(data)
+
+            # Create new objects.
+            created.extend(self.create(to_create))
+            # Mark objects as deleted.
+            if to_delete:
+                AnnotationValue.objects.filter(pk__in=to_delete).update(deleted=True)
+
         # Only return created objects.
-        self.instance = [entry for entry in created if entry._value is not None]
+        self.instance = created
         return self.instance
 
     def validate(self, attrs: Any) -> Any:
