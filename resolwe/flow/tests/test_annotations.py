@@ -1290,8 +1290,8 @@ class AnnotationViewSetsTest(TestCase):
         request = factory.get("/", {"entity__in": [self.entity1.pk]}, format="json")
         force_authenticate(request, self.contributor)
         response = self.annotationvalue_viewset(request)
-        self.assertTrue(response.status_code, status.HTTP_200_OK)
-        self.assertTrue(len(response.data), 2)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)
         # Ordering should be first by group, then field.
         self.assertEqual(response.data[0]["id"], self.annotation_value2.pk)
         self.assertEqual(response.data[1]["id"], self.annotation_value1.pk)
