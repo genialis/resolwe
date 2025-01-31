@@ -438,7 +438,7 @@ class ProcessTestCase(TransactionTestCase):
         self._executed_processes.add(process_slug)
 
         try:
-            process = Process.objects.get(slug=process_slug)
+            process = Process.versioned_objects.get(slug=process_slug)
         except Process.DoesNotExist:
             self.fail('No process with slug "{}"'.format(process_slug))
 
