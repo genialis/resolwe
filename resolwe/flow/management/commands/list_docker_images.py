@@ -84,7 +84,7 @@ class Command(BaseCommand):
         # The 'image' field is optional, so be careful about that as well
         unique_docker_images = set(
             p.requirements["executor"]["docker"]["image"]
-            for p in Process.objects.filter(is_active=True)
+            for p in Process.versioned_objects.filter(is_active=True)
             .only("requirements")
             .filter(requirements__icontains="docker")
             if "image" in p.requirements.get("executor", {}).get("docker", {})
