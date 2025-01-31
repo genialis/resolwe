@@ -267,6 +267,9 @@ class AnnotationFieldManager(
 class AbstractAnnotationField(models.Model):
     """Abstract base class for annotation fields."""
 
+    partition_fields = ["name", "group_id"]
+    version_field = "version"
+
     #: the name of the annotation fields
     name = models.CharField(max_length=NAME_LENGTH)
 
@@ -301,6 +304,9 @@ class AbstractAnnotationField(models.Model):
     #: field version
     version = VersionField(number_bits=VERSION_NUMBER_BITS, default="0.0.0")
 
+    #: the delete marker on objects, used when versioning is enabled
+    deleted = models.BooleanField(default=False)
+
     class Meta:
         """Make this class abstract."""
 
@@ -331,6 +337,11 @@ class AbstractAnnotationField(models.Model):
         if match is None:
             raise ValidationError(f"Invalid path '{path}'.")
         return [match["group"], match["field"]]
+
+    @property
+    def path(self) -> str:
+        """Return the path of the field."""
+        return f"{self.group.name}.{self.name}"
 
     @classmethod
     def id_from_path(cls, path: str) -> Optional[int]:
@@ -372,6 +383,23 @@ class AbstractAnnotationField(models.Model):
         if self.type != self._original_type:
             self.revalidate_values()
             self._original_type = self.type
+
+        # Make sure there are no instances with higher version and the same slug.
+        filters = {field: getattr(self, field) for field in self.partition_fields}
+        filters[f"{self.version_field}__gt"] = getattr(self, self.version_field)
+        Model = type(self)
+        if Model.all_objects.filter(**filters).exists():
+            raise ValidationError(
+                "Higher version of the object with the same slug already exists."
+            )
+
+        # Set deleted on instances with lower version.
+        filters = {field: getattr(self, field) for field in self.partition_fields}
+        filters[f"{self.version_field}__lte"] = getattr(self, self.version_field)
+        filters["deleted"] = False
+        queryset = Model.all_objects.filter(**filters).exclude(pk=self.pk)
+        if queryset.exists():
+            queryset.update(deleted=True)
 
     def revalidate_values(self):
         """Revalidate all annotation values.
@@ -450,8 +478,6 @@ class AnnotationValueManager(BaseManager["AnnotationValue", PermissionQuerySet])
     Return only the latest version of each field.
     """
 
-    partition_fields = ["field", "entity"]
-    version_field = "created"
     QuerySet = PermissionQuerySet
 
     def remove_delete_markers(self) -> PermissionQuerySet:
@@ -459,9 +485,7 @@ class AnnotationValueManager(BaseManager["AnnotationValue", PermissionQuerySet])
 
         Due to the nature of the queryset use the method only on small querysets.
         """
-        return self.filter(pk__in=list(self.values_list("pk", flat=True))).exclude(
-            _value__isnull=True
-        )
+        return self.filter(deleted=False)
 
 
 def _slug_for_annotation_value(instance: "AnnotationValue") -> str:
@@ -471,6 +495,9 @@ def _slug_for_annotation_value(instance: "AnnotationValue") -> str:
 
 class AbstractAnnotationValue(BaseModel):
     """Abstract base class for annotation values."""
+
+    partition_fields = ["field", "entity"]
+    version_field = "created"
 
     #: URL slug
     slug = ResolweSlugField(
@@ -508,18 +535,18 @@ class AbstractAnnotationValue(BaseModel):
         if "value" in kwargs:
             kwargs["_value"] = {"value": kwargs.pop("value")}
         super().__init__(*args, **kwargs)
-        if not self.delete_marker and "label" not in self._value:
+        if "label" not in self._value:
             self.recompute_label()
 
     @property
     def delete_marker(self) -> bool:
         """Return True if this value represents a delete marker."""
-        return self._value is None
+        return self.deleted
 
     @property
-    def value(self) -> Optional[str | int | float | datetime.date]:
+    def value(self) -> str | int | float | datetime.date:
         """Get the actual value or None if object is delete marker."""
-        return None if self.delete_marker else self._value["value"]
+        return self._value["value"]
 
     @value.setter
     def value(self, value: str | int | float | datetime.date):
@@ -561,7 +588,6 @@ class AbstractAnnotationValue(BaseModel):
 
     def save(self, *args, **kwargs):
         """Save the annotation value after validation has passed."""
-        # The value `None` is used as delete marker.
         if not self.delete_marker:
             annotation_value_validator.validate(self, raise_exception=True)
             # Make sure the label is always set.

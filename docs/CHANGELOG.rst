@@ -45,6 +45,7 @@ Added
 - Expose ``status`` on ``collection`` and ``entity`` viewset and allow
   filtering and sorting by it
 - Add generic filtering by related objects which respects permissions
+- Add ``deleted`` field to ``BaseModel`` to indicate model is outdated
 
 Changed
 -------
@@ -54,6 +55,7 @@ Changed
 - Use image mapper in docker executor
 - Make maximal number of pool connections in ``S3`` connector configurable
 - Catch ``EndpointConnectionError`` in retry decorator
+- Use ``deleted`` field for delete marker in ``annotations`` endpoint
 
 Fixed
 -----

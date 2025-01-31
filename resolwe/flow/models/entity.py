@@ -1,5 +1,6 @@
 """Resolwe entity model."""
 
+from itertools import batched
 from typing import Any, List, Optional, Union
 
 from django.contrib.contenttypes.models import ContentType
@@ -360,65 +361,106 @@ class Entity(PermissionObject, BaseCollection):
         if validation_errors:
             raise ValidationError(validation_errors)
 
-    def update_annotations(self, annotations: dict[str, Any], contributor, update=True):
+    @transaction.atomic
+    def update_annotations(
+        self, annotations: dict[str, Any], contributor, update: bool = True
+    ):
         """Update annotations with the given values.
 
-        When annotation value is set no None it is deleted.
+        When annotation value is set no None the existing value is deleted.
 
         :attr annotations: the dictionary with annotation values. Keys are annotation
             paths.
         """
+        # The annotations are processed in batches to avoid creating too complex
+        # queries. The BATCH_SIZE determines the size of the batch.
+        BATCH_SIZE = 1000
+
         field_paths = annotations.keys()
         field_map = {
             field_path: AnnotationField.field_from_path(field_path)
-            for field_path in field_paths
+            for field_path in set(field_paths)
         }
-
-        # Create annotation values and prepare list of fields which annotations should
-        # be deleted.
-        annotation_values: list[AnnotationValue] = []
         validation_errors: list[ValidationError] = []
-        for field_path, field_value in annotations.items():
-            values_dict = {
-                "field": field_map[field_path],
-                "entity": self,
-                "contributor": contributor,
-            }
-            if field_value is not None:
-                values_dict["value"] = field_value
-            else:
-                values_dict["_value"] = None
-            value = AnnotationValue(**values_dict)
-            annotation_values.append(value)
-            try:
-                value.validate()
-            except ValidationError as e:
-                validation_errors.append(e)
-        if validation_errors:
-            raise ValidationError(validation_errors)
+        to_delete: list[int] = []
 
-        # When this is bulk set also delete other annotation values by setting delete
-        # markers.
+        # Needed if update is set to False.
+        existing_entity_value_ids = set()
         if not update:
-            for field_id in (
-                AnnotationValue.objects.filter(entity=self)
-                .exclude(field__in=field_map.values())
-                .values_list("field_id", flat=True)
-            ):
-                values_dict = {
-                    "field_id": field_id,
-                    "entity": self,
-                    "contributor": contributor,
-                    "_value": None,
-                }
-                annotation_values.append(AnnotationValue(**values_dict))
+            existing_entity_value_ids = set(
+                AnnotationValue.objects.filter(entity=self).values_list("pk", flat=True)
+            )
 
-        # Create new entries and set delete markers in a transaction.
-        with transaction.atomic():
-            AnnotationValue.objects.bulk_create(annotation_values)
-            # Add missing annotation fields to the collection.
-            if self.collection is not None:
-                self.collection.annotation_fields.add(*field_map.values())
+        # Process BATCH_SIZE annotations at a time.
+        for batch in batched(annotations.items(), BATCH_SIZE):
+            query = models.Q()
+            to_process = {}
+            for field_path, field_value in batch:
+                group_name, field_name = AnnotationField.group_field_from_path(
+                    field_path
+                )
+                query |= models.Q(
+                    field__name=field_name, field__group__name=group_name, entity=self
+                )
+                to_process[field_path] = field_value
+            # Create a mapping between existing values and field paths.
+            existing_values = {
+                value.field.path: value
+                for value in AnnotationValue.objects.filter(query).prefetch_related(
+                    "field"
+                )
+            }
+            existing_entity_value_ids.difference(
+                value.pk for value in existing_values.values()
+            )
+            # We have to:
+            # - update existing values with different value
+            # - create new values
+            # - delete values with None
+            # - delete values that are not in the batch (if update is False)
+            to_delete = []
+            to_create = []
+            for field_path, value in to_process.items():
+                should_delete = value is None
+                if field_path in existing_values:
+                    existing_value = existing_values[field_path]
+                    if should_delete:
+                        to_delete.append(existing_value.pk)
+                    elif existing_value != value:
+                        values_dict = {
+                            "field": field_map[field_path],
+                            "entity": self,
+                            "contributor": contributor,
+                            "value": value,
+                        }
+                        to_create.append(AnnotationValue(**values_dict))
+                        to_delete.append(existing_value.pk)
+                elif not should_delete:
+                    values_dict = {
+                        "field": field_map[field_path],
+                        "entity": self,
+                        "contributor": contributor,
+                        "value": value,
+                    }
+                    to_create.append(AnnotationValue(**values_dict))
+            # Bulk create new entries and validate their values.
+            for value in AnnotationValue.objects.bulk_create(to_create):
+                try:
+                    value.validate()
+                except ValidationError as e:
+                    validation_errors.append(e)
+            if validation_errors:
+                raise ValidationError(validation_errors)
+
+            # Set deleted flag on objects to delete.
+            AnnotationValue.objects.filter(pk__in=to_delete).update(deleted=True)
+
+        # If we are not updating, mark values for other field as deleted.
+        if not update:
+            for pk_batch in batched(existing_entity_value_ids, BATCH_SIZE):
+                AnnotationValue.objects.filter(entity=self, pk__in=pk_batch).update(
+                    deleted=True
+                )
 
 
 class RelationType(models.Model):

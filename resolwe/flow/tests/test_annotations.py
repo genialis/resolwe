@@ -63,11 +63,8 @@ class AnnotationValueTest(TestCase):
     def test_get_annotation(self):
         self.assertEqual(self.entity.get_annotation("group.field_1"), "Test")
         # Create delete marker and test again.
-        AnnotationValue.objects.create(
-            entity=self.entity,
-            field=self.field,
-            _value=None,
-            contributor=self.contributor,
+        AnnotationValue.objects.filter(entity=self.entity, field=self.field).update(
+            deleted=True
         )
         self.assertIsNone(self.entity.get_annotation("group.field_1"))
         self.assertEqual(
@@ -1270,20 +1267,6 @@ class AnnotationViewSetsTest(TestCase):
         self.assertTrue(response.data[0]["value"], "string")
         self.assertTrue(response.data[0]["label"], "label string")
 
-        # Test delete markers are handled properly.
-        delete_marker = AnnotationValue.objects.create(
-            entity=self.annotation_value1.entity,
-            field=self.annotation_value1.field,
-            _value=None,
-            contributor=self.annotation_value1.contributor,
-        )
-        request = factory.get("/", {"entity": self.entity1.pk}, format="json")
-        force_authenticate(request, self.contributor)
-        response = self.annotationvalue_viewset(request)
-        self.assertTrue(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 0)
-        delete_marker.delete()
-
         # Another authenticated request.
         self.annotation_value2.entity = self.entity1
         self.annotation_value2.save()
@@ -1595,11 +1578,10 @@ class AnnotationViewSetsTest(TestCase):
         # Check the entire history of the annotation value1.
         # "string" -> new value -> deleted -> new value -> bbb
         expected = [
-            {"value": "string", "label": "string"},
-            {"value": "new value", "label": "new value"},
-            None,
-            {"value": "new value", "label": "new value"},
-            {"value": "bbb", "label": "bbb"},
+            ({"value": "string", "label": "string"}, True),
+            ({"value": "new value", "label": "new value"}, True),
+            ({"value": "new value", "label": "new value"}, True),
+            ({"value": "bbb", "label": "bbb"}, False),
         ]
         self.assertEqual(
             expected,
@@ -1607,6 +1589,6 @@ class AnnotationViewSetsTest(TestCase):
                 AnnotationValue.all_objects.filter(
                     entity=self.annotation_value1.entity,
                     field=self.annotation_value1.field,
-                ).values_list("_value", flat=True)
+                ).values_list("_value", "deleted")
             ),
         )
