@@ -30,6 +30,13 @@ class ResolweAuditMiddleware:
         """Resolve user instance from request."""
         return get_anonymous_user() if user.is_anonymous else user
 
+    def process_exception(self, request, exception):
+        """Process the exception returned by processing the request.
+
+        Log the exception and let other middleware handle it.
+        """
+        logger.error("Error processing request: '%s'.", exception)
+
     def __call__(self, request):
         """Process the request and store it.
 
@@ -50,19 +57,15 @@ class ResolweAuditMiddleware:
         request.META["RESOLWE_AUDIT_MANAGER_REQUEST_ID"] = request_id
         servername = getattr(request.META, "HTTP_HOST", "unknown")
 
-        try:
-            response = self.get_response(request)
-            message = (
-                "Request finished: "
-                f"METHOD={request.method}; STATUS={response.status_code}; "
-                f"USER={user.username}({user.id}); "
-                f"URL={request.build_absolute_uri()}; "
-                f"SERVERNAME={servername}"
-            )
+        response = self.get_response(request)
+        message = (
+            "Request finished: "
+            f"METHOD={request.method}; STATUS={response.status_code}; "
+            f"USER={user.username}({user.id}); "
+            f"URL={request.build_absolute_uri()}; "
+            f"SERVERNAME={servername}"
+        )
 
-            audit_manager.log_message(message)
-            audit_manager.emit(request, response)
-        except Exception:
-            logger.exception("Error processing request.")
-        finally:
-            return response
+        audit_manager.log_message(message)
+        audit_manager.emit(request, response)
+        return response
