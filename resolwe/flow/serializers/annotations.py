@@ -16,7 +16,7 @@ from resolwe.flow.models.annotations import (
 
 from .base import ResolweBaseSerializer
 from .contributor import ContributorSerializer
-from .fields import PrimaryKeyDictRelatedField
+from .fields import DictRelatedField, PrimaryKeyDictRelatedField
 
 
 class AnnotationFieldListSerializer(serializers.ListSerializer):
@@ -47,7 +47,9 @@ class AnnotationGroupSerializer(ResolweBaseSerializer):
 class AnnotationFieldSerializer(ResolweBaseSerializer):
     """Serializer for AnnotationField objects."""
 
-    group = AnnotationGroupSerializer()
+    group = DictRelatedField(
+        queryset=AnnotationGroup.objects.all(), serializer=AnnotationGroupSerializer
+    )
 
     class Meta:
         """AnnotationFieldSerializer Meta options."""

@@ -4,7 +4,12 @@ from collections import OrderedDict
 from rest_framework.test import APIRequestFactory
 
 from resolwe.flow.models import Data, DescriptorSchema, Process
-from resolwe.flow.serializers import DataSerializer
+from resolwe.flow.models.annotations import (
+    AnnotationField,
+    AnnotationGroup,
+    AnnotationType,
+)
+from resolwe.flow.serializers import AnnotationFieldSerializer, DataSerializer
 from resolwe.permissions.models import Permission
 from resolwe.test import TestCase
 
@@ -60,6 +65,24 @@ class ResolweDictRelatedFieldTest(TestCase):
             serializer.validated_data["descriptor_schema"], self.descriptor_schema2
         )
 
+    def test_to_internal_annotation_field(self):
+        """Test on annotation field model."""
+        group = AnnotationGroup.objects.create(name="Test", sort_order=1)
+        request = self.factory.get("/")
+        request.user = self.user
+        request.query_params = {}
+        data = {
+            "label": "test label",
+            "description": "test description",
+            "group": {"id": group.pk},
+            "sort_order": 1,
+            "name": "test-field",
+            "type": AnnotationType.DATE.value,
+        }
+        serializer = AnnotationFieldSerializer(data=data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        self.assertEqual(serializer.validated_data["group"], group)
+
     def test_to_representation(self):
         request = self.factory.get("/")
         request.user = self.user
@@ -98,3 +121,23 @@ class ResolweDictRelatedFieldTest(TestCase):
                 ),
             },
         )
+
+    def test_to_representation_annotation_field(self):
+        """Test on annotation field model."""
+        request = self.factory.get("/")
+        request.user = self.user
+        request.query_params = {}
+
+        group = AnnotationGroup.objects.create(name="Test", sort_order=1)
+        field = AnnotationField.objects.create(
+            label="test label",
+            description="test description",
+            group=group,
+            sort_order=1,
+            name="test-field",
+            type=AnnotationType.DATE.value,
+        )
+        serializer = AnnotationFieldSerializer(field, context={"request": request})
+        self.assertEqual(serializer.data["group"]["id"], group.pk)
+        self.assertEqual(serializer.data["group"]["name"], group.name)
+        self.assertEqual(serializer.data["group"]["sort_order"], group.sort_order)
