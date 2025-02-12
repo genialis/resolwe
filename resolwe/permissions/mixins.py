@@ -1,6 +1,5 @@
 """Permissions functions used in Resolwe Viewsets."""
 
-import versionfield.fields
 from django.conf import settings
 from django.db import models, transaction
 from drf_spectacular.utils import extend_schema
@@ -10,6 +9,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 
 from resolwe.auditlog.auditmanager import AuditManager
+from resolwe.flow.models.fields import VersionField
 from resolwe.permissions.models import Permission
 from resolwe.permissions.shortcuts import get_object_perms
 
@@ -90,7 +90,7 @@ class ResolwePermissionsMixin:
 
             serializer_field_mapping = {
                 **base_class.serializer_field_mapping,
-                versionfield.fields.VersionField: serializers.CharField,
+                VersionField: serializers.CharField,
             }
 
             def get_fields(serializer_self):

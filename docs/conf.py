@@ -16,7 +16,6 @@ settings.configure(
         "django.contrib.sessions",
         "django.contrib.staticfiles",
         "rest_framework",
-        "versionfield",
         "resolwe",
         "resolwe.permissions",
         "resolwe.flow",

@@ -1,16 +1,25 @@
-"""Custom database fields."""
+"""Custom database fields.
 
-from django.db import connection
+The VersionField is based on code at https://github.com/mcldev/django-versionfield .
+"""
+
+from django.conf import settings
+from django.db import connection, models
 from django.db.models import constants
-from django.db.models.fields import SlugField
 from django.utils.text import slugify
 
 from resolwe.flow.exceptions import SlugError
 
+# Slug field settings.
 MAX_SLUG_SEQUENCE_DIGITS = 9
 
+# Version field settings.
+DEFAULT_NUMBER_BITS = getattr(settings, "VERSION_FIELD_NUMBER_BITS", (8, 8, 16))
+DEFAULT_INPUT_SIZE = getattr(settings, "VERSION_FIELD_WIDGET_INPUT_SIZE", 10)
+DEFAULT_VERSION_VALUE = getattr(settings, "VERSION_FIELD_DEFAULT_VALUE", "0.0.0")
 
-class ResolweSlugField(SlugField):
+
+class ResolweSlugField(models.fields.SlugField):
     """Slug field."""
 
     def __init__(self, *args, **kwargs):
@@ -206,3 +215,214 @@ class ResolweSlugField(SlugField):
             setattr(instance, self.name, slug)
 
         return slug
+
+
+def convert_version_string_to_int(string: str, number_bits: list[int]) -> int:
+    """Convert string version to int version.
+
+    Take in a verison string e.g. '3.0.1'
+    Store it as a converted int:
+    3 * (2**number_bits[0]) + 0 * (2**number_bits[1]) + 1 * (2**number_bits[2])
+
+    >>> convert_version_string_to_int('3.0.1',[8,8,16])
+    50331649
+    """
+    # This is needed for using Version as a type in pydantic
+    if string == Ellipsis:
+        return string
+
+    numbers = [int(number_string) for number_string in string.split(".")]
+
+    if len(numbers) > len(number_bits):
+        raise NotImplementedError(
+            "Versions with more than {0} decimal places are not supported".format(
+                len(number_bits) - 1
+            )
+        )
+
+    # add 0s for missing numbers
+    numbers.extend([0] * (len(number_bits) - len(numbers)))
+
+    # convert to single int and return
+    number = 0
+    total_bits = 0
+    for num, bits in reversed(list(zip(numbers, number_bits))):
+        max_num = (bits + 1) - 1
+        if num >= 1 << max_num:
+            raise ValueError(
+                "Number {0} cannot be stored with only {1} bits. Max is {2}".format(
+                    num, bits, max_num
+                )
+            )
+        number += num << total_bits
+        total_bits += bits
+
+    return number
+
+
+def convert_version_int_to_string(number: int, number_bits: list[int]) -> str:
+    """Convert int version to string version.
+
+    >>> convert_version_int_to_string(50331649,[8,8,16])
+    '3.0.1'
+    """
+    number_strings = []
+    total_bits = sum(number_bits)
+    for bits in number_bits:
+        shift_amount = total_bits - bits
+        number_segment = number >> shift_amount
+        number_strings.append(str(number_segment))
+        total_bits = total_bits - bits
+        number = number - (number_segment << shift_amount)
+    return ".".join(number_strings)
+
+
+class Version:
+    """The version object, used by the VersionField."""
+
+    def __init__(self, string, number_bits=DEFAULT_NUMBER_BITS):
+        """Create a version object from a string."""
+        self.number_bits = number_bits
+        self.internal_integer = convert_version_string_to_int(string, number_bits)
+
+    def __str__(self):
+        """Return a string representation."""
+        return str(
+            convert_version_int_to_string(self.internal_integer, self.number_bits)
+        )
+
+    def __repr__(self):
+        """Return an internal string representation."""
+        return self.__str__()
+
+    def __int__(self):
+        """Return the internal integer representation."""
+        return self.internal_integer
+
+    def __eq__(self, other):
+        """Override equality operator."""
+        if not other:
+            return False  # we are obviously a valid Version, but 'other' isn't
+        if other == Ellipsis:
+            return False  # For pydantic use
+        if isinstance(other, str):
+            other = Version(other, self.number_bits)
+        return int(self) == int(other)
+
+    def __hash__(self):
+        """Use the internal integer representation as hashing function."""
+        return int(self)
+
+    def __lt__(self, other):
+        """Override less than operator."""
+        if not other:
+            return False
+        if isinstance(other, str):
+            other = Version(other, self.number_bits)
+        return int(self) < int(other)
+
+    def __le__(self, other):
+        """Override less than or equal operator."""
+        if not other:
+            return False
+        if isinstance(other, str):
+            other = Version(other, self.number_bits)
+        return int(self) <= int(other)
+
+    def __gt__(self, other):
+        """Override greater than operator."""
+        if not other:
+            return False
+        if isinstance(other, str):
+            other = Version(other, self.number_bits)
+        return int(self) > int(other)
+
+    def __ge__(self, other):
+        """Override greater than or equal operator."""
+        if not other:
+            return False
+        if isinstance(other, str):
+            other = Version(other, self.number_bits)
+        return int(self) >= int(other)
+
+    def __add__(self, other):
+        """Override add operator.
+
+        For example: 1.0.1 + 2.0.1 = 3.0.2.
+        """
+        if not other:
+            return self
+        if isinstance(other, str):
+            other = Version(other, self.number_bits)
+        return Version(
+            convert_version_int_to_string(int(self) + int(other), self.number_bits),
+            self.number_bits,
+        )
+
+    def __sub__(self, other):
+        """Override subtract operator.
+
+        For example: 3.0.2 - 2.0.1 = 1.0.1. The minimal version is 0.0.0.
+        """
+        if not other:
+            return self
+        if isinstance(other, str):
+            other = Version(other, self.number_bits)
+        return Version(
+            convert_version_int_to_string(
+                max(int(self) - int(other), 0), self.number_bits
+            ),
+            self.number_bits,
+        )
+
+
+class VersionField(models.Field):
+    """Store versions in field as strings.
+
+    A Field where version numbers are input/output as strings (e.g. 3.0.1) but stored
+    in the db as converted integers for fast indexing.
+    """
+
+    description = "A version number (e.g. 3.0.1)"
+
+    def __init__(self, number_bits=DEFAULT_NUMBER_BITS, *args, **kwargs):
+        """Initialize the field."""
+        self.number_bits = number_bits
+        super().__init__(*args, **kwargs)
+
+    def db_type(self, connection):
+        """Use integer as internal representation."""
+        return "integer"
+
+    def to_python(self, value):
+        """Convert data to the instance of the Version object."""
+        if not value:
+            return None
+
+        if isinstance(value, Version):
+            return value
+
+        if isinstance(value, str):
+            return Version(value, self.number_bits)
+
+        return Version(
+            convert_version_int_to_string(value, self.number_bits), self.number_bits
+        )
+
+    def from_db_value(self, value, expression, connection):
+        """Convert data from database representation."""
+        if value is None:
+            return value
+        return Version(
+            convert_version_int_to_string(value, self.number_bits), self.number_bits
+        )
+
+    def get_prep_value(self, value):
+        """Convert data to the database representation."""
+        if isinstance(value, str):
+            return int(Version(value, self.number_bits))
+
+        if value is None:
+            return None
+
+        return int(value)

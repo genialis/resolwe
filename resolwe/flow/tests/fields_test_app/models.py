@@ -1,8 +1,7 @@
 # pylint: disable=missing-docstring
 from django.db import models
-from versionfield import VersionField
 
-from resolwe.flow.models.fields import ResolweSlugField
+from resolwe.flow.models.fields import ResolweSlugField, VersionField
 
 
 class TestModel(models.Model):

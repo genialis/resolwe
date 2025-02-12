@@ -6,10 +6,9 @@ from typing import TypeVar
 
 from django.conf import settings
 from django.db import IntegrityError, models, transaction
-from versionfield import VersionField
 
 from resolwe.auditlog.models import AuditModel
-from resolwe.flow.models.fields import ResolweSlugField
+from resolwe.flow.models.fields import ResolweSlugField, VersionField
 from resolwe.permissions.models import PermissionManager, PermissionQuerySet
 
 VERSION_NUMBER_BITS = (8, 10, 14)

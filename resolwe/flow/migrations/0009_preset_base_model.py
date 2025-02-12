@@ -2,11 +2,11 @@
 
 import django.db.models.deletion
 import django.utils.timezone
-import versionfield.fields
 from django.conf import settings
 from django.db import migrations, models
 
 import resolwe.flow.models.fields
+from resolwe.flow.models.fields import VersionField
 
 
 class Migration(migrations.Migration):
@@ -47,7 +47,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="annotationpreset",
             name="version",
-            field=versionfield.fields.VersionField(default="0.0.0"),
+            field=VersionField(default="0.0.0"),
         ),
         migrations.AlterField(
             model_name="annotationpreset",

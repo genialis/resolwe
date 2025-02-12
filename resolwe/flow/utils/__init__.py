@@ -21,7 +21,8 @@ from typing import Dict
 from django.apps import apps
 from django.conf import settings
 from django.db import models
-from versionfield.version import Version
+
+from resolwe.flow.models.fields import Version
 
 from .decorators import retry
 from .iterators import iterate_dict, iterate_fields, iterate_schema

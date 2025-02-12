@@ -19,7 +19,6 @@ from typing import (
 
 from django.core.exceptions import ValidationError
 from django.db import models
-from versionfield import VersionField
 
 from resolwe.flow.models.base import (
     MAX_SLUG_LENGTH,
@@ -27,6 +26,7 @@ from resolwe.flow.models.base import (
     BaseModel,
     ResolweSlugField,
 )
+from resolwe.flow.models.fields import VersionField
 from resolwe.permissions.models import (
     PermissionInterface,
     PermissionObject,

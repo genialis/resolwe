@@ -24,9 +24,9 @@ from django_filters.constants import EMPTY_VALUES
 from django_filters.filterset import FilterSetMetaclass
 from rest_framework import fields
 from rest_framework.filters import OrderingFilter as DrfOrderingFilter
-from versionfield import VersionField
 
 from resolwe.composer import composer
+from resolwe.flow.models.fields import VersionField
 from resolwe.permissions.models import (
     Permission,
     PermissionInterface,

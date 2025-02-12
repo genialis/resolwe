@@ -8,7 +8,6 @@ import django.contrib.postgres.search
 import django.core.validators
 import django.db.models.deletion
 import fernet_fields.fields
-import versionfield.fields
 from django.conf import settings
 from django.contrib.postgres.operations import (
     CITextExtension,
@@ -65,7 +64,7 @@ class Migration(migrations.Migration):
                         max_length=100, populate_from="name", unique_with=("version",)
                     ),
                 ),
-                ("version", versionfield.fields.VersionField(default="0.0.0")),
+                ("version", resolwe.flow.models.fields.VersionField(default="0.0.0")),
                 ("name", models.CharField(max_length=100)),
                 ("created", models.DateTimeField(auto_now_add=True, db_index=True)),
                 ("modified", models.DateTimeField(auto_now=True, db_index=True)),
@@ -114,7 +113,7 @@ class Migration(migrations.Migration):
                         max_length=100, populate_from="name", unique_with=("version",)
                     ),
                 ),
-                ("version", versionfield.fields.VersionField(default="0.0.0")),
+                ("version", resolwe.flow.models.fields.VersionField(default="0.0.0")),
                 ("name", models.CharField(max_length=100)),
                 ("created", models.DateTimeField(auto_now_add=True, db_index=True)),
                 ("modified", models.DateTimeField(auto_now=True, db_index=True)),
@@ -251,7 +250,7 @@ class Migration(migrations.Migration):
                         max_length=100, populate_from="name", unique_with=("version",)
                     ),
                 ),
-                ("version", versionfield.fields.VersionField(default="0.0.0")),
+                ("version", resolwe.flow.models.fields.VersionField(default="0.0.0")),
                 ("name", models.CharField(max_length=100)),
                 ("created", models.DateTimeField(auto_now_add=True, db_index=True)),
                 ("modified", models.DateTimeField(auto_now=True, db_index=True)),
@@ -295,7 +294,7 @@ class Migration(migrations.Migration):
                         max_length=100, populate_from="name", unique_with=("version",)
                     ),
                 ),
-                ("version", versionfield.fields.VersionField(default="0.0.0")),
+                ("version", resolwe.flow.models.fields.VersionField(default="0.0.0")),
                 ("name", models.CharField(max_length=100)),
                 ("created", models.DateTimeField(auto_now_add=True, db_index=True)),
                 ("modified", models.DateTimeField(auto_now=True, db_index=True)),
@@ -375,7 +374,7 @@ class Migration(migrations.Migration):
                         max_length=100, populate_from="name", unique_with=("version",)
                     ),
                 ),
-                ("version", versionfield.fields.VersionField(default="0.0.0")),
+                ("version", resolwe.flow.models.fields.VersionField(default="0.0.0")),
                 ("name", models.CharField(max_length=100)),
                 ("created", models.DateTimeField(auto_now_add=True, db_index=True)),
                 ("modified", models.DateTimeField(auto_now=True, db_index=True)),
@@ -479,7 +478,7 @@ class Migration(migrations.Migration):
                         max_length=100, populate_from="name", unique_with=("version",)
                     ),
                 ),
-                ("version", versionfield.fields.VersionField(default="0.0.0")),
+                ("version", resolwe.flow.models.fields.VersionField(default="0.0.0")),
                 ("name", models.CharField(max_length=100)),
                 ("created", models.DateTimeField(auto_now_add=True, db_index=True)),
                 ("modified", models.DateTimeField(auto_now=True, db_index=True)),
@@ -599,7 +598,7 @@ class Migration(migrations.Migration):
                         max_length=100, populate_from="name", unique_with=("version",)
                     ),
                 ),
-                ("version", versionfield.fields.VersionField(default="0.0.0")),
+                ("version", resolwe.flow.models.fields.VersionField(default="0.0.0")),
                 ("name", models.CharField(max_length=100)),
                 ("created", models.DateTimeField(auto_now_add=True, db_index=True)),
                 ("modified", models.DateTimeField(auto_now=True, db_index=True)),

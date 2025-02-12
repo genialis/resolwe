@@ -17,13 +17,13 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.management.base import BaseCommand
 from django.db.models import Max, Q
-from versionfield.utils import convert_version_string_to_int
 
 from resolwe.flow.engine import InvalidEngineError
 from resolwe.flow.finders import get_finders
 from resolwe.flow.managers import manager
 from resolwe.flow.models import DescriptorSchema, Process
 from resolwe.flow.models.base import VERSION_NUMBER_BITS
+from resolwe.flow.models.fields import convert_version_string_to_int
 from resolwe.flow.models.utils import validate_schema, validation_schema
 from resolwe.flow.utils import dict_dot, iterate_schema
 from resolwe.permissions.utils import assign_contributor_permissions, copy_permissions
