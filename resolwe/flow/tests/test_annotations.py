@@ -63,12 +63,8 @@ class AnnotationValueTest(TestCase):
     def test_get_annotation(self):
         self.assertEqual(self.entity.get_annotation("group.field_1"), "Test")
         # Create delete marker and test again.
-        AnnotationValue.objects.create(
-            entity=self.entity,
-            field=self.field,
-            _value=None,
-            contributor=self.contributor,
-        )
+        self.value.deleted = True
+        self.value.save()
         self.assertIsNone(self.entity.get_annotation("group.field_1"))
         self.assertEqual(
             self.entity.get_annotation("group.field_1", "default"), "default"
@@ -1271,18 +1267,15 @@ class AnnotationViewSetsTest(TestCase):
         self.assertTrue(response.data[0]["label"], "label string")
 
         # Test delete markers are handled properly.
-        delete_marker = AnnotationValue.objects.create(
-            entity=self.annotation_value1.entity,
-            field=self.annotation_value1.field,
-            _value=None,
-            contributor=self.annotation_value1.contributor,
-        )
+        self.annotation_value1.deleted = True
+        self.annotation_value1.save()
         request = factory.get("/", {"entity": self.entity1.pk}, format="json")
         force_authenticate(request, self.contributor)
         response = self.annotationvalue_viewset(request)
         self.assertTrue(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 0)
-        delete_marker.delete()
+        self.annotation_value1.deleted = False
+        self.annotation_value1.save()
 
         # Another authenticated request.
         self.annotation_value2.entity = self.entity1
@@ -1553,12 +1546,12 @@ class AnnotationViewSetsTest(TestCase):
         force_authenticate(request, self.contributor)
         response = viewset(request, pk=self.entity1.pk)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        # Only the first error is returned, since save is stopped on the first error.
         self.assertCountEqual(
             response.data["error"],
             [
                 "The value '10' is not of the expected type 'str'.",
                 f"The value '10' for the field '{self.annotation_field1.pk}' does not match the regex 'b+'.",
-                "The value 'string' is not of the expected type 'int'.",
             ],
         )
         has_value(self.entity1, self.annotation_field1.pk, "new value")
@@ -1597,7 +1590,6 @@ class AnnotationViewSetsTest(TestCase):
         expected = [
             {"value": "string", "label": "string"},
             {"value": "new value", "label": "new value"},
-            None,
             {"value": "new value", "label": "new value"},
             {"value": "bbb", "label": "bbb"},
         ]

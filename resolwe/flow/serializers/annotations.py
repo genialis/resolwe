@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from django.db import models
+from django.db import models, transaction
 from rest_framework import serializers
 from rest_framework.fields import empty
 
@@ -101,29 +101,21 @@ class AnnotationPresetSerializer(ResolweBaseSerializer):
 class AnnotationValueListSerializer(serializers.ListSerializer):
     """Perform bulk update of annotation values to speed up requests."""
 
+    @transaction.atomic
     def create(self, validated_data: Any) -> Any:
-        """Perform efficient bulk create."""
+        """Perform bulk create."""
+        # The save must be called for delete markers to be set correctly.
+        values = [AnnotationValue(**data) for data in validated_data]
+        for value in values:
+            value.save()
+        return values
 
-        values_to_create = [AnnotationValue(**data) for data in validated_data]
-        # Perform a validation on all values to create. This is necessary as bulk
-        # create skips the validation.
-        for value in values_to_create:
-            value.validate()
-        return AnnotationValue.objects.bulk_create(values_to_create)
-
-    def save(self, **kwargs: Any) -> Any:
-        """Perform efficient bulk create or delete."""
-        self.instance = []
-        to_create = []
+    @transaction.atomic
+    def save(self, **kwargs: Any) -> list[AnnotationValue]:
+        """Save and return the list of annotation values."""
         for data in self.validated_data:
-            if data["_value"] is None or data["_value"]["value"] is None:
-                data["_value"] = None
-            to_create.append(data)
-
-        # Create new objects and delete markers.
-        created = self.create(to_create)
-        # Only return created objects.
-        self.instance = [entry for entry in created if entry._value is not None]
+            data["value"] = data["_value"]["value"]
+        self.instance = AnnotationValue.objects.add_annotations(self.validated_data)
         return self.instance
 
     def validate(self, attrs: Any) -> Any:

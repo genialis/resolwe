@@ -5,6 +5,8 @@ import datetime
 import re
 from collections import defaultdict
 from enum import Enum
+from functools import reduce
+from itertools import batched
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -15,10 +17,11 @@ from typing import (
     Optional,
     Sequence,
     Type,
+    TypedDict,
 )
 
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import models, transaction
 
 from resolwe.flow.models.base import (
     MAX_SLUG_LENGTH,
@@ -267,6 +270,9 @@ class AnnotationFieldManager(
 class AbstractAnnotationField(models.Model):
     """Abstract base class for annotation fields."""
 
+    partition_fields = ["name", "group_id"]
+    version_field = "version"
+
     #: the name of the annotation fields
     name = models.CharField(max_length=NAME_LENGTH)
 
@@ -331,6 +337,11 @@ class AbstractAnnotationField(models.Model):
         if match is None:
             raise ValidationError(f"Invalid path '{path}'.")
         return [match["group"], match["field"]]
+
+    @property
+    def path(self) -> str:
+        """Return the path of the field."""
+        return f"{self.group.name}.{self.name}"
 
     @classmethod
     def id_from_path(cls, path: str) -> Optional[int]:
@@ -444,24 +455,99 @@ class AnnotationPreset(PermissionObject, BaseModel):
         """Override parent meta."""
 
 
+class AddAnnotationDict(TypedDict):
+    """The type of the dictionary for bulk adding annotations."""
+
+    field: AnnotationField
+    entity: "Entity"
+    contributor: Any
+    value: Any
+
+
 class AnnotationValueManager(BaseManager["AnnotationValue", PermissionQuerySet]):
     """Annotation value manager.
 
     Return only the latest version of each field.
     """
 
-    partition_fields = ["field", "entity"]
-    version_field = "created"
     QuerySet = PermissionQuerySet
+    enable_versioning = False
+
+    def get_queryset(self):
+        """Return only the values with delete marker not set."""
+        return super().get_queryset().filter(deleted=False)
+
+    def add_annotations(
+        self, annotations: Iterable[AddAnnotationDict]
+    ) -> list["AnnotationValue"]:
+        """Bulk add annotations.
+
+        We have to consider the possibilities:
+        - the value is not a delete marker:
+          - the existing value exists:
+            - create a new entry and set deleted to true on the existing one if the value
+              has actually changed.
+          - the value does not exist yet or is deleted: create a new entry.
+        - the value is a delete marker:
+          - the existing value exists: set deleted to true.
+        """
+
+        def is_delete_marker(value):
+            """Is the value a delete marker."""
+            return value is None
+
+        def combine_query(query: models.Q, data: dict) -> models.Q:
+            """Combine the query with the data."""
+            return query | models.Q(field=data["field"], entity=data["entity"])
+
+        # The annotations are processed in batches to avoid creating too complex
+        # queries. The BATCH_SIZE determines the size of the batch.
+        BATCH_SIZE = 1000
+        created = []
+        for batch in batched(annotations, BATCH_SIZE):
+            to_process = {(data["field"].pk, data["entity"].pk): data for data in batch}
+            # Create a mapping to easy access the existing values.
+            existing_values = {
+                (value.field_id, value.entity_id): value
+                for value in AnnotationValue.objects.filter(
+                    reduce(combine_query, batch, models.Q())
+                )
+            }
+            # We have to:
+            # - create new values
+            # - create new values and delete existing ones if the value has changed
+            # - delete values with None
+            to_delete = []
+            to_create = []
+            for key, data in to_process.items():
+                if existing_value := existing_values.get(key):
+                    if is_delete_marker(data["value"]):
+                        to_delete.append(existing_value.pk)
+                    elif existing_value.value != data["value"]:
+                        to_create.append(data)
+                        to_delete.append(existing_value.pk)
+                elif not is_delete_marker(data):
+                    to_create.append(data)
+
+            # Create new objects we must call the save method to set the delete marker.
+            created_values = [AnnotationValue(**data) for data in to_create]
+            for value in created_values:
+                value.save()
+
+            created.extend(created_values)
+            # Mark objects as deleted.
+            if to_delete:
+                AnnotationValue.objects.filter(pk__in=to_delete).update(deleted=True)
+
+        # Only return created objects.
+        return created
 
     def remove_delete_markers(self) -> PermissionQuerySet:
         """Remote delete markers from the queryset.
 
         Due to the nature of the queryset use the method only on small querysets.
         """
-        return self.filter(pk__in=list(self.values_list("pk", flat=True))).exclude(
-            _value__isnull=True
-        )
+        return self.filter(deleted=False)
 
 
 def _slug_for_annotation_value(instance: "AnnotationValue") -> str:
@@ -471,6 +557,9 @@ def _slug_for_annotation_value(instance: "AnnotationValue") -> str:
 
 class AbstractAnnotationValue(BaseModel):
     """Abstract base class for annotation values."""
+
+    partition_fields = ["field", "entity"]
+    version_field = "created"
 
     #: URL slug
     slug = ResolweSlugField(
@@ -488,6 +577,9 @@ class AbstractAnnotationValue(BaseModel):
     field = models.ForeignKey(
         AnnotationField, related_name="values", on_delete=models.PROTECT
     )
+
+    #: the delete marker
+    deleted = models.BooleanField(default=False)
 
     #: value is stored under key 'value' in the json field to simplify lookups
     #: the value None is used as delete marker
@@ -508,18 +600,18 @@ class AbstractAnnotationValue(BaseModel):
         if "value" in kwargs:
             kwargs["_value"] = {"value": kwargs.pop("value")}
         super().__init__(*args, **kwargs)
-        if not self.delete_marker and "label" not in self._value:
+        if "label" not in self._value:
             self.recompute_label()
 
     @property
     def delete_marker(self) -> bool:
         """Return True if this value represents a delete marker."""
-        return self._value is None
+        return self.deleted
 
     @property
-    def value(self) -> Optional[str | int | float | datetime.date]:
+    def value(self) -> str | int | float | datetime.date:
         """Get the actual value or None if object is delete marker."""
-        return None if self.delete_marker else self._value["value"]
+        return self._value["value"]
 
     @value.setter
     def value(self, value: str | int | float | datetime.date):
@@ -559,9 +651,15 @@ class AbstractAnnotationValue(BaseModel):
         if not self.delete_marker:
             annotation_value_validator.validate(self, raise_exception=True)
 
+    @transaction.atomic
     def save(self, *args, **kwargs):
         """Save the annotation value after validation has passed."""
-        # The value `None` is used as delete marker.
+        # Set deleted on other instances with the same field and entity.
+        if self._state.adding:
+            type(self).all_objects.filter(
+                field=self.field, entity=self.entity, deleted=False
+            ).update(deleted=True)
+
         if not self.delete_marker:
             annotation_value_validator.validate(self, raise_exception=True)
             # Make sure the label is always set.
