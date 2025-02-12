@@ -204,7 +204,7 @@ class Process(BaseModel, PermissionObject):
               not otherwise specified in the resource requirements.
             - ``cores``: Core count limit. Defaults to 1.
             - ``storage``: Size (in gibibytes) of temporary volume used for
-              processing in kubernetes. Defaults to 200.
+              processing in kubernetes. Defaults to 10.
 
         :rtype: dict
         """
