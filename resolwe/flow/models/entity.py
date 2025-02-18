@@ -211,13 +211,9 @@ class Entity(PermissionObject, BaseCollection):
         :return: value of the annotation or default if not found.
         """
         group_name, field_name = path.split(".", maxsplit=1)
-        annotation: AnnotationValue = (
-            self.annotations.filter(
-                field__group__name=group_name, field__name=field_name
-            )
-            .remove_delete_markers()
-            .first()
-        )
+        annotation: AnnotationValue = self.annotations.filter(
+            field__group__name=group_name, field__name=field_name
+        ).first()
         return annotation.value if annotation else default
 
     def set_annotation(self, path: str, value: Any, contributor=None):

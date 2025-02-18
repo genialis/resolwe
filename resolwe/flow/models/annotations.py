@@ -542,13 +542,6 @@ class AnnotationValueManager(BaseManager["AnnotationValue", PermissionQuerySet])
         # Only return created objects.
         return created
 
-    def remove_delete_markers(self) -> PermissionQuerySet:
-        """Remote delete markers from the queryset.
-
-        Due to the nature of the queryset use the method only on small querysets.
-        """
-        return self.filter(deleted=False)
-
 
 def _slug_for_annotation_value(instance: "AnnotationValue") -> str:
     """Generate the slug for the annotation value."""

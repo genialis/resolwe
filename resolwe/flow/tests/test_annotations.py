@@ -711,7 +711,7 @@ class AnnotationViewSetsTest(TestCase):
             AnnotationValue.objects.filter(
                 entity=self.annotation_value1.entity,
                 field=self.annotation_value1.field,
-            ).remove_delete_markers().get()
+            ).get()
         created_value = AnnotationValue.objects.get(
             entity=created_value.entity, field=created_value.field
         )
@@ -1475,7 +1475,7 @@ class AnnotationViewSetsTest(TestCase):
         force_authenticate(request, self.contributor)
         response = viewset(request, pk=self.entity1.pk)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(self.entity1.annotations.remove_delete_markers().count(), 1)
+        self.assertEqual(self.entity1.annotations.count(), 1)
         has_value(self.entity1, self.annotation_field2.pk, 2)
 
         # Re-create deleted annotation value.

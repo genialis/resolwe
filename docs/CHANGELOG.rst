@@ -15,6 +15,8 @@ Changed
 - **BACKWARD INCOMPATIBLE:** Drop support for ``Python 3.11``
 - Add ``process_exception`` method to auditlog middleware
 - Add ``deleted`` field to ``AnnotationValues`` model
+- Remove not used method ``remove_delete_markers`` from the ``AnnotationValue``
+  model
 
 
 ===================

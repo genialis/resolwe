@@ -214,6 +214,7 @@ class PythonProcess(ListenerPlugin):
         mapping representing annotations. The keys in the are in the format
         f"{group_name}.{field_name}".
         """
+
         entity_id, annotations, update = message.message_data
         entity = Entity.objects.get(pk=entity_id)
         # Check that the user has the permissions to update the entity.
