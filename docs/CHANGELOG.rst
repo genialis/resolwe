@@ -28,10 +28,12 @@ Changed
 -------
 - **BACKWARD INCOMPATIBLE:** Require ``Django 5.1.x`` and bump version of
   dependencies
+- Support dynamic calculation of processes' resource requirements.
 - Support objects without permissions in ``DictRelatedField``
 - Due to poorly written and unmaintained code, the ``VersionField``
   functionality has been integrated into ``Resolwe``. This integration is based
   on the code from repository https://github.com/mcldev/django-versionfield .
+- Remove deprecated endpoint ``upload_config_deprecated``
 
 Fixed
 -----

@@ -375,6 +375,52 @@ class RequirementsProcess(Process):
         print("Storage:", outputs.storage)
 
 
+class DynamicRequirementsProcess(Process):
+    slug = "test-python-process-dynamic-requirements"
+    name = "Test Python Process Dynamic Requirements"
+    version = "0.0.1"
+    process_type = "data:python:requirements"
+    requirements = {
+        "resources": {
+            "cores": "3+my_group__subgroup__bar",
+            "memory": "2**(2+3)*(integer_input == 0) + 120*(integer_input != 0)",
+            "storage": "related_object",
+        },
+    }
+
+    class Input:
+        """Input fields."""
+
+        integer_input = IntegerField(label="Integer input")
+        related_object = DataField(data_type="", label="Related object")
+
+        class MyGroup:
+            foo = StringField(label="Foo")
+
+            class SubGroup:
+                bar = IntegerField(label="Bar", default=2)
+
+            subgroup = GroupField(SubGroup, label="Subgroup")
+
+        my_group = GroupField(MyGroup, label="My group")
+
+    class Output:
+        """Output fields."""
+
+        cores = IntegerField(label="Cores")
+        memory = IntegerField(label="Memory")
+        storage = IntegerField(label="Storage")
+
+    def run(self, inputs, outputs):
+        outputs.cores = self.requirements["resources"]["cores"]
+        outputs.memory = self.requirements["resources"]["memory"]
+        outputs.storage = self.requirements["resources"]["storage"]
+
+        print("Cores:", outputs.cores)
+        print("Memory:", outputs.memory)
+        print("Storage:", outputs.storage)
+
+
 class IterateProcess(Process):
     slug = "test-python-process-iterate"
     name = "Test iterating over filtered objects"

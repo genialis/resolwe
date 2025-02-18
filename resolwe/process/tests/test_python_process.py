@@ -662,6 +662,27 @@ class PythonProcessRequirementsTest(ProcessTestCase):
         self.assertEqual(data.output["storage"], 500)
 
     @with_docker_executor
+    @tag_process("test-python-process-dynamic-requirements")
+    def test_dynamic_resources(self):
+        with self.preparation_stage():
+            related_data = self.run_process("test-python-process-2")
+
+        data = self.run_process(
+            "test-python-process-dynamic-requirements",
+            {
+                "related_object": related_data.pk,
+                "integer_input": 3,
+                "my_group": {"foo": "burek", "subgroup": {"bar": -2}},
+            },
+        )
+        data.refresh_from_db()
+        self.assertEqual(data.status, "OK")
+
+        self.assertEqual(data.output["cores"], 1)
+        self.assertEqual(data.output["memory"], 120)
+        self.assertEqual(data.output["storage"], 3036)
+
+    @with_docker_executor
     @tag_process("test-python-process-iterate")
     def test_python_process_iterate(self):
         """Test iteration in python processes."""

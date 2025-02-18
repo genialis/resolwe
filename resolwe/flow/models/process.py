@@ -13,6 +13,8 @@ from resolwe.permissions.models import PermissionObject
 from .base import BaseManagerWithoutVersion, BaseModel
 from .data import Data
 
+from resolwe.flow.models.utils.dynamic_resources import get_dynamic_resource_limits
+
 
 class Process(BaseModel, PermissionObject):
     """Postgres model for storing processes."""
@@ -204,7 +206,7 @@ class Process(BaseModel, PermissionObject):
               not otherwise specified in the resource requirements.
             - ``cores``: Core count limit. Defaults to 1.
             - ``storage``: Size (in gibibytes) of temporary volume used for
-              processing in kubernetes. Defaults to 200.
+              processing in kubernetes. Defaults to 10.
 
         :rtype: dict
         """
@@ -226,7 +228,7 @@ class Process(BaseModel, PermissionObject):
         resources_map = ChainMap(
             data.process_resources if data is not None else {},
             environment_resources,
-            self.requirements.get("resources", {}),
+            get_dynamic_resource_limits(data) if data is not None else {},
             getattr(settings, "FLOW_PROCESS_RESOURCE_DEFAULTS", {}),
             fallback,
         )

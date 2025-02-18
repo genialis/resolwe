@@ -141,23 +141,38 @@
                     "properties": {
                         "cores": {
                             "description": "Number of CPU cores",
-                            "type": "integer"
+                            "type": [
+                                "integer",
+                                "string"
+                            ]
                         },
                         "memory": {
                             "description": "Amount of memory in megabytes",
-                            "type": "integer"
+                            "type": [
+                                "integer",
+                                "string"
+                            ]
                         },
                         "storage": {
                             "description": "Storage requirement (in gibibytes)",
-                            "type": "integer"
-                        },                
+                            "type": [
+                                "integer",
+                                "string"
+                            ]
+                        },
                         "temporary_storage": {
                             "description": "Amount of temporary filesystem storage in megabytes",
-                            "type": "integer"
+                            "type": [
+                                "integer",
+                                "string"
+                            ]
                         },
                         "output_storage": {
                             "description": "Amount of output filesystem storage in megabytes",
-                            "type": "integer"
+                            "type": [
+                                "integer",
+                                "string"
+                            ]
                         },
                         "network": {
                             "description": "External network access",
