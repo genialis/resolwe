@@ -38,6 +38,4 @@ urlpatterns = [
         "api/upload/credentials", UploadCredentials.as_view(), name="upload_credentials"
     ),
     path("api/upload/config", UploadConfig.as_view(), name="upload_config"),
-    # TODO: The view below is deprecated and must be removed on 1. 1. 2025.
-    path("api/upload_config", UploadConfig.as_view(), name="upload_config_deprecated"),
 ]

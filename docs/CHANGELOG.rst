@@ -18,6 +18,7 @@ Changed
 - Remove not used method ``remove_delete_markers`` from the ``AnnotationValue``
   model
 - Allow using ``DictRelatedField`` on models without version
+- Remove deprecated endpoint ``upload_config_deprecated``
 
 
 ===================
