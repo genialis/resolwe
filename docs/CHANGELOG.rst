@@ -19,6 +19,10 @@ Changed
   model
 - Allow using ``DictRelatedField`` on models without version
 
+Fixed
+-----
+- Fix type when checking if annotation value represents a delete marker
+
 
 ===================
 43.0.0 - 2025-02-17

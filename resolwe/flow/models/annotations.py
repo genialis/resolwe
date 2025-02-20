@@ -526,7 +526,7 @@ class AnnotationValueManager(BaseManager["AnnotationValue", PermissionQuerySet])
                     elif existing_value.value != data["value"]:
                         to_create.append(data)
                         to_delete.append(existing_value.pk)
-                elif not is_delete_marker(data):
+                elif not is_delete_marker(data["value"]):
                     to_create.append(data)
 
             # Create new objects we must call the save method to set the delete marker.
