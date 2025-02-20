@@ -500,6 +500,8 @@ class AnnotationValueManager(BaseManager["AnnotationValue", PermissionQuerySet])
             """Combine the query with the data."""
             return query | models.Q(field=data["field"], entity=data["entity"])
 
+        # Make method more general for use in classed derived from AnnotationValue.
+        Model = self.model
         # The annotations are processed in batches to avoid creating too complex
         # queries. The BATCH_SIZE determines the size of the batch.
         BATCH_SIZE = 1000
@@ -509,7 +511,7 @@ class AnnotationValueManager(BaseManager["AnnotationValue", PermissionQuerySet])
             # Create a mapping to easy access the existing values.
             existing_values = {
                 (value.field_id, value.entity_id): value
-                for value in AnnotationValue.objects.filter(
+                for value in Model.objects.filter(
                     reduce(combine_query, batch, models.Q())
                 )
             }
@@ -530,14 +532,14 @@ class AnnotationValueManager(BaseManager["AnnotationValue", PermissionQuerySet])
                     to_create.append(data)
 
             # Create new objects we must call the save method to set the delete marker.
-            created_values = [AnnotationValue(**data) for data in to_create]
+            created_values = [Model(**data) for data in to_create]
             for value in created_values:
                 value.save()
 
             created.extend(created_values)
             # Mark objects as deleted.
             if to_delete:
-                AnnotationValue.objects.filter(pk__in=to_delete).update(deleted=True)
+                Model.objects.filter(pk__in=to_delete).update(deleted=True)
 
         # Only return created objects.
         return created
