@@ -636,6 +636,26 @@ class AnnotationViewSetsTest(TestCase):
         self.assertEqual(AnnotationValue.objects.count(), 2)
         self.assertEqual(self.annotation_value1.value, "string")
 
+        # Deleting already deleted value.
+        new_value = AnnotationValue.objects.get(
+            field=self.annotation_value1.field, entity=self.annotation_value1.entity
+        )
+        new_value.deleted = True
+        new_value.save()
+        values = [
+            {
+                "entity": self.entity1.pk,
+                "field": self.annotation_field1.pk,
+                "value": None,
+            }
+        ]
+        response = client.put(path, values, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, [])
+        self.assertEqual(AnnotationValue.objects.count(), 1)
+        new_value.deleted = False
+        new_value.save()
+
         # Multi with validation error.
         values = [
             {
