@@ -1,4 +1,5 @@
 # pylint: disable=missing-docstring
+import math
 import os
 import sys
 import unittest
@@ -686,7 +687,7 @@ class PythonProcessRequirementsTest(ProcessTestCase):
                 ]
             )
             # Assert iterate method was called the correct number of times.
-            self.assertEqual(calls, Process.objects.count() // chunk_size)
+            self.assertEqual(calls, math.ceil(Process.objects.count() / chunk_size))
             # Assert the result is correct.
             process_slugs = Process.objects.all().values_list("slug", flat=True)
             self.assertCountEqual(process_slugs, data.output["process_slugs"])
