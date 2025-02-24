@@ -375,6 +375,32 @@ class RequirementsProcess(Process):
         print("Storage:", outputs.storage)
 
 
+class RequirementsProcess2(Process):
+    slug = "test-python-process-requirements2"
+    name = "Test Python Process Requirements 2"
+    version = "0.0.1"
+    process_type = "data:python:requirements"
+    requirements = {
+        "resources": {
+            "cores": 2,
+            "memory": 4096,
+            "storage": 200,
+        },
+    }
+
+    class Output:
+        """Input fields."""
+
+        cores = IntegerField(label="Cores")
+        memory = IntegerField(label="Memory")
+        storage = IntegerField(label="Storage")
+
+    def run(self, inputs, outputs):
+        outputs.cores = self.requirements["resources"]["cores"]
+        outputs.memory = self.requirements["resources"]["memory"]
+        outputs.storage = self.requirements["resources"]["storage"]
+
+
 class IterateProcess(Process):
     slug = "test-python-process-iterate"
     name = "Test iterating over filtered objects"

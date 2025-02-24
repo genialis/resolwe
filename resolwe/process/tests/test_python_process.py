@@ -30,6 +30,7 @@ from resolwe.flow.models.annotations import (
     AnnotationValue,
 )
 from resolwe.permissions.models import Permission, get_anonymous_user
+from resolwe.process import resources
 from resolwe.test import (
     ProcessTestCase,
     tag_process,
@@ -661,6 +662,33 @@ class PythonProcessRequirementsTest(ProcessTestCase):
         self.assertEqual(data.output["cores"], 3)
         self.assertEqual(data.output["memory"], 50000)
         self.assertEqual(data.output["storage"], 500)
+
+    @with_docker_executor
+    @tag_process("test-python-process-requirements2")
+    def test_dynamic_resources(self):
+        data = self.run_process("test-python-process-requirements2")
+        data.refresh_from_db()
+        self.assertEqual(data.status, "OK")
+
+        self.assertEqual(data.output["cores"], 2)
+        self.assertEqual(data.output["memory"], 4096)
+        self.assertEqual(data.output["storage"], 200)
+
+        @resources.estimator("test-python-process-requirements2", "cores")
+        def cores_estimator(data):
+            return 3
+
+        @resources.estimator("test-python-process-requirements2", "storage")
+        def storage_estimator(data):
+            return 3.5e9
+
+        data = self.run_process("test-python-process-requirements2")
+        data.refresh_from_db()
+        self.assertEqual(data.status, "OK")
+
+        self.assertEqual(data.output["cores"], 3)
+        self.assertEqual(data.output["memory"], 4096)  # default
+        self.assertEqual(data.output["storage"], 3.5e9)
 
     @with_docker_executor
     @tag_process("test-python-process-iterate")

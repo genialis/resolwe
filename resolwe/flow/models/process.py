@@ -9,6 +9,7 @@ from django.core.validators import RegexValidator
 from django.db import models
 
 from resolwe.permissions.models import PermissionObject
+from resolwe.process.resources import PROCESS_RESOURCES
 
 from .base import BaseManagerWithoutVersion, BaseModel
 from .data import Data
@@ -221,11 +222,21 @@ class Process(BaseModel, PermissionObject):
             if environment_settings.get(resource, {}).get(self.slug)
         }
 
+        dynamic_resources = {}
+        if data is not None:
+            estimators = PROCESS_RESOURCES.get(self.slug, {})
+            dynamic_resources = {
+                resource: estimators[resource](data)
+                for resource in resources
+                if resource in estimators
+            }
+
         # Gather requirements for all resources from all sources.
         # The order of requirements determines their priority.
         resources_map = ChainMap(
             data.process_resources if data is not None else {},
             environment_resources,
+            dynamic_resources,
             self.requirements.get("resources", {}),
             getattr(settings, "FLOW_PROCESS_RESOURCE_DEFAULTS", {}),
             fallback,
