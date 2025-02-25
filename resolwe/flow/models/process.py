@@ -1,5 +1,6 @@
 """Reslowe process model."""
 
+import logging
 from collections import ChainMap
 from typing import Optional
 
@@ -13,6 +14,8 @@ from resolwe.process.resources import PROCESS_RESOURCES
 
 from .base import BaseManagerWithoutVersion, BaseModel
 from .data import Data
+
+logger = logging.getLogger(__name__)
 
 
 class Process(BaseModel, PermissionObject):
@@ -222,14 +225,23 @@ class Process(BaseModel, PermissionObject):
             if environment_settings.get(resource, {}).get(self.slug)
         }
 
+        # Dynamically estimate resource consumption for the process.
         dynamic_resources = {}
         if data is not None:
             estimators = PROCESS_RESOURCES.get(self.slug, {})
-            dynamic_resources = {
-                resource: estimators[resource](data)
-                for resource in resources
-                if resource in estimators
-            }
+            for resource in resources:
+                if resource not in estimators:
+                    continue
+
+                try:
+                    dynamic_resources[resource] = estimators[resource](data)
+                except Exception as exc:
+                    logger.exception(
+                        "Encountered exception while estimating %s consumption for process %s: %s",
+                        resource,
+                        self.slug,
+                        exc,
+                    )
 
         # Gather requirements for all resources from all sources.
         # The order of requirements determines their priority.
