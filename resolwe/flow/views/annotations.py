@@ -2,6 +2,8 @@
 
 from typing import Any
 
+from django.contrib import auth
+from django.db.models import Prefetch
 from rest_framework import exceptions, generics, mixins, permissions, response, viewsets
 from rest_framework.serializers import BaseSerializer
 
@@ -74,7 +76,9 @@ class AnnotationValueViewSet(
 
     serializer_class = AnnotationValueSerializer
     filterset_class = AnnotationValueFilter
-    queryset = AnnotationValue.objects.all()
+    queryset = AnnotationValue.objects.all().prefetch_related(
+        Prefetch("contributor", queryset=auth.get_user_model().objects.all())
+    )
     permission_classes = (get_permissions_class(),)
     ordering_fields = ("created", "id")
 
