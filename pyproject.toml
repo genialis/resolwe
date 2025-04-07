@@ -36,7 +36,7 @@ dependencies = [
     "channels_redis~=4.2.1",
     # Storage requirement for computing hashes.
     "crcmod",
-    "Django~=5.1",
+    "Django~=5.1.8",
     "django-fernet-fields-v2~=0.9",
     "django-filter~=24.3",
     "djangorestframework~=3.15.2",
