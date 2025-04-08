@@ -618,7 +618,8 @@ class DataTestCase(DataTestCaseCommonMixin, ResolweAPITestCase):
 class DataTestCaseDelete(
     DataTestCaseCommonMixin, TransactionResolweAPITestCase, DjangoTransactionTestCase
 ):
-    def _pre_setup(self, *args, **kwargs):
+    @classmethod
+    def _pre_setup(cls, *args, **kwargs):
         """Delete all previously created users.
 
         The public user is created in the migrations and recreated during test case,
