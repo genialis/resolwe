@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools >= 75.7.0", "setuptools_scm >= 8.1.0"]
+requires = ["setuptools >= 78.1.0", "setuptools_scm >= 8.2.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -31,60 +31,60 @@ classifiers = [
 dependencies = [
     "asgiref~=3.8.1",
     "asteval==1.0.6",
-    "beautifulsoup4~=4.12.3",
-    "channels~=4.2.0",
+    "beautifulsoup4~=4.13.3",
+    "channels~=4.2.2",
     "channels_redis~=4.2.1",
     # Storage requirement for computing hashes.
     "crcmod",
-    "Django~=5.1.8",
+    "Django~=5.2.0",
     "django-fernet-fields-v2~=0.9",
-    "django-filter~=24.3",
-    "djangorestframework~=3.15.2",
+    "django-filter~=25.1",
+    "djangorestframework~=3.16.0",
     "docker~=7.1.0",
     "drf-spectacular~=0.28.0",
-    "Jinja2~=3.1.5",
+    "Jinja2~=3.1.6",
     "jsonschema~=4.23.0",
-    "kubernetes~=31.0.0",
-    "opentelemetry-api~=1.29.0",
-    "opentelemetry-exporter-otlp~=1.29.0",
-    "opentelemetry-sdk~=1.29.0",
+    "kubernetes~=32.0.1",
+    "opentelemetry-api~=1.31.1",
+    "opentelemetry-exporter-otlp~=1.31.1",
+    "opentelemetry-sdk~=1.31.1",
     "plumbum~=1.9.0",
-    "psycopg[binary]~=3.2.3",
+    "psycopg[binary]~=3.2.6",
     "python-decouple~=3.8",
-    "pytz~=2024.2",
+    "pytz~=2025.2",
     "PyYAML~=6.0.2",
-    "pyzmq~=26.2.0",
+    "pyzmq~=26.3.0",
     "redis~=5.2.1",
     "shellescape~=3.8.1",
-    "Sphinx~=8.1.3",
+    "Sphinx~=8.2.3",
     "uvloop~=0.21.0",
-    "wrapt~=1.17.0",
+    "wrapt~=1.17.2",
 ]
 
 
 [project.optional-dependencies]
-storage-s3 = ["boto3~=1.34.128", "crcmod"]
-storage-gcs = ["crcmod", "google-cloud-storage~=2.16.0"]
-docs = ["sphinx_rtd_theme", "pyasn1>=0.6.0", "daphne>=4.1.2"]
-package = ["twine", "wheel"]
+storage-s3 = ["boto3~=1.37.25", "crcmod~=1.7"]
+storage-gcs = ["crcmod~=1.7", "google-cloud-storage~=3.1.0"]
+docs = ["sphinx_rtd_theme ~= 3.0.2", "pyasn1>=0.6.1", "daphne>=4.1.2"]
+package = ["twine ~= 6.1.0", "wheel ~= 0.45.1"]
 test = [
-    "black==24.10.0",
+    "black>=25.1.0",
     "check-manifest>=0.50",
-    "coverage>=7.6.10",
+    "coverage>=7.8.0",
     "daphne>=4.1.2",
     "django-filter-stubs>=0.1.3",
-    "django-stubs>=5.1.2",
+    "django-stubs>=5.1.3",
     #  Temporarily disabled due to compatibility issues with mypy.
-    # "djangorestframework-stubs[compatible-mypy]>=3.15.2",
-    "flake8>=7.1.1",
-    "isort>=5.13.2",
-    "mypy>=1.14.1",
+    "djangorestframework-stubs[compatible-mypy]>=3.15.3",
+    "flake8>=7.2.0",
+    "isort>=6.0.1",
+    "mypy>=1.15.0",
     "pydocstyle>=6.3.0",
     "readme_renderer",
     "setuptools_scm",
-    "tblib>=3.0.0",
+    "tblib>=3.1.0",
     "testfixtures>=8.3.0",
-    "twine~=6.0.1",
+    "twine~=6.1.0",
     "types-setuptools",
 ]
 

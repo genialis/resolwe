@@ -16,6 +16,16 @@ Changed
 
 
 
+==========
+Unreleased
+==========
+
+Changed
+-------
+- **BACKWARD INCOMPATIBLE:** Require ``Django 5.2.x`` and bump version of
+  dependencies
+
+
 ===================
 44.0.0 - 2025-03-17
 ===================
