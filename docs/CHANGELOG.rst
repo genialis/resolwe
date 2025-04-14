@@ -5,15 +5,14 @@ Change Log
 All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
-==========
-Unreleased
-==========
+===================
+44.1.0 - 2025-04-14
+===================
 
 Changed
 -------
 - Prefetch ``contributor`` data with ``AnnotationValue`` objects to speed up
   retrieving annotation values
-
 
 
 ===================
