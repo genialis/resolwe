@@ -144,7 +144,7 @@ Model for tracking changes in Data objects.
 .. autoclass:: resolwe.flow.models.history.DataHistory
     :members:
 
-    
+
 CollectionHistory model
 =======================
 
@@ -193,7 +193,7 @@ Track collection name changes.
 .. autoclass:: resolwe.flow.models.history.CollectionNameChange
     :members:
 
-    
+
 CollectionChange model
 ======================
 
