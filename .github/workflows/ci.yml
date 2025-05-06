@@ -80,7 +80,7 @@ jobs:
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
-        if: startsWith(github.ref, 'refs/tags')
+        if: startsWith(github.ref, 'refs/tags') && (matrix.toxenv == 'py312' || matrix.toxenv == 'py313')
         with:
           files: .coverage
           token: ${{ secrets.CODECOV_TOKEN }}
