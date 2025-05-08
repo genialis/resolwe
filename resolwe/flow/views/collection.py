@@ -1,10 +1,12 @@
 """Collection viewset."""
 
+from typing import Type
+
 from django.db import transaction
 from django.db.models import F, Func, OuterRef, Prefetch, Subquery
 from django.db.models.functions import Coalesce
 from drf_spectacular.utils import extend_schema
-from rest_framework import exceptions, mixins, status, viewsets
+from rest_framework import exceptions, mixins, request, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import SAFE_METHODS
 from rest_framework.response import Response
@@ -117,19 +119,31 @@ class CollectionViewSet(ObservableMixin, BaseCollectionViewSet):
 
     serializer_class = CollectionSerializer
 
+    def _set_fields(self, request: request.Request, property_name: str):
+        """Set the fields on the collection."""
+        collection = self.get_object()
+        # Read and validate the request data.
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        if serializer.validated_data["confirm_action"]:
+            getattr(collection, property_name).set(
+                serializer.validated_data[property_name]
+            )
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        else:
+            raise exceptions.ValidationError(
+                "The action was not confirmed. Set confirm_action to True to confirm "
+                "the action."
+            )
+
     @extend_schema(
         request=AnnotationFieldDictSerializer(),
         responses={status.HTTP_204_NO_CONTENT: None},
     )
-    @action(detail=True, methods=["post"])
+    @action(
+        detail=True, methods=["post"], serializer_class=AnnotationFieldDictSerializer
+    )
     @transaction.atomic
     def set_annotation_fields(self, request, pk=None):
         """Set AnnotationFields on collection."""
-        # No need to check for permissions, since post requires edit by default.
-        collection = self.get_object()
-        # Read and validate the request data.
-        serializer = AnnotationFieldDictSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        # Set the new annotation fields.
-        collection.annotation_fields.set(serializer.validated_data["annotation_fields"])
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        self._set_fields(request, "annotation_fields")
