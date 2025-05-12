@@ -48,7 +48,10 @@ from .models import (
 )
 from .models.annotations import AnnotationType
 
+# The key used in the full-text search filter.
 FULL_TEXT_SEARCH_KEY = "text"
+# The actual database fields used for full-text search for every supported entity.
+FULL_TEXT_SEARCH_FIELD = {"Entity": "search", "Data": "search", "Collection": "search"}
 
 RELATED_LOOKUPS = [
     "exact",
@@ -106,6 +109,8 @@ class CheckQueryParamsMixin:
             "limit",
             "offset",
             "ordering",
+            # Used for full-text search.
+            "text",
         )
 
     def validate_query_params(self):
@@ -127,21 +132,6 @@ class CheckQueryParamsMixin:
         """Validate filterset."""
         self.validate_query_params()
         return super().is_valid()
-
-
-class TextFilterMixin:
-    """Mixin for full-text filtering."""
-
-    def filter_text(self, queryset: QuerySet, name: str, value: str):
-        """Full-text search."""
-        query = SearchQuery(value, config="simple_unaccent")
-        return (
-            queryset.filter(**{name: query})
-            # This assumes that field is already a TextSearch vector and thus
-            # doesn't need to be transformed. To achieve that F function is
-            # required.
-            .annotate(rank=SearchRank(F(name), query)).order_by("-rank")
-        )
 
 
 class UserFilterMixin:
@@ -392,7 +382,7 @@ class CharInFilter(filters.BaseInFilter, filters.CharFilter):
     """Basic filter for CharField with 'in' lookup."""
 
 
-class BaseCollectionFilter(TextFilterMixin, UserFilterMixin, BaseResolweFilter):
+class BaseCollectionFilter(UserFilterMixin, BaseResolweFilter):
     """Base filter for Collection and Entity endpoints."""
 
     contributor_name = filters.CharFilter(method="filter_contributor_name")
@@ -404,7 +394,6 @@ class BaseCollectionFilter(TextFilterMixin, UserFilterMixin, BaseResolweFilter):
     )
     permission = filters.CharFilter(method="filter_for_user")
     tags = TagsFilter()
-    text = filters.CharFilter(field_name="search", method="filter_text")
     status = filters.CharFilter(field_name="status")
     status__in = CharInFilter(field_name="status", lookup_expr="in")
 
@@ -556,14 +545,13 @@ class ProcessFilter(BaseResolweFilter):
         }
 
 
-class DataFilter(TextFilterMixin, UserFilterMixin, BaseResolweFilter):
+class DataFilter(UserFilterMixin, BaseResolweFilter):
     """Filter the Data endpoint."""
 
     contributor_name = filters.CharFilter(method="filter_contributor_name")
     owners = filters.CharFilter(method="filter_owners")
     owners_name = filters.CharFilter(method="filter_owners_name")
     tags = TagsFilter()
-    text = filters.CharFilter(field_name="search", method="filter_text")
     type = filters.CharFilter(field_name="process__type", lookup_expr="startswith")
     type__exact = filters.CharFilter(field_name="process__type", lookup_expr="exact")
     relation_id = filters.NumberFilter(
@@ -634,16 +622,6 @@ class OrderingFilter(DrfOrderingFilter):
     applies ordering by ranking.
     """
 
-    def get_default_ordering(self, view):
-        """Return default ordering for the view.
-
-        If no ordering is given and full-text search filtering is used, the ordering by
-        full-text search rank is applied.
-        """
-        if FULL_TEXT_SEARCH_KEY in view.request.query_params:
-            return ["-rank"]
-        return super().get_default_ordering(view)
-
     @property
     def _annotation_handlers(self):
         """Return a list of custom annotation handlers."""
@@ -654,6 +632,9 @@ class OrderingFilter(DrfOrderingFilter):
 
         The annotations are only applied if ordering by annotations is requested.
         """
+        if not issubclass(queryset.model, Entity):
+            return queryset
+
         regex = re.compile(r"-?annotations_order_(?P<field_id>\d+)")
         for field in ordering:
             if not isinstance(field, str):
@@ -776,7 +757,48 @@ class OrderingFilter(DrfOrderingFilter):
                 queryset, field, view, request
             ):
                 order_fields.append(expression)
+            else:
+                raise ValidationError(
+                    "Ordering by field '{}' is not supported.".format(field)
+                )
         return order_fields
+
+
+class FullTextSearchFilter(DrfOrderingFilter):
+    """Full text search filter.
+
+    Filter and order the queryset by the full text search rank.
+    """
+
+    def filter_queryset(self, request, queryset, view):
+        """Return ordered queryset.
+
+        If full text search is used and ordering by some other field is requested, raise
+        an error.
+        """
+        if FULL_TEXT_SEARCH_KEY in view.request.query_params:
+
+            order_fields = request.query_params.get(self.ordering_param)
+            if FULL_TEXT_SEARCH_KEY in view.request.query_params and order_fields:
+                raise ValidationError(
+                    f"Ordering by full text search rank and other fields ({order_fields}) "
+                    f"is not supported."
+                )
+
+            model_name = queryset.model.__name__
+            field_name = FULL_TEXT_SEARCH_FIELD.get(model_name)
+            if field_name is None:
+                raise ValidationError(
+                    f"Full text search is not supported for the model {model_name}."
+                )
+            value = view.request.query_params[FULL_TEXT_SEARCH_KEY]
+            query = SearchQuery(value, config="simple_unaccent")
+            return (
+                queryset.filter(**{field_name: query})
+                .annotate(rank=SearchRank(F(field_name), query))
+                .order_by("-rank")
+            )
+        return queryset
 
 
 class AnnotationFieldFilter(BaseResolweFilter):

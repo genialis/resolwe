@@ -268,6 +268,9 @@ REST_FRAMEWORK = {
         "resolwe.permissions.filters.ResolwePermissionsFilter",
         "django_filters.rest_framework.DjangoFilterBackend",
         "resolwe.flow.filters.OrderingFilter",
+        # Full text search filter must be the last one in the list so it can override
+        # the default order specified by the ordering filter.
+        "resolwe.flow.filters.FullTextSearchFilter",
     ),
     "EXCEPTION_HANDLER": "resolwe.flow.utils.exceptions.resolwe_exception_handler",
     "DATETIME_FORMAT": "iso-8601",

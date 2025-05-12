@@ -422,11 +422,21 @@ class CollectionViewSetFiltersTest(BaseViewSetFiltersTest):
         result = self._check_filter({"text": "test collection"}, self.collections)
         self.assertEqual(result.data[0]["id"], self.collections[2].pk)
 
-        # Check that ordering can be overriden.
+        # Check BAD_REQUEST status code is returned when full-text search and ordering
+        # are used at the same time.
         result = self._check_filter(
-            {"text": "test collection", "ordering": "id"}, self.collections
+            {"text": "test collection", "ordering": "id"},
+            self.collections,
+            expected_status_code=status.HTTP_400_BAD_REQUEST,
         )
-        self.assertEqual(result.data[0]["id"], self.collections[0].pk)
+        self.assertContains(
+            result,
+            (
+                "Ordering by full text search rank and other fields (id) is not "
+                "supported."
+            ),
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
 
     def test_filter_entity_count(self):
         self._check_filter(
@@ -746,11 +756,21 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
         result = self._check_filter({"text": "test entity"}, self.entities)
         self.assertEqual(result.data[0]["id"], self.entities[2].pk)
 
-        # Check that ordering can be overriden.
+        # Check BAD_REQUEST status code is returned when full-text search and ordering
+        # are used at the same time.
         result = self._check_filter(
-            {"text": "test entity", "ordering": "id"}, self.entities
+            {"text": "test entity", "ordering": "id"},
+            self.entities,
+            expected_status_code=status.HTTP_400_BAD_REQUEST,
         )
-        self.assertEqual(result.data[0]["id"], self.entities[0].pk)
+        self.assertContains(
+            result,
+            (
+                "Ordering by full text search rank and other fields (id) is not "
+                "supported."
+            ),
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
 
     def test_order_by_collection_name(self):
         """Check entities can be ordered by the collection name."""
@@ -1262,9 +1282,21 @@ class DataViewSetFiltersTest(BaseViewSetFiltersTest):
         result = self._check_filter({"text": "data"}, self.data)
         self.assertEqual(result.data[0]["id"], self.data[2].pk)
 
-        # Check that ordering can be overriden.
-        result = self._check_filter({"text": "data", "ordering": "id"}, self.data)
-        self.assertEqual(result.data[0]["id"], self.data[0].pk)
+        # Check BAD_REQUEST status code is returned when full-text search and ordering
+        # are used at the same time.
+        result = self._check_filter(
+            {"text": "data", "ordering": "id"},
+            self.data,
+            expected_status_code=status.HTTP_400_BAD_REQUEST,
+        )
+        self.assertContains(
+            result,
+            (
+                "Ordering by full text search rank and other fields (id) is not "
+                "supported."
+            ),
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
 
     def test_ordering_entity_name(self):
         """Check that data can be ordered by the entity name."""
