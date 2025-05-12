@@ -25,7 +25,6 @@ from resolwe.flow.views import (
     AnnotationFieldViewSet,
     AnnotationPresetViewSet,
     AnnotationValueViewSet,
-    CollectionViewSet,
     EntityViewSet,
 )
 from resolwe.permissions.models import Permission, get_anonymous_user
@@ -1181,19 +1180,20 @@ class AnnotationViewSetsTest(TestCase):
         self.collection1.annotation_fields.clear()
         self.collection2.annotation_fields.clear()
 
-        viewset = CollectionViewSet.as_view(actions={"post": "set_annotation_fields"})
-        request = factory.post(
-            "/",
-            {
-                "annotation_fields": [
-                    {"id": self.annotation_field1.pk},
-                    {"id": self.annotation_field2.pk},
-                ],
-            },
-            format="json",
+        # Use APIClient for testing. Otherwise, the custom serializer on the
+        # set_annotation_fields method will not be used.
+        client = APIClient()
+        path = reverse(
+            "resolwe-api:collection-set-annotation-fields", args=[self.collection1.pk]
         )
-        force_authenticate(request, self.contributor)
-        response: Response = viewset(request, pk=self.collection1.pk)
+        client.force_authenticate(self.contributor)
+        values = {
+            "annotation_fields": [
+                {"id": self.annotation_field1.pk},
+                {"id": self.annotation_field2.pk},
+            ],
+        }
+        response = client.post(path, values, format="json")
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertCountEqual(
             self.collection1.annotation_fields.values_list("pk", flat=True),
@@ -1204,16 +1204,10 @@ class AnnotationViewSetsTest(TestCase):
         )
 
         # Set only one.
-        viewset = CollectionViewSet.as_view(actions={"post": "set_annotation_fields"})
-        request = factory.post(
-            "/",
-            {
-                "annotation_fields": [{"id": self.annotation_field1.pk}],
-            },
-            format="json",
-        )
-        force_authenticate(request, self.contributor)
-        response = viewset(request, pk=self.collection1.pk)
+        values = {
+            "annotation_fields": [{"id": self.annotation_field1.pk}],
+        }
+        response = client.post(path, values, format="json")
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertCountEqual(
             self.collection1.annotation_fields.values_list("pk", flat=True),
@@ -1224,19 +1218,19 @@ class AnnotationViewSetsTest(TestCase):
         )
 
         # No permission to edit.
-        request = factory.post(
-            "/",
-            {
-                "annotation_fields": [
-                    {"id": self.annotation_field1.id},
-                    {"id": self.annotation_field2.id},
-                ],
-            },
-            format="json",
+        client.logout()
+        values = {
+            "annotation_fields": [
+                {"id": self.annotation_field1.id},
+                {"id": self.annotation_field2.id},
+            ],
+        }
+        response = client.post(path, values, format="json")
+        self.assertContains(
+            response,
+            "No Collection matches the given query.",
+            status_code=status.HTTP_404_NOT_FOUND,
         )
-        force_authenticate(request, self.contributor)
-        response = viewset(request, pk=self.collection2.pk)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_required_fields(self):
         """Test required fields are added to the collection."""

@@ -1,10 +1,12 @@
 """Collection viewset."""
 
+from typing import Optional
+
 from django.db import transaction
-from django.db.models import F, Func, OuterRef, Prefetch, Subquery
+from django.db.models import F, Func, OuterRef, Prefetch, QuerySet, Subquery
 from django.db.models.functions import Coalesce
 from drf_spectacular.utils import extend_schema
-from rest_framework import exceptions, mixins, status, viewsets
+from rest_framework import exceptions, mixins, request, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import SAFE_METHODS
 from rest_framework.response import Response
@@ -96,7 +98,7 @@ class BaseCollectionViewSet(
     )
     ordering = "id"
 
-    def get_queryset(self):
+    def get_queryset(self) -> QuerySet:
         """Prefetch permissions for current user."""
         # Only annotate the queryset with status on safe methods. When updating
         # the annotation interfers with update (as it adds group by statement).
@@ -104,7 +106,7 @@ class BaseCollectionViewSet(
             self.queryset = self.queryset.annotate_status()
         return self.prefetch_current_user_permissions(self.queryset)
 
-    def create(self, request, *args, **kwargs):
+    def create(self, request: request.Request, *args, **kwargs) -> Response:
         """Only authenticated users can create new collections."""
         if not request.user.is_authenticated:
             raise exceptions.NotFound
@@ -117,19 +119,42 @@ class CollectionViewSet(ObservableMixin, BaseCollectionViewSet):
 
     serializer_class = CollectionSerializer
 
+    def _set_fields(self, request: request.Request, property_name: str) -> Response:
+        """Set the fields on the collection."""
+        collection = self.get_object()
+        # Validate that the collection has the specified property with a callable 'set' method.
+        if not hasattr(collection, property_name):
+            raise serializers.ValidationError(
+                {
+                    property_name: f"The collection does not have a '{property_name}' attribute."
+                }
+            )
+        attribute = getattr(collection, property_name)
+        if not callable(getattr(attribute, "set", None)):
+            raise serializers.ValidationError(
+                {
+                    property_name: f"The '{property_name}' attribute does not have a callable 'set' method."
+                }
+            )
+        # Read and validate the request data. Get the serializer from the DRF viewset
+        # since the get_serializer method is overridden in the collection viewset class.
+        SerializerClass = viewsets.GenericViewSet.get_serializer_class(self)
+        serializer = SerializerClass(data=request.data)
+        # Validate the serializer data.
+        serializer.is_valid(raise_exception=True)
+        getattr(collection, property_name).set(serializer.validated_data[property_name])
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     @extend_schema(
         request=AnnotationFieldDictSerializer(),
         responses={status.HTTP_204_NO_CONTENT: None},
     )
-    @action(detail=True, methods=["post"])
+    @action(
+        detail=True, methods=["post"], serializer_class=AnnotationFieldDictSerializer
+    )
     @transaction.atomic
-    def set_annotation_fields(self, request, pk=None):
+    def set_annotation_fields(
+        self, request: request.Request, pk: Optional[int] = None
+    ) -> Response:
         """Set AnnotationFields on collection."""
-        # No need to check for permissions, since post requires edit by default.
-        collection = self.get_object()
-        # Read and validate the request data.
-        serializer = AnnotationFieldDictSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        # Set the new annotation fields.
-        collection.annotation_fields.set(serializer.validated_data["annotation_fields"])
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return self._set_fields(request, "annotation_fields")
