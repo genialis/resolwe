@@ -77,7 +77,6 @@ class AnnotationFieldDictSerializer(serializers.Serializer):
     annotation_fields = PrimaryKeyDictRelatedField(
         queryset=AnnotationField.objects.all(), many=True
     )
-    confirm_action = serializers.BooleanField(default=False)
 
 
 class AnnotationsByPathSerializer(serializers.Serializer):

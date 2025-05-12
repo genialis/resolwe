@@ -15,6 +15,8 @@ Changed
 - **BACKWARD INCOMPATIBLE:** Require ``Django 5.2.x`` and bump version of
   dependencies
 - Move full-text search to its own filter
+- Remove unused ``confirm_action`` attribute from the 
+  ``AnnotationFieldDictSerializer`` serializer
 
 
 ===================
