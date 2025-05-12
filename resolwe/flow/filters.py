@@ -16,8 +16,10 @@ from typing import Any, Optional, Union
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.contrib.postgres.search import SearchQuery, SearchRank
-from django.core.exceptions import ValidationError
-from django.db.models import Count, F, ForeignKey, Model, Q, Subquery
+from django.core.exceptions import FieldDoesNotExist, ValidationError
+from django.db import connection
+from django.db.models import Count, F, ForeignKey, Model, OuterRef, Q, Subquery
+from django.db.models.expressions import RawSQL
 from django.db.models.query import QuerySet
 from django_filters import rest_framework as filters
 from django_filters.constants import EMPTY_VALUES
@@ -45,6 +47,8 @@ from .models import (
     Relation,
 )
 from .models.annotations import AnnotationType
+
+FULL_TEXT_SEARCH_KEY = "text"
 
 RELATED_LOOKUPS = [
     "exact",
@@ -630,23 +634,149 @@ class OrderingFilter(DrfOrderingFilter):
     applies ordering by ranking.
     """
 
-    def get_ordering(self, request, queryset, view):
-        """Return name of the filed by which results should be ordered.
+    def get_default_ordering(self, view):
+        """Return default ordering for the view.
 
-        Ordering is skipped if ``None`` is returned.
+        If no ordering is given and full-text search filtering is used, the ordering by
+        full-text search rank is applied.
         """
-        params = request.query_params.get(self.ordering_param)
-        if params:
-            fields = [param.strip() for param in params.split(",")]
-            ordering = self.remove_invalid_fields(queryset, fields, view, request)
-            if ordering:
-                return ordering
+        if FULL_TEXT_SEARCH_KEY in view.request.query_params:
+            return ["-rank"]
+        return super().get_default_ordering(view)
 
-        # Skip default ordering as full-text search applies ordering by rank.
-        if request.query_params.get("text"):
+    @property
+    def _annotation_handlers(self):
+        """Return a list of custom annotation handlers."""
+        return (self._annotate_annotations,)
+
+    def _annotate_annotations(self, queryset, ordering):
+        """Annotate queryset with annotations.
+
+        The annotations are only applied if ordering by annotations is requested.
+        """
+        regex = re.compile(r"-?annotations_order_(?P<field_id>\d+)")
+        for field in ordering:
+            if not isinstance(field, str):
+                continue
+            if match := regex.match(field):
+                field_id = match.group("field_id")
+                # Always filter by user-visible attribute annotation_label.
+                annotation_value = AnnotationValue.objects.filter(
+                    entity_id=OuterRef("pk"), field_id=field_id
+                ).values("_value__label")
+                annotate = {f"annotations_order_{field_id}": Subquery(annotation_value)}
+                queryset = queryset.annotate(**annotate)
+        return queryset
+
+    def _annotate_queryset(self, queryset, ordering):
+        """Annotate queryset with ordering fields.
+
+        Some ordering field require additional annotations to be present.
+        """
+        for handler in self._annotation_handlers:
+            queryset = handler(queryset, ordering)
+        return queryset
+
+    def filter_queryset(self, request, queryset, view):
+        """Return ordered queryset."""
+        if ordering := self.get_ordering(request, queryset, view):
+            queryset = self._annotate_queryset(queryset, ordering).order_by(*ordering)
+        return queryset
+
+    def _remove_invalid_annotation_field(self, queryset, field, view, request):
+        """Check if the given sorting field is annotations field.
+
+        The format of the ordering field is annotations__field_id, possibly prefixed by
+        a minus sign. The minus sign indicates descending order.
+        """
+        if re.match(r"-?annotations__(?P<field_id>\d+)", field):
+            return field.replace("__", "_order_")
+
+    def _remove_invalid_json_field(self, queryset, field, view, request):
+        """Remove invalid JSON field.
+
+        Either return None or a ordering expression.
+        """
+        # When a dot is present in the order field, treat it as a JSON path.
+        if "." not in field:
             return None
 
-        return self.get_default_ordering(view)
+        path = field.split(".")
+        base_field = path[0]
+        if len(path) < 2:
+            return None
+        if not super().remove_invalid_fields(queryset, [base_field], view, request):
+            return None
+
+        reverse = False
+        if base_field[0] == "-":
+            base_field = base_field[1:]
+            reverse = True
+
+        # Resolve base field.
+        try:
+            quote_name = connection.ops.quote_name
+            model_meta = queryset.model._meta
+            base_field = "{}.{}".format(
+                quote_name(model_meta.db_table),
+                quote_name(model_meta.get_field(base_field).column),
+            )
+        except FieldDoesNotExist:
+            return None
+
+        placeholders = "->".join(["%s"] * (len(path) - 2))
+        # The last placeholder should be accessed via the ->> operator.
+        if placeholders:
+            placeholders = "->{}->>%s".format(placeholders)
+        else:
+            placeholders = "->>%s"
+
+        expression = RawSQL(
+            # We can use base_field here directly because we've resolved it via Django ORM.
+            "{}{}".format(base_field, placeholders),
+            params=path[1:],
+        )
+        if reverse:
+            expression = expression.desc()
+
+        return expression
+
+    @property
+    def _invalid_field_handlers(self):
+        """Return a list of custom invalid field handlers."""
+        return (
+            self._remove_invalid_annotation_field,
+            self._remove_invalid_json_field,
+        )
+
+    def _remove_invalid_field(self, queryset, field, view, request):
+        """Remove invalid fields from the ordering.
+
+        Returns the ordering expression if the field is valid, otherwise None.
+        """
+        arguments = (queryset, field, view, request)
+        for handler in self._invalid_field_handlers:
+            if field := handler(*arguments):
+                return field
+        return None
+
+    def remove_invalid_fields(self, queryset, fields, view, request):
+        """Remove invalid fields and preserve sort order.
+
+        First check for custom ordering fields and then for the default ones.
+        """
+        order_fields = []
+        base_order_fields = super().remove_invalid_fields(
+            queryset, fields, view, request
+        )
+        for field in fields:
+            if field in base_order_fields:
+                order_fields.append(field)
+            elif expression := self._remove_invalid_field(
+                queryset, field, view, request
+            ):
+                order_fields.append(expression)
+        return order_fields
 
 
 class AnnotationFieldFilter(BaseResolweFilter):

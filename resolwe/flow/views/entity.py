@@ -1,6 +1,5 @@
 """Entity viewset."""
 
-import re
 from typing import Optional
 
 from django.db.models import F, Func, OuterRef, Prefetch, Subquery
@@ -12,7 +11,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 
 from resolwe.flow.filters import EntityFilter
-from resolwe.flow.models import AnnotationValue, Data, Entity
+from resolwe.flow.models import Data, Entity
 from resolwe.flow.serializers import EntitySerializer
 from resolwe.flow.serializers.annotations import AnnotationsByPathSerializer
 from resolwe.observers.mixins import ObservableMixin
@@ -63,37 +62,6 @@ class EntityViewSet(ObservableMixin, BaseCollectionViewSet):
         .annotate(data_count=Subquery(data_count_subquery))
         .annotate_status()
     )
-
-    def order_queryset(self, queryset):
-        """Order queryset by annotation values.
-
-        The format of the ordering field is annotations__field_id, possibly prefixed by
-        a minus sign. The minus sign indicates descending order.
-        """
-        if ordering := self.request.query_params.get("ordering"):
-            order_by = []
-            regex = re.compile(r"-?annotations__(?P<field_id>\d+)")
-            fields = [field.strip() for field in ordering.split(",")]
-            for match in filter(None, map(regex.match, fields)):
-                field_id = match.group("field_id")
-                # Always filter by user-visible attribute annotation_label.
-                annotation_value = AnnotationValue.objects.filter(
-                    entity_id=OuterRef("pk"), field_id=field_id
-                ).values("_value__label")
-                annotate = {f"_order_{field_id}": Subquery(annotation_value)}
-                queryset = queryset.annotate(**annotate)
-                sign = "-" if match.string.startswith("-") else ""
-                order_by.append(f"{sign}_order_{field_id}")
-            if order_by:
-                queryset = queryset.order_by(*order_by)
-        return queryset
-
-    def filter_queryset(self, queryset):
-        """Filter queryset."""
-        # First apply the default filters.
-        queryset = super().filter_queryset(queryset)
-        # Order by annotation values if required.
-        return self.order_queryset(queryset)
 
     def _get_entities(self, user, ids):
         """Return entities queryset based on provided entity ids."""
