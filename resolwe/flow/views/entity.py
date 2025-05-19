@@ -1,9 +1,13 @@
 """Entity viewset."""
 
+from logging import getLogger
 from typing import Optional
 
+from django.core.exceptions import ValidationError
 from django.db.models import F, Func, OuterRef, Prefetch, Subquery
 from django.db.models.functions import Coalesce
+from django.http import Http404
+from django.shortcuts import get_object_or_404 as _get_object_or_404
 from drf_spectacular.utils import extend_schema
 from rest_framework import exceptions, serializers, status
 from rest_framework.decorators import action
@@ -19,6 +23,8 @@ from resolwe.observers.views import BackgroundTaskSerializer
 
 from .collection import BaseCollectionViewSet
 from .utils import get_collection_for_user
+
+logger = getLogger(__name__)
 
 
 class MoveEntityToCollectionSerializer(serializers.Serializer):
@@ -121,6 +127,47 @@ class EntityViewSet(ObservableMixin, BaseCollectionViewSet):
         self.get_queryset = orig_get_queryset
         return resp
 
+    def get_object(self):
+        """Return the object the view is displaying.
+
+        You may want to override this if you need to provide non-standard
+        queryset lookups.  Eg if objects are referenced using multiple
+        keyword arguments in the url conf.
+        """
+
+        def get_object_or_404(queryset, *filter_args, **filter_kwargs):
+            """Implement custom get_object_or_404.
+
+            Same as Django's standard shortcut, but make sure to also raise 404
+            if the filter_kwargs don't match the required types.
+            """
+            try:
+                return _get_object_or_404(queryset, *filter_args, **filter_kwargs)
+            except (TypeError, ValueError, ValidationError):
+                raise Http404
+
+        queryset = self.filter_queryset(self.get_queryset())
+        logger.debug("Get entity: queryset after filter")
+
+        # Perform the lookup filtering.
+        lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
+
+        assert lookup_url_kwarg in self.kwargs, (
+            "Expected view %s to be called with a URL keyword argument "
+            'named "%s". Fix your URL conf, or set the `.lookup_field` '
+            "attribute on the view correctly."
+            % (self.__class__.__name__, lookup_url_kwarg)
+        )
+
+        filter_kwargs = {self.lookup_field: self.kwargs[lookup_url_kwarg]}
+        obj = get_object_or_404(queryset, **filter_kwargs)
+        logger.debug("Get entity: after 404")
+
+        # May raise a permission denied
+        self.check_object_permissions(self.request, obj)
+
+        return obj
+
     @extend_schema(
         request=AnnotationsByPathSerializer(many=True),
         responses={status.HTTP_200_OK: None},
@@ -129,10 +176,20 @@ class EntityViewSet(ObservableMixin, BaseCollectionViewSet):
     def set_annotations(self, request: Request, pk: Optional[int] = None):
         """Add the given list of AnnotationFields to the given entity."""
         # No need to check for permissions, since post requires edit by default.
-        entity = self.get_object()
-        # Read and validate the request data.
-        serializer = AnnotationsByPathSerializer(data=request.data, many=True)
-        serializer.is_valid(raise_exception=True)
-        annotations = {value["field_path"]: value["value"] for value in serializer.data}
-        entity.update_annotations(annotations, request.user)
+        try:
+            logger.debug(
+                "User %s called set_annotations for entity %s.", request.user.pk, pk
+            )
+            entity = self.get_object()
+            logger.debug("Got entity: %s.", entity.pk)
+            # Read and validate the request data.
+            serializer = AnnotationsByPathSerializer(data=request.data, many=True)
+            serializer.is_valid(raise_exception=True)
+            annotations = {
+                value["field_path"]: value["value"] for value in serializer.data
+            }
+            entity.update_annotations(annotations, request.user)
+        except Exception:
+            logger.exception("Set annotation exception")
+            raise
         return Response()
