@@ -1,5 +1,7 @@
 """Custom permissions for Flow API."""
 
+from contextlib import suppress
+from logging import getLogger
 from typing import Optional
 
 from django.contrib.auth.models import User
@@ -9,6 +11,8 @@ from rest_framework import exceptions, permissions
 
 from resolwe.permissions.models import Permission, PermissionList, get_anonymous_user
 from resolwe.permissions.utils import get_user, model_has_permissions
+
+logger = getLogger(__name__)
 
 
 class ResolwePermissionBackend:
@@ -113,6 +117,14 @@ class ResolwePermissions(permissions.DjangoObjectPermissions):
 
         # No permission on objects that do not support it.
         if not model_has_permissions(obj):
+            with suppress(Exception):
+                logger.debug(
+                    "Object %s of type %s does not support permissions, 403 (user %s).",
+                    obj.pk,
+                    obj._meta.model,
+                    request.user.pk,
+                )
+
             return False
 
         # `share` permission is required for editing permissions
@@ -132,6 +144,14 @@ class ResolwePermissions(permissions.DjangoObjectPermissions):
         model_cls = queryset.model
         user = request.user
         perm = max(self.get_required_object_permissions(request.method, model_cls))
+        logger.debug(
+            "Checking perm %s, method %s, user %s, object %s, type %s.",
+            perm,
+            request.method,
+            user.pk,
+            obj.pk,
+            model_cls,
+        )
         anonymous = get_anonymous_user()
         if not user.has_perm(perm, obj) and not anonymous.has_perm(perm, obj):
             if request.method not in permissions.SAFE_METHODS:
@@ -139,8 +159,15 @@ class ResolwePermissions(permissions.DjangoObjectPermissions):
                 # they have read permissions to see 403, or not, and simply see
                 # a 404 response.
                 read_perm = max(self.get_required_object_permissions("GET", model_cls))
+                logger.debug("Failed, required read permission: %s.", read_perm)
 
                 if user.has_perm(read_perm, obj):
+                    logger.debug(
+                        "User %s has read permission for object %s of type %s, returning 403.",
+                        user.pk,
+                        obj.pk,
+                        model_cls,
+                    )
                     return False
 
             raise Http404
