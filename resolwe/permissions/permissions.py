@@ -116,8 +116,9 @@ class ResolwePermissions(permissions.DjangoObjectPermissions):
             return False
 
         # `share` permission is required for editing permissions
+        additional_permissions = dict()
         if view.action is not None and "permissions" in view.action:
-            self.perms_map["POST"] = [Permission.SHARE]
+            additional_permissions["POST"] = [Permission.SHARE]
 
         if hasattr(view, "get_queryset"):
             queryset = view.get_queryset()
@@ -131,14 +132,21 @@ class ResolwePermissions(permissions.DjangoObjectPermissions):
 
         model_cls = queryset.model
         user = request.user
-        perm = max(self.get_required_object_permissions(request.method, model_cls))
+        perm = max(
+            self.get_required_object_permissions(request.method, model_cls)
+            + additional_permissions.get(request.method, [])
+        )
         anonymous = get_anonymous_user()
         if not user.has_perm(perm, obj) and not anonymous.has_perm(perm, obj):
             if request.method not in permissions.SAFE_METHODS:
                 # If the user does not have permissions we need to determine if
                 # they have read permissions to see 403, or not, and simply see
                 # a 404 response.
-                read_perm = max(self.get_required_object_permissions("GET", model_cls))
+                method = "GET"
+                read_perm = max(
+                    self.get_required_object_permissions(method, model_cls)
+                    + additional_permissions.get(method, [])
+                )
 
                 if user.has_perm(read_perm, obj):
                     return False

@@ -18,6 +18,11 @@ Changed
 - Remove unused ``confirm_action`` attribute from the 
   ``AnnotationFieldDictSerializer`` serializer
 
+Fixed
+-----
+- Fix ``share`` permission was sometimes requested for ``POST`` action because
+  the permissions map was modified on the persistent object
+
 
 ===================
 44.1.0 - 2025-04-14
