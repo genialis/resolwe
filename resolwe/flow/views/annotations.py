@@ -80,7 +80,7 @@ class AnnotationValueViewSet(
         Prefetch("contributor", queryset=auth.get_user_model().objects.all())
     )
     permission_classes = (get_permissions_class(),)
-    ordering_fields = ("created", "id")
+    ordering_fields = ("created", "id", "modified")
 
     def get_serializer(self, *args: Any, **kwargs: Any) -> BaseSerializer:
         """Get serializer instance depending on the request type."""

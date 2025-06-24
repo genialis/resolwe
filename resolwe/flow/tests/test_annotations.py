@@ -917,6 +917,17 @@ class AnnotationViewSetsTest(TestCase):
         order2 = self.annotationvalue_viewset(request).data
         self.assertEqual(len(order1), 2)
         self.assertListEqual(order1, list(reversed(order2)))
+        # Test that ordering by modified works as well.
+        request = factory.get("/", {"ordering": "modified"}, format="json")
+        force_authenticate(request, self.contributor)
+        order3 = self.annotationvalue_viewset(request).data
+        request = factory.get("/", {"ordering": "-modified"}, format="json")
+        force_authenticate(request, self.contributor)
+        order4 = self.annotationvalue_viewset(request).data
+        self.assertEqual(len(order3), 2)
+        self.assertListEqual(order3, list(reversed(order4)))
+        self.assertEqual(order1, order3)
+        self.assertEqual(order2, order4)
 
     def test_list_filter_preset(self):
         request = factory.get("/", {}, format="json")
