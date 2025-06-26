@@ -18,7 +18,7 @@ from django.contrib.auth.models import Group
 from django.contrib.postgres.search import SearchQuery, SearchRank
 from django.core.exceptions import FieldDoesNotExist, ValidationError
 from django.db import connection
-from django.db.models import Count, F, ForeignKey, Model, OuterRef, Q, Subquery
+from django.db.models import F, ForeignKey, Model, OuterRef, Q, Subquery
 from django.db.models.expressions import RawSQL
 from django.db.models.query import QuerySet
 from django_filters import rest_framework as filters
@@ -411,21 +411,11 @@ class BaseCollectionFilter(UserFilterMixin, BaseResolweFilter):
 class CollectionFilter(BaseCollectionFilter):
     """Filter the Collection endpoint."""
 
-    entity_count = filters.NumberFilter(
-        method="count_entities", field_name="entity__count"
-    )
-    entity_count__gt = filters.NumberFilter(
-        method="count_entities", field_name="entity__count__gt"
-    )
-    entity_count__lt = filters.NumberFilter(
-        method="count_entities", field_name="entity__count__lt"
-    )
-    entity_count__gte = filters.NumberFilter(
-        method="count_entities", field_name="entity__count__gte"
-    )
-    entity_count__lte = filters.NumberFilter(
-        method="count_entities", field_name="entity__count__lte"
-    )
+    entity_count = filters.NumberFilter(field_name="entity_count", lookup_expr="exact")
+    entity_count__gt = filters.NumberFilter("entity_count", "gt")
+    entity_count__lt = filters.NumberFilter("entity_count", "lt")
+    entity_count__gte = filters.NumberFilter("entity_count", "gte")
+    entity_count__lte = filters.NumberFilter("entity_count", "lte")
 
     class Meta(BaseCollectionFilter.Meta):
         """Filter configuration."""
@@ -437,11 +427,6 @@ class CollectionFilter(BaseCollectionFilter):
                 "descriptor_schema": ["exact"],
             },
         }
-
-    def count_entities(self, queryset: QuerySet, name: str, value: str):
-        """Filter by the number of associated entities."""
-
-        return queryset.annotate(Count("entity")).filter(**{name: value})
 
 
 class EntityFilter(BaseCollectionFilter):

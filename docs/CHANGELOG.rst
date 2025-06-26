@@ -14,6 +14,10 @@ Changed
 -------
 - Allow ordering annotation values by ``modified`` field
 
+Fixed
+-----
+- Use existing annotation when filtering collections by the entity count
+
 
 ===================
 45.0.0 - 2025-04-14
