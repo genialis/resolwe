@@ -24,11 +24,6 @@ settings.configure(
 )
 django.setup()
 
-# Get package metadata from 'resolwe/__about__.py' file
-about = {}
-with open(os.path.join(base_dir, "resolwe", "__about__.py")) as f:
-    exec(f.read(), about)
-
 # -- General configuration ------------------------------------------------
 
 # The extension modules to enable.
