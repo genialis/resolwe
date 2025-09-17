@@ -18,8 +18,8 @@ information about the process instance. In this case the `document` and the
 to execute another analysis on the same document, say count the number of
 lines? We could create a similar process `Number of Lines` that would also take
 the file and report the number of lines. However, when we would execute the
-process we would have 2 copies of the same `document` file stored on the
-platform. In most cases it makes sense to split the upload (data storage) from
+process we would have 2 copies of the same `document` file stored in the database.
+In most cases it makes sense to split the upload (data storage) from
 the analysis. For example, we could create 3 processes: `Upload Document`,
 `Word Count` and `Number of Lines`.
 
@@ -73,10 +73,10 @@ Process syntax
 ==============
 
 A process can be written in any syntax as long as you can save it to the
-``Process`` model. The most straight-forward would be to write in Python, using
+``Process`` model. The most straight-forward is to write it in Python, using
 the Django ORM::
 
-    p = Process(name='Word Cound',
+    p = Process(name='Word Count',
                 slug='wc-basic',
                 type='data:wc:',
                 inputs = [{
@@ -94,36 +94,36 @@ the Django ORM::
     p.save()
 
 
-We suggest to write processes in the YAML syntax. Resolwe includes a
-``register`` Django command that parses .yml files in the ``processes``
+We suggest to write processes in the supported Python syntax. Resolwe includes a
+``register`` Django command that parses .py files in the ``processes``
 directory and adds the discovered processes to the ``Process`` model::
 
     ./manage.py register
 
-Do not forget to re-register the process after you make changes to the .yml
+Do not forget to re-register the process after you make changes to the .py
 file. You have to increase the process version each time you register it. For
 development, you can use the ``--force`` option (or ``-f`` for short)::
 
     ./manage.py register -f
 
 This is an example of :download:`the smallest processor
-<example/example/processes/minimal.yml>` in YAML syntax:
+<example/example/processes/minimal.py>` in Python syntax:
 
-.. literalinclude:: example/example/processes/minimal.yml
-   :language: yaml
+.. literalinclude:: example/example/processes/minimal.py
+   :language: python
    :linenos:
 
 This is the example of the :download:`basic Word Count
-<example/example/processes/example_basic.yml>` implementation in the YAML
+<example/example/processes/example_basic.yml>` implementation in the Python
 syntax (with the document file as input):
 
-.. literalinclude:: example/example/processes/example_basic.yml
-   :language: yaml
+.. literalinclude:: example/example/processes/example_basic.py
+   :language: python
    :linenos:
 
 If you would like to review the examples of the three processes mentioned above
 (`Upload Document`, `Word Count` and `Number of Lines`), :download:`follow this
-link <example/example/processes/example.yml>`. Read more about the process
+link <example/example/processes/example.py>`. Read more about the process
 options in :ref:`process-schema` below.
 
 .. _process-schema:
@@ -160,35 +160,41 @@ Field                            Short description     Required Default
 Slug
 ----
 
-TODO
+A unique identifier of the process. It should contain only alphanumeric characters,
+underscores or hyphens.
 
 .. _name:
 
 Name
 ----
 
-TODO
+A human-readable name for the process.
 
 .. _description:
 
 Description
 -----------
 
-TODO
+Process description that explains what the process does. It can contain
+multiple lines and may be used in the GUI.
 
 .. _version:
 
 Version
 -------
 
-TODO
+Process version. It is used to track changes in the process. Each time you
+change the process, you should increase the version number. We suggest to use
+the `semantic versioning`_ scheme.
+
+.. _semantic versioning: https://packaging.python.org/en/latest/discussions/versioning/#semantic-versioning
 
 .. _type:
 
 Type
 ----
 
-TODO
+Process type may contain alphanumeric characters separated by colon.
 
 .. _category:
 
@@ -199,18 +205,14 @@ The category is used to arrange processes in a GUI. A category can be any
 string of lowercase letters, numbers, - and :. The colon is used to split
 categories into sub-categories (`e.g.,` ``analyses:alignment``).
 
-We have predefined three top categories: upload, import and analyses. Processes
-without this top category will not be displayed in the GenBoard interface, but
-will be available on the platform.
-
 .. _entity:
 
 Entity
 ------
 
 With defining the ``entity`` field in the process, new data objects will be
-automatically attached to a new or existing Entity, depending on it's parents
-and the definition of the field.
+automatically attached to a new or existing Entity, depending on
+it's parents and the definition of the field.
 
 ``entity`` field has 3 subfields:
 
@@ -218,15 +220,14 @@ and the definition of the field.
   object is attached to
 * ``input`` limits the group of parents' entities to a single field (dot
   separated path to the field in the definition of input)
-* ``descriptor_schema`` specifies the slug of the descriptor schema that is
-  attached to newly created entity. It defaults to the value of ``type``
+* ``entity_always_create`` Create new entity, regardless of ``input`` field.
 
 .. _persistence:
 
 Persistence
 -----------
 
-Use RAW for imports. CACHED or TMP processes should be idempotent.
+Use ``RAW`` for data imports. ``CACHED`` or ``TMP`` processes should be idempotent.
 
 .. _sch:
 
@@ -236,12 +237,12 @@ Scheduling class
 The scheduling class specifies how the process should be treated by the
 scheduler. There are two possible values:
 
-* ``batch`` is for long running tasks, which require high throughput.
-* ``interactive`` is for short running tasks, which require low latency.
-  Processes in this scheduling class are given a limited amount of time
-  to execute (default: 30 seconds).
+* ``BATCH`` is for long running tasks, which require high throughput.
+* ``INTERACTIVE`` is for short running tasks, which require low latency.
+  Processes in this scheduling class are processed in a separate processing
+queue.
 
-The default value for processes is ``batch``.
+The default value for processes is ``BATCH``.
 
 .. _io:
 
@@ -264,9 +265,8 @@ Optional `Resolwe Field` properties (except for ``group``):
 - ``disabled`` - (choices: `true`, `false`)
 - ``hidden`` - (choices: `true`, `false`)
 - ``default`` -  initial value
-- ``placeholder`` - placeholder value displayed if nothing is specified
-- ``validate_regex`` - client-side validation with regular expression
 - ``choices`` - list of choices to select from (``label``, ``value`` pairs)
+- ``allow_custom_choice`` - (choices: `true`, `false`)
 
 Optional `Resolwe Field` properties for ``group`` fields:
 
@@ -276,20 +276,19 @@ Optional `Resolwe Field` properties for ``group`` fields:
 - ``collapsed`` - (choices: `true`, `false`)
 - ``group`` - list of process fields
 
-TODO: explain what is field schema. For field schema details see
-fieldSchema.json.
+Input and output fields are validated against the `fieldSchema.json`_ to ensure
+they conform to the expected structure and types.
+
+.. _fieldschema.json: https://github.com/genialis/resolwe/blob/073420cc32854125bdf367f1df5d826c4a3effcd/resolwe/flow/static/flow/fieldSchema.json
 
 .. _run:
 
 Run
 ---
 
-The algorithm that transforms inputs into outputs. Bash and workflow languages
-are currently supported and we envision more language support in the future (`e.g.,`
-directly writing processes in Python or R). Commands should be written to a
-``program`` subfield.
-
-TODO: link a few lines from the all_fields.yml process
+The algorithm that maps inputs to outputs is implemented in Python and runs
+when a new ``Data`` object is created. Its execution environment, typically a
+``Docker`` container, is specified in the requirements field.
 
 .. _reqs:
 
@@ -318,6 +317,9 @@ to run. There are several different types of requirements that may be specified:
     value is set to ``1`` core.
   - ``memory`` defines the amount of memory (in megabytes) that the process may use. By
     default, this value is set to ``4096`` MiB.
+  - ``storage`` defines the amount of temporary storage (in gigabytes) that the
+    process may use. By default, this value is set to ``10`` GiB.
+
   - ``network`` should be a boolean value, specifying whether the process requires network
     access. By default this value is ``false``.
 
@@ -357,20 +359,20 @@ controls.
 
 The following basic types are supported:
 
-- ``basic:boolean:`` - boolean
-- ``basic:date:`` - date (format `yyyy-mm-dd`)
-- ``basic:datetime:`` - date and time (format `yyyy-mm-dd hh:mm:ss`)
-- ``basic:decimal:`` - decimal number (`e.g.,` `-123.345`)
-- ``basic:integer:`` - whole number (`e.g.,` `-123`)
-- ``basic:string:`` - short string
-- ``basic:text:`` - multi-line string
-- ``basic:url:link:`` - visit link
-- ``basic:url:download:`` - download link
-- ``basic:url:view:`` - view link (in a popup or iframe)
-- ``basic:file:`` - a file, stored on shared file system
-- ``basic:dir:`` - a directory, stored on shared file system
-- ``basic:json:`` - a JSON object, stored in MongoDB collection
-- ``basic:group:`` - list of form fields (default if nothing specified)
+- ``basic:boolean:`` (``BooleanField``) - boolean
+- ``basic:date:`` (``DateField``) - date (format `yyyy-mm-dd`)
+- ``basic:datetime:`` (``DateTimeField``) - date and time (format `yyyy-mm-dd hh:mm:ss`)
+- ``basic:decimal:`` (``FloatField``) - decimal number (`e.g.,` `-123.345`)
+- ``basic:integer:`` (``IntegerField``) - whole number (`e.g.,` `-123`)
+- ``basic:string:`` (``StringField``) - short string
+- ``basic:text:`` (``TextField``) - multi-line string
+- ``basic:url:link:`` (``LinkUrlField``) - visit link
+- ``basic:url:download:`` (``DownloadUrlField``) - download link
+- ``basic:url:view:`` (``ViewUrlField``) - view link (in a popup or iframe)
+- ``basic:file:`` (``FileField``) - a file, stored on shared file system
+- ``basic:dir:`` (``DirField``) - a directory, stored on shared file system
+- ``basic:json:`` (``JsonField``) - a JSON object, stored in MongoDB collection
+- ``basic:group:`` (``GroupField``) - list of form fields (default if nothing specified)
 
 The values of basic data types are different for each type, for example:
 ``basic:file:`` data type is a JSON dictionary: {"file": "file name"}
@@ -381,7 +383,7 @@ Resolwe treats types differently. All but ``basic:file:``,
 ``basic:dir:`` and ``basic:json:`` are treated as meta-data.
 ``basic:file:`` and ``basic:dir:`` objects are saved to the shared
 file storage, and ``basic:json:`` objects are stored in PostgreSQL
-bjson field. Meta-data entries have references to ``basic:file:``,
+json field. Meta-data entries have references to ``basic:file:``,
 ``basic:dir:`` and ``basic:json:`` objects.
 
 Data types
@@ -400,304 +402,130 @@ The algorithm
 =============
 
 Algorithm is the key component of a process. The algorithm transforms process's
-inputs into outputs. It is written as a sequence of Bash commands in process's
-``run.program`` field.
+inputs into outputs. It is written as a sequence of Python commands and supports
+running the shell commands using the ``Cmd()`` utility. The algorithm is
+executed when a new ``Data`` object is created.
 
-.. note::
-
-    In this section, we assume that the program is written using the ``bash``
-    language and having the ``expression-engine`` requirement set to ``jinja``.
-
-To write the algorithm in a different language (`e.g.,` Python), just put it in
+To write the algorithm in a different language (`e.g.,` R), just put it in
 a file with an appropriate *shebang* at the top (`e.g.,` ``#!/usr/bin/env
-python2`` for Python2 programs) and add it to the `tools` directory. To run it
+Rscript`` for R programs) and add it to the `tools` directory. To run it
 simply call the script with appropriate arguments.
 
-For example, to compute a Volcano plot of the baySeq data, use:
+For example, to call the differential expression analysis using DESeq2, use:
 
-.. code-block:: bash
+.. code-block:: python
 
-    volcanoplot.py diffexp_bayseq.tab
+    from resolwe.process import Cmd
+
+    params = ["..."]
+
+    (Cmd["deseq.R"][params])()
 
 
 .. _algorithm-utilities:
 
-Platform utilities
+Utility functions
 ------------------
 
 Resolwe provides some convenience utilities for writing processes:
 
-* ``re-import``
+* ``import_file()``
 
-    is a convenience utility that copies/downloads a file from the given
+    is a convenience function that copies/downloads a FileField object from
+    the the source location to the working directory.
     temporary location, extracts/compresses it and moves it to the given final
-    location. It takes six arguments:
+    location. It takes three (optional) arguments:
 
-    1. file's temporary location or URL
-
-    2. file's final location
-
-    3. file's input format, which can have one of the following forms:
-
-        * ``ending1|ending2``: matches files that end with ``ending1`` or
-          ``ending2`` or a combination of
-          ``(ending1|ending2).(gz|bz2|zip|rar|7z|tgz|tar.gz|tar.bz2)``
-
-        * ``ending1|ending2|compression``: matches files that end with
-          ``ending1`` or ``ending2`` or a combination of
-          ``(ending1|ending2).(gz|bz2|zip|rar|7z|tgz|tar.gz|tar.bz2)`` or just
-          with a supported compression format line ending
-          ``(gz|bz2|zip|rar|7z)``
-
-    4. file's output format (`e.g.,` ``fasta``)
-
-    5. maximum progress at the end of transfer (a number between 0.0 and 1.0)
-
-    6. file's output format, which can be one of the following:
-
-        * ``compress``: to produce a compressed file
+    1. imported_format: Import file format, which can be one of the following:
 
         * ``extract``: to produce an extracted file
 
-        If this argument is not given, both, the compressed and the extracted
+        * ``compress``: to produce a compressed file
+
+        * ``both``: to produce both compressed and extracted files
+
+        If this argument is not given, both the compressed and the extracted
         file are produced.
 
-For storing the results to process's output fields, Resolwe provides a series
-of utilities. They are described in the :ref:`algorithm-outputs` section.
+    2. progress_from: Initial progress value (a number between 0.0 and 1.0)
+
+    3. progress_to: Final progress value (a number between 0.0 and 1.0)
+
+    The function returns the destination file path. If both extracted and compressed
+    files are produced, the extracted path is returned.
+
+* ``Cmd()``
+
+    is a convenience function for running shell commands in the execution environment.
+    It uses Python library `Plumbum`_ to run the given command.
+
+     .. code-block:: python
+
+        from resolwe.process import Cmd
+
+        (Cmd["gzip"]["file.txt"])() # runs "gzip file.txt"
+
+    .. code-block:: python
+
+        from resolwe.process import Cmd
+
+        args = ["-p", "index_dir", "refseq.fasta"]
+
+        return_code, _, _ = Cmd["bwa"]["index"][args] & TEE(retcode=None)
+        if return_code:
+            # handle error
+
+.. _Plumbum: https://plumbum.readthedocs.io/en/latest/
+
 
 Runtime
 -------
 
-TODO: Write about BioLinux and what is available in the Docker runtime.
+Resolwe uses Docker containers as an execution environment for processes. The Resolwe
+toolkit base Docker images are built from `Fedora`_ and `Ubuntu`_ images.
+The base images include `Resolwe Runtime Utilities`_ that provide convenience functions
+for writing processes. The Resolwe toolkit images serve as a base images for building
+custom Docker images for specific processes. For example, the `Resolwe bioinformatics`_
+processes use the `Resolwe Docker images`_ as their execution environment.
+
+.. _Fedora: https://hub.docker.com/_/fedora/
+.. _Ubuntu: https://hub.docker.com/_/ubuntu/
+.. _Resolwe Runtime Utilities: http://resolwe-runtime-utils.readthedocs.io
+.. _Resolwe Docker images: https://github.com/genialis/resolwe-docker-images
+.. _Resolwe bioinformatics: https://github.com/genialis/resolwe-bio
 
 Inputs
 ------
 
-To access values stored in process's input fields, use `Jinja2's template
-language syntax for accessing variables`_. For example, to access the value
-of process's ``fastq`` input field, write ``{{ fastq }}``.
-
-In addition to all process's input fields, Resolwe provides the following
-system variables:
-
-* ``proc.case_ids``: ids of the corresponding cases
-
-* ``proc.data_id``: id of the data object
-
-* ``proc.slugs_path``: file system path to Resolwe's slugs
-
-Resolwe also provides some custom built-in filters to access the fields of the
-referenced data objects:
-
-* ``id``: returns the id of the referenced data object
-
-* ``type``: returns the type of the referenced data object
-
-* ``name``: returns the value of the ``static.name`` field if it exists
-
-For example, to use these filters on the ``reads`` field, use
-``{{ reads|id }}``, ``{{ reads|type }}`` or ``{{ reads|name }}``, respectively.
-
-You can also use any `Jinja2's built in template tags and filters`_ in your
-algorithm.
-
-.. note::
-
-    All input variables should be considered *unsafe* and will be automatically
-    quoted when used in your scripts. For example, the following call:
-
-    .. code-block:: bash
-
-      volcanoplot.py {{ reads.fastq.0.file }}
-
-    will actually be transformed into something like (depending on the value):
-
-    .. code-block:: bash
-
-      volcanoplot.py '/path/to/reads with spaces.gz'
-
-    If you do not want this behaviour for a certain variable and you are sure
-    that it is safe to do so, you can use the ``safe`` filter as follows:
-
-    .. code-block:: bash
-
-      volcanoplot.py {{ known_good_input | safe }}
-
-.. _Jinja2's template language syntax for accessing variables: http://jinja.pocoo.org/docs/2.9/templates/#variables
-.. _Jinja2's built in template tags and filters: http://jinja.pocoo.org/docs/2.9/templates/#builtin-filters
+Values stored in the process input fields can be accessed by referencing the
+input objects attributes. For example, to access the ``process_type`` property
+associated with the ``DataField`` input object, access its ``type`` attribute,
+like this: ``input_object.type``. ``DataField`` input object might store several
+output fields, so you can access them by their names. For example, ``.bam`` file
+associated with the `alignment` input object and stored in the ``bam`` output field
+can be accessed by using ``inputs.alignment.output.bam.path``.
 
 .. _algorithm-outputs:
 
 Outputs
 -------
 
-Processes have three options for storing the results:
+Processes have several options for storing the results:
 
-* as files in data object's directory (i.e. ``{{ proc.data_dir }}``)
-* as constants in process's output fields
-* as entries in the MongoDB data storage
+* as files (``FileField``)
+* as files in data object's directory (``DirField``)
+* as constants in process's output fields (i.e. ``IntegerField``, ``StringField``, etc.)
+* as entries in the Postgres data storage (i.e. ``JsonField``)
 
-.. note::
+The values to be stored in the output fields are saved by the executed algorithm when
+assigned to the matching output field names, e.g.
 
-    Files are stored on a shared file system that supports fast read and write
-    accesss by the processes. Accessing MongoDB from a process requires more
-    time and is suggested for interactive data retrieval from GenPackages only.
+.. code-block:: python
 
-Saving status
-`````````````
+    outputs.bam = "alignment.bam"
+    outputs.bai = "alignment.bam.bai"
+    outputs.species = "Homo sapiens"
 
-There are two special fields that you should use:
-
-* ``proc.rc``: the return code of the process
-* ``proc.progress``: the process's progress
-
-If you set the ``proc.rc`` field to a positive value, the process will fail
-and its status will be set to ``ERROR``. All processes that depend on this
-process will subsequently fail and their status will be set to ``ERROR`` as
-well.
-
-The ``proc.progress`` field can be used to report processing progress
-interactively. You can set it to a value between 0 and 1 that represents an
-estimate for process's progress.
-
-To set them, use the ``re-progress`` and ``re-checkrc`` utilities described
-in the :ref:`algorithm-outputs-re-save-and-friends` section.
-
-Resolwe provides some specialized utilities for reporting process status:
-
-* ``re-error``
-
-    takes one argument and stores it to ``proc.error`` field. For example:
-
-    .. code-block:: bash
-
-        re-error "Error! Something went wrong."
-
-* ``re-warning``
-
-    takes one argument and stores it to ``proc.warning`` field. For example:
-
-    .. code-block:: bash
-
-        re-warning "Be careful there might be a problem."
-
-* ``re-info``
-
-    takes one argument and stores it to ``proc.info`` field. For example:
-
-    .. code-block:: bash
-
-        re-info "Just say hello."
-
-* ``re-progress``
-
-    takes one argument and stores it to ``proc.progress`` field. The argument
-    should be a float between 0 and 1 and represents an estimate for
-    process's progress. For example, to estimate the progress to 42%, use:
-
-    .. code-block:: bash
-
-        re-progress 0.42
-
-* ``re-checkrc``
-
-    saves the return code of the previous command to ``proc.rc`` field.
-    To use it, just call:
-
-    .. code-block:: bash
-
-        re-checkrc
-
-    As some programs exit with a non-zero return code, even though they
-    finished successfully, you can pass additional return codes as arguments to
-    the ``re-checkrc`` command and they will be translated to zero. For
-    example:
-
-    .. code-block:: bash
-
-        re-checkrc 2 15
-
-    will set ``proc.rc`` to 0 if the return code is 0, 2 or 15, and to the
-    actual return code otherwise.
-
-    It is also possible to set the ``proc.error`` field with this command in
-    case the return code is not zero (or is not given as one of the acceptable
-    return codes). To do that, just pass the error message as the last argument
-    to the ``re-checkrc`` command. For example:
-
-    .. code-block:: bash
-
-        re-checkrc "Error ocurred."
-
-        re-checkrc 2 "Return code was not 0 or 2."
-
-.. _algorithm-outputs-re-save-and-friends:
-
-Saving constants
-````````````````
-
-To store a value in a process's output field, use the ``re-save`` utility.
-The ``re-save`` utility requires two arguments, a key (i.e. field's name) and
-a value (i.e. field's value).
-
-For example, executing:
-
-.. code-block:: bash
-
-    re-save quality_mean $QUALITY_MEAN
-
-will store the value of the ``QUALITY_MEAN`` Bash variable in process's
-``quality_mean`` field.
-
-.. note::
-
-    To use the ``re-save`` utility, add ``re-require common`` to the
-    beginning of the algorithm. For more details, see
-    :ref:`algorithm-utilities`.
-
-You can pass any JSON object as the second argument to the ``re-save``
-utility, `e.g.`:
-
-.. code-block:: bash
-
-    re-save foo '{"extra_output": "output.txt"}'
-
-.. note::
-
-    Make sure to put the second argument into quotes (`e.g.,` "" or '') if you
-    pass a JSON object containing a space to the ``re-save`` utility.
-
-
-Saving files
-````````````
-
-A convinience function for saving files is:
-
-.. code-block:: bash
-
-   re-save-file
-
-
-It takes two arguments and stores the value of the second argument in the
-first argument's ``file`` subfield. For example:
-
-.. code-block:: bash
-
-    re-save-file fastq $NAME.fastq.gz
-
-stores ``$NAME.fastq.gz`` to the ``fastq.file`` field which has to be of
-type ``basic:file:``.
-
-To reference additional files/folders, pass them as extra arguments to the
-``re-save-file`` utility. They will be saved to the ``refs`` subfield of
-type ``basic:file:``. For example:
-
-.. code-block:: bash
-
-    re-save-file fastq $NAME.fastq.gz fastqc/${NAME}_fastqc
-
-stores ``fastqc/${NAME}_fastqc`` to the ``fastq.refs`` field in addition to
-storing ``$NAME.fastq.gz`` to the ``fastq.file`` field.
 
 .. note::
 
@@ -712,37 +540,103 @@ storing ``$NAME.fastq.gz`` to the ``fastq.file`` field.
     automatically deleted by the platform, so make sure to reference all the
     files you want to keep!
 
-Saving JSON blobs in MongoDB
-````````````````````````````
+Saving status
+`````````````
 
-To store a JSON blob to the MongoDB storage, simply create a field of type
-``data:json:`` and use the ``re-save`` utility to store it. The platform will
-automatically detect that you are trying to store to a ``data:json:`` field and
-it will store the blob to a separate collection.
+Status of the processing jobs can be set by modifying the following fields:
 
-For example:
+* ``self.progress()``
 
-.. code-block:: bash
+    field can be used to report processing progress interactively.
+    You can set it to a value between 0 and 1 that represents an
+    estimate for process's progress.
 
-    re-save etc { JSON blob }
+* ``self.error()``
 
-will store the ``{ JSON blob }`` to the ``etc`` field.
+    Sets the error message for the process. Processing jobs with the status
+    set to ``ERROR`` will be marked as failed. All processes that depend on this
+    process will subsequently fail and their status will be set to ``ERROR`` as
+    well.
 
-.. note::
+* ``self.warning()``
 
-    Printing a lot ot data to standard output can cause problems when using
-    the Docker executor due to its current implementation. Therefore, it is
-    advised to save big JSON blobs to a file and only pass the file name to the
-    ``re-save`` function.
+    Sets the warning message for the process. Processing jobs with the status
+    set to ``WARNING`` will be marked as successful, but with warnings. All
+    processes that depend on this process will be executed normally.
 
-    For example:
+* ``self.info()``
 
-    .. code-block:: bash
+    Sets the info message for the process. Processing jobs with the status
+    set to ``INFO`` will be marked as successful, but with additional info.
+    All processes that depend on this process will be executed normally.
 
-        command_that_generates_large_json > json.txt
-        re-save etc json.txt
 
-.. warning::
+Relations between Entities (samples)
+-----------------------------------
 
-    Do not store large JSON blobs into the data collection directly as this
-    will slow down the retrieval of data objects.
+Entities (or samples) are a way to group data objects that belong together.
+Entities are created automatically when a data object is created with a process
+that has the ``entity`` field defined. See :ref:`entity` above for more details
+about the ``entity`` field.
+
+A Relation encodes structured relationships between Entities within the same
+Collection, e.g. case-control pairing, time-series ordering, replicate sets.
+Relations are defined on a Collection and reference its member Entities.
+
+To set the ``group`` relation of category type ``Replicate`` between Entities
+associated with the ``Data`` object ``reads_1`` and ``reads_2``, use the
+following example:
+
+.. code-block:: python
+
+    from resolwe.flow.models.entity import Relation, RelationPartition, RelationType
+
+    rel_type_group = RelationType.objects.get(name="group")
+
+    replicate_group = Relation.objects.create(
+        contributor=self.contributor,
+        collection=self.collection,
+        type=rel_type_group,
+        category="Replicate",
+    )
+
+    RelationPartition.objects.create(
+        relation=replicate_group,
+        entity=reads_1.entity,
+        label="My sample",
+    )
+
+    RelationPartition.objects.create(
+        relation=replicate_group,
+        entity=reads_2.entity,
+        label="My sample",
+    )
+
+Metadata annotation model
+-------------------------
+
+Entity (sample) annotations store descriptive metadata as key-value
+pairs attached to an Entity, allowing you to record attributes such as
+tissue, condition, or experimental factors and to filter or group Entities
+for further analysis.
+
+``AnnotationField`` objects define individual annotation keys.
+Each element specifies the name, data type, allowed values, and optional constraints
+(e.g., a controlled vocabulary or required status). ``AnnotationField`` objects
+ensure that annotation values remain consistent and validated across Entities.
+
+``AnnotationGroup`` elements let you organize related ``AnnotationField`` elements into
+groups.
+
+Values of the ``AnnotationField`` named ``species`` belonging to the ``AnnotationGroup``
+``general`` can be managed from within a process using the following example syntax:
+
+.. code-block:: python
+
+    self.data.entity.annotations["general.species"] = "Homo sapiens"
+
+
+Please refer to `Resolwe SDK for Python documentation`_ for details on how to
+annotate samples using the Resolwe Python SDK.
+
+.. _Resolwe SDK for Python documentation: https://resdk.readthedocs.io/en/latest/tutorial-create.html#annotate-samples

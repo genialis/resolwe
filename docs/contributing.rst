@@ -150,5 +150,5 @@ When preparing a pre-release (i.e. an alpha release), one can skip the
 with a pre-release tag (e.g. *13.3.0a1*). By pushing it to GitHub, the tagged
 code will be automatically tested by Travis CI and then released to PyPI.
 
-.. _Semantic versioning: https://packaging.python.org/en/latest/distributing/#semantic-versioning-preferred
+.. _Semantic versioning: https://packaging.python.org/en/latest/discussions/versioning/#semantic-versioning
 .. _setuptools_scm: https://github.com/pypa/setuptools_scm/
