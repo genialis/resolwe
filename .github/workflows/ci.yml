@@ -65,7 +65,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Build communication container
         if: matrix.toxenv == 'py312' || matrix.toxenv == 'py313'
@@ -96,7 +96,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags')
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install build
         run: python3.13 -m pip install --user build
