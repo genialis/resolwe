@@ -6,6 +6,19 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Fixed
+-----
+- Fix adding annotation preset on Admin page returns internal server error
+
+Added
+-----
+- Add support for ``Python 3.14`` and bump dependencies versions
+
+
 ===================
 45.0.1 - 2025-06-26
 ===================
