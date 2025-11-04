@@ -6,6 +6,15 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Fixed
+-----
+- Fix adding annotation preset on Admin page returns internal server error
+
+
 ===================
 45.0.1 - 2025-06-26
 ===================

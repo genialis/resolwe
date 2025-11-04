@@ -41,17 +41,23 @@ class AnnotationPresetForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         group_choices = Group.objects.all().values_list("pk", "name").order_by("name")
         selected_group_ids = []
-        if "instance" in kwargs:
-            preset = kwargs["instance"]
+        if preset := kwargs.get("instance"):
             selected_group_ids = [
                 group.pk for group in preset.groups_with_permission(Permission.VIEW)
             ]
         self.fields["groups"].choices = group_choices
         self.fields["groups"].initial = selected_group_ids
+        self.current_request = kwargs.pop("request")
 
     def save(self, commit):
         """Save changes made to the preset."""
         preset = super().save(commit)
+
+        # The permissions can only be updated after the preset object exists.
+        if preset.pk is None:
+            preset.contributor = self.current_request.user
+            preset.save()
+
         # Remove all permissions on the preset.
         preset.permission_group.permissions.all().delete()
         # Add permission to selected groups.
@@ -64,6 +70,21 @@ class AnnotationPresetAdmin(admin.ModelAdmin):
     """Admin page for AnnotationPreset."""
 
     form = AnnotationPresetForm
+
+    def get_form(self, request, *args, **kwargs):
+        """Return the form class that gets request as the argument."""
+
+        Form = super().get_form(request, *args, **kwargs)
+
+        class AnnotationPresetFormWithRequest(Form):
+            """AnnotationPresetForm that takes request."""
+
+            def __new__(cls, *args, **kwargs):
+                """Pass request to the form init method."""
+                kwargs["request"] = request
+                return Form(*args, **kwargs)
+
+        return AnnotationPresetFormWithRequest
 
 
 class AnnotationFieldAdmin(admin.ModelAdmin):
