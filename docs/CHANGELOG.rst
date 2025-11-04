@@ -7,7 +7,7 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
 ===================
-45.0.2 - 2025-10-04
+45.0.2 - 2025-11-04
 ===================
 
 Fixed
