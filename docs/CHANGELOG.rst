@@ -6,6 +6,16 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Fixed
+-----
+- Handle case when request is None and remove it before call to superclass
+  constructor
+
+
 ===================
 45.0.2 - 2025-10-04
 ===================

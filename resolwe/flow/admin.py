@@ -38,6 +38,7 @@ class AnnotationPresetForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         """Set the groups choices and initial value."""
+        self.current_request = kwargs.pop("request", None)
         super().__init__(*args, **kwargs)
         group_choices = Group.objects.all().values_list("pk", "name").order_by("name")
         selected_group_ids = []
@@ -47,7 +48,6 @@ class AnnotationPresetForm(forms.ModelForm):
             ]
         self.fields["groups"].choices = group_choices
         self.fields["groups"].initial = selected_group_ids
-        self.current_request = kwargs.pop("request")
 
     def save(self, commit):
         """Save changes made to the preset."""
