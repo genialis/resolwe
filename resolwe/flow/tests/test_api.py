@@ -883,6 +883,7 @@ class TestDataViewSetCase(TestDataViewSetCaseMixin, TestCase):
         data.refresh_from_db()
         self.assertEqual(data.tags, collection.tags)
         self.assertEqual(data.entity, None)
+        self.assertEqual(data.permission_group, collection.permission_group)
 
         # Move it in the entity in the same collection.
         entity = Entity.objects.create(
@@ -895,6 +896,8 @@ class TestDataViewSetCase(TestDataViewSetCaseMixin, TestCase):
         data.refresh_from_db()
         self.assertEqual(data.tags, collection.tags)
         self.assertEqual(data.entity, entity)
+        self.assertEqual(data.permission_group, collection.permission_group)
+        self.assertEqual(data.permission_group, entity.permission_group)
 
         # Move it in another entity in the same collection.
         another_entity = Entity.objects.create(
@@ -909,6 +912,8 @@ class TestDataViewSetCase(TestDataViewSetCaseMixin, TestCase):
         data.refresh_from_db()
         self.assertEqual(data.tags, collection.tags)
         self.assertEqual(data.entity, another_entity)
+        self.assertEqual(data.permission_group, another_entity.permission_group)
+        self.assertEqual(data.permission_group, collection.permission_group)
 
         # Move it to entity in another collection.
         another_collection = Collection.objects.create(contributor=self.contributor)
@@ -965,6 +970,8 @@ class TestDataViewSetCase(TestDataViewSetCaseMixin, TestCase):
         self.assertEqual(data.tags, collection.tags)
         self.assertEqual(data.entity, entity)
         self.assertEqual(data.collection, collection)
+        self.assertEqual(data.permission_group, collection.permission_group)
+        self.assertEqual(data.permission_group, entity.permission_group)
 
     def test_process_is_active(self):
         # Do not allow creating data of inactive processes.

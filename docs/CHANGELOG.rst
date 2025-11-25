@@ -6,6 +6,16 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Fixed
+-----
+- Fix correctly assign permission group when data object is created outside
+  container and later moved into one
+
+
 ===================
 45.0.3 - 2025-11-06
 ===================

@@ -111,16 +111,23 @@ class DataSerializer(ResolweBaseSerializer):
     @transaction.atomic
     def update(self, instance, validated_data):
         """Update the data object."""
-        container_change = False
+        data_entity = None
+        data_collection = None
+        entity_changed = False
+        collection_changed = False
         entity = instance.entity
         collection = instance.collection
         if "collection" in validated_data:
-            container_change = True
-            collection = validated_data.pop("collection", None)
+            data_collection = validated_data.pop("collection", None)
+            collection_changed = data_collection != collection
         if "entity" in validated_data:
-            container_change = True
-            entity = validated_data.pop("entity", None)
+            data_entity = validated_data.pop("entity", None)
+            entity_changed = data_entity != entity
         instance = super().update(instance, validated_data)
-        if container_change:
-            instance.move_to_containers(entity, collection)
+
+        if entity_changed:
+            instance.move_to_entity(data_entity)
+        elif collection_changed:
+            instance.move_to_collection(data_collection)
+
         return instance
