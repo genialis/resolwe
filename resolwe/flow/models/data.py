@@ -633,7 +633,7 @@ class Data(HistoryMixin, PermissionObject, BaseModel):
     def move_to_entity(self, entity):
         """Move data object to entity."""
         if entity is None and self.in_container():
-            raise ValidationError("Data object must not be removed from container.")
+            raise ValidationError("Data object can not be removed from the container.")
         self.entity = entity
         if entity:
             if entity.collection:
@@ -661,24 +661,16 @@ class Data(HistoryMixin, PermissionObject, BaseModel):
                 "Entity must belong to the same collection as data object."
             )
 
-    def move_to_containers(self, entity, collection):
-        """Move the data object to the given entity and collection."""
-        Data.validate_change_containers(self, entity, collection)
-        if self.entity != entity or self.collection != collection:
-            self.collection = collection
-            self.entity = entity
-            self.tags = getattr(collection, "tags", []) or getattr(entity, "tags", [])
-            self.save(update_fields=["collection", "entity", "tags"])
-
     def validate_change_collection(self, collection):
         """Raise validation error if data object cannot change collection."""
+        if collection is None:
+            raise ValidationError("Data object can not be removed from the container.")
+
         if self.entity and self.entity.collection != collection:
             raise ValidationError(
                 "If Data is in entity, you can only move it to another collection "
                 "by moving entire entity."
             )
-        if collection is None:
-            raise ValidationError("Data object can not be removed from the container.")
 
     def validate_change_entity(self, entity):
         """Raise validation error if data object cannot change entity."""
