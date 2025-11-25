@@ -13,6 +13,8 @@ Unreleased
 Fixed
 -----
 - In case of a long name make sure truncated auto-generated slug is valid
+- Fix correctly assign permission group when data object is created outside
+  container and later moved into one
 
 
 ===================
