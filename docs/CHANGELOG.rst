@@ -7,6 +7,25 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
 ===================
+45.0.3 - 2025-11-06
+===================
+
+Fixed
+-----
+- Handle case when request is None and remove it before call to superclass
+  constructor
+
+
+===================
+45.0.2 - 2025-11-04
+===================
+
+Fixed
+-----
+- Fix adding annotation preset on Admin page returns internal server error
+
+
+===================
 45.0.1 - 2025-06-26
 ===================
 
