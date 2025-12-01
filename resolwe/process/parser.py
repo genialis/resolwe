@@ -30,10 +30,10 @@ class StaticStringMetadata(StaticMetadata):
 
     def get_value(self, node):
         """Convert value from an AST node."""
-        if not isinstance(node, ast.Str):
+        if not isinstance(node, ast.Constant):
             raise TypeError("must be a string literal")
 
-        return node.s
+        return node.value
 
 
 class StaticEnumMetadata(StaticMetadata):
@@ -135,8 +135,8 @@ class ProcessVisitor(ast.NodeVisitor):
             if len(called_node.args) >= 1
             else keyword_map.get("slug")
         )
-        if isinstance(slug, (ast.Constant, ast.Str)):
-            return getattr(slug, "value", slug.s), ast.Constant
+        if isinstance(slug, ast.Constant):
+            return getattr(slug, "value", slug.value), ast.Constant
 
         if isinstance(slug, ast.Name) and isinstance(slug.ctx, ast.Load):
             return slug.id, ast.Name
@@ -161,7 +161,7 @@ class ProcessVisitor(ast.NodeVisitor):
                     for target in child_node.targets:
                         if isinstance(target, ast.Name):
                             mapping[target.id].append(
-                                getattr(child_node.value, "value", child_node.value.s)
+                                getattr(child_node.value, "value", child_node.value.value)
                             )
                 else:
                     unknown_values.update(
@@ -312,11 +312,11 @@ class ProcessVisitor(ast.NodeVisitor):
                     setattr(descriptor.metadata, item.targets[0].id, value)
             elif (
                 isinstance(item, ast.Expr)
-                and isinstance(item.value, ast.Str)
+                and isinstance(item.value, ast.Constant)
                 and descriptor.metadata.description is None
             ):
                 # Possible description string.
-                descriptor.metadata.description = item.value.s
+                descriptor.metadata.description = item.value.value
             elif (
                 isinstance(item, ast.ClassDef)
                 and item.name in embedded_class_fields.keys()

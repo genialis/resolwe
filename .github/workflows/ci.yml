@@ -30,12 +30,14 @@ jobs:
             description: "Unit tests (Python 3.12)"
           - toxenv: "py313"
             description: "Unit tests (Python 3.13)"
+          - toxenv: "py314"
+            description: "Unit tests (Python 3.14)"
           - toxenv: "linters"
-            description: "Linters (Python 3.13)"
+            description: "Linters (Python 3.14)"
           - toxenv: "packaging"
-            description: "Packaging (Python 3.13)"
+            description: "Packaging (Python 3.14)"
           - toxenv: "migrations"
-            description: "Migrations (Python 3.13)"
+            description: "Migrations (Python 3.14)"
     name: ${{ matrix.description }}
 
     services:
@@ -68,7 +70,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build communication container
-        if: matrix.toxenv == 'py312' || matrix.toxenv == 'py313'
+        if: matrix.toxenv == 'py312' || matrix.toxenv == 'py313' || matrix.toxenv == 'py314'
         working-directory: ./resolwe/flow/docker_images
         run: docker build -f Dockerfile.communication -t ${{ env.RESOLWE_COMMUNICATOR_IMAGE }} ../../
 
@@ -80,7 +82,7 @@ jobs:
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
-        if: startsWith(github.ref, 'refs/tags') && (matrix.toxenv == 'py312' || matrix.toxenv == 'py313')
+        if: startsWith(github.ref, 'refs/tags') && (matrix.toxenv == 'py312' || matrix.toxenv == 'py313' || matrix.toxenv == 'py314')
         with:
           files: .coverage
           token: ${{ secrets.CODECOV_TOKEN }}

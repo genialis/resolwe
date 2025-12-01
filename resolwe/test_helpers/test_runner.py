@@ -11,6 +11,7 @@ import asyncio
 import contextlib
 import errno
 import logging
+import multiprocessing
 import os
 import re
 import shutil
@@ -50,6 +51,10 @@ from resolwe.storage.connectors import connectors
 from resolwe.test.utils import generate_process_tag
 
 from . import TESTING_CONTEXT
+
+# Python 3.14 uses forkserver by default, which is not supported by Django.
+# Remove the line bellow after Django fixes the issue.
+multiprocessing.set_start_method("fork", force=True)
 
 auth = None
 
@@ -269,7 +274,10 @@ def _run_in_event_loop(coro, *args, **kwargs):
     :param coro: The coroutine to run with an underlying event loop. All
         other arguments given to this function are forwarded to it.
     """
-    asyncio.get_event_loop().close()
+    try:
+        asyncio.get_event_loop().close()
+    except RuntimeError:
+        pass
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     task = asyncio.ensure_future(coro(*args, **kwargs), loop=loop)

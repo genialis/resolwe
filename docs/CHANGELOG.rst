@@ -16,6 +16,10 @@ Fixed
 - Fix correctly assign permission group when data object is created outside
   container and later moved into one
 
+Added
+-----
+- Add support for ``Python 3.14``
+
 
 ===================
 45.0.3 - 2025-11-06
