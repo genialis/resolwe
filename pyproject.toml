@@ -29,62 +29,65 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-    "asgiref~=3.8.1",
+    "asgiref~=3.10.0",
     "asteval==1.0.6",
-    "beautifulsoup4~=4.13.3",
-    "channels~=4.2.2",
-    "channels_redis~=4.2.1",
+    "beautifulsoup4~=4.14.2",
+    "channels~=4.3.1",
+    "channels_redis~=4.3.0",
     # Storage requirement for computing hashes.
     "crcmod",
-    "Django~=5.2.0",
+    "Django~=5.2.7",
     "django-fernet-fields-v2~=0.9",
-    "django-filter~=25.1",
-    "djangorestframework~=3.16.0",
+    "django-filter~=25.2",
+    "djangorestframework~=3.16.1",
     "docker~=7.1.0",
-    "drf-spectacular~=0.28.0",
+    "drf-spectacular~=0.29.0",
+    # Required by opentelemetry-exporter, pinned due to Python 3.14.
+    # TODO: Remove the pin when jsonschema updates its dependency.
+    "grpcio~=1.76.0",
     "Jinja2~=3.1.6",
-    "jsonschema~=4.23.0",
-    "kubernetes~=32.0.1",
-    "opentelemetry-api~=1.31.1",
-    "opentelemetry-exporter-otlp~=1.31.1",
-    "opentelemetry-sdk~=1.31.1",
-    "plumbum~=1.9.0",
-    "psycopg[binary]~=3.2.6",
+    "jsonschema~=4.25.1",
+    "kubernetes~=34.1.0",
+    "opentelemetry-api~=1.38.0",
+    "opentelemetry-exporter-otlp~=1.38.0",
+    "opentelemetry-sdk~=1.38.0",
+    "plumbum~=1.10.0",
+    "psycopg[binary]~=3.2.12",
     "python-decouple~=3.8",
     "pytz~=2025.2",
-    "PyYAML~=6.0.2",
-    "pyzmq~=26.3.0",
-    "redis~=5.2.1",
+    "PyYAML~=6.0.3",
+    "pyzmq~=27.1.0",
+    "redis~=7.0.1",
     "shellescape~=3.8.1",
     "Sphinx~=8.2.3",
-    "uvloop~=0.21.0",
-    "wrapt~=1.17.2",
+    "uvloop~=0.22.1",
+    "wrapt~=2.0.0",
 ]
 
 
 [project.optional-dependencies]
-storage-s3 = ["boto3~=1.37.25", "crcmod~=1.7"]
-storage-gcs = ["crcmod~=1.7", "google-cloud-storage~=3.1.0"]
-docs = ["sphinx_rtd_theme ~= 3.0.2", "pyasn1>=0.6.1", "daphne>=4.1.2"]
-package = ["twine ~= 6.1.0", "wheel ~= 0.45.1"]
+storage-s3 = ["boto3~=1.40.65", "crcmod~=1.7"]
+storage-gcs = ["crcmod~=1.7", "google-cloud-storage~=3.4.1"]
+docs = ["sphinx_rtd_theme ~= 3.0.2", "pyasn1>=0.6.1", "daphne>=4.2.1"]
+package = ["twine ~= 6.2.0", "wheel ~= 0.45.1"]
 test = [
-    "black>=25.1.0",
-    "check-manifest>=0.50",
-    "coverage>=7.8.0",
-    "daphne>=4.1.2",
+    "black>=25.9.0",
+    "check-manifest>=0.51",
+    "coverage>=7.11.0",
+    "daphne>=4.2.1",
     "django-filter-stubs>=0.1.3",
-    "django-stubs>=5.1.3",
+    "django-stubs>=5.2.7",
     #  Temporarily disabled due to compatibility issues with mypy.
-    "djangorestframework-stubs[compatible-mypy]>=3.15.3",
-    "flake8>=7.2.0",
-    "isort>=6.0.1",
-    "mypy>=1.15.0",
+    "djangorestframework-stubs[compatible-mypy]>=3.16.5",
+    "flake8>=7.3.0",
+    "isort>=7.0.0",
+    "mypy>=1.18.2",
     "pydocstyle>=6.3.0",
     "readme_renderer",
     "setuptools_scm",
-    "tblib>=3.1.0",
-    "testfixtures>=8.3.0",
-    "twine~=6.1.0",
+    "tblib>=3.2.1",
+    "testfixtures>=10.0.0",
+    "twine~=6.2.0",
     "types-setuptools",
 ]
 
