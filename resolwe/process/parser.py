@@ -157,7 +157,7 @@ class ProcessVisitor(ast.NodeVisitor):
         unknown_values: Set[str] = set()
         for child_node in ast.walk(process_node):
             if isinstance(child_node, ast.Assign):
-                if isinstance(child_node.value, (ast.Constant, ast.Str)):
+                if isinstance(child_node.value, ast.Constant):
                     for target in child_node.targets:
                         if isinstance(target, ast.Name):
                             mapping[target.id].append(
