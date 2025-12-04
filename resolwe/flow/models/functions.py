@@ -27,7 +27,7 @@ class JsonGetPath(Func):
     def as_sql(self, compiler, connection):
         """Compile SQL for this function."""
         sql, params = super().as_sql(compiler, connection)
-        params.append(self.path)
+        params = params + (self.path,)
         return sql, params
 
 

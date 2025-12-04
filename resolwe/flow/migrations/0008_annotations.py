@@ -138,7 +138,7 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name="annotationfield",
             constraint=models.CheckConstraint(
-                check=models.Q(("type__in", ["DATE", "DECIMAL", "INTEGER", "STRING"])),
+                condition=models.Q(("type__in", ["DATE", "DECIMAL", "INTEGER", "STRING"])),
                 name="annotation_type",
             ),
         ),
