@@ -419,7 +419,7 @@ class AnnotationField(AbstractAnnotationField):
         constraints = [
             # Accept only supported annotation types.
             models.constraints.CheckConstraint(
-                check=models.Q(type__in=[e.value for e in AnnotationType]),
+                condition=models.Q(type__in=[e.value for e in AnnotationType]),
                 name="annotation_type",
             ),
             models.constraints.UniqueConstraint(
