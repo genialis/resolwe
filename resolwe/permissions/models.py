@@ -345,7 +345,7 @@ class PermissionModel(models.Model):
                 condition=models.Q(group__isnull=False),
             ),
             models.CheckConstraint(
-                check=models.Q(user__isnull=False, group__isnull=True)
+                condition=models.Q(user__isnull=False, group__isnull=True)
                 | models.Q(user__isnull=True, group__isnull=False),
                 name="exactly_one_of_user_group_must_be_set",
             ),
