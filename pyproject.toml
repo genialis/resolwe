@@ -68,7 +68,11 @@ dependencies = [
 [project.optional-dependencies]
 storage-s3 = ["boto3~=1.40.65", "crcmod~=1.7"]
 storage-gcs = ["crcmod~=1.7", "google-cloud-storage~=3.4.1"]
-docs = ["sphinx_rtd_theme ~= 3.0.2", "pyasn1>=0.6.1", "daphne>=4.2.1"]
+docs = [
+    "sphinx-nefertiti @ git+ssh://git@github.com/genialis/genialis-docs-theme",
+    "pyasn1>=0.6.1",
+    "daphne>=4.2.1"
+]
 package = ["twine ~= 6.2.0", "wheel ~= 0.45.1"]
 test = [
     "black>=25.9.0",
