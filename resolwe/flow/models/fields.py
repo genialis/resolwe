@@ -189,9 +189,7 @@ class ResolweSlugField(models.fields.SlugField):
                             {constraints_placeholder}
                         )
                     ) AS tmp
-                    """.format(
-                        **query_params
-                    ),
+                    """.format(**query_params),
                     params=query_escape_params,
                 )
                 result = cursor.fetchone()[0]

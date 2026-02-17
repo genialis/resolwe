@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Utility to reformat cURL progress to process progress."""
+
 import argparse
 import sys
 

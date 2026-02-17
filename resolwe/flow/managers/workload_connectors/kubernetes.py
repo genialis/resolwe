@@ -1004,7 +1004,7 @@ class Connector(BaseConnector):
         For details, see
         :meth:`~resolwe.flow.managers.workload_connectors.base.BaseConnector.submit`.
         """
-        (host, port, protocol) = argv[-1].rsplit(" ", maxsplit=3)[-3:]
+        host, port, protocol = argv[-1].rsplit(" ", maxsplit=3)[-3:]
         self._initialize_variables()
         try:
             self.start(data, (host, port, protocol))

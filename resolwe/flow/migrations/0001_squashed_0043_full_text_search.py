@@ -30,8 +30,7 @@ class Migration(migrations.Migration):
         CITextExtension(),
         TrigramExtension(),
         UnaccentExtension(),
-        migrations.RunSQL(
-            """
+        migrations.RunSQL("""
             DO
             $$BEGIN
                 CREATE TEXT SEARCH CONFIGURATION simple_unaccent( COPY = simple );
@@ -39,8 +38,7 @@ class Migration(migrations.Migration):
                 WHEN unique_violation THEN
                     NULL;  -- ignore error
             END;$$;
-            """
-        ),
+            """),
         migrations.RunSQL(
             "ALTER TEXT SEARCH CONFIGURATION simple_unaccent "
             + "ALTER MAPPING FOR hword, hword_part, word "

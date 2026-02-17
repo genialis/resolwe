@@ -713,9 +713,7 @@ class Manager:
                                         status = %(status)s,
                                         process_error = process_error || (%(error)s)::varchar[]
                                     WHERE id = %(id)s
-                                """.format(
-                                    table=Data._meta.db_table
-                                ),
+                                """.format(table=Data._meta.db_table),
                                 {
                                     "status": Data.STATUS_ERROR,
                                     "error": [error_msg],
