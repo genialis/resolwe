@@ -61,7 +61,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Public ECR
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: public.ecr.aws
 
