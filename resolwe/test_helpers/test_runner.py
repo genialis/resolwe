@@ -52,10 +52,6 @@ from resolwe.test.utils import generate_process_tag
 
 from . import TESTING_CONTEXT
 
-# Python 3.14 uses forkserver by default, which is not supported by Django.
-# Remove the line bellow after Django fixes the issue.
-multiprocessing.set_start_method("fork", force=True)
-
 auth = None
 
 logger = logging.getLogger(__name__)
@@ -241,27 +237,19 @@ def _prepare_settings():
     return (overrides, zmq_info)
 
 
-def _custom_worker_init(django_init_worker):
+def _custom_worker_init(django_init_worker, *args, **kwargs):
     """Wrap the original worker init to also start the manager."""
 
-    def _init_worker(*args, **kwargs):
-        """Initialize a :class:`multiprocessing.Pool` worker.
+    result = django_init_worker(*args, **kwargs)
 
-        Call the Django's ``ParallelTestSuite.init_worker`` and then
-        also start the manager infrastructure.
-        """
-        result = django_init_worker(*args, **kwargs)
+    # Further patch channel names and the like with our current pid,
+    # so that parallel managers and executors don't clash on the
+    # same channels and directories.
+    resolwe_settings.FLOW_MANAGER_SETTINGS[
+        "REDIS_PREFIX"
+    ] += "-parallel-pid{}".format(os.getpid())
 
-        # Further patch channel names and the like with our current pid,
-        # so that parallel managers and executors don't clash on the
-        # same channels and directories.
-        resolwe_settings.FLOW_MANAGER_SETTINGS[
-            "REDIS_PREFIX"
-        ] += "-parallel-pid{}".format(os.getpid())
-
-        return result
-
-    return _init_worker
+    return result
 
 
 def _run_in_event_loop(coro, *args, **kwargs):
@@ -361,8 +349,7 @@ class CustomRemoteRunner(RemoteTestRunner):
 
 class CustomParallelTestSuite(ParallelTestSuite):
     """Standard parallel suite with a custom worker initializer."""
-
-    init_worker = _custom_worker_init(ParallelTestSuite.init_worker)
+    init_worker = partial(_custom_worker_init, django_init_worker=ParallelTestSuite.init_worker)
     runner_class = CustomRemoteRunner
 
 
