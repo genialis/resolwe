@@ -10,6 +10,12 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Changed
+-------
+- When the Kubernetes workload connector is used, the listener now verifies
+  the state of Kubernetes jobs through the Kubernetes API, so its service
+  account requires the ``list`` permission on ``batch/jobs``
+
 Fixed
 -----
 - Fix the error handling in the manager data scan: the ``communicate``
@@ -24,6 +30,11 @@ Fixed
   ``FLOW_MANAGER_REQUEUE_MAX_ATTEMPTS``, default ``3``) so they are picked up
   by other running managers, and the dispatcher submits each data object at
   most once even when multiple managers race for it
+- Requeue data objects in the waiting status whose submitted task is not
+  queued or running anymore. The Kubernetes workload connector verifies the
+  job state through the Kubernetes API, so objects whose job has vanished or
+  failed permanently (killed manager during the submission, hardware failure)
+  are picked up again by a running manager instead of hanging
 
 
 ===================

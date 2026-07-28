@@ -16,10 +16,11 @@ import asyncio
 import datetime
 import logging
 import os
+from collections import defaultdict
 from contextlib import suppress
 from functools import lru_cache
 from time import time
-from typing import Any, ChainMap, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, ChainMap, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import zmq
 import zmq.asyncio
@@ -398,50 +399,46 @@ class Processor:
         the dispatch itself keeps failing, give up after a certain number of
         requeues and mark the data object failed.
 
-        Objects with the ``scheduled`` timestamp set are never touched here:
-        the timestamp is stamped just before the task is handed to the
+        Objects with the ``scheduled`` timestamp set are handled with extra
+        care: the timestamp is stamped just before the task is handed to the
         workload connector, and a submitted task may legitimately sit in an
         external queue (for instance Kubernetes) for a long time without any
-        activity. The price is that a manager killed after stamping the
-        timestamp but before completing the submission is not requeued; such
-        objects never send heartbeats and are eventually failed by
-        ``check_workers`` through the worker non-responsiveness timeout.
+        activity. Such objects are only requeued when the workload connector
+        positively confirms that the task is not queued or running anymore:
+        either it was never created (the manager was killed in the middle of
+        the submission) or it can never run again (for instance the job failed
+        permanently due to a hardware failure). When the connector cannot
+        determine the task state, the object is left alone and is eventually
+        failed by ``check_workers`` through the worker non-responsiveness
+        timeout.
 
         :returns: the tuple with the list of requeued data ids and the list of
             data ids marked as failed.
         """
         timeout = getattr(settings, "FLOW_MANAGER_REQUEUE_TIMEOUT", 600)
         max_requeues = getattr(settings, "FLOW_MANAGER_REQUEUE_MAX_ATTEMPTS", 3)
-
-        def stalled(queryset):
-            """Filter the queryset to stalled data objects.
-
-            Processes that never run in the executor (processes without a
-            run section and workflows) legitimately park their objects in
-            the waiting status without the scheduled timestamp, so they must
-            be left alone; the exclusions below mirror the run_in_executor
-            condition in the dispatcher data scan.
-            """
-            return (
-                queryset.filter(
-                    status=Data.STATUS_WAITING,
-                    scheduled__isnull=True,
-                    modified__lt=now() - datetime.timedelta(seconds=timeout),
-                )
-                .exclude(process__run={})
-                .exclude(process__run__language="workflow")
-            )
+        cutoff = now() - datetime.timedelta(seconds=timeout)
 
         requeued: List[int] = []
         failed: List[int] = []
-        for data_id in stalled(Data.objects).values_list("pk", flat=True):
+
+        def process_object(data_id: int, **lock_filters):
+            """Lock the stalled object, re-verify its state and requeue it.
+
+            The lock_filters must re-check the conditions that made the object
+            a rescue candidate, so objects picked up between the candidate
+            query and the lock are left alone. When requeueing does not help
+            after too many attempts, the object is marked failed instead.
+            """
             with transaction.atomic():
                 data = (
-                    stalled(Data.objects.select_for_update()).filter(pk=data_id).first()
+                    Data.objects.select_for_update()
+                    .filter(pk=data_id, status=Data.STATUS_WAITING, **lock_filters)
+                    .first()
                 )
                 if data is None:
                     # The object was picked up while waiting for the lock.
-                    continue
+                    return
                 requeue_count = sum(
                     1
                     for warning in data.process_warning
@@ -456,7 +453,8 @@ class Processor:
                         f"(attempt {requeue_count + 1} of {max_requeues})."
                     )
                     data.status = Data.STATUS_RESOLVING
-                    self._save_data(data, ["process_warning", "status"])
+                    data.scheduled = None
+                    self._save_data(data, ["process_warning", "status", "scheduled"])
                     self._update_worker(
                         data.pk, changes={"status": Worker.STATUS_PREPARING}
                     )
@@ -472,8 +470,8 @@ class Processor:
                     )
                     self._save_error(
                         data,
-                        "Processing was interrupted before the task was "
-                        f"submitted and requeueing {max_requeues} times did "
+                        "Processing was interrupted before the task could "
+                        f"run and requeueing it {max_requeues} times did "
                         "not help.",
                     )
                     self._update_worker(
@@ -481,7 +479,87 @@ class Processor:
                     )
                     failed.append(data.pk)
                 self._unlock_all_inputs(data.pk)
+
+        # Objects claimed by a dispatcher but never submitted to the workload
+        # connector. Processes that never run in the executor (processes
+        # without a run section and workflows) legitimately park their
+        # objects in the waiting status without the scheduled timestamp, so
+        # they must be left alone; the exclusions below mirror the
+        # run_in_executor condition in the dispatcher data scan.
+        unsubmitted = (
+            Data.objects.filter(
+                status=Data.STATUS_WAITING,
+                scheduled__isnull=True,
+                modified__lt=cutoff,
+            )
+            .exclude(process__run={})
+            .exclude(process__run__language="workflow")
+            .values_list("pk", flat=True)
+        )
+        for data_id in unsubmitted:
+            process_object(data_id, scheduled__isnull=True, modified__lt=cutoff)
+
+        # Objects submitted to the workload connector whose task is not
+        # queued or running anymore. The connector queries may take a while,
+        # so they must run outside the transaction; the scheduled timestamp
+        # re-check in the lock filters guarantees the object was not touched
+        # in the meantime. The objects are grouped by their workload connector
+        # so each connector is queried once with all its candidates.
+        submitted = Data.objects.filter(
+            status=Data.STATUS_WAITING, scheduled__isnull=False, scheduled__lt=cutoff
+        ).select_related("process")
+        for connector, candidates in self._candidates_by_connector(submitted).items():
+            tasks_active = self._connector_tasks_active(connector, candidates)
+            for data in candidates:
+                if tasks_active.get(data.pk) is False:
+                    process_object(data.pk, scheduled=data.scheduled)
+
         return requeued, failed
+
+    def _candidates_by_connector(
+        self, data_objects: Iterable[Data]
+    ) -> Dict[Any, List[Data]]:
+        """Group the given data objects by their workload connector."""
+        # Import locally to keep the import time managers module dependency
+        # graph intact.
+        from resolwe.flow import managers
+
+        grouped: Dict[Any, List[Data]] = defaultdict(list)
+        for data in data_objects:
+            try:
+                grouped[managers.manager.get_workload_connector(data)].append(data)
+            except Exception:
+                logger.exception(
+                    __(
+                        "Error determining the workload connector for the "
+                        "data object with id {}.",
+                        data.pk,
+                    )
+                )
+        return grouped
+
+    def _connector_tasks_active(
+        self, connector, data_objects: List[Data]
+    ) -> Dict[int, Optional[bool]]:
+        """Check with the workload connector if the tasks can still run.
+
+        :returns: the mapping from the data object primary key to ``True``
+            when its task is queued or running, ``False`` when it is known it
+            can never run (anymore) and ``None`` when the state cannot be
+            determined. On errors an empty mapping is returned, leaving all
+            the objects alone.
+        """
+        try:
+            return connector.is_active_bulk(data_objects)
+        except Exception:
+            logger.exception(
+                __(
+                    "Error checking the workload connector for the tasks of "
+                    "data objects with ids {}.",
+                    [data.pk for data in data_objects],
+                )
+            )
+            return {}
 
     async def requeue_stalled_data(self):
         """Requeue data objects whose dispatch was interrupted.

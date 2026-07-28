@@ -19,7 +19,7 @@ from contextlib import suppress
 from enum import Enum
 from importlib.util import find_spec
 from pathlib import Path
-from typing import Any, Dict, Iterable, Tuple
+from typing import Any, Dict, Iterable, Optional, Sequence, Tuple
 
 import kubernetes
 import redis
@@ -86,6 +86,14 @@ def get_upload_dir() -> str:
 def unique_volume_name(base_name: str, data_id: int, postfix: str) -> str:
     """Get unique persistent volume claim name."""
     return f"{base_name}-{data_id}-{postfix}"
+
+
+def _is_job_finished(job) -> bool:
+    """Check if the given kubernetes job is in a terminal condition."""
+    return any(
+        condition.type in ("Complete", "Failed") and condition.status == "True"
+        for condition in (job.status.conditions or [])
+    )
 
 
 def sanitize_kubernetes_label(label: str, trim_end: bool = True) -> str:
@@ -786,7 +794,14 @@ class Connector(BaseConnector):
         job_description = {
             "apiVersion": "batch/v1",
             "kind": "Job",
-            "metadata": {"name": sanitize_kubernetes_label(container_name)},
+            # The labels are set on the job itself (not just on the pod
+            # template) since is_active_bulk matches jobs to data objects by
+            # the job's own labels. Without them the job would only carry the
+            # labels the API server defaults from the pod template.
+            "metadata": {
+                "name": sanitize_kubernetes_label(container_name),
+                "labels": labels,
+            },
             "spec": {
                 # Keep finished pods around for ten seconds. If job is not
                 # deleted its PVC claim persists and it causes PV to stay
@@ -1025,3 +1040,69 @@ class Connector(BaseConnector):
                 repr(argv),
             )
         )
+
+    def _list_jobs(self, label_selector: str) -> list:
+        """List the kubernetes jobs matching the given label selector."""
+        self._initialize_variables()
+        self._load_kubernetes_config()
+        batch_api = kubernetes.client.BatchV1Api()
+        return batch_api.list_namespaced_job(
+            namespace=self.kubernetes_namespace,
+            label_selector=label_selector,
+            _request_timeout=KUBERNETES_TIMEOUT,
+        ).items
+
+    def is_active(self, data: Data) -> Optional[bool]:
+        """Check if the kubernetes job for the data object can still run.
+
+        A job counts as active until it reaches a terminal condition: a job
+        with a pod pending in a full cluster is active (the object must not be
+        requeued), while a job that failed permanently (for instance due to a
+        hardware failure) or was never created can not run anymore and its
+        data object can be requeued.
+
+        For details, see
+        :meth:`~resolwe.flow.managers.workload_connectors.base.BaseConnector.is_active`.
+        """
+        try:
+            jobs = self._list_jobs(f"application=resolwe,data_id={data.pk}")
+        except Exception:
+            logger.exception(
+                __("Unable to read the state of kubernetes jobs for data {}.", data.pk)
+            )
+            return None
+
+        return any(not _is_job_finished(job) for job in jobs)
+
+    def is_active_bulk(self, data_objects: Sequence[Data]) -> Dict[int, Optional[bool]]:
+        """Check the state of the kubernetes jobs for multiple data objects.
+
+        All the jobs are retrieved with a single API call and matched to the
+        data objects by the ``data_id`` label.
+
+        For details, see
+        :meth:`~resolwe.flow.managers.workload_connectors.base.BaseConnector.is_active_bulk`.
+        """
+        try:
+            jobs = self._list_jobs("application=resolwe")
+        except Exception:
+            logger.exception("Unable to read the state of kubernetes jobs.")
+            return {data.pk: None for data in data_objects}
+
+        # Refuse to answer when jobs exist but none carries the data_id
+        # label: the labeling assumption is broken and reporting every
+        # candidate as inactive would requeue all of them.
+        data_id_labels = [(job.metadata.labels or {}).get("data_id") for job in jobs]
+        if jobs and not any(data_id_labels):
+            logger.error(
+                "The kubernetes jobs carry no data_id labels, the state of "
+                "the data objects cannot be determined."
+            )
+            return {data.pk: None for data in data_objects}
+
+        active_data_ids = {
+            data_id
+            for job, data_id in zip(jobs, data_id_labels)
+            if data_id is not None and not _is_job_finished(job)
+        }
+        return {data.pk: str(data.pk) in active_data_ids for data in data_objects}

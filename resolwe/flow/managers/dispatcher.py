@@ -44,6 +44,7 @@ from resolwe.utils import BraceMessage as __
 
 from . import consumer, state
 from .protocol import WorkerProtocol
+from .workload_connectors.base import BaseConnector
 
 logger = logging.getLogger(__name__)
 
@@ -210,13 +211,7 @@ class Manager:
             is to be run.
         :param argv: The argument vector used to spawn the executor.
         """
-        process_scheduling = self.scheduling_class_map[data.process.scheduling_class]
-        if "DISPATCHER_MAPPING" in getattr(settings, "FLOW_MANAGER", {}):
-            class_name = settings.FLOW_MANAGER["DISPATCHER_MAPPING"][process_scheduling]
-        else:
-            class_name = getattr(settings, "FLOW_MANAGER", {}).get(
-                "NAME", DEFAULT_CONNECTOR
-            )
+        class_name = self.get_workload_connector_name(data)
 
         data.scheduled = now()
         # Atomically claim the submission. The select_for_update lock taken in
@@ -233,9 +228,10 @@ class Manager:
         # Stamping it after would let the listener requeue an object whose
         # submission succeeded just before the manager died, duplicating the
         # execution. With this ordering a manager killed between the claim and
-        # the submission leaves an object that is excluded from requeueing;
-        # such objects never send heartbeats and are eventually failed by the
-        # worker non-responsiveness cleanup in the listener.
+        # the submission leaves an object that is requeued by the listener
+        # only after the workload connector confirms the task does not exist;
+        # when the connector cannot determine this, the object is eventually
+        # failed by the worker non-responsiveness cleanup instead.
         #
         # The conditional update deliberately bypasses the model save and its
         # post-save signals: only the scheduled timestamp changes here, so
@@ -258,6 +254,17 @@ class Manager:
         argv[-1] += " {} {} {}".format(host, port, protocol)
 
         return self.connectors[class_name].submit(data, argv)
+
+    def get_workload_connector_name(self, data: Data) -> str:
+        """Return the workload connector module name for the data object."""
+        process_scheduling = self.scheduling_class_map[data.process.scheduling_class]
+        if "DISPATCHER_MAPPING" in getattr(settings, "FLOW_MANAGER", {}):
+            return settings.FLOW_MANAGER["DISPATCHER_MAPPING"][process_scheduling]
+        return getattr(settings, "FLOW_MANAGER", {}).get("NAME", DEFAULT_CONNECTOR)
+
+    def get_workload_connector(self, data: Data) -> BaseConnector:
+        """Return the workload connector instance for the data object."""
+        return self.connectors[self.get_workload_connector_name(data)]
 
     def _get_data_connector_name(self) -> str:
         """Return storage connector that will be used for new data object.

@@ -1,6 +1,7 @@
 # pylint: disable=missing-docstring
 import os
 from datetime import timedelta
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from asgiref.sync import async_to_sync
@@ -412,6 +413,159 @@ class StalledDataRequeueTest(TransactionTestCase):
         self.assertEqual(data.status, Data.STATUS_ERROR)
         self.assertEqual(len(data.process_error), 1)
         self.assertEqual(data.worker.status, Worker.STATUS_ERROR_PREPARING)
+
+    def test_requeue_vanished_submission(self):
+        """Submitted object whose task has vanished is requeued."""
+        data = self._create_data(
+            status=Data.STATUS_WAITING,
+            scheduled=now() - timedelta(hours=1),
+            modified=now() - timedelta(hours=1),
+        )
+        connector = manager.connectors[DEFAULT_CONNECTOR]
+
+        # The connector cannot determine the task state: leave the object be.
+        # This is also what the default base connector implementation returns.
+        with patch.object(connector, "is_active", return_value=None):
+            requeued, failed = self._process_stalled_data()
+        data.refresh_from_db()
+        self.assertEqual((requeued, failed), ([], []))
+        self.assertEqual(data.status, Data.STATUS_WAITING)
+
+        # The task is still queued or running: leave the object be.
+        with patch.object(connector, "is_active", return_value=True):
+            requeued, failed = self._process_stalled_data()
+        data.refresh_from_db()
+        self.assertEqual((requeued, failed), ([], []))
+        self.assertEqual(data.status, Data.STATUS_WAITING)
+
+        # The task is gone: requeue the object.
+        with patch.object(connector, "is_active", return_value=False):
+            requeued, failed = self._process_stalled_data()
+        data.refresh_from_db()
+        self.assertEqual((requeued, failed), ([data.pk], []))
+        self.assertEqual(data.status, Data.STATUS_RESOLVING)
+        self.assertIsNone(data.scheduled)
+        self.assertEqual(len(data.process_warning), 1)
+        self.assertTrue(data.process_warning[0].startswith(STALLED_DATA_WARNING))
+
+        # A recently submitted object is not even checked with the connector.
+        recent = self._create_data(status=Data.STATUS_WAITING, scheduled=now())
+        with patch.object(connector, "is_active", return_value=False) as is_active:
+            requeued, failed = self._process_stalled_data()
+        recent.refresh_from_db()
+        self.assertEqual(recent.status, Data.STATUS_WAITING)
+        self.assertNotIn(recent.pk, requeued)
+        self.assertNotIn(
+            recent.pk, [call.args[0].pk for call in is_active.call_args_list]
+        )
+
+    def test_kubernetes_is_active(self):
+        """The kubernetes connector reports the state of its jobs."""
+        from resolwe.flow.managers.workload_connectors import (
+            kubernetes as kubernetes_connector,
+        )
+
+        data = self._create_data()
+        connector = kubernetes_connector.Connector()
+
+        with (
+            patch.object(connector, "_load_kubernetes_config"),
+            patch.object(
+                kubernetes_connector.kubernetes.client, "BatchV1Api"
+            ) as batch_api,
+        ):
+            list_jobs = batch_api.return_value.list_namespaced_job
+
+            # No job exists for the data object.
+            list_jobs.return_value = SimpleNamespace(items=[])
+            self.assertIs(connector.is_active(data), False)
+
+            # A job without a terminal condition is active, even when its pod
+            # is still pending in the cluster queue.
+            pending = SimpleNamespace(status=SimpleNamespace(conditions=None))
+            list_jobs.return_value = SimpleNamespace(items=[pending])
+            self.assertIs(connector.is_active(data), True)
+
+            # A permanently failed job can never run again.
+            failed_condition = SimpleNamespace(type="Failed", status="True")
+            failed = SimpleNamespace(
+                status=SimpleNamespace(conditions=[failed_condition])
+            )
+            list_jobs.return_value = SimpleNamespace(items=[failed])
+            self.assertIs(connector.is_active(data), False)
+
+            # A failed job of a previous run next to an active one.
+            list_jobs.return_value = SimpleNamespace(items=[failed, pending])
+            self.assertIs(connector.is_active(data), True)
+
+            # The state cannot be determined on API errors.
+            list_jobs.side_effect = Exception("API error")
+            self.assertIsNone(connector.is_active(data))
+
+    def test_kubernetes_is_active_bulk(self):
+        """The kubernetes connector answers for all candidates at once."""
+        from resolwe.flow.managers.workload_connectors import (
+            kubernetes as kubernetes_connector,
+        )
+
+        data_active = self._create_data()
+        data_finished = self._create_data()
+        data_no_job = self._create_data()
+        connector = kubernetes_connector.Connector()
+
+        def job(data_id, conditions):
+            return SimpleNamespace(
+                metadata=SimpleNamespace(labels={"data_id": str(data_id)}),
+                status=SimpleNamespace(conditions=conditions),
+            )
+
+        with (
+            patch.object(connector, "_load_kubernetes_config"),
+            patch.object(
+                kubernetes_connector.kubernetes.client, "BatchV1Api"
+            ) as batch_api,
+        ):
+            list_jobs = batch_api.return_value.list_namespaced_job
+            list_jobs.return_value = SimpleNamespace(
+                items=[
+                    job(data_active.pk, None),
+                    job(
+                        data_finished.pk,
+                        [SimpleNamespace(type="Complete", status="True")],
+                    ),
+                ]
+            )
+
+            self.assertEqual(
+                connector.is_active_bulk([data_active, data_finished, data_no_job]),
+                {
+                    data_active.pk: True,
+                    data_finished.pk: False,
+                    data_no_job.pk: False,
+                },
+            )
+            # All the candidates must be answered with a single API call.
+            list_jobs.assert_called_once()
+
+            # The state cannot be determined on API errors.
+            list_jobs.side_effect = Exception("API error")
+            self.assertEqual(
+                connector.is_active_bulk([data_active]), {data_active.pk: None}
+            )
+
+            # Jobs without the data_id label mean the labeling assumption is
+            # broken: the state is undetermined instead of everything being
+            # reported inactive (and requeued).
+            list_jobs.side_effect = None
+            unlabeled = SimpleNamespace(
+                metadata=SimpleNamespace(labels={"application": "resolwe"}),
+                status=SimpleNamespace(conditions=None),
+            )
+            list_jobs.return_value = SimpleNamespace(items=[unlabeled])
+            self.assertEqual(
+                connector.is_active_bulk([data_active, data_no_job]),
+                {data_active.pk: None, data_no_job.pk: None},
+            )
 
     def test_run_claims_submission(self):
         """The manager submits a data object exactly once."""
