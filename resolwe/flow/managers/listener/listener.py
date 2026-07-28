@@ -840,9 +840,26 @@ class ListenerProtocol(BaseProtocol):
         }
 
         current_timestamp = int(time())
-        for data_id, worker_status in await database_sync_to_async(
+        authenticator = (
+            ZMQAuthenticator.instance() if ZMQAuthenticator.has_instance() else None
+        )
+        # Snapshot the authorization keys before reading the active workers:
+        # an entry added while the query below runs may belong to a worker
+        # created after the query results were computed, so it must not be
+        # pruned against the stale list of active data ids.
+        authorization_keys = (
+            authenticator.authorization_keys() if authenticator else set()
+        )
+        active_workers = await database_sync_to_async(
             get_data, thread_sensitive=False
-        )():
+        )()
+        # Drop the authorization entries of the workers that are finished so
+        # they do not accumulate for the process lifetime.
+        if authenticator is not None:
+            authenticator.prune_authorizations(
+                {data_id for data_id, _ in active_workers}, authorization_keys
+            )
+        for data_id, worker_status in active_workers:
             redis_key = f"resolwe-worker-{data_id}"
             last_seen = redis_server.get(redis_key)
             if last_seen is None:

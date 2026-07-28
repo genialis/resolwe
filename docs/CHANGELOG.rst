@@ -40,6 +40,10 @@ Fixed
   entries were kept for every peer ever seen. The events are now removed
   when the command completes and peers not heard from for an hour are
   pruned
+- Fix unbounded memory growth in the listener authenticator: the
+  authorization entry added for every connected worker was never removed.
+  The periodic worker check now prunes the entries of workers in final
+  statuses
 - Fix data objects hanging in the ``WAITING`` status forever when the manager
   process is killed (or the submission to the workload connector fails) after
   the status change is committed but before the task is actually submitted.

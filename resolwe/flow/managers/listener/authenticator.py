@@ -2,6 +2,7 @@
 
 import logging
 from collections import defaultdict
+from typing import Optional
 
 from channels.db import database_sync_to_async
 from zmq.auth.asyncio import AsyncioAuthenticator
@@ -67,6 +68,41 @@ class ZMQAuthenticator(AsyncioAuthenticator, Singleton):
     def can_access_data(self, worker_public_key: bytes, data_id: int) -> bool:
         """Can worker access the given data object."""
         return data_id in self._authorizations.get(worker_public_key, [])
+
+    def authorization_keys(self) -> set[bytes]:
+        """Return the worker public keys currently authorized."""
+        return set(self._authorizations.keys())
+
+    def prune_authorizations(
+        self,
+        active_data_ids: set[int],
+        candidate_keys: Optional[set[bytes]] = None,
+    ):
+        """Remove authorizations of workers without active data objects.
+
+        The method is called periodically by the listener with the data ids
+        of the workers in non-final statuses. Without the pruning the
+        authorization dictionary grows by one entry for every worker ever
+        connected for the process lifetime.
+
+        Only the entries under ``candidate_keys`` (all entries when not
+        given) are considered for removal: an entry added while the caller
+        was reading the active data ids from the database may belong to a
+        worker created after the read, so it must survive until the next
+        pruning cycle.
+        """
+        candidates = (
+            self._authorizations.keys() if candidate_keys is None else candidate_keys
+        )
+        stale_keys = [
+            worker_public_key
+            for worker_public_key in candidates
+            if not (
+                self._authorizations.get(worker_public_key, set()) & active_data_ids
+            )
+        ]
+        for worker_public_key in stale_keys:
+            self._authorizations.pop(worker_public_key, None)
 
     def clear_authorizations(self):
         """Clear the authorization dictionary."""

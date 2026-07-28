@@ -5,10 +5,12 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from asgiref.sync import async_to_sync
+from django.test import SimpleTestCase
 from django.utils.timezone import now
 
 from resolwe.flow.managers import manager
 from resolwe.flow.managers.dispatcher import DEFAULT_CONNECTOR
+from resolwe.flow.managers.listener.authenticator import ZMQAuthenticator
 from resolwe.flow.managers.listener.listener import STALLED_DATA_WARNING, Processor
 from resolwe.flow.managers.protocol import WorkerProtocol
 from resolwe.flow.managers.utils import disable_auto_calls
@@ -262,6 +264,45 @@ class TransactionTestManager(TransactionTestCase):
         async_to_sync(manager.communicate)(run_sync=True)
 
         self.assertEqual(Data.objects.filter(status=Data.STATUS_RESOLVING).count(), 0)
+
+
+class ZMQAuthenticatorTest(SimpleTestCase):
+    """Test the authorization pruning of the listener authenticator."""
+
+    def test_prune_authorizations(self):
+        """Only workers without active data objects are pruned."""
+        authenticator = ZMQAuthenticator()
+        authenticator.authorize_client(b"active", 1)
+        authenticator.authorize_client(b"stale", 2)
+        authenticator.authorize_client(b"mixed", 2)
+        authenticator.authorize_client(b"mixed", 3)
+
+        authenticator.prune_authorizations({1, 3})
+
+        self.assertTrue(authenticator.can_access_data(b"active", 1))
+        self.assertFalse(authenticator.can_access_data(b"stale", 2))
+        # A worker with at least one active data object keeps all its
+        # authorizations.
+        self.assertTrue(authenticator.can_access_data(b"mixed", 2))
+        self.assertTrue(authenticator.can_access_data(b"mixed", 3))
+
+    def test_prune_authorizations_candidates(self):
+        """Entries added after the candidate snapshot survive the pruning."""
+        authenticator = ZMQAuthenticator()
+        authenticator.authorize_client(b"active", 1)
+        authenticator.authorize_client(b"stale", 2)
+
+        candidate_keys = authenticator.authorization_keys()
+        # A worker that connected after the caller snapshotted the keys: its
+        # data id is not in the (stale) active set, but the entry must
+        # survive until the next pruning cycle.
+        authenticator.authorize_client(b"new", 99)
+
+        authenticator.prune_authorizations({1}, candidate_keys)
+
+        self.assertTrue(authenticator.can_access_data(b"active", 1))
+        self.assertFalse(authenticator.can_access_data(b"stale", 2))
+        self.assertTrue(authenticator.can_access_data(b"new", 99))
 
 
 class StalledDataRequeueTest(TransactionTestCase):
