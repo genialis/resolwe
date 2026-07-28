@@ -6,6 +6,18 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Fixed
+-----
+- Fix the error handling in the manager data scan: the ``communicate``
+  coroutine notifying the children of a force-errored data object was
+  created but never awaited, so the children were never transitioned into
+  the error state
+
+
 ===================
 45.1.0 - 2026-02-17
 ===================

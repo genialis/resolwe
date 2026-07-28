@@ -17,6 +17,7 @@ from importlib import import_module
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
+from asgiref.sync import async_to_sync
 from channels.db import database_sync_to_async
 from channels.exceptions import ChannelFull
 from django.conf import settings
@@ -694,10 +695,9 @@ class Manager:
                     # status to STATUS_ERROR to prevent the object from being retried
                     # on next _data_scan run. We must perform this operation without
                     # using the Django ORM as using the ORM may be the reason the error
-                    # occurred in the first place.
-                    # Note that this has a side effect: since signals are not emitted,
-                    # the data object is not processed and its children are not
-                    # transitioned into the error state.
+                    # occurred in the first place. Django signals are therefore not
+                    # emitted; the explicit communicate call below takes care of the
+                    # children so they are transitioned into the error state.
                     error_msg = "Internal error: {}".format(error)
                     process_error_field = Data._meta.get_field("process_error")
                     max_length = process_error_field.base_field.max_length
@@ -720,7 +720,10 @@ class Manager:
                                     "id": data.pk,
                                 },
                             )
-                        self.communicate(data_id=data.pk)
+                        # The communicate method is async: without async_to_sync
+                        # the coroutine is created but never awaited, so the
+                        # children of the errored object are never notified.
+                        async_to_sync(self.communicate)(data_id=data.pk)
                     except Exception:
                         # If object's state cannot be changed due to some database-related
                         # issue, at least skip the object for this run.
