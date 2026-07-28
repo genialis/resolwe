@@ -21,6 +21,7 @@ from resolwe.flow.models import (
     Worker,
 )
 from resolwe.permissions.models import Permission
+from resolwe.storage.models import AccessLog, FileStorage, StorageLocation
 from resolwe.test import ProcessTestCase, TransactionTestCase
 
 PROCESSES_DIR = os.path.join(os.path.dirname(__file__), "processes")
@@ -566,6 +567,77 @@ class StalledDataRequeueTest(TransactionTestCase):
                 connector.is_active_bulk([data_active, data_no_job]),
                 {data_active.pk: None, data_no_job.pk: None},
             )
+
+    def _create_locked_input(self, data):
+        """Create an input for the data object.
+
+        The parent data object gets a storage location and is connected to
+        the given data object as an input; the returned storage location is
+        the one the dispatcher locks when the processing starts.
+        """
+        parent = self._create_data(status=Data.STATUS_DONE)
+        file_storage = FileStorage.objects.create()
+        location = StorageLocation.objects.create(
+            file_storage=file_storage,
+            url=str(file_storage.pk),
+            status=StorageLocation.STATUS_DONE,
+            connector_name="local",
+        )
+        file_storage.data.add(parent)
+        DataDependency.objects.create(
+            parent=parent, child=data, kind=DataDependency.KIND_IO
+        )
+        return location
+
+    def test_failed_preparation_releases_input_locks(self):
+        """A terminal preparation failure releases the input storage locks."""
+        data = self._create_data(status=Data.STATUS_WAITING)
+        self._create_locked_input(data)
+
+        with (
+            patch.object(manager, "_prepare_data_dir"),
+            patch.object(
+                manager.executor,
+                "prepare_for_execution",
+                side_effect=OSError("no space left on device"),
+            ),
+            disable_auto_calls(),
+        ):
+            manager._data_execute(data)
+
+        data.refresh_from_db()
+        self.assertEqual(data.status, Data.STATUS_ERROR)
+        self.assertEqual(data.worker.status, Worker.STATUS_ERROR_PREPARING)
+        access_log = AccessLog.objects.get(cause=data)
+        self.assertIsNotNone(access_log.finished)
+
+    def test_failed_submission_releases_input_locks(self):
+        """A failed kubernetes submission releases the input storage locks."""
+        from resolwe.flow.managers.workload_connectors import (
+            kubernetes as kubernetes_connector,
+        )
+
+        data = self._create_data(status=Data.STATUS_WAITING)
+        location = self._create_locked_input(data)
+        access_log = AccessLog.objects.create(
+            storage_location=location,
+            reason="Input for data with id {}".format(data.pk),
+            cause=data,
+        )
+        connector = kubernetes_connector.Connector()
+
+        with (
+            patch.object(connector, "_initialize_variables"),
+            patch.object(connector, "start", side_effect=Exception("API error")),
+            disable_auto_calls(),
+        ):
+            connector.submit(data, ["executor command host port protocol"])
+
+        data.refresh_from_db()
+        access_log.refresh_from_db()
+        self.assertEqual(data.status, Data.STATUS_ERROR)
+        self.assertEqual(data.worker.status, Worker.STATUS_ERROR_PREPARING)
+        self.assertIsNotNone(access_log.finished)
 
     def test_run_claims_submission(self):
         """The manager submits a data object exactly once."""

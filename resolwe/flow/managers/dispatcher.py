@@ -553,6 +553,22 @@ class Manager:
             ]
         )
 
+    def _unlock_inputs_local_storage_locations(self, data: Data):
+        """Release the input storage location locks taken for the data object.
+
+        The complement of :meth:`_lock_inputs_local_storage_locations` for the
+        failure paths that terminate the processing without ever notifying
+        the listener, which releases the locks in the regular error path.
+
+        The method runs inside exception handlers that have already recorded
+        the actual failure on the data object, so a failure to unlock is
+        suppressed to avoid replacing the recorded error.
+        """
+        with suppress(Exception):
+            AccessLog.objects.filter(cause=data, finished__isnull=True).update(
+                finished=now()
+            )
+
     def _data_execute(self, data: Data):
         """Execute the Data object.
 
@@ -593,7 +609,8 @@ class Manager:
             data.save()
             if hasattr(data, "worker"):
                 data.worker.status = Worker.STATUS_ERROR_PREPARING
-                data.worker.save()
+                data.worker.save(update_fields=["status"])
+            self._unlock_inputs_local_storage_locations(data)
             return
         except OSError as err:
             logger.exception(
@@ -603,9 +620,16 @@ class Manager:
                     err,
                 )
             )
+            # Also mark the data object failed: setting only the worker status
+            # (which is final and therefore ignored by the listener cleanup)
+            # would leave the object in the waiting status forever.
+            data.status = Data.STATUS_ERROR
+            data.process_error.append("Error preparing data object: {}".format(err))
+            data.save()
             if hasattr(data, "worker"):
                 data.worker.status = Worker.STATUS_ERROR_PREPARING
-                data.worker.save()
+                data.worker.save(update_fields=["status"])
+            self._unlock_inputs_local_storage_locations(data)
             return
 
         # Hand off to the run() method for execution.

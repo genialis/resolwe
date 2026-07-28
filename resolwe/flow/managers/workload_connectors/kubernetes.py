@@ -26,14 +26,16 @@ import redis
 from django.conf import settings
 from django.db.models import Sum
 from django.db.models.functions import Coalesce
+from django.utils.timezone import now
 
 from resolwe.flow.executors import constants
 from resolwe.flow.managers.listener.listener import LISTENER_PUBLIC_KEY
-from resolwe.flow.models import Data, DataDependency, Process
+from resolwe.flow.models import Data, DataDependency, Process, Worker
 from resolwe.flow.utils.decorators import retry
 from resolwe.storage import settings as storage_settings
 from resolwe.storage.connectors import connectors
 from resolwe.storage.connectors.baseconnector import BaseStorageConnector
+from resolwe.storage.models import AccessLog
 from resolwe.utils import BraceMessage as __
 
 from .base import BaseConnector
@@ -1029,8 +1031,25 @@ class Connector(BaseConnector):
                 f" failed: '{error}'."
             )
             logger.exception(error_message)
+            # Mark the data object failed immediately so the error is visible
+            # right away: the listener requeue mechanism would only recover
+            # the object after it verifies (with a delay) that the job does
+            # not exist.
             data.process_error.append(error_message)
+            data.status = Data.STATUS_ERROR
             data.save()
+            if hasattr(data, "worker"):
+                data.worker.status = Worker.STATUS_ERROR_PREPARING
+                data.worker.save(update_fields=["status"])
+            # Release the input storage location locks: the listener, which
+            # releases them in the regular error path, is never notified for
+            # this object. A failure to unlock is suppressed so it can not
+            # replace the submission error recorded above.
+            with suppress(Exception):
+                AccessLog.objects.filter(cause=data, finished__isnull=True).update(
+                    finished=now()
+                )
+            return
 
         logger.debug(
             __(
