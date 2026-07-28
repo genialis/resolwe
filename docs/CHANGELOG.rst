@@ -44,6 +44,8 @@ Fixed
   authorization entry added for every connected worker was never removed.
   The periodic worker check now prunes the entries of workers in final
   statuses
+- Bound the data path cache in the Python process plugin, which grew by one
+  entry for every processed data object for the listener process lifetime
 - Fix data objects hanging in the ``WAITING`` status forever when the manager
   process is killed (or the submission to the workload connector fails) after
   the status change is committed but before the task is actually submitted.

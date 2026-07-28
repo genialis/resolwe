@@ -54,6 +54,11 @@ class PythonProcess(ListenerPlugin):
     ALLOWED_MODELS_RW = ["Data", "Process", "Entity", "Collection", "Storage"]
     WRITE_FIELDS = {"Data.name", "Data.output", "Data.descriptor"}
 
+    # The maximal number of entries in the data path cache. When the limit is
+    # reached the cache is cleared: without the bound it grows by one entry
+    # for every processed data object for the process lifetime.
+    MAX_HYDRATE_CACHE_ENTRIES = 10000
+
     def __init__(self):
         """Initialize plugin."""
         self._permission_manager = permission_manager
@@ -72,6 +77,8 @@ class PythonProcess(ListenerPlugin):
                 if connector in data_connectors and connector.mountable:
                     mount_point = f"/data_{connector.name}"
                     break
+            if len(self._hydrate_cache) >= self.MAX_HYDRATE_CACHE_ENTRIES:
+                self._hydrate_cache.clear()
             self._hydrate_cache[data_pk] = mount_point
         return message.respond_ok(self._hydrate_cache[data_pk])
 
