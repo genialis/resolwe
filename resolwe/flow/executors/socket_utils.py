@@ -580,7 +580,13 @@ class BaseCommunicator:
 
         # Keep last uuid and timestamp from every peer to avoid forwarding
         # duplicated requests.
-        self._uuids_received: Dict[PeerIdentity, Dict[str, int]] = defaultdict(dict)
+        self._uuids_received: Dict[PeerIdentity, Dict[str, float]] = defaultdict(dict)
+        # The entries only have to survive the command resend window, so
+        # peers not heard from for this many seconds are pruned. Without the
+        # pruning the mapping grows by one entry for every peer ever seen for
+        # the process lifetime.
+        self._uuids_received_max_age = 3600
+        self._uuids_received_last_prune = now()
 
     def __getattr__(self, name: str):
         """Call arbitrary 'command' with 'communicator.command(args)' syntax."""
@@ -802,12 +808,35 @@ class BaseCommunicator:
                         f"Communicator {self.name} got unknown message: {message}."
                     )
                 self._uuids_received[identity] = {message.uuid: now()}
+                self._prune_uuids_received()
 
         except Exception:
             self.logger.exception("Exception while listening for messages.")
 
         self.logger.info(f"Communicator {self.name} stopped listening for commands.")
         await self.stop_listening()
+
+    def _prune_uuids_received(self):
+        """Remove entries of peers that were not heard from for too long.
+
+        The prune only runs when at least the max entry age has passed since
+        the last one, so its amortized cost is negligible.
+        """
+        current_time = now()
+        if (
+            current_time - self._uuids_received_last_prune
+            < self._uuids_received_max_age
+        ):
+            return
+        self._uuids_received_last_prune = current_time
+        cutoff = current_time - self._uuids_received_max_age
+        stale_peers = [
+            identity
+            for identity, uuids in self._uuids_received.items()
+            if all(timestamp < cutoff for timestamp in uuids.values())
+        ]
+        for identity in stale_peers:
+            del self._uuids_received[identity]
 
     async def get_next_message(self) -> Tuple[PeerIdentity, Message]:
         """Get the next message.
@@ -904,6 +933,9 @@ class BaseCommunicator:
                 elif resend_task in done:
                     await self._send_message(command, peer_identity)
         finally:
+            # Remove the response event: without this the mapping grows by
+            # one entry for every sent command for the process lifetime.
+            self._uuid_to_event.pop(command.uuid, None)
             if resend_task:
                 resend_task.cancel()
             if timeout_task:

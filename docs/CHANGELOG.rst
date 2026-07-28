@@ -35,6 +35,11 @@ Fixed
   only ever flushed by the HTTP middleware, so the registered entries
   accumulated indefinitely in processes that serve no HTTP requests and their
   memory usage grew until the processes were killed
+- Fix unbounded memory growth in the socket communicator: the response
+  events of sent commands were never removed and the duplicate-detection
+  entries were kept for every peer ever seen. The events are now removed
+  when the command completes and peers not heard from for an hour are
+  pruned
 - Fix data objects hanging in the ``WAITING`` status forever when the manager
   process is killed (or the submission to the workload connector fails) after
   the status change is committed but before the task is actually submitted.
