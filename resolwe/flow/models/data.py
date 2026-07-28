@@ -320,7 +320,10 @@ class Data(HistoryMixin, PermissionObject, BaseModel):
     objects = DataQuerySet.as_manager()
 
     #: date and time when process was dispatched to the scheduling system
-    #: (set by``resolwe.flow.managers.dispatcher.Manager.run``
+    #: (set by ``resolwe.flow.managers.dispatcher.Manager.run``). A null value
+    #: on an object in the waiting status marks an object that was claimed by
+    #: the dispatcher but not yet submitted to the workload connector; the
+    #: listener uses this to detect and requeue interrupted dispatches
     scheduled = models.DateTimeField(blank=True, null=True, db_index=True)
 
     #: process started date and time (set by
@@ -747,6 +750,7 @@ class Data(HistoryMixin, PermissionObject, BaseModel):
             reset_dict: dict[str, Any] = {
                 "started": None,
                 "finished": None,
+                "scheduled": None,
                 "status": Data.STATUS_RESOLVING,
                 "process_info": [],
                 "process_warning": [],

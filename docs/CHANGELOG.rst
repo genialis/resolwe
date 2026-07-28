@@ -16,6 +16,14 @@ Fixed
   coroutine notifying the children of a force-errored data object was
   created but never awaited, so the children were never transitioned into
   the error state
+- Fix data objects hanging in the ``WAITING`` status forever when the manager
+  process is killed (or the submission to the workload connector fails) after
+  the status change is committed but before the task is actually submitted.
+  The listener now periodically requeues such objects (settings
+  ``FLOW_MANAGER_REQUEUE_TIMEOUT``, default ``600`` seconds, and
+  ``FLOW_MANAGER_REQUEUE_MAX_ATTEMPTS``, default ``3``) so they are picked up
+  by other running managers, and the dispatcher submits each data object at
+  most once even when multiple managers race for it
 
 
 ===================

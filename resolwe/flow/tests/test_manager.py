@@ -1,9 +1,15 @@
 # pylint: disable=missing-docstring
 import os
+from datetime import timedelta
+from unittest.mock import MagicMock, patch
 
 from asgiref.sync import async_to_sync
+from django.utils.timezone import now
 
 from resolwe.flow.managers import manager
+from resolwe.flow.managers.dispatcher import DEFAULT_CONNECTOR
+from resolwe.flow.managers.listener.listener import STALLED_DATA_WARNING, Processor
+from resolwe.flow.managers.protocol import WorkerProtocol
 from resolwe.flow.managers.utils import disable_auto_calls
 from resolwe.flow.models import (
     Collection,
@@ -11,6 +17,7 @@ from resolwe.flow.models import (
     DataDependency,
     DescriptorSchema,
     Process,
+    Worker,
 )
 from resolwe.permissions.models import Permission
 from resolwe.test import ProcessTestCase, TransactionTestCase
@@ -253,3 +260,178 @@ class TransactionTestManager(TransactionTestCase):
         async_to_sync(manager.communicate)(run_sync=True)
 
         self.assertEqual(Data.objects.filter(status=Data.STATUS_RESOLVING).count(), 0)
+
+
+class StalledDataRequeueTest(TransactionTestCase):
+    """Test requeueing of data objects whose dispatch was interrupted."""
+
+    def setUp(self):
+        super().setUp()
+        self.process = Process.objects.create(
+            name="Test process",
+            contributor=self.contributor,
+            type="data:test:",
+            run={"language": "bash", "program": "true"},
+        )
+        self.processor = Processor(None)
+
+    def _create_data(self, **updates):
+        """Create a data object and modify it, bypassing auto_now fields."""
+        with disable_auto_calls():
+            data = Data.objects.create(
+                name="Test data", contributor=self.contributor, process=self.process
+            )
+            Worker.objects.create(
+                data=data,
+                status=Worker.STATUS_PREPARING,
+                public_key=b"",
+                private_key=b"",
+            )
+        if updates:
+            Data.objects.filter(pk=data.pk).update(**updates)
+            data.refresh_from_db()
+        return data
+
+    def _process_stalled_data(self):
+        with disable_auto_calls():
+            return self.processor._process_stalled_data()
+
+    def test_requeue_stalled_data(self):
+        """Stalled data object is returned to the resolving status."""
+        data = self._create_data(
+            status=Data.STATUS_WAITING,
+            scheduled=None,
+            modified=now() - timedelta(hours=1),
+        )
+        # Simulate a worker left in a final status by a failed dispatch.
+        Worker.objects.filter(data=data).update(status=Worker.STATUS_ERROR_PREPARING)
+
+        requeued, failed = self._process_stalled_data()
+
+        data.refresh_from_db()
+        self.assertEqual(requeued, [data.pk])
+        self.assertEqual(failed, [])
+        self.assertEqual(data.status, Data.STATUS_RESOLVING)
+        self.assertEqual(len(data.process_warning), 1)
+        self.assertTrue(data.process_warning[0].startswith(STALLED_DATA_WARNING))
+        self.assertEqual(data.worker.status, Worker.STATUS_PREPARING)
+
+    def test_active_data_not_requeued(self):
+        """Objects that are being dispatched or submitted are left alone."""
+        # Freshly claimed object (dispatch still in progress).
+        fresh = self._create_data(status=Data.STATUS_WAITING, scheduled=None)
+        # Object already submitted to the workload connector.
+        submitted = self._create_data(
+            status=Data.STATUS_WAITING,
+            scheduled=now() - timedelta(hours=1),
+            modified=now() - timedelta(hours=1),
+        )
+        # Object waiting for its dependencies.
+        resolving = self._create_data(modified=now() - timedelta(hours=1))
+
+        requeued, failed = self._process_stalled_data()
+
+        self.assertEqual(requeued, [])
+        self.assertEqual(failed, [])
+        for data, status in [
+            (fresh, Data.STATUS_WAITING),
+            (submitted, Data.STATUS_WAITING),
+            (resolving, Data.STATUS_RESOLVING),
+        ]:
+            data.refresh_from_db()
+            self.assertEqual(data.status, status)
+            self.assertEqual(data.process_warning, [])
+
+    def test_requeue_nudges_dispatcher(self):
+        """The dispatcher is nudged for every requeued data object."""
+        data = self._create_data(
+            status=Data.STATUS_WAITING,
+            scheduled=None,
+            modified=now() - timedelta(hours=1),
+        )
+
+        with (
+            patch(
+                "resolwe.flow.managers.listener.listener.consumer.send_event"
+            ) as send_event,
+            disable_auto_calls(),
+        ):
+            async_to_sync(self.processor.requeue_stalled_data)()
+
+        data.refresh_from_db()
+        self.assertEqual(data.status, Data.STATUS_RESOLVING)
+        send_event.assert_called_once_with(
+            {
+                WorkerProtocol.COMMAND: WorkerProtocol.COMMUNICATE,
+                WorkerProtocol.COMMUNICATE_EXTRA: {"data_id": data.pk},
+            }
+        )
+
+    def test_non_executor_data_not_requeued(self):
+        """Objects whose process never runs in the executor are left alone.
+
+        Processes without a run section and workflows legitimately sit in the
+        waiting status without the scheduled timestamp; they must not be
+        treated as interrupted dispatches.
+        """
+        for run in [{}, {"language": "workflow"}]:
+            with self.subTest(run=run):
+                self.process = Process.objects.create(
+                    name="Non-executor process",
+                    contributor=self.contributor,
+                    type="data:test:",
+                    run=run,
+                )
+                data = self._create_data(
+                    status=Data.STATUS_WAITING,
+                    scheduled=None,
+                    modified=now() - timedelta(hours=1),
+                )
+
+                requeued, failed = self._process_stalled_data()
+
+                data.refresh_from_db()
+                self.assertEqual((requeued, failed), ([], []))
+                self.assertEqual(data.status, Data.STATUS_WAITING)
+                self.assertEqual(data.process_warning, [])
+
+    def test_stalled_data_fails_after_max_requeues(self):
+        """Object is marked failed when requeueing does not help."""
+        data = self._create_data(
+            status=Data.STATUS_WAITING,
+            scheduled=None,
+            modified=now() - timedelta(hours=1),
+            process_warning=[STALLED_DATA_WARNING] * 3,
+        )
+
+        requeued, failed = self._process_stalled_data()
+
+        data.refresh_from_db()
+        self.assertEqual(requeued, [])
+        self.assertEqual(failed, [data.pk])
+        self.assertEqual(data.status, Data.STATUS_ERROR)
+        self.assertEqual(len(data.process_error), 1)
+        self.assertEqual(data.worker.status, Worker.STATUS_ERROR_PREPARING)
+
+    def test_run_claims_submission(self):
+        """The manager submits a data object exactly once."""
+        data = self._create_data(status=Data.STATUS_WAITING, scheduled=None)
+        connector_mock = MagicMock()
+
+        with patch.dict(manager.connectors, {DEFAULT_CONNECTOR: connector_mock}):
+            manager.run(data, ["/bin/sh", "-c", "executor command"])
+        data.refresh_from_db()
+        self.assertIsNotNone(data.scheduled)
+        connector_mock.submit.assert_called_once()
+
+        # The second submission of the same object must be skipped.
+        connector_mock.reset_mock()
+        with patch.dict(manager.connectors, {DEFAULT_CONNECTOR: connector_mock}):
+            manager.run(data, ["/bin/sh", "-c", "executor command"])
+        connector_mock.submit.assert_not_called()
+
+        # Objects requeued to another manager must not be submitted.
+        requeued = self._create_data(status=Data.STATUS_RESOLVING, scheduled=None)
+        with patch.dict(manager.connectors, {DEFAULT_CONNECTOR: connector_mock}):
+            manager.run(requeued, ["/bin/sh", "-c", "executor command"])
+        connector_mock.submit.assert_not_called()

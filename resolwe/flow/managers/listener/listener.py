@@ -19,7 +19,7 @@ import os
 from contextlib import suppress
 from functools import lru_cache
 from time import time
-from typing import Any, ChainMap, Dict, List, Optional, Set, Union
+from typing import Any, ChainMap, Dict, List, Optional, Set, Tuple, Union
 
 import zmq
 import zmq.asyncio
@@ -64,6 +64,13 @@ from .redis_cache import RedisLockStatus, cache_manager, redis_server
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
+
+# The message stored in the process warnings when a stalled data object is
+# requeued. The number of requeues is determined by counting the warnings
+# starting with this prefix, so it must stay stable between requeues.
+STALLED_DATA_WARNING = (
+    "Processing was requeued: it was interrupted before the task was submitted"
+)
 
 # Public and private key read from the environment. When the environment does not
 # exist (for instance when running tests), default key is used.
@@ -373,6 +380,129 @@ class Processor:
         await database_sync_to_async(update_database, thread_sensitive=False)()
         await self.notify_dispatcher_abort_async(data_id)
 
+    def _process_stalled_data(self) -> Tuple[List[int], List[int]]:
+        """Find data objects whose dispatch was interrupted and requeue them.
+
+        The dispatcher commits the data object status change from RESOLVING to
+        WAITING before the task is actually submitted to the workload
+        connector: the submission runs in an on-commit hook and stamps the
+        ``scheduled`` field just before handing the task over to the
+        connector. When the manager process is killed (or the submission
+        fails) inside this window, the data object stays in the WAITING status
+        forever: the dispatcher only scans for RESOLVING objects and no
+        executor (possibly not even a worker object) exists that would trigger
+        the regular non-responsive cleanup.
+
+        Detect such objects and reset their status back to RESOLVING so any
+        running dispatcher can pick them up again. To avoid endless loops when
+        the dispatch itself keeps failing, give up after a certain number of
+        requeues and mark the data object failed.
+
+        Objects with the ``scheduled`` timestamp set are never touched here:
+        the timestamp is stamped just before the task is handed to the
+        workload connector, and a submitted task may legitimately sit in an
+        external queue (for instance Kubernetes) for a long time without any
+        activity. The price is that a manager killed after stamping the
+        timestamp but before completing the submission is not requeued; such
+        objects never send heartbeats and are eventually failed by
+        ``check_workers`` through the worker non-responsiveness timeout.
+
+        :returns: the tuple with the list of requeued data ids and the list of
+            data ids marked as failed.
+        """
+        timeout = getattr(settings, "FLOW_MANAGER_REQUEUE_TIMEOUT", 600)
+        max_requeues = getattr(settings, "FLOW_MANAGER_REQUEUE_MAX_ATTEMPTS", 3)
+
+        def stalled(queryset):
+            """Filter the queryset to stalled data objects.
+
+            Processes that never run in the executor (processes without a
+            run section and workflows) legitimately park their objects in
+            the waiting status without the scheduled timestamp, so they must
+            be left alone; the exclusions below mirror the run_in_executor
+            condition in the dispatcher data scan.
+            """
+            return (
+                queryset.filter(
+                    status=Data.STATUS_WAITING,
+                    scheduled__isnull=True,
+                    modified__lt=now() - datetime.timedelta(seconds=timeout),
+                )
+                .exclude(process__run={})
+                .exclude(process__run__language="workflow")
+            )
+
+        requeued: List[int] = []
+        failed: List[int] = []
+        for data_id in stalled(Data.objects).values_list("pk", flat=True):
+            with transaction.atomic():
+                data = (
+                    stalled(Data.objects.select_for_update()).filter(pk=data_id).first()
+                )
+                if data is None:
+                    # The object was picked up while waiting for the lock.
+                    continue
+                requeue_count = sum(
+                    1
+                    for warning in data.process_warning
+                    if warning.startswith(STALLED_DATA_WARNING)
+                )
+                if requeue_count < max_requeues:
+                    logger.warning(
+                        __("Requeueing stalled data object with id {}.", data.pk)
+                    )
+                    data.process_warning.append(
+                        f"{STALLED_DATA_WARNING} "
+                        f"(attempt {requeue_count + 1} of {max_requeues})."
+                    )
+                    data.status = Data.STATUS_RESOLVING
+                    self._save_data(data, ["process_warning", "status"])
+                    self._update_worker(
+                        data.pk, changes={"status": Worker.STATUS_PREPARING}
+                    )
+                    requeued.append(data.pk)
+                else:
+                    logger.error(
+                        __(
+                            "Marking stalled data object with id {} as failed "
+                            "after {} requeues.",
+                            data.pk,
+                            max_requeues,
+                        )
+                    )
+                    self._save_error(
+                        data,
+                        "Processing was interrupted before the task was "
+                        f"submitted and requeueing {max_requeues} times did "
+                        "not help.",
+                    )
+                    self._update_worker(
+                        data.pk, changes={"status": Worker.STATUS_ERROR_PREPARING}
+                    )
+                    failed.append(data.pk)
+                self._unlock_all_inputs(data.pk)
+        return requeued, failed
+
+    async def requeue_stalled_data(self):
+        """Requeue data objects whose dispatch was interrupted.
+
+        See :meth:`_process_stalled_data` for details. After the requeue the
+        dispatcher is nudged to pick the objects up again.
+        """
+        try:
+            requeued, _ = await database_sync_to_async(
+                self._process_stalled_data, thread_sensitive=False
+            )()
+            for data_id in requeued:
+                await consumer.send_event(
+                    {
+                        WorkerProtocol.COMMAND: WorkerProtocol.COMMUNICATE,
+                        WorkerProtocol.COMMUNICATE_EXTRA: {"data_id": data_id},
+                    }
+                )
+        except Exception:
+            logger.exception("Error requeueing stalled data objects.")
+
     def _can_process_object(
         self, worker_status: str, data_status: str, command_name: str
     ) -> bool:
@@ -599,6 +729,7 @@ class ListenerProtocol(BaseProtocol):
         while True:
             logger.debug("Checking workers.")
             await self.check_workers()
+            await self._message_processor.requeue_stalled_data()
             await asyncio.sleep(check_interval)
 
     async def check_workers(self):

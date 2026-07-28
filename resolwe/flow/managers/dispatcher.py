@@ -219,7 +219,39 @@ class Manager:
             )
 
         data.scheduled = now()
-        data.save(update_fields=["scheduled"])
+        # Atomically claim the submission. The select_for_update lock taken in
+        # process_data_object does not protect this code: it was released when
+        # the claiming transaction committed, and this method runs afterwards
+        # in an on-commit hook. In the meantime the listener may have decided
+        # this manager is dead, requeued the object and handed it to another
+        # manager, so two managers can reach this point with the same object.
+        # The conditional update below matches at most one of them; everyone
+        # else sees no updated rows and must skip the submission to avoid
+        # processing the same data object twice.
+        #
+        # The scheduled timestamp is stamped before the submission on purpose.
+        # Stamping it after would let the listener requeue an object whose
+        # submission succeeded just before the manager died, duplicating the
+        # execution. With this ordering a manager killed between the claim and
+        # the submission leaves an object that is excluded from requeueing;
+        # such objects never send heartbeats and are eventually failed by the
+        # worker non-responsiveness cleanup in the listener.
+        #
+        # The conditional update deliberately bypasses the model save and its
+        # post-save signals: only the scheduled timestamp changes here, so
+        # dropping the observer notification for it is harmless.
+        claimed = Data.objects.filter(
+            pk=data.pk, status=Data.STATUS_WAITING, scheduled__isnull=True
+        ).update(scheduled=data.scheduled)
+        if not claimed:
+            logger.warning(
+                __(
+                    "Data with id {} was already claimed by another manager, "
+                    "skipping the submission.",
+                    data.pk,
+                )
+            )
+            return
 
         workload_class = class_name.rsplit(".", maxsplit=1)[1]
         host, port, protocol = self._get_listener_settings(data, workload_class)
@@ -642,6 +674,12 @@ class Manager:
                 # The data object may already be marked as done by the execution engine. In this
                 # case we must not revert the status to STATUS_WAITING.
                 data.status = Data.STATUS_WAITING
+                # The scheduled timestamp is only set when the object is actually
+                # submitted to the workload connector. Objects in the waiting status
+                # without it are picked up by the listener watchdog and requeued if
+                # the dispatch is interrupted midway (killed manager, failed
+                # submission), so reset it here to support restarted objects.
+                data.scheduled = None
             data.save(render_name=True)
 
             # Actually run the object only if there was nothing with the
