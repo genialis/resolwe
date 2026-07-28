@@ -33,6 +33,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils.timezone import now
 
+from resolwe.auditlog.auditmanager import audit_context
 from resolwe.flow.executors.socket_utils import (
     BaseProtocol,
     Message,
@@ -346,9 +347,11 @@ class Processor:
         Peer should terminate by itself and send finish message back to us.
         """
         try:
-            await database_sync_to_async(
-                self._save_database_terminate, thread_sensitive=False
-            )(int(peer_identity))
+            data_id = int(peer_identity)
+            with audit_context(context_id=f"listener-terminate-{data_id}"):
+                await database_sync_to_async(
+                    self._save_database_terminate, thread_sensitive=False
+                )(data_id)
             logger.debug("Sending terminate command to the peer '%s'.", peer_identity)
             await self._listener.communicator.send_command(
                 Message.command("terminate", "Terminate worker"),
@@ -378,8 +381,9 @@ class Processor:
                 self._update_worker(data_id, {"status": Worker.STATUS_NONRESPONDING})
 
         logger.debug(__("Peer with id={} is not responding.", data_id))
-        await database_sync_to_async(update_database, thread_sensitive=False)()
-        await self.notify_dispatcher_abort_async(data_id)
+        with audit_context(context_id=f"listener-nonresponsive-{data_id}"):
+            await database_sync_to_async(update_database, thread_sensitive=False)()
+            await self.notify_dispatcher_abort_async(data_id)
 
     def _process_stalled_data(self) -> Tuple[List[int], List[int]]:
         """Find data objects whose dispatch was interrupted and requeue them.
@@ -568,9 +572,10 @@ class Processor:
         dispatcher is nudged to pick the objects up again.
         """
         try:
-            requeued, _ = await database_sync_to_async(
-                self._process_stalled_data, thread_sensitive=False
-            )()
+            with audit_context(context_id="listener-requeue-stalled"):
+                requeued, _ = await database_sync_to_async(
+                    self._process_stalled_data, thread_sensitive=False
+                )()
             for data_id in requeued:
                 await consumer.send_event(
                     {
@@ -951,45 +956,48 @@ class ListenerProtocol(BaseProtocol):
             error = f"Client {received_message.client_id!r} is not valid."
             return received_message.respond_error(error)
 
-        try:
-            # Try to lock the specific message for the data object. If locked it means
-            # the message was/is being processed by some other listener.
-            # If the listener crashes after successfully obtaining the lock, it will be
-            # released automatically after five minutes.
-            # If the processing of the message takes longer than 10 minutes, then same
-            # message can be processed twice. We can avoid processing the message twice
-            # but then all processes that have messages in the listener queue will fail
-            # if the listener chashes.
-            success, lock_status = cache_manager.lock(
-                Data, [(data_id, received_message.uuid)]
-            )[0]
-            if not success:
-                response = self._handle_lock_message_error(
-                    lock_status, received_message
+        with audit_context(context_id=f"listener-{data_id}-{received_message.uuid}"):
+            try:
+                # Try to lock the specific message for the data object. If locked it means
+                # the message was/is being processed by some other listener.
+                # If the listener crashes after successfully obtaining the lock, it will be
+                # released automatically after five minutes.
+                # If the processing of the message takes longer than 10 minutes, then same
+                # message can be processed twice. We can avoid processing the message twice
+                # but then all processes that have messages in the listener queue will fail
+                # if the listener chashes.
+                success, lock_status = cache_manager.lock(
+                    Data, [(data_id, received_message.uuid)]
+                )[0]
+                if not success:
+                    response = self._handle_lock_message_error(
+                        lock_status, received_message
+                    )
+                else:
+                    extend_lock_task = asyncio.create_task(
+                        self.extend_processing_lock(data_id, received_message.uuid)
+                    )
+                    response = await database_sync_to_async(
+                        self._message_processor.process_command, thread_sensitive=False
+                    )(peer_identity, received_message)
+            finally:
+                # Stop the extend lock task.
+                if extend_lock_task is not None:
+                    extend_lock_task.cancel()
+                # Something crashed during processing and the response was not created.
+                # Send a generic error response.
+                if response is None:
+                    response = received_message.respond_error(
+                        "Error processing message."
+                    )
+                # Unlock the message.
+                if response.response_status == ResponseStatus.ERROR:
+                    unlock_status = RedisLockStatus.ERROR
+                else:
+                    unlock_status = RedisLockStatus.OK
+                cache_manager.unlock(
+                    Data, [(data_id, received_message.uuid)], status=unlock_status
                 )
-            else:
-                extend_lock_task = asyncio.create_task(
-                    self.extend_processing_lock(data_id, received_message.uuid)
-                )
-                response = await database_sync_to_async(
-                    self._message_processor.process_command, thread_sensitive=False
-                )(peer_identity, received_message)
-        finally:
-            # Stop the extend lock task.
-            if extend_lock_task is not None:
-                extend_lock_task.cancel()
-            # Something crashed during processing and the response was not created.
-            # Send a generic error response.
-            if response is None:
-                response = received_message.respond_error("Error processing message.")
-            # Unlock the message.
-            if response.response_status == ResponseStatus.ERROR:
-                unlock_status = RedisLockStatus.ERROR
-            else:
-                unlock_status = RedisLockStatus.OK
-            cache_manager.unlock(
-                Data, [(data_id, received_message.uuid)], status=unlock_status
-            )
         self.logger.debug(__("Response time: {}", received_message.time_elapsed()))
         return response
 

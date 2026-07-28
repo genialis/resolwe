@@ -12,6 +12,13 @@ Unreleased
 
 Changed
 -------
+- Audit log entries are now collected per unit of work delimited by the
+  ``audit_context`` context manager instead of accumulating in a thread-local
+  singleton. The request middleware, the background task workers, the
+  dispatcher and the listener each wrap their units of work, so object
+  accesses performed by the workers are now emitted to the ``auditlog``
+  logger (with the background task id and requesting user attached) instead
+  of being silently discarded. Accesses outside an audit context are dropped
 - When the Kubernetes workload connector is used, the listener now verifies
   the state of Kubernetes jobs through the Kubernetes API, so its service
   account requires the ``list`` permission on ``batch/jobs``
@@ -22,6 +29,12 @@ Fixed
   coroutine notifying the children of a force-errored data object was
   created but never awaited, so the children were never transitioned into
   the error state
+- Fix a memory leak in all long-running processes using the Django ORM (the
+  channels manager worker, the background task workers and the listener):
+  model accesses were registered with a thread-local audit manager that was
+  only ever flushed by the HTTP middleware, so the registered entries
+  accumulated indefinitely in processes that serve no HTTP requests and their
+  memory usage grew until the processes were killed
 - Fix data objects hanging in the ``WAITING`` status forever when the manager
   process is killed (or the submission to the workload connector fails) after
   the status change is committed but before the task is actually submitted.

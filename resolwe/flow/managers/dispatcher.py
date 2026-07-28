@@ -27,6 +27,7 @@ from django.db.models import OuterRef, Q, Subquery
 from django.utils.timezone import now
 from zmq import curve_keypair
 
+from resolwe.auditlog.auditmanager import audit_context
 from resolwe.flow.engine import InvalidEngineError, load_engines
 from resolwe.flow.execution_engines import ExecutionError
 from resolwe.flow.executors.constants import PROCESSING_VOLUME_NAME
@@ -363,65 +364,75 @@ class Manager:
         cmd = message[WorkerProtocol.COMMAND]
         logger.debug(__("Manager worker got channel command '{}'.", message))
 
-        try:
-            if cmd == WorkerProtocol.COMMUNICATE:
-                await database_sync_to_async(self._data_scan, thread_sensitive=False)(
-                    **message[WorkerProtocol.COMMUNICATE_EXTRA]
+        # The data id the command was triggered by, used to correlate the
+        # audit log records of this unit of work.
+        audit_data_id = message.get(WorkerProtocol.DATA_ID) or message.get(
+            WorkerProtocol.COMMUNICATE_EXTRA, {}
+        ).get("data_id")
+
+        with audit_context(context_id=f"dispatcher-{cmd}-{audit_data_id or 'all'}"):
+            try:
+                if cmd == WorkerProtocol.COMMUNICATE:
+                    await database_sync_to_async(
+                        self._data_scan, thread_sensitive=False
+                    )(**message[WorkerProtocol.COMMUNICATE_EXTRA])
+
+                def purge_secrets_and_local_data(data_id: int) -> Data:
+                    """Purge secrets and return the Data object.
+
+                    :raises Data.DoesNotExist: when Data object does not exist.
+                    :raises FileStorage.DoesNotExist: when FileStorage object does not
+                        exist.
+
+                    """
+                    data = Data.objects.get(pk=data_id)
+                    with suppress(Worker.DoesNotExist):
+                        worker = Worker.objects.get(data=data)
+                        worker.status = Worker.STATUS_COMPLETED
+                        worker.save()
+
+                    subpath = FileStorage.objects.get(data__id=data_id).subpath
+                    volume = storage_settings.FLOW_VOLUMES[PROCESSING_VOLUME_NAME]
+                    if volume["type"] == "host_path":
+                        processing_dir = Path(volume["config"]["path"]) / subpath
+                        if processing_dir.is_dir():
+                            shutil.rmtree(processing_dir)
+
+                    return data
+
+                if cmd in [WorkerProtocol.FINISH, WorkerProtocol.ABORT]:
+                    self._messages_processing += 1
+                    data_id = message.get(WorkerProtocol.DATA_ID)
+                    if data_id is not None:
+                        with suppress(
+                            Data.DoesNotExist,
+                            Process.DoesNotExist,
+                            FileStorage.DoesNotExist,
+                            AttributeError,
+                        ):
+                            await database_sync_to_async(
+                                purge_secrets_and_local_data, thread_sensitive=False
+                            )(data_id)
+            except Exception:
+                logger.exception(
+                    "Unknown error occured while processing communicate control command."
                 )
+                raise
+            finally:
+                self._messages_processing -= 1
+                # No additional messages are being procesed.
+                # Check if workers are finished with the processing.
+                logger.debug(__("Dispatcher checking final condition"))
+                logger.debug(__("Message counter: {}", self._messages_processing))
 
-            def purge_secrets_and_local_data(data_id: int) -> Data:
-                """Purge secrets and return the Data object.
-
-                :raises Data.DoesNotExist: when Data object does not exist.
-                :raises FileStorage.DoesNotExist: when FileStorage object does not
-                    exist.
-
-                """
-                data = Data.objects.get(pk=data_id)
-                with suppress(Worker.DoesNotExist):
-                    worker = Worker.objects.get(data=data)
-                    worker.status = Worker.STATUS_COMPLETED
-                    worker.save()
-
-                subpath = FileStorage.objects.get(data__id=data_id).subpath
-                volume = storage_settings.FLOW_VOLUMES[PROCESSING_VOLUME_NAME]
-                if volume["type"] == "host_path":
-                    processing_dir = Path(volume["config"]["path"]) / subpath
-                    if processing_dir.is_dir():
-                        shutil.rmtree(processing_dir)
-
-                return data
-
-            if cmd in [WorkerProtocol.FINISH, WorkerProtocol.ABORT]:
-                self._messages_processing += 1
-                data_id = message.get(WorkerProtocol.DATA_ID)
-                if data_id is not None:
-                    with suppress(
-                        Data.DoesNotExist,
-                        Process.DoesNotExist,
-                        FileStorage.DoesNotExist,
-                        AttributeError,
-                    ):
-                        await database_sync_to_async(
-                            purge_secrets_and_local_data, thread_sensitive=False
-                        )(data_id)
-        except Exception:
-            logger.exception(
-                "Unknown error occured while processing communicate control command."
-            )
-            raise
-        finally:
-            self._messages_processing -= 1
-            # No additional messages are being procesed.
-            # Check if workers are finished with the processing.
-            logger.debug(__("Dispatcher checking final condition"))
-            logger.debug(__("Message counter: {}", self._messages_processing))
-
-            if self._sync_finished_event is not None and self._messages_processing == 0:
-                if await database_sync_to_async(
-                    workers_finished, thread_sensitive=False
-                )():
-                    self._sync_finished_event.set()
+                if (
+                    self._sync_finished_event is not None
+                    and self._messages_processing == 0
+                ):
+                    if await database_sync_to_async(
+                        workers_finished, thread_sensitive=False
+                    )():
+                        self._sync_finished_event.set()
 
     async def execution_barrier(self):
         """Wait for executors to finish.

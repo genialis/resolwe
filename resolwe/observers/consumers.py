@@ -15,6 +15,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
+from resolwe.auditlog.auditmanager import audit_context
 from resolwe.auditlog.logger import logger as audit_logger
 from resolwe.flow.models.utils.duplicate import (
     bulk_duplicate_collection,
@@ -80,6 +81,18 @@ def database_sync_to_async_new_thread(*args, **kwargs):
     if target_arg_name not in kwargs:
         kwargs[target_arg_name] = False
     return database_sync_to_async(*args, **kwargs)
+
+
+def audit_extra(message: dict) -> dict:
+    """Get the audit log context for the given background task message.
+
+    The returned user and request id correlate the record with the object
+    access records emitted by the audit context of the same task.
+    """
+    return {
+        "user_id": message["request_user_id"],
+        "request_id": f"background-task-{message['task_id']}",
+    }
 
 
 class ClientConsumer(JsonWebsocketConsumer):
@@ -157,35 +170,42 @@ class BackgroundTaskConsumer(AsyncConsumer):
     """The background task consumer."""
 
     @database_sync_to_async_new_thread
-    def wrap_task(self, function: Callable, task_id: int):
-        """Start the function and update background task status."""
-        task: Optional[BackgroundTask] = None
-        try:
-            task = BackgroundTask.objects.get(pk=task_id)
-            task.started = timezone.now()
-            task.status = BackgroundTask.STATUS_PROCESSING
-            task.save(update_fields=["status", "started"])
-            task.output = function() or "Task completed."
-            task.status = BackgroundTask.STATUS_DONE
-        # Task may not exist here if the consumer was cancelled duging the creation
-        # of the task. Only proceed if it is defined.
-        except ValidationError as e:
-            if task:
-                task.status = BackgroundTask.STATUS_ERROR
-                task.output = e.messages
-        except asyncio.CancelledError:
-            if task:
-                task.status = BackgroundTask.STATUS_ERROR
-                task.output = "Task was cancelled."
-        except Exception as e:
-            if task:
-                task.status = BackgroundTask.STATUS_ERROR
-                task.output = str(e)
-        finally:
-            if task:
-                task.finished = timezone.now()
-                task.save(update_fields=["status", "finished", "output"])
-                return task
+    def wrap_task(
+        self, function: Callable, task_id: int, user_id: Optional[int] = None
+    ):
+        """Start the function and update background task status.
+
+        The task runs inside an audit context so accesses to the models are
+        emitted to the audit log when the task completes.
+        """
+        with audit_context(user_id=user_id, context_id=f"background-task-{task_id}"):
+            task: Optional[BackgroundTask] = None
+            try:
+                task = BackgroundTask.objects.get(pk=task_id)
+                task.started = timezone.now()
+                task.status = BackgroundTask.STATUS_PROCESSING
+                task.save(update_fields=["status", "started"])
+                task.output = function() or "Task completed."
+                task.status = BackgroundTask.STATUS_DONE
+            # Task may not exist here if the consumer was cancelled duging the creation
+            # of the task. Only proceed if it is defined.
+            except ValidationError as e:
+                if task:
+                    task.status = BackgroundTask.STATUS_ERROR
+                    task.output = e.messages
+            except asyncio.CancelledError:
+                if task:
+                    task.status = BackgroundTask.STATUS_ERROR
+                    task.output = "Task was cancelled."
+            except Exception as e:
+                if task:
+                    task.status = BackgroundTask.STATUS_ERROR
+                    task.output = str(e)
+            finally:
+                if task:
+                    task.finished = timezone.now()
+                    task.save(update_fields=["status", "finished", "output"])
+                    return task
 
     async def duplicate_data(self, message: dict):
         """Duplicate the data and update task status."""
@@ -201,12 +221,15 @@ class BackgroundTaskConsumer(AsyncConsumer):
             )
             return [duplicate.pk for duplicate in duplicates]
 
-        task = await self.wrap_task(duplicate, message["task_id"])
+        task = await self.wrap_task(
+            duplicate, message["task_id"], message["request_user_id"]
+        )
         if task is not None and task.status == BackgroundTask.STATUS_DONE:
             audit_logger.info(
                 "User %s duplicated data objects with ids %s.",
                 message["request_user_id"],
                 message["data_ids"],
+                extra=audit_extra(message),
             )
 
     async def duplicate_entity(self, message: dict):
@@ -222,12 +245,15 @@ class BackgroundTaskConsumer(AsyncConsumer):
             )
             return [duplicate.pk for duplicate in duplicates]
 
-        task = await self.wrap_task(duplicate, message["task_id"])
+        task = await self.wrap_task(
+            duplicate, message["task_id"], message["request_user_id"]
+        )
         if task is not None and task.status == BackgroundTask.STATUS_DONE:
             audit_logger.info(
                 "User %s duplicated entity objects with ids %s.",
                 message["request_user_id"],
                 message["entity_ids"],
+                extra=audit_extra(message),
             )
 
     async def duplicate_collection(self, message: dict):
@@ -242,12 +268,15 @@ class BackgroundTaskConsumer(AsyncConsumer):
             )
             return [duplicate.pk for duplicate in duplicates]
 
-        task = await self.wrap_task(duplicate, message["task_id"])
+        task = await self.wrap_task(
+            duplicate, message["task_id"], message["request_user_id"]
+        )
         if task is not None and task.status == BackgroundTask.STATUS_DONE:
             audit_logger.info(
                 "User %s duplicated collection objects with ids %s.",
                 message["request_user_id"],
                 message["collection_ids"],
+                extra=audit_extra(message),
             )
 
     async def move_between_collections(self, message: MoveMessage):
@@ -274,7 +303,9 @@ class BackgroundTaskConsumer(AsyncConsumer):
             for datum in data_objects or entities:
                 datum.move_to_collection(target)
 
-        task = await self.wrap_task(move, message["task_id"])
+        task = await self.wrap_task(
+            move, message["task_id"], message["request_user_id"]
+        )
         if task is not None and task.status == BackgroundTask.STATUS_DONE:
             objects_type = "entities" if message["entity_ids"] else "data objects"
             object_ids = message["entity_ids"] or message["data_ids"]
@@ -284,6 +315,7 @@ class BackgroundTaskConsumer(AsyncConsumer):
                 objects_type,
                 object_ids,
                 message["target_id"],
+                extra=audit_extra(message),
             )
 
     async def delete(self, message: dict):
@@ -310,11 +342,14 @@ class BackgroundTaskConsumer(AsyncConsumer):
             ).model_class()
 
         Model = await get_model()
-        task = await self.wrap_task(delete, message["task_id"])
+        task = await self.wrap_task(
+            delete, message["task_id"], message["request_user_id"]
+        )
         if task is not None and task.status == BackgroundTask.STATUS_DONE:
             audit_logger.info(
                 "User %s deleted %s objects with ids %s.",
                 message["request_user_id"],
                 Model._meta.verbose_name,
                 message["object_ids"],
+                extra=audit_extra(message),
             )

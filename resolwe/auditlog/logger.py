@@ -6,7 +6,7 @@ from typing import Optional
 from rest_framework.request import Request
 from rest_framework.response import Response
 
-from resolwe.auditlog.auditmanager import AccessType, AuditManager, ContentType, Fields
+from resolwe.auditlog.auditmanager import AccessType, ContentType, Fields
 from resolwe.permissions.models import get_anonymous_user
 
 audit_log = logging.getLogger("auditlog")
@@ -19,11 +19,6 @@ class AuditLogger:
     necessary_extra_keys = ["session_id", "request_id", "user_id"]
     # The value used when the key is missing.
     missing_key_value = "unknown"
-
-    @property
-    def manager(self):
-        """Get the global audit manager."""
-        return AuditManager.global_instance()
 
     def info(self, message: str, *args, **kwargs):
         """Log custom message at info level.
@@ -90,6 +85,7 @@ class AuditLogger:
         access_type: AccessType,
         fields: Fields,
         level=logging.INFO,
+        extra: Optional[dict] = None,
     ):
         """Create an audit log entry.
 
@@ -97,6 +93,8 @@ class AuditLogger:
         :args content_type: content_type for audit log. If not given it is
             determined from the queryset.
         :args access_type: C,R,U, or D.
+        :args extra: additional context (for instance user and request id)
+            attached to the record when no request/response pair is given.
         """
         audit_log_extra_data = {
             "content_type": content_type,
@@ -104,6 +102,10 @@ class AuditLogger:
             "crud": access_type,
             "fields": ",".join(sorted(fields)),
         }
+        # The request/response information takes precedence over the extra
+        # dictionary, matching the info method above.
+        if extra:
+            audit_log_extra_data.update(extra)
         audit_log_extra_data.update(self._extract_information(request, response))
         message = (
             "Object accessed: {content_type} {accessed_ids} {fields} {crud}".format(

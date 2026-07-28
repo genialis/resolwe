@@ -3,7 +3,7 @@
 import logging
 import uuid
 
-import resolwe.auditlog.auditmanager
+from resolwe.auditlog.auditmanager import AuditManager, audit_context
 from resolwe.permissions.models import get_anonymous_user
 
 logger = logging.getLogger(__name__)
@@ -42,30 +42,33 @@ class ResolweAuditMiddleware:
 
         Also set the request id.
         """
-        audit_manager = resolwe.auditlog.auditmanager.AuditManager.global_instance()
-        audit_manager.reset()
+        # The middleware emits with the full request/response context, so the
+        # automatic emit on context exit is disabled.
+        with audit_context(auto_emit=False) as audit_manager:
+            user = self._resolve_user(request.user)
+            # Extract request id from the request headers or generate a random one.
+            request_id_headers = ("HTTP_X_REQUEST_ID", "HTTP_X-AMZ-CF-ID")
+            request_ids = [
+                request.META.get(header)
+                for header in request_id_headers
+                if header in request.META
+            ]
+            request_id = request_ids[0] if request_ids else str(uuid.uuid4())
+            request.META["RESOLWE_AUDIT_MANAGER_REQUEST_ID"] = request_id
+            servername = getattr(request.META, "HTTP_HOST", "unknown")
 
-        user = self._resolve_user(request.user)
-        # Extract request id from the request headers or generate a random one.
-        request_id_headers = ("HTTP_X_REQUEST_ID", "HTTP_X-AMZ-CF-ID")
-        request_ids = [
-            request.META.get(header)
-            for header in request_id_headers
-            if header in request.META
-        ]
-        request_id = request_ids[0] if request_ids else str(uuid.uuid4())
-        request.META["RESOLWE_AUDIT_MANAGER_REQUEST_ID"] = request_id
-        servername = getattr(request.META, "HTTP_HOST", "unknown")
+            response = self.get_response(request)
+            message = (
+                "Request finished: "
+                f"METHOD={request.method}; STATUS={response.status_code}; "
+                f"USER={user.username}({user.id}); "
+                f"URL={request.build_absolute_uri()}; "
+                f"SERVERNAME={servername}"
+            )
 
-        response = self.get_response(request)
-        message = (
-            "Request finished: "
-            f"METHOD={request.method}; STATUS={response.status_code}; "
-            f"USER={user.username}({user.id}); "
-            f"URL={request.build_absolute_uri()}; "
-            f"SERVERNAME={servername}"
-        )
-
-        audit_manager.log_message(message)
+            AuditManager.log_message(message)
+        # Emit outside the audit context so model accesses performed during
+        # the emit itself (for instance the anonymous user lookup) are
+        # discarded instead of mutating the access log being iterated.
         audit_manager.emit(request, response)
         return response
