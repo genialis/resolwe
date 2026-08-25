@@ -56,11 +56,11 @@ class YourProcessName(Process):
     data_name = 'Data object ({{ string_field.file|default("?") }})'
     scheduling_class = SchedulingClass.BATCH  # or .INTERACTIVE for short jobs
     # or RAW or TMP, see documentation at
-    # https://resolwe.readthedocs.io/en/latest/proc.html#persistence
+    # https://docs.genialis.com/resolwe/proc.html#persistence
     persistence = Persistence.CACHED
     # Use below entity to make the created object also an entity of
     # type sample. See
-    # https://resolwe.readthedocs.io/en/latest/proc.html#entity for
+    # https://docs.genialis.com/resolwe/proc.html#entity for
     # more details.
     # Field always_create is optional.
     entity = {

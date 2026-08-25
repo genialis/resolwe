@@ -2,7 +2,7 @@
 Resolwe
 =======
 
-|build| |coverage| |docs| |black| |pypi_version| |pypi_pyversions| |pypi_downloads|
+|build| |coverage| |black| |pypi_version| |pypi_pyversions| |pypi_downloads|
 
 .. |build| image:: https://github.com/genialis/resolwe/workflows/Resolwe%20CI/badge.svg?branch=master
     :target: https://github.com/genialis/resolwe/actions?query=branch%3Amaster
@@ -11,10 +11,6 @@ Resolwe
 .. |coverage| image:: https://img.shields.io/codecov/c/github/genialis/resolwe/master.svg
     :target: http://codecov.io/github/genialis/resolwe?branch=master
     :alt: Coverage Status
-
-.. |docs| image:: https://readthedocs.org/projects/resolwe/badge/?version=latest
-    :target: http://resolwe.readthedocs.io/
-    :alt: Documentation Status
 
 .. |black| image:: https://img.shields.io/badge/code%20style-black-000000.svg
     :target: https://github.com/psf/black
@@ -51,7 +47,7 @@ details, and API Reference in the documentation_.
 
 To chat with developers or ask for help, join us on Slack_.
 
-.. _documentation: http://resolwe.readthedocs.io/
+.. _documentation: https://docs.genialis.com/resolwe/
 .. _Slack: http://resolwe.slack.com/
 
 
@@ -106,4 +102,4 @@ Contribute
 We welcome new contributors. To learn more, read Contributing_ section of our
 documentation.
 
-.. _Contributing: http://resolwe.readthedocs.io/en/latest/contributing.html
+.. _Contributing: https://docs.genialis.com/resolwe/contributing.html

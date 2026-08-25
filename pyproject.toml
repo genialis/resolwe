@@ -97,7 +97,7 @@ test = [
 
 [project.urls]
 Homepage = "https://github.com/genialis/resolwe/"
-Documentation = "https://resolwe.readthedocs.io/en/latest/"
+Documentation = "https://docs.genialis.com/resolwe/"
 Repository = "https://github.com/genialis/resolwe/"
 
 
