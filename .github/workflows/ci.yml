@@ -81,7 +81,7 @@ jobs:
           tox -e ${{ matrix.toxenv }}
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         if: startsWith(github.ref, 'refs/tags') && (matrix.toxenv == 'py312' || matrix.toxenv == 'py313' || matrix.toxenv == 'py314')
         with:
           files: .coverage
