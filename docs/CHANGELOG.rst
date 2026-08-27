@@ -61,6 +61,9 @@ Fixed
   are picked up again by a running manager instead of hanging
 - Discard resent commands in the socket communicator by keeping the uuid of
   every received command instead of only the last one per peer
+- Fix the message processing lock extension in the listener: the lock key
+  was computed from a wrongly shaped identifier, so locks silently expired
+  and long-running commands could be processed twice
 
 
 ===================

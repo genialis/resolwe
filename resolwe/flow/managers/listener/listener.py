@@ -930,7 +930,7 @@ class ListenerProtocol(BaseProtocol):
             await asyncio.sleep(refresh_interval)
             try:
                 cache_manager.extend_lock(
-                    Data, [(data_id, message_uuid)], valid_for=extend_for
+                    Data, (data_id, message_uuid), valid_for=extend_for
                 )
             except Exception:
                 logger.exception("Error extending lock.")
