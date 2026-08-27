@@ -578,8 +578,8 @@ class BaseCommunicator:
 
         self._uuid_to_event: Dict[str, EventWithResponse] = dict()
 
-        # Keep last uuid and timestamp from every peer to avoid forwarding
-        # duplicated requests.
+        # Keep the uuid and receive timestamp of every command from every
+        # peer to discard duplicated (resent) commands.
         self._uuids_received: Dict[PeerIdentity, Dict[str, float]] = defaultdict(dict)
         # The entries only have to survive the command resend window, so
         # peers not heard from for this many seconds are pruned. Without the
@@ -790,6 +790,13 @@ class BaseCommunicator:
                             f"Number of messages in queue: {len(self._command_queue)}"
                         )
                         self.has_message.set()
+                    else:
+                        self.logger.debug(
+                            "Discarding duplicated command '%s' from peer '%s'.",
+                            message.command_name,
+                            identity,
+                        )
+                    self._uuids_received[identity][message.uuid] = now()
 
                 elif message.message_type is MessageType.RESPONSE:
                     # Response from the peer. Match it with the command.
@@ -807,7 +814,6 @@ class BaseCommunicator:
                     self.logger.error(
                         f"Communicator {self.name} got unknown message: {message}."
                     )
-                self._uuids_received[identity] = {message.uuid: now()}
                 self._prune_uuids_received()
 
         except Exception:
@@ -817,7 +823,10 @@ class BaseCommunicator:
         await self.stop_listening()
 
     def _prune_uuids_received(self):
-        """Remove entries of peers that were not heard from for too long.
+        """Remove command uuid entries that are too old.
+
+        The entries only have to survive the command resend window. Peers
+        left without entries are removed entirely.
 
         The prune only runs when at least the max entry age has passed since
         the last one, so its amortized cost is negligible.
@@ -830,13 +839,16 @@ class BaseCommunicator:
             return
         self._uuids_received_last_prune = current_time
         cutoff = current_time - self._uuids_received_max_age
-        stale_peers = [
-            identity
-            for identity, uuids in self._uuids_received.items()
-            if all(timestamp < cutoff for timestamp in uuids.values())
-        ]
-        for identity in stale_peers:
-            del self._uuids_received[identity]
+        for identity in list(self._uuids_received):
+            uuids = self._uuids_received[identity]
+            for message_uuid in [
+                message_uuid
+                for message_uuid, timestamp in uuids.items()
+                if timestamp < cutoff
+            ]:
+                del uuids[message_uuid]
+            if not uuids:
+                del self._uuids_received[identity]
 
     async def get_next_message(self) -> Tuple[PeerIdentity, Message]:
         """Get the next message.

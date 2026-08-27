@@ -59,6 +59,8 @@ Fixed
   job state through the Kubernetes API, so objects whose job has vanished or
   failed permanently (killed manager during the submission, hardware failure)
   are picked up again by a running manager instead of hanging
+- Discard resent commands in the socket communicator by keeping the uuid of
+  every received command instead of only the last one per peer
 
 
 ===================
