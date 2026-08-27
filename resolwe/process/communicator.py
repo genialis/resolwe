@@ -79,7 +79,7 @@ class PythonProcessCommunicator:
 def get_communicator():
     """Create and return a communicator instance."""
     SOCKET_TIMEOUT: Optional[int] = None
-    if "SOCKET_TIMEOUT" == os.environ:
+    if "SOCKET_TIMEOUT" in os.environ:
         SOCKET_TIMEOUT = int(os.environ["SOCKET_TIMEOUT"])
     SOCKETS_PATH = Path(os.environ.get("SOCKETS_VOLUME", "/sockets"))
     PROCESSING_CONTAINER_SOCKET = SOCKETS_PATH / os.environ.get(

@@ -64,6 +64,8 @@ Fixed
 - Fix the message processing lock extension in the listener: the lock key
   was computed from a wrongly shaped identifier, so locks silently expired
   and long-running commands could be processed twice
+- Fix the ``SOCKET_TIMEOUT`` environment variable being ignored in the
+  Python process communicator
 
 
 ===================
