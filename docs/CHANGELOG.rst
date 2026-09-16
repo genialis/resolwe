@@ -6,9 +6,9 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-==========
-Unreleased
-==========
+===================
+45.2.0 - 2026-09-16
+===================
 
 Added
 -----
@@ -69,6 +69,11 @@ Fixed
   ``FLOW_MANAGER_REQUEUE_MAX_ATTEMPTS``, default ``3``) so they are picked up
   by other running managers, and the dispatcher submits each data object at
   most once even when multiple managers race for it
+- Mark data objects failed when the data directory preparation or the
+  submission to the workload connector raises an exception. Such objects
+  stayed in the ``WAITING`` status forever without an error message. The
+  input storage location locks are released in these failure paths as
+  well
 - Requeue data objects in the waiting status whose submitted task is not
   queued or running anymore. The Kubernetes workload connector verifies the
   job state through the Kubernetes API, so objects whose job has vanished or
