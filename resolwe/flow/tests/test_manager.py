@@ -732,7 +732,7 @@ class StalledDataRequeueTest(TransactionTestCase):
 class ListenerDatabaseTimeoutTest(TransactionTestCase):
     """Test the database timeouts applied to the listener connections."""
 
-    DEFAULT_TIMEOUTS = {"lock_timeout": "30000", "statement_timeout": "600000"}
+    DEFAULT_TIMEOUTS = {"lock_timeout": "10000", "statement_timeout": "600000"}
 
     def setUp(self):
         super().setUp()

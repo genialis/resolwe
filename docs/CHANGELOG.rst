@@ -14,7 +14,7 @@ Added
 -----
 - Set the ``lock_timeout`` and ``statement_timeout`` parameters on the
   database connections of the listener (settings
-  ``LISTENER_DATABASE_LOCK_TIMEOUT``, default ``30`` seconds, and
+  ``LISTENER_DATABASE_LOCK_TIMEOUT``, default ``10`` seconds, and
   ``LISTENER_DATABASE_STATEMENT_TIMEOUT``, default ``600`` seconds), so a
   command handler blocked on the database fails with the database error
   instead of waiting indefinitely

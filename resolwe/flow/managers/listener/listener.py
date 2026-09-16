@@ -79,8 +79,9 @@ STALLED_DATA_WARNING = (
 # listener process. Without them a command handler blocked on a database lock
 # waits indefinitely: it occupies one of the handler slots and the worker gets
 # no reply until its own (much longer) timeout expires, so the actual reason of
-# the failure is never recorded.
-DEFAULT_DATABASE_LOCK_TIMEOUT = 30
+# the failure is never recorded. The lock timeout stays below the write
+# timeout, so a blocked write fails as a lock error.
+DEFAULT_DATABASE_LOCK_TIMEOUT = 10
 DEFAULT_DATABASE_STATEMENT_TIMEOUT = 600
 DATABASE_TIMEOUTS_DISPATCH_UID = "resolwe.flow.managers.listener.database_timeouts"
 
