@@ -1,14 +1,13 @@
 # pylint: disable=missing-docstring
 from unittest.mock import patch
 
-from django.contrib.auth import get_user_model
-
 from resolwe.flow.executors import constants
 from resolwe.flow.executors.socket_utils import Message, Response, ResponseStatus
 from resolwe.flow.managers.listener.authenticator import ZMQAuthenticator
 from resolwe.flow.managers.listener.basic_commands_plugin import BasicCommands
 from resolwe.flow.managers.listener.listener import Processor
 from resolwe.flow.managers.protocol import ExecutorProtocol
+from resolwe.flow.managers.utils import disable_auto_calls
 from resolwe.flow.models import Data, DataDependency, Entity, Worker
 from resolwe.flow.models.annotations import (
     AnnotationField,
@@ -21,29 +20,33 @@ from resolwe.permissions.models import Permission
 from resolwe.storage.connectors.baseconnector import BaseStorageConnector
 from resolwe.storage.connectors.s3connector import AwsS3Connector
 from resolwe.storage.models import FileStorage, ReferencedPath, StorageLocation
-from resolwe.test import TestCase
+from resolwe.test import TransactionTestCase
 
 
-class ListenerTest(TestCase):
+@disable_auto_calls()
+class ListenerTest(TransactionTestCase):
+    """Test the command handlers of the listener.
+
+    The handlers open their own transactions, so the tests run outside one
+    with the automatic manager calls disabled. The flush recreates the
+    anonymous user.
+    """
+
     fixtures = ["storage_data.yaml", "storage_processes.yaml", "storage_users.yaml"]
 
-    @classmethod
-    def setUpTestData(cls):
-        super().setUpTestData()
-        cls.manager = Processor(None)
-        cls.processor = BasicCommands()
-        cls.file_storage = FileStorage.objects.get(id=1)
-        cls.storage_location = StorageLocation.objects.create(
-            file_storage=cls.file_storage, connector_name="GCS", status="OK"
+    def setUp(self):
+        """Create the storage objects and the security provider."""
+        super().setUp()
+        self.manager = Processor(None)
+        self.processor = BasicCommands()
+        self.file_storage = FileStorage.objects.get(id=1)
+        self.storage_location = StorageLocation.objects.create(
+            file_storage=self.file_storage, connector_name="GCS", status="OK"
         )
-        cls.path = ReferencedPath.objects.create(
+        self.path = ReferencedPath.objects.create(
             path="test.me", md5="md5", crc32c="crc", awss3etag="aws"
         )
-        cls.storage_location.files.add(cls.path)
-
-    def setUp(self):
-        """Set the security provider before tests."""
-        super().setUp()
+        self.storage_location.files.add(self.path)
         self.security_provider = ZMQAuthenticator.instance()
 
     def test_handle_download_finished_missing_storage_location(self):
@@ -338,14 +341,6 @@ class ListenerTest(TestCase):
 
     def test_get_entity_annotations(self):
         """Test entity annotations retrieval."""
-        user_model = get_user_model()
-        user_model.objects.create_user(
-            username="public",
-            email="public@test.com",
-            password="public",
-            first_name="James",
-            last_name="Smith",
-        )
         entity = Entity.objects.create(name="Entity", contributor=self.contributor)
 
         group = AnnotationGroup.objects.create(name="group", sort_order=1)
@@ -433,14 +428,6 @@ class ListenerTest(TestCase):
     def test_set_entity_annotations(self):
         """Test entity annotations creation / update."""
 
-        user_model = get_user_model()
-        user_model.objects.create_user(
-            username="public",
-            email="public@test.com",
-            password="public",
-            first_name="James",
-            last_name="Smith",
-        )
         entity = Entity.objects.create(name="Entity", contributor=self.contributor)
 
         group = AnnotationGroup.objects.create(name="group", sort_order=1)
