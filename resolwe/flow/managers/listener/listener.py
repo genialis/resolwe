@@ -203,7 +203,7 @@ class Processor:
                 Data.objects.filter(pk=data_id).values(*database_fields).get()
             )
         if database_data:
-            cache_manager.update_cache(Data, (data_id,), database_data)
+            self._cache_data(data_id, database_data)
         # Return the combined results, with database data taking precedence.
         combined = ChainMap(database_data, cached_data)
         result = [combined[field_name] for field_name in fields]
@@ -351,6 +351,27 @@ class Processor:
             assert data is not None, "Can not save error to None object."
             self._save_error(data, error)
 
+    def _cache_data(self, data_id: int, values: Dict[str, Any]):
+        """Update the redis cache of the data object when the transaction commits.
+
+        A failed update is logged and the entry cleared: the reads fall back to
+        the database only for the fields missing from the cache.
+        """
+        values = dict(values)
+
+        def update_cache():
+            """Update the cache, clear the entry on failure."""
+            try:
+                cache_manager.update_cache(Data, (data_id,), values)
+            except Exception:
+                logger.exception(
+                    __("Could not update the cache of the data object {}.", data_id)
+                )
+                with suppress(Exception):
+                    cache_manager.clear(Data, (data_id,))
+
+        transaction.on_commit(update_cache)
+
     def _save_data(self, data: Data, changes: Union[list[str], dict[str, Any]]):
         """Update the data object with the given id.
 
@@ -368,8 +389,8 @@ class Processor:
             update_fields = changes.keys()
             for attribute, value in changes_dict.items():
                 setattr(data, attribute, value)
-        cache_manager.update_cache(Data, (data.id,), changes_dict)
         data.save(update_fields=update_fields)
+        self._cache_data(data.id, changes_dict)
 
     def _update_data(self, data_id: int, changes: Dict[str, Any]):
         """Update the data object with the given id.
@@ -382,9 +403,8 @@ class Processor:
         :raises: exception when data object cannot be saved.
         """
         if changes:
-            # Update the redis cache.
-            cache_manager.update_cache(Data, (data_id,), changes)
             Data.objects.filter(pk=data_id).update(**changes)
+            self._cache_data(data_id, changes)
 
     def _update_worker(self, data_id: int, changes: Dict[str, Any]):
         """Update the worker object for the given data.
@@ -392,10 +412,8 @@ class Processor:
         :raises: exception when data object cannot be saved.
         """
         Worker.objects.filter(data__pk=data_id).update(**changes)
-        cache_manager.update_cache(
-            Data,
-            (data_id,),
-            {f"worker__{key}": value for key, value in changes.items()},
+        self._cache_data(
+            data_id, {f"worker__{key}": value for key, value in changes.items()}
         )
 
     def _save_database_terminate(self, data_id: int):

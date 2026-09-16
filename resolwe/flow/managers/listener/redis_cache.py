@@ -500,10 +500,10 @@ class CachedObjectManager(PluginManager["CachedObjectPlugin"]):
     def clear(
         self,
         Model: Type[models.Model],
-        identifiers_list: Sequence[Identifier],
+        identifiers: Identifier,
     ):
-        """Clear the cache for the given identifiers."""
-        return redis_cache.clear(Model, identifiers_list)
+        """Clear the cache of the instance with the given identifiers."""
+        return redis_cache.clear(Model, identifiers)
 
     def wait(
         self,

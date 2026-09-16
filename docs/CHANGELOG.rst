@@ -38,6 +38,8 @@ Changed
 
 Fixed
 -----
+- Update the redis cache of the listener after the database commit, so a
+  rolled back write no longer leaves the cache ahead of the database
 - Fix the error handling in the manager data scan: the ``communicate``
   coroutine notifying the children of a force-errored data object was
   created but never awaited, so the children were never transitioned into

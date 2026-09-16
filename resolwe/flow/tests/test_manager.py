@@ -1038,6 +1038,66 @@ class ListenerDatabaseWriteTest(TransactionTestCase):
         self.assertEqual(len(failing.calls), 1)
         sleep.assert_not_called()
 
+    def _create_data(self) -> Data:
+        """Create a data object for the cache tests."""
+        process = Process.objects.create(
+            name="Test process",
+            contributor=self.contributor,
+            type="data:test:",
+            run={"language": "bash", "program": "true"},
+        )
+        return Data.objects.create(
+            name="Test data", contributor=self.contributor, process=process
+        )
+
+    @disable_auto_calls()
+    def test_cache_updated_after_commit(self):
+        """The redis cache is updated when the transaction commits."""
+        data = self._create_data()
+        with patch("resolwe.flow.managers.listener.listener.cache_manager") as cache:
+            with transaction.atomic():
+                Processor(None)._save_data(data, {"status": Data.STATUS_PROCESSING})
+                cache.update_cache.assert_not_called()
+            cache.update_cache.assert_called_once_with(
+                Data, (data.id,), {"status": Data.STATUS_PROCESSING}
+            )
+        self.assertEqual(Data.objects.get(pk=data.pk).status, Data.STATUS_PROCESSING)
+
+    @disable_auto_calls()
+    def test_cache_untouched_after_rollback(self):
+        """A rolled back write leaves the redis cache alone."""
+        data = self._create_data()
+        with patch("resolwe.flow.managers.listener.listener.cache_manager") as cache:
+            with self.assertRaises(RuntimeError), transaction.atomic():
+                Processor(None)._save_data(data, {"status": Data.STATUS_PROCESSING})
+                raise RuntimeError("abort")
+            cache.update_cache.assert_not_called()
+        self.assertEqual(Data.objects.get(pk=data.pk).status, Data.STATUS_RESOLVING)
+
+    @disable_auto_calls()
+    def test_cache_updated_outside_transaction(self):
+        """Without a transaction the redis cache is updated right away."""
+        data = self._create_data()
+        with patch("resolwe.flow.managers.listener.listener.cache_manager") as cache:
+            Processor(None)._update_worker(data.id, {"status": Worker.STATUS_COMPLETED})
+            cache.update_cache.assert_called_once_with(
+                Data, (data.id,), {"worker__status": Worker.STATUS_COMPLETED}
+            )
+
+    @disable_auto_calls()
+    def test_cache_failure_does_not_fail_the_write(self):
+        """A failed cache update is logged and the cache entry is cleared."""
+        data = self._create_data()
+        with patch("resolwe.flow.managers.listener.listener.cache_manager") as cache:
+            cache.update_cache.side_effect = RuntimeError("redis is down")
+            with self.assertLogs(
+                "resolwe.flow.managers.listener.listener", level="ERROR"
+            ) as logs:
+                Processor(None)._save_data(data, {"status": Data.STATUS_PROCESSING})
+            cache.clear.assert_called_once_with(Data, (data.id,))
+        self.assertIn("Could not update the cache", logs.output[0])
+        self.assertEqual(Data.objects.get(pk=data.pk).status, Data.STATUS_PROCESSING)
+
     def test_create_object_is_atomic(self):
         """The created object and its side effects share one transaction."""
         in_atomic_block = []
