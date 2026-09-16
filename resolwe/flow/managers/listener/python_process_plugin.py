@@ -27,6 +27,7 @@ from resolwe.storage.connectors import connectors
 from resolwe.storage.models import FileStorage
 from resolwe.test.utils import is_testing
 
+from .database import retry_database_writes, write_transaction
 from .plugin import ListenerPlugin, listener_plugin_manager
 
 if TYPE_CHECKING:
@@ -107,6 +108,7 @@ class PythonProcess(ListenerPlugin):
         :raises RuntimeError: if user has no permission to create the object.
         """
 
+        @retry_database_writes
         @retry(
             max_retries=OBJECT_CREATE_RETRIES,
             retry_exceptions=(UniqueSlugError,),
@@ -114,11 +116,13 @@ class PythonProcess(ListenerPlugin):
             max_sleep=1,
         )
         def create_model(model: Type[Model], model_data: Dict[str, Any]):
-            """Create the model.
+            """Create the model in one transaction, retrying slug collisions.
 
-            Retry up to 10 times on slug colision error.
+            Some models write outside the base save; a repeat must not
+            duplicate them.
             """
-            return model.objects.create(**model_data)
+            with write_transaction():
+                return model.objects.create(**model_data)
 
         app_name, model_name, model_data = message.message_data
         full_model_name = f"{app_name}.{model_name}"
@@ -301,43 +305,49 @@ class PythonProcess(ListenerPlugin):
             data_id,
         )
 
-        # Update all fields except m2m.
-        update_fields = []
-        for field_name, field_value in mapping.items():
-            # Not exactly sure how to handle this. Output is a JSONField and is
-            # only updated, other JSON fields should probably be replaced.
-            # Compromise: when update is a dict, then only values in dict are
-            # updates, else replaced.
-            field_meta = model._meta.get_field(field_name)
-            if isinstance(field_meta, (JSONField, JSONFieldb)) and isinstance(
-                field_value, dict
-            ):
-                update_fields.append(field_name)
-                current_value = getattr(model_instance, field_name)
-                for key, value in field_value.items():
-                    dict_dot(current_value, key, value)
-            elif isinstance(field_meta, ManyToManyField):
-                assert isinstance(
-                    field_value, list
-                ), "Only lists may be assigned to many-to-many relations"
-                field = getattr(model_instance, field_name)
-                field_value_set = set(field_value)
-                current_objects = set(field.all().values_list("pk", flat=True))
-                objects_to_add = field_value_set - current_objects
-                objects_to_remove = current_objects - field_value_set
-                if objects_to_remove:
-                    field.remove(*objects_to_remove)
-                if objects_to_add:
-                    field.add(*objects_to_add)
-            # Set ID directly when setting foreign key relations.
-            elif isinstance(field_meta, ForeignKey):
-                field_name = f"{field_name}_id"
-                update_fields.append(field_name)
-                setattr(model_instance, field_name, field_value)
-            else:
-                update_fields.append(field_name)
-                setattr(model_instance, field_name, field_value)
-        model_instance.save(update_fields=update_fields)
+        @retry_database_writes
+        def update_model():
+            """Apply the changes in one transaction."""
+            # Update all fields except m2m.
+            update_fields = []
+            with write_transaction():
+                for field_name, field_value in mapping.items():
+                    # Not exactly sure how to handle this. Output is a JSONField
+                    # and is only updated, other JSON fields should probably be
+                    # replaced. Compromise: when update is a dict, then only
+                    # values in dict are updates, else replaced.
+                    field_meta = model._meta.get_field(field_name)
+                    if isinstance(field_meta, (JSONField, JSONFieldb)) and isinstance(
+                        field_value, dict
+                    ):
+                        update_fields.append(field_name)
+                        current_value = getattr(model_instance, field_name)
+                        for key, value in field_value.items():
+                            dict_dot(current_value, key, value)
+                    elif isinstance(field_meta, ManyToManyField):
+                        assert isinstance(
+                            field_value, list
+                        ), "Only lists may be assigned to many-to-many relations"
+                        field = getattr(model_instance, field_name)
+                        field_value_set = set(field_value)
+                        current_objects = set(field.all().values_list("pk", flat=True))
+                        objects_to_add = field_value_set - current_objects
+                        objects_to_remove = current_objects - field_value_set
+                        if objects_to_remove:
+                            field.remove(*objects_to_remove)
+                        if objects_to_add:
+                            field.add(*objects_to_add)
+                    # Set ID directly when setting foreign key relations.
+                    elif isinstance(field_meta, ForeignKey):
+                        field_name = f"{field_name}_id"
+                        update_fields.append(field_name)
+                        setattr(model_instance, field_name, field_value)
+                    else:
+                        update_fields.append(field_name)
+                        setattr(model_instance, field_name, field_value)
+                model_instance.save(update_fields=update_fields)
+
+        update_model()
         return message.respond_ok("OK")
 
     def handle_get_model_fields_details(

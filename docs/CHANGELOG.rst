@@ -18,6 +18,10 @@ Added
   ``LISTENER_DATABASE_STATEMENT_TIMEOUT``, default ``600`` seconds), so a
   command handler blocked on the database fails with the database error
   instead of waiting indefinitely
+- Repeat the aborted database writes of the listener command handlers, at
+  most ``LISTENER_DATABASE_WRITE_ATTEMPTS`` attempts (default ``4``), each
+  with the ``LISTENER_DATABASE_WRITE_TIMEOUT`` statement timeout (default
+  ``30`` seconds)
 
 Changed
 -------

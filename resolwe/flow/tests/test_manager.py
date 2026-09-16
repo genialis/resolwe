@@ -2,6 +2,7 @@
 import asyncio
 import os
 import threading
+from copy import deepcopy
 from datetime import timedelta
 from time import time
 from types import SimpleNamespace
@@ -9,23 +10,33 @@ from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 from asgiref.sync import async_to_sync
 from django.contrib.auth import get_user_model
-from django.db import connection
+from django.db import connection, transaction
 from django.db.backends.signals import connection_created
 from django.db.utils import OperationalError
 from django.test import SimpleTestCase, override_settings
 from django.utils.timezone import now
 
+from resolwe.flow.executors.socket_utils import Message
 from resolwe.flow.managers import manager
 from resolwe.flow.managers.dispatcher import DEFAULT_CONNECTOR
 from resolwe.flow.managers.listener import ExecutorListener
 from resolwe.flow.managers.listener.authenticator import ZMQAuthenticator
+from resolwe.flow.managers.listener.basic_commands_plugin import BasicCommands
+from resolwe.flow.managers.listener.database import (
+    DEFAULT_DATABASE_WRITE_ATTEMPTS,
+    is_retriable_database_error,
+    retry_database_writes,
+    write_transaction,
+)
 from resolwe.flow.managers.listener.listener import (
     DATABASE_TIMEOUTS_DISPATCH_UID,
     STALLED_DATA_WARNING,
     Processor,
     enable_database_timeouts,
 )
-from resolwe.flow.managers.protocol import WorkerProtocol
+from resolwe.flow.managers.listener.permission_plugin import permission_manager
+from resolwe.flow.managers.listener.python_process_plugin import PythonProcess
+from resolwe.flow.managers.protocol import ExecutorProtocol, WorkerProtocol
 from resolwe.flow.managers.utils import disable_auto_calls
 from resolwe.flow.models import (
     Collection,
@@ -788,6 +799,30 @@ class ListenerDatabaseTimeoutTest(TransactionTestCase):
             self._current_timeouts(), {"lock_timeout": "5000", "statement_timeout": "0"}
         )
 
+    def test_write_timeout_is_local(self):
+        """The write timeout applies inside the write transaction only."""
+        enable_database_timeouts()
+        connection.close()
+        with write_transaction():
+            self.assertEqual(self._current_timeouts()["statement_timeout"], "30000")
+        self.assertEqual(self._current_timeouts()["statement_timeout"], "600000")
+
+    def test_write_transaction_rejects_nesting(self):
+        """The write transaction refuses to run inside another transaction."""
+        with transaction.atomic():
+            with self.assertRaisesMessage(RuntimeError, "outermost"):
+                with write_transaction():
+                    pass  # pragma: no cover
+            # The outer transaction is still usable.
+            Storage.objects.exists()
+
+    @override_settings(LISTENER_DATABASE_WRITE_TIMEOUT=1)
+    def test_write_timeout_cancels_statement(self):
+        """A write running longer than the write timeout is aborted."""
+        with self.assertRaisesMessage(OperationalError, "statement timeout"):
+            with write_transaction(), connection.cursor() as cursor:
+                cursor.execute("SELECT pg_sleep(2)")
+
     @override_settings(LISTENER_DATABASE_LOCK_TIMEOUT=1)
     def test_blocked_statement_fails(self):
         """A statement waiting for a lock fails instead of waiting indefinitely.
@@ -822,3 +857,273 @@ class ListenerDatabaseTimeoutTest(TransactionTestCase):
             release.cancel()
             blocker.rollback()
             blocker.close()
+
+    @override_settings(
+        LISTENER_DATABASE_LOCK_TIMEOUT=1, LISTENER_DATABASE_WRITE_ATTEMPTS=4
+    )
+    def test_blocked_write_is_retried(self):
+        """A write aborted by the database is repeated once the lock is gone."""
+        enable_database_timeouts()
+        connection.close()
+
+        blocker = connection.copy()
+        blocker.set_autocommit(False)
+        user_table = connection.ops.quote_name(get_user_model()._meta.db_table)
+        with blocker.cursor() as cursor:
+            cursor.execute(
+                f"SELECT id FROM {user_table} WHERE id = %s FOR UPDATE",
+                [self.contributor.pk],
+            )
+
+        attempts = []
+
+        @retry_database_writes
+        def create_storage():
+            attempts.append(len(attempts))
+            return Storage.objects.create(
+                name="Blocked storage", contributor=self.contributor, json={}
+            )
+
+        # The lock is released while the retry sleeps, so the first attempt
+        # always hits it and the second one never does.
+        release = patch(
+            "resolwe.flow.managers.listener.database.time.sleep",
+            side_effect=lambda seconds: blocker.rollback(),
+        )
+        try:
+            with release:
+                storage = create_storage()
+        finally:
+            blocker.rollback()
+            blocker.close()
+
+        self.assertEqual(len(attempts), 2)
+        self.assertTrue(Storage.objects.filter(pk=storage.pk).exists())
+
+    @override_settings(LISTENER_DATABASE_LOCK_TIMEOUT=1)
+    def test_download_started_rereads_the_claimed_location(self):
+        """A repeated download start sees the claim made while it waited."""
+        enable_database_timeouts()
+        connection.close()
+        location = StorageLocation.objects.create(
+            file_storage=FileStorage.objects.create(),
+            connector_name="local",
+            status=StorageLocation.STATUS_PREPARING,
+        )
+        table = connection.ops.quote_name(StorageLocation._meta.db_table)
+
+        blocker = connection.copy()
+        blocker.set_autocommit(False)
+        with blocker.cursor() as cursor:
+            cursor.execute(
+                f"SELECT id FROM {table} WHERE id = %s FOR UPDATE", [location.pk]
+            )
+
+        def claim_location(seconds):
+            """Claim the location on the blocking connection and release it."""
+            with blocker.cursor() as cursor:
+                cursor.execute(
+                    f"UPDATE {table} SET status = %s WHERE id = %s",
+                    [StorageLocation.STATUS_UPLOADING, location.pk],
+                )
+            blocker.commit()
+
+        message = Message.command(
+            "download_started",
+            {
+                ExecutorProtocol.STORAGE_LOCATION_ID: location.pk,
+                ExecutorProtocol.DOWNLOAD_STARTED_LOCK: True,
+            },
+            client_id=b"0",
+        )
+        claim = patch(
+            "resolwe.flow.managers.listener.database.time.sleep",
+            side_effect=claim_location,
+        )
+        try:
+            with claim as sleep:
+                response = BasicCommands().handle_download_started(
+                    1, message, MagicMock()
+                )
+        finally:
+            blocker.rollback()
+            blocker.close()
+
+        sleep.assert_called_once()
+        self.assertEqual(response.message_data, ExecutorProtocol.DOWNLOAD_IN_PROGRESS)
+        location.refresh_from_db()
+        self.assertEqual(location.status, StorageLocation.STATUS_UPLOADING)
+
+
+class DatabaseDriverError(Exception):
+    """Stand-in for the database driver error Django wraps."""
+
+    def __init__(self, sqlstate: str):
+        """Remember the sqlstate of the error."""
+        super().__init__(sqlstate)
+        self.sqlstate = sqlstate
+
+
+class ListenerDatabaseWriteTest(TransactionTestCase):
+    """Test the repeated database writes of the listener."""
+
+    def _database_error(self, sqlstate: str) -> OperationalError:
+        """Return a database error with the given sqlstate."""
+        error = OperationalError("aborted")
+        error.__cause__ = DatabaseDriverError(sqlstate)
+        return error
+
+    def _failing(self, error: Exception, failures: int):
+        """Return a function failing the given number of times."""
+        calls = []
+
+        def failing():
+            calls.append(len(calls))
+            if len(calls) <= failures:
+                raise error
+            return "done"
+
+        failing.calls = calls
+        return failing
+
+    def test_retriable_errors(self):
+        """Only the errors that abort the transaction are retried."""
+        for sqlstate in ("57014", "55P03", "40001", "40P01"):
+            with self.subTest(sqlstate=sqlstate):
+                self.assertTrue(
+                    is_retriable_database_error(self._database_error(sqlstate))
+                )
+        # Unique violation: the write itself is wrong, repeating it can not
+        # help.
+        self.assertFalse(is_retriable_database_error(self._database_error("23505")))
+        # Connection errors are not retried: the outcome is unknown.
+        self.assertFalse(is_retriable_database_error(self._database_error("08006")))
+        self.assertFalse(is_retriable_database_error(OperationalError("no cause")))
+
+    @patch("resolwe.flow.managers.listener.database.random.uniform", return_value=1.0)
+    @patch("resolwe.flow.managers.listener.database.time.sleep")
+    def test_retries_until_success(self, sleep, uniform):
+        """The write is repeated until it succeeds."""
+        failing = self._failing(self._database_error("57014"), failures=2)
+        self.assertEqual(retry_database_writes(failing)(), "done")
+        self.assertEqual(len(failing.calls), 3)
+        # The sleep between the attempts is doubled every time and spread by a
+        # random factor.
+        self.assertEqual([call.args[0] for call in sleep.call_args_list], [1, 2])
+        uniform.assert_called_with(0.5, 1.5)
+
+    @patch("resolwe.flow.managers.listener.database.time.sleep")
+    def test_gives_up_after_all_attempts(self, sleep):
+        """The error of the last attempt is raised when all attempts fail."""
+        failing = self._failing(self._database_error("57014"), failures=100)
+        with self.assertRaisesMessage(OperationalError, "aborted"):
+            retry_database_writes(failing)()
+        self.assertEqual(len(failing.calls), DEFAULT_DATABASE_WRITE_ATTEMPTS)
+
+    @override_settings(LISTENER_DATABASE_WRITE_ATTEMPTS=2)
+    @patch("resolwe.flow.managers.listener.database.time.sleep")
+    def test_attempts_from_settings(self, sleep):
+        """The number of attempts is read from the settings."""
+        failing = self._failing(self._database_error("57014"), failures=100)
+        with self.assertRaisesMessage(OperationalError, "aborted"):
+            retry_database_writes(failing)()
+        self.assertEqual(len(failing.calls), 2)
+
+    @patch("resolwe.flow.managers.listener.database.time.sleep")
+    def test_other_errors_are_not_retried(self, sleep):
+        """An error that repeating can not fix is raised immediately."""
+        failing = self._failing(self._database_error("23505"), failures=100)
+        with self.assertRaisesMessage(OperationalError, "aborted"):
+            retry_database_writes(failing)()
+        self.assertEqual(len(failing.calls), 1)
+        sleep.assert_not_called()
+
+    def test_create_object_is_atomic(self):
+        """The created object and its side effects share one transaction."""
+        in_atomic_block = []
+
+        def create(**kwargs):
+            in_atomic_block.append(connection.in_atomic_block)
+            return SimpleNamespace(id=1)
+
+        manager = MagicMock()
+        manager.contributor.return_value = self.contributor
+        message = Message.command(
+            "create_object", ("flow", "Storage", {"json": {}}), client_id=b"0"
+        )
+        with (
+            patch.object(Storage.objects, "create", side_effect=create),
+            patch.object(permission_manager, "can_create"),
+        ):
+            response = PythonProcess().handle_create_object(1, message, manager)
+
+        self.assertEqual(response.message_data, 1)
+        self.assertEqual(in_atomic_block, [True])
+
+    @patch("resolwe.flow.managers.listener.database.time.sleep")
+    def test_finish_is_retried(self, sleep):
+        """The final write of a finished data object is repeated as a whole."""
+        data = SimpleNamespace(status="PR", process_error=[], location=MagicMock())
+        manager = MagicMock()
+        manager.data.return_value = data
+        manager._save_data.side_effect = [self._database_error("57014"), None]
+
+        message = Message.command("finish", {"rc": 1}, client_id=b"0")
+        response = BasicCommands().handle_finish(1, message, manager)
+
+        self.assertEqual(response.message_data, "OK")
+        self.assertEqual(manager._save_data.call_count, 2)
+        # The worker is updated only in the attempt that succeeded.
+        manager._update_worker.assert_called_once()
+
+    @patch("resolwe.flow.managers.listener.database.time.sleep")
+    def test_update_status_is_retried(self, sleep):
+        """The status update of a data object is repeated as a whole."""
+        data = SimpleNamespace(status=Data.STATUS_WAITING)
+        manager = MagicMock()
+        manager.get_data_fields.return_value = Data.STATUS_WAITING
+        manager._choose_worst_status.return_value = Data.STATUS_PROCESSING
+        manager.data.return_value = data
+        manager._save_data.side_effect = [self._database_error("57014"), None]
+
+        message = Message.command(
+            "update_status", Data.STATUS_PROCESSING, client_id=b"0"
+        )
+        response = BasicCommands().handle_update_status(1, message, manager)
+
+        self.assertEqual(response.message_data, Data.STATUS_PROCESSING)
+        self.assertEqual(manager._save_data.call_count, 2)
+        # The worker is updated only in the attempt that succeeded.
+        manager._update_worker.assert_called_once_with(
+            1, changes={"status": Worker.STATUS_PROCESSING}
+        )
+
+    @patch("resolwe.flow.managers.listener.database.time.sleep")
+    def test_update_output_restores_output(self, sleep):
+        """A repeated output update starts from the stored output."""
+        data = SimpleNamespace(pk=1, id=1, output={})
+        outputs_seen = []
+        storage_pks = iter([41, 51, 52])
+
+        def save_storage(key, value, data_object):
+            outputs_seen.append(deepcopy(data_object.output))
+            # The first attempt is aborted after the first storage was created.
+            if len(outputs_seen) == 2:
+                raise self._database_error("57014")
+            return SimpleNamespace(pk=next(storage_pks))
+
+        manager = MagicMock()
+        manager.data.return_value = data
+        manager.get_data_fields.return_value = [
+            {"name": "first", "type": "basic:json:", "label": "First"},
+            {"name": "second", "type": "basic:json:", "label": "Second"},
+        ]
+        manager.save_storage.side_effect = save_storage
+
+        message = Message.command(
+            "update_output", {"first": {"a": 1}, "second": {"b": 2}}, client_id=b"0"
+        )
+        BasicCommands().handle_update_output(data.pk, message, manager)
+
+        self.assertEqual(outputs_seen, [{}, {"first": 41}, {}, {"first": 51}])
+        self.assertEqual(data.output, {"first": 51, "second": 52})
