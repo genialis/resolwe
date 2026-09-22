@@ -287,6 +287,26 @@ class StorageLocationTest(TransactionTestCase):
             verified = storage_location.verify_data()
             self.assertTrue(verified)
 
+    def test_verify_data_largest_first(self):
+        storage_location: StorageLocation = StorageLocation.objects.create(
+            file_storage=self.file_storage, url="url", connector_name="local"
+        )
+        for path, size in [("small", 1), ("dir/", -1), ("large", 3), ("medium", 2)]:
+            storage_location.files.add(
+                ReferencedPath.objects.create(
+                    path=path, size=size, md5="1", crc32c="1", awss3etag="1"
+                )
+            )
+        with patch(
+            "resolwe.storage.models.paralelize", return_value=[True]
+        ) as paralelize_mock:
+            self.assertTrue(storage_location.verify_data())
+        referenced_paths = paralelize_mock.call_args.args[0]
+        self.assertEqual(
+            [referenced_path.path for referenced_path in referenced_paths],
+            ["large", "medium", "small"],
+        )
+
     def test_verify_data_connector_failed(self):
         path1 = ReferencedPath.objects.create(
             path="1", md5="1", crc32c="1", awss3etag="1"

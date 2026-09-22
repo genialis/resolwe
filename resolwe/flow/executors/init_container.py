@@ -20,7 +20,7 @@ from executors import constants, global_settings
 from executors.connectors import Transfer, connectors
 from executors.connectors.baseconnector import BaseStorageConnector
 from executors.connectors.exceptions import DataTransferError
-from executors.connectors.utils import async_paralelize
+from executors.connectors.utils import async_paralelize, largest_first
 from executors.protocol import ExecutorFiles
 from executors.socket_utils import BaseCommunicator, BaseProtocol, Message, PeerIdentity
 from executors.zeromq_utils import ZMQCommunicator
@@ -106,19 +106,12 @@ async def transfer_inputs(communicator: BaseCommunicator, missing_data: dict):
         objects_to_transfer[missing_item["from_connector"]] += missing_item["files"]
 
     try:
-        for connector_name in objects_to_transfer:
-            min_threads = 1
-            max_threads = MAX_DOWNLOAD_THREADS
-            # Use from min_threads to max_threads threads. Assume each thread
-            # can handle at least 100 files in reasonable time.
-            files_count = len(objects_to_transfer[connector_name])
-            threads = max(min_threads, min(files_count // 100, max_threads))
-
+        for connector_name, files in objects_to_transfer.items():
             await download_to_location(
-                objects_to_transfer[connector_name],
+                files,
                 connectors[connector_name],
                 inputs_connector,
-                threads,
+                MAX_DOWNLOAD_THREADS,
             )
     except Exception as exception:
         logger.exception("Exception preparing inputs")
@@ -135,7 +128,7 @@ async def download_to_location(
     to_connector: BaseStorageConnector,
     max_threads: int = 5,
 ):
-    """Download missing paths.
+    """Download missing paths, largest first, in up to max_threads threads.
 
     :raises DataTransferError: on failure.
     """
@@ -144,12 +137,12 @@ async def download_to_location(
         len(files),
         from_connector,
         to_connector,
-        max_threads,
+        min(len(files), max_threads),
     )
     transfer = Transfer(from_connector, to_connector)
     try:
         tasks = await async_paralelize(
-            objects=files,
+            objects=largest_first(files),
             worker=lambda objects: transfer.transfer_chunk(None, objects),
             loop=asyncio.get_running_loop(),
             max_threads=max_threads,

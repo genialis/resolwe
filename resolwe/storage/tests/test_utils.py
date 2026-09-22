@@ -1,10 +1,11 @@
 # pylint: disable=missing-docstring
 import asyncio
+import concurrent.futures
 import tempfile
 import threading
 from pathlib import Path
 from time import time
-from typing import Sequence
+from typing import Iterable, Sequence
 
 from resolwe.storage.connectors import utils
 from resolwe.test import TestCase
@@ -58,62 +59,55 @@ class UtilsTest(TestCase):
         to_transfer = utils.get_transfer_object("base/nonexisting.txt", "base")
         self.assertIsNone(to_transfer)
 
-    def test_chunks(self):
-        parts = range(100)
-        chunks = list(utils.chunks(parts, 4))
-        self.assertEqual(len(chunks), 4)
-        for chunk in chunks:
-            self.assertEqual(len(chunk), 25)
+    def test_shared_iterator(self):
+        shared = utils.SharedIterator(range(1000))
+        with concurrent.futures.ThreadPoolExecutor(4) as executor:
+            consumed = list(executor.map(lambda _: list(shared), range(4)))
+        self.assertEqual(sorted(sum(consumed, [])), list(range(1000)))
 
-        chunks = list(utils.chunks(parts, 200))
-        self.assertEqual(len(chunks), 200)
-        for chunk in chunks[: len(parts)]:
-            self.assertEqual(len(chunk), 1)
-        for chunk in chunks[len(parts) :]:
-            self.assertEqual(len(chunk), 0)
-
-        chunks = list(utils.chunks(parts, 3))
-        self.assertEqual(len(chunks), 3)
-        self.assertEqual(len(chunks[0]), 34)
-        self.assertEqual(len(chunks[1]), 33)
-        self.assertEqual(len(chunks[2]), 33)
+    def test_largest_first(self):
+        objects = [{"size": 1}, {"path": "dir/"}, {"size": 3}, {"size": 2}]
+        self.assertEqual(
+            utils.largest_first(objects),
+            [{"size": 3}, {"size": 2}, {"size": 1}, {"path": "dir/"}],
+        )
 
     def test_paralelize(self):
         parts = [1] * 100
 
-        def worker(parts: Sequence[int]) -> int:
+        def worker(parts: Iterable[int]) -> int:
             return sum(parts)
 
-        def worker_exception(parts: Sequence[int]) -> int:
-            if len(parts) == 34:
-                raise Exception()
-            return sum(parts)
+        def worker_exception(parts: Iterable[int]) -> int:
+            for part in parts:
+                if part == 2:
+                    raise Exception()
+            return 0
 
-        futures = utils.paralelize(parts, worker)
-        results = [f.result() for f in futures]
-        self.assertEqual(results, [10] * 10)
+        results = utils.paralelize(parts, worker)
+        self.assertEqual(len(results), 10)
+        self.assertEqual(sum(results), 100)
 
-        futures = utils.paralelize(parts, worker, max_threads=200)
-        results = [f.result() for f in futures]
-        self.assertEqual(results, [1] * 100)
+        results = utils.paralelize(parts, worker, max_threads=200)
+        self.assertEqual(len(results), 100)
+        self.assertEqual(sum(results), 100)
 
-        futures = utils.paralelize(parts, worker, max_threads=3)
-        results = [f.result() for f in futures]
-        self.assertEqual(results, [34, 33, 33])
+        self.assertEqual(utils.paralelize([], worker), [])
 
         with self.assertRaises(Exception):
-            utils.paralelize(parts, worker_exception, max_threads=3)
+            utils.paralelize([1, 2, 1], worker_exception, max_threads=1)
 
     def test_paralelize_abort(self):
         aborted = threading.Event()
 
-        def worker(parts: Sequence[str]) -> bool:
-            if parts == ["bad"]:
-                raise ValueError("bad")
-            # Runs until aborted, then fails like an aborted transfer.
-            if not aborted.wait(5):
-                return True
-            raise RuntimeError("aborted")
+        def worker(parts: Iterable[str]) -> bool:
+            for part in parts:
+                if part == "bad":
+                    raise ValueError("bad")
+                # Runs until aborted, then fails like an aborted transfer.
+                if aborted.wait(5):
+                    raise RuntimeError("aborted")
+            return True
 
         start = time()
         with self.assertRaisesRegex(ValueError, "bad"):
@@ -121,14 +115,32 @@ class UtilsTest(TestCase):
         self.assertTrue(aborted.is_set())
         self.assertLess(time() - start, 2)
 
+    def test_paralelize_shares_work(self):
+        fast_done = threading.Event()
+
+        def worker(parts: Iterable[str]) -> list:
+            done = []
+            for part in parts:
+                if part == "slow":
+                    fast_done.wait()
+                done.append(part)
+            # The worker that drains the queue releases the slow one.
+            fast_done.set()
+            return done
+
+        threading.Timer(5, fast_done.set).start()
+        results = utils.paralelize(["slow"] + ["fast"] * 9, worker, max_threads=2)
+        self.assertEqual(sorted(len(done) for done in results), [1, 9])
+
     def test_async_paralelize_first_exception(self):
         release = threading.Event()
 
-        def worker(parts: Sequence[int]) -> int:
-            if parts == [1]:
-                raise ValueError()
-            release.wait()
-            return sum(parts)
+        def worker(parts: Iterable[int]) -> int:
+            for part in parts:
+                if part == 1:
+                    raise ValueError()
+                release.wait()
+            return 0
 
         async def first_exception():
             loop = asyncio.get_running_loop()

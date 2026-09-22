@@ -25,7 +25,20 @@ class TransferTest(TestCase):
         t = Transfer(self.local, self.local)
         with patch.object(Transfer, "transfer_chunk") as transfer_mock:
             t.transfer_objects("base", [{}])
-        transfer_mock.assert_called_once_with(Path("base"), [{}])
+        transfer_mock.assert_called_once()
+        url, objects = transfer_mock.call_args.args
+        self.assertEqual(url, Path("base"))
+        self.assertEqual(list(objects), [{}])
+
+    def test_largest_first(self):
+        t = Transfer(self.local, self.local)
+        objects = [{"size": 1}, {"size": 3}, {"size": 2}]
+        with patch.object(Transfer, "transfer_chunk") as transfer_mock:
+            t.transfer_objects("base", objects, max_threads=1)
+        self.assertEqual(
+            list(transfer_mock.call_args.args[1]),
+            [{"size": 3}, {"size": 2}, {"size": 1}],
+        )
 
     def test_max_thread(self):
         t = Transfer(self.local, self.local)
@@ -248,12 +261,13 @@ class TransferTest(TestCase):
         t = Transfer(self.local, self.local)
 
         def transfer_chunk(url, objects):
-            if objects[0]["path"] == "bad":
-                raise DataTransferError("bad")
-            # The other worker stops only when the transfer is aborted.
-            if not t.wait_aborted(5):
-                return True
-            raise DataTransferError("Transfer aborted.")
+            for entry in objects:
+                if entry["path"] == "bad":
+                    raise DataTransferError("bad")
+                # The other worker stops only when the transfer is aborted.
+                if t.wait_aborted(5):
+                    raise DataTransferError("Transfer aborted.")
+            return True
 
         start = time()
         with patch.object(t, "transfer_chunk", side_effect=transfer_chunk):

@@ -36,6 +36,11 @@ Changed
   cleanup that must always run in a ``finally`` block
 - The persistent volume claims of the processing and input volumes default to
   the ``gp3`` storage class instead of ``gp2``
+- The transfer workers take the files largest first from a shared queue
+  instead of a fixed share of the files each, and the init container always
+  uses ``GENESIS_MAX_DOWNLOAD_THREADS`` workers (default ``3``) instead of one
+  per 100 files. ``paralelize`` in ``resolwe.storage.connectors.utils``
+  returns the results of the workers instead of their futures
 
 
 ===================

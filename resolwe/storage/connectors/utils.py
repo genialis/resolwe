@@ -3,6 +3,7 @@
 import asyncio
 import concurrent.futures
 import os
+import threading
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
@@ -10,8 +11,9 @@ from typing import (
     Callable,
     Dict,
     Iterable,
+    Iterator,
+    List,
     Optional,
-    Sequence,
     TypeVar,
     Union,
 )
@@ -73,23 +75,41 @@ def get_transfer_object(
     return file_transfer_data
 
 
-def chunks(iterable: Sequence[T], n: int) -> Iterable[Sequence[T]]:
-    """Split iterable into n evenly sized chunks."""
-    for i in range(0, n):
-        yield iterable[i::n]
+class SharedIterator(Iterator[T]):
+    """Thread-safe iterator shared by the worker threads."""
+
+    def __init__(self, iterable: Iterable[T]):
+        """Initialize."""
+        self._iterator = iter(iterable)
+        self._lock = threading.Lock()
+
+    def __next__(self) -> T:
+        """Return the next item."""
+        with self._lock:
+            return next(self._iterator)
+
+
+def largest_first(objects: Iterable[dict]) -> List[dict]:
+    """Sort the transfer objects by size, largest first.
+
+    Started in this order the workers finish at about the same time.
+    """
+    return sorted(objects, key=lambda entry: entry.get("size", 0), reverse=True)
 
 
 def paralelize(
-    objects: Sequence[Any],
-    worker: Callable[[Sequence[Any]], Any],
+    objects: Iterable[Any],
+    worker: Callable[[Iterable[Any]], Any],
     max_threads: int = 10,
     abort: Optional[Callable[[], None]] = None,
-) -> Sequence[concurrent.futures.Future]:
-    """Paralelize tasks using connector on list of URLS.
+) -> List[Any]:
+    """Run the worker in up to max_threads threads over the objects.
 
-    URLs are split into up-to num_threads chunks and each chunk is processed
-    in its own thread. Connectors in worker method MUST be duplicated to ensure
-    thread safety.
+    The workers share one iterator over the objects and each takes the next
+    object when it finishes the previous one, so the load balances between
+    them. Pass the objects in the order they should start, see
+    :func:`largest_first`. Connectors in worker method MUST be duplicated to
+    ensure thread safety.
 
     When a worker fails, ``abort`` is called so the other workers can stop
     early. The function returns or raises once every worker has finished.
@@ -98,15 +118,15 @@ def paralelize(
 
     :raises Exception: the exception of the first failed worker.
 
-    :returns: collection of instance of Future objects, each one corresponding
-        to one thread, all done.
+    :returns: the result of each worker thread.
     """
-    number_of_chunks = min(len(objects), max_threads)
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
-        futures = [
-            executor.submit(worker, objects_chunk)
-            for objects_chunk in chunks(objects, number_of_chunks)
-        ]
+    objects = list(objects)
+    if not objects:
+        return []
+    workers = min(len(objects), max_threads)
+    shared = SharedIterator(objects)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = [executor.submit(worker, shared) for _ in range(workers)]
         done, _ = concurrent.futures.wait(
             futures, return_when=concurrent.futures.FIRST_EXCEPTION
         )
@@ -115,21 +135,19 @@ def paralelize(
             abort()
     if failed:
         failed[0].result()
-    return futures
+    return [future.result() for future in futures]
 
 
 async def async_paralelize(
-    objects: Sequence[Any],
-    worker: Callable[[Sequence[Any]], Any],
+    objects: Iterable[Any],
+    worker: Callable[[Iterable[Any]], Any],
     loop: asyncio.BaseEventLoop,
     max_threads: int = 10,
     return_when: str = asyncio.ALL_COMPLETED,
-) -> Sequence[asyncio.Future]:
-    """Paralelize tasks using connector on list of URLS.
+) -> List[asyncio.Future]:
+    """Run the worker in up to max_threads threads over the objects.
 
-    URLs are split into up-to num_threads chunks and each chunk is processed
-    in its own thread. Connectors in worker method MUST be duplicated to ensure
-    thread safety.
+    The workers share the objects as in :func:`paralelize`.
 
     When the coroutine is cancelled the running workers are left to finish on
     their own: they cannot be interrupted and waiting for them would block the
@@ -138,16 +156,16 @@ async def async_paralelize(
     :param return_when: when to return, see :func:`asyncio.wait`. The tasks
         not done on return are still running.
 
-    :returns: collection of instance of Future objects, each one corresponding
-        to one thread. It is caller responsibility to check if threads have
-        finished successfully.
+    :returns: one Future per worker thread. It is caller responsibility to
+        check if threads have finished successfully.
     """
-    number_of_chunks = min(len(objects), max_threads)
-    executor = concurrent.futures.ThreadPoolExecutor(max_workers=max_threads)
-    tasks = [
-        loop.run_in_executor(executor, worker, objects_chunk)
-        for objects_chunk in chunks(objects, number_of_chunks)
-    ]
+    objects = list(objects)
+    if not objects:
+        return []
+    workers = min(len(objects), max_threads)
+    shared = SharedIterator(objects)
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=workers)
+    tasks = [loop.run_in_executor(executor, worker, shared) for _ in range(workers)]
     try:
         await asyncio.wait(tasks, return_when=return_when)
     finally:
