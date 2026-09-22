@@ -19,6 +19,11 @@ Fixed
 - Fix the init container waiting for the running downloads when the processing
   is terminated: the transfer is aborted, the download of a shared storage
   location is released and the container exits
+- Retry a failed input data transfer for about two minutes instead of three
+  seconds, including the botocore connection and read errors; do not retry a
+  missing or denied S3 object; remove the partial object before the retry;
+  stop the other workers on a failure and name the failed object in the
+  error
 Changed
 -------
 - **BACKWARD INCOMPATIBLE:** ``Process.error`` in Python processes stops the

@@ -101,11 +101,51 @@ class UtilsTest(TestCase):
         results = [f.result() for f in futures]
         self.assertEqual(results, [34, 33, 33])
 
-        futures = utils.paralelize(parts, worker_exception, max_threads=3)
         with self.assertRaises(Exception):
-            futures[0].result()
-        results = [f.result() for f in futures[1:]]
-        self.assertEqual(results, [33, 33])
+            utils.paralelize(parts, worker_exception, max_threads=3)
+
+    def test_paralelize_abort(self):
+        aborted = threading.Event()
+
+        def worker(parts: Sequence[str]) -> bool:
+            if parts == ["bad"]:
+                raise ValueError("bad")
+            # Runs until aborted, then fails like an aborted transfer.
+            if not aborted.wait(5):
+                return True
+            raise RuntimeError("aborted")
+
+        start = time()
+        with self.assertRaisesRegex(ValueError, "bad"):
+            utils.paralelize(["bad", "good"], worker, max_threads=2, abort=aborted.set)
+        self.assertTrue(aborted.is_set())
+        self.assertLess(time() - start, 2)
+
+    def test_async_paralelize_first_exception(self):
+        release = threading.Event()
+
+        def worker(parts: Sequence[int]) -> int:
+            if parts == [1]:
+                raise ValueError()
+            release.wait()
+            return sum(parts)
+
+        async def first_exception():
+            loop = asyncio.get_running_loop()
+            tasks = await utils.async_paralelize(
+                [1, 2], worker, loop, max_threads=2, return_when=asyncio.FIRST_EXCEPTION
+            )
+            pending = [task for task in tasks if not task.done()]
+            release.set()
+            await asyncio.wait(tasks)
+            return pending
+
+        threading.Timer(2, release.set).start()
+        try:
+            pending = asyncio.run(first_exception())
+        finally:
+            release.set()
+        self.assertEqual(len(pending), 1)
 
     def test_async_paralelize_cancel(self):
         started = threading.Event()

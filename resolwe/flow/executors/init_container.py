@@ -48,9 +48,6 @@ MOUNTED_CONNECTORS = [
     name for name in os.environ["MOUNTED_CONNECTORS"].split(",") if name
 ]
 
-DOWNLOAD_WAITING_TIMEOUT = 60  # in seconds
-RETRIES = 5
-
 # Max threads to use for data download.
 MAX_DOWNLOAD_THREADS = int(os.environ.get("GENESIS_MAX_DOWNLOAD_THREADS", 3))
 
@@ -123,11 +120,10 @@ async def transfer_inputs(communicator: BaseCommunicator, missing_data: dict):
                 inputs_connector,
                 threads,
             )
-    except Exception:
+    except Exception as exception:
         logger.exception("Exception preparing inputs")
         error_message = (
-            f"Preparing inputs {objects_to_transfer[connector_name]} from "
-            f"connector {connector_name} failed."
+            f"Preparing inputs from connector {connector_name} failed: {exception}."
         )
         await error(error_message, communicator)
         raise DataTransferError(error_message)
@@ -157,14 +153,29 @@ async def download_to_location(
             worker=lambda objects: transfer.transfer_chunk(None, objects),
             loop=asyncio.get_running_loop(),
             max_threads=max_threads,
+            return_when=asyncio.FIRST_EXCEPTION,
         )
+        # A cancelled task raises CancelledError on exception(): skip it so a
+        # failure is not reported as a terminate.
+        failed = [
+            task
+            for task in tasks
+            if task.done() and not task.cancelled() and task.exception()
+        ]
+        if failed:
+            # Stop the other workers, wait for them and report the failure.
+            transfer.abort()
+            await asyncio.wait(tasks)
+            # Retrieve the failures of the aborted workers so asyncio does not
+            # log them as never retrieved.
+            for task in tasks:
+                if not task.cancelled():
+                    task.exception()
+            failed[0].result()
     except asyncio.CancelledError:
         # The worker threads cannot be cancelled: abort the transfer to stop them.
         transfer.abort()
         raise
-    # Evaluate the results. If exception occured it will be re-raised.
-    for task in tasks:
-        task.result()
 
 
 def check_for_previous_data():

@@ -6,7 +6,6 @@ import threading
 from contextlib import contextmanager, suppress
 from functools import partial
 from pathlib import Path
-from time import sleep
 from typing import TYPE_CHECKING, Iterable, Iterator, List, Union
 
 import wrapt
@@ -23,23 +22,37 @@ if TYPE_CHECKING:
     from os import PathLike
 
 try:
-    from google.api_core.exceptions import ServiceUnavailable
+    from google.api_core.exceptions import ServerError, TooManyRequests
     from google.resumable_media.common import DataCorruption
 
-    gcs_exceptions = [DataCorruption, ServiceUnavailable]
+    gcs_exceptions = [DataCorruption, ServerError, TooManyRequests]
 except ModuleNotFoundError:
     gcs_exceptions = []
 
 try:
-    from botocore.exceptions import ClientError, EndpointConnectionError
+    from botocore.exceptions import ClientError
+    from botocore.exceptions import ConnectionError as BotoConnectionError
+    from botocore.exceptions import HTTPClientError, IncompleteReadError
+    from s3transfer.exceptions import RetriesExceededError
 
-    boto_exceptions = [ClientError, EndpointConnectionError]
+    # download_fileobj retries the read errors of the object body itself and
+    # then raises RetriesExceededError, not the read error.
+    boto_exceptions = [
+        ClientError,
+        BotoConnectionError,
+        HTTPClientError,
+        IncompleteReadError,
+        RetriesExceededError,
+    ]
+    client_errors: tuple = (ClientError,)
 except ModuleNotFoundError:
     boto_exceptions = []
+    client_errors = ()
 
 
 logger = logging.getLogger(__name__)
-ERROR_MAX_RETRIES = 3
+# Attempts with 1, 2, ..., 32, 60 seconds between them: about two minutes.
+ERROR_MAX_RETRIES = 8
 ERROR_INITIAL_TIMEOUT = 1  # In seconds.
 ERROR_MAX_TIMEOUT = 60  # In seconds.
 transfer_exceptions = tuple(
@@ -50,33 +63,56 @@ transfer_exceptions = tuple(
 )
 
 
+# The 400 error code of S3 for a request it did not read in time.
+RETRYABLE_CLIENT_ERROR_CODES = {"RequestTimeout"}
+
+
+def is_transient(exception: Exception) -> bool:
+    """Return True when the failed request can be repeated.
+
+    A botocore ClientError is transient only for a server error (5xx), a
+    throttling response (429) or a request timeout. The other client errors,
+    such as a missing object or denied access, do not change on a retry. A
+    DataTransferError raised from another error is classified by that error.
+    """
+    if isinstance(exception, DataTransferError) and exception.__cause__ is not None:
+        return is_transient(exception.__cause__)
+    if not isinstance(exception, client_errors):
+        return True
+    response = exception.response
+    status = response.get("ResponseMetadata", {}).get("HTTPStatusCode", 0)
+    code = response.get("Error", {}).get("Code", "")
+    return status >= 500 or status == 429 or code in RETRYABLE_CLIENT_ERROR_CODES
+
+
 @wrapt.decorator
 def retry_on_transfer_error(wrapped, instance, args, kwargs):
-    """Retry on transfer error.
+    """Retry a transient transfer error with exponential backoff.
 
-    The call is not retried when the transfer instance is aborted.
+    The wrapped function must be a method of :class:`Transfer`. The call is
+    not retried when the error is not transient (see
+    :func:`is_transient`) or when the transfer instance is aborted. The wait
+    between the attempts ends on abort. The last failure is raised.
     """
     for retry in range(1, ERROR_MAX_RETRIES + 1):
         try:
             return wrapped(*args, **kwargs)
-        except transfer_exceptions:
-            if getattr(instance, "aborted", False):
+        except transfer_exceptions as exception:
+            if (
+                retry == ERROR_MAX_RETRIES
+                or not is_transient(exception)
+                or instance.aborted
+            ):
                 raise
-            # Log the exception on retry for inspection.
-            if retry < ERROR_MAX_RETRIES:
-                timeout = min(
-                    ERROR_MAX_TIMEOUT, ERROR_INITIAL_TIMEOUT * (2 ** (retry - 1))
-                )
-                logger.exception(
-                    "Retry %d/%d got exception, will retry in %d seconds.",
-                    retry,
-                    ERROR_MAX_RETRIES,
-                    timeout,
-                )
-                sleep(timeout)
-            # Raise exception when max retries are exceeded.
-            else:
-                logger.exception("Final retry got exception, re-raising it.")
+            timeout = min(ERROR_MAX_TIMEOUT, ERROR_INITIAL_TIMEOUT * (2 ** (retry - 1)))
+            logger.warning(
+                "Attempt %d/%d failed with %r, retrying in %d seconds.",
+                retry,
+                ERROR_MAX_RETRIES,
+                exception,
+                timeout,
+            )
+            if instance.wait_aborted(timeout):
                 raise
 
 
@@ -100,6 +136,10 @@ class Transfer:
     def aborted(self) -> bool:
         """Get True if the transfer is aborted."""
         return self._aborted.is_set()
+
+    def wait_aborted(self, timeout: float) -> bool:
+        """Wait at most timeout seconds for the abort, return True on abort."""
+        return self._aborted.wait(timeout)
 
     def abort(self):
         """Abort the transfer.
@@ -185,14 +225,14 @@ class Transfer:
 
         url = Path(url)
 
+        # Raises the exception of the first failed worker after the others
+        # are aborted.
         futures = paralelize(
             objects=objects_to_transfer,
             worker=partial(self.transfer_chunk, url),
             max_threads=max_threads,
+            abort=self.abort,
         )
-
-        # Check future results. This wil re-raise any exception raised in
-        # _transfer_chunk.
         if not all(future.result() for future in futures):
             raise DataTransferError()
 
@@ -226,22 +266,30 @@ class Transfer:
                 continue
             if self.aborted:
                 raise DataTransferError("Transfer aborted.")
+            from_base_url = entry.get("from_base_url", url)
             to_base_url = entry.get("to_base_url", url)
             to_url = Path(entry["path"])
+            from_url = Path(from_base_url) / to_url
             try:
                 if not self.transfer(
-                    entry.get("from_base_url", url),
+                    from_base_url,
                     entry,
                     to_base_url,
                     to_url,
                     from_connector,
                     to_connector,
                 ):
-                    raise DataTransferError()
-            except Exception:
-                # The aborted transfer fails on its closed stream.
+                    raise DataTransferError(f"Transfer of '{from_url}' failed")
+            except DataTransferError:
+                # The aborted transfer fails on its closed stream. A
+                # DataTransferError already names the object.
                 if not self.aborted:
                     raise
+            except Exception as exception:
+                if not self.aborted:
+                    raise DataTransferError(
+                        f"Transfer of '{from_url}' failed: {exception!r}"
+                    ) from exception
             if self.aborted:
                 # Remove the partially transfered object.
                 with suppress(Exception):
@@ -336,77 +384,87 @@ class Transfer:
         #   from_connector directly to the opened stream.
         # - if neither support streams then we use buffer to transfer the data
         #   from from_connector to to_connector.
-        if from_connector.can_open_stream:
-            with self._abortable(from_connector.open_stream(from_url, "rb")) as stream:
-                to_connector.push(
-                    stream, to_base_url / to_url, chunk_size=chunk_size, hashes=hashes
+        try:
+            if from_connector.can_open_stream:
+                with self._abortable(
+                    from_connector.open_stream(from_url, "rb")
+                ) as stream:
+                    to_connector.push(
+                        stream,
+                        to_base_url / to_url,
+                        chunk_size=chunk_size,
+                        hashes=hashes,
+                    )
+
+            elif to_connector.can_open_stream:
+                with self._abortable(
+                    to_connector.open_stream(to_base_url / to_url, "wb")
+                ) as stream:
+                    from_connector.get(from_url, stream, chunk_size=chunk_size)
+                to_connector.set_hashes(to_base_url / to_url, hashes)
+
+            # Otherwise create out own stream and use threads to transfer data.
+            else:
+
+                def future_done(stream_to_close, future):
+                    stream_to_close.close()
+                    if future.exception() is not None:
+                        executor.shutdown(wait=False)
+
+                # The constant 1 is added to the object size to make sure the
+                # buffer_size is at least 1. Otherwise uploading files of size 0
+                # will cause a deadlock.
+                data_stream = CircularBuffer(
+                    buffer_size=min(200 * 1024 * 1024, object_["size"] + 1)
                 )
+                with (
+                    self._abortable(data_stream),
+                    concurrent.futures.ThreadPoolExecutor() as executor,
+                ):
+                    download_task = executor.submit(
+                        from_connector.get,
+                        from_url,
+                        data_stream,
+                        chunk_size=chunk_size,
+                    )
+                    upload_task = executor.submit(
+                        to_connector.push,
+                        data_stream,
+                        to_base_url / to_url,
+                        chunk_size=chunk_size,
+                        hashes=hashes,
+                    )
+                    download_task.add_done_callback(partial(future_done, data_stream))
+                    futures = (download_task, upload_task)
 
-        elif to_connector.can_open_stream:
-            with self._abortable(
-                to_connector.open_stream(to_base_url / to_url, "wb")
-            ) as stream:
-                from_connector.get(from_url, stream, chunk_size=chunk_size)
-            to_connector.set_hashes(to_base_url / to_url, hashes)
+                # If any of the transfer futures has raised an exception the
+                # upload must be aborted and DataTransferError raised.
+                #
+                # When transfer was a success we have to store the server-side
+                # computed hashes to the hashes given on object. They may differ
+                # from computed ones since server-side encryption can be used
+                # which changes hashes (at least this happens with awss3etag when
+                # SSE-KMS encryption is used on S3 bucket).
+                if any(f.exception() is not None for f in futures):
+                    # Log exceptions in threads to preserve original stack trace.
+                    for f in futures:
+                        try:
+                            f.result()
+                        except Exception:
+                            logger.exception("Exception occured while transfering data")
 
-        # Otherwise create out own stream and use threads to transfer data.
-        else:
-
-            def future_done(stream_to_close, future):
-                stream_to_close.close()
-                if future.exception() is not None:
-                    executor.shutdown(wait=False)
-
-            # The constant 1 is added to the object size to make sure the
-            # buffer_size is at least 1. Otherwise uploading files of size 0
-            # will cause a deadlock.
-            data_stream = CircularBuffer(
-                buffer_size=min(200 * 1024 * 1024, object_["size"] + 1)
-            )
-            with (
-                self._abortable(data_stream),
-                concurrent.futures.ThreadPoolExecutor() as executor,
-            ):
-                download_task = executor.submit(
-                    from_connector.get,
-                    from_url,
-                    data_stream,
-                    chunk_size=chunk_size,
-                )
-                upload_task = executor.submit(
-                    to_connector.push,
-                    data_stream,
-                    to_base_url / to_url,
-                    chunk_size=chunk_size,
-                    hashes=hashes,
-                )
-                download_task.add_done_callback(partial(future_done, data_stream))
-                futures = (download_task, upload_task)
-
-            # If any of the transfer futures has raised an exception the
-            # upload must be aborted and DataTransferError raised.
-            #
-            # When transfer was a success we have to store the server-side
-            # computed hashes to the hashes given on object. They may differ
-            # from computed ones since server-side encryption can be used
-            # which changes hashes (at least this happens with awss3etag when
-            # SSE-KMS encryption is used on S3 bucket).
-            if any(f.exception() is not None for f in futures):
-                # Log exceptions in threads to preserve original stack trace.
-                for f in futures:
-                    try:
-                        f.result()
-                    except Exception:
-                        logger.exception("Exception occured while transfering data")
-
-                # Delete transfered data.
-                with suppress(Exception):
-                    to_connector.delete(to_base_url, [to_url])
-
-                # Re-raise exception.
-                ex = [f.exception() for f in futures if f.exception() is not None]
-                messages = [str(e) for e in ex]
-                raise DataTransferError("\n\n".join(messages))
+                    # Re-raise exception. Chain the first error, so the retry
+                    # decorator can tell whether it is transient.
+                    ex = [f.exception() for f in futures if f.exception() is not None]
+                    raise DataTransferError(
+                        f"Transfer of '{from_url}' failed: "
+                        + ", ".join(repr(e) for e in ex)
+                    ) from ex[0]
+        except Exception:
+            # Remove the partial object so the retry does not hash it.
+            with suppress(Exception):
+                to_connector.delete(to_base_url, [to_url])
+            raise
 
         # Check hash of the uploaded object.
         if not skip_final_hash_check:

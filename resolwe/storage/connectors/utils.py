@@ -83,6 +83,7 @@ def paralelize(
     objects: Sequence[Any],
     worker: Callable[[Sequence[Any]], Any],
     max_threads: int = 10,
+    abort: Optional[Callable[[], None]] = None,
 ) -> Sequence[concurrent.futures.Future]:
     """Paralelize tasks using connector on list of URLS.
 
@@ -90,17 +91,30 @@ def paralelize(
     in its own thread. Connectors in worker method MUST be duplicated to ensure
     thread safety.
 
+    When a worker fails, ``abort`` is called so the other workers can stop
+    early. The function returns or raises once every worker has finished.
+
+    :param abort: called once when the first worker fails.
+
+    :raises Exception: the exception of the first failed worker.
+
     :returns: collection of instance of Future objects, each one corresponding
-        to one thread. It is caller responsibility to check if threads have
-        finished successfully.
+        to one thread, all done.
     """
     number_of_chunks = min(len(objects), max_threads)
-    objects_chunks = chunks(objects, number_of_chunks)
-
-    futures = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_threads) as executor:
-        for objects_chunk in objects_chunks:
-            futures.append(executor.submit(worker, objects_chunk))
+        futures = [
+            executor.submit(worker, objects_chunk)
+            for objects_chunk in chunks(objects, number_of_chunks)
+        ]
+        done, _ = concurrent.futures.wait(
+            futures, return_when=concurrent.futures.FIRST_EXCEPTION
+        )
+        failed = [future for future in done if future.exception() is not None]
+        if failed and abort is not None:
+            abort()
+    if failed:
+        failed[0].result()
     return futures
 
 
@@ -109,6 +123,7 @@ async def async_paralelize(
     worker: Callable[[Sequence[Any]], Any],
     loop: asyncio.BaseEventLoop,
     max_threads: int = 10,
+    return_when: str = asyncio.ALL_COMPLETED,
 ) -> Sequence[asyncio.Future]:
     """Paralelize tasks using connector on list of URLS.
 
@@ -119,6 +134,9 @@ async def async_paralelize(
     When the coroutine is cancelled the running workers are left to finish on
     their own: they cannot be interrupted and waiting for them would block the
     event loop.
+
+    :param return_when: when to return, see :func:`asyncio.wait`. The tasks
+        not done on return are still running.
 
     :returns: collection of instance of Future objects, each one corresponding
         to one thread. It is caller responsibility to check if threads have
@@ -131,7 +149,7 @@ async def async_paralelize(
         for objects_chunk in chunks(objects, number_of_chunks)
     ]
     try:
-        await asyncio.wait(tasks)
+        await asyncio.wait(tasks, return_when=return_when)
     finally:
         executor.shutdown(wait=False)
     return tasks
