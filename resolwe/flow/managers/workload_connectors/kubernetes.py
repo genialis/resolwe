@@ -523,7 +523,7 @@ class Connector(BaseConnector):
             },
             "spec": {
                 "accessModes": ["ReadWriteOnce"],
-                "storageClassName": volume_config.get("storageClassName", "gp2"),
+                "storageClassName": volume_config.get("storageClassName", "gp3"),
                 "resources": {
                     "requests": {
                         "storage": size,
@@ -541,7 +541,7 @@ class Connector(BaseConnector):
     def _data_inputs_size(self, data: Data, safety_buffer: int = 2**30) -> int:
         """Get the size of data inputs.
 
-        Also add 10% of the volume size + 2GB as safety buffer. When having a
+        Also add 10% of the volume size + 1 GiB as safety buffer. When having a
         large filesystem with lots of files the filesystem overhead can be
         significant so a fixed safety buffer alone is not sufficient.
 

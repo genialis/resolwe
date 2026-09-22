@@ -7,6 +7,7 @@ from django.core.exceptions import ValidationError
 from rest_framework.response import Response
 
 from resolwe.flow.managers.workload_connectors.kubernetes import (
+    Connector,
     sanitize_kubernetes_label,
 )
 from resolwe.flow.models import Data, Process
@@ -187,6 +188,15 @@ class RetryTestCase(TestCase):
 
 
 class KubernetesTestCase(TestCase):
+    def test_persistent_volume_claim_storage_class(self):
+        connector = Connector()
+        claim = connector._persistent_volume_claim("claim", 10, {}, {})
+        self.assertEqual(claim["spec"]["storageClassName"], "gp3")
+        claim = connector._persistent_volume_claim(
+            "claim", 10, {"storageClassName": "gp2"}, {}
+        )
+        self.assertEqual(claim["spec"]["storageClassName"], "gp2")
+
     def test_kubernetes_label_sanitizer(self):
         label = "this-is-a-valid-label"
         self.assertEqual(label, sanitize_kubernetes_label(label))

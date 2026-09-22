@@ -25,6 +25,8 @@ Changed
   only the first error message, so report all problems in a single
   ``error`` call. The process exits with a non-zero return code, so put
   cleanup that must always run in a ``finally`` block
+- The persistent volume claims of the processing and input volumes default to
+  the ``gp3`` storage class instead of ``gp2``
 
 
 ===================
