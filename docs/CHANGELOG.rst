@@ -15,6 +15,7 @@ Fixed
 - Return ``404`` instead of ``500`` from the observer ``subscribe``
   endpoint when the websocket of the session closes during the request and
   its disconnect handler deletes the new subscription
+- Fix the init container ignoring the ``LOG_LEVEL`` environment variable
 Changed
 -------
 - **BACKWARD INCOMPATIBLE:** ``Process.error`` in Python processes stops the
