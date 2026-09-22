@@ -16,6 +16,9 @@ Fixed
   endpoint when the websocket of the session closes during the request and
   its disconnect handler deletes the new subscription
 - Fix the init container ignoring the ``LOG_LEVEL`` environment variable
+- Fix the init container waiting for the running downloads when the processing
+  is terminated: the transfer is aborted, the download of a shared storage
+  location is released and the container exits
 Changed
 -------
 - **BACKWARD INCOMPATIBLE:** ``Process.error`` in Python processes stops the

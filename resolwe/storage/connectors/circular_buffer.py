@@ -131,7 +131,11 @@ class CircularBuffer:
 
         :return: the number of bytes actually writen.
         :rtype: int
+
+        :raises ValueError: when the stream is closed.
         """
+        if self.closed:
+            raise ValueError("I/O operation on closed stream.")
         datamv = memoryview(data)
         data_pos = 0
         with self.__buffer_modify:

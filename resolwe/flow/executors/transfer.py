@@ -1,7 +1,6 @@
 """Transfer missing files to executor."""
 
 import asyncio
-import concurrent
 import logging
 import os
 from typing import List
@@ -141,13 +140,22 @@ async def download_data(missing_data: dict, communicator: BaseCommunicator) -> b
                 )
                 objects = response.message_data
 
-            # Execute long running task in a threadpool.
-            loop = asyncio.get_event_loop()
-            with concurrent.futures.ThreadPoolExecutor() as pool:
-                t = Transfer(from_connector, to_connector)
-                await loop.run_in_executor(
-                    pool, t.transfer_objects, missing_data["url"], objects
+            # Run the transfer in a thread. The thread cannot be cancelled: when
+            # the coroutine is, abort the transfer to stop it and release the
+            # download lock.
+            transfer = Transfer(from_connector, to_connector)
+            try:
+                await asyncio.to_thread(
+                    transfer.transfer_objects, missing_data["url"], objects
                 )
+            except asyncio.CancelledError:
+                transfer.abort()
+                await communicator.send_command(
+                    Message.command(
+                        ExecutorProtocol.DOWNLOAD_ABORTED, to_storage_location_id
+                    )
+                )
+                raise
 
             await communicator.send_command(
                 Message.command(

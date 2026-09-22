@@ -1,6 +1,9 @@
 # pylint: disable=missing-docstring
+import asyncio
 import tempfile
+import threading
 from pathlib import Path
+from time import time
 from typing import Sequence
 
 from resolwe.storage.connectors import utils
@@ -103,3 +106,32 @@ class UtilsTest(TestCase):
             futures[0].result()
         results = [f.result() for f in futures[1:]]
         self.assertEqual(results, [33, 33])
+
+    def test_async_paralelize_cancel(self):
+        started = threading.Event()
+        release = threading.Event()
+
+        def worker(parts: Sequence[int]) -> int:
+            started.set()
+            release.wait()
+            return sum(parts)
+
+        async def cancel_running():
+            loop = asyncio.get_running_loop()
+            task = asyncio.ensure_future(
+                utils.async_paralelize([1, 2], worker, loop, max_threads=1)
+            )
+            await asyncio.to_thread(started.wait)
+            task.cancel()
+            start = time()
+            with self.assertRaises(asyncio.CancelledError):
+                await task
+            return time() - start
+
+        # Release the worker later so a cancel blocked on it fails, not hangs.
+        threading.Timer(2, release.set).start()
+        try:
+            elapsed = asyncio.run(cancel_running())
+        finally:
+            release.set()
+        self.assertLess(elapsed, 1)

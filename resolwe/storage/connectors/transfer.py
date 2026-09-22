@@ -2,11 +2,12 @@
 
 import concurrent.futures
 import logging
-from contextlib import suppress
+import threading
+from contextlib import contextmanager, suppress
 from functools import partial
 from pathlib import Path
 from time import sleep
-from typing import TYPE_CHECKING, Iterable, List, Union
+from typing import TYPE_CHECKING, Iterable, Iterator, List, Union
 
 import wrapt
 from requests.exceptions import ConnectionError as RequestsConnectionError
@@ -51,11 +52,16 @@ transfer_exceptions = tuple(
 
 @wrapt.decorator
 def retry_on_transfer_error(wrapped, instance, args, kwargs):
-    """Retry on tranfser error."""
+    """Retry on transfer error.
+
+    The call is not retried when the transfer instance is aborted.
+    """
     for retry in range(1, ERROR_MAX_RETRIES + 1):
         try:
             return wrapped(*args, **kwargs)
         except transfer_exceptions:
+            if getattr(instance, "aborted", False):
+                raise
             # Log the exception on retry for inspection.
             if retry < ERROR_MAX_RETRIES:
                 timeout = min(
@@ -85,6 +91,42 @@ class Transfer:
         """Initialize transfer object."""
         self.from_connector = from_connector
         self.to_connector = to_connector
+        self._aborted = threading.Event()
+        # Streams of the objects in transfer, closed when the transfer is aborted.
+        self._streams: set = set()
+        self._streams_lock = threading.Lock()
+
+    @property
+    def aborted(self) -> bool:
+        """Get True if the transfer is aborted."""
+        return self._aborted.is_set()
+
+    def abort(self):
+        """Abort the transfer.
+
+        The worker threads stop before the next object. The streams of the
+        objects in transfer are closed so their transfer fails at once. The
+        method can be called from any thread and returns immediately.
+        """
+        self._aborted.set()
+        with self._streams_lock:
+            for stream in self._streams:
+                with suppress(Exception):
+                    stream.close()
+
+    @contextmanager
+    def _abortable(self, stream) -> Iterator:
+        """Close the stream on exit and when the transfer is aborted."""
+        with self._streams_lock:
+            self._streams.add(stream)
+            if self.aborted:
+                stream.close()
+        try:
+            yield stream
+        finally:
+            with self._streams_lock:
+                self._streams.discard(stream)
+            stream.close()
 
     def pre_processing(self, url: Union[str, Path], objects: List[dict]):
         """Notify connectors that transfer is about to start.
@@ -173,23 +215,38 @@ class Transfer:
         When objects have properties `from_base_url` and `to_base_url` they
         override the `url` argument.
 
-        :raises DataTransferError: on failure.
+        :raises DataTransferError: on failure or when the transfer is aborted.
         :returns: True on success.
         """
         to_connector = self.to_connector.duplicate()
         from_connector = self.from_connector.duplicate()
         for entry in objects:
             # Do not transfer directories.
-            if not entry["path"].endswith("/"):
+            if entry["path"].endswith("/"):
+                continue
+            if self.aborted:
+                raise DataTransferError("Transfer aborted.")
+            to_base_url = entry.get("to_base_url", url)
+            to_url = Path(entry["path"])
+            try:
                 if not self.transfer(
                     entry.get("from_base_url", url),
                     entry,
-                    entry.get("to_base_url", url),
-                    Path(entry["path"]),
+                    to_base_url,
+                    to_url,
                     from_connector,
                     to_connector,
                 ):
                     raise DataTransferError()
+            except Exception:
+                # The aborted transfer fails on its closed stream.
+                if not self.aborted:
+                    raise
+            if self.aborted:
+                # Remove the partially transfered object.
+                with suppress(Exception):
+                    to_connector.delete(to_base_url, [to_url])
+                raise DataTransferError("Transfer aborted.")
         return True
 
     @retry_on_transfer_error
@@ -280,16 +337,16 @@ class Transfer:
         # - if neither support streams then we use buffer to transfer the data
         #   from from_connector to to_connector.
         if from_connector.can_open_stream:
-            stream = from_connector.open_stream(from_url, "rb")
-            to_connector.push(
-                stream, to_base_url / to_url, chunk_size=chunk_size, hashes=hashes
-            )
-            stream.close()
+            with self._abortable(from_connector.open_stream(from_url, "rb")) as stream:
+                to_connector.push(
+                    stream, to_base_url / to_url, chunk_size=chunk_size, hashes=hashes
+                )
 
         elif to_connector.can_open_stream:
-            stream = to_connector.open_stream(to_base_url / to_url, "wb")
-            from_connector.get(from_url, stream, chunk_size=chunk_size)
-            stream.close()
+            with self._abortable(
+                to_connector.open_stream(to_base_url / to_url, "wb")
+            ) as stream:
+                from_connector.get(from_url, stream, chunk_size=chunk_size)
             to_connector.set_hashes(to_base_url / to_url, hashes)
 
         # Otherwise create out own stream and use threads to transfer data.
@@ -306,7 +363,10 @@ class Transfer:
             data_stream = CircularBuffer(
                 buffer_size=min(200 * 1024 * 1024, object_["size"] + 1)
             )
-            with concurrent.futures.ThreadPoolExecutor() as executor:
+            with (
+                self._abortable(data_stream),
+                concurrent.futures.ThreadPoolExecutor() as executor,
+            ):
                 download_task = executor.submit(
                     from_connector.get,
                     from_url,

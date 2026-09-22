@@ -2,7 +2,9 @@
 import asyncio
 import json
 import sys
+import threading
 from functools import partial
+from time import time
 from unittest.mock import MagicMock, call, patch
 
 from resolwe.flow.executors import transfer
@@ -412,6 +414,50 @@ class DownloadDataTest(BasicTestCase):
         transfer_module = MagicMock(return_value=transfer)
         self._test_workflow(send_command, transfer_module, commands)
         transfer_objects.assert_called_once_with("transfer_url", ["1", "dir/1"])
+
+    def test_download_cancelled(self):
+        commands = [
+            1,
+            (self.COMMAND_GET_FILES, self.FILES_LIST),
+            (self.COMMAND_DOWNLOAD_ABORTED, self.RESULT_OK),
+        ]
+        send_command = MagicMock(side_effect=partial(send, commands))
+        self.communicator_mock.send_command = send_command
+
+        started = threading.Event()
+        release = threading.Event()
+
+        def transfer_objects(*args):
+            started.set()
+            release.wait()
+
+        transfer_instance = MagicMock(transfer_objects=transfer_objects)
+        transfer_module = MagicMock(return_value=transfer_instance)
+
+        async def cancel_download():
+            task = asyncio.ensure_future(
+                transfer.download_data(self.missing_data.copy(), self.communicator_mock)
+            )
+            await asyncio.to_thread(started.wait)
+            task.cancel()
+            start = time()
+            with self.assertRaises(asyncio.CancelledError):
+                await task
+            release.set()
+            return time() - start
+
+        # Release the worker later so a cancel blocked on it fails, not hangs.
+        threading.Timer(2, release.set).start()
+        with patch.multiple(
+            TRANSFER, **self.get_patches(send_command, transfer_module)
+        ):
+            try:
+                elapsed = asyncio.run(cancel_download())
+            finally:
+                release.set()
+        self.assertLess(elapsed, 1)
+        transfer_instance.abort.assert_called_once_with()
+        self._test_workflow_calls(send_command, commands)
 
     def test_download_retry(self):
         commands = [

@@ -15,6 +15,14 @@ class CircularBufferTest(TestCase):
         self.assertEqual(stream.read(len(data)), data)
         self.assertEqual(stream.tell(), len(data))
 
+    def test_write_closed(self):
+        stream = CircularBuffer()
+        stream.write(b"before")
+        stream.close()
+        with self.assertRaises(ValueError):
+            stream.write(b"after")
+        self.assertEqual(stream.read(), b"before")
+
     def test_read_write_circular(self):
         stream = CircularBuffer(buffer_size=11)
         data = b"testing"
