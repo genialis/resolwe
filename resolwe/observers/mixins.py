@@ -2,6 +2,7 @@
 
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
+from django.db import IntegrityError
 from drf_spectacular.utils import extend_schema
 from rest_framework import serializers
 from rest_framework.decorators import action
@@ -58,17 +59,28 @@ class ObservableMixin:
 
         if ids is None:
             # Subscribe to the whole table.
-            subscription.subscribe(
-                content_type, [Observer.ALL_IDS], (ChangeType.CREATE, ChangeType.DELETE)
-            )
+            object_ids = [Observer.ALL_IDS]
+            change_types = (ChangeType.CREATE, ChangeType.DELETE)
         else:
             # Verify all ids exists and user has permissions to view them.
             for id in ids:
                 if not self.user_has_permission(id, request.user):
                     raise NotFound(f"Item {id} does not exist")
 
+            object_ids = ids
             change_types = (ChangeType.UPDATE, ChangeType.DELETE, ChangeType.CREATE)
-            subscription.subscribe(content_type, ids, change_types)
+
+        try:
+            subscription.subscribe(content_type, object_ids, change_types)
+        except IntegrityError:
+            # When the websocket of the session closes while subscribing, its
+            # disconnect handler deletes the new subscription and adding the
+            # next observer to it violates the foreign key. Each observer is added
+            # in its own transaction, so the error is raised here and not when the
+            # request commits.
+            if Subscription.objects.filter(pk=subscription.pk).exists():
+                raise
+            raise NotFound(f"Session {session_id} was closed.")
 
         serializer = ObserverSubscriptionSerializer(
             {"subscription_id": subscription.subscription_id}

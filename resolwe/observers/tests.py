@@ -3,6 +3,7 @@
 import asyncio
 import json
 import uuid
+from unittest.mock import patch
 
 from channels.db import database_sync_to_async
 from channels.routing import URLRouter
@@ -1661,6 +1662,29 @@ class ObserverAPITestCase(TransactionResolweAPITestCase):
         # Assert we don't have duplicate observers.
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(Observer.objects.count(), 5)
+
+    def test_subscribe_session_closed_during_subscription_returns_404(self):
+        subscribe = Subscription.subscribe
+
+        def close_session_then_subscribe(subscription, *args, **kwargs):
+            # The disconnect handler of the closed websocket deletes the
+            # subscriptions of its session while the request is subscribing.
+            Subscription.objects.filter(session_id=subscription.session_id).delete()
+            return subscribe(subscription, *args, **kwargs)
+
+        with patch.object(
+            Subscription,
+            "subscribe",
+            autospec=True,
+            side_effect=close_session_then_subscribe,
+        ):
+            resp = self._post(
+                user=self.user_alice, data={"session_id": "test", "ids": [42]}
+            )
+
+        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(str(resp.data["detail"]), "Session test was closed.")
+        self.assertFalse(Subscription.objects.exists())
 
     def test_subscribe_to_forbidden_object(self):
         resp = self._post(user=self.user_bob, data={"session_id": "test", "ids": [42]})

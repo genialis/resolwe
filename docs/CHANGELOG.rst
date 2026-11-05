@@ -6,6 +6,16 @@ All notable changes to this project are documented in this file.
 This project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
+==========
+Unreleased
+==========
+
+Fixed
+-----
+- Return ``404`` instead of ``500`` from the observer ``subscribe``
+  endpoint when the websocket of the session closes during the request and
+  its disconnect handler deletes the new subscription
+
 ===================
 45.2.0 - 2026-09-16
 ===================
