@@ -26,6 +26,12 @@ Changed
   ``error`` call. The process exits with a non-zero return code, so put
   cleanup that must always run in a ``finally`` block
 
+Changed
+-------
+- Include the annotation values of entities in their full-text search
+  vector, so the ``text`` filter of the entity endpoint matches annotation
+  labels and vocabulary values. The migration recomputes the search vector
+  of every entity in batches of 1000
 
 ===================
 45.2.0 - 2026-09-16
