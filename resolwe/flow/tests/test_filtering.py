@@ -8,6 +8,7 @@ from rest_framework import status
 from rest_framework.test import APIRequestFactory, force_authenticate
 
 from resolwe.flow.models import (
+    AnnotationField,
     Collection,
     Data,
     DescriptorSchema,
@@ -16,6 +17,7 @@ from resolwe.flow.models import (
     Relation,
     RelationType,
 )
+from resolwe.flow.models.annotations import AnnotationGroup, AnnotationType
 from resolwe.flow.views import (
     CollectionViewSet,
     DataViewSet,
@@ -771,6 +773,91 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
             ),
             status_code=status.HTTP_400_BAD_REQUEST,
         )
+
+    def _create_annotation_field(self, name, vocabulary=None):
+        group, _ = AnnotationGroup.objects.get_or_create(
+            name="biospecimen", defaults={"label": "Biospecimen", "sort_order": 1}
+        )
+        return AnnotationField.objects.create(
+            name=name,
+            label=name.capitalize(),
+            type=AnnotationType.STRING.value,
+            sort_order=group.fields.count() + 1,
+            group=group,
+            vocabulary=vocabulary,
+        )
+
+    def test_filter_text_annotation_value(self):
+        self._create_annotation_field("organ")
+        self.entities[0].update_annotations(
+            {"biospecimen.organ": "pancreas"}, self.contributor
+        )
+
+        self._check_filter({"text": "pancreas"}, [self.entities[0]])
+        # Entities without annotations still have a search vector.
+        self.assertFalse(Entity.objects.filter(search__isnull=True).exists())
+
+    def test_filter_text_annotation_vocabulary(self):
+        self._create_annotation_field("tissue", vocabulary={"LNG": "Lung tissue"})
+        self.entities[1].update_annotations(
+            {"biospecimen.tissue": "LNG"}, self.contributor
+        )
+
+        # Both the label and the vocabulary value are searchable.
+        self._check_filter({"text": "lung"}, [self.entities[1]])
+        self._check_filter({"text": "LNG"}, [self.entities[1]])
+
+    def test_filter_text_annotation_changes(self):
+        self._create_annotation_field("organ")
+        self._create_annotation_field("disease")
+        # Two values of one entity are written in the same statements.
+        self.entities[0].update_annotations(
+            {"biospecimen.organ": "pancreas", "biospecimen.disease": "carcinoma"},
+            self.contributor,
+        )
+        self._check_filter({"text": "pancreas carcinoma"}, [self.entities[0]])
+
+        # Changed value: the old value is no longer found, the new one is.
+        self.entities[0].update_annotations(
+            {"biospecimen.organ": "liver"}, self.contributor
+        )
+        self._check_filter({"text": "pancreas"}, [])
+        self._check_filter({"text": "liver"}, [self.entities[0]])
+
+        # Deleted value.
+        self.entities[0].update_annotations(
+            {"biospecimen.organ": None}, self.contributor
+        )
+        self._check_filter({"text": "liver"}, [])
+        self._check_filter({"text": "carcinoma"}, [self.entities[0]])
+
+    def test_filter_text_annotation_vocabulary_label_change(self):
+        field = self._create_annotation_field(
+            "tissue", vocabulary={"LNG": "Lung tissue"}
+        )
+        self.entities[1].update_annotations(
+            {"biospecimen.tissue": "LNG"}, self.contributor
+        )
+
+        field.vocabulary = {"LNG": "Pulmonary"}
+        field.save()
+
+        self._check_filter({"text": "pulmonary"}, [self.entities[1]])
+        self._check_filter({"text": "lung"}, [])
+
+    def test_order_by_relevance_annotation(self):
+        self._create_annotation_field("organism")
+        self.entities[0].update_annotations(
+            {"biospecimen.organism": "zebrafish"}, self.contributor
+        )
+        self.entities[1].name = "Zebrafish entity"
+        self.entities[1].save()
+
+        # A match in the name ranks above a match in an annotation.
+        result = self._check_filter(
+            {"text": "zebrafish"}, [self.entities[0], self.entities[1]]
+        )
+        self.assertEqual(result.data[0]["id"], self.entities[1].pk)
 
     def test_order_by_collection_name(self):
         """Check entities can be ordered by the collection name."""
