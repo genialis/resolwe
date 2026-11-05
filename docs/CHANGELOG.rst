@@ -42,6 +42,12 @@ Changed
   per 100 files. ``paralelize`` in ``resolwe.storage.connectors.utils``
   returns the results of the workers instead of their futures
 
+Changed
+-------
+- Include the annotation values of entities in their full-text search
+  vector, so the ``text`` filter of the entity endpoint matches annotation
+  labels and vocabulary values. The migration recomputes the search vector
+  of every entity in batches of 1000
 
 ===================
 45.2.0 - 2026-09-16
