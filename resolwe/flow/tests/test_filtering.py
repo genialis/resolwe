@@ -810,7 +810,7 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
     def test_filter_text_annotation_changes(self):
         self._create_annotation_field("organ")
         self._create_annotation_field("disease")
-        # Two values of one entity are written in the same statements.
+        # Two values of one entity are written in one call.
         self.entities[0].update_annotations(
             {"biospecimen.organ": "pancreas", "biospecimen.disease": "carcinoma"},
             self.contributor,
