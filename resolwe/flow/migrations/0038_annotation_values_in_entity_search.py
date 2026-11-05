@@ -5,6 +5,9 @@ from django.db import connection, migrations, transaction
 # The number of entities whose search vectors are recomputed in one transaction.
 BATCH_SIZE = 1000
 
+# Fail instead of queueing writers to the tables whose triggers are replaced.
+LOCK_TIMEOUT = "5s"
+
 ANNOTATION_VALUE_TRIGGERS = [
     "annotationvalue_entity_ait",
     "annotationvalue_entity_aut",
@@ -12,29 +15,13 @@ ANNOTATION_VALUE_TRIGGERS = [
 ]
 
 
-def load_triggers(apps, schema_editor):
-    file_names = ["triggers_entity.sql", "triggers_annotationvalue.sql"]
-    with connection.cursor() as c:
-        for file_name in file_names:
-            file_path = os.path.join(os.path.dirname(__file__), file_name)
-            with open(file_path) as fh:
-                sql_statement = fh.read()
-            c.execute(sql_statement)
+def execute_sql_file(cursor, file_name):
+    file_path = os.path.join(os.path.dirname(__file__), file_name)
+    with open(file_path) as fh:
+        cursor.execute(fh.read())
 
 
-def drop_annotation_value_triggers(apps, schema_editor):
-    """Drop the triggers on annotation values.
-
-    The entity search function keeps reading annotation values, because its
-    previous definition is not stored anywhere.
-    """
-    with connection.cursor() as c:
-        for name in ANNOTATION_VALUE_TRIGGERS:
-            c.execute(f"DROP TRIGGER IF EXISTS {name} ON flow_annotationvalue;")
-            c.execute(f"DROP FUNCTION IF EXISTS {name}();")
-
-
-def recompute_entity_search(apps, schema_editor):
+def recompute_entity_search():
     """Recompute the search vectors of all entities in batches.
 
     Each batch runs in its own transaction to avoid locking all entities at once.
@@ -53,6 +40,24 @@ def recompute_entity_search(apps, schema_editor):
             )
 
 
+def index_annotation_values(apps, schema_editor):
+    with transaction.atomic(), connection.cursor() as c:
+        c.execute(f"SET LOCAL lock_timeout = '{LOCK_TIMEOUT}';")
+        execute_sql_file(c, "triggers_annotationvalue.sql")
+    recompute_entity_search()
+
+
+def unindex_annotation_values(apps, schema_editor):
+    with transaction.atomic(), connection.cursor() as c:
+        c.execute(f"SET LOCAL lock_timeout = '{LOCK_TIMEOUT}';")
+        for name in ANNOTATION_VALUE_TRIGGERS:
+            c.execute(f"DROP TRIGGER IF EXISTS {name} ON flow_annotationvalue;")
+            c.execute(f"DROP FUNCTION IF EXISTS {name}();")
+        c.execute("DROP FUNCTION IF EXISTS annotationvalue_entity_recompute(bigint[]);")
+        execute_sql_file(c, "triggers_entity.sql")
+    recompute_entity_search()
+
+
 class Migration(migrations.Migration):
     atomic = False
 
@@ -60,9 +65,6 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.RunPython(
-            load_triggers, reverse_code=drop_annotation_value_triggers, atomic=True
-        ),
-        migrations.RunPython(
-            recompute_entity_search, reverse_code=migrations.RunPython.noop
+            index_annotation_values, reverse_code=unindex_annotation_values
         ),
     ]

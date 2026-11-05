@@ -1,4 +1,6 @@
 -- Trigger after insert/update Entity object.
+-- triggers_annotationvalue.sql replaces generate_resolwe_entity_search with a version
+-- that also indexes annotation values. Load it after this file.
 CREATE OR REPLACE FUNCTION generate_resolwe_entity_search(entity flow_entity)
     RETURNS tsvector
     LANGUAGE plpgsql
@@ -6,7 +8,7 @@ CREATE OR REPLACE FUNCTION generate_resolwe_entity_search(entity flow_entity)
     DECLARE
         owners users_result;
         contributor users_result;
-        flat_annotations text;
+        flat_descriptor text;
         search tsvector;
     BEGIN
         SELECT
@@ -25,23 +27,6 @@ CREATE OR REPLACE FUNCTION generate_resolwe_entity_search(entity flow_entity)
         INTO contributor
         FROM auth_user
         WHERE id = entity.contributor_id;
-
-        -- Labels of the live annotation values, and their values when they differ
-        -- (vocabulary values).
-        SELECT COALESCE(
-            string_agg(
-                CASE
-                    WHEN annotation._value->>'value' IS DISTINCT FROM annotation._value->>'label'
-                    THEN concat_ws(' ', annotation._value->>'label', annotation._value->>'value')
-                    ELSE annotation._value->>'label'
-                END,
-                ' '
-            ),
-            ''
-        )
-        INTO flat_annotations
-        FROM flow_annotationvalue annotation
-        WHERE annotation.entity_id = entity.id AND annotation.deleted = false;
 
         SELECT
             -- Entity name.
@@ -67,11 +52,7 @@ CREATE OR REPLACE FUNCTION generate_resolwe_entity_search(entity flow_entity)
             -- Owners last names. There is no guarantee that it is not NULL.
             setweight(to_tsvector('simple_unaccent', COALESCE(owners.last_names, '')), 'B') ||
             -- Entity tags.
-            setweight(to_tsvector('simple_unaccent', array_to_string(entity.tags, ' ')), 'B') ||
-            -- Entity annotation values.
-            setweight(to_tsvector('simple_unaccent', flat_annotations), 'C') ||
-            setweight(to_tsvector('simple_unaccent', get_characters(flat_annotations)), 'D') ||
-            setweight(to_tsvector('simple_unaccent', get_numbers(flat_annotations)), 'D')
+            setweight(to_tsvector('simple_unaccent', array_to_string(entity.tags, ' ')), 'B')
         INTO search;
 
         RETURN search;
