@@ -248,6 +248,18 @@ class ErrorProcess(Process):
         raise ValueError("Value error in ErrorProcess")
 
 
+class ReportErrorProcess(Process):
+    slug = "test-python-process-report-error"
+    name = "Test Python Process Report Error"
+    version = "0.0.1"
+    process_type = "data:python:error:report"
+
+    def run(self, inputs, outputs):
+        # Nothing follows the error: when it does not stop the process, the
+        # process exits normally and the return code stays unset.
+        self.error("Reported error in ReportErrorProcess")
+
+
 class AnnotateProcessV2(Process):
     slug = "test-python-process-annotate-entity-v2"
     name = "Test Python Process Annotate Entity V2"

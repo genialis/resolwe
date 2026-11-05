@@ -316,7 +316,17 @@ class PythonProcessTest(ProcessTestCase):
         data = self.run_process(
             "test-python-process-error", assert_status=Data.STATUS_ERROR
         )
-        self.assertEqual(data.process_error[0], "Value error in ErrorProcess")
+        self.assertEqual(data.process_error, ["Value error in ErrorProcess"])
+
+    @with_docker_executor
+    @tag_process("test-python-process-report-error")
+    def test_report_error(self):
+        """Test process that reports an error with ``self.error``."""
+        data = self.run_process(
+            "test-python-process-report-error", assert_status=Data.STATUS_ERROR
+        )
+        self.assertEqual(data.process_error, ["Reported error in ReportErrorProcess"])
+        self.assertEqual(data.process_rc, 1)
 
     @with_docker_executor
     @tag_process("test-python-process-file")

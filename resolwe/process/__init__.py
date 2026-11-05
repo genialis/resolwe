@@ -24,7 +24,7 @@ from .fields import (
     UrlField,
 )
 from .models import Collection, Data, Entity
-from .runtime import Process
+from .runtime import Process, ProcessError
 
 try:
     from plumbum import local as Cmd
@@ -73,6 +73,7 @@ __all__ = (
     "Persistence",
     "Process",
     "ProcessDescriptor",
+    "ProcessError",
     "SchedulingClass",
     "SecretField",
     "StringField",

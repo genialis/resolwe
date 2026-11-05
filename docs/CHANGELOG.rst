@@ -15,6 +15,17 @@ Fixed
 - Return ``404`` instead of ``500`` from the observer ``subscribe``
   endpoint when the websocket of the session closes during the request and
   its disconnect handler deletes the new subscription
+Changed
+-------
+- **BACKWARD INCOMPATIBLE:** ``Process.error`` in Python processes stops the
+  process: it stores the error message and raises the new
+  ``resolwe.process.ProcessError``. Before, the process continued and
+  failed later with an unrelated error, because the listener rejects all
+  further commands of a data object in the error state. The listener stores
+  only the first error message, so report all problems in a single
+  ``error`` call. The process exits with a non-zero return code, so put
+  cleanup that must always run in a ``finally`` block
+
 
 ===================
 45.2.0 - 2026-09-16

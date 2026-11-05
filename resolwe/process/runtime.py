@@ -3,7 +3,7 @@
 import logging
 import sys
 from pathlib import Path
-from typing import Dict, List, Union
+from typing import Dict, List, NoReturn, Union
 
 from .communicator import CommandError, communicator
 from .descriptor import ProcessDescriptor
@@ -15,6 +15,21 @@ PROCESS_INPUTS_NAME = "Input"
 # Outputs class name.
 PROCESS_OUTPUTS_NAME = "Output"
 logger = logging.getLogger(__name__)
+
+
+class ProcessError(Exception):
+    """Error that stops the process.
+
+    :meth:`Process.error` sends the message to the listener and raises it
+    with ``reported`` set, so :meth:`Process.start` does not send it again.
+    When the exception is raised directly, :meth:`Process.start` sends the
+    message.
+    """
+
+    def __init__(self, message: str, *, reported: bool = False):
+        """Store the message and whether it was already sent."""
+        super().__init__(message)
+        self.reported = reported
 
 
 class FlushOnWrite:
@@ -158,9 +173,8 @@ class Process(metaclass=ProcessMeta):
         The log may contain multiple info, warning and error messages.
 
         Sending the log never aborts the process: when the data object is
-        already in the error state (the process reported an error and
-        continued), the listener rejects further log entries. The rejection
-        is written to the standard output instead.
+        already in the error state, the listener rejects further log entries.
+        The rejection is written to the standard output instead.
 
         :param log: dictionary with keys 'info', 'warning' and 'error'. The
             corresponding values are lists of strings. Some keys may be
@@ -181,10 +195,17 @@ class Process(metaclass=ProcessMeta):
         to_send = " ".join([str(x) for x in args])
         self._process_log({"warning": [to_send]})
 
-    def error(self, *args):
-        """Log error message."""
+    def error(self, *args) -> NoReturn:
+        """Report an error and stop the process.
+
+        The listener stores only the first error of a data object, so report
+        all problems in a single call.
+
+        :raises ProcessError: always, after the message is sent.
+        """
         to_send = " ".join([str(x) for x in args])
         self._process_log({"error": [to_send]})
+        raise ProcessError(to_send, reported=True)
 
     def get_data_id_by_slug(self, slug) -> int:
         """Find data object ID for given slug."""
@@ -228,13 +249,18 @@ class Process(metaclass=ProcessMeta):
         try:
             self.run(self.data.input, self.data.output)
             return self.data.output.freeze()
+        except ProcessError as error:
+            self.logger.exception("Process reported an error")
+            if not error.reported:
+                self._process_log({"error": [str(error)]})
+            raise
         except Exception as error:
             self.logger.exception("Exception while running process")
-            self.error(str(error))
+            self._process_log({"error": [str(error)]})
             raise
         except:  # noqa
             self.logger.exception("Exception while running process")
-            self.error("Exception while running process")
+            self._process_log({"error": ["Exception while running process"]})
             raise
         finally:
             self.logger.info("Process has finished")

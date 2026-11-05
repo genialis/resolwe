@@ -254,10 +254,12 @@ class YourProcessName(Process):
             # returns None if process exists sucessfully
         )
 
-        # Report errors, warning or info using:
-        self.error(f"Oops, an error occurred in {inputs.data_field.id}")
+        # Report warning or info using:
         self.warning(f"Warning in {inputs.data_field.id}")
         self.info(f"Pass info about {self.version}")
+        # Report an error and stop the process using:
+        if return_code:
+            self.error(f"Oops, an error occurred in {inputs.data_field.id}")
 
         # You can move the progress bar using a float on scale 0.0 to 1.0.
         self.progress(0.5)
