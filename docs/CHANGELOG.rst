@@ -10,8 +10,21 @@ This project adheres to `Semantic Versioning <http://semver.org/>`_.
 Unreleased
 ==========
 
+Added
+-----
+- The listener rebuilds the full-text search vectors of entities whose
+  annotation values changed, every ``LISTENER_ENTITY_SEARCH_INTERVAL``
+  seconds (default ``5``, ``None`` disables it). Writers of annotation
+  values only queue the entities, so they do not lock entity rows for
+  update
+
 Fixed
 -----
+- The ``text`` filter of the entity endpoint matches annotation values
+  again: the entity search vector includes the labels of the annotation
+  values and their vocabulary values. Changes appear in search after the
+  next rebuild by the listener. The migration queues every entity with
+  annotation values for a rebuild
 - Return ``404`` instead of ``500`` from the observer ``subscribe``
   endpoint when the websocket of the session closes during the request and
   its disconnect handler deletes the new subscription
@@ -25,13 +38,6 @@ Changed
   only the first error message, so report all problems in a single
   ``error`` call. The process exits with a non-zero return code, so put
   cleanup that must always run in a ``finally`` block
-
-Changed
--------
-- Include the annotation values of entities in their full-text search
-  vector, so the ``text`` filter of the entity endpoint matches annotation
-  labels and vocabulary values. The migration recomputes the search vector
-  of every entity in batches of 1000
 
 ===================
 45.2.0 - 2026-09-16

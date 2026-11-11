@@ -1,6 +1,4 @@
 -- Trigger after insert/update Entity object.
--- triggers_annotationvalue.sql replaces generate_resolwe_entity_search with a version
--- that also indexes annotation values. Load it after this file.
 CREATE OR REPLACE FUNCTION generate_resolwe_entity_search(entity flow_entity)
     RETURNS tsvector
     LANGUAGE plpgsql
@@ -54,6 +52,13 @@ CREATE OR REPLACE FUNCTION generate_resolwe_entity_search(entity flow_entity)
             -- Entity tags.
             setweight(to_tsvector('simple_unaccent', array_to_string(entity.tags, ' ')), 'B')
         INTO search;
+
+        -- Entity annotation values. The function is defined in
+        -- triggers_annotationvalue.sql and does not exist yet when older migrations
+        -- load this file.
+        IF to_regprocedure('generate_resolwe_entity_annotation_search(flow_entity)') IS NOT NULL THEN
+            search := search || generate_resolwe_entity_annotation_search(entity);
+        END IF;
 
         RETURN search;
     END;
