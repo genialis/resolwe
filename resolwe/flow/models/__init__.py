@@ -43,6 +43,11 @@ data objects are related in a specific domain.
 .. autoclass:: resolwe.flow.models.Entity
     :members:
 
+.. autoclass:: resolwe.flow.models.EntitySearchQueue
+    :members:
+
+.. autofunction:: resolwe.flow.models.entity.rebuild_entity_search
+
 .. autoclass:: resolwe.flow.models.Relation
     :members:
 
@@ -237,7 +242,13 @@ from .annotations import (
 from .collection import Collection
 from .data import Data, DataDependency
 from .descriptor import DescriptorSchema
-from .entity import Entity, Relation, RelationPartition, RelationType
+from .entity import (
+    Entity,
+    EntitySearchQueue,
+    Relation,
+    RelationPartition,
+    RelationType,
+)
 from .history import (
     CollectionHistory,
     CollectionNameChange,
@@ -269,6 +280,7 @@ __all__ = (
     "DataSlugChange",
     "DescriptorSchema",
     "Entity",
+    "EntitySearchQueue",
     "Process",
     "ProcessMigrationHistory",
     "Relation",
