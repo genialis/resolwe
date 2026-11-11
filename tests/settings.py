@@ -103,6 +103,10 @@ REDIS_CONNECTION = {
 }
 REDIS_CONNECTION_STRING = "{protocol}://{host}:{port}/{db}".format(**REDIS_CONNECTION)
 
+# The tests rebuild the queued entity search vectors explicitly, so the listener
+# must not rebuild them concurrently.
+LISTENER_ENTITY_SEARCH_INTERVAL = None
+
 LISTENER_CONNECTION = {
     # Keys in the hosts dictionary are workload connector names. Currently
     # supported are 'local', 'kubertenes', 'celery' and 'slurm'.
