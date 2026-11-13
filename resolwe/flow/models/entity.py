@@ -1,12 +1,14 @@
 """Resolwe entity model."""
 
+import logging
+import time
 from itertools import batched
 from typing import Any, List, Optional, Union
 
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.postgres.indexes import GinIndex
 from django.core.exceptions import ValidationError
-from django.db import models, transaction
+from django.db import DatabaseError, connection, models, transaction
 
 from resolwe.flow.models.annotations import AnnotationField, AnnotationValue
 from resolwe.flow.models.base import BaseQuerySet
@@ -19,6 +21,8 @@ from resolwe.permissions.models import PermissionObject
 from .base import BaseModel
 from .collection import BaseCollection, BaseCollectionQuerySet, Collection
 from .utils import DirtyError, validate_schema
+
+logger = logging.getLogger(__name__)
 
 
 class EntityQuerySet(BaseCollectionQuerySet):
@@ -395,6 +399,96 @@ class Entity(PermissionObject, BaseCollection):
                 AnnotationValue.objects.filter(entity=self).exclude(
                     pk__in=created_entity_value_ids
                 ).update(deleted=True)
+
+
+class EntitySearchQueue(models.Model):
+    """An entity whose full-text search vector must be rebuilt.
+
+    Triggers on annotation values add a row for every entity whose values change,
+    and :func:`rebuild_entity_search` rebuilds the vectors outside the writing
+    transaction. The entity is not a foreign key and the rows are not unique, so
+    writers never wait on entity rows or on each other.
+    """
+
+    id = models.BigAutoField(primary_key=True)
+
+    #: the entity whose search vector must be rebuilt
+    entity_id = models.IntegerField(db_index=True)
+
+    #: the time the entity was queued
+    created = models.DateTimeField(auto_now_add=True)
+
+
+def rebuild_entity_search(batch_size: int = 500, time_budget: float = 20.0) -> int:
+    """Rebuild the full-text search vectors of the queued entities.
+
+    Each batch of queue rows is claimed and rebuilt in its own transaction. The
+    other queued rows of the claimed entities are dropped, since the rebuild sees
+    the changes that queued them. Entities locked by another transaction are
+    skipped and queued again, so the rebuild never waits for a lock.
+
+    :param batch_size: the number of queue rows claimed in one transaction.
+    :param time_budget: the number of seconds after which no new batch is started.
+    :return: the number of entity rebuilds.
+    """
+    rebuilt = 0
+    deadline = time.monotonic() + time_budget
+    while time.monotonic() < deadline:
+        try:
+            with transaction.atomic(), connection.cursor() as cursor:
+                # Rows claimed by a concurrent call are skipped.
+                cursor.execute(
+                    """
+                    DELETE FROM flow_entitysearchqueue
+                    WHERE id IN (
+                        SELECT id FROM flow_entitysearchqueue
+                        ORDER BY id LIMIT %s FOR UPDATE SKIP LOCKED
+                    )
+                    RETURNING entity_id
+                    """,
+                    [batch_size],
+                )
+                entity_ids = sorted({row[0] for row in cursor.fetchall()})
+                if not entity_ids:
+                    break
+                cursor.execute(
+                    """
+                    DELETE FROM flow_entitysearchqueue
+                    WHERE id IN (
+                        SELECT id FROM flow_entitysearchqueue
+                        WHERE entity_id = ANY(%s) FOR UPDATE SKIP LOCKED
+                    )
+                    """,
+                    [entity_ids],
+                )
+                cursor.execute(
+                    "SELECT id FROM flow_entity WHERE id = ANY(%s) "
+                    "ORDER BY id FOR NO KEY UPDATE SKIP LOCKED",
+                    [entity_ids],
+                )
+                locked_ids = [row[0] for row in cursor.fetchall()]
+                # Queue the existing entities that are locked again.
+                cursor.execute(
+                    """
+                    INSERT INTO flow_entitysearchqueue (entity_id, created)
+                    SELECT id, now() FROM flow_entity
+                    WHERE id = ANY(%s) AND NOT id = ANY(%s)
+                    """,
+                    [entity_ids, locked_ids],
+                )
+                # Setting the search field to NULL triggers entity_biut.
+                cursor.execute(
+                    "UPDATE flow_entity SET search = NULL WHERE id = ANY(%s)",
+                    [locked_ids],
+                )
+                rebuilt += cursor.rowcount
+        except DatabaseError as error:
+            logger.warning("Rebuilding the entity search vectors failed: %s", error)
+            break
+        # Only locked entities are left, retry them in the next call.
+        if not locked_ids:
+            break
+    return rebuilt
 
 
 class RelationType(models.Model):

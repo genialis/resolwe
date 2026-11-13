@@ -49,6 +49,7 @@ from resolwe.flow.managers.listener.metrics import metrics_reporter
 from resolwe.flow.managers.protocol import WorkerProtocol
 from resolwe.flow.managers.state import LISTENER_CONTROL_CHANNEL  # noqa: F401
 from resolwe.flow.models import Data, Storage, Worker
+from resolwe.flow.models.entity import rebuild_entity_search
 from resolwe.flow.utils import iterate_schema
 from resolwe.storage.models import AccessLog
 from resolwe.test.utils import ignore_in_tests, is_testing
@@ -895,6 +896,25 @@ class ListenerProtocol(BaseProtocol):
             await self._message_processor.requeue_stalled_data()
             await asyncio.sleep(check_interval)
 
+    async def entity_search_task(self, interval: float):
+        """Periodically rebuild the search vectors of the queued entities.
+
+        Writers of annotation values only queue the entities, see
+        :func:`~resolwe.flow.models.entity.rebuild_entity_search`. This task must be
+        cancelled to stop.
+
+        :attr interval: how many seconds to wait between two consecutive rebuilds.
+        """
+        while True:
+            try:
+                with audit_context(context_id="listener-entity-search"):
+                    await database_sync_to_async(
+                        rebuild_entity_search, thread_sensitive=False
+                    )()
+            except Exception:
+                logger.exception("Error rebuilding the entity search vectors.")
+            await asyncio.sleep(interval)
+
     async def check_workers(self):
         """Check all workers and possibly mark them as stalled."""
 
@@ -1193,6 +1213,7 @@ class ExecutorListener:
         self._channels_listener: Optional[asyncio.Future] = None
         self._communicating_future: Optional[asyncio.Future] = None
         self._heartbeat_future: Optional[asyncio.Future] = None
+        self._entity_search_future: Optional[asyncio.Future] = None
 
     @property
     def should_stop(self):
@@ -1258,6 +1279,14 @@ class ExecutorListener:
         self._heartbeat_future = asyncio.ensure_future(
             self.listener_protocol.heartbeat_task()
         )
+        # The setting None disables the rebuilds, for example in tests that
+        # rebuild explicitly.
+        self._entity_search_future = None
+        entity_search_interval = getattr(settings, "LISTENER_ENTITY_SEARCH_INTERVAL", 5)
+        if entity_search_interval is not None:
+            self._entity_search_future = asyncio.ensure_future(
+                self.listener_protocol.entity_search_task(entity_search_interval)
+            )
         return self
 
     async def __aexit__(self, typ, value, trace):
@@ -1273,6 +1302,8 @@ class ExecutorListener:
         assert self._heartbeat_future is not None
         self._channels_listener.cancel()
         self._heartbeat_future.cancel()
+        if self._entity_search_future is not None:
+            self._entity_search_future.cancel()
         self.terminate()
         logger.debug("Awaiting runner future.")
         await asyncio.gather(self._runner_future)

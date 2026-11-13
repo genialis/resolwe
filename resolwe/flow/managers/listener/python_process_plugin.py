@@ -232,7 +232,16 @@ class PythonProcess(ListenerPlugin):
         self._permission_manager.can_update(
             manager.contributor(data_id), "flow.Entity", entity, {}, data_id
         )
-        entity.update_annotations(annotations, manager.contributor(data_id), update)
+
+        @retry_database_writes
+        def update_annotations():
+            """Update the annotations in one transaction, retrying aborted writes."""
+            with write_transaction():
+                entity.update_annotations(
+                    annotations, manager.contributor(data_id), update
+                )
+
+        update_annotations()
         return message.respond_ok("OK")
 
     def handle_get_entity_annotations(

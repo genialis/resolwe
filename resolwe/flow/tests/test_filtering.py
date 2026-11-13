@@ -1,21 +1,38 @@
 # pylint: disable=missing-docstring
+import asyncio
 import datetime
+import threading
+from unittest.mock import call, patch
 
+from asgiref.sync import async_to_sync
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
+from django.contrib.postgres.search import SearchQuery
+from django.db import connection, transaction
+from django.test import SimpleTestCase
+from django.urls import reverse
 from django.utils.timezone import get_current_timezone
 from rest_framework import status
-from rest_framework.test import APIRequestFactory, force_authenticate
+from rest_framework.test import APIClient, APIRequestFactory, force_authenticate
 
+from resolwe.flow.managers.listener.listener import ListenerProtocol
 from resolwe.flow.models import (
+    AnnotationField,
     Collection,
     Data,
     DescriptorSchema,
     Entity,
+    EntitySearchQueue,
     Process,
     Relation,
     RelationType,
 )
+from resolwe.flow.models.annotations import (
+    AnnotationGroup,
+    AnnotationType,
+    AnnotationValue,
+)
+from resolwe.flow.models.entity import rebuild_entity_search
 from resolwe.flow.views import (
     CollectionViewSet,
     DataViewSet,
@@ -25,7 +42,7 @@ from resolwe.flow.views import (
     RelationViewSet,
 )
 from resolwe.permissions.models import Permission, get_anonymous_user
-from resolwe.test import TestCase
+from resolwe.test import TestCase, TransactionTestCase
 
 factory = APIRequestFactory()
 
@@ -772,6 +789,148 @@ class EntityViewSetFiltersTest(BaseViewSetFiltersTest):
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
+    def _create_annotation_field(self, name, vocabulary=None):
+        group, _ = AnnotationGroup.objects.get_or_create(
+            name="biospecimen", defaults={"label": "Biospecimen", "sort_order": 1}
+        )
+        return AnnotationField.objects.create(
+            name=name,
+            label=name.capitalize(),
+            type=AnnotationType.STRING.value,
+            sort_order=group.fields.count() + 1,
+            group=group,
+            vocabulary=vocabulary,
+        )
+
+    def _set_annotations(self, entity, annotations):
+        """Set the annotations and rebuild the queued search vectors."""
+        entity.update_annotations(annotations, self.contributor)
+        rebuild_entity_search()
+
+    def test_filter_text_annotation_value(self):
+        self._create_annotation_field("organ")
+        self.entities[0].update_annotations(
+            {"biospecimen.organ": "pancreas"}, self.contributor
+        )
+        # Writers only queue the entity, the search vector is rebuilt later.
+        self._check_filter({"text": "pancreas"}, [])
+        self.assertEqual(
+            list(EntitySearchQueue.objects.values_list("entity_id", flat=True)),
+            [self.entities[0].pk],
+        )
+
+        rebuild_entity_search()
+        self._check_filter({"text": "pancreas"}, [self.entities[0]])
+        self.assertFalse(EntitySearchQueue.objects.exists())
+        # Entities without annotations still have a search vector.
+        self.assertFalse(Entity.objects.filter(search__isnull=True).exists())
+
+    def test_filter_text_annotation_vocabulary(self):
+        self._create_annotation_field("tissue", vocabulary={"LNG": "Lung tissue"})
+        self._set_annotations(self.entities[1], {"biospecimen.tissue": "LNG"})
+
+        # Both the label and the vocabulary value are searchable.
+        self._check_filter({"text": "lung"}, [self.entities[1]])
+        self._check_filter({"text": "LNG"}, [self.entities[1]])
+
+    def test_filter_text_annotation_changes(self):
+        self._create_annotation_field("organ")
+        self._create_annotation_field("disease")
+        # Two values of one entity are written in one call.
+        self._set_annotations(
+            self.entities[0],
+            {"biospecimen.organ": "pancreas", "biospecimen.disease": "carcinoma"},
+        )
+        self._check_filter({"text": "pancreas carcinoma"}, [self.entities[0]])
+
+        # Changed value: the old value is no longer found, the new one is.
+        self._set_annotations(self.entities[0], {"biospecimen.organ": "liver"})
+        self._check_filter({"text": "pancreas"}, [])
+        self._check_filter({"text": "liver"}, [self.entities[0]])
+
+        # Deleted value.
+        self._set_annotations(self.entities[0], {"biospecimen.organ": None})
+        self._check_filter({"text": "liver"}, [])
+        self._check_filter({"text": "carcinoma"}, [self.entities[0]])
+
+    def test_filter_text_annotation_vocabulary_label_change(self):
+        field = self._create_annotation_field(
+            "tissue", vocabulary={"LNG": "Lung tissue"}
+        )
+        self._set_annotations(self.entities[0], {"biospecimen.tissue": "LNG"})
+        self._set_annotations(self.entities[1], {"biospecimen.tissue": "LNG"})
+
+        # The labels of both entities change in one statement.
+        field.vocabulary = {"LNG": "Pulmonary"}
+        field.save()
+        rebuild_entity_search()
+
+        self._check_filter({"text": "pulmonary"}, self.entities[:2])
+        self._check_filter({"text": "lung"}, [])
+
+    def test_filter_text_annotation_list_create(self):
+        field = self._create_annotation_field("organ")
+        self._set_annotations(self.entities[0], {"biospecimen.organ": "pancreas"})
+        self._set_annotations(self.entities[1], {"biospecimen.organ": "kidney"})
+
+        # One request replaces the value of one entity and deletes the other.
+        client = APIClient()
+        client.force_authenticate(self.admin)
+        response = client.post(
+            reverse("resolwe-api:annotationvalue-list"),
+            [
+                {"entity": self.entities[0].pk, "field": field.pk, "value": "liver"},
+                {"entity": self.entities[1].pk, "field": field.pk, "value": None},
+            ],
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        rebuild_entity_search()
+
+        self._check_filter({"text": "liver"}, [self.entities[0]])
+        self._check_filter({"text": "pancreas"}, [])
+        self._check_filter({"text": "kidney"}, [])
+
+    def test_annotation_update_without_search_change_queues_nothing(self):
+        self._create_annotation_field("organ")
+        self._set_annotations(self.entities[0], {"biospecimen.organ": "pancreas"})
+
+        AnnotationValue.objects.filter(entity=self.entities[0]).update(
+            contributor=self.admin
+        )
+
+        self.assertFalse(EntitySearchQueue.objects.exists())
+
+    def test_rebuild_entity_search_queue(self):
+        # Duplicates are rebuilt once and missing entities are skipped.
+        EntitySearchQueue.objects.create(entity_id=self.entities[0].pk)
+        EntitySearchQueue.objects.create(entity_id=self.entities[0].pk)
+        missing_id = Entity.objects.order_by("-pk").first().pk + 1
+        EntitySearchQueue.objects.create(entity_id=missing_id)
+
+        self.assertEqual(rebuild_entity_search(), 1)
+        self.assertFalse(EntitySearchQueue.objects.exists())
+
+    def test_rebuild_entity_search_queue_across_batches(self):
+        # The later queued row of an entity is dropped with the first one.
+        for entity in [self.entities[0], self.entities[1], self.entities[0]]:
+            EntitySearchQueue.objects.create(entity_id=entity.pk)
+
+        self.assertEqual(rebuild_entity_search(batch_size=1), 2)
+        self.assertFalse(EntitySearchQueue.objects.exists())
+
+    def test_order_by_relevance_annotation(self):
+        self._create_annotation_field("organism")
+        self._set_annotations(self.entities[0], {"biospecimen.organism": "zebrafish"})
+        self.entities[1].name = "Zebrafish entity"
+        self.entities[1].save()
+
+        # A match in the name ranks above a match in an annotation.
+        result = self._check_filter(
+            {"text": "zebrafish"}, [self.entities[0], self.entities[1]]
+        )
+        self.assertEqual(result.data[0]["id"], self.entities[1].pk)
+
     def test_order_by_collection_name(self):
         """Check entities can be ordered by the collection name."""
         request = factory.get("/", {"ordering": "collection__name"}, format="json")
@@ -1511,3 +1670,89 @@ class RelationViewSetFiltersTest(BaseViewSetFiltersTest):
 
     def test_filter_tags(self):
         self._check_filter({"tags": "first-tag"}, [self.relation_1])
+
+
+class EntitySearchRebuildTest(TransactionTestCase):
+    """Rebuilds of entity search vectors that need committed transactions."""
+
+    def _create_annotation_field(self):
+        group = AnnotationGroup.objects.create(
+            name="biospecimen", label="Biospecimen", sort_order=1
+        )
+        return AnnotationField.objects.create(
+            name="organ",
+            label="Organ",
+            type=AnnotationType.STRING.value,
+            sort_order=1,
+            group=group,
+        )
+
+    def _search(self, text):
+        query = SearchQuery(text, config="simple_unaccent")
+        return set(Entity.objects.filter(search=query).values_list("pk", flat=True))
+
+    def test_duplicate_entity(self):
+        self._create_annotation_field()
+        collection = Collection.objects.create(contributor=self.user)
+        collection.set_permission(Permission.EDIT, self.contributor)
+        entity = Entity.objects.create(
+            name="Entity", contributor=self.user, collection=collection
+        )
+        entity.update_annotations({"biospecimen.organ": "pancreas"}, self.user)
+        rebuild_entity_search()
+
+        # The duplicate writes its annotation values with bulk_create.
+        task = Entity.objects.filter(id=entity.id).duplicate(self.contributor)
+        (duplicate_id,) = task.result(final_statuses=["OK", "ER"])
+        rebuild_entity_search()
+
+        self.assertEqual(self._search("pancreas"), {entity.pk, duplicate_id})
+
+    def test_locked_entity_stays_queued(self):
+        entity = Entity.objects.create(name="Entity", contributor=self.user)
+        EntitySearchQueue.objects.create(entity_id=entity.pk)
+        locked = threading.Event()
+        release = threading.Event()
+
+        def lock_entity():
+            try:
+                with transaction.atomic(), connection.cursor() as cursor:
+                    cursor.execute(
+                        "SELECT id FROM flow_entity WHERE id = %s FOR NO KEY UPDATE",
+                        [entity.pk],
+                    )
+                    locked.set()
+                    release.wait()
+            finally:
+                connection.close()
+
+        thread = threading.Thread(target=lock_entity)
+        thread.start()
+        try:
+            self.assertTrue(locked.wait(timeout=10))
+            # The locked entity is skipped and queued again.
+            self.assertEqual(rebuild_entity_search(), 0)
+            self.assertTrue(EntitySearchQueue.objects.filter(entity_id=entity.pk))
+        finally:
+            release.set()
+            thread.join()
+
+        self.assertEqual(rebuild_entity_search(), 1)
+        self.assertFalse(EntitySearchQueue.objects.exists())
+
+
+class EntitySearchTaskTest(SimpleTestCase):
+    @patch("resolwe.flow.managers.listener.listener.logger")
+    @patch("resolwe.flow.managers.listener.listener.rebuild_entity_search")
+    def test_rebuilds_periodically_after_errors(self, rebuild, logger):
+        # The cancellation stops the loop after the third rebuild.
+        rebuild.side_effect = [RuntimeError("error"), 1, asyncio.CancelledError()]
+
+        with self.assertRaises(asyncio.CancelledError):
+            async_to_sync(ListenerProtocol.entity_search_task)(None, interval=0)
+
+        self.assertEqual(rebuild.call_count, 3)
+        self.assertEqual(
+            logger.exception.call_args_list,
+            [call("Error rebuilding the entity search vectors.")],
+        )
