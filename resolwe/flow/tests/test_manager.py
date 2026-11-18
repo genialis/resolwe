@@ -43,6 +43,7 @@ from resolwe.flow.models import (
     Data,
     DataDependency,
     DescriptorSchema,
+    Entity,
     Process,
     Storage,
     Worker,
@@ -1156,6 +1157,39 @@ class ListenerDatabaseWriteTest(TransactionTestCase):
         # The worker is updated only in the attempt that succeeded.
         manager._update_worker.assert_called_once_with(
             1, changes={"status": Worker.STATUS_PROCESSING}
+        )
+
+    @patch("resolwe.flow.managers.listener.database.time.sleep")
+    def test_set_entity_annotations_is_retried(self, sleep):
+        """An aborted annotation write of a process is repeated."""
+        entity = MagicMock()
+        in_atomic_block = []
+
+        def update_annotations(*args):
+            in_atomic_block.append(connection.in_atomic_block)
+            if len(in_atomic_block) == 1:
+                raise self._database_error("55P03")
+
+        entity.update_annotations.side_effect = update_annotations
+        manager = MagicMock()
+        manager.contributor.return_value = self.contributor
+        message = Message.command(
+            "set_entity_annotations",
+            [1, {"group.field": "value"}, True],
+            client_id=b"0",
+        )
+        with (
+            patch.object(Entity.objects, "get", return_value=entity),
+            patch.object(permission_manager, "can_update"),
+        ):
+            response = PythonProcess().handle_set_entity_annotations(
+                1, message, manager
+            )
+
+        self.assertEqual(response.message_data, "OK")
+        self.assertEqual(in_atomic_block, [True, True])
+        entity.update_annotations.assert_called_with(
+            {"group.field": "value"}, self.contributor, True
         )
 
     @patch("resolwe.flow.managers.listener.database.time.sleep")
