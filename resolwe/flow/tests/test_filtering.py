@@ -8,7 +8,8 @@ from asgiref.sync import async_to_sync
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.contrib.postgres.search import SearchQuery
-from django.db import connection, transaction
+from django.core.management import call_command
+from django.db import DatabaseError, connection, transaction
 from django.db.models import Case, Value, When
 from django.test import SimpleTestCase
 from django.urls import reverse
@@ -42,6 +43,7 @@ from resolwe.flow.views import (
     ProcessViewSet,
     RelationViewSet,
 )
+from resolwe.observers import signals as observer_signals
 from resolwe.permissions.models import Permission, get_anonymous_user
 from resolwe.test import TestCase, TransactionTestCase
 
@@ -1762,6 +1764,85 @@ class EntitySearchRebuildTest(TransactionTestCase):
         self.assertEqual(self._search("pancreas"), set())
         self.assertEqual(self._search("kidney"), set())
         self.assertEqual(self._search("liver"), {liver.pk})
+
+    def test_migrations_reversed_and_applied_index_annotations(self):
+        (pancreas,) = self._create_annotated_entities(["pancreas"])
+        self.assertEqual(self._search("pancreas"), {pancreas.pk})
+
+        try:
+            call_command(
+                "migrate",
+                "flow",
+                "0038_annotation_values_in_entity_search",
+                verbosity=0,
+            )
+            self.assertEqual(self._search("pancreas"), set())
+        finally:
+            call_command("migrate", "flow", verbosity=0)
+        rebuild_entity_search()
+
+        self.assertEqual(self._search("pancreas"), {pancreas.pk})
+
+    def test_reversed_migration_rebuilds_queued_entities(self):
+        (pancreas,) = self._create_annotated_entities(["pancreas"])
+        # The deletion is queued but not rebuilt, so the vector still holds the
+        # value.
+        AnnotationValue.all_objects.filter(entity=pancreas).delete()
+        self.assertEqual(self._search("pancreas"), {pancreas.pk})
+
+        try:
+            call_command(
+                "migrate",
+                "flow",
+                "0038_annotation_values_in_entity_search",
+                verbosity=0,
+            )
+            self.assertEqual(self._search("pancreas"), set())
+        finally:
+            call_command("migrate", "flow", verbosity=0)
+
+    def test_failed_migration_reverse_restores_annotation_search(self):
+        (pancreas,) = self._create_annotated_entities(["pancreas"])
+        locked = threading.Event()
+        release = threading.Event()
+
+        def lock_entity():
+            try:
+                with transaction.atomic(), connection.cursor() as cursor:
+                    cursor.execute(
+                        "SELECT id FROM flow_entity WHERE id = %s FOR NO KEY UPDATE",
+                        [pancreas.pk],
+                    )
+                    locked.set()
+                    release.wait()
+            finally:
+                connection.close()
+
+        thread = threading.Thread(target=lock_entity)
+        thread.start()
+        try:
+            self.assertTrue(locked.wait(timeout=10))
+            # The rebuild of the locked entity hits the lock timeout. The failed
+            # migration does not clear the flag its pre_migrate signal sets.
+            with (
+                self.assertRaises(DatabaseError),
+                patch.object(observer_signals, "IN_MIGRATIONS", False),
+            ):
+                call_command(
+                    "migrate",
+                    "flow",
+                    "0038_annotation_values_in_entity_search",
+                    verbosity=0,
+                )
+        finally:
+            release.set()
+            thread.join()
+        # Annotation values written afterwards are searchable again.
+        pancreas.update_annotations({"biospecimen.organ": "liver"}, self.user)
+        rebuild_entity_search()
+
+        self.assertEqual(self._search("liver"), {pancreas.pk})
+        self.assertEqual(self._search("pancreas"), set())
 
     def test_locked_entity_stays_queued(self):
         entity = Entity.objects.create(name="Entity", contributor=self.user)

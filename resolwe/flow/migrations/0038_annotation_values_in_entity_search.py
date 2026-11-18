@@ -1,6 +1,6 @@
 import os
 
-from django.db import connection, migrations, models
+from django.db import migrations, models
 
 ANNOTATION_VALUE_TRIGGERS = [
     "annotationvalue_entity_ait",
@@ -16,20 +16,16 @@ def execute_sql_file(cursor, file_name):
 
 
 def load_triggers(apps, schema_editor):
-    with connection.cursor() as c:
+    with schema_editor.connection.cursor() as c:
         execute_sql_file(c, "triggers_entity.sql")
         execute_sql_file(c, "triggers_annotationvalue.sql")
 
 
 def drop_triggers(apps, schema_editor):
-    with connection.cursor() as c:
+    with schema_editor.connection.cursor() as c:
         for name in ANNOTATION_VALUE_TRIGGERS:
             c.execute(f"DROP TRIGGER IF EXISTS {name} ON flow_annotationvalue;")
             c.execute(f"DROP FUNCTION IF EXISTS {name}();")
-        c.execute(
-            "DROP FUNCTION IF EXISTS "
-            "generate_resolwe_entity_annotation_search(flow_entity);"
-        )
 
 
 class Migration(migrations.Migration):

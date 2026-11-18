@@ -54,8 +54,8 @@ CREATE OR REPLACE FUNCTION generate_resolwe_entity_search(entity flow_entity)
         INTO search;
 
         -- Entity annotation values. The function is defined in
-        -- triggers_annotationvalue.sql and does not exist yet when older migrations
-        -- load this file.
+        -- function_entity_annotation_search.sql and does not exist yet when older
+        -- migrations load this file.
         IF to_regprocedure('generate_resolwe_entity_annotation_search(flow_entity)') IS NOT NULL THEN
             search := search || generate_resolwe_entity_annotation_search(entity);
         END IF;
