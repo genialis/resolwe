@@ -9,6 +9,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.contrib.postgres.search import SearchQuery
 from django.db import connection, transaction
+from django.db.models import Case, Value, When
 from django.test import SimpleTestCase
 from django.urls import reverse
 from django.utils.timezone import get_current_timezone
@@ -1691,22 +1692,76 @@ class EntitySearchRebuildTest(TransactionTestCase):
         query = SearchQuery(text, config="simple_unaccent")
         return set(Entity.objects.filter(search=query).values_list("pk", flat=True))
 
-    def test_duplicate_entity(self):
+    def _create_annotated_entities(self, organs):
+        """Create an entity in one collection for each organ, annotated with it."""
         self._create_annotation_field()
         collection = Collection.objects.create(contributor=self.user)
         collection.set_permission(Permission.EDIT, self.contributor)
-        entity = Entity.objects.create(
-            name="Entity", contributor=self.user, collection=collection
+        entities = []
+        # The names must not contain the organs, since the name is searched too.
+        for index, organ in enumerate(organs):
+            entity = Entity.objects.create(
+                name=f"Entity {index}", contributor=self.user, collection=collection
+            )
+            entity.update_annotations({"biospecimen.organ": organ}, self.user)
+            entities.append(entity)
+        rebuild_entity_search()
+        return entities
+
+    def test_duplicate_entity(self):
+        pancreas, kidney = self._create_annotated_entities(["pancreas", "kidney"])
+
+        # The duplicates of both entities get their annotation values in one
+        # bulk_create.
+        task = Entity.objects.filter(id__in=[pancreas.id, kidney.id]).duplicate(
+            self.contributor
         )
-        entity.update_annotations({"biospecimen.organ": "pancreas"}, self.user)
+        duplicates = dict(
+            Entity.objects.filter(
+                id__in=task.result(final_statuses=["OK", "ER"])
+            ).values_list("name", "id")
+        )
         rebuild_entity_search()
 
-        # The duplicate writes its annotation values with bulk_create.
-        task = Entity.objects.filter(id=entity.id).duplicate(self.contributor)
-        (duplicate_id,) = task.result(final_statuses=["OK", "ER"])
+        self.assertEqual(
+            self._search("pancreas"),
+            {pancreas.pk, duplicates["Copy of Entity 0"]},
+        )
+        self.assertEqual(
+            self._search("kidney"), {kidney.pk, duplicates["Copy of Entity 1"]}
+        )
+
+    def test_annotation_value_moved_between_entities(self):
+        pancreas, kidney, first, second = self._create_annotated_entities(
+            ["pancreas", "kidney", "liver", "lung"]
+        )
+
+        # One statement moves the values of two entities to two other entities.
+        AnnotationValue.all_objects.filter(entity__in=[pancreas, kidney]).update(
+            entity_id=Case(
+                When(entity_id=pancreas.pk, then=Value(first.pk)),
+                When(entity_id=kidney.pk, then=Value(second.pk)),
+            )
+        )
         rebuild_entity_search()
 
-        self.assertEqual(self._search("pancreas"), {entity.pk, duplicate_id})
+        self.assertEqual(self._search("pancreas"), {first.pk})
+        self.assertEqual(self._search("kidney"), {second.pk})
+        self.assertEqual(self._search("liver"), {first.pk})
+        self.assertEqual(self._search("lung"), {second.pk})
+
+    def test_annotation_values_deleted_across_entities(self):
+        pancreas, kidney, liver = self._create_annotated_entities(
+            ["pancreas", "kidney", "liver"]
+        )
+
+        # One statement deletes the values of two entities.
+        AnnotationValue.all_objects.filter(entity__in=[pancreas, kidney]).delete()
+        rebuild_entity_search()
+
+        self.assertEqual(self._search("pancreas"), set())
+        self.assertEqual(self._search("kidney"), set())
+        self.assertEqual(self._search("liver"), {liver.pk})
 
     def test_locked_entity_stays_queued(self):
         entity = Entity.objects.create(name="Entity", contributor=self.user)
