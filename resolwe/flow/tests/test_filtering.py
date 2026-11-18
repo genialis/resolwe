@@ -1740,6 +1740,17 @@ class EntitySearchRebuildTest(TransactionTestCase):
         self.assertEqual(rebuild_entity_search(), 1)
         self.assertFalse(EntitySearchQueue.objects.exists())
 
+    def test_deleted_entities_do_not_stop_rebuild(self):
+        deleted = Entity.objects.create(name="Deleted", contributor=self.user)
+        EntitySearchQueue.objects.create(entity_id=deleted.pk)
+        deleted.delete()
+        entity = Entity.objects.create(name="Entity", contributor=self.user)
+        EntitySearchQueue.objects.create(entity_id=entity.pk)
+
+        # The first batch holds only the deleted entity.
+        self.assertEqual(rebuild_entity_search(batch_size=1), 1)
+        self.assertFalse(EntitySearchQueue.objects.exists())
+
 
 class EntitySearchTaskTest(SimpleTestCase):
     @patch("resolwe.flow.managers.listener.listener.logger")

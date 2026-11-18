@@ -476,6 +476,7 @@ def rebuild_entity_search(batch_size: int = 500, time_budget: float = 20.0) -> i
                     """,
                     [entity_ids, locked_ids],
                 )
+                requeued = cursor.rowcount
                 # Setting the search field to NULL triggers entity_biut.
                 cursor.execute(
                     "UPDATE flow_entity SET search = NULL WHERE id = ANY(%s)",
@@ -485,8 +486,9 @@ def rebuild_entity_search(batch_size: int = 500, time_budget: float = 20.0) -> i
         except DatabaseError as error:
             logger.warning("Rebuilding the entity search vectors failed: %s", error)
             break
-        # Only locked entities are left, retry them in the next call.
-        if not locked_ids:
+        # The batch held only entities locked by other transactions, retry them in
+        # the next call. A batch of deleted entities queues nothing again.
+        if requeued and not locked_ids:
             break
     return rebuilt
 
