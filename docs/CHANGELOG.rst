@@ -55,6 +55,7 @@ Changed
   per 100 files. ``paralelize`` in ``resolwe.storage.connectors.utils``
   returns the results of the workers instead of their futures
 
+
 ===================
 45.2.0 - 2026-09-16
 ===================
