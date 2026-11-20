@@ -1,7 +1,9 @@
 # pylint: disable=missing-docstring
 import asyncio
 import datetime
+import importlib
 import threading
+from types import SimpleNamespace
 from unittest.mock import call, patch
 
 from asgiref.sync import async_to_sync
@@ -1844,6 +1846,66 @@ class EntitySearchRebuildTest(TransactionTestCase):
         self.assertEqual(self._search("liver"), {pancreas.pk})
         self.assertEqual(self._search("pancreas"), set())
 
+    def test_interrupted_migration_reverse_restores_annotation_search(self):
+        """Restore the function when the reverse is interrupted after the DROP.
+
+        A KeyboardInterrupt is not an Exception, and the SELECT of the entity
+        ids runs after the DROP has committed.
+        """
+        (pancreas,) = self._create_annotated_entities(["pancreas"])
+        migration = importlib.import_module(
+            "resolwe.flow.migrations.0039_queue_annotated_entity_search"
+        )
+
+        def restore_function():
+            with connection.cursor() as cursor:
+                migration.execute_sql_file(
+                    cursor, "function_entity_annotation_search.sql"
+                )
+
+        # Leave the function in place for the other tests if this one fails.
+        self.addCleanup(restore_function)
+
+        class InterruptingConnection:
+            """Raise KeyboardInterrupt on the given call of cursor()."""
+
+            def __init__(self, interrupt_on):
+                self.calls = 0
+                self.interrupt_on = interrupt_on
+
+            def __getattr__(self, name):
+                return getattr(connection, name)
+
+            def cursor(self):
+                self.calls += 1
+                if self.calls == self.interrupt_on:
+                    raise KeyboardInterrupt
+                return connection.cursor()
+
+        # The first cursor drops the function, the second selects the entity
+        # ids, and the third rebuilds the first batch.
+        for interrupt_on in (2, 3):
+            with self.subTest(interrupt_on=interrupt_on):
+                EntitySearchQueue.objects.all().delete()
+                schema_editor = SimpleNamespace(
+                    connection=InterruptingConnection(interrupt_on)
+                )
+                with self.assertRaises(KeyboardInterrupt):
+                    migration.remove_annotations_from_search(None, schema_editor)
+
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        "SELECT to_regprocedure("
+                        "'generate_resolwe_entity_annotation_search(flow_entity)')"
+                    )
+                    self.assertIsNotNone(cursor.fetchone()[0])
+                self.assertEqual(
+                    set(EntitySearchQueue.objects.values_list("entity_id", flat=True)),
+                    {pancreas.pk},
+                )
+                rebuild_entity_search()
+                self.assertEqual(self._search("pancreas"), {pancreas.pk})
+
     def test_locked_entity_stays_queued(self):
         entity = Entity.objects.create(name="Entity", contributor=self.user)
         EntitySearchQueue.objects.create(entity_id=entity.pk)
@@ -1886,6 +1948,29 @@ class EntitySearchRebuildTest(TransactionTestCase):
         # The first batch holds only the deleted entity.
         self.assertEqual(rebuild_entity_search(batch_size=1), 1)
         self.assertFalse(EntitySearchQueue.objects.exists())
+
+
+class AnnotationSearchMigrationLockTest(TestCase):
+    def test_migration_locks_only_annotation_values(self):
+        """Replace the search function without recreating the entity triggers.
+
+        Recreating them would hold SHARE ROW EXCLUSIVE locks on flow_entity,
+        permissions_permissionmodel and auth_user until the migration commits.
+        """
+        migration = importlib.import_module(
+            "resolwe.flow.migrations.0038_annotation_values_in_entity_search"
+        )
+        with transaction.atomic():
+            migration.load_triggers(None, SimpleNamespace(connection=connection))
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT DISTINCT pg_class.relname FROM pg_locks "
+                    "JOIN pg_class ON pg_class.oid = pg_locks.relation "
+                    "WHERE pg_locks.pid = pg_backend_pid() "
+                    "AND pg_locks.mode = 'ShareRowExclusiveLock'"
+                )
+                locked = {row[0] for row in cursor.fetchall()}
+        self.assertEqual(locked, {"flow_annotationvalue"})
 
 
 class EntitySearchTaskTest(SimpleTestCase):

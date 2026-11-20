@@ -37,8 +37,10 @@ def remove_annotations_from_search(apps, schema_editor):
     Without generate_resolwe_entity_annotation_search the entity search function
     no longer appends annotation values. The entities still queued are rebuilt
     too, since their vectors may hold annotation values deleted since the last
-    rebuild. A reverse that fails restores the function and queues the annotated
-    entities again, so the database matches the applied migration.
+    rebuild. A reverse that fails or is interrupted after the function is dropped
+    restores the function and queues the annotated entities again, so the
+    database matches the applied migration. Only a lost connection or a killed
+    process can leave the function dropped; run the reverse again then.
     """
     connection = schema_editor.connection
     with transaction.atomic(using=connection.alias), connection.cursor() as c:
@@ -47,14 +49,16 @@ def remove_annotations_from_search(apps, schema_editor):
             "DROP FUNCTION IF EXISTS "
             "generate_resolwe_entity_annotation_search(flow_entity);"
         )
-    with connection.cursor() as c:
-        c.execute(
-            "SELECT entity_id FROM flow_annotationvalue WHERE deleted = false "
-            "UNION SELECT entity_id FROM flow_entitysearchqueue "
-            "ORDER BY entity_id;"
-        )
-        entity_ids = [row[0] for row in c.fetchall()]
+    # Everything after the committed DROP restores the function on failure, also
+    # on a KeyboardInterrupt, which is not an Exception.
     try:
+        with connection.cursor() as c:
+            c.execute(
+                "SELECT entity_id FROM flow_annotationvalue WHERE deleted = false "
+                "UNION SELECT entity_id FROM flow_entitysearchqueue "
+                "ORDER BY entity_id;"
+            )
+            entity_ids = [row[0] for row in c.fetchall()]
         for start in range(0, len(entity_ids), BATCH_SIZE):
             batch = entity_ids[start : start + BATCH_SIZE]
             with transaction.atomic(using=connection.alias), connection.cursor() as c:
@@ -69,7 +73,7 @@ def remove_annotations_from_search(apps, schema_editor):
                     "UPDATE flow_entity SET search = NULL WHERE id = ANY(%s);",
                     [batch],
                 )
-    except Exception:
+    except BaseException:
         queue_annotated_entities(apps, schema_editor)
         raise
 

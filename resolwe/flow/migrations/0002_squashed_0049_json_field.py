@@ -11,6 +11,7 @@ def load_triggers(apps, schema_editor):
     file_names = [
         "utils.sql",
         "triggers_collection.sql",
+        "function_entity_search.sql",
         "triggers_entity.sql",
         "triggers_data.sql",
     ]

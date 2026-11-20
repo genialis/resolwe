@@ -16,8 +16,11 @@ def execute_sql_file(cursor, file_name):
 
 
 def load_triggers(apps, schema_editor):
+    # Replace only the search function, not the entity triggers: recreating
+    # them would lock flow_entity, permissions_permissionmodel and auth_user
+    # until the migration commits.
     with schema_editor.connection.cursor() as c:
-        execute_sql_file(c, "triggers_entity.sql")
+        execute_sql_file(c, "function_entity_search.sql")
         execute_sql_file(c, "triggers_annotationvalue.sql")
 
 
@@ -31,7 +34,7 @@ def drop_triggers(apps, schema_editor):
 class Migration(migrations.Migration):
     """Queue entities whose annotation values change for a search rebuild.
 
-    The migration is atomic, so a lock timeout while the triggers are replaced
+    The migration is atomic, so a lock timeout while the triggers are created
     rolls everything back and the migration can be run again.
     """
 
@@ -46,8 +49,8 @@ class Migration(migrations.Migration):
                 ("created", models.DateTimeField(auto_now_add=True)),
             ],
         ),
-        # Fail instead of queueing writers to the tables whose triggers are
-        # replaced. The second operation sets the timeout when reversing, since
+        # Fail instead of queueing writers to flow_annotationvalue, whose triggers
+        # are created. The second operation sets the timeout when reversing, since
         # the operations then run in reverse order.
         migrations.RunSQL(
             "SET LOCAL lock_timeout = '5s';", reverse_sql=migrations.RunSQL.noop

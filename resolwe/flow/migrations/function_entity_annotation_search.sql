@@ -1,8 +1,8 @@
 -- Index the annotation values of entities in their full-text search vector.
 --
--- generate_resolwe_entity_search in triggers_entity.sql appends this part when the
--- function exists. It is in a separate file because older migrations load
--- triggers_entity.sql before the flow_annotationvalue table exists. Migration 0039
+-- generate_resolwe_entity_search in function_entity_search.sql appends this part
+-- when the function exists. It is in a separate file because older migrations
+-- load function_entity_search.sql before the flow_annotationvalue table exists. Migration 0039
 -- creates the function and its reverse drops it.
 CREATE OR REPLACE FUNCTION generate_resolwe_entity_annotation_search(entity flow_entity)
     RETURNS tsvector
