@@ -2,8 +2,8 @@
 --
 -- generate_resolwe_entity_search in function_entity_search.sql appends this part
 -- when the function exists. It is in a separate file because older migrations
--- load function_entity_search.sql before the flow_annotationvalue table exists. Migration 0039
--- creates the function and its reverse drops it.
+-- load function_entity_search.sql before the flow_annotationvalue table exists.
+-- Migration 0039 creates the function and its reverse drops it.
 CREATE OR REPLACE FUNCTION generate_resolwe_entity_annotation_search(entity flow_entity)
     RETURNS tsvector
     LANGUAGE plpgsql

@@ -16,14 +16,17 @@ def execute_sql_file(cursor, file_name):
 def queue_annotated_entities(apps, schema_editor):
     """Index annotation values and queue the annotated entities for a rebuild.
 
-    Creating the function takes no table lock. It commits together with the queue,
-    so a failure leaves neither. The listener rebuilds the search vectors of the
-    queued entities. The vectors of entities without annotation values do not
-    change.
+    Creating the function takes no table lock. It commits before the annotation
+    values are scanned, so a failed or cancelled scan cannot roll it back: the
+    function matters more than the queue, since without it every rebuild leaves
+    the annotation values out. Running this again is safe. The listener rebuilds
+    the search vectors of the queued entities. The vectors of entities without
+    annotation values do not change.
     """
     connection = schema_editor.connection
     with transaction.atomic(using=connection.alias), connection.cursor() as c:
         execute_sql_file(c, "function_entity_annotation_search.sql")
+    with transaction.atomic(using=connection.alias), connection.cursor() as c:
         c.execute(
             "INSERT INTO flow_entitysearchqueue (entity_id, created) "
             "SELECT DISTINCT entity_id, now() FROM flow_annotationvalue "
@@ -37,21 +40,23 @@ def remove_annotations_from_search(apps, schema_editor):
     Without generate_resolwe_entity_annotation_search the entity search function
     no longer appends annotation values. The entities still queued are rebuilt
     too, since their vectors may hold annotation values deleted since the last
-    rebuild. A reverse that fails or is interrupted after the function is dropped
-    restores the function and queues the annotated entities again, so the
-    database matches the applied migration. Only a lost connection or a killed
-    process can leave the function dropped; run the reverse again then.
+    rebuild. A reverse that fails or is interrupted, also with Ctrl-C, restores the
+    function and queues the annotated entities again, so the database matches the
+    applied migration. A lost connection, a killed process, or an interrupt after
+    the last batch but before Django records the migration as unapplied can still
+    leave the function dropped while 0039 is applied; run the reverse again then.
     """
     connection = schema_editor.connection
-    with transaction.atomic(using=connection.alias), connection.cursor() as c:
-        c.execute("SET LOCAL lock_timeout = '5s';")
-        c.execute(
-            "DROP FUNCTION IF EXISTS "
-            "generate_resolwe_entity_annotation_search(flow_entity);"
-        )
-    # Everything after the committed DROP restores the function on failure, also
-    # on a KeyboardInterrupt, which is not an Exception.
+    # The handler also covers the DROP, since an interrupt can arrive after its
+    # commit has reached the server. Restoring is safe to repeat. A
+    # KeyboardInterrupt is not an Exception.
     try:
+        with transaction.atomic(using=connection.alias), connection.cursor() as c:
+            c.execute("SET LOCAL lock_timeout = '5s';")
+            c.execute(
+                "DROP FUNCTION IF EXISTS "
+                "generate_resolwe_entity_annotation_search(flow_entity);"
+            )
         with connection.cursor() as c:
             c.execute(
                 "SELECT entity_id FROM flow_annotationvalue WHERE deleted = false "
@@ -82,8 +87,8 @@ class Migration(migrations.Migration):
     """Index annotation values and queue the annotated entities for a rebuild.
 
     Separate from 0038, so the scan of the annotation values does not hold the
-    locks taken while the triggers are replaced. The function that indexes the
-    annotation values is created here and dropped by the reverse, so a reverse
+    lock that 0038 takes while it creates the triggers. The function that indexes
+    the annotation values is created here and dropped by the reverse, so a reverse
     followed by a forward migration indexes them again. The reverse rebuilds in
     batches that commit, so it is not atomic.
     """

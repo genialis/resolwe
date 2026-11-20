@@ -1847,12 +1847,12 @@ class EntitySearchRebuildTest(TransactionTestCase):
         self.assertEqual(self._search("pancreas"), set())
 
     def test_interrupted_migration_reverse_restores_annotation_search(self):
-        """Restore the function when the reverse is interrupted after the DROP.
+        """Restore the function when the reverse is interrupted at any step.
 
-        A KeyboardInterrupt is not an Exception, and the SELECT of the entity
-        ids runs after the DROP has committed.
+        A KeyboardInterrupt is not an Exception, and the DROP commits before the
+        entity ids are selected and the entities rebuilt.
         """
-        (pancreas,) = self._create_annotated_entities(["pancreas"])
+        pancreas, kidney = self._create_annotated_entities(["pancreas", "kidney"])
         migration = importlib.import_module(
             "resolwe.flow.migrations.0039_queue_annotated_entity_search"
         )
@@ -1882,15 +1882,19 @@ class EntitySearchRebuildTest(TransactionTestCase):
                     raise KeyboardInterrupt
                 return connection.cursor()
 
-        # The first cursor drops the function, the second selects the entity
-        # ids, and the third rebuilds the first batch.
-        for interrupt_on in (2, 3):
+        # With one entity per batch, the cursors drop the function, select the
+        # entity ids, and rebuild the first and the second entity. Interrupting
+        # the fourth leaves the first entity rebuilt without its annotations.
+        for interrupt_on in (1, 2, 3, 4):
             with self.subTest(interrupt_on=interrupt_on):
                 EntitySearchQueue.objects.all().delete()
                 schema_editor = SimpleNamespace(
                     connection=InterruptingConnection(interrupt_on)
                 )
-                with self.assertRaises(KeyboardInterrupt):
+                with (
+                    patch.object(migration, "BATCH_SIZE", 1),
+                    self.assertRaises(KeyboardInterrupt),
+                ):
                     migration.remove_annotations_from_search(None, schema_editor)
 
                 with connection.cursor() as cursor:
@@ -1901,10 +1905,11 @@ class EntitySearchRebuildTest(TransactionTestCase):
                     self.assertIsNotNone(cursor.fetchone()[0])
                 self.assertEqual(
                     set(EntitySearchQueue.objects.values_list("entity_id", flat=True)),
-                    {pancreas.pk},
+                    {pancreas.pk, kidney.pk},
                 )
                 rebuild_entity_search()
                 self.assertEqual(self._search("pancreas"), {pancreas.pk})
+                self.assertEqual(self._search("kidney"), {kidney.pk})
 
     def test_locked_entity_stays_queued(self):
         entity = Entity.objects.create(name="Entity", contributor=self.user)
@@ -1956,6 +1961,8 @@ class AnnotationSearchMigrationLockTest(TestCase):
 
         Recreating them would hold SHARE ROW EXCLUSIVE locks on flow_entity,
         permissions_permissionmodel and auth_user until the migration commits.
+        Only flow_annotationvalue, whose triggers are created, may be locked
+        against writers.
         """
         migration = importlib.import_module(
             "resolwe.flow.migrations.0038_annotation_values_in_entity_search"
@@ -1963,11 +1970,14 @@ class AnnotationSearchMigrationLockTest(TestCase):
         with transaction.atomic():
             migration.load_triggers(None, SimpleNamespace(connection=connection))
             with connection.cursor() as cursor:
+                # Every lock mode that conflicts with writers.
                 cursor.execute(
                     "SELECT DISTINCT pg_class.relname FROM pg_locks "
                     "JOIN pg_class ON pg_class.oid = pg_locks.relation "
                     "WHERE pg_locks.pid = pg_backend_pid() "
-                    "AND pg_locks.mode = 'ShareRowExclusiveLock'"
+                    "AND pg_class.relnamespace <> 'pg_catalog'::regnamespace "
+                    "AND pg_locks.mode IN ('ShareLock', 'ShareRowExclusiveLock', "
+                    "'ExclusiveLock', 'AccessExclusiveLock')"
                 )
                 locked = {row[0] for row in cursor.fetchall()}
         self.assertEqual(locked, {"flow_annotationvalue"})
