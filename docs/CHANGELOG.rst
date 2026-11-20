@@ -23,8 +23,9 @@ Fixed
 - The ``text`` filter of the entity endpoint matches annotation values
   again: the entity search vector includes the labels of the annotation
   values and their vocabulary values. Changes appear in search after the
-  next rebuild by the listener. The migration queues every entity with
-  annotation values for a rebuild
+  next rebuild by the listener, and after any backlog queued before them,
+  such as the rebuild of all annotated entities after the migration. The
+  migration queues every entity with annotation values for a rebuild
 - Return ``404`` instead of ``500`` from the observer ``subscribe``
   endpoint when the websocket of the session closes during the request and
   its disconnect handler deletes the new subscription
