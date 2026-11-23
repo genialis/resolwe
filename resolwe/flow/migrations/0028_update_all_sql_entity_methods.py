@@ -6,6 +6,7 @@ from django.db import connection, migrations
 
 def load_triggers(apps, schema_editor):
     file_names = [
+        "function_entity_search.sql",
         "triggers_entity.sql",
         "triggers_collection.sql",
         "triggers_data.sql",

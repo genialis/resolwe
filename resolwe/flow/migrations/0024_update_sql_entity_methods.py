@@ -5,7 +5,7 @@ from django.db import connection, migrations
 
 
 def load_triggers(apps, schema_editor):
-    file_names = ["triggers_entity.sql"]
+    file_names = ["function_entity_search.sql", "triggers_entity.sql"]
     with connection.cursor() as c:
         for file_name in file_names:
             file_path = os.path.join(os.path.dirname(__file__), file_name)
