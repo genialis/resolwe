@@ -44,10 +44,21 @@ class Command(BaseCommand):
         logger.info(
             "Deleting observer subscriptions older than %d hours.", delete_older_than
         )
-        # Delete subscriptions older than delete_older_than hours.
-        deleted_subscriptions = Subscription.objects.filter(
-            created__lt=timezone.now() - timezone.timedelta(hours=delete_older_than)
-        ).delete()[0]
+        # Delete subscriptions older than delete_older_than hours. Lock them before
+        # deleting their links to the observers, in the same order as
+        # Subscription.delete, and skip the ones a disconnect is deleting.
+        with transaction.atomic():
+            old_subscriptions = list(
+                Subscription.objects.filter(
+                    created__lt=timezone.now()
+                    - timezone.timedelta(hours=delete_older_than)
+                )
+                .select_for_update(skip_locked=True)
+                .values_list("pk", flat=True)
+            )
+            deleted_subscriptions = Subscription.objects.filter(
+                pk__in=old_subscriptions
+            ).delete()[0]
         logger.info("Deleted %d subscriptions.", deleted_subscriptions)
         # Delete observers without subscriptions. Skip the observers that a
         # subscribe request has locked to add its subscription to them.
@@ -57,7 +68,9 @@ class Command(BaseCommand):
                 .select_for_update(of=("self",), skip_locked=True)
                 .values_list("pk", flat=True)
             )
+            # Check again with the rows locked: a subscribe that committed after the
+            # query above started is not visible to it.
             deleted_observers = Observer.objects.filter(
-                pk__in=orphaned_observers
+                pk__in=orphaned_observers, subscriptions__isnull=True
             ).delete()[0]
         logger.info("Deleted %d observers.", deleted_observers)

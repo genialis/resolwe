@@ -19,6 +19,9 @@ Fixed
   ``clean_observers`` command deletes at the same time: the ``subscribe``
   endpoint returned ``500``, the subscription silently lost the observer, or
   the delete of the other subscription failed
+- Fix the disconnect of a websocket failing to delete its subscription when a
+  ``subscribe`` request of the same session adds an observer to it at the
+  same time
 - Fix the init container ignoring the ``LOG_LEVEL`` environment variable
 - Fix the init container waiting for the running downloads when the processing
   is terminated: the transfer is aborted, the download of a shared storage
