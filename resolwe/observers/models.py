@@ -8,7 +8,7 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
-from django.db import models, transaction
+from django.db import IntegrityError, models, transaction
 from django.db.models import Count, Q
 from django.db.models.query import QuerySet
 
@@ -109,6 +109,10 @@ class BackgroundTask(Observable):
         """
         self.wait(timeout, final_statuses, polling_interval)
         return self.output
+
+
+#: How many times to retry adding an observer that is deleted while subscribing.
+OBSERVER_ADD_ATTEMPTS = 3
 
 
 def get_random_uuid() -> str:
@@ -302,12 +306,48 @@ class Subscription(models.Model):
         """Assign self to multiple observers at once."""
         for id in object_ids:
             for change_type in change_types:
-                observer, _ = Observer.objects.get_or_create(
-                    content_type=content_type,
-                    object_id=id,
-                    change_type=change_type.value,
+                self._add_observer(content_type, id, change_type)
+
+    def _add_observer(
+        self, content_type: ContentType, object_id: int, change_type: ChangeType
+    ):
+        """Add the observer to the subscription, creating it when it does not exist.
+
+        The observer row is locked until the subscription is added, so a concurrent
+        :meth:`delete` either deletes the observer first or sees the new
+        subscription and keeps the observer. When the observer was deleted after it
+        was read, a new one is created.
+
+        :raises RuntimeError: when the observer is deleted on every attempt.
+        :raises IntegrityError: when the subscription is deleted concurrently.
+        """
+        for _ in range(OBSERVER_ADD_ATTEMPTS):
+            with transaction.atomic():
+                # Lock the subscription before the observer, in the same order as
+                # delete, so the two cannot deadlock. A deleted subscription
+                # fails the foreign key when the observer is added.
+                list(
+                    Subscription.objects.filter(pk=self.pk).select_for_update(
+                        no_key=True
+                    )
                 )
-                self.observers.add(observer)
+                try:
+                    observer, _ = Observer.objects.get_or_create(
+                        content_type=content_type,
+                        object_id=object_id,
+                        change_type=change_type.value,
+                    )
+                except IntegrityError:
+                    # Another subscribe created the observer after it was not
+                    # found, and it was deleted before it was read again.
+                    continue
+                if Observer.objects.select_for_update().filter(pk=observer.pk).first():
+                    self.observers.add(observer)
+                    return
+        raise RuntimeError(
+            f"Observer for {content_type} {object_id} {change_type.name} was deleted "
+            f"{OBSERVER_ADD_ATTEMPTS} times while subscribing."
+        )
 
     @transaction.atomic
     def delete(self):
@@ -315,10 +355,24 @@ class Subscription(models.Model):
 
         Delete all observers with no remaining subscriptions.
 
-        This method is marked atomic, so no new subsciptions are added to the observers
-        we are deleting in the meantime causing IntegrityError.
+        The observers of the subscription are locked before their subscriptions are
+        counted, so a concurrent :meth:`subscribe` either adds its subscription
+        before the count or waits and creates a new observer. They are locked in
+        primary key order so concurrent deletes do not deadlock.
+
+        The subscription itself is locked first, so a concurrent :meth:`subscribe`
+        to it cannot add an observer after its links are deleted and fails instead.
         """
-        # First find observers with only this subscription and delete them.
+        list(Subscription.objects.filter(pk=self.pk).select_for_update())
+        # Postgres does not allow locking rows of an aggregate query, so lock the
+        # observers before counting their subscriptions.
+        list(
+            Observer.objects.filter(subscriptions=self)
+            .order_by("pk")
+            .select_for_update(of=("self",))
+            .values_list("pk", flat=True)
+        )
+        # Find observers with only this subscription and delete them.
         Observer.objects.annotate(subs=Count("subscriptions")).filter(
             subscriptions=self.pk, subs=1
         ).delete()

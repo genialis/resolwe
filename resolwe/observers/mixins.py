@@ -77,7 +77,8 @@ class ObservableMixin:
             # disconnect handler deletes the new subscription and adding the
             # next observer to it violates the foreign key. Each observer is added
             # in its own transaction, so the error is raised here and not when the
-            # request commits.
+            # request commits. Concurrently deleted observers are handled by
+            # Subscription.subscribe.
             if Subscription.objects.filter(pk=subscription.pk).exists():
                 raise
             raise NotFound(f"Session {session_id} was closed.")
