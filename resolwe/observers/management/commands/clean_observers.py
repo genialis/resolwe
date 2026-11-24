@@ -13,6 +13,7 @@ Command to run:
 import logging
 
 from django.core.management.base import BaseCommand
+from django.db import transaction
 from django.utils import timezone
 
 from resolwe.observers.models import Observer, Subscription
@@ -48,8 +49,15 @@ class Command(BaseCommand):
             created__lt=timezone.now() - timezone.timedelta(hours=delete_older_than)
         ).delete()[0]
         logger.info("Deleted %d subscriptions.", deleted_subscriptions)
-        # Delete observers without subscriptions.
-        deleted_observers = Observer.objects.filter(
-            subscriptions__isnull=True
-        ).delete()[0]
+        # Delete observers without subscriptions. Skip the observers that a
+        # subscribe request has locked to add its subscription to them.
+        with transaction.atomic():
+            orphaned_observers = list(
+                Observer.objects.filter(subscriptions__isnull=True)
+                .select_for_update(of=("self",), skip_locked=True)
+                .values_list("pk", flat=True)
+            )
+            deleted_observers = Observer.objects.filter(
+                pk__in=orphaned_observers
+            ).delete()[0]
         logger.info("Deleted %d observers.", deleted_observers)

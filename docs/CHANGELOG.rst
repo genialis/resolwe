@@ -15,6 +15,10 @@ Fixed
 - Return ``404`` instead of ``500`` from the observer ``subscribe``
   endpoint when the websocket of the session closes during the request and
   its disconnect handler deletes the new subscription
+- Fix subscribing to an observer that another session or the
+  ``clean_observers`` command deletes at the same time: the ``subscribe``
+  endpoint returned ``500``, the subscription silently lost the observer, or
+  the delete of the other subscription failed
 - Fix the init container ignoring the ``LOG_LEVEL`` environment variable
 - Fix the init container waiting for the running downloads when the processing
   is terminated: the transfer is aborted, the download of a shared storage
